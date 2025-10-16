@@ -64,10 +64,7 @@
         "name": "F3.GetParticipatingMinerIDs.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "type": "integer",
             "format": "uint64",
@@ -92,10 +89,7 @@
         "name": "F3.GetPowerTable.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/F3PowerEntry"
           }
@@ -210,10 +204,7 @@
           "name": "permissions",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "type": "string"
             }
@@ -223,10 +214,7 @@
           "name": "expiration_secs",
           "required": true,
           "schema": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "format": "int64"
           }
         }
@@ -255,10 +243,7 @@
         "name": "Filecoin.AuthVerify.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "type": "string"
           }
@@ -281,10 +266,7 @@
         "name": "Filecoin.ChainExport.Result",
         "required": false,
         "schema": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         }
       },
       "paramStructure": "by-position"
@@ -347,10 +329,7 @@
         "name": "Filecoin.ChainGetEvents.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/Event"
           }
@@ -405,10 +384,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -419,10 +395,7 @@
         "name": "Filecoin.ChainGetMessagesInTipset.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/ApiMessage"
           }
@@ -446,10 +419,7 @@
         "name": "Filecoin.ChainGetParentMessages.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/ApiMessage"
           }
@@ -473,10 +443,7 @@
         "name": "Filecoin.ChainGetParentReceipts.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/ApiReceipt"
           }
@@ -507,10 +474,7 @@
         "name": "Filecoin.ChainGetPath.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/PathChange"
           }
@@ -526,10 +490,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -561,10 +522,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -596,10 +554,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -732,10 +687,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -758,10 +710,7 @@
         "name": "Filecoin.EthAccounts.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "type": "string"
           }
@@ -895,10 +844,7 @@
           "name": "rewardPercentiles",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "type": "number",
               "format": "double"
@@ -1024,10 +970,7 @@
         "name": "Filecoin.EthGetBlockReceipts.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -1058,10 +1001,7 @@
         "name": "Filecoin.EthGetBlockReceiptsLimited.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -1605,10 +1545,7 @@
         "name": "Filecoin.EthTraceBlock.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1632,10 +1569,7 @@
         "name": "Filecoin.EthTraceFilter.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1657,10 +1591,7 @@
           "name": "traceTypes",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "type": "string"
             }
@@ -1671,10 +1602,7 @@
         "name": "Filecoin.EthTraceReplayBlockTransactions.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
           }
@@ -1698,10 +1626,7 @@
         "name": "Filecoin.EthTraceTransaction.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1758,10 +1683,7 @@
           "name": "tipset_key",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -1772,10 +1694,7 @@
         "name": "Filecoin.F3GetECPowerTable.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/F3PowerEntry"
           }
@@ -1790,10 +1709,7 @@
           "name": "tipset_key",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -1804,10 +1720,7 @@
         "name": "Filecoin.F3GetF3PowerTable.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/F3PowerEntry"
           }
@@ -1906,10 +1819,7 @@
         "name": "Filecoin.F3ListParticipants.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/F3Participant"
           }
@@ -1960,10 +1870,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -1994,10 +1901,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2046,10 +1950,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2094,10 +1995,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2136,10 +2034,7 @@
         "name": "Filecoin.GetActorEventsRaw.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/ActorEvent"
           }
@@ -2225,10 +2120,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2259,10 +2151,7 @@
           "name": "messages",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/SignedMessage"
             }
@@ -2273,10 +2162,7 @@
         "name": "Filecoin.MpoolBatchPush.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/Cid"
           }
@@ -2292,10 +2178,7 @@
           "name": "messages",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/SignedMessage"
             }
@@ -2306,10 +2189,7 @@
         "name": "Filecoin.MpoolBatchPushUntrusted.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/Cid"
           }
@@ -2348,10 +2228,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2455,10 +2332,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2477,10 +2351,7 @@
         "name": "Filecoin.MpoolSelect.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/SignedMessage"
           }
@@ -2502,10 +2373,7 @@
           "name": "tipset_key",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2535,10 +2403,7 @@
           "name": "tipset_key",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2549,10 +2414,7 @@
         "name": "Filecoin.MsigGetPending.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/Transaction"
           }
@@ -2574,10 +2436,7 @@
           "name": "start_tsk",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2587,10 +2446,7 @@
           "name": "end_tsk",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2620,10 +2476,7 @@
           "name": "tsk",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2767,10 +2620,7 @@
         "name": "Filecoin.NetPeers.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/AddrInfo"
           }
@@ -2786,10 +2636,7 @@
           "name": "peerIdList",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "type": "string"
             }
@@ -2813,10 +2660,7 @@
         "name": "Filecoin.NetProtectList.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "type": "string"
           }
@@ -2832,10 +2676,7 @@
           "name": "peerIdList",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "type": "string"
             }
@@ -2928,10 +2769,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2962,10 +2800,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -2989,10 +2824,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3024,10 +2856,7 @@
           "name": "messages",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Message"
             }
@@ -3037,10 +2866,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3080,10 +2906,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3130,10 +2953,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3162,10 +2982,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3196,10 +3013,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3229,10 +3043,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3278,10 +3089,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3321,10 +3129,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3364,10 +3169,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3400,10 +3202,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3471,10 +3270,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3512,10 +3308,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3566,10 +3359,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3601,10 +3391,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3651,10 +3438,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3701,10 +3485,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3728,10 +3509,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3742,10 +3520,7 @@
         "name": "Filecoin.StateListActors.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/Address"
           }
@@ -3768,10 +3543,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3790,10 +3562,7 @@
         "name": "Filecoin.StateListMessages.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/Cid"
           }
@@ -3809,10 +3578,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3823,10 +3589,7 @@
         "name": "Filecoin.StateListMiners.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/Address"
           }
@@ -3849,10 +3612,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3883,10 +3643,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3917,10 +3674,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3944,10 +3698,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -3974,10 +3725,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4013,10 +3761,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4047,10 +3792,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4061,10 +3803,7 @@
         "name": "Filecoin.StateMinerActiveSectors.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/SectorOnChainInfo"
           }
@@ -4087,10 +3826,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4121,10 +3857,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4155,10 +3888,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4169,10 +3899,7 @@
         "name": "Filecoin.StateMinerDeadlines.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/ApiDeadline"
           }
@@ -4195,10 +3922,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4229,10 +3953,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4270,10 +3991,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4320,10 +4038,7 @@
           "name": "tipset_key",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4363,10 +4078,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4377,10 +4089,7 @@
         "name": "Filecoin.StateMinerPartitions.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/MinerPartitions"
           }
@@ -4403,10 +4112,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4444,10 +4150,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4478,10 +4181,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4512,10 +4212,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4555,10 +4252,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4589,10 +4283,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4637,10 +4328,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4651,10 +4339,7 @@
         "name": "Filecoin.StateMinerSectors.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/SectorOnChainInfo"
           }
@@ -4682,10 +4367,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4716,10 +4398,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4743,10 +4422,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4777,10 +4453,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4842,10 +4515,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4885,10 +4555,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4935,10 +4602,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -4978,10 +4642,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -5012,10 +4673,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -5046,10 +4704,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -5080,10 +4735,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -5114,10 +4766,7 @@
           "name": "tipsetKey",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/Cid"
             }
@@ -5386,10 +5035,7 @@
         "name": "Filecoin.WalletList.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/Address"
           }
@@ -5648,10 +5294,7 @@
           "name": "save_to_file",
           "required": true,
           "schema": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           }
         }
       ],
@@ -5697,10 +5340,7 @@
         "name": "eth_accounts.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "type": "string"
           }
@@ -5814,10 +5454,7 @@
           "name": "rewardPercentiles",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "type": "number",
               "format": "double"
@@ -5943,10 +5580,7 @@
         "name": "eth_getBlockReceipts.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -5977,10 +5611,7 @@
         "name": "eth_getBlockReceiptsLimited.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -6568,10 +6199,7 @@
         "name": "trace_block.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -6595,10 +6223,7 @@
         "name": "trace_filter.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -6620,10 +6245,7 @@
           "name": "traceTypes",
           "required": true,
           "schema": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "type": "string"
             }
@@ -6634,10 +6256,7 @@
         "name": "trace_replayBlockTransactions.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
           }
@@ -6661,10 +6280,7 @@
         "name": "trace_transaction.Result",
         "required": false,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": ["array", "null"],
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -6734,10 +6350,7 @@
             "$ref": "#/components/schemas/Base64String"
           }
         },
-        "required": [
-          "codec",
-          "value"
-        ]
+        "required": ["codec", "value"]
       },
       "ActorEventFilter": {
         "type": "object",
@@ -6758,10 +6371,7 @@
             }
           },
           "fromHeight": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "format": "int64"
           },
           "tipsetKey": {
@@ -6775,10 +6385,7 @@
             ]
           },
           "toHeight": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "format": "int64"
           }
         }
@@ -6804,12 +6411,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "Code",
-          "Head",
-          "Nonce",
-          "Balance"
-        ]
+        "required": ["Code", "Head", "Nonce", "Balance"]
       },
       "ActorTrace": {
         "type": "object",
@@ -6823,10 +6425,7 @@
             "$ref": "#/components/schemas/ActorState"
           }
         },
-        "required": [
-          "Id",
-          "State"
-        ]
+        "required": ["Id", "State"]
       },
       "AddrInfo": {
         "type": "object",
@@ -6842,10 +6441,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "ID",
-          "Addrs"
-        ]
+        "required": ["ID", "Addrs"]
       },
       "Address": {
         "type": "string"
@@ -6905,11 +6501,7 @@
           },
           "State": true
         },
-        "required": [
-          "Balance",
-          "Code",
-          "State"
-        ]
+        "required": ["Balance", "Code", "State"]
       },
       "ApiDeadline": {
         "type": "object",
@@ -6926,11 +6518,7 @@
             "$ref": "#/components/schemas/BitField"
           }
         },
-        "required": [
-          "PostSubmissions",
-          "DisputableProofCount",
-          "DailyFee"
-        ]
+        "required": ["PostSubmissions", "DisputableProofCount", "DailyFee"]
       },
       "ApiDeadlineInfo": {
         "type": "string"
@@ -7025,10 +6613,7 @@
             "$ref": "#/components/schemas/EthUint64"
           },
           "accessList": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "$ref": "#/components/schemas/EthHash"
             }
@@ -7203,14 +6788,7 @@
             "$ref": "#/components/schemas/Nullable_Receipt"
           }
         },
-        "required": [
-          "MsgCid",
-          "Msg",
-          "MsgRct",
-          "Error",
-          "Duration",
-          "GasCost"
-        ]
+        "required": ["MsgCid", "Msg", "MsgRct", "Error", "Duration", "GasCost"]
       },
       "ApiMarketDeal": {
         "type": "object",
@@ -7222,10 +6800,7 @@
             "$ref": "#/components/schemas/ApiDealState"
           }
         },
-        "required": [
-          "Proposal",
-          "State"
-        ]
+        "required": ["Proposal", "State"]
       },
       "ApiMessage": {
         "type": "object",
@@ -7237,10 +6812,7 @@
             "$ref": "#/components/schemas/Message"
           }
         },
-        "required": [
-          "Cid",
-          "Message"
-        ]
+        "required": ["Cid", "Message"]
       },
       "ApiReceipt": {
         "type": "object",
@@ -7260,18 +6832,10 @@
             "$ref": "#/components/schemas/Base64String"
           }
         },
-        "required": [
-          "ExitCode",
-          "Return",
-          "GasUsed",
-          "EventsRoot"
-        ]
+        "required": ["ExitCode", "Return", "GasUsed", "EventsRoot"]
       },
       "Base64String": {
-        "type": [
-          "string",
-          "null"
-        ]
+        "type": ["string", "null"]
       },
       "BeaconEntry": {
         "type": "object",
@@ -7285,10 +6849,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "Round",
-          "Data"
-        ]
+        "required": ["Round", "Data"]
       },
       "BeneficiaryTerm": {
         "type": "object",
@@ -7307,20 +6868,13 @@
             "$ref": "#/components/schemas/TokenAmount"
           }
         },
-        "required": [
-          "Quota",
-          "UsedQuota",
-          "Expiration"
-        ]
+        "required": ["Quota", "UsedQuota", "Expiration"]
       },
       "BigInt": {
         "type": "string"
       },
       "BitField": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "type": "integer",
           "format": "uint8",
@@ -7432,10 +6986,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "blockHash",
-          "requireCanonical"
-        ]
+        "required": ["blockHash", "requireCanonical"]
       },
       "BlockHeader": {
         "type": "object",
@@ -7522,11 +7073,7 @@
             "$ref": "#/components/schemas/Nullable_Array_of_Cid"
           }
         },
-        "required": [
-          "Header",
-          "BlsMessages",
-          "SecpkMessages"
-        ]
+        "required": ["Header", "BlsMessages", "SecpkMessages"]
       },
       "BlockMessages": {
         "type": "object",
@@ -7541,11 +7088,7 @@
             "$ref": "#/components/schemas/Nullable_Array_of_SignedMessage"
           }
         },
-        "required": [
-          "BlsMessages",
-          "SecpkMessages",
-          "Cids"
-        ]
+        "required": ["BlsMessages", "SecpkMessages", "Cids"]
       },
       "BlockNumber": {
         "type": "object",
@@ -7554,9 +7097,7 @@
             "$ref": "#/components/schemas/EthInt64"
           }
         },
-        "required": [
-          "blockNumber"
-        ]
+        "required": ["blockNumber"]
       },
       "BlockNumberOrHash": {
         "anyOf": [
@@ -7755,9 +7296,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "/"
-        ]
+        "required": ["/"]
       },
       "CirculatingSupply": {
         "type": "object",
@@ -7802,10 +7341,7 @@
             "$ref": "#/components/schemas/BigInt"
           }
         },
-        "required": [
-          "RawBytePower",
-          "QualityAdjPower"
-        ]
+        "required": ["RawBytePower", "QualityAdjPower"]
       },
       "ClaimLotusJson": {
         "type": "object",
@@ -7867,10 +7403,7 @@
             "$ref": "#/components/schemas/ApiInvocResult"
           }
         },
-        "required": [
-          "Root",
-          "Trace"
-        ]
+        "required": ["Root", "Trace"]
       },
       "DealCollateralBounds": {
         "type": "object",
@@ -7882,10 +7415,7 @@
             "$ref": "#/components/schemas/TokenAmount"
           }
         },
-        "required": [
-          "Min",
-          "Max"
-        ]
+        "required": ["Min", "Max"]
       },
       "ECTipSet": {
         "type": "object",
@@ -7904,12 +7434,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "Key",
-          "Epoch",
-          "PowerTable",
-          "Commitments"
-        ]
+        "required": ["Key", "Epoch", "PowerTable", "Commitments"]
       },
       "EcConfig": {
         "type": "object",
@@ -7962,10 +7487,7 @@
             "format": "int64"
           }
         },
-        "required": [
-          "VRFProof",
-          "WinCount"
-        ]
+        "required": ["VRFProof", "WinCount"]
       },
       "EthAddress": {
         "type": "string"
@@ -8004,10 +7526,7 @@
             "format": "int64"
           },
           "error": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "result": {
             "$ref": "#/components/schemas/TraceResult"
@@ -8140,13 +7659,7 @@
             "$ref": "#/components/schemas/EthBigInt"
           }
         },
-        "required": [
-          "callType",
-          "from",
-          "gas",
-          "value",
-          "input"
-        ]
+        "required": ["callType", "from", "gas", "value", "input"]
       },
       "EthCallTraceResult": {
         "type": "object",
@@ -8158,10 +7671,7 @@
             "$ref": "#/components/schemas/EthBytes"
           }
         },
-        "required": [
-          "gasUsed",
-          "output"
-        ]
+        "required": ["gasUsed", "output"]
       },
       "EthCreateTraceAction": {
         "type": "object",
@@ -8179,12 +7689,7 @@
             "$ref": "#/components/schemas/EthBigInt"
           }
         },
-        "required": [
-          "from",
-          "gas",
-          "value",
-          "init"
-        ]
+        "required": ["from", "gas", "value", "init"]
       },
       "EthCreateTraceResult": {
         "type": "object",
@@ -8206,10 +7711,7 @@
             "$ref": "#/components/schemas/EthUint64"
           }
         },
-        "required": [
-          "gasUsed",
-          "code"
-        ]
+        "required": ["gasUsed", "code"]
       },
       "EthFeeHistoryResult": {
         "type": "object",
@@ -8231,10 +7733,7 @@
             "$ref": "#/components/schemas/EthUint64"
           },
           "reward": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "type": "array",
               "items": {
@@ -8243,11 +7742,7 @@
             }
           }
         },
-        "required": [
-          "oldestBlock",
-          "baseFeePerGas",
-          "gasUsedRatio"
-        ]
+        "required": ["oldestBlock", "baseFeePerGas", "gasUsedRatio"]
       },
       "EthFilterResult": {
         "description": "`EthFilterResult` represents the response from executing a filter:\n- A list of block hashes\n- A list of transaction hashes\n- Or a list of logs",
@@ -8290,16 +7785,10 @@
             ]
           },
           "fromBlock": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "toBlock": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "topics": {
             "anyOf": [
@@ -8312,9 +7801,7 @@
             ]
           }
         },
-        "required": [
-          "address"
-        ]
+        "required": ["address"]
       },
       "EthHash": {
         "type": "string"
@@ -8406,10 +7893,7 @@
             "$ref": "#/components/schemas/EthBytes"
           },
           "stateDiff": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "trace": {
             "type": "array",
@@ -8421,17 +7905,10 @@
             "$ref": "#/components/schemas/EthHash"
           },
           "vmTrace": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           }
         },
-        "required": [
-          "output",
-          "trace",
-          "transactionHash"
-        ]
+        "required": ["output", "trace", "transactionHash"]
       },
       "EthSyncingResultLotusJson": {
         "anyOf": [
@@ -8454,11 +7931,7 @@
                 "format": "int64"
               }
             },
-            "required": [
-              "startingblock",
-              "currentblock",
-              "highestblock"
-            ]
+            "required": ["startingblock", "currentblock", "highestblock"]
           }
         ]
       },
@@ -8478,10 +7951,7 @@
             "$ref": "#/components/schemas/TraceAction"
           },
           "error": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "result": {
             "$ref": "#/components/schemas/TraceResult"
@@ -8498,13 +7968,7 @@
             }
           }
         },
-        "required": [
-          "type",
-          "subtraces",
-          "traceAddress",
-          "action",
-          "result"
-        ]
+        "required": ["type", "subtraces", "traceAddress", "action", "result"]
       },
       "EthTraceFilterCriteria": {
         "type": "object",
@@ -8544,10 +8008,7 @@
           },
           "fromBlock": {
             "description": "Interpreted as an epoch (in hex) or one of \"latest\" for last mined block, \"pending\" for not yet committed messages.\nOptional, default: \"latest\".\nNote: \"earliest\" is not a permitted value.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "toAddress": {
             "description": "Actor address or a list of addresses to which transactions that generate traces are sent.\nOptional, default: None.\nThe JSON decoding must treat a string as equivalent to an array with one value, for example\n\"0x8888f1f195afa192cfee86069858\" must be decoded as [ \"0x8888f1f195afa192cfee86069858\" ]",
@@ -8562,10 +8023,7 @@
           },
           "toBlock": {
             "description": "Interpreted as an epoch (in hex) or one of \"latest\" for last mined block, \"pending\" for not yet committed messages.\nOptional, default: \"latest\".\nNote: \"earliest\" is not a permitted value.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           }
         }
       },
@@ -8670,10 +8128,7 @@
             }
           }
         },
-        "required": [
-          "Emitter",
-          "Entries"
-        ]
+        "required": ["Emitter", "Entries"]
       },
       "EventEntry": {
         "type": "object",
@@ -8695,12 +8150,7 @@
             "$ref": "#/components/schemas/Base64String"
           }
         },
-        "required": [
-          "Flags",
-          "Key",
-          "Codec",
-          "Value"
-        ]
+        "required": ["Flags", "Key", "Codec", "Value"]
       },
       "ExecutionTrace": {
         "type": "object",
@@ -8731,12 +8181,7 @@
             "$ref": "#/components/schemas/Nullable_Array_of_ExecutionTrace"
           }
         },
-        "required": [
-          "Msg",
-          "MsgRct",
-          "GasCharges",
-          "Subcalls"
-        ]
+        "required": ["Msg", "MsgRct", "GasCharges", "Subcalls"]
       },
       "ExitCode": {
         "description": "`Newtype` wrapper for the FVM `ExitCode`.\n\n# Examples\n```\n# use forest::doctest_private::ExitCode;\nlet fvm2_success = fvm_shared2::error::ExitCode::new(0);\nlet fvm3_success = fvm_shared3::error::ExitCode::new(0);\n\nlet shim_from_v2 = ExitCode::from(fvm2_success);\nlet shim_from_v3 = ExitCode::from(fvm3_success);\n\nassert_eq!(shim_from_v2, shim_from_v3);\nassert_eq!(shim_from_v2, fvm2_success.into());\nassert_eq!(shim_from_v3, fvm3_success.into());\n```",
@@ -8781,12 +8226,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "SealProof",
-          "SectorNumber",
-          "SectorKey",
-          "SealedCID"
-        ]
+        "required": ["SealProof", "SectorNumber", "SectorKey", "SealedCID"]
       },
       "F3InstanceProgress": {
         "type": "object",
@@ -8811,11 +8251,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "ID",
-          "Round",
-          "Phase"
-        ]
+        "required": ["ID", "Round", "Phase"]
       },
       "F3Manifest": {
         "type": "object",
@@ -8904,11 +8340,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "MinerID",
-          "FromInstance",
-          "ValidityTerm"
-        ]
+        "required": ["MinerID", "FromInstance", "ValidityTerm"]
       },
       "F3PowerEntry": {
         "description": "PowerEntry represents a single entry in the PowerTable, including ActorID and its StoragePower and PubKey.",
@@ -8926,11 +8358,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "ID",
-          "Power",
-          "PubKey"
-        ]
+        "required": ["ID", "Power", "PubKey"]
       },
       "F3TipSet": {
         "type": "object",
@@ -8954,12 +8382,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "key",
-          "beacon",
-          "epoch",
-          "timestamp"
-        ]
+        "required": ["key", "beacon", "epoch", "timestamp"]
       },
       "F3TipSetKey": {
         "description": "TipSetKey is the canonically ordered concatenation of the block `CIDs` in a tipset.",
@@ -9012,10 +8435,7 @@
         "properties": {
           "last_updated": {
             "description": "Last time status for this fork was updated.",
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date-time"
           },
           "stage": {
@@ -9024,10 +8444,7 @@
           },
           "start_time": {
             "description": "When processing for this fork started.",
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date-time"
           },
           "target_epoch": {
@@ -9267,13 +8684,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "Name",
-          "tg",
-          "cg",
-          "sg",
-          "tt"
-        ]
+        "required": ["Name", "tg", "cg", "sg", "tt"]
       },
       "GossipBlock": {
         "type": "object",
@@ -9288,11 +8699,7 @@
             "$ref": "#/components/schemas/Cid"
           }
         },
-        "required": [
-          "Header",
-          "BlsMessages",
-          "SecpkMessages"
-        ]
+        "required": ["Header", "BlsMessages", "SecpkMessages"]
       },
       "GpbftConfig": {
         "type": "object",
@@ -9361,10 +8768,7 @@
             "$ref": "#/components/schemas/SignatureTypeLotusJson"
           }
         },
-        "required": [
-          "Type",
-          "PrivateKey"
-        ]
+        "required": ["Type", "PrivateKey"]
       },
       "MarketBalance": {
         "description": "External format for returning market balance from state.",
@@ -9377,10 +8781,7 @@
             "$ref": "#/components/schemas/TokenAmount"
           }
         },
-        "required": [
-          "Escrow",
-          "Locked"
-        ]
+        "required": ["Escrow", "Locked"]
       },
       "Message": {
         "type": "object",
@@ -9431,10 +8832,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "To",
-          "From"
-        ]
+        "required": ["To", "From"]
       },
       "MessageFilter": {
         "type": "object",
@@ -9446,10 +8844,7 @@
             "$ref": "#/components/schemas/Nullable_Address"
           }
         },
-        "required": [
-          "From",
-          "To"
-        ]
+        "required": ["From", "To"]
       },
       "MessageGasCost": {
         "type": "object",
@@ -9508,13 +8903,7 @@
             "$ref": "#/components/schemas/NonEmpty_Array_of_Cid"
           }
         },
-        "required": [
-          "Receipt",
-          "TipSet",
-          "Height",
-          "Message",
-          "ReturnDec"
-        ]
+        "required": ["Receipt", "TipSet", "Height", "Message", "ReturnDec"]
       },
       "MessageSendSpec": {
         "type": "object",
@@ -9523,9 +8912,7 @@
             "$ref": "#/components/schemas/TokenAmount"
           }
         },
-        "required": [
-          "MaxFee"
-        ]
+        "required": ["MaxFee"]
       },
       "MessageTrace": {
         "type": "object",
@@ -9534,10 +8921,7 @@
             "$ref": "#/components/schemas/Address"
           },
           "GasLimit": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "format": "uint64",
             "minimum": 0
           },
@@ -9555,10 +8939,7 @@
             "minimum": 0
           },
           "ReadOnly": {
-            "type": [
-              "boolean",
-              "null"
-            ]
+            "type": ["boolean", "null"]
           },
           "To": {
             "$ref": "#/components/schemas/Address"
@@ -9567,14 +8948,7 @@
             "$ref": "#/components/schemas/TokenAmount"
           }
         },
-        "required": [
-          "From",
-          "To",
-          "Value",
-          "Method",
-          "Params",
-          "ParamsCodec"
-        ]
+        "required": ["From", "To", "Value", "Method", "Params", "ParamsCodec"]
       },
       "MinerInfo": {
         "type": "object",
@@ -9687,11 +9061,7 @@
             "$ref": "#/components/schemas/Claim"
           }
         },
-        "required": [
-          "MinerPower",
-          "TotalPower",
-          "HasMinPower"
-        ]
+        "required": ["MinerPower", "TotalPower", "HasMinPower"]
       },
       "MinerSectors": {
         "type": "object",
@@ -9712,11 +9082,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "Live",
-          "Active",
-          "Faulty"
-        ]
+        "required": ["Live", "Active", "Faulty"]
       },
       "MiningBaseInfo": {
         "type": "object",
@@ -9774,20 +9140,13 @@
             "format": "int64"
           }
         },
-        "required": [
-          "InitialBalance",
-          "StartEpoch",
-          "UnlockDuration"
-        ]
+        "required": ["InitialBalance", "StartEpoch", "UnlockDuration"]
       },
       "NatStatusResult": {
         "type": "object",
         "properties": {
           "PublicAddrs": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "items": {
               "type": "string"
             }
@@ -9797,9 +9156,7 @@
             "format": "int32"
           }
         },
-        "required": [
-          "Reachability"
-        ]
+        "required": ["Reachability"]
       },
       "NetInfoResult": {
         "type": "object",
@@ -9917,10 +9274,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "peers_to_publish_msgs",
-          "peers_to_publish_blocks"
-        ]
+        "required": ["peers_to_publish_msgs", "peers_to_publish_blocks"]
       },
       "NodeStatusResult": {
         "type": "object",
@@ -9935,11 +9289,7 @@
             "$ref": "#/components/schemas/NodeSyncStatus"
           }
         },
-        "required": [
-          "sync_status",
-          "peer_status",
-          "chain_status"
-        ]
+        "required": ["sync_status", "peer_status", "chain_status"]
       },
       "NodeSyncStatus": {
         "type": "object",
@@ -9955,10 +9305,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "epoch",
-          "behind"
-        ]
+        "required": ["epoch", "behind"]
       },
       "NodeSyncStatus2": {
         "description": "Represents the overall synchronization status of the Forest node.",
@@ -10018,109 +9365,73 @@
         ]
       },
       "Nullable_Array_of_Address": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/Address"
         }
       },
       "Nullable_Array_of_Base64String": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/Base64String"
         }
       },
       "Nullable_Array_of_BeaconEntry": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/BeaconEntry"
         }
       },
       "Nullable_Array_of_Cid": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/Cid"
         }
       },
       "Nullable_Array_of_ECTipSet": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/ECTipSet"
         }
       },
       "Nullable_Array_of_ExecutionTrace": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/ExecutionTrace"
         }
       },
       "Nullable_Array_of_ExtendedSectorInfo": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/ExtendedSectorInfo"
         }
       },
       "Nullable_Array_of_Message": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/Message"
         }
       },
       "Nullable_Array_of_PoStProof": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/PoStProof"
         }
       },
       "Nullable_Array_of_PowerTableDelta": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/PowerTableDelta"
         }
       },
       "Nullable_Array_of_SignedMessage": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "$ref": "#/components/schemas/SignedMessage"
         }
       },
       "Nullable_Array_of_uint64": {
-        "type": [
-          "array",
-          "null"
-        ],
+        "type": ["array", "null"],
         "items": {
           "type": "integer",
           "format": "uint64",
@@ -10208,10 +9519,7 @@
         ]
       },
       "Nullable_string": {
-        "type": [
-          "string",
-          "null"
-        ]
+        "type": ["string", "null"]
       },
       "ObjStat": {
         "type": "object",
@@ -10227,10 +9535,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "Size",
-          "Links"
-        ]
+        "required": ["Size", "Links"]
       },
       "PartialMessageManagerConfig": {
         "type": "object",
@@ -10287,10 +9592,7 @@
                 "$ref": "#/components/schemas/Tipset"
               }
             },
-            "required": [
-              "Type",
-              "Val"
-            ]
+            "required": ["Type", "Val"]
           },
           {
             "type": "object",
@@ -10303,10 +9605,7 @@
                 "$ref": "#/components/schemas/Tipset"
               }
             },
-            "required": [
-              "Type",
-              "Val"
-            ]
+            "required": ["Type", "Val"]
           }
         ]
       },
@@ -10348,10 +9647,7 @@
             "$ref": "#/components/schemas/Base64String"
           }
         },
-        "required": [
-          "PoStProof",
-          "ProofBytes"
-        ]
+        "required": ["PoStProof", "ProofBytes"]
       },
       "PowerTableDelta": {
         "type": "object",
@@ -10368,11 +9664,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "ParticipantID",
-          "PowerDelta",
-          "SigningKey"
-        ]
+        "required": ["ParticipantID", "PowerDelta", "SigningKey"]
       },
       "PubSubConfig": {
         "type": "object",
@@ -10415,11 +9707,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "Version",
-          "APIVersion",
-          "BlockDelay"
-        ]
+        "required": ["Version", "APIVersion", "BlockDelay"]
       },
       "Receipt": {
         "type": "object",
@@ -10442,11 +9730,7 @@
             "$ref": "#/components/schemas/Base64String"
           }
         },
-        "required": [
-          "ExitCode",
-          "Return",
-          "GasUsed"
-        ]
+        "required": ["ExitCode", "Return", "GasUsed"]
       },
       "ReturnTrace": {
         "type": "object",
@@ -10463,11 +9747,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "ExitCode",
-          "Return",
-          "ReturnCodec"
-        ]
+        "required": ["ExitCode", "Return", "ReturnCodec"]
       },
       "SectorExpiration": {
         "type": "object",
@@ -10481,10 +9761,7 @@
             "format": "int64"
           }
         },
-        "required": [
-          "OnTime",
-          "Early"
-        ]
+        "required": ["OnTime", "Early"]
       },
       "SectorLocation": {
         "type": "object",
@@ -10500,10 +9777,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "Deadline",
-          "Partition"
-        ]
+        "required": ["Deadline", "Partition"]
       },
       "SectorOnChainInfo": {
         "type": "object",
@@ -10645,11 +9919,7 @@
             "format": "int64"
           }
         },
-        "required": [
-          "Info",
-          "PreCommitDeposit",
-          "PreCommitEpoch"
-        ]
+        "required": ["Info", "PreCommitDeposit", "PreCommitEpoch"]
       },
       "SectorSize": {
         "type": "integer",
@@ -10672,19 +9942,12 @@
             "$ref": "#/components/schemas/SignatureTypeLotusJson"
           }
         },
-        "required": [
-          "Type",
-          "Data"
-        ]
+        "required": ["Type", "Data"]
       },
       "SignatureType": {
         "description": "Signature variants for Filecoin signatures.",
         "type": "string",
-        "enum": [
-          "Secp256k1",
-          "Bls",
-          "Delegated"
-        ]
+        "enum": ["Secp256k1", "Bls", "Delegated"]
       },
       "SignatureTypeLotusJson": {
         "anyOf": [
@@ -10712,20 +9975,13 @@
             "$ref": "#/components/schemas/Signature"
           }
         },
-        "required": [
-          "Message",
-          "Signature"
-        ]
+        "required": ["Message", "Signature"]
       },
       "SnapshotProgressState": {
         "oneOf": [
           {
             "type": "string",
-            "enum": [
-              "Initializing",
-              "Completed",
-              "NotRequired"
-            ]
+            "enum": ["Initializing", "Completed", "NotRequired"]
           },
           {
             "type": "object",
@@ -10737,15 +9993,11 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "message"
-                ]
+                "required": ["message"]
               }
             },
             "additionalProperties": false,
-            "required": [
-              "InProgress"
-            ]
+            "required": ["InProgress"]
           }
         ]
       },
@@ -10759,10 +10011,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "Commitments",
-          "PowerTable"
-        ]
+        "required": ["Commitments", "PowerTable"]
       },
       "SyncStatusReport": {
         "description": "Contains information about the current status of the node's synchronization process.",
@@ -10826,9 +10075,7 @@
             "$ref": "#/components/schemas/Base64String"
           }
         },
-        "required": [
-          "VRFProof"
-        ]
+        "required": ["VRFProof"]
       },
       "Tipset": {
         "$ref": "#/components/schemas/TipsetInner"
@@ -10847,11 +10094,7 @@
             "format": "int64"
           }
         },
-        "required": [
-          "Cids",
-          "Blocks",
-          "Height"
-        ]
+        "required": ["Cids", "Blocks", "Height"]
       },
       "TokenAmount": {
         "$ref": "#/components/schemas/BigInt"
@@ -10901,14 +10144,7 @@
             "$ref": "#/components/schemas/TokenAmount"
           }
         },
-        "required": [
-          "ID",
-          "To",
-          "Value",
-          "Method",
-          "Params",
-          "Approved"
-        ]
+        "required": ["ID", "To", "Value", "Method", "Params", "Approved"]
       },
       "Transactions": {
         "anyOf": [
