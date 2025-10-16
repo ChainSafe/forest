@@ -65,6 +65,15 @@ pub fn generate_priv_key() -> KeyInfo {
 mod tests {
     use super::*;
 
+    /// Create a new JWT Token without expiration
+    fn create_token_without_exp(perms: Vec<String>, key: &[u8]) -> JWTResult<String> {
+        let payload = Claims {
+            allow: perms,
+            exp: None,
+        };
+        encode(&Header::default(), &payload, &EncodingKey::from_secret(key))
+    }
+
     #[test]
     fn create_and_verify_token() {
         let perms_expected = vec![
@@ -98,6 +107,35 @@ mod tests {
             perms_expected.clone(),
             key.private_key(),
             -Duration::try_seconds(10).expect("Infallible"),
+        )
+        .unwrap();
+        let perms = verify_token(&token, key.private_key()).unwrap();
+        assert_eq!(perms_expected, perms);
+    }
+
+    #[test]
+    fn create_and_verify_token_without_exp() {
+        let perms_expected = vec![
+            "Ia! Ia! Cthulhu fhtagn".to_owned(),
+            "Zin-Mi-Yak, dread lord of the deep".to_owned(),
+        ];
+        let key = generate_priv_key();
+
+        // Disable expiration validation via env var
+        unsafe {
+            std::env::set_var("FOREST_JWT_DISABLE_EXP_VALIDATION", "1");
+        }
+
+        // No exp at all in the token. Validation must pass.
+        let token = create_token_without_exp(perms_expected.clone(), key.private_key()).unwrap();
+        let perms = verify_token(&token, key.private_key()).unwrap();
+        assert_eq!(perms_expected, perms);
+
+        // Token duration of -1 hour (already expired). Validation must pass.
+        let token = create_token(
+            perms_expected.clone(),
+            key.private_key(),
+            -Duration::try_hours(1).expect("Infallible"),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
