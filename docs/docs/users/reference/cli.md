@@ -760,7 +760,7 @@ Options:
       --dry-run                    Don't write the archive
   -t, --tipset <TIPSET>            Tipset to start the export from, default is the chain head
   -d, --depth <DEPTH>              How many state trees to include. 0 for chain spine with no state trees [default: 2000]
-      --format <FORMAT>            Snapshot format to export [default: v1] [possible values: v1, v2]
+      --format <FORMAT>            Snapshot format to export [default: v2] [possible values: v1, v2]
   -h, --help                       Print help
 ```
 

@@ -48,7 +48,7 @@ jobs:
           fi
           echo "SCCACHE_S3_KEY_PREFIX=macos" >> $GITHUB_ENV
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -75,7 +75,7 @@ jobs:
         run: curl ifconfig.me
         continue-on-error: true
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -124,7 +124,7 @@ jobs:
         with:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -146,7 +146,7 @@ jobs:
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -179,7 +179,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -205,7 +205,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -230,7 +230,7 @@ jobs:
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -252,7 +252,7 @@ jobs:
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -279,7 +279,7 @@ jobs:
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -301,7 +301,7 @@ jobs:
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -323,7 +323,7 @@ jobs:
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -345,7 +345,7 @@ jobs:
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -366,7 +366,7 @@ jobs:
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -388,7 +388,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -414,7 +414,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -443,7 +443,7 @@ jobs:
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -477,7 +477,7 @@ jobs:
             -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
             $SHELL_IMAGE \
             sh -c "cp /cache/* /proofs"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -524,7 +524,7 @@ jobs:
             -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
             $SHELL_IMAGE \
             sh -c "cp /cache/* /proofs"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -561,7 +561,7 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -580,7 +580,7 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
@@ -606,7 +606,7 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
