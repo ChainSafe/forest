@@ -74,6 +74,7 @@ pub struct SnapshotGarbageCollector<DB> {
     running: AtomicBool,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
     db: RwLock<Option<Arc<DB>>>,
+    sync_status: RwLock<Option<crate::chain_sync::SyncStatus>>,
     // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
     memory_db: RwLock<Option<HashMap<Cid, Vec<u8>>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
@@ -111,6 +112,7 @@ where
                 running: AtomicBool::new(false),
                 blessed_lite_snapshot: RwLock::new(None),
                 db: RwLock::new(None),
+                sync_status: RwLock::new(None),
                 memory_db: RwLock::new(None),
                 memory_db_head_key: RwLock::new(None),
                 exported_head_key: RwLock::new(None),
@@ -132,6 +134,10 @@ where
         *self.car_db_head_epoch.write() = Some(epoch);
     }
 
+    pub fn set_sync_status(&self, sync_status: crate::chain_sync::SyncStatus) {
+        *self.sync_status.write() = Some(sync_status)
+    }
+
     pub async fn event_loop(&self) {
         while self.trigger_rx.recv_async().await.is_ok() {
             if self.running.load(Ordering::Relaxed) {
@@ -139,6 +145,7 @@ where
             } else {
                 self.running.store(true, Ordering::Relaxed);
                 if let Err(e) = self.export_snapshot().await {
+                    self.running.store(false, Ordering::Relaxed);
                     tracing::warn!("{e}");
                 }
             }
@@ -170,18 +177,22 @@ where
         );
         loop {
             if !self.running.load(Ordering::Relaxed)
-                && let Some(db) = &*self.db.read()
                 && let Some(car_db_head_epoch) = *self.car_db_head_epoch.read()
-                && let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db)
-                && let Ok(head) = Tipset::load_required(db, &head_key)
+                && let Some(sync_status) = &*self.sync_status.read()
             {
-                let head_epoch = head.epoch();
-                if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
+                let sync_status = &*sync_status.read();
+                let network_head_epoch = sync_status.network_head_epoch;
+                let head_epoch = sync_status.current_head_epoch;
+                if head_epoch > 0 // sync_status has been initialized
+                    && head_epoch <= network_head_epoch // head epoch is within a sane range
+                    && sync_status.is_synced() // chain is in sync
+                    && sync_status.active_forks.is_empty() // no active fork
+                    && head_epoch - car_db_head_epoch >= snap_gc_interval_epochs // the gap between chain head and car_db head is above threshold
                     && self.trigger_tx.try_send(()).is_ok()
                 {
-                    tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
+                    tracing::info!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
                 } else {
-                    tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
+                    tracing::debug!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
                 }
             }
             tokio::time::sleep(snap_gc_check_interval).await;
@@ -219,6 +230,7 @@ where
             }
             map
         });
+        let start = Instant::now();
         let (head_ts, _) = crate::chain::export_from_head::<Sha256>(
             &db,
             self.recent_state_roots,
@@ -235,7 +247,11 @@ where
             head_ts.epoch()
         ));
         temp_path.persist(&target_path)?;
-        tracing::info!("exported lite snapshot at {}", target_path.display());
+        tracing::info!(
+            "exported lite snapshot at {}, took {}",
+            target_path.display(),
+            humantime::format_duration(start.elapsed())
+        );
         *self.blessed_lite_snapshot.write() = Some(target_path);
         *self.exported_head_key.write() = Some(head_ts.key().clone());
 

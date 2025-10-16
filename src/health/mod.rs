@@ -7,10 +7,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use parking_lot::RwLock;
 
-use crate::chain_sync::SyncStatusReport;
-use crate::{Config, libp2p::PeerManager, networks::ChainConfig};
+use crate::{Config, chain_sync::SyncStatus, libp2p::PeerManager, networks::ChainConfig};
 
 mod endpoints;
 
@@ -22,7 +20,7 @@ pub(crate) struct ForestState {
     pub config: Config,
     pub chain_config: Arc<ChainConfig>,
     pub genesis_timestamp: u64,
-    pub sync_status: Arc<RwLock<SyncStatusReport>>,
+    pub sync_status: SyncStatus,
     pub peer_manager: Arc<PeerManager>,
 }
 
@@ -60,11 +58,11 @@ impl IntoResponse for AppError {
 mod test {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-    use crate::Client;
-    use crate::cli_shared::cli::ChainIndexerConfig;
-
     use super::*;
-    use crate::chain_sync::NodeSyncStatus;
+    use crate::Client;
+    use crate::chain_sync::{NodeSyncStatus, SyncStatusReport};
+    use crate::cli_shared::cli::ChainIndexerConfig;
+    use parking_lot::RwLock;
     use reqwest::StatusCode;
 
     #[tokio::test]
