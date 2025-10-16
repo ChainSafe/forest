@@ -64,6 +64,7 @@ pub fn generate_priv_key() -> KeyInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     /// Create a new JWT Token without expiration
     fn create_token_without_exp(perms: Vec<String>, key: &[u8]) -> JWTResult<String> {
@@ -75,6 +76,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn create_and_verify_token() {
         let perms_expected = vec![
             "Ph'nglui mglw'nafh Cthulhu".to_owned(),
@@ -114,6 +116,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn create_and_verify_token_without_exp() {
         let perms_expected = vec![
             "Ia! Ia! Cthulhu fhtagn".to_owned(),
