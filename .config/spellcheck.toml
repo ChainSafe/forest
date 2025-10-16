@@ -19,7 +19,7 @@ transform_regex = [
   "^\\{\\{$",
   "^\\}\\}$",
   # YAML frontmatter keys like sidebar_position
-  "^[a-z_]+:.*$",
+  "^(title|description|sidebar_position|author|authors|date|tags?):.*$",
   # Numbers with underscores like 30_000
   "^[0-9_]+$",
   # Plus signs and other operators
