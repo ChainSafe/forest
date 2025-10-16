@@ -49,9 +49,9 @@ pub enum DBCommands {
         /// Optional path to the database folder that powers a Forest node
         #[arg(long)]
         db: Option<PathBuf>,
-        /// No block validation
+        /// Skip block validation
         #[arg(long)]
-        no_validation: bool,
+        skip_validation: bool,
     },
 }
 
@@ -104,7 +104,7 @@ impl DBCommands {
                 snapshot_files,
                 chain,
                 db,
-                no_validation,
+                skip_validation: no_validation,
             } => {
                 const DB_WRITE_BUFFER_CAPACITY: usize = 10000;
 
