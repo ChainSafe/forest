@@ -82,7 +82,7 @@ The databases can be found, by default, under `<DATA_DIR>/<chain>/`, e.g.,
 Intended for controlled cross-system token sharing where expiration validation must be bypassed (e.g., load balancing with Lotus).
 
 > **⚠️ Warning**
-> 
+>
 > Disabling expiration checks for all JWTs will also allow expired tokens.
 > This significantly weakens security and should only be used in tightly controlled environments. Not recommended for general use.
 
