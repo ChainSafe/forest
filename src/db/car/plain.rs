@@ -127,20 +127,21 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
         let mut cursor = positioned_io::Cursor::new(&reader);
         let position = cursor.position();
         let header_v2 = read_v2_header(&mut cursor)?;
-        let (limit_position, version) = if let Some(header_v2) = &header_v2 {
-            cursor.set_position(position.saturating_add(header_v2.data_offset as u64));
-            (
-                Some(
-                    cursor
-                        .stream_position()?
-                        .saturating_add(header_v2.data_size as u64),
-                ),
-                2,
-            )
-        } else {
-            cursor.set_position(position);
-            (None, 1)
-        };
+        let (limit_position, version) =
+            if let Some(header_v2) = &header_v2 {
+                cursor.set_position(position.saturating_add(
+                    u64::try_from(header_v2.data_offset).map_err(io::Error::other)?,
+                ));
+                (
+                    Some(cursor.stream_position()?.saturating_add(
+                        u64::try_from(header_v2.data_size).map_err(io::Error::other)?,
+                    )),
+                    2,
+                )
+            } else {
+                cursor.set_position(position);
+                (None, 1)
+            };
 
         let header_v1 = read_v1_header(&mut cursor)?;
         // When indexing, we perform small reads of the length and CID before seeking

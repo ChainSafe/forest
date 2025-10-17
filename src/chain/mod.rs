@@ -26,8 +26,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
-use std::fs::File;
-use std::io::{Seek as _, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
@@ -65,9 +64,9 @@ pub async fn export<D: Digest>(
 
 /// Exports a Filecoin snapshot in v2 format
 /// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v2-specification>
-pub async fn export_v2<D: Digest>(
+pub async fn export_v2<D: Digest, F: Seek + Read>(
     db: &Arc<impl Blockstore + Send + Sync + 'static>,
-    mut f3: Option<(Cid, File)>,
+    mut f3: Option<(Cid, F)>,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
@@ -109,7 +108,7 @@ pub async fn export_v2<D: Digest>(
         f3_data.seek(SeekFrom::Start(0))?;
         prefix_data_frames.push({
             let mut encoder = forest::new_encoder(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
-            encoder.write_car_block(f3_cid, f3_data_len as _, &mut f3_data)?;
+            encoder.write_car_block(f3_cid, f3_data_len, &mut f3_data)?;
             anyhow::Ok((
                 vec![f3_cid],
                 finalize_frame(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL, &mut encoder)?,

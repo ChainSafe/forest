@@ -448,7 +448,7 @@ impl RpcMethod<1> for ForestChainExport {
                         }
                     }
                 };
-                crate::chain::export_v2::<Sha256>(
+                crate::chain::export_v2::<Sha256, _>(
                     &ctx.store_owned(),
                     f3_snap,
                     &start_ts,

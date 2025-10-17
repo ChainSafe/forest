@@ -44,6 +44,21 @@ pub fn create_new_sensitive_file(path: &Path) -> Result<File> {
     Ok(file)
 }
 
+/// Skips `n` bytes from the reader.
+pub async fn skip_bytes<T: tokio::io::AsyncRead + Unpin>(reader: T, n: u64) -> std::io::Result<T> {
+    use tokio::io::AsyncReadExt as _;
+    let mut take = reader.take(n);
+    let n_skipped = tokio::io::copy(&mut take, &mut tokio::io::sink()).await?;
+    if n == n_skipped {
+        Ok(take.into_inner())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            format!("{n_skipped} bytes skipped, {n} expected"),
+        ))
+    }
+}
+
 /// Converts a TOML file represented as a string to `S`
 ///
 /// # Example
