@@ -59,7 +59,11 @@ pub struct CarBlock {
 impl CarBlock {
     // Write a varint frame containing the cid and the data
     pub fn write(&self, writer: &mut impl Write) -> io::Result<()> {
-        writer.write_car_block(self.cid, self.data.len(), &mut Cursor::new(&self.data))
+        writer.write_car_block(
+            self.cid,
+            self.data.len() as u64,
+            &mut Cursor::new(&self.data),
+        )
     }
 
     pub fn from_bytes(bytes: impl Into<Bytes>) -> io::Result<CarBlock> {
@@ -93,22 +97,12 @@ impl CarBlock {
 }
 
 pub trait CarBlockWrite {
-    fn write_car_block(
-        &mut self,
-        cid: Cid,
-        data_len: usize,
-        data: &mut impl Read,
-    ) -> io::Result<()>;
+    fn write_car_block(&mut self, cid: Cid, data_len: u64, data: &mut impl Read) -> io::Result<()>;
 }
 
 impl<T: Write> CarBlockWrite for T {
-    fn write_car_block(
-        &mut self,
-        cid: Cid,
-        data_len: usize,
-        data: &mut impl Read,
-    ) -> io::Result<()> {
-        let frame_length = cid.encoded_len() + data_len;
+    fn write_car_block(&mut self, cid: Cid, data_len: u64, data: &mut impl Read) -> io::Result<()> {
+        let frame_length = cid.encoded_len() as u64 + data_len;
         self.write_all(&frame_length.encode_var_vec())?;
         cid.write_bytes(&mut *self)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
