@@ -3,6 +3,7 @@
 
 use crate::key_management::KeyInfo;
 use crate::shim::crypto::SignatureType;
+use crate::utils::misc::env::is_env_truthy;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, decode, encode, errors::Result as JWTResult};
 use rand::Rng;
@@ -25,7 +26,8 @@ struct Claims {
     #[serde(rename = "Allow")]
     allow: Vec<String>,
     // Expiration time (as UTC timestamp)
-    exp: usize,
+    #[serde(default)]
+    exp: Option<usize>,
 }
 
 /// Create a new JWT Token
@@ -33,14 +35,21 @@ pub fn create_token(perms: Vec<String>, key: &[u8], token_exp: Duration) -> JWTR
     let exp_time = Utc::now() + token_exp;
     let payload = Claims {
         allow: perms,
-        exp: exp_time.timestamp() as usize,
+        exp: Some(exp_time.timestamp() as usize),
     };
     encode(&Header::default(), &payload, &EncodingKey::from_secret(key))
 }
 
 /// Verify JWT Token and return the allowed permissions from token
 pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
-    let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
+    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
+    if is_env_truthy("FOREST_JWT_DISABLE_EXP_VALIDATION") {
+        let mut claims = validation.required_spec_claims.clone();
+        claims.remove("exp");
+        let buff: Vec<_> = claims.iter().collect();
+        validation.set_required_spec_claims(&buff);
+        validation.validate_exp = false;
+    }
     let token = decode::<Claims>(token, &DecodingKey::from_secret(key), &validation)?;
     Ok(token.claims.allow)
 }
@@ -55,8 +64,19 @@ pub fn generate_priv_key() -> KeyInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
+
+    /// Create a new JWT Token without expiration
+    fn create_token_without_exp(perms: Vec<String>, key: &[u8]) -> JWTResult<String> {
+        let payload = Claims {
+            allow: perms,
+            exp: None,
+        };
+        encode(&Header::default(), &payload, &EncodingKey::from_secret(key))
+    }
 
     #[test]
+    #[serial]
     fn create_and_verify_token() {
         let perms_expected = vec![
             "Ph'nglui mglw'nafh Cthulhu".to_owned(),
@@ -93,5 +113,39 @@ mod tests {
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
         assert_eq!(perms_expected, perms);
+    }
+
+    #[test]
+    #[serial]
+    fn create_and_verify_token_without_exp() {
+        let perms_expected = vec![
+            "Ia! Ia! Cthulhu fhtagn".to_owned(),
+            "Zin-Mi-Yak, dread lord of the deep".to_owned(),
+        ];
+        let key = generate_priv_key();
+
+        // Disable expiration validation via env var
+        unsafe {
+            std::env::set_var("FOREST_JWT_DISABLE_EXP_VALIDATION", "1");
+        }
+
+        // No exp at all in the token. Validation must pass.
+        let token = create_token_without_exp(perms_expected.clone(), key.private_key()).unwrap();
+        let perms = verify_token(&token, key.private_key()).unwrap();
+        assert_eq!(perms_expected, perms);
+
+        // Token duration of -1 hour (already expired). Validation must pass.
+        let token = create_token(
+            perms_expected.clone(),
+            key.private_key(),
+            -Duration::try_hours(1).expect("Infallible"),
+        )
+        .unwrap();
+        let perms = verify_token(&token, key.private_key()).unwrap();
+        assert_eq!(perms_expected, perms);
+
+        unsafe {
+            std::env::remove_var("FOREST_JWT_DISABLE_EXP_VALIDATION");
+        }
     }
 }
