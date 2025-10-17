@@ -207,7 +207,9 @@ impl SnapshotCommands {
                         ForestChainExportStatus::request(())?.with_timeout(Duration::from_secs(30)),
                     )
                     .await?;
-                if !result.exporting {
+                if !result.exporting
+                    && let Format::Text = format
+                {
                     if result.cancelled {
                         println!("No export in progress (last export was cancelled)");
                     } else {
