@@ -121,7 +121,7 @@ async fn ctx(
             db.clone(),
             db,
             chain_config,
-            genesis_header.clone(),
+            genesis_header,
         )
         .unwrap(),
     );

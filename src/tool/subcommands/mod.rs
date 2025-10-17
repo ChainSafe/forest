@@ -82,7 +82,8 @@ pub enum Subcommand {
     #[command(subcommand)]
     Shed(shed_cmd::ShedCommands),
 
-    StateCompute(state_compute_cmd::StateComputeCommand),
+    #[command(subcommand)]
+    State(state_compute_cmd::StateCommand),
 
     Completion(CompletionCommand),
 }
