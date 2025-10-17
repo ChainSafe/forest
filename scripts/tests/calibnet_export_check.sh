@@ -20,8 +20,6 @@ $FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
 echo "Exporting zstd compressed snapshot in $format format"
 $FOREST_CLI_PATH snapshot export --format "$format"
 
-$FOREST_CLI_PATH shutdown --force
-
 for f in *.car.zst; do
   echo "Inspecting archive info $f"
   $FOREST_TOOL_PATH archive info "$f"
@@ -50,7 +48,7 @@ if [ "$is_exporting" == "true" ]; then
   exit 1
 fi
 
-echo "Exporting zstd compressed snapshot at current tipset"
+echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export
 sleep 1
 
@@ -70,3 +68,5 @@ echo "Testing that export has been cancelled"
 if [ "$is_exporting" == "true" ] || [ "$is_cancelled" == "false" ]; then
   exit 1
 fi
+
+$FOREST_CLI_PATH shutdown --force
