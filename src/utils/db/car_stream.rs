@@ -29,8 +29,8 @@ use unsigned_varint::codec::UviBytes;
 
 use crate::utils::encoding::from_slice_with_fallback;
 
-// 8GiB
-const MAX_FRAME_LEN: usize = 8 * 1024 * 1024 * 1024;
+// 512MiB
+const MAX_FRAME_LEN: usize = 512 * 1024 * 1024;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarV1Header {
@@ -204,8 +204,10 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                 {
                     // Skip the F3 block in the block stream
                     if metadata.f3_data.is_some() {
+                        // 16GiB
+                        const MAX_F3_FRAME_LEN: u64 = 16 * 1024 * 1024 * 1024;
                         let len: u64 = reader.read_varint_async().await?;
-                        if len > MAX_FRAME_LEN as u64 {
+                        if len > MAX_F3_FRAME_LEN {
                             return Err(io::Error::new(
                                 io::ErrorKind::InvalidData,
                                 format!("f3 block frame length too large: {len} > {MAX_FRAME_LEN}"),
