@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6082](https://github.com/ChainSafe/forest/issues/6082) Added `forest-cli snapshot export-status` and `forest-cli snapshot export-cancel` subcommands to monitor or cancel an export, respectively.
+
 - [#6166](https://github.com/ChainSafe/forest/pull/6166) Gate `JWT` expiration validation behind environment variable `FOREST_JWT_DISABLE_EXP_VALIDATION`.
 
 ### Changed
