@@ -296,7 +296,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                     let (cid, data) = block.car_block()?;
                     if this.seen.insert(cid) {
                         if *this.track_progress {
-                            update_epoch(block.uncached.epoch);
+                            update_epoch(block.epoch);
                         }
                         // Make sure we always yield a block otherwise.
                         this.dfs.push_back(Emit(cid, Some(data)));
