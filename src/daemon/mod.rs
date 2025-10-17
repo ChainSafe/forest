@@ -32,6 +32,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
 use crate::utils;
+use crate::utils::misc::env::is_env_truthy;
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
 use dialoguer::theme::ColorfulTheme;
@@ -390,6 +391,11 @@ fn maybe_start_rpc_service(
             .transpose()?;
         info!("JSON-RPC endpoint will listen at {rpc_address}");
         let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
+        if is_env_truthy("FOREST_JWT_DISABLE_EXP_VALIDATION") {
+            warn!(
+                "JWT expiration validation is disabled; this significantly weakens security and should only be used in tightly controlled environments"
+            );
+        }
         services.spawn({
             let state_manager = ctx.state_manager.clone();
             let bad_blocks = chain_follower.bad_blocks.clone();

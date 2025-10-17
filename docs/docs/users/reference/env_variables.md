@@ -50,6 +50,7 @@ process.
 | `FOREST_SNAPSHOT_GC_CHECK_INTERVAL_SECONDS`               | non-negative integer             | 300                                            | 60                                                            | The interval in seconds for checking if snapshot GC should run                                                        |
 | `FOREST_DISABLE_BAD_BLOCK_CACHE`                          | 1 or true                        | empty                                          | 1                                                             | Whether or not to disable bad block cache                                                                             |
 | `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE`                | positive integer                 | 268435456                                      | 536870912                                                     | The default zstd frame cache max size in bytes                                                                        |
+| `FOREST_JWT_DISABLE_EXP_VALIDATION`                       | 1 or true                        | empty                                          | 1                                                             | Whether or not to disable JWT expiration validation                                                                   |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 
@@ -73,6 +74,17 @@ environmental variable.
 
 The databases can be found, by default, under `<DATA_DIR>/<chain>/`, e.g.,
 `$HOME/.local/share/forest/calibnet`.
+
+### `FOREST_JWT_DISABLE_EXP_VALIDATION`
+
+#### 🔧 Use Case
+
+Intended for controlled cross-system token sharing where expiration validation must be bypassed (e.g., load balancing with Lotus).
+
+> **⚠️ Warning**
+>
+> Disabling expiration checks for all JWTs will also allow expired tokens.
+> This significantly weakens security and should only be used in tightly controlled environments. Not recommended for general use.
 
 ### Drand config format
 
