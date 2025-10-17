@@ -31,6 +31,10 @@
 
 - [#6166](https://github.com/ChainSafe/forest/pull/6166) Gate `JWT` expiration validation behind environment variable `FOREST_JWT_DISABLE_EXP_VALIDATION`.
 
+- [#6167](https://github.com/ChainSafe/forest/pull/6167) Added `forest-tool state compute` subcommand to generate database snapshot for tipset validation.
+
+- [#6167](https://github.com/ChainSafe/forest/pull/6167) Added `forest-tool state replay-compute` subcommand to replay tipset validation with a minimal database snapshot.
+
 ### Changed
 
 - [#6145](https://github.com/ChainSafe/forest/pull/6145) Updated `forest-cli snapshot export` to use v2 format by default.
