@@ -204,7 +204,9 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                         if len > MAX_F3_FRAME_LEN {
                             return Err(io::Error::new(
                                 io::ErrorKind::InvalidData,
-                                format!("f3 block frame length too large: {len} > {MAX_FRAME_LEN}"),
+                                format!(
+                                    "f3 block frame length too large: {len} > {MAX_F3_FRAME_LEN}"
+                                ),
                             ));
                         }
                         reader = skip_bytes(reader, len).await?;
