@@ -108,15 +108,15 @@ impl DBCommands {
             } => {
                 const DB_WRITE_BUFFER_CAPACITY: usize = 10000;
 
-                let db_root = if let Some(db) = db {
+                let db_root_path = if let Some(db) = db {
                     db
                 } else {
                     let (_, config) = read_config(None, Some(chain.clone()))?;
                     db_root(&chain_path(&config))?
                 };
-                println!("Opening parity-db at {}", db_root.display());
+                println!("Opening parity-db at {}", db_root_path.display());
                 let db_writer = BlockstoreWithWriteBuffer::new_with_capacity(
-                    open_db(db_root, &Default::default())?,
+                    open_db(db_root_path, &Default::default())?,
                     DB_WRITE_BUFFER_CAPACITY,
                 );
 

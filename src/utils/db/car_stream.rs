@@ -397,15 +397,8 @@ async fn read_frame<ReaderT: AsyncRead + Unpin>(
         Err(e) => return Err(e),
     };
     let mut bytes = vec![0; len];
-    let n = reader.read_exact(&mut bytes[..]).await?;
-    if n == len {
-        Ok(Some(bytes))
-    } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::UnexpectedEof,
-            format!("{len} expected, {n} read"),
-        ))
-    }
+    reader.read_exact(&mut bytes[..]).await?;
+    Ok(Some(bytes))
 }
 
 async fn read_car_block<ReaderT: AsyncRead + Unpin>(
