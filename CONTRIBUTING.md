@@ -112,7 +112,7 @@ steps in advance to help us fix any potential bug as fast as possible.
 We use GitHub issues to track bugs and errors. If you run into an issue with the
 project:
 
-- Open an
+- Open a
   [bug report](https://github.com/ChainSafe/forest/issues/new?assignees=&labels=Type%3A+Bug&projects=&template=1-bug_report.md&title=).
 - Explain the behavior you would expect and the actual behavior.
 - Please provide as much context as possible and describe the _reproduction

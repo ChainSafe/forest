@@ -3,8 +3,8 @@ title: Installing
 sidebar_position: 2
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 <Tabs>
   <TabItem value="binaries" label="Binaries" default>

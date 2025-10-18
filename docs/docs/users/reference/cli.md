@@ -416,7 +416,7 @@ Manually set the head to the given tipset. This invalidates blocks between the d
 Usage: forest-cli chain set-head [OPTIONS] <CIDS>...
 
 Arguments:
-  <CIDS>...  Construct the new head tipset from these CIDs
+  <CIDS>...  Construct the new head tipset from these `CIDs`
 
 Options:
       --epoch <EPOCH>  Use the tipset from this epoch as the new head. Negative numbers specify decrements from the current head
@@ -1952,7 +1952,7 @@ Miscellaneous, semver-exempt commands for developer use
 Usage: forest-tool shed <COMMAND>
 
 Commands:
-  summarize-tipsets          Enumerate the tipset CIDs for a span of epochs starting at `height` and working backwards
+  summarize-tipsets          Enumerate the tipset `CIDs` for a span of epochs starting at `height` and working backwards
   peer-id-from-key-pair      Generate a `PeerId` from the given key-pair file
   private-key-from-key-pair  Generate a base64-encoded private key from the given key-pair file. This effectively transforms Forest's key-pair file into a Lotus-compatible private key
   key-pair-from-private-key  Generate a key-pair file from the given base64-encoded private key. This effectively transforms Lotus's private key into a Forest-compatible key-pair file. If `output` is not provided, the key-pair is printed to stdout as a base64-encoded string
@@ -1967,7 +1967,7 @@ Options:
 ### `forest-tool shed summarize-tipsets`
 
 ```
-Enumerate the tipset CIDs for a span of epochs starting at `height` and working backwards.
+Enumerate the tipset `CIDs` for a span of epochs starting at `height` and working backwards.
 
 Useful for getting blocks to live test an RPC endpoint.
 

@@ -28,7 +28,7 @@ use std::{cmp::Ordering, time::Duration};
 
 const MAX_LEASE_INSTANCES: u64 = 5;
 
-/// TipSetKey is the canonically ordered concatenation of the block CIDs in a tipset.
+/// TipSetKey is the canonically ordered concatenation of the block `CIDs` in a tipset.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct F3TipSetKey(
     #[schemars(with = "String")]

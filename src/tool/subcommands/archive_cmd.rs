@@ -150,9 +150,9 @@ pub enum ArchiveCommands {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
-    /// Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
+    /// Merge a `v1` Filecoin snapshot with an F3 snapshot into a `v2` Filecoin snapshot in `.forest.car.zst` format
     MergeF3 {
-        /// Path to the v1 Filecoin snapshot
+        /// Path to the `v1` Filecoin snapshot
         #[arg(long = "v1")]
         filecoin_v1: PathBuf,
         /// Path to the F3 snapshot
