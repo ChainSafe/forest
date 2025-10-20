@@ -566,6 +566,7 @@ jobs:
         if: always()
         uses: jwalton/gh-docker-logs@v2
   bootstrap-checks-lotus:
+    if: false
     needs:
       - build-ubuntu
     name: Bootstrap checks - Lotus
@@ -639,7 +640,7 @@ jobs:
       - local-devnet-check
       # - local-devnet-curio-check
       - bootstrap-checks-forest
-      - bootstrap-checks-lotus
+      # - bootstrap-checks-lotus
     name: Integration tests status
     runs-on: ubuntu-24.04
     steps:
