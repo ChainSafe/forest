@@ -38,6 +38,9 @@ for f in *.car.zst; do
   $FOREST_TOOL_PATH snapshot validate "$f"
 done
 
+retries=10
+sleep_interval=0.1
+
 echo "Cleaning up the last snapshot"
 rm --force --verbose ./*.{car,car.zst,sha256sum}
 
@@ -48,25 +51,38 @@ if [ "$is_exporting" == "true" ]; then
   exit 1
 fi
 
-echo "Exporting zstd compressed snapshot"
-$FOREST_CLI_PATH snapshot export
-sleep 1
+echo "Exporting zstd compressed snapshot in $format format"
+$FOREST_CLI_PATH snapshot export --format "$format" > snapshot_export.log 2>&1 &
 
-output=$($FOREST_CLI_PATH snapshot export-status --format json)
-is_exporting=$(echo "$output" | jq -r '.exporting')
 echo "Testing that export is in progress"
-if [ "$is_exporting" == "false" ]; then
-  exit 1
-fi
+for ((i=1; i<=retries; i++)); do
+    output=$($FOREST_CLI_PATH snapshot export-status --format json)
+    is_exporting=$(echo "$output" | jq -r '.exporting')
+    if [ "$is_exporting" == "true" ]; then
+        break
+    fi
+    if [ $i -eq $retries ]; then
+        cat snapshot_export.log
+        exit 1
+    fi
+    sleep $sleep_interval
+done
 
 $FOREST_CLI_PATH snapshot export-cancel
 
-output=$($FOREST_CLI_PATH snapshot export-status --format json)
-is_exporting=$(echo "$output" | jq -r '.exporting')
-is_cancelled=$(echo "$output" | jq -r '.cancelled')
 echo "Testing that export has been cancelled"
-if [ "$is_exporting" == "true" ] || [ "$is_cancelled" == "false" ]; then
-  exit 1
-fi
+for ((i=1; i<=retries; i++)); do
+    output=$($FOREST_CLI_PATH snapshot export-status --format json)
+    is_exporting=$(echo "$output" | jq -r '.exporting')
+    is_cancelled=$(echo "$output" | jq -r '.cancelled')
+    if [ "$is_exporting" == "false" ] && [ "$is_cancelled" == "true" ]; then
+        break
+    fi
+    if [ $i -eq $retries ]; then
+        cat snapshot_export.log
+        exit 1
+    fi
+    sleep $sleep_interval
+done
 
 $FOREST_CLI_PATH shutdown --force
