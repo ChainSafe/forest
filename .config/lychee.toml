@@ -23,6 +23,8 @@ exclude = [
   "wikipedia.org",
   # Probably bot protection / 404 but works in browser
   "ubuntu.com",
+  # Bot protection / 403 Forbidden errors
+  "beryx.io/faucet",
 ]
 timeout = 30
 max_retries = 6
