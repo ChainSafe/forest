@@ -85,4 +85,4 @@ for ((i=1; i<=retries; i++)); do
     sleep $sleep_interval
 done
 
-# $FOREST_CLI_PATH shutdown --force
+$FOREST_CLI_PATH shutdown --force
