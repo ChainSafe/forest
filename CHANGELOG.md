@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6166](https://github.com/ChainSafe/forest/pull/6166) Gate `JWT` expiration validation behind environment variable `FOREST_JWT_DISABLE_EXP_VALIDATION`.
+
 ### Changed
 
 - [#6145](https://github.com/ChainSafe/forest/pull/6145) Updated `forest-cli snapshot export` to use v2 format by default.
