@@ -190,7 +190,7 @@ jobs:
           file: ./Dockerfile-ci
           tags: ${{ steps.metafat.outputs.tags }}
           labels: ${{ steps.metafat.outputs.labels }}
-          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'push-fat-to-ghcr') }}
           # Compile Docker image only for AMD64 for a regular PR to save some CI time.
           platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           target: fat-image
@@ -217,7 +217,7 @@ jobs:
           file: ./Dockerfile-ci
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'push-slim-to-ghcr') }}
           # Compile Docker image only for AMD64 for a regular PR to save some CI time.
           platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           target: slim-image
