@@ -200,7 +200,7 @@ jobs:
         with:
           context: /tmp/forest
           file: ./Dockerfile-ci
-          tags: ${{ contains(github.event.pull_request.labels.*.name, 'push-fat-to-ghcr') && steps.metafatpr.output.tags || steps.metafat.outputs.tags }}
+          tags: ${{ contains(github.event.pull_request.labels.*.name, 'push-fat-to-ghcr') && steps.metafatpr.outputs.tags || steps.metafat.outputs.tags }}
           labels: ${{ steps.metafat.outputs.labels }}
           push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'push-fat-to-ghcr') }}
           # Compile Docker image only for AMD64 for a regular PR to save some CI time.
