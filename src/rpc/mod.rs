@@ -1,12 +1,14 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::rpc::http_status_layer::ModifyHttpStatus;
 use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 mod auth_layer;
 mod channel;
 mod client;
 mod filter_layer;
 mod filter_list;
+mod http_status_layer;
 mod log_layer;
 mod metrics_layer;
 mod request;
@@ -547,6 +549,8 @@ where
             )
             .set_http_middleware(
                 tower::ServiceBuilder::new()
+                    // TODO: perhaps simplify this layer to not use _fn
+                    .layer_fn(|service| ModifyHttpStatus { service })
                     .layer(CompressionLayer::new())
                     // Mark the `Authorization` request header as sensitive so it doesn't show in logs
                     .layer(SetSensitiveRequestHeadersLayer::new(std::iter::once(
