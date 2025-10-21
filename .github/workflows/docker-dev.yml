@@ -57,5 +57,5 @@ jobs:
           labels: ${{ steps.metafat.outputs.labels }}
           push: true
           # Compile Docker image only for AMD64 for a regular PR to save some CI time.
-          platforms: 'linux/amd64'
+          platforms: "linux/amd64"
           target: fat-image
