@@ -1,17 +1,17 @@
 name: Build Dev Docker Image
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.branch || inputs.commit }}
 
 on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Name of the branch to build. Conflicts with the commit input."
+        description: "Name of the branch to build. Is prioritised over the commit input."
         type: string
         default: ""
       commit:
-        description: "Commit to build. Conflicts with the branch input."
+        description: "Commit to build. One of branch or commit is required. If both are provided, branch is used."
         type: string
         default: ""
 
