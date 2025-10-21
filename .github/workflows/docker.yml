@@ -183,26 +183,14 @@ jobs:
             type=ref,event=tag
             type=edge
 
-      - name: Docker Meta fat for PRs only
-        id: metafatpr
-        if: contains(github.event.pull_request.labels.*.name, 'push-fat-to-ghcr')
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/chainsafe/forest
-          flavor: |
-            latest=false
-            suffix=-fat
-          tags: |
-            type=raw,value={{date 'YYYY-MM-DD'}}-{{sha}}
-
       - name: Build fat image and push to GitHub Container Registry
         uses: docker/build-push-action@v6
         with:
           context: /tmp/forest
           file: ./Dockerfile-ci
-          tags: ${{ contains(github.event.pull_request.labels.*.name, 'push-fat-to-ghcr') && steps.metafatpr.outputs.tags || steps.metafat.outputs.tags }}
+          tags: ${{ steps.metafat.outputs.tags }}
           labels: ${{ steps.metafat.outputs.labels }}
-          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'push-fat-to-ghcr') }}
+          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
           # Compile Docker image only for AMD64 for a regular PR to save some CI time.
           platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           target: fat-image
