@@ -4,6 +4,7 @@
 # It requires both the `forest` and `forest-cli` binaries to be in the PATH.
 
 set -eu
+set -x
 
 format="${1:-v1}"
 
