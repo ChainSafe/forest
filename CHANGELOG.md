@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6161](https://github.com/ChainSafe/forest/pull/6161) Added `forest-tool db import` subcommand.
+
 - [#6166](https://github.com/ChainSafe/forest/pull/6166) Gate `JWT` expiration validation behind environment variable `FOREST_JWT_DISABLE_EXP_VALIDATION`.
 
 - [#6167](https://github.com/ChainSafe/forest/pull/6167) Added `forest-tool state compute` subcommand to generate database snapshot for tipset validation.
