@@ -714,7 +714,7 @@ impl RpcMethod<0> for Web3ClientVersion {
     const NAME: &'static str = "Filecoin.Web3ClientVersion";
     const NAME_ALIAS: Option<&'static str> = Some("web3_clientVersion");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
