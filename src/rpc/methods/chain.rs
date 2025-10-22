@@ -468,7 +468,7 @@ impl RpcMethod<1> for ForestChainExport {
                     }
                 };
 
-                let chain_export = crate::chain::export_v2::<Sha256>(
+                let chain_export = crate::chain::export_v2::<Sha256, _>(
                     &db,
                     f3_snap,
                     &start_ts,
