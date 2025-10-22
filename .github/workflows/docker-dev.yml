@@ -1,33 +1,26 @@
 name: Build Dev Docker Image
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.branch || inputs.commit }}
+  group: ${{ github.workflow }}-${{ inputs.git_ref }}
 
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: "Name of the branch to build. Is prioritised over the commit input."
+      git_ref:
+        description: "Name of the branch or commit SHA to build."
+        required: true
         type: string
-        default: ""
-      commit:
-        description: "Commit to build. One of branch or commit is required. If both are provided, branch is used."
-        type: string
-        default: ""
 
 jobs:
   build-and-push-docker-image:
     name: Build image and push to GHCR
     runs-on: ubuntu-24.04
-    # Run the job only if the PR is not a draft.
-    # This is done to limit the runner cost.
-    if: inputs.branch != '' || inputs.commit != ''
     timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.branch || inputs.commit }}
+          ref: ${{ inputs.git_ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -56,6 +49,5 @@ jobs:
           tags: ${{ steps.metafat.outputs.tags }}
           labels: ${{ steps.metafat.outputs.labels }}
           push: true
-          # Compile Docker image only for AMD64 for a regular PR to save some CI time.
           platforms: "linux/amd64"
           target: fat-image
