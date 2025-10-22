@@ -12,37 +12,10 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init "$@"
 
-echo "Cleaning up the initial snapshot"
-rm --force --verbose ./*.{car,car.zst,sha256sum}
-
-echo "Exporting zstd compressed snapshot at genesis"
-$FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
-
-echo "Exporting zstd compressed snapshot in $format format"
-$FOREST_CLI_PATH snapshot export --format "$format"
-
-for f in *.car.zst; do
-  echo "Inspecting archive info $f"
-  $FOREST_TOOL_PATH archive info "$f"
-  echo "Inspecting archive metadata $f"
-  $FOREST_TOOL_PATH archive metadata "$f"
-done
-
-echo "Testing snapshot validity"
-zstd --test ./*.car.zst
-
-echo "Verifying snapshot checksum"
-sha256sum --check ./*.sha256sum
-
-for f in *.car.zst; do
-  echo "Validating CAR file $f"
-  $FOREST_TOOL_PATH snapshot validate "$f"
-done
-
 retries=10
 sleep_interval=0.1
 
-echo "Cleaning up the last snapshot"
+echo "Cleaning up the initial snapshot"
 rm --force --verbose ./*.{car,car.zst,sha256sum}
 
 output=$($FOREST_CLI_PATH snapshot export-status --format json)
@@ -86,4 +59,28 @@ for ((i=1; i<=retries; i++)); do
     sleep $sleep_interval
 done
 
+echo "Exporting zstd compressed snapshot at genesis"
+$FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
+
+echo "Exporting zstd compressed snapshot in $format format"
+$FOREST_CLI_PATH snapshot export --format "$format"
+
 $FOREST_CLI_PATH shutdown --force
+
+for f in *.car.zst; do
+  echo "Inspecting archive info $f"
+  $FOREST_TOOL_PATH archive info "$f"
+  echo "Inspecting archive metadata $f"
+  $FOREST_TOOL_PATH archive metadata "$f"
+done
+
+echo "Testing snapshot validity"
+zstd --test ./*.car.zst
+
+echo "Verifying snapshot checksum"
+sha256sum --check ./*.sha256sum
+
+for f in *.car.zst; do
+  echo "Validating CAR file $f"
+  $FOREST_TOOL_PATH snapshot validate "$f"
+done
