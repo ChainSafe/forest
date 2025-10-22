@@ -7,6 +7,12 @@ ignore = [
   "RUSTSEC-2024-0436", # paste is unmaintained
   "RUSTSEC-2025-0046", # wasmtime issue, this needs to be resolved in FVM
   "RUSTSEC-2023-0071", # rsa issue. No patch is yet available, however work is underway to migrate to a fully constant-time implementation.
+  "RUSTSEC-2025-0098", # All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.
+  "RUSTSEC-2025-0104", # All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.
+  "RUSTSEC-2025-0074", # All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.
+  "RUSTSEC-2025-0075", # All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.
+  "RUSTSEC-2025-0080", # All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.
+  "RUSTSEC-2025-0081", # All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.
 ]
 
 [licenses]
