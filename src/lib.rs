@@ -101,10 +101,7 @@ pub mod doctest_private {
 // Allow benchmarks of forest internals
 #[cfg(feature = "benchmark-private")]
 #[doc(hidden)]
-pub mod benchmark_private {
-    pub use crate::db::car::forest;
-    pub use crate::utils::cid;
-}
+pub mod benchmark_private;
 
 /// These items are semver-exempt, and exist for forest author use only
 // Allow interop tests of forest internals

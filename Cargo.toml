@@ -53,6 +53,7 @@ cid = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 colored = "3"
+criterion = { version = "0.7", default-features = false, features = ["async_tokio"], optional = true }
 crypto_secretbox = "0.1"
 data-encoding = "2"
 data-encoding-macro = "0.1"
@@ -297,7 +298,7 @@ lto = "fat"
 default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
 slim = ["rustalloc"]
 doctest-private = []                                                      # see lib.rs::doctest_private
-benchmark-private = []                                                    # see lib.rs::benchmark_private
+benchmark-private = ["dep:criterion"]                                     # see lib.rs::benchmark_private
 interop-tests-private = []                                                # see lib.rs::interop_tests_private
 
 # Allocator. Use at most one of these.
@@ -318,6 +319,11 @@ required-features = ["benchmark-private"]
 
 [[bench]]
 name = "car-index"
+harness = false
+required-features = ["benchmark-private"]
+
+[[bench]]
+name = "tipset-validation"
 harness = false
 required-features = ["benchmark-private"]
 
