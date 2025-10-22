@@ -48,10 +48,7 @@ pub async fn load_actor_bundles_from_path(
         "Bundle file not found at {}",
         bundle_path.as_ref().display()
     );
-    let mut car_stream = CarStream::new(tokio::io::BufReader::new(
-        tokio::fs::File::open(bundle_path.as_ref()).await?,
-    ))
-    .await?;
+    let mut car_stream = CarStream::new_from_path(bundle_path.as_ref()).await?;
 
     // Validate the bundle
     let roots = HashSet::from_iter(car_stream.header_v1.roots.iter());

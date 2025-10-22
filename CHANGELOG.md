@@ -29,7 +29,10 @@
 
 ### Added
 
+- [#6161](https://github.com/ChainSafe/forest/pull/6161) Added `forest-tool db import` subcommand.
+
 - [#6166](https://github.com/ChainSafe/forest/pull/6166) Gate `JWT` expiration validation behind environment variable `FOREST_JWT_DISABLE_EXP_VALIDATION`.
+- [#6171](https://github.com/ChainSafe/forest/pull/6171) Enable V2 API support for basic Eth RPC methods: `EthChainId`, `EthProtocolVersion`, `EthSyncing`, `EthAccounts`.
 
 ### Changed
 

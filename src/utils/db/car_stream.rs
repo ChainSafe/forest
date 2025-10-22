@@ -1,31 +1,36 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::chain::FilecoinSnapshotMetadata;
 use crate::db::car::plain::read_v2_header;
+use crate::utils::io::skip_bytes;
 use crate::utils::multihash::prelude::*;
 use async_compression::tokio::bufread::ZstdDecoder;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use cid::Cid;
 use futures::ready;
-use futures::{Stream, StreamExt, sink::Sink};
+use futures::{Stream, sink::Sink};
 use fvm_ipld_encoding::to_vec;
-use integer_encoding::VarInt;
+use integer_encoding::{VarInt, VarIntAsyncReader as _};
 use nunny::Vec as NonEmpty;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, Read, SeekFrom, Write};
+use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{
     AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite,
     Take,
 };
-use tokio_util::codec::Encoder;
-use tokio_util::codec::FramedRead;
+use tokio_util::codec::{Encoder, FramedRead};
 use tokio_util::either::Either;
 use unsigned_varint::codec::UviBytes;
 
 use crate::utils::encoding::from_slice_with_fallback;
+
+// 512MiB
+const MAX_FRAME_LEN: usize = 512 * 1024 * 1024;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarV1Header {
@@ -54,7 +59,11 @@ pub struct CarBlock {
 impl CarBlock {
     // Write a varint frame containing the cid and the data
     pub fn write(&self, writer: &mut impl Write) -> io::Result<()> {
-        writer.write_car_block(self.cid, self.data.len(), &mut Cursor::new(&self.data))
+        writer.write_car_block(
+            self.cid,
+            self.data.len() as u64,
+            &mut Cursor::new(&self.data),
+        )
     }
 
     pub fn from_bytes(bytes: impl Into<Bytes>) -> io::Result<CarBlock> {
@@ -88,22 +97,12 @@ impl CarBlock {
 }
 
 pub trait CarBlockWrite {
-    fn write_car_block(
-        &mut self,
-        cid: Cid,
-        data_len: usize,
-        data: &mut impl Read,
-    ) -> io::Result<()>;
+    fn write_car_block(&mut self, cid: Cid, data_len: u64, data: &mut impl Read) -> io::Result<()>;
 }
 
 impl<T: Write> CarBlockWrite for T {
-    fn write_car_block(
-        &mut self,
-        cid: Cid,
-        data_len: usize,
-        data: &mut impl Read,
-    ) -> io::Result<()> {
-        let frame_length = cid.encoded_len() + data_len;
+    fn write_car_block(&mut self, cid: Cid, data_len: u64, data: &mut impl Read) -> io::Result<()> {
+        let frame_length = cid.encoded_len() as u64 + data_len;
         self.write_all(&frame_length.encode_var_vec())?;
         cid.write_bytes(&mut *self)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
@@ -115,9 +114,11 @@ impl<T: Write> CarBlockWrite for T {
 pin_project! {
     /// Stream of CAR blocks. If the input data is compressed with zstd, it will
     /// automatically be decompressed.
+    /// Note that [`CarStream`] automatically skips the metadata block and F3 data
+    /// block defined in [`FRC-0108`](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md)
     pub struct CarStream<ReaderT> {
         #[pin]
-        reader: FramedRead<Take<Either<ReaderT, ZstdDecoder<ReaderT>>>, UviBytes>,
+        reader: FramedRead<Take<Either<ReaderT, ZstdDecoder<ReaderT>>>,UviBytes>,
         pub header_v1: CarV1Header,
         pub header_v2: Option<CarV2Header>,
         first_block: Option<CarBlock>,
@@ -164,38 +165,71 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
 
         // Skip v2 header bytes
         if let Some(header_v2) = &header_v2 {
-            let mut to_skip = vec![0; header_v2.data_offset as usize];
-            reader.read_exact(&mut to_skip).await?;
+            reader = skip_bytes(
+                reader,
+                u64::try_from(header_v2.data_offset).map_err(std::io::Error::other)?,
+            )
+            .await?;
         }
 
         let max_car_v1_bytes = header_v2
             .as_ref()
-            .map(|h| h.data_size as u64)
+            .map(|h| u64::try_from(h.data_size).map_err(std::io::Error::other))
+            .transpose()?
             .unwrap_or(u64::MAX);
-        let mut reader = FramedRead::new(reader.take(max_car_v1_bytes), uvi_bytes());
-        let header_v1 = read_v1_header(&mut reader)
-            .await
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid v1 header block"))?;
+        let mut reader = reader.take(max_car_v1_bytes);
+        let header_v1 = read_v1_header(&mut reader).await?;
 
         // Read the first block and check if it is valid. This check helps to
         // catch invalid CAR files as soon as we open.
-        if let Some(first_entry) = reader.next().await.transpose()? {
-            let block = CarBlock::from_bytes(first_entry)?;
+        if let Some(block) = read_car_block(&mut reader).await? {
             if !block.valid() {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "invalid first block",
                 ));
             }
+
+            let first_block = if header_v1.roots.len() == crate::db::car::V2_SNAPSHOT_ROOT_COUNT {
+                let maybe_metadata_cid = header_v1.roots.first();
+                if maybe_metadata_cid == &block.cid
+                    && let Ok(metadata) =
+                        fvm_ipld_encoding::from_slice::<FilecoinSnapshotMetadata>(&block.data)
+                {
+                    // Skip the F3 block in the block stream
+                    if metadata.f3_data.is_some() {
+                        // 16GiB
+                        const MAX_F3_FRAME_LEN: u64 = 16 * 1024 * 1024 * 1024;
+                        let len: u64 = reader.read_varint_async().await?;
+                        if len > MAX_F3_FRAME_LEN {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                format!(
+                                    "f3 block frame length too large: {len} > {MAX_F3_FRAME_LEN}"
+                                ),
+                            ));
+                        }
+                        reader = skip_bytes(reader, len).await?;
+                    }
+
+                    // Skip the metadata block in the block stream
+                    None
+                } else {
+                    Some(block)
+                }
+            } else {
+                Some(block)
+            };
+
             Ok(CarStream {
-                reader,
+                reader: FramedRead::new(reader, uvi_bytes()),
                 header_v1,
                 header_v2,
-                first_block: Some(block),
+                first_block,
             })
         } else {
             Ok(CarStream {
-                reader,
+                reader: FramedRead::new(reader, uvi_bytes()),
                 header_v1,
                 header_v2,
                 first_block: None,
@@ -254,6 +288,15 @@ impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
         let (mut reader, header_v2) = Self::extract_header_v2(reader).await?;
         reader.seek(SeekFrom::Start(stream_position)).await?;
         Ok((reader, header_v2))
+    }
+}
+
+impl CarStream<tokio::io::BufReader<tokio::fs::File>> {
+    pub async fn new_from_path(path: impl AsRef<Path>) -> io::Result<Self> {
+        Self::new(tokio::io::BufReader::new(
+            tokio::fs::File::open(path.as_ref()).await?,
+        ))
+        .await
     }
 }
 
@@ -319,96 +362,57 @@ impl<W: AsyncWrite> Sink<CarBlock> for CarWriter<W> {
 }
 
 async fn read_v1_header<ReaderT: AsyncRead + Unpin>(
-    framed_reader: &mut FramedRead<ReaderT, UviBytes>,
-) -> Option<CarV1Header> {
-    let frame = framed_reader.next().await?.ok()?;
-    let header = from_slice_with_fallback::<CarV1Header>(&frame).ok()?;
+    reader: &mut ReaderT,
+) -> std::io::Result<CarV1Header> {
+    let Some(frame) = read_frame(reader).await? else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "failed to decode v1 header frame",
+        ));
+    };
+    let header = from_slice_with_fallback::<CarV1Header>(&frame).map_err(std::io::Error::other)?;
     if header.version != 1 {
-        return None;
+        return Err(std::io::Error::other(format!(
+            "unexpected header version {}, 1 expected",
+            header.version
+        )));
     }
-    Some(header)
+    Ok(header)
+}
+
+async fn read_frame<ReaderT: AsyncRead + Unpin>(
+    reader: &mut ReaderT,
+) -> std::io::Result<Option<Vec<u8>>> {
+    let len: usize = match reader.read_varint_async().await {
+        Ok(len) if len > MAX_FRAME_LEN => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("frame too large: {len} > {MAX_FRAME_LEN}"),
+            ));
+        }
+        Ok(len) => len,
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let mut bytes = vec![0; len];
+    reader.read_exact(&mut bytes[..]).await?;
+    Ok(Some(bytes))
+}
+
+async fn read_car_block<ReaderT: AsyncRead + Unpin>(
+    reader: &mut ReaderT,
+) -> std::io::Result<Option<CarBlock>> {
+    read_frame(reader)
+        .await?
+        .map(CarBlock::from_bytes)
+        .transpose()
 }
 
 pub fn uvi_bytes() -> UviBytes {
-    // 8GiB
-    const MAX_LEN: usize = 8 * 1024 * 1024 * 1024;
     let mut decoder = UviBytes::default();
-    decoder.set_max_len(MAX_LEN);
+    decoder.set_max_len(MAX_FRAME_LEN);
     decoder
 }
 
 #[cfg(test)]
-mod tests {
-    use std::io::Cursor;
-
-    use super::*;
-    use crate::networks::{calibnet, mainnet};
-    use futures::TryStreamExt;
-    use quickcheck::{Arbitrary, Gen};
-
-    impl Arbitrary for CarBlock {
-        fn arbitrary(g: &mut Gen) -> CarBlock {
-            let data = Vec::<u8>::arbitrary(g);
-            let encoding = g
-                .choose(&[
-                    fvm_ipld_encoding::DAG_CBOR,
-                    fvm_ipld_encoding::CBOR,
-                    fvm_ipld_encoding::IPLD_RAW,
-                ])
-                .unwrap();
-            let code = g
-                .choose(&[MultihashCode::Blake2b256, MultihashCode::Sha2_256])
-                .unwrap();
-            let cid = Cid::new_v1(*encoding, code.digest(&data));
-            CarBlock { cid, data }
-        }
-    }
-
-    #[tokio::test]
-    async fn stream_calibnet_genesis_unsafe() {
-        let stream = CarStream::new_unsafe(calibnet::DEFAULT_GENESIS)
-            .await
-            .unwrap();
-        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
-        assert_eq!(blocks.len(), 1207);
-        for block in blocks {
-            block.validate().unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn stream_calibnet_genesis() {
-        let stream = CarStream::new(Cursor::new(calibnet::DEFAULT_GENESIS))
-            .await
-            .unwrap();
-        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
-        assert_eq!(blocks.len(), 1207);
-        for block in blocks {
-            block.validate().unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn stream_mainnet_genesis_unsafe() {
-        let stream = CarStream::new_unsafe(mainnet::DEFAULT_GENESIS)
-            .await
-            .unwrap();
-        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
-        assert_eq!(blocks.len(), 1222);
-        for block in blocks {
-            block.validate().unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn stream_mainnet_genesis() {
-        let stream = CarStream::new(Cursor::new(mainnet::DEFAULT_GENESIS))
-            .await
-            .unwrap();
-        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
-        assert_eq!(blocks.len(), 1222);
-        for block in blocks {
-            block.validate().unwrap();
-        }
-    }
-}
+mod tests;
