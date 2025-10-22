@@ -35,7 +35,7 @@ pub(super) struct SetExtensionService<S> {
 impl<S> SetExtensionService<S> {
     /// Maps JSON-RPC error codes to HTTP status codes via extensions.
     /// Note that an HTTP middleware is required to actually set the HTTP status code.
-    /// See [`crate::rpc::http_status_layer::ModifyHttpStatus`].
+    /// See [`crate::rpc::http_status_layer::ModifyHttpStatusLayer`].
     async fn map_json_code_to_http_status<F>(future: F) -> MethodResponse
     where
         F: Future<Output = MethodResponse>,

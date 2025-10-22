@@ -2,52 +2,53 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! This HTTP middleware modifies the HTTP status code of responses
-//! based on the StatusCode stored in the response extensions, set via the RPC middleware
+//! based on the [`http::StatusCode`] stored in the response extensions, set via the RPC middleware
 //! [`crate::rpc::set_extension_layer::SetExtensionLayer`].
 
-use axum::body::HttpBody as HttpBodyTrait;
-use bytes::Bytes;
 use futures::FutureExt as _;
 use http::StatusCode;
-use jsonrpsee::{
-    core::BoxError,
-    server::{HttpBody, HttpRequest, HttpResponse},
-};
+use http::{Request, Response};
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
+use tower::Layer;
 use tower::Service;
-use tower_http::compression::CompressionBody;
+
+#[derive(Clone, Default)]
+pub(super) struct ModifyHttpStatusLayer {}
+
+impl<S> Layer<S> for ModifyHttpStatusLayer {
+    type Service = ModifyHttpStatus<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        ModifyHttpStatus { service }
+    }
+}
 
 #[derive(Debug, Clone)]
-pub struct ModifyHttpStatus<S> {
+pub(super) struct ModifyHttpStatus<S> {
     pub service: S,
 }
 
-impl<S, B> Service<HttpRequest<B>> for ModifyHttpStatus<S>
+impl<S, ReqBody, ResBody> Service<Request<ReqBody>> for ModifyHttpStatus<S>
 where
-    S: Service<HttpRequest<B>, Response = HttpResponse<CompressionBody<HttpBody>>>,
-    S::Response: 'static,
-    S::Error: Into<BoxError> + Send + 'static,
+    S: Service<Request<ReqBody>, Response = Response<ResBody>>,
     S::Future: Send + 'static,
-    B: HttpBodyTrait<Data = Bytes> + Send + std::fmt::Debug + 'static,
-    B::Data: Send,
-    B::Error: Into<BoxError>,
 {
     type Response = S::Response;
-    type Error = BoxError;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Error = S::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
+    #[inline]
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.service.poll_ready(cx).map_err(Into::into)
+        self.service.poll_ready(cx)
     }
 
-    fn call(&mut self, request: HttpRequest<B>) -> Self::Future {
+    fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
         let fut = self.service.call(request);
         async move {
-            let mut rp = fut.await.map_err(Into::into)?;
+            let mut rp = fut.await?;
             let status_code = rp
                 .extensions()
                 .get::<StatusCode>()
