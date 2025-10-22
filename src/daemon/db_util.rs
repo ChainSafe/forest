@@ -305,10 +305,7 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
         to = %to.display(),
         "transcoding into forest car"
     );
-    let car_stream = CarStream::new(tokio::io::BufReader::new(
-        tokio::fs::File::open(from).await?,
-    ))
-    .await?;
+    let car_stream = CarStream::new_from_path(from).await?;
     let roots = car_stream.header_v1.roots.clone();
 
     let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(to).await?);
