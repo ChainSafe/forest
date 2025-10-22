@@ -102,7 +102,7 @@ pub enum NetListening {}
 impl RpcMethod<0> for NetListening {
     const NAME: &'static str = "Filecoin.NetListening";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_listening");
 
@@ -249,7 +249,7 @@ pub enum NetVersion {}
 impl RpcMethod<0> for NetVersion {
     const NAME: &'static str = "Filecoin.NetVersion";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_version");
 
