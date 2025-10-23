@@ -1584,6 +1584,7 @@ Usage: forest-tool db <COMMAND>
 Commands:
   stats    Show DB stats
   destroy  DB destruction
+  import   Import CAR files into the key-value store
   help     Print this message or the help of the given subcommand(s)
 
 Options:
@@ -1614,6 +1615,23 @@ Options:
       --force            Answer yes to all forest-cli yes/no questions without prompting
   -c, --config <CONFIG>  Optional TOML file containing forest daemon configuration
       --chain <CHAIN>    Optional chain, will override the chain section of configuration file if used
+  -h, --help             Print help
+```
+
+### `forest-tool db import`
+
+```
+Import CAR files into the key-value store
+
+Usage: forest-tool db import [OPTIONS] --chain <CHAIN> <SNAPSHOT_FILES>...
+
+Arguments:
+  <SNAPSHOT_FILES>...  Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`
+
+Options:
+      --chain <CHAIN>    Filecoin network chain
+      --db <DB>          Optional path to the database folder that powers a Forest node
+      --skip-validation  Skip block validation
   -h, --help             Print help
 ```
 

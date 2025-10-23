@@ -269,6 +269,14 @@ rust2go = { workspace = true, features = ["build"] }
 debug = 0
 split-debuginfo = "unpacked"
 
+# Profile for interactive debugging sessions, e.g., with LLDB.
+# Doesn't work with Go FFI - disable it with `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1`.
+[profile.debugging]
+inherits = "dev"
+debug = "full"
+# This works on Linux. On other platforms, refer to https://doc.rust-lang.org/rustc/codegen-options/index.html#split-debuginfo
+split-debuginfo = "off"
+
 [profile.quick]
 inherits = "release"
 opt-level = 1

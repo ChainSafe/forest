@@ -79,3 +79,7 @@ if ! [[ "$head_epoch" =~ ^[0-9]+$ ]]; then
 fi
 start_epoch=$(( head_epoch > 900 ? head_epoch - 900 : 0 ))
 $FOREST_CLI_PATH state compute --epoch "$start_epoch" -n 10 -v
+
+echo "Validating metrics"
+wget -O metrics.log http://localhost:6116/metrics
+go run ./tools/prometheus_metrics_validator metrics.log

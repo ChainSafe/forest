@@ -12,13 +12,14 @@ use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
+use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
 use crate::rpc::f3::F3ExportLatestSnapshot;
-use crate::rpc::types::{ApiTipsetKey, Event};
+use crate::rpc::types::{ApiExportResult, ApiExportStatus, ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
@@ -49,10 +50,12 @@ use tokio::sync::{
     broadcast::{self, Receiver as Subscriber},
 };
 use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
-static CHAIN_EXPORT_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 /// Subscribes to head changes from the chain store and broadcasts new blocks.
 ///
@@ -380,7 +383,7 @@ impl RpcMethod<1> for ForestChainExport {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ForestChainExportParams,);
-    type Ok = Option<String>;
+    type Ok = ApiExportResult;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -396,10 +399,17 @@ impl RpcMethod<1> for ForestChainExport {
             dry_run,
         } = params;
 
-        let _locked = CHAIN_EXPORT_LOCK.try_lock();
-        if _locked.is_err() {
-            return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
+        let token = CancellationToken::new();
+        {
+            let mut guard = CHAIN_EXPORT_LOCK.lock().await;
+            if guard.is_some() {
+                return Err(
+                    anyhow::anyhow!("A chain export is still in progress. Cancel it with the export-cancel subcommand if needed.").into(),
+                );
+            }
+            *guard = Some(token.clone());
         }
+        start_export();
 
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let start_ts =
@@ -415,18 +425,27 @@ impl RpcMethod<1> for ForestChainExport {
         } else {
             tokio_util::either::Either::Right(tokio::fs::File::create(&output_path).await?)
         };
-        match match version {
+        let result = match version {
             FilecoinSnapshotVersion::V1 => {
-                crate::chain::export::<Sha256>(
-                    &ctx.store_owned(),
-                    &start_ts,
-                    recent_roots,
-                    writer,
-                    options,
-                )
-                .await
+                let db = ctx.store_owned();
+
+                let chain_export =
+                    crate::chain::export::<Sha256>(&db, &start_ts, recent_roots, writer, options);
+
+                tokio::select! {
+                    result = chain_export => {
+                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
+                    },
+                    _ = token.cancelled() => {
+                        cancel_export();
+                        tracing::warn!("Snapshot export was cancelled");
+                        Ok(ApiExportResult::Cancelled)
+                    },
+                }
             }
             FilecoinSnapshotVersion::V2 => {
+                let db = ctx.store_owned();
+
                 let f3_snap_tmp_path = {
                     let mut f3_snap_dir = output_path.clone();
                     let mut builder = tempfile::Builder::new();
@@ -448,20 +467,91 @@ impl RpcMethod<1> for ForestChainExport {
                         }
                     }
                 };
-                crate::chain::export_v2::<Sha256, _>(
-                    &ctx.store_owned(),
+
+                let chain_export = crate::chain::export_v2::<Sha256, _>(
+                    &db,
                     f3_snap,
                     &start_ts,
                     recent_roots,
                     writer,
                     options,
-                )
-                .await
+                );
+
+                tokio::select! {
+                    result = chain_export => {
+                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
+                    },
+                    _ = token.cancelled() => {
+                        cancel_export();
+                        tracing::warn!("Snapshot export was cancelled");
+                        Ok(ApiExportResult::Cancelled)
+                    },
+                }
             }
-        } {
-            Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
+        };
+        end_export();
+        // Clean up token
+        let mut guard = CHAIN_EXPORT_LOCK.lock().await;
+        *guard = None;
+        match result {
+            Ok(export_result) => Ok(export_result),
             Err(e) => Err(anyhow::anyhow!(e).into()),
         }
+    }
+}
+
+pub enum ForestChainExportStatus {}
+impl RpcMethod<0> for ForestChainExportStatus {
+    const NAME: &'static str = "Forest.ChainExportStatus";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = ApiExportStatus;
+
+    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let mutex = CHAIN_EXPORT_STATUS.lock();
+
+        let progress = if mutex.initial_epoch == 0 {
+            0.0
+        } else {
+            let p = 1.0 - ((mutex.epoch as f64) / (mutex.initial_epoch as f64));
+            if p.is_finite() {
+                p.clamp(0.0, 1.0)
+            } else {
+                0.0
+            }
+        };
+
+        let status = ApiExportStatus {
+            progress,
+            exporting: mutex.exporting,
+            cancelled: mutex.cancelled,
+            start_time: mutex.start_time,
+        };
+
+        Ok(status)
+    }
+}
+
+pub enum ForestChainExportCancel {}
+impl RpcMethod<0> for ForestChainExportCancel {
+    const NAME: &'static str = "Forest.ChainExportCancel";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = bool;
+
+    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        if let Some(token) = CHAIN_EXPORT_LOCK.lock().await.as_ref() {
+            token.cancel();
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 }
 
@@ -529,7 +619,7 @@ impl RpcMethod<1> for ChainExport {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainExportParams,);
-    type Ok = Option<String>;
+    type Ok = ApiExportResult;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
