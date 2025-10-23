@@ -629,7 +629,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         with_methods!(
             create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS + 1)
                 .name("eth_newFilter over limit")
-                .should_fail_with("maximum number of filters registered"),
+                .should_fail_with("Request rejected `500`"),
             EthNewFilter,
             EthUninstallFilter
         ),
