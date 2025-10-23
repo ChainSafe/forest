@@ -160,7 +160,8 @@ async fn export_to_forest_car<D: Digest>(
             tipset.clone().chain_owned(Arc::clone(db)),
             stateroot_lookup_limit,
         )
-        .with_seen(seen),
+        .with_seen(seen)
+        .track_progress(true),
     );
 
     // Encode Ipld key-value pairs in zstd frames

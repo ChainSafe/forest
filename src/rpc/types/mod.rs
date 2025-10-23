@@ -30,6 +30,7 @@ use crate::shim::{
     message::Message,
     sector::{ExtendedSectorInfo, RegisteredSealProof, SectorNumber, StoragePower},
 };
+use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::RawBytes;
@@ -561,3 +562,21 @@ impl From<StampedEvent> for Event {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
+pub struct ApiExportStatus {
+    pub progress: f64,
+    pub exporting: bool,
+    pub cancelled: bool,
+    pub start_time: chrono::DateTime<Utc>,
+}
+
+lotus_json_with_self!(ApiExportStatus);
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
+pub enum ApiExportResult {
+    Done(Option<String>),
+    Cancelled,
+}
+
+lotus_json_with_self!(ApiExportResult);
