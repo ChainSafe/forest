@@ -49,13 +49,9 @@ where
         let fut = self.service.call(request);
         async move {
             let mut rp = fut.await?;
-            let status_code = rp
-                .extensions()
-                .get::<StatusCode>()
-                .copied()
-                .unwrap_or_default();
-
-            *rp.status_mut() = status_code;
+            if let Some(status_code) = rp.extensions().get::<StatusCode>() {
+                *rp.status_mut() = *status_code;
+            }
 
             Ok(rp)
         }
