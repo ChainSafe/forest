@@ -45,6 +45,8 @@
 
 ### Fixed
 
+- [#6178](https://github.com/ChainSafe/forest/pull/6178) Fixed incorrect error code for unsupported RPC methods.
+
 ## Forest v0.30.2 "Garuda"
 
 This is a non-mandatory release that brings important enhancements to Forest's tooling capabilities, Ethereum RPC compatibility, and F3 integration.
