@@ -83,3 +83,12 @@ $FOREST_CLI_PATH state compute --epoch "$start_epoch" -n 10 -v
 echo "Validating metrics"
 wget -O metrics.log http://localhost:6116/metrics
 go run ./tools/prometheus_metrics_validator metrics.log
+
+# Assert unsupported method returns HTTP 200 but RPC error code -32601
+echo "Testing unsupported RPC method handling"
+unsupported_response=$(curl -s -X POST http://localhost:2345/rpc/v1 -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"Invoke.Cthulhu","params":[],"id":1}')
+error_code=$(echo "$unsupported_response" | jq -r '.error.code')
+if [ "$error_code" != "-32601" ]; then
+  echo "Unexpected error code for unsupported method: $error_code"
+  exit 1
+fi
