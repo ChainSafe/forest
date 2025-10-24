@@ -450,18 +450,6 @@ impl ExtBlockNumberOrHash {
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct EthTransactionCall {
-    from: Option<EthAddress>,
-    to: Option<EthAddress>,
-    gas: Option<EthUint64>,
-    gas_price: Option<EthUint64>,
-    value: Option<EthHash>,
-    data: Option<EthBytes>,
-}
-
-lotus_json_with_self!(EthTransactionCall);
-
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum EthTraceType {
     Trace,
@@ -3367,15 +3355,29 @@ impl RpcMethod<3> for EthTraceCall {
     const NAME: &'static str = "Filecoin.EthTraceCall";
     const NAME_ALIAS: Option<&'static str> = Some("trace_call");
     const N_REQUIRED_PARAMS: usize = 1;
-    const PARAM_NAMES: [&'static str; 3] = ["transaction", "traceTypes", "blockParam"];
+    const PARAM_NAMES: [&'static str; 3] = ["tx", "traceTypes", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    type Params = (EthTransactionCall, Vec<EthTraceType>, ExtBlockNumberOrHash);
+    type Params = (EthCallMessage, Vec<EthTraceType>, BlockNumberOrHash);
     type Ok = Vec<EthTraceResults>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (transaction, trace_types, block_param): Self::Params,
+        (tx, trace_types, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        // dbg!(&tx);
+        // dbg!(&trace_types);
+        // dbg!(&block_param);
+
+        let msg = Message::try_from(tx)?;
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            block_param,
+            ResolveNullTipset::TakeOlder,
+        )?;
+        let invoke_result = apply_message(&ctx, Some(ts), msg.clone()).await?;
+
+        dbg!(invoke_result);
+
         Ok(vec![])
     }
 }
