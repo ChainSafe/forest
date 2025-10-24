@@ -449,6 +449,54 @@ impl ExtBlockNumberOrHash {
     }
 }
 
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct EthTransactionCall {
+    from: Option<EthAddress>,
+    to: Option<EthAddress>,
+    gas: Option<EthUint64>,
+    gas_price: Option<EthUint64>,
+    value: Option<EthHash>,
+    data: Option<EthBytes>,
+}
+
+lotus_json_with_self!(EthTransactionCall);
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EthTraceType {
+    Trace,
+    StateDiff,
+}
+
+lotus_json_with_self!(EthTraceType);
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct EthTransactionTrace {
+    name: String,
+}
+
+lotus_json_with_self!(EthTransactionTrace);
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthVmTrace {
+    code: EthBytes,
+    //ops: Vec<Instruction>,
+}
+
+lotus_json_with_self!(EthVmTrace);
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthTraceResults {
+    output: Option<EthBytes>,
+    state_diff: Option<String>,
+    trace: Vec<EthTransactionTrace>,
+    vm_trace: Option<EthVmTrace>,
+}
+
+lotus_json_with_self!(EthTraceResults);
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
 pub enum Transactions {
@@ -3312,6 +3360,24 @@ async fn trace_block<B: Blockstore + Send + Sync + 'static>(
         }
     }
     Ok(all_traces)
+}
+
+pub enum EthTraceCall {}
+impl RpcMethod<3> for EthTraceCall {
+    const NAME: &'static str = "Filecoin.EthTraceCall";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_call");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 3] = ["transaction", "traceTypes", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthTransactionCall, Vec<EthTraceType>, ExtBlockNumberOrHash);
+    type Ok = Vec<EthTraceResults>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (transaction, trace_types, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(vec![])
+    }
 }
 
 pub enum EthTraceTransaction {}
