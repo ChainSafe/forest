@@ -69,17 +69,14 @@ impl ComputeCommand {
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
-        let chain_store = Arc::new(
-            ChainStore::new(
-                db.clone(),
-                db.clone(),
-                db.clone(),
-                db.clone(),
-                chain_config,
-                genesis_header,
-            )
-            .unwrap(),
-        );
+        let chain_store = Arc::new(ChainStore::new(
+            db.clone(),
+            db.clone(),
+            db.clone(),
+            db.clone(),
+            chain_config,
+            genesis_header,
+        )?);
         let ts = chain_store.chain_index().tipset_by_height(
             epoch,
             chain_store.heaviest_tipset(),
@@ -87,7 +84,7 @@ impl ComputeCommand {
         )?;
         let epoch = ts.epoch();
         SettingsStoreExt::write_obj(&db.tracker, crate::db::setting_keys::HEAD_KEY, ts.key())?;
-        let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
+        let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
 
         let StateOutput {
             state_root,
@@ -134,18 +131,15 @@ impl ReplayComputeCommand {
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
-        let chain_store = Arc::new(
-            ChainStore::new(
-                db.clone(),
-                db.clone(),
-                db.clone(),
-                db.clone(),
-                chain_config,
-                genesis_header,
-            )
-            .unwrap(),
-        );
-        let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
+        let chain_store = Arc::new(ChainStore::new(
+            db.clone(),
+            db.clone(),
+            db.clone(),
+            db.clone(),
+            chain_config,
+            genesis_header,
+        )?);
+        let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
         for _ in 0..n.get() {
             let start = Instant::now();
             let StateOutput {
