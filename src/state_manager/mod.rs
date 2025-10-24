@@ -215,13 +215,22 @@ where
             .tuple_windows()
             .take(DEFAULT_TIPSET_CACHE_SIZE.into())
         {
+            let key = parent.key();
+            let state_root = child.min_ticket_block().state_root;
+            let receipt_root = child.min_ticket_block().message_receipts;
             self.cache.insert(
-                parent.key().clone(),
+                key.clone(),
                 StateOutputValue {
-                    state_root: child.min_ticket_block().state_root,
-                    receipt_root: child.min_ticket_block().message_receipts,
+                    state_root,
+                    receipt_root,
                 },
-            )
+            );
+            if let Ok(receipts) = Receipt::get_receipts(self.blockstore(), receipt_root)
+                && !receipts.is_empty()
+            {
+                self.receipt_event_cache_handler
+                    .insert_receipt(key, receipts);
+            }
         }
     }
 
