@@ -34,7 +34,7 @@ use crate::rpc::eth::filter::{
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::eth::utils::decode_revert_reason;
 use crate::rpc::methods::chain::ChainGetTipSetV2;
-use crate::rpc::state::ApiInvocResult;
+use crate::rpc::state::{Action, ApiInvocResult, ExecutionTrace, ResultData, TraceEntry};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::rpc::{EthEventHandler, LOOKBACK_NO_LIMIT};
@@ -81,6 +81,8 @@ use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
 use tracing::log;
 use utils::{decode_payload, lookup_eth_address};
+
+use nunny::Vec as NonEmpty;
 
 static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
     LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
@@ -468,6 +470,43 @@ impl ExtBlockNumberOrHash {
         }
     }
 }
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum EthTraceType {
+    /// Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
+    /// with details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`.
+    Trace,
+    /// Requests a state difference object, detailing changes to account states (e.g., `balance`, `nonce`, `storage`, `code`)
+    /// caused by the simulated transaction.
+    ///
+    /// It shows `"from"` and `"to"` values for modified fields, using `"+"`, `"-"`, or `"="` for code changes.
+    StateDiff,
+}
+
+lotus_json_with_self!(EthTraceType);
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthVmTrace {
+    code: EthBytes,
+    //ops: Vec<Instruction>,
+}
+
+lotus_json_with_self!(EthVmTrace);
+
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthTraceResults {
+    output: Option<EthBytes>,
+    state_diff: Option<String>,
+    trace: Vec<TraceEntry>,
+    // This should always be empty since we don't support `vmTrace` atm (this
+    // would likely need changes in the FEVM)
+    vm_trace: Option<EthVmTrace>,
+}
+
+lotus_json_with_self!(EthTraceResults);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
@@ -3909,6 +3948,111 @@ where
         }
     }
     Ok(all_traces)
+}
+
+fn get_output(msg: &Message, invoke_result: ApiInvocResult) -> Result<EthBytes> {
+    if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+        Ok(EthBytes::default())
+    } else {
+        let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
+        let return_data = msg_rct.return_data();
+        if return_data.is_empty() {
+            Ok(Default::default())
+        } else {
+            let bytes = decode_payload(&return_data, CBOR)?;
+            Ok(bytes)
+        }
+    }
+}
+
+fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[usize]) -> Result<Vec<TraceEntry>> {
+    let mut entries = Vec::new();
+
+    // Build entry for current trace
+    let entry = TraceEntry {
+        action: Action {
+            call_type: "call".to_string(), // (e.g., "create" for contract creation)
+            from: EthAddress::from_filecoin_address(&trace.msg.from)?,
+            to: EthAddress::from_filecoin_address(&trace.msg.to)?,
+            gas: trace.msg.gas_limit.unwrap_or_default().into(),
+            // input needs proper decoding
+            input: trace.msg.params.clone().into(),
+            value: trace.msg.value.clone().into(),
+        },
+        result: if trace.msg_rct.exit_code.is_success() {
+            let gas_used = trace.sum_gas().total_gas.into();
+            Some(ResultData {
+                gas_used,
+                output: trace.msg_rct.r#return.clone().into(),
+            })
+        } else {
+            // Revert case
+            None
+        },
+        subtraces: trace.subcalls.len(),
+        trace_address: parent_trace_address.to_vec(),
+        type_: "call".to_string(),
+    };
+    entries.push(entry);
+
+    // Recursively build subcall traces
+    for (i, subcall) in trace.subcalls.iter().enumerate() {
+        let mut sub_trace_address = parent_trace_address.to_vec();
+        sub_trace_address.push(i);
+        entries.extend(get_entries(subcall, &sub_trace_address)?);
+    }
+
+    Ok(entries)
+}
+
+pub enum EthTraceCall {}
+impl RpcMethod<3> for EthTraceCall {
+    const NAME: &'static str = "Forest.EthTraceCall";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_call");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 3] = ["tx", "traceTypes", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthCallMessage, NonEmpty<EthTraceType>, BlockNumberOrHash);
+    type Ok = EthTraceResults;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, trace_types, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // Note: tx.to should not be null, it should always be set to something
+        // (contract address or EOA)
+
+        // Note: Should we support nonce?
+
+        // dbg!(&tx);
+        // dbg!(&trace_types);
+        // dbg!(&block_param);
+
+        let msg = Message::try_from(tx)?;
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            block_param,
+            ResolveNullTipset::TakeOlder,
+        )?;
+        let invoke_result = apply_message(&ctx, Some(ts), msg.clone()).await?;
+        dbg!(&invoke_result);
+
+        let mut trace_results: EthTraceResults = Default::default();
+        let output = get_output(&msg, invoke_result.clone())?;
+        // output is always present, should we remove option?
+        trace_results.output = Some(output);
+        if trace_types.contains(&EthTraceType::Trace) {
+            // Built trace objects
+            let entries = if let Some(exec_trace) = invoke_result.execution_trace {
+                get_entries(&exec_trace, &[])?
+            } else {
+                Default::default()
+            };
+            trace_results.trace = entries;
+        }
+
+        Ok(trace_results)
+    }
 }
 
 pub enum EthTraceTransaction {}
