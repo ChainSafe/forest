@@ -75,6 +75,8 @@ use std::sync::{Arc, LazyLock};
 use tracing::log;
 use utils::{decode_payload, lookup_eth_address};
 
+use nunny::Vec as NonEmpty;
+
 static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
     LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
 
@@ -3366,7 +3368,7 @@ impl RpcMethod<3> for EthTraceCall {
     const PARAM_NAMES: [&'static str; 3] = ["tx", "traceTypes", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    type Params = (EthCallMessage, Vec<EthTraceType>, BlockNumberOrHash);
+    type Params = (EthCallMessage, NonEmpty<EthTraceType>, BlockNumberOrHash);
     type Ok = Vec<EthTraceResults>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
