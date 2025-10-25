@@ -450,9 +450,15 @@ impl ExtBlockNumberOrHash {
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub enum EthTraceType {
+    /// Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
+    /// with details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`.
     Trace,
+    /// Requests a state difference object, detailing changes to account states (e.g., `balance`, `nonce`, `storage`, `code`)
+    /// caused by the simulated transaction.
+    ///
+    /// It shows `"from"` and `"to"` values for modified fields, using `"+"`, `"-"`, or `"="` for code changes.
     StateDiff,
 }
 
@@ -480,6 +486,8 @@ pub struct EthTraceResults {
     output: Option<EthBytes>,
     state_diff: Option<String>,
     trace: Vec<EthTransactionTrace>,
+    // This should always be empty since we don't support `vmTrace` atm (this
+    // would likely need changes in the FEVM)
     vm_trace: Option<EthVmTrace>,
 }
 
@@ -3364,6 +3372,11 @@ impl RpcMethod<3> for EthTraceCall {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, trace_types, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        // Note: tx.to should not be null, it should always be set to something
+        // (contract address or EOA)
+
+        // Note: Should we support nonce?
+
         // dbg!(&tx);
         // dbg!(&trace_types);
         // dbg!(&block_param);
