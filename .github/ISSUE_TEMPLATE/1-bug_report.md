@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Provide a report of unexpected behaviour
+about: Provide a report of unexpected behavior
 title: ""
 labels: "Type: Bug"
 assignees: ""
@@ -12,7 +12,7 @@ assignees: ""
 
 ## To reproduce
 
-<!-- Steps to reproduce the behaviour: -->
+<!-- Steps to reproduce the behavior: -->
 
 1. Go to '...'
 2. Run '....'
@@ -29,7 +29,7 @@ assignees: ""
   ```
 </details>
 
-## Expected behaviour
+## Expected behavior
 
 <!-- A clear and concise description of what you expected to happen. -->
 

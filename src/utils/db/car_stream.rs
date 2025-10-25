@@ -34,7 +34,7 @@ const MAX_FRAME_LEN: usize = 512 * 1024 * 1024;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarV1Header {
-    // The roots array must contain one or more CIDs,
+    // The roots array must contain one or more `CIDs`,
     // each of which should be present somewhere in the remainder of the CAR.
     // See <https://ipld.io/specs/transport/car/carv1/#constraints>
     pub roots: NonEmpty<Cid>,

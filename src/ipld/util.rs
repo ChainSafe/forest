@@ -61,9 +61,9 @@ pub fn cancel_export() {
 }
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
-    // Don't include identity CIDs.
+    // Don't include identity `CIDs`.
     // We only include raw and dagcbor, for now.
-    // Raw for "code" CIDs.
+    // Raw for "code" `CIDs`.
     if cid.hash().code() == u64::from(MultihashCode::Identity) {
         false
     } else {

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(doc)]
 use crate::blocks::TipsetKey;
 
-/// There are typically MANY small, immutable collections of CIDs in, e.g [`TipsetKey`]s.
+/// There are typically MANY small, immutable collections of `CIDs` in, e.g [`TipsetKey`]s.
 ///
 /// Save space on those by:
 /// - Using [`SmallCid`]s
@@ -130,7 +130,7 @@ impl<'de> Deserialize<'de> for SmallCid {
 /////////////////////
 
 #[cfg(test)]
-// Note this goes through MaybeCompactedCid, artificially bumping the probability of compact CIDs
+// Note this goes through MaybeCompactedCid, artificially bumping the probability of compact `CIDs`
 impl quickcheck::Arbitrary for SmallCid {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         Self::from(Cid::from(MaybeCompactedCid::arbitrary(g)))

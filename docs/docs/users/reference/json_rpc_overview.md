@@ -14,7 +14,7 @@ This API is still a WIP, with more methods being added continuously.
 :::note
 
 Need a specific method? Let us know on
-[Github](https://github.com/ChainSafe/forest/issues) or Filecoin Slack
+[GitHub](https://github.com/ChainSafe/forest/issues) or Filecoin Slack
 (`#fil-forest-help`) 🙏
 
 :::

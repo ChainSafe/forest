@@ -22,7 +22,7 @@ config
 Datacap
 datacap
 devnet
-Devops
+DevOps
 Devs
 DHT
 DigitalOcean
