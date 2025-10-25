@@ -143,7 +143,7 @@ impl TestSummary {
 
 /// Data about a failed test. Used for debugging.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct TestDump {
+pub struct TestDump {
     pub request: rpc::Request,
     pub forest_response: Result<Value, String>,
     pub lotus_response: Result<Value, String>,
