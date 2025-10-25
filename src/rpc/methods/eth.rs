@@ -3408,9 +3408,11 @@ impl RpcMethod<3> for EthTraceCall {
         dbg!(&invoke_result);
 
         let mut trace_results: EthTraceResults = Default::default();
+        let output = get_output(&msg, invoke_result)?;
+        // output is always present, should we remove option?
+        trace_results.output = Some(output);
         if trace_types.contains(&EthTraceType::Trace) {
-            let output = get_output(&msg, invoke_result)?;
-            trace_results.output = Some(output);
+            // Built trace objects
         }
 
         Ok(trace_results)
