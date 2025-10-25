@@ -33,7 +33,7 @@ use crate::rpc::eth::filter::{
 };
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::eth::utils::decode_revert_reason;
-use crate::rpc::state::ApiInvocResult;
+use crate::rpc::state::{Action, ApiInvocResult, ExecutionTrace, ResultData, TraceEntry};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::rpc::{EthEventHandler, LOOKBACK_NO_LIMIT};
@@ -467,13 +467,6 @@ pub enum EthTraceType {
 lotus_json_with_self!(EthTraceType);
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct EthTransactionTrace {
-    name: String,
-}
-
-lotus_json_with_self!(EthTransactionTrace);
-
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthVmTrace {
     code: EthBytes,
@@ -487,7 +480,7 @@ lotus_json_with_self!(EthVmTrace);
 pub struct EthTraceResults {
     output: Option<EthBytes>,
     state_diff: Option<String>,
-    trace: Vec<EthTransactionTrace>,
+    trace: Vec<TraceEntry>,
     // This should always be empty since we don't support `vmTrace` atm (this
     // would likely need changes in the FEVM)
     vm_trace: Option<EthVmTrace>,
@@ -3375,6 +3368,46 @@ fn get_output(msg: &Message, invoke_result: ApiInvocResult) -> Result<EthBytes> 
     }
 }
 
+fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[EthUint64]) -> Vec<TraceEntry> {
+    let mut entries = Vec::new();
+
+    // Build entry for current trace
+    let gas = trace.sum_gas().total_gas;
+    let entry = TraceEntry {
+        action: Action {
+            call_type: "call".to_string(), // (e.g., "create" for contract creation)
+            from: trace.msg.from.clone(),
+            to: trace.msg.to.clone(),
+            gas: gas.into(),
+            input: trace.msg.params.clone(),
+            value: trace.msg.value.clone(),
+        },
+        result: if trace.msg_rct.exit_code.is_success() {
+            let gas_used = trace.sum_gas().total_gas.into();
+            Some(ResultData {
+                gas_used,
+                output: trace.msg_rct.r#return.clone().into(),
+            })
+        } else {
+            // Revert case
+            None
+        },
+        subtraces: EthUint64(trace.subcalls.len() as _),
+        trace_address: parent_trace_address.to_vec(),
+        type_: "call".to_string(),
+    };
+    entries.push(entry);
+
+    // Recursively build subcall traces
+    for (i, subcall) in trace.subcalls.iter().enumerate() {
+        let mut sub_trace_address = parent_trace_address.to_vec();
+        sub_trace_address.push(EthUint64(i as _));
+        entries.extend(get_entries(subcall, &sub_trace_address));
+    }
+
+    entries
+}
+
 pub enum EthTraceCall {}
 impl RpcMethod<3> for EthTraceCall {
     const NAME: &'static str = "Filecoin.EthTraceCall";
@@ -3408,11 +3441,17 @@ impl RpcMethod<3> for EthTraceCall {
         dbg!(&invoke_result);
 
         let mut trace_results: EthTraceResults = Default::default();
-        let output = get_output(&msg, invoke_result)?;
+        let output = get_output(&msg, invoke_result.clone())?;
         // output is always present, should we remove option?
         trace_results.output = Some(output);
         if trace_types.contains(&EthTraceType::Trace) {
             // Built trace objects
+            let entries = if let Some(exec_trace) = invoke_result.execution_trace {
+                get_entries(&exec_trace, &[EthUint64(0)])
+            } else {
+                Default::default()
+            };
+            trace_results.trace = entries;
         }
 
         Ok(trace_results)

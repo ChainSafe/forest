@@ -4,6 +4,8 @@
 use crate::blocks::TipsetKey;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::Message as _;
+use crate::rpc::eth::EthUint64;
+use crate::rpc::eth::types::EthBytes;
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::Address,
@@ -235,6 +237,48 @@ impl PartialEq for GasTrace {
             && self.compute_gas == other.compute_gas
             && self.storage_gas == other.storage_gas
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Action {
+    pub call_type: String, // E.g., "call", "delegatecall", "create"
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Address>")]
+    pub from: Address,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Address>")]
+    pub to: Address,
+    pub gas: EthUint64,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<RawBytes>")]
+    pub input: RawBytes,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub value: TokenAmount,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultData {
+    pub gas_used: EthUint64,
+    pub output: EthBytes,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TraceEntry {
+    /// Call parameters
+    pub action: Action,
+    /// Call result or `None` for reverts
+    pub result: Option<ResultData>,
+    /// Number of nested calls
+    pub subtraces: EthUint64,
+    /// Path in call hierarchy (e.g., [], [0], [0, 1])
+    pub trace_address: Vec<EthUint64>,
+    /// Call type, e.g., "call", "delegatecall", "create"
+    #[serde(rename = "type")]
+    pub type_: String,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
