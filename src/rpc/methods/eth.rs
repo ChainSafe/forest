@@ -482,7 +482,7 @@ pub struct EthVmTrace {
 
 lotus_json_with_self!(EthVmTrace);
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTraceResults {
     output: Option<EthBytes>,
@@ -3360,6 +3360,21 @@ async fn trace_block<B: Blockstore + Send + Sync + 'static>(
     Ok(all_traces)
 }
 
+fn get_output(msg: &Message, invoke_result: ApiInvocResult) -> Result<EthBytes> {
+    if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+        Ok(EthBytes::default())
+    } else {
+        let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
+        let return_data = msg_rct.return_data();
+        if return_data.is_empty() {
+            Ok(Default::default())
+        } else {
+            let bytes = decode_payload(&return_data, CBOR)?;
+            Ok(bytes)
+        }
+    }
+}
+
 pub enum EthTraceCall {}
 impl RpcMethod<3> for EthTraceCall {
     const NAME: &'static str = "Filecoin.EthTraceCall";
@@ -3369,7 +3384,7 @@ impl RpcMethod<3> for EthTraceCall {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthCallMessage, NonEmpty<EthTraceType>, BlockNumberOrHash);
-    type Ok = Vec<EthTraceResults>;
+    type Ok = EthTraceResults;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, trace_types, block_param): Self::Params,
@@ -3390,10 +3405,15 @@ impl RpcMethod<3> for EthTraceCall {
             ResolveNullTipset::TakeOlder,
         )?;
         let invoke_result = apply_message(&ctx, Some(ts), msg.clone()).await?;
+        dbg!(&invoke_result);
 
-        dbg!(invoke_result);
+        let mut trace_results: EthTraceResults = Default::default();
+        if trace_types.contains(&EthTraceType::Trace) {
+            let output = get_output(&msg, invoke_result)?;
+            trace_results.output = Some(output);
+        }
 
-        Ok(vec![])
+        Ok(trace_results)
     }
 }
 
