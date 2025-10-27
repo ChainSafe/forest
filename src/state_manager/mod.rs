@@ -204,6 +204,55 @@ where
         })
     }
 
+    /// Returns the currently tracked heaviest tipset.
+    pub fn heaviest_tipset(&self) -> Arc<Tipset> {
+        self.chain_store().heaviest_tipset()
+    }
+
+    /// Returns the currently tracked heaviest tipset and rewind to a most recent valid one if necessary.
+    pub fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()> {
+        while self.maybe_rewind_heaviest_tipset_once()? {}
+        Ok(())
+    }
+
+    fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool> {
+        let head = self.heaviest_tipset();
+        if let Some((_, expected_height_info, expected_bundle)) = self
+            .chain_config()
+            .network_height_with_actor_bundle(self.blockstore(), head.epoch())?
+        {
+            let expected_bundle_metadata = expected_bundle.metadata()?;
+            let state = self.get_state_tree(head.parent_state())?;
+            let bundle_metadata = state.get_actor_bundle_metadata()?;
+            if expected_bundle_metadata != bundle_metadata {
+                let current_epoch = head.epoch();
+                let target_head = self.chain_index().tipset_by_height(
+                    (expected_height_info.epoch - 1).max(0),
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                let target_epoch = target_head.epoch();
+                let bundle_version = &bundle_metadata.version;
+                let expected_bundle_version = &expected_bundle_metadata.version;
+                if target_epoch < current_epoch {
+                    tracing::warn!(
+                        "rewinding chain head from {current_epoch} to {target_epoch}, actor bundle: {bundle_version}, expected: {expected_bundle_version}"
+                    );
+                    if self.blockstore().has(target_head.parent_state())? {
+                        self.chain_store().set_heaviest_tipset(target_head)?;
+                        return Ok(true);
+                    } else {
+                        anyhow::bail!(
+                            "failed to rewind, state tree @ {target_epoch} is missing from blockstore: {}",
+                            target_head.parent_state()
+                        );
+                    }
+                }
+            }
+        }
+        Ok(false)
+    }
+
     // Given the assumption that the heaviest tipset must always be validated,
     // we can populate our state cache by walking backwards through the
     // block-chain. A warm cache cuts 10-20 seconds from the first state
@@ -211,7 +260,7 @@ where
     pub fn populate_cache(&self) {
         for (child, parent) in self
             .chain_index()
-            .chain(self.cs.heaviest_tipset())
+            .chain(self.heaviest_tipset())
             .tuple_windows()
             .take(DEFAULT_TIPSET_CACHE_SIZE.into())
         {
@@ -610,7 +659,7 @@ where
         message: &Message,
         tipset: Option<Arc<Tipset>>,
     ) -> Result<ApiInvocResult, Error> {
-        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
+        let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let chain_rand = self.chain_rand(Arc::clone(&ts));
         self.call_raw(message, chain_rand, &ts)
     }
@@ -620,7 +669,7 @@ where
         tipset: Option<Arc<Tipset>>,
         msg: Message,
     ) -> anyhow::Result<ApiInvocResult> {
-        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
+        let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
         let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
 
@@ -664,7 +713,7 @@ where
         tipset: Option<Arc<Tipset>>,
         trace_config: VMTrace,
     ) -> Result<(InvocResult, ApplyRet, Duration), Error> {
-        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
+        let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
             .await
@@ -1077,7 +1126,7 @@ where
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
-        let current_tipset = self.cs.heaviest_tipset();
+        let current_tipset = self.heaviest_tipset();
         let maybe_message_receipt =
             self.tipset_executed_message(&current_tipset, &message, true)?;
         if let Some(r) = maybe_message_receipt {
@@ -1196,10 +1245,10 @@ where
         look_back_limit: Option<i64>,
         allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
-        let from = from.unwrap_or_else(|| self.chain_store().heaviest_tipset());
+        let from = from.unwrap_or_else(|| self.heaviest_tipset());
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
-        let current_tipset = self.cs.heaviest_tipset();
+        let current_tipset = self.heaviest_tipset();
         let maybe_message_receipt =
             self.tipset_executed_message(&from, &message, allow_replaced.unwrap_or(true))?;
         if let Some(r) = maybe_message_receipt {
@@ -1496,7 +1545,7 @@ where
     /// This is suspected to be due something in the VM or its `WASM` runtime.
     #[tracing::instrument(skip(self))]
     pub fn validate_range(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
-        let heaviest = self.cs.heaviest_tipset();
+        let heaviest = self.heaviest_tipset();
         let heaviest_epoch = heaviest.epoch();
         let end = self
             .chain_index()
@@ -1676,7 +1725,7 @@ where
         let next_epoch = epoch + 1;
 
         // Only check the immediate next epoch - this is the most likely place to find a child
-        let heaviest = self.cs.heaviest_tipset();
+        let heaviest = self.heaviest_tipset();
         if next_epoch > heaviest.epoch() {
             return None;
         }

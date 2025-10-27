@@ -5,7 +5,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::utils::db::CborStoreExt as _;
+use crate::{
+    networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata},
+    utils::db::CborStoreExt as _,
+};
 use anyhow::{Context as _, ensure};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -186,6 +189,18 @@ impl BuiltinActorManifest {
     }
     pub fn builtin_actors(&self) -> impl ExactSizeIterator<Item = (BuiltinActor, Cid)> + '_ {
         self.builtin2cid.iter().map(|(k, v)| (*k, *v)) // std::iter::Copied doesn't play well with the tuple here
+    }
+    /// Get the actor bundle metadata
+    pub fn metadata(&self) -> anyhow::Result<&ActorBundleMetadata> {
+        ACTOR_BUNDLES_METADATA
+            .values()
+            .find(|v| &v.manifest == self)
+            .with_context(|| {
+                format!(
+                    "actor bundle not found for system actor {}",
+                    self.get_system()
+                )
+            })
     }
 }
 

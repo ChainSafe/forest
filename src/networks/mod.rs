@@ -7,6 +7,7 @@ use std::sync::LazyLock;
 use ahash::HashMap;
 use cid::Cid;
 use fil_actors_shared::v13::runtime::Policy;
+use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,7 @@ use crate::db::SettingsStore;
 use crate::eth::EthChainId;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::econ::TokenAmount;
+use crate::shim::machine::BuiltinActorManifest;
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
 use crate::utils::misc::env::env_or_default;
@@ -420,6 +422,26 @@ impl ChainConfig {
             .rev()
             .find(|(_, info)| epoch > info.epoch)
             .map(|(height, _)| *height)
+    }
+
+    pub fn network_height_with_actor_bundle(
+        &self,
+        store: &impl Blockstore,
+        epoch: ChainEpoch,
+    ) -> anyhow::Result<Option<(Height, &HeightInfo, BuiltinActorManifest)>> {
+        if let Some((height, info, bundle)) = self
+            .height_infos
+            .iter()
+            .sorted_by_key(|(_, info)| info.epoch)
+            .rev()
+            .filter_map(|(height, info)| info.bundle.map(|bundle| (*height, info, bundle)))
+            .find(|(_, info, _)| epoch > info.epoch)
+        {
+            let manifest = BuiltinActorManifest::load_manifest(store, &bundle)?;
+            Ok(Some((height, info, manifest)))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Returns the network version at the given epoch.
