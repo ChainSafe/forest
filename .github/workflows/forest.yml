@@ -572,7 +572,6 @@ jobs:
         if: always()
         uses: jwalton/gh-docker-logs@v2
   bootstrap-checks-lotus:
-    if: false
     needs:
       - build-ubuntu
     name: Bootstrap checks - Lotus
@@ -585,6 +584,7 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
+      - run: ./scripts/optimize_disk_space_gh_worker.sh
       - name: Run bootstrap tests
         run: ./scripts/tests/bootstrapper/test_bootstrapper.sh lotus
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
