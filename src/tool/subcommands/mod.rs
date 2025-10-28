@@ -12,6 +12,7 @@ mod index_cmd;
 mod net_cmd;
 mod shed_cmd;
 mod snapshot_cmd;
+mod state_compute_cmd;
 mod state_migration_cmd;
 
 use crate::cli_shared::cli::*;
@@ -80,6 +81,9 @@ pub enum Subcommand {
     /// Miscellaneous, semver-exempt commands for developer use.
     #[command(subcommand)]
     Shed(shed_cmd::ShedCommands),
+
+    #[command(subcommand)]
+    State(state_compute_cmd::StateCommand),
 
     Completion(CompletionCommand),
 }

@@ -35,6 +35,10 @@
 
 - [#6166](https://github.com/ChainSafe/forest/pull/6166) Gate `JWT` expiration validation behind environment variable `FOREST_JWT_DISABLE_EXP_VALIDATION`.
 
+- [#6167](https://github.com/ChainSafe/forest/pull/6167) Added `forest-tool state compute` subcommand to generate database snapshot for tipset validation.
+
+- [#6167](https://github.com/ChainSafe/forest/pull/6167) Added `forest-tool state replay-compute` subcommand to replay tipset validation with a minimal database snapshot.
+
 - [#6171](https://github.com/ChainSafe/forest/pull/6171) Enable V2 API support for basic Eth RPC methods: `EthChainId`, `EthProtocolVersion`, `EthSyncing`, `EthAccounts`.
 
 ### Changed
@@ -46,6 +50,8 @@
 ### Fixed
 
 - [#6178](https://github.com/ChainSafe/forest/pull/6178) Fixed incorrect error code for unsupported RPC methods.
+
+- [#6189](https://github.com/ChainSafe/forest/pull/6189) Improved performance of `eth_getBlockByHash` and `eth_getBlockByNumber`.
 
 ## Forest v0.30.2 "Garuda"
 

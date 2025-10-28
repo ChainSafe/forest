@@ -18,7 +18,7 @@ use itertools::Either;
 use positioned_io::ReadAt;
 use std::borrow::Cow;
 use std::io::{Error, ErrorKind, Read, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub enum AnyCar<ReaderT> {
@@ -135,6 +135,13 @@ impl TryFrom<&Path> for AnyCar<EitherMmapOrRandomAccessFile> {
     type Error = std::io::Error;
     fn try_from(path: &Path) -> std::io::Result<Self> {
         AnyCar::new(EitherMmapOrRandomAccessFile::open(path)?)
+    }
+}
+
+impl TryFrom<&PathBuf> for AnyCar<EitherMmapOrRandomAccessFile> {
+    type Error = std::io::Error;
+    fn try_from(path: &PathBuf) -> std::io::Result<Self> {
+        Self::try_from(path.as_path())
     }
 }
 
