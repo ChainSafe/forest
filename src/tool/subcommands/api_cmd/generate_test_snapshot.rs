@@ -70,9 +70,7 @@ pub async fn run_test_with_dump(
     Ok(())
 }
 
-pub(super) fn load_db(
-    db_root: &Path,
-) -> anyhow::Result<Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>> {
+pub fn load_db(db_root: &Path) -> anyhow::Result<Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>> {
     let db_writer = open_db(db_root.into(), &Default::default())?;
     let db = ManyCar::new(db_writer);
     let forest_car_db_dir = db_root.join(CAR_DB_DIR_NAME);
@@ -123,7 +121,7 @@ async fn ctx(
             db.clone(),
             db,
             chain_config,
-            genesis_header.clone(),
+            genesis_header,
         )
         .unwrap(),
     );
