@@ -7,7 +7,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use crate::shim::message::MethodNum;
 use fvm_ipld_encoding::RawBytes;
-use paste::paste;
+use pastey::paste;
 use serde::{Deserialize, Serialize};
 
 // ConstructorParams

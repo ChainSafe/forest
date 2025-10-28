@@ -15,7 +15,7 @@ use fvm_ipld_encoding::{BytesDe, RawBytes};
 use fvm_shared4::deal::DealID;
 use fvm_shared4::sector::RegisteredUpdateProof;
 use num::BigInt;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
