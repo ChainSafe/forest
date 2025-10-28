@@ -210,6 +210,9 @@ where
     }
 
     /// Returns the currently tracked heaviest tipset and rewind to a most recent valid one if necessary.
+    /// A valid head has
+    ///     - state tree in the blockstore
+    ///     - actor bundle version in the state tree that matches chain configuration
     pub fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()> {
         while self.maybe_rewind_heaviest_tipset_once()? {}
         Ok(())
@@ -217,10 +220,12 @@ where
 
     fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool> {
         let head = self.heaviest_tipset();
-        if let Some((_, expected_height_info, expected_bundle)) = self
+        if let Some(info) = self
             .chain_config()
-            .network_height_with_actor_bundle(self.blockstore(), head.epoch())?
+            .network_height_with_actor_bundle(head.epoch())
         {
+            let expected_height_info = info.info;
+            let expected_bundle = info.manifest(self.blockstore())?;
             let expected_bundle_metadata = expected_bundle.metadata()?;
             let state = self.get_state_tree(head.parent_state())?;
             let bundle_metadata = state.get_actor_bundle_metadata()?;

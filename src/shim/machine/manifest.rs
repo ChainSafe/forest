@@ -319,4 +319,12 @@ mod test {
             serde_json::from_str(&serialized);
         assert!(deserialized.is_err());
     }
+
+    #[test]
+    fn test_manifest_metadata() {
+        for metadata in ACTOR_BUNDLES_METADATA.values() {
+            let manifest = &metadata.manifest;
+            assert_eq!(metadata, manifest.metadata().unwrap());
+        }
+    }
 }

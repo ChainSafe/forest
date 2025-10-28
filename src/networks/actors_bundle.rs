@@ -9,7 +9,6 @@ use ahash::HashMap;
 use anyhow::ensure;
 use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
-use educe::Educe;
 use futures::stream::FuturesUnordered;
 use futures::{StreamExt, TryStreamExt, stream};
 use fvm_ipld_blockstore::MemoryBlockstore;
@@ -111,14 +110,12 @@ pub static ACTOR_BUNDLES: LazyLock<Box<[ActorBundleInfo]>> = LazyLock::new(|| {
 });
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Debug, Educe)]
-#[educe(PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ActorBundleMetadata {
     pub network: NetworkChain,
     pub version: String,
     #[serde_as(as = "DisplayFromStr")]
     pub bundle_cid: Cid,
-    #[educe(PartialEq(ignore))]
     pub manifest: BuiltinActorManifest,
 }
 
