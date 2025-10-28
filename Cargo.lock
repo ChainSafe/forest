@@ -3263,7 +3263,7 @@ dependencies = [
  "openrpc-types",
  "parity-db",
  "parking_lot",
- "paste",
+ "pastey",
  "pathfinding",
  "petgraph 0.8.3",
  "pin-project-lite",

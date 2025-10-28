@@ -4,7 +4,7 @@
 use super::*;
 use crate::shim::address::Address;
 use jsonrpsee::core::Serialize;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::Deserialize;
 

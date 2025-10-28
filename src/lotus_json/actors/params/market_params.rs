@@ -12,7 +12,7 @@ use crate::test_snapshots;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 
 use ::cid::Cid;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
