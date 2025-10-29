@@ -35,6 +35,7 @@ f3-sidecar
 FFI
 FIL
 fil
+FIL-RetroPGF
 Filecoin
 filecoin-project
 Filfox
@@ -48,6 +49,7 @@ Github
 Grafana
 hardcoded
 hotfix
+hypercerts
 ie.
 Implementers
 implementers
