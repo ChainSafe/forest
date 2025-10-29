@@ -53,6 +53,8 @@
 
 - [#6189](https://github.com/ChainSafe/forest/pull/6189) Improved performance of `eth_getBlockByHash` and `eth_getBlockByNumber`.
 
+- [#6206](https://github.com/ChainSafe/forest/pull/6206) Fixed batch request error in RPC server.
+
 ## Forest v0.30.2 "Garuda"
 
 This is a non-mandatory release that brings important enhancements to Forest's tooling capabilities, Ethereum RPC compatibility, and F3 integration.

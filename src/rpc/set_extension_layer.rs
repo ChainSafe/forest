@@ -3,7 +3,7 @@
 
 use super::ApiPaths;
 use jsonrpsee::MethodResponse;
-use jsonrpsee::core::middleware::{Batch, Notification};
+use jsonrpsee::core::middleware::{Batch, BatchEntry, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use tower::Layer;
 
@@ -30,6 +30,12 @@ pub(super) struct SetExtensionService<S> {
     path: Option<ApiPaths>,
 }
 
+impl<S> SetExtensionService<S> {
+    fn path(&self) -> ApiPaths {
+        self.path.unwrap_or(ApiPaths::V1)
+    }
+}
+
 impl<S> RpcServiceT for SetExtensionService<S>
 where
     S: RpcServiceT<MethodResponse = MethodResponse> + Send + Sync + Clone + 'static,
@@ -42,8 +48,7 @@ where
         &self,
         mut req: jsonrpsee::types::Request<'a>,
     ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
-        req.extensions_mut()
-            .insert(self.path.unwrap_or(ApiPaths::V1));
+        req.extensions_mut().insert(self.path());
         self.service.call(req)
     }
 
@@ -51,9 +56,18 @@ where
         &self,
         mut batch: Batch<'a>,
     ) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
-        batch
-            .extensions_mut()
-            .insert(self.path.unwrap_or(ApiPaths::V1));
+        let path = self.path();
+        for req in batch.iter_mut() {
+            match req {
+                Ok(BatchEntry::Call(req)) => {
+                    req.extensions_mut().insert(path);
+                }
+                Ok(BatchEntry::Notification(n)) => {
+                    n.extensions_mut().insert(path);
+                }
+                Err(_) => {}
+            }
+        }
         self.service.batch(batch)
     }
 
@@ -61,7 +75,7 @@ where
         &self,
         mut n: Notification<'a>,
     ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
-        n.extensions_mut().insert(self.path.unwrap_or(ApiPaths::V1));
+        n.extensions_mut().insert(self.path());
         self.service.notification(n)
     }
 }
