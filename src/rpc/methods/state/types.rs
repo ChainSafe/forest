@@ -272,10 +272,12 @@ pub struct TraceEntry {
     pub action: Action,
     /// Call result or `None` for reverts
     pub result: Option<ResultData>,
-    /// Number of nested calls
-    pub subtraces: EthUint64,
-    /// Path in call hierarchy (e.g., [], [0], [0, 1])
-    pub trace_address: Vec<EthUint64>,
+    /// How many subtraces this trace has.
+    pub subtraces: usize,
+    /// The identifier of this transaction trace in the set.
+    ///
+    /// This gives the exact location in the call trace.
+    pub trace_address: Vec<usize>,
     /// Call type, e.g., "call", "delegatecall", "create"
     #[serde(rename = "type")]
     pub type_: String,
