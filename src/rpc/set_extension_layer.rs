@@ -3,7 +3,7 @@
 
 use super::ApiPaths;
 use jsonrpsee::MethodResponse;
-use jsonrpsee::core::middleware::{Batch, Notification};
+use jsonrpsee::core::middleware::{Batch, BatchEntry, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use tower::Layer;
 
@@ -51,9 +51,18 @@ where
         &self,
         mut batch: Batch<'a>,
     ) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
-        batch
-            .extensions_mut()
-            .insert(self.path.unwrap_or(ApiPaths::V1));
+        let path = self.path.unwrap_or(ApiPaths::V1);
+        for req in batch.iter_mut() {
+            match req {
+                Ok(BatchEntry::Call(req)) => {
+                    req.extensions_mut().insert(path);
+                }
+                Ok(BatchEntry::Notification(n)) => {
+                    n.extensions_mut().insert(path);
+                }
+                Err(_) => {}
+            }
+        }
         self.service.batch(batch)
     }
 
