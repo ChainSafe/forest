@@ -12,8 +12,8 @@ use crate::rpc::FilterList;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
-    BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
-    new_eth_tx_from_signed_message, types::*,
+    BlockNumberOrHash, EthInt64, EthTraceType, EthUint64, ExtBlockNumberOrHash, ExtPredefined,
+    Predefined, new_eth_tx_from_signed_message, types::*,
 };
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
@@ -1412,6 +1412,28 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
     let block_hash: EthHash = block_cid.into();
 
     let mut tests = vec![
+        RpcTest::identity(
+            EthTraceCall::request((
+                EthCallMessage {
+                    from: Some(
+                        EthAddress::from_str("0x1111111111111111111111111111111111111111").unwrap(),
+                    ),
+                    to: Some(
+                        EthAddress::from_str("0x4A38E58A3602D057c8aC2c4D76f0C45CFF3b5f56").unwrap(),
+                    ),
+                    data: Some(
+                        EthBytes::from_str("0x4018d9aa00000000000000000000000000000000000000000000000000000000000003e7").unwrap()
+                    ),
+                    gas: Some(
+                        EthUint64(0x13880) // 80,000
+                    ),
+                    ..Default::default()
+                },
+                nunny::vec![EthTraceType::Trace],
+                BlockNumberOrHash::PredefinedBlock(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
         RpcTest::identity(
             EthGetBalance::request((
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
