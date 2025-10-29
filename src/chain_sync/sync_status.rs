@@ -7,6 +7,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use chrono::{DateTime, Utc};
 use fvm_ipld_blockstore::Blockstore;
+use parking_lot::RwLock;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -100,6 +101,8 @@ pub struct ForkSyncInfo {
     /// Last time status for this fork was updated.
     pub(crate) last_updated: Option<DateTime<Utc>>,
 }
+
+pub type SyncStatus = Arc<RwLock<SyncStatusReport>>;
 
 /// Contains information about the current status of the node's synchronization process.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, JsonSchema)]

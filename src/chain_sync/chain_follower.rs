@@ -15,40 +15,36 @@
 //!
 //! The state machine does not do any network requests or validation. Those are
 //! handled by an external actor.
-use crate::libp2p::hello::HelloRequest;
-use crate::message_pool::MessagePool;
-use crate::message_pool::MpoolRpcProvider;
-use crate::networks::calculate_expected_epoch;
-use crate::shim::clock::ChainEpoch;
-use crate::state_manager::StateManager;
-use crate::utils::misc::env::is_env_truthy;
+
+use super::network_context::SyncNetworkContext;
+use crate::{
+    blocks::{Block, FullTipset, Tipset, TipsetKey},
+    chain::ChainStore,
+    chain_sync::{
+        ForkSyncInfo, ForkSyncStage, SyncStatus, SyncStatusReport, TipsetValidator,
+        bad_block_cache::BadBlockCache, metrics, tipset_syncer::validate_tipset,
+    },
+    libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
+    message_pool::{MessagePool, MpoolRpcProvider},
+    networks::calculate_expected_epoch,
+    shim::clock::ChainEpoch,
+    state_manager::StateManager,
+    utils::misc::env::is_env_truthy,
+};
 use ahash::{HashMap, HashSet};
 use chrono::Utc;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::PeerId;
-use parking_lot::Mutex;
-use std::time::Instant;
-use std::{ops::Deref as _, sync::Arc};
+use parking_lot::{Mutex, RwLock};
+use std::{ops::Deref as _, sync::Arc, time::Instant};
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
-use super::network_context::SyncNetworkContext;
-use crate::chain_sync::sync_status::SyncStatusReport;
-use crate::chain_sync::tipset_syncer::validate_tipset;
-use crate::chain_sync::{ForkSyncInfo, ForkSyncStage};
-use crate::{
-    blocks::{Block, FullTipset, Tipset, TipsetKey},
-    chain::ChainStore,
-    chain_sync::{TipsetValidator, bad_block_cache::BadBlockCache, metrics},
-    libp2p::{NetworkEvent, PubsubMessage},
-};
-use parking_lot::RwLock;
-
 pub struct ChainFollower<DB> {
     /// Syncing status of the chain
-    pub sync_status: Arc<RwLock<SyncStatusReport>>,
+    pub sync_status: SyncStatus,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -138,7 +134,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
     network: SyncNetworkContext<DB>,
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
-    sync_status: Arc<RwLock<SyncStatusReport>>,
+    sync_status: SyncStatus,
     genesis: Arc<Tipset>,
     stateless_mode: bool,
 ) -> anyhow::Result<()> {

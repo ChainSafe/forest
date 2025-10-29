@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! ```console
-//! $ cargo bench --bench car-index
+//! $ cargo bench --features="benchmark-private" --bench car-index
 //! ```
 
 use cid::Cid;

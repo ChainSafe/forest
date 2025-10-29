@@ -4,7 +4,7 @@
 use super::*;
 use crate::shim::actors::evm::{State, TombstoneState};
 use ::cid::Cid;
-use paste::paste;
+use pastey::paste;
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

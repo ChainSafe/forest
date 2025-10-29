@@ -8,7 +8,7 @@ use crate::shim::sector::SectorNumber;
 use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared4::{ActorID, bigint::BigInt};
-use paste::paste;
+use pastey::paste;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]

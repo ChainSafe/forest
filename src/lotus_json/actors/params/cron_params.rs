@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::shim::actors::cron::Entry;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

@@ -8,6 +8,7 @@ use crate::{
     utils::db::CborStoreExt,
 };
 use sha2::{Digest as _, Sha256};
+use std::fs::File;
 
 #[test]
 fn test_snapshot_version_cbor_serde() {
@@ -62,7 +63,7 @@ async fn test_export_inner(version: FilecoinSnapshotVersion) -> anyhow::Result<(
             export::<Sha256>(&db, &head, 0, &mut car_bytes, None).await?
         }
         FilecoinSnapshotVersion::V2 => {
-            export_v2::<Sha256>(&db, None, &head, 0, &mut car_bytes, None).await?
+            export_v2::<Sha256, File>(&db, None, &head, 0, &mut car_bytes, None).await?
         }
     };
 

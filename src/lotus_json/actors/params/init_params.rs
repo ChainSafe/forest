@@ -5,7 +5,7 @@ use super::*;
 use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
 use jsonrpsee::core::Serialize;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use std::fmt::Debug;

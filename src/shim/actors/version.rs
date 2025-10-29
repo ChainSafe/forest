@@ -3,7 +3,7 @@
 use crate::utils::multihash::prelude::*;
 use cid::Cid;
 use fil_actors_shared::v11::runtime::builtins::Type;
-use paste::paste;
+use pastey::paste;
 use std::sync::LazyLock;
 
 macro_rules! impl_actor_cids_type_actor {

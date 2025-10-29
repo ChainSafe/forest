@@ -7,6 +7,7 @@ use std::sync::LazyLock;
 use ahash::HashMap;
 use cid::Cid;
 use fil_actors_shared::v13::runtime::Policy;
+use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,7 @@ use crate::db::SettingsStore;
 use crate::eth::EthChainId;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::econ::TokenAmount;
+use crate::shim::machine::BuiltinActorManifest;
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
 use crate::utils::misc::env::env_or_default;
@@ -231,6 +233,19 @@ pub struct HeightInfo {
     pub bundle: Option<Cid>,
 }
 
+pub struct HeightInfoWithActorManifest<'a> {
+    #[allow(dead_code)]
+    pub height: Height,
+    pub info: &'a HeightInfo,
+    pub manifest_cid: Cid,
+}
+
+impl<'a> HeightInfoWithActorManifest<'a> {
+    pub fn manifest(&self, store: &impl Blockstore) -> anyhow::Result<BuiltinActorManifest> {
+        BuiltinActorManifest::load_manifest(store, &self.manifest_cid)
+    }
+}
+
 #[derive(Clone)]
 struct DrandPoint<'a> {
     pub height: ChainEpoch,
@@ -420,6 +435,29 @@ impl ChainConfig {
             .rev()
             .find(|(_, info)| epoch > info.epoch)
             .map(|(height, _)| *height)
+    }
+
+    /// Gets the latest network height prior to the given epoch that upgrades the actor bundle
+    pub fn network_height_with_actor_bundle<'a>(
+        &'a self,
+        epoch: ChainEpoch,
+    ) -> Option<HeightInfoWithActorManifest<'a>> {
+        if let Some((height, info, manifest_cid)) = self
+            .height_infos
+            .iter()
+            .sorted_by_key(|(_, info)| info.epoch)
+            .rev()
+            .filter_map(|(height, info)| info.bundle.map(|bundle| (*height, info, bundle)))
+            .find(|(_, info, _)| epoch > info.epoch)
+        {
+            Some(HeightInfoWithActorManifest {
+                height,
+                info,
+                manifest_cid,
+            })
+        } else {
+            None
+        }
     }
 
     /// Returns the network version at the given epoch.
@@ -752,5 +790,19 @@ mod tests {
         assert_eq!(cfg.network_version_revision(1_070_494), 0);
         assert_eq!(cfg.network_version(1_070_494 + 1), NetworkVersion::V21);
         assert_eq!(cfg.network_version_revision(1_070_494 + 1), 1);
+    }
+
+    #[test]
+    fn test_network_height_with_actor_bundle() {
+        let cfg = ChainConfig::mainnet();
+        let info = cfg.network_height_with_actor_bundle(5_348_280 + 1).unwrap();
+        assert_eq!(info.height, Height::GoldenWeek);
+        let info = cfg.network_height_with_actor_bundle(5_348_280).unwrap();
+        // No actor bundle for Tock, so it should be Teep
+        assert_eq!(info.height, Height::Teep);
+        let info = cfg.network_height_with_actor_bundle(5_348_280 - 1).unwrap();
+        assert_eq!(info.height, Height::Teep);
+        assert!(cfg.network_height_with_actor_bundle(1).is_none());
+        assert!(cfg.network_height_with_actor_bundle(0).is_none());
     }
 }

@@ -134,6 +134,13 @@ impl ApiPaths {
         make_bitflags!(Self::{ V0 | V1 })
     }
 
+    // Remove this helper once all RPC methods are migrated to V2.
+    // We're incrementally migrating methods to V2 support. Once complete,
+    // update all() to include V2 and remove this temporary helper.
+    pub const fn all_with_v2() -> BitFlags<Self> {
+        Self::all().union_c(make_bitflags!(Self::{ V2 }))
+    }
+
     pub fn from_uri(uri: &Uri) -> anyhow::Result<Self> {
         Ok(Self::from_str(
             uri.path().split("/").last().expect("infallible"),

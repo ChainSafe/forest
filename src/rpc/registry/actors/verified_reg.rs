@@ -6,7 +6,7 @@ use crate::shim::address::Address;
 use crate::shim::message::MethodNum;
 use cid::Cid;
 use fil_actors_shared::actor_versions::ActorVersion;
-use paste::paste;
+use pastey::paste;
 
 // Core methods present in all versions
 macro_rules! register_core_methods {

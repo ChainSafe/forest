@@ -4,7 +4,7 @@
 use super::*;
 use crate::shim::{clock::ChainEpoch, econ::TokenAmount};
 use ::cid::Cid;
-use paste::paste;
+use pastey::paste;
 
 // Single LotusJson struct for VestingFund (used by all versions)
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]

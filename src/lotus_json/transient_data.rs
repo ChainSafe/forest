@@ -4,7 +4,7 @@
 use super::*;
 use ::cid::Cid;
 use fvm_shared4::ActorID;
-use paste::paste;
+use pastey::paste;
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

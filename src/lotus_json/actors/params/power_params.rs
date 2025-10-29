@@ -9,7 +9,7 @@ use crate::shim::sector::RegisteredPoStProof;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
 use fvm_shared4::ActorID;
 use num::BigInt;
-use paste::paste;
+use pastey::paste;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]

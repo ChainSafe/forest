@@ -58,7 +58,7 @@ use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use futures::StreamExt;
+use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 pub use fvm_shared3::sector::StoragePower;
@@ -1483,10 +1483,20 @@ impl RpcMethod<2> for ForestStateCompute {
             futures.push_front(async move {
                 if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
                     // Backfill full tipset from the network
-                    let fts = network_context
-                        .chain_exchange_messages(None, &ts)
-                        .await
-                        .map_err(|e| anyhow::anyhow!(e))?;
+                    const MAX_RETRIES: usize = 5;
+                    let fts = 'retry_loop: {
+                        for i in 1..=MAX_RETRIES {
+                            match network_context.chain_exchange_messages(None, &ts).await {
+                                Ok(fts) => break 'retry_loop Ok(fts),
+                                Err(e) if i >= MAX_RETRIES => break 'retry_loop Err(e),
+                                Err(_) => continue,
+                            }
+                        }
+                        Err("unreachable chain exchange error in ForestStateCompute".into())
+                    }
+                    .map_err(|e| {
+                        anyhow::anyhow!("failed to download messages@{}: {e}", ts.epoch())
+                    })?;
                     fts.persist(chain_store.blockstore())?;
                 }
                 anyhow::Ok(ts)
@@ -1494,7 +1504,7 @@ impl RpcMethod<2> for ForestStateCompute {
         }
 
         let mut results = Vec::with_capacity(n_epochs as _);
-        while let Some(Ok(ts)) = futures.next().await {
+        while let Some(ts) = futures.try_next().await? {
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
             let StateOutput { state_root, .. } = ctx

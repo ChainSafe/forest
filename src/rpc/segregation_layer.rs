@@ -9,6 +9,7 @@ use itertools::Itertools as _;
 use jsonrpsee::MethodResponse;
 use jsonrpsee::core::middleware::{Batch, BatchEntry, BatchEntryErr, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
+use jsonrpsee::types::error::{METHOD_NOT_FOUND_CODE, METHOD_NOT_FOUND_MSG};
 use jsonrpsee::types::{ErrorObject, Id};
 use std::sync::LazyLock;
 use tower::Layer;
@@ -68,8 +69,8 @@ impl<S> SegregationService<S> {
             Ok(())
         } else {
             Err(ErrorObject::borrowed(
-                http::StatusCode::NOT_FOUND.as_u16() as _,
-                "Not Found",
+                METHOD_NOT_FOUND_CODE,
+                METHOD_NOT_FOUND_MSG,
                 None,
             ))
         }

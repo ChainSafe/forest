@@ -33,7 +33,7 @@ pub type CacheKey = u64;
 type FrameOffset = u64;
 
 /// According to FRC-0108, v2 snapshots have exactly one root pointing to metadata
-const V2_SNAPSHOT_ROOT_COUNT: usize = 1;
+pub const V2_SNAPSHOT_ROOT_COUNT: usize = 1;
 
 pub static ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE: LazyLock<usize> = LazyLock::new(|| {
     const ENV_KEY: &str = "FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE";

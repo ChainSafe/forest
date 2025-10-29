@@ -248,7 +248,7 @@ pub use vec::*;
 macro_rules! test_snapshots {
     ($module:path: $ty:ident: $($version:literal),+ $(,)?) => {
         $(
-            paste::paste! {
+            pastey::paste! {
                 #[test]
                 fn [<snapshots_ $module _v $version _ $ty:lower>]() {
                     use super::*;
@@ -260,7 +260,7 @@ macro_rules! test_snapshots {
 
     ($module:path: $nested_path:path: $ty:ident: $($version:literal),+ $(,)?) => {
         $(
-            paste::paste! {
+            pastey::paste! {
                 #[test]
                 fn [<snapshots_ $module _v $version _ $ty:lower>]() {
                     use super::*;

@@ -5,7 +5,7 @@ use crate::rpc::eth::types::GetStorageAtParams;
 use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;

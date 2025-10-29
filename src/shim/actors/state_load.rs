@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use cid::Cid;
-use paste::paste;
+use pastey::paste;
 
 use super::version::*;
 use fvm_ipld_blockstore::Blockstore;
