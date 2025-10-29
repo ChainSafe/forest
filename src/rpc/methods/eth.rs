@@ -3368,17 +3368,16 @@ fn get_output(msg: &Message, invoke_result: ApiInvocResult) -> Result<EthBytes> 
     }
 }
 
-fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[EthUint64]) -> Vec<TraceEntry> {
+fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[usize]) -> Vec<TraceEntry> {
     let mut entries = Vec::new();
 
     // Build entry for current trace
-    let gas = trace.sum_gas().total_gas;
     let entry = TraceEntry {
         action: Action {
             call_type: "call".to_string(), // (e.g., "create" for contract creation)
             from: trace.msg.from.clone(),
             to: trace.msg.to.clone(),
-            gas: gas.into(),
+            gas: trace.msg.gas_limit.unwrap_or_default().into(),
             input: trace.msg.params.clone(),
             value: trace.msg.value.clone(),
         },
@@ -3392,7 +3391,7 @@ fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[EthUint64]) -> Ve
             // Revert case
             None
         },
-        subtraces: EthUint64(trace.subcalls.len() as _),
+        subtraces: trace.subcalls.len(),
         trace_address: parent_trace_address.to_vec(),
         type_: "call".to_string(),
     };
@@ -3401,7 +3400,7 @@ fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[EthUint64]) -> Ve
     // Recursively build subcall traces
     for (i, subcall) in trace.subcalls.iter().enumerate() {
         let mut sub_trace_address = parent_trace_address.to_vec();
-        sub_trace_address.push(EthUint64(i as _));
+        sub_trace_address.push(i);
         entries.extend(get_entries(subcall, &sub_trace_address));
     }
 
@@ -3447,7 +3446,7 @@ impl RpcMethod<3> for EthTraceCall {
         if trace_types.contains(&EthTraceType::Trace) {
             // Built trace objects
             let entries = if let Some(exec_trace) = invoke_result.execution_trace {
-                get_entries(&exec_trace, &[EthUint64(0)])
+                get_entries(&exec_trace, &[])
             } else {
                 Default::default()
             };
