@@ -32,6 +32,19 @@ declare -a TESTS=(
   "10:doRevert():"
 )
 
+# 0x13880 is 80,000
+
+# Remember: trace_call is not a real transaction
+#
+# It’s a simulation!
+# RPC nodes limit gas to prevent:
+#  - Infinite loops
+#  - DoS attacks
+#  - Memory exhaustion
+
+# We generated reference results using Alchemy provider, so you will likely see params.gas != action.gas
+# in the first trace
+
 # Generate each test reference
 for TEST in "${TESTS[@]}"; do
   IFS=':' read -r ID FUNC ARGS VALUE_HEX <<< "$TEST"
@@ -57,7 +70,7 @@ for TEST in "${TESTS[@]}"; do
          id: ($id | tonumber),
          method: "trace_call",
          params: [
-           { from: $from, to: $to, data: $data, value: $value },
+           { from: $from, to: $to, data: $data, value: $value, gas: "0x13880" },
            ["trace"],
            "latest"
          ]
@@ -72,7 +85,7 @@ for TEST in "${TESTS[@]}"; do
          id: ($id | tonumber),
          method: "trace_call",
          params: [
-           { from: $from, to: $to, data: $data },
+           { from: $from, to: $to, data: $data, gas: "0x13880" },
            ["trace"],
            "latest"
          ]
