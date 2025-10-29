@@ -49,7 +49,7 @@ Github
 Grafana
 hardcoded
 hotfix
-hypercerts
+Hypercerts
 ie.
 Implementers
 implementers
