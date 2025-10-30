@@ -4,8 +4,8 @@
 use crate::blocks::TipsetKey;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::Message as _;
-use crate::rpc::eth::EthUint64;
-use crate::rpc::eth::types::EthBytes;
+use crate::rpc::eth::types::{EthAddress, EthBytes};
+use crate::rpc::eth::{EthBigInt, EthUint64};
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::Address,
@@ -243,19 +243,11 @@ impl PartialEq for GasTrace {
 #[serde(rename_all = "camelCase")]
 pub struct Action {
     pub call_type: String, // E.g., "call", "delegatecall", "create"
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Address>")]
-    pub from: Address,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Address>")]
-    pub to: Address,
+    pub from: EthAddress,
+    pub to: EthAddress,
     pub gas: EthUint64,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<RawBytes>")]
-    pub input: RawBytes,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<TokenAmount>")]
-    pub value: TokenAmount,
+    pub input: EthBytes,
+    pub value: EthBigInt,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

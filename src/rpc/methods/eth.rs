@@ -3368,18 +3368,19 @@ fn get_output(msg: &Message, invoke_result: ApiInvocResult) -> Result<EthBytes> 
     }
 }
 
-fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[usize]) -> Vec<TraceEntry> {
+fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[usize]) -> Result<Vec<TraceEntry>> {
     let mut entries = Vec::new();
 
     // Build entry for current trace
     let entry = TraceEntry {
         action: Action {
             call_type: "call".to_string(), // (e.g., "create" for contract creation)
-            from: trace.msg.from.clone(),
-            to: trace.msg.to.clone(),
+            from: EthAddress::from_filecoin_address(&trace.msg.from)?,
+            to: EthAddress::from_filecoin_address(&trace.msg.to)?,
             gas: trace.msg.gas_limit.unwrap_or_default().into(),
-            input: trace.msg.params.clone(),
-            value: trace.msg.value.clone(),
+            // input needs proper decoding
+            input: trace.msg.params.clone().into(),
+            value: trace.msg.value.clone().into(),
         },
         result: if trace.msg_rct.exit_code.is_success() {
             let gas_used = trace.sum_gas().total_gas.into();
@@ -3401,10 +3402,10 @@ fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[usize]) -> Vec<Tr
     for (i, subcall) in trace.subcalls.iter().enumerate() {
         let mut sub_trace_address = parent_trace_address.to_vec();
         sub_trace_address.push(i);
-        entries.extend(get_entries(subcall, &sub_trace_address));
+        entries.extend(get_entries(subcall, &sub_trace_address)?);
     }
 
-    entries
+    Ok(entries)
 }
 
 pub enum EthTraceCall {}
@@ -3446,7 +3447,7 @@ impl RpcMethod<3> for EthTraceCall {
         if trace_types.contains(&EthTraceType::Trace) {
             // Built trace objects
             let entries = if let Some(exec_trace) = invoke_result.execution_trace {
-                get_entries(&exec_trace, &[])
+                get_entries(&exec_trace, &[])?
             } else {
                 Default::default()
             };
