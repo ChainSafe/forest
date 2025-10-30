@@ -244,7 +244,7 @@ services:
 
         status=$$?
         echo "==== API Compare Report ===="
-        cat /data/api-compare-report/full_report.json || echo "(Report file not accessible)"
+        cat /data/api-compare-report/*.json || echo "(Report file not accessible)"
         FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
         exit $$status
 
@@ -284,7 +284,7 @@ services:
           --report-dir=/data/api-compare-report-offline
         status=$$?
         echo "==== Offline API Compare Report ===="
-        cat /data/api-compare-report-offline/full_report.json || echo "(Report file not accessible)"
+        cat /data/api-compare-report-offline/*.json || echo "(Report file not accessible)"
         FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
         exit $$status
   post-setup:
