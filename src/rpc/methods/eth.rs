@@ -3410,7 +3410,7 @@ fn get_entries(trace: &ExecutionTrace, parent_trace_address: &[usize]) -> Result
 
 pub enum EthTraceCall {}
 impl RpcMethod<3> for EthTraceCall {
-    const NAME: &'static str = "Filecoin.EthTraceCall";
+    const NAME: &'static str = "Forest.EthTraceCall";
     const NAME_ALIAS: Option<&'static str> = Some("trace_call");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 3] = ["tx", "traceTypes", "blockParam"];

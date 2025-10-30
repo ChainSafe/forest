@@ -1366,6 +1366,42 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ));
     }
+
+    let cases = [(
+        EthBytes::from_str(
+            "0x4018d9aa00000000000000000000000000000000000000000000000000000000000003e7",
+        )
+        .unwrap(),
+        false,
+    )];
+
+    for (input, state_diff) in cases {
+        tests.push(RpcTest::identity(
+            EthTraceCall::request((
+                EthCallMessage {
+                    from: Some(
+                        EthAddress::from_str("0x1111111111111111111111111111111111111111").unwrap(),
+                    ),
+                    to: Some(
+                        EthAddress::from_str("0x4A38E58A3602D057c8aC2c4D76f0C45CFF3b5f56").unwrap(),
+                    ),
+                    data: Some(input),
+                    gas: Some(
+                        EthUint64(0x13880), // 80,000
+                    ),
+                    ..Default::default()
+                },
+                if state_diff {
+                    nunny::vec![EthTraceType::Trace, EthTraceType::StateDiff]
+                } else {
+                    nunny::vec![EthTraceType::Trace]
+                },
+                BlockNumberOrHash::PredefinedBlock(Predefined::Latest),
+            ))
+            .unwrap(),
+        ));
+    }
+
     tests
 }
 
