@@ -12,7 +12,7 @@ source "$(dirname "$0")/harness.sh"
 forest_init "$@"
 
 retries=10
-sleep_interval=0.1
+sleep_interval=0.5
 
 echo "Cleaning up the initial snapshot"
 rm --force --verbose ./*.{car,car.zst,sha256sum}
