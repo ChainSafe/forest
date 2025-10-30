@@ -2292,13 +2292,13 @@ pub(super) async fn run_tests(
         }
     }
 
+    let has_failures = report_builder.has_failures();
     report_builder.print_summary();
 
     if let Some(path) = report_dir {
         report_builder.finalize_and_save(&path)?;
     }
 
-    let has_failures = report_builder.has_failures();
     anyhow::ensure!(!has_failures, "Some tests failed");
 
     Ok(())
