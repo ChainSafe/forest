@@ -353,14 +353,16 @@ impl EthEventHandler {
                         msg_idx: i as u64,
                         msg_cid: message.cid(),
                     };
-                    if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
-                        bail!("filter matches too many events, try a more restricted filter");
-                    }
+                    // if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
+                    //     bail!("filter matches too many events, try a more restricted filter");
+                    // }
                     collected_events.push(ce);
                     event_count += 1;
                 }
             }
         }
+
+        tracing::warn!("Matched events: {}", collected_events.len());
 
         Ok(())
     }
