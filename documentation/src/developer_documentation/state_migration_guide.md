@@ -243,8 +243,6 @@ and attach debuggers when needed during development.
 - Create a Go test in `src/state_migration/go-test/state_migration_test.go`.
   Note: `newManifestCid` is the bundle CID, epoch is the height that migration
   happens.
-  [Instruction](https://code.visualstudio.com/docs/languages/go#_debugging) on
-  debugging Go code in VS Code.
 
   Example test for nv17 on calibnet:
 
