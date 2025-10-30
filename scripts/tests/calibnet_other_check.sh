@@ -84,6 +84,19 @@ echo "Validating metrics"
 wget -O metrics.log http://localhost:6116/metrics
 go run ./tools/prometheus_metrics_validator metrics.log
 
+echo "Testing RPC batch request"
+batch_response=$(curl -s -X POST http://localhost:2345/rpc/v1 -H "Content-Type: application/json" --data '[{"jsonrpc":"2.0","method":"Filecoin.Version","id":1},{"jsonrpc":"2.0","method":"Filecoin.Session","id":2}]')
+block_delay=$(echo "$batch_response" | jq -r '.[0].result.BlockDelay')
+if [ "$block_delay" != "30" ]; then
+  echo "Invalid block delay: $block_delay"
+  exit 1
+fi
+session=$(echo "$batch_response" | jq -r '.[1].result')
+if [ "$session" == "" ]; then
+  echo "Invalid session: $session"
+  exit 1
+fi
+
 # Assert unsupported method returns HTTP 200 but RPC error code -32601
 echo "Testing unsupported RPC method handling"
 unsupported_response=$(curl -s -X POST http://localhost:2345/rpc/v1 -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"Invoke.Cthulhu","params":[],"id":1}')
