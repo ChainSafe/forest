@@ -366,6 +366,8 @@ impl ApiCommands {
                                     },
                                     index,
                                     db,
+                                    // https://github.com/ChainSafe/forest/issues/6220
+                                    api_path: None,
                                 }
                             };
 
