@@ -219,7 +219,7 @@ impl SnapshotCommands {
                 }
                 if wait {
                     let elapsed = chrono::Utc::now()
-                        .signed_duration_since(result.start_time)
+                        .signed_duration_since(result.start_time.unwrap_or_default())
                         .to_std()
                         .unwrap_or(Duration::ZERO);
                     let pb = ProgressBar::new(10000)

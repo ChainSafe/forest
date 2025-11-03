@@ -11,7 +11,7 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init "$@"
 
-retries=10
+retries=30
 sleep_interval=0.5
 
 echo "Cleaning up the initial snapshot"
