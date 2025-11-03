@@ -61,7 +61,7 @@ func setLogLevels() error {
 		return err
 	}
 	// Always mute RtRefreshManager because it breaks terminals
-	if err := setLogLevel("dht/RtRefreshManager", "warn"); err != nil {
+	if err := setLogLevel("dht/RtRefreshManager", "fatal"); err != nil {
 		return err
 	}
 	if err := setLogLevel("f3/sidecar", "debug"); err != nil {

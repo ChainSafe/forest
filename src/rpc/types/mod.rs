@@ -568,7 +568,7 @@ pub struct ApiExportStatus {
     pub progress: f64,
     pub exporting: bool,
     pub cancelled: bool,
-    pub start_time: chrono::DateTime<Utc>,
+    pub start_time: Option<chrono::DateTime<Utc>>,
 }
 
 lotus_json_with_self!(ApiExportStatus);
