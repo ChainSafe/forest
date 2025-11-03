@@ -3,6 +3,8 @@ concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 on:
+  schedule:
+    - cron: "0 0 * * 0" # Runs at 00:00, only on Sunday
   workflow_dispatch:
   merge_group:
   pull_request:
@@ -269,6 +271,7 @@ jobs:
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v1:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'Release')) }}
     needs:
       - build-ubuntu
     name: V1 snapshot export checks
@@ -636,7 +639,6 @@ jobs:
       - calibnet-stateless-rpc-check
       - state-migrations-check
       - calibnet-wallet-check
-      - calibnet-export-check-v1
       - calibnet-export-check-v2
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
@@ -651,3 +653,24 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: echo "All integration tests passed."
+
+  extra_tests:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'Release')) }}
+    runs-on: ubuntu-24.04
+    needs:
+      - calibnet-export-check-v1
+    name: Additional integration tests status
+    steps:
+      - run: echo "All extra integration tests passed."
+      - name: Set WORKFLOW_URL
+        if: always()
+        run: |
+          export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo ${WORKFLOW_URL}
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
+      - uses: JasonEtco/create-an-issue@v2
+        if: github.ref == 'refs/heads/main' && failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/INTEGRATION_TESTS_ISSUE_TEMPLATE.md

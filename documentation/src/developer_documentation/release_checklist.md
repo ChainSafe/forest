@@ -20,10 +20,9 @@ Make a pull request with the following changes:
   be released. Make sure that the updated files do **not** contain a
   `[patch.crates-io]` section, otherwise you won't be able to make a release on
   [crates.io](https://crates.io/).
-- Run the manual tests steps outlined in the TEST_PLAN.md. Caveat: Right now
-  there are no manual test steps so this step can be skipped.
 - Make sure to run `cargo publish --dry-run` and include the `Cargo.lock` crate
   version change in the release.
+- The Pull Request must have the `Release` label.
 
 ## Release on GitHub
 
