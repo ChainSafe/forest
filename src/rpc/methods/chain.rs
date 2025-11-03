@@ -997,7 +997,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     type Ok = Tipset;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(anyhow::anyhow!("Filecoin.ChainGetTipSet for V2 is not yet implemented").into())
+        Err(ServerError::unsupported_method())
     }
 }
 
