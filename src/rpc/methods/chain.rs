@@ -523,6 +523,8 @@ impl RpcMethod<0> for ForestChainExportStatus {
                 0.0
             }
         };
+        // only two decimal places
+        let progress = (progress * 100.0).round() / 100.0;
 
         let status = ApiExportStatus {
             progress,

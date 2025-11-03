@@ -26,7 +26,7 @@ pub struct ExportStatus {
     pub initial_epoch: i64,
     pub exporting: bool,
     pub cancelled: bool,
-    pub start_time: DateTime<Utc>,
+    pub start_time: Option<DateTime<Utc>>,
 }
 
 pub static CHAIN_EXPORT_STATUS: LazyLock<Mutex<ExportStatus>> =
@@ -46,7 +46,7 @@ pub fn start_export() {
     mutex.initial_epoch = 0;
     mutex.exporting = true;
     mutex.cancelled = false;
-    mutex.start_time = Utc::now();
+    mutex.start_time = Some(Utc::now());
 }
 
 pub fn end_export() {
