@@ -10,7 +10,7 @@ use super::fvm_shared_latest::version::NetworkVersion as NetworkVersion_latest;
 pub use fvm_shared2::version::NetworkVersion as NetworkVersion_v2;
 use fvm_shared3::version::NetworkVersion as NetworkVersion_v3;
 use fvm_shared4::version::NetworkVersion as NetworkVersion_v4;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

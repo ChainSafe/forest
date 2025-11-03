@@ -29,9 +29,16 @@
 
 ### Added
 
+- [#6082](https://github.com/ChainSafe/forest/issues/6082) Added `forest-cli snapshot export-status` and `forest-cli snapshot export-cancel` subcommands to monitor or cancel an export, respectively.
+
 - [#6161](https://github.com/ChainSafe/forest/pull/6161) Added `forest-tool db import` subcommand.
 
 - [#6166](https://github.com/ChainSafe/forest/pull/6166) Gate `JWT` expiration validation behind environment variable `FOREST_JWT_DISABLE_EXP_VALIDATION`.
+
+- [#6167](https://github.com/ChainSafe/forest/pull/6167) Added `forest-tool state compute` subcommand to generate database snapshot for tipset validation.
+
+- [#6167](https://github.com/ChainSafe/forest/pull/6167) Added `forest-tool state replay-compute` subcommand to replay tipset validation with a minimal database snapshot.
+
 - [#6171](https://github.com/ChainSafe/forest/pull/6171) Enable V2 API support for basic Eth RPC methods: `EthChainId`, `EthProtocolVersion`, `EthSyncing`, `EthAccounts`.
 
 ### Changed
@@ -41,6 +48,12 @@
 ### Removed
 
 ### Fixed
+
+- [#6178](https://github.com/ChainSafe/forest/pull/6178) Fixed incorrect error code for unsupported RPC methods.
+
+- [#6189](https://github.com/ChainSafe/forest/pull/6189) Improved performance of `eth_getBlockByHash` and `eth_getBlockByNumber`.
+
+- [#6206](https://github.com/ChainSafe/forest/pull/6206) Fixed batch request error in RPC server.
 
 ## Forest v0.30.2 "Garuda"
 

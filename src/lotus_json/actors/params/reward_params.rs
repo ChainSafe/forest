@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::address::Address;
 use crate::shim::econ::TokenAmount;
 use num_bigint::BigInt;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

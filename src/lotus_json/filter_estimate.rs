@@ -3,7 +3,7 @@
 
 use super::*;
 use num::BigInt;
-use paste::paste;
+use pastey::paste;
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

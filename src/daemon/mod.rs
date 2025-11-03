@@ -595,6 +595,9 @@ pub(super) async fn start_services(
     if opts.exit_after_init {
         return Ok(());
     }
+    if !opts.stateless {
+        ctx.state_manager.maybe_rewind_heaviest_tipset()?;
+    }
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
     let chain_follower = create_chain_follower(opts, &p2p_service, mpool.clone(), &ctx)?;

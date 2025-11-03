@@ -3,7 +3,7 @@
 
 use super::*;
 use fvm_ipld_encoding::RawBytes;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

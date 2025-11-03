@@ -53,6 +53,7 @@ cid = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 colored = "3"
+criterion = { version = "0.7", default-features = false, features = ["async_tokio"], optional = true }
 crypto_secretbox = "0.1"
 data-encoding = "2"
 data-encoding-macro = "0.1"
@@ -62,7 +63,7 @@ dialoguer = "0.12"
 digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
-educe = { version = "0.6.0", features = ["Debug"], default-features = false }
+educe = { version = "0.6", features = ["Debug"], default-features = false }
 enumflags2 = "0.7"
 ethereum-types = { version = "0.16", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
@@ -89,6 +90,7 @@ futures = { workspace = true }
 fvm2 = { package = "fvm", version = "~2.11", default-features = false }
 fvm3 = { package = "fvm", version = "~3.13", default-features = false }
 fvm4 = { package = "fvm", version = "~4.7", default-features = false, features = ["verify-signature", "nv28-dev"] }
+fvm_actor_utils = "14"
 fvm_ipld_blockstore = "0.3.1"
 fvm_ipld_encoding = "0.5.3"
 fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
@@ -159,6 +161,7 @@ nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars1"] }
 openrpc-types = "0.5"
 parity-db = { version = "0.5" }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
+pastey = "0.1"
 pathfinding = "4"
 pin-project-lite = "0.2"
 positioned-io = "0.3"
@@ -222,8 +225,6 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
-fvm_actor_utils = "14.0.0"
-paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
@@ -269,6 +270,14 @@ rust2go = { workspace = true, features = ["build"] }
 debug = 0
 split-debuginfo = "unpacked"
 
+# Profile for interactive debugging sessions, e.g., with LLDB.
+# Doesn't work with Go FFI - disable it with `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1`.
+[profile.debugging]
+inherits = "dev"
+debug = "full"
+# This works on Linux. On other platforms, refer to https://doc.rust-lang.org/rustc/codegen-options/index.html#split-debuginfo
+split-debuginfo = "off"
+
 [profile.quick]
 inherits = "release"
 opt-level = 1
@@ -297,7 +306,7 @@ lto = "fat"
 default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
 slim = ["rustalloc"]
 doctest-private = []                                                      # see lib.rs::doctest_private
-benchmark-private = []                                                    # see lib.rs::benchmark_private
+benchmark-private = ["dep:criterion"]                                     # see lib.rs::benchmark_private
 interop-tests-private = []                                                # see lib.rs::interop_tests_private
 
 # Allocator. Use at most one of these.
@@ -318,6 +327,11 @@ required-features = ["benchmark-private"]
 
 [[bench]]
 name = "car-index"
+harness = false
+required-features = ["benchmark-private"]
+
+[[bench]]
+name = "tipset-validation"
 harness = false
 required-features = ["benchmark-private"]
 

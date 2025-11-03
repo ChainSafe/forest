@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod api_compare_tests;
-mod generate_test_snapshot;
+pub(super) mod generate_test_snapshot;
 mod report;
 mod state_decode_params_tests;
 mod stateful_tests;
