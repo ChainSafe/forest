@@ -967,7 +967,7 @@ pub enum ChainGetTipSet {}
 impl RpcMethod<1> for ChainGetTipSet {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V0 | V1 });
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
@@ -982,6 +982,22 @@ impl RpcMethod<1> for ChainGetTipSet {
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
         Ok((*ts).clone())
+    }
+}
+
+pub enum ChainGetTipSetV2 {}
+impl RpcMethod<1> for ChainGetTipSetV2 {
+    const NAME: &'static str = "Filecoin.ChainGetTipSet";
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetSelector"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
+
+    type Params = (ApiTipsetKey,);
+    type Ok = Tipset;
+
+    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+        Err(anyhow::anyhow!("Filecoin.ChainGetTipSet for V2 is not yet implemented").into())
     }
 }
 
