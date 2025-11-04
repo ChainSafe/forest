@@ -7,6 +7,7 @@ use list::ChainListCommand;
 mod prune;
 use prune::ChainPruneCommands;
 
+use super::print_pretty_lotus_json;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::lotus_json::HasLotusJson;
 use crate::message::ChainMessage;
@@ -15,8 +16,7 @@ use anyhow::{bail, ensure};
 use cid::Cid;
 use clap::Subcommand;
 use nunny::Vec as NonEmpty;
-
-use super::print_pretty_lotus_json;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Format {
@@ -143,7 +143,7 @@ impl ChainCommands {
 async fn tipset_by_epoch_or_offset(
     client: &rpc::Client,
     epoch_or_offset: i64,
-) -> Result<Tipset, jsonrpsee::core::ClientError> {
+) -> Result<Arc<Tipset>, jsonrpsee::core::ClientError> {
     let current_head = ChainHead::call(client, ()).await?;
 
     let target_epoch = match epoch_or_offset.is_negative() {
