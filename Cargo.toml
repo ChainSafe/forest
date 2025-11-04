@@ -17,7 +17,7 @@ cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.11"
 futures = "0.3"
 get-size2 = { version = "0.7", features = ["derive", "hashbrown"] }
-hashlink = "0.10"
+hashlink = "0.11"
 libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
@@ -224,7 +224,7 @@ walkdir = "2"
 zstd = "0.13"
 
 # optional dependencies
-console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
+console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
@@ -233,7 +233,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 termios = "0.3"
 
 [dev-dependencies]
-ariadne = "0.5"
+ariadne = "0.6"
 assert_cmd = "2"
 bimap = "0.6"
 cargo_metadata = "0.23"
@@ -254,7 +254,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.301"
+ra_ap_syntax = "0.0.304"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
