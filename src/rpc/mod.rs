@@ -15,6 +15,7 @@ mod set_extension_layer;
 
 use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::shim::clock::ChainEpoch;
+use clap::ValueEnum as _;
 pub use client::Client;
 pub use error::ServerError;
 use eth::filter::EthEventHandler;
@@ -31,6 +32,7 @@ use segregation_layer::SegregationLayer;
 use set_extension_layer::SetExtensionLayer;
 mod error;
 mod reflect;
+use ahash::HashMap;
 mod registry;
 pub mod types;
 
@@ -73,6 +75,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainGetParentReceipts);
         $callback!($crate::rpc::chain::ChainGetPath);
         $callback!($crate::rpc::chain::ChainGetTipSet);
+        $callback!($crate::rpc::chain::ChainGetTipSetV2);
         $callback!($crate::rpc::chain::ChainGetTipSetAfterHeight);
         $callback!($crate::rpc::chain::ChainGetTipSetByHeight);
         $callback!($crate::rpc::chain::ChainHasObj);
@@ -499,7 +502,6 @@ impl<DB: Blockstore> RPCState<DB> {
 
 #[derive(Clone)]
 struct PerConnection<RpcMiddleware, HttpMiddleware> {
-    methods: Methods,
     stop_handle: StopHandle,
     svc_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
     keystore: Arc<RwLock<KeyStore>>,
@@ -517,24 +519,26 @@ where
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
     let keystore = state.keystore.clone();
-    let mut module = create_module(state.clone());
-
-    // register eth subscription APIs
-    let eth_pubsub = EthPubSub::new(state.clone());
-    module.merge(eth_pubsub.into_rpc())?;
+    let mut modules = create_modules(state.clone());
 
     let mut pubsub_module = FilRpcModule::default();
-
     pubsub_module.register_channel("Filecoin.ChainNotify", {
         let state_clone = state.clone();
         move |params| chain::chain_notify(params, &state_clone)
     })?;
-    module.merge(pubsub_module)?;
+
+    for module in modules.values_mut() {
+        // register eth subscription APIs
+        module.merge(EthPubSub::new(state.clone()).into_rpc())?;
+        module.merge(pubsub_module.clone())?;
+    }
+
+    let methods: Arc<HashMap<ApiPaths, Methods>> =
+        Arc::new(modules.into_iter().map(|(k, v)| (k, v.into())).collect());
 
     let (stop_handle, _server_handle) = stop_channel();
 
     let per_conn = PerConnection {
-        methods: module.into(),
         stop_handle: stop_handle.clone(),
         svc_builder: Server::builder()
             .set_config(
@@ -574,12 +578,14 @@ where
         };
 
         let svc = tower::service_fn({
+            let methods = methods.clone();
             let per_conn = per_conn.clone();
             let filter_list = filter_list.clone();
             move |req| {
                 let is_websocket = jsonrpsee::server::ws::is_upgrade_request(&req);
+                let path = ApiPaths::from_uri(req.uri()).unwrap_or(ApiPaths::V1);
+                let methods = methods.get(&path).cloned().unwrap_or_default();
                 let PerConnection {
-                    methods,
                     stop_handle,
                     svc_builder,
                     keystore,
@@ -588,9 +594,7 @@ where
                 // with data from the connection such as the headers in this example
                 let headers = req.headers().clone();
                 let rpc_middleware = RpcServiceBuilder::new()
-                    .layer(SetExtensionLayer {
-                        path: ApiPaths::from_uri(req.uri()).ok(),
-                    })
+                    .layer(SetExtensionLayer { path })
                     .layer(SegregationLayer)
                     .layer(FilterLayer::new(filter_list.clone()))
                     .layer(AuthLayer {
@@ -652,24 +656,25 @@ where
     Ok(())
 }
 
-fn create_module<DB>(state: Arc<RPCState<DB>>) -> RpcModule<RPCState<DB>>
+fn create_modules<DB>(state: Arc<RPCState<DB>>) -> HashMap<ApiPaths, RpcModule<RPCState<DB>>>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let mut module = RpcModule::from_arc(state);
+    let mut modules = HashMap::default();
+    for api_version in ApiPaths::value_variants() {
+        modules.insert(*api_version, RpcModule::from_arc(state.clone()));
+    }
     macro_rules! register {
         ($ty:ty) => {
             // Register only non-subscription RPC methods.
             // Subscription methods are registered separately in the RPC module.
             if !<$ty>::SUBSCRIPTION {
-                <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
-                // Optionally register an alias for the method.
-                <$ty>::register_alias(&mut module).unwrap();
+                <$ty>::register(&mut modules, ParamStructure::ByPosition).unwrap();
             }
         };
     }
     for_each_rpc_method!(register);
-    module
+    modules
 }
 
 /// If `include` is not [`None`], only methods that are listed will be returned
