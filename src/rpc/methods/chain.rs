@@ -141,7 +141,7 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
     );
 
     type Params = ();
-    type Ok = Tipset;
+    type Ok = Arc<Tipset>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -154,7 +154,7 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
         match get_f3_finality_tipset(&ctx, ec_finality_epoch).await {
             Ok(f3_tipset) => {
                 tracing::debug!("Using F3 finalized tipset at epoch {}", f3_tipset.epoch());
-                Ok((*f3_tipset).clone())
+                Ok(f3_tipset)
             }
             Err(_) => {
                 // fallback to ec finality
@@ -164,7 +164,7 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
                     head,
                     ResolveNullTipset::TakeOlder,
                 )?;
-                Ok((*ec_tipset).clone())
+                Ok(ec_tipset)
             }
         }
     }
@@ -867,7 +867,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset at the specified height.");
 
     type Params = (ChainEpoch, ApiTipsetKey);
-    type Ok = Tipset;
+    type Ok = Arc<Tipset>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -879,7 +879,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
         let tss = ctx
             .chain_index()
             .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
-        Ok((*tss).clone())
+        Ok(tss)
     }
 }
 
@@ -896,7 +896,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     );
 
     type Params = (ChainEpoch, ApiTipsetKey);
-    type Ok = Tipset;
+    type Ok = Arc<Tipset>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -908,7 +908,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
         let tss = ctx
             .chain_index()
             .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
-        Ok((*tss).clone())
+        Ok(tss)
     }
 }
 
@@ -937,11 +937,11 @@ impl RpcMethod<0> for ChainHead {
     const DESCRIPTION: Option<&'static str> = Some("Returns the chain head (heaviest tipset).");
 
     type Params = ();
-    type Ok = Tipset;
+    type Ok = Arc<Tipset>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let heaviest = ctx.chain_store().heaviest_tipset();
-        Ok((*heaviest).clone())
+        Ok(heaviest)
     }
 }
 
@@ -974,7 +974,7 @@ impl RpcMethod<1> for ChainGetTipSet {
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
     type Params = (ApiTipsetKey,);
-    type Ok = Tipset;
+    type Ok = Arc<Tipset>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -983,7 +983,7 @@ impl RpcMethod<1> for ChainGetTipSet {
         let ts = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        Ok((*ts).clone())
+        Ok(ts)
     }
 }
 
@@ -996,7 +996,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
     type Params = (ApiTipsetKey,);
-    type Ok = Tipset;
+    type Ok = Arc<Tipset>;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
         Err(ServerError::unsupported_method())
@@ -1098,10 +1098,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     let current = data.chain_store().heaviest_tipset();
     let (change, tipset) = ("current".into(), current);
     sender
-        .send(vec![ApiHeadChange {
-            change,
-            tipset: tipset.as_ref().clone(),
-        }])
+        .send(vec![ApiHeadChange { change, tipset }])
         .expect("receiver is not dropped");
 
     let mut subscriber = data.chain_store().publisher().subscribe();
@@ -1115,13 +1112,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
                 HeadChange::Apply(ts) => ("apply".into(), ts),
             };
 
-            if sender
-                .send(vec![ApiHeadChange {
-                    change,
-                    tipset: tipset.as_ref().clone(),
-                }])
-                .is_err()
-            {
+            if sender.send(vec![ApiHeadChange { change, tipset }]).is_err() {
                 break;
             }
         }
@@ -1254,7 +1245,7 @@ pub struct ApiHeadChange {
     pub change: String,
     #[serde(rename = "Val", with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Tipset>")]
-    pub tipset: Tipset,
+    pub tipset: Arc<Tipset>,
 }
 lotus_json_with_self!(ApiHeadChange);
 
