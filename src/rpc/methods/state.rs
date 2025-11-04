@@ -1109,7 +1109,7 @@ impl RpcMethod<2> for StateGetReceipt {
 pub enum StateWaitMsgV0 {}
 
 impl RpcMethod<2> for StateWaitMsgV0 {
-    const NAME: &'static str = "Filecoin.StateWaitMsgV0";
+    const NAME: &'static str = "Filecoin.StateWaitMsg";
     const PARAM_NAMES: [&'static str; 2] = ["messageCid", "confidence"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
@@ -2047,7 +2047,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
 pub enum StateSectorPreCommitInfoV0 {}
 
 impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
-    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfoV0";
+    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;

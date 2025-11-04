@@ -61,8 +61,6 @@ Filecoin.NodeStatus
 Filecoin.Shutdown
 Filecoin.StartTime
 Filecoin.StateGetReceipt
-Filecoin.StateSectorPreCommitInfoV0
-Filecoin.StateWaitMsgV0
 Filecoin.SyncCheckBad
 Filecoin.SyncMarkBad
 Filecoin.SyncSubmitBlock
