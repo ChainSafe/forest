@@ -7,11 +7,14 @@ use crate::lotus_json::lotus_json_with_self;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub enum SnapshotProgressState {
+    #[default]
     Initializing,
-    InProgress { message: String },
+    InProgress {
+        message: String,
+    },
     Completed,
     NotRequired,
 }
@@ -35,12 +38,6 @@ impl SnapshotProgressState {
 
     pub fn is_not_required(&self) -> bool {
         matches!(self, Self::NotRequired)
-    }
-}
-
-impl Default for SnapshotProgressState {
-    fn default() -> Self {
-        Self::Initializing
     }
 }
 

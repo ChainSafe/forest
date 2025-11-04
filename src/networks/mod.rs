@@ -138,9 +138,12 @@ impl NetworkChain {
 }
 
 /// Defines the meaningful heights of the protocol.
-#[derive(Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
+#[derive(
+    Debug, Default, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter,
+)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum Height {
+    #[default]
     Breeze,
     Smoke,
     Ignition,
@@ -176,12 +179,6 @@ pub enum Height {
     Tock,
     TockFix,
     GoldenWeek,
-}
-
-impl Default for Height {
-    fn default() -> Height {
-        Self::Breeze
-    }
 }
 
 impl From<Height> for NetworkVersion {

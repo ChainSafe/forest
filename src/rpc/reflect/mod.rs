@@ -118,6 +118,7 @@ pub enum Permission {
 #[repr(u8)]
 #[derive(
     Debug,
+    Default,
     Clone,
     Copy,
     Hash,
@@ -136,6 +137,7 @@ pub enum ApiPaths {
     V0 = 0b00000001,
     /// Only expose this method on `/rpc/v1`
     #[strum(ascii_case_insensitive)]
+    #[default]
     V1 = 0b00000010,
     /// Only expose this method on `/rpc/v2`
     #[strum(ascii_case_insensitive)]
