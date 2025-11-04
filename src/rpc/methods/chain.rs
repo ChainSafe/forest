@@ -988,6 +988,26 @@ impl RpcMethod<1> for ChainGetTipSet {
 }
 
 pub enum ChainGetTipSetV2 {}
+
+impl ChainGetTipSetV2 {
+    pub fn get_tipset_by_anchor(
+        ctx: &Ctx<impl Blockstore>,
+        anchor: &Option<TipsetAnchor>,
+    ) -> anyhow::Result<Arc<Tipset>> {
+    }
+
+    pub fn get_tipset_by_tag(
+        ctx: &Ctx<impl Blockstore>,
+        tag: &TipsetTag,
+    ) -> anyhow::Result<Arc<Tipset>> {
+        match tag {
+            TipsetTag::Latest => Ok(ctx.state_manager.heaviest_tipset()),
+            TipsetTag::Finalized => {}
+            TipsetTag::Safe => {}
+        }
+    }
+}
+
 impl RpcMethod<1> for ChainGetTipSetV2 {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetSelector"];
@@ -995,11 +1015,39 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
-    type Params = (ApiTipsetKey,);
+    type Params = (TipsetSelector,);
     type Ok = Tipset;
 
-    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::unsupported_method())
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (selector,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        selector.validate()?;
+        // Get tipset by key.
+        if let ApiTipsetKey(Some(tsk)) = &selector.key {
+            let ts = ctx.chain_index().load_required_tipset(tsk)?;
+            return Ok((*ts).clone());
+        }
+        // Get tipset by height.
+        if let Some(height) = &selector.height {
+            let anchor = Self::get_tipset_by_anchor(&ctx, &height.anchor)?;
+            let ts = ctx.chain_index().tipset_by_height(
+                height.at,
+                anchor,
+                if height.previous {
+                    ResolveNullTipset::TakeOlder
+                } else {
+                    ResolveNullTipset::TakeNewer
+                },
+            )?;
+            return Ok((*ts).clone());
+        }
+        // Get tipset by tag, either latest or finalized.
+        if let Some(tag) = &selector.tag {
+            let ts = Self::get_tipset_by_tag(&ctx, tag)?;
+            return Ok((*ts).clone());
+        }
+        Err(anyhow::anyhow!("no tipset found for selector").into())
     }
 }
 
