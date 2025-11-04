@@ -1,9 +1,9 @@
 # This file maps epochs to block headers for calibnet and mainnet. Forest use
 # this mapping to quickly identify the origin network of a tipset.
 #
-# Block headers can be inspected on filfox:
-# - https://filfox.info/en/block/bafy2bzacebnfm6dvxo7sm5thcxnv3kttoamb53uxycnvtdxgk5mh7d73qlly2
-# - https://calibration.filfox.info/en/block/bafy2bzacedhkkz76zdekpexha55b42eop42e24ajmajm26wws4nbvtq7louvu
+# Block headers can be inspected on beryx:
+# - https://beryx.io/fil/mainnet/block-cid/bafy2bzacedisdelql35luibjoxk5jyw7iai5if4eezrjslwhtuqmcczdjahb2
+# - https://beryx.io/fil/calibration/block-cid/bafy2bzaceb7fz2umktqqckzbygfhcun4avpd6g5pgrmhg4w4rvsuywbbptm6e
 #
 # This file is maintained monthly - see `CHECKPOINT_ISSUE_TEMPLATE.md`
 calibnet:
