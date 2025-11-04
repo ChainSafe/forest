@@ -73,6 +73,14 @@ impl TipsetHeight {
         // An unspecified Anchor is valid, because it's an optional field, and falls back to whatever the API decides the default to be.
         Ok(())
     }
+
+    pub fn resolve_null_tipset_policy(&self) -> ResolveNullTipset {
+        if self.previous {
+            ResolveNullTipset::TakeOlder
+        } else {
+            ResolveNullTipset::TakeNewer
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
