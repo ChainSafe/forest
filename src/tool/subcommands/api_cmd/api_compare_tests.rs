@@ -436,6 +436,7 @@ fn chain_tests() -> Vec<RpcTest> {
 
 fn chain_tests_with_tipset<DB: Blockstore>(
     store: &Arc<DB>,
+    offline: bool,
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
@@ -490,21 +491,14 @@ fn chain_tests_with_tipset<DB: Blockstore>(
         },))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
         .ignore("this case should pass when F3 is back on calibnet"),
-        validate_tagged_tipset_v2(ChainGetTipSetV2::request((TipsetSelector {
-            key: None.into(),
-            height: None,
-            tag: Some(TipsetTag::Safe),
-        },))?),
-        validate_tagged_tipset_v2(ChainGetTipSetV2::request((TipsetSelector {
-            key: None.into(),
-            height: None,
-            tag: Some(TipsetTag::Latest),
-        },))?),
-        validate_tagged_tipset_v2(ChainGetTipSetV2::request((TipsetSelector {
-            key: None.into(),
-            height: None,
-            tag: Some(TipsetTag::Finalized),
-        },))?),
+        validate_tagged_tipset_v2(
+            ChainGetTipSetV2::request((TipsetSelector {
+                key: None.into(),
+                height: None,
+                tag: Some(TipsetTag::Latest),
+            },))?,
+            offline,
+        ),
         RpcTest::identity(ChainGetPath::request((
             tipset.key().clone(),
             tipset.parents().clone(),
@@ -516,6 +510,29 @@ fn chain_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
         RpcTest::basic(ChainGetFinalizedTipset::request(())?),
     ];
+
+    if !offline {
+        tests.extend([
+            // Requires F3, disabled for offline RPC server
+            validate_tagged_tipset_v2(
+                ChainGetTipSetV2::request((TipsetSelector {
+                    key: None.into(),
+                    height: None,
+                    tag: Some(TipsetTag::Safe),
+                },))?,
+                offline,
+            ),
+            // Requires F3, disabled for offline RPC server
+            validate_tagged_tipset_v2(
+                ChainGetTipSetV2::request((TipsetSelector {
+                    key: None.into(),
+                    height: None,
+                    tag: Some(TipsetTag::Finalized),
+                },))?,
+                offline,
+            ),
+        ]);
+    }
 
     for block in tipset.block_headers() {
         let block_cid = *block.cid();
@@ -2092,6 +2109,7 @@ fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(
     store: Arc<ManyCar>,
+    offline: bool,
     num_tipsets: usize,
     miner_address: Option<Address>,
     eth_chain_id: u64,
@@ -2107,7 +2125,7 @@ fn snapshot_tests(
         .expect("Infallible");
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
-        tests.extend(chain_tests_with_tipset(&store, &tipset)?);
+        tests.extend(chain_tests_with_tipset(&store, offline, &tipset)?);
         tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
         tests.extend(eth_tests_with_tipset(&store, &tipset));
@@ -2171,6 +2189,7 @@ fn sample_signed_messages<'a>(
 
 pub(super) async fn create_tests(
     CreateTestsArgs {
+        offline,
         n_tipsets,
         miner_address,
         worker_address,
@@ -2193,6 +2212,7 @@ pub(super) async fn create_tests(
         revalidate_chain(store.clone(), n_tipsets).await?;
         tests.extend(snapshot_tests(
             store,
+            offline,
             n_tipsets,
             miner_address,
             eth_chain_id,
@@ -2439,10 +2459,16 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
     })
 }
 
-fn validate_tagged_tipset_v2(req: rpc::Request<Option<Arc<Tipset>>>) -> RpcTest {
-    RpcTest::validate(req, |forest, lotus| match (forest, lotus) {
+fn validate_tagged_tipset_v2(req: rpc::Request<Option<Arc<Tipset>>>, offline: bool) -> RpcTest {
+    RpcTest::validate(req, move |forest, lotus| match (forest, lotus) {
         (None, None) => true,
-        (Some(forest), Some(lotus)) => (forest.epoch() - lotus.epoch()).abs() <= 2,
+        (Some(forest), Some(lotus)) => {
+            if offline {
+                true
+            } else {
+                (forest.epoch() - lotus.epoch()).abs() <= 2
+            }
+        }
         _ => false,
     })
 }

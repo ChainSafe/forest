@@ -278,6 +278,7 @@ services:
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest $$FOREST_API_INFO \
           --lotus $$LOTUS_API_INFO \
+          --offline \
           --n-tipsets 5 \
           --filter-file /data/filter-list-offline \
           --report-mode=failure-only \

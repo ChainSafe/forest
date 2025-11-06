@@ -473,6 +473,9 @@ impl ApiCommands {
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct CreateTestsArgs {
+    /// The nodes to test against is offline, the chain is out of sync.
+    #[arg(long, default_value_t = false)]
+    offline: bool,
     /// The number of tipsets to use to generate test cases.
     #[arg(short, long, default_value = "10")]
     n_tipsets: usize,
