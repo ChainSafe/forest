@@ -55,6 +55,10 @@
 
 - [#6206](https://github.com/ChainSafe/forest/pull/6206) Fixed batch request error in RPC server.
 
+- [#6234](https://github.com/ChainSafe/forest/pull/6234) Support `input` as an alias for `data` in `eth_call` and `eth_estimateGas` RPC methods.
+
+- [#6235](https://github.com/ChainSafe/forest/pull/6235) Fixed a potential deadlock in chain follower when handling fork(s).
+
 ## Forest v0.30.2 "Garuda"
 
 This is a non-mandatory release that brings important enhancements to Forest's tooling capabilities, Ethereum RPC compatibility, and F3 integration.

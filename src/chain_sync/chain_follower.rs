@@ -584,7 +584,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         chains
     }
 
-    fn is_validated(&self, tipset: &FullTipset) -> bool {
+    fn is_parent_validated(&self, tipset: &FullTipset) -> bool {
         let db = self.cs.blockstore();
         self.stateless_mode || db.has(tipset.parent_state()).unwrap_or(false)
     }
@@ -605,7 +605,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             } else if parent_ts.epoch() >= head_ts.epoch() {
                 false
             } else {
-                self.is_validated(&parent_ts)
+                self.is_parent_validated(tipset)
             }
         } else {
             false
@@ -711,7 +711,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     }
 
     fn mark_validated_tipset(&mut self, tipset: Arc<FullTipset>, is_proposed_head: bool) {
-        if !self.is_validated(&tipset) {
+        if !self.is_parent_validated(&tipset) {
             tracing::error!(epoch = %tipset.epoch(), tsk = %tipset.key(), "Tipset must be validated");
             return;
         }
