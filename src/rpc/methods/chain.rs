@@ -993,12 +993,15 @@ impl RpcMethod<1> for ChainGetTipSet {
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (ApiTipsetKey(tipset_key),): Self::Params,
+        (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tipset_key)?;
-        Ok(ts)
+        if let Some(tsk) = &tsk {
+            let ts = ctx.chain_index().load_required_tipset(tsk)?;
+            Ok(ts)
+        } else {
+            // Error message here matches lotus
+            Err(anyhow::anyhow!("NewTipSet called with zero length array of blocks").into())
+        }
     }
 }
 

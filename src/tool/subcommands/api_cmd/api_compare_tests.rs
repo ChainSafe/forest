@@ -448,7 +448,8 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             Default::default(),
         ))?),
         RpcTest::identity(ChainGetTipSet::request((tipset.key().into(),))?),
-        validate_tagged_tipset(ChainGetTipSet::request((None.into(),))?),
+        RpcTest::identity(ChainGetTipSet::request((None.into(),))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
             key: None.into(),
             height: None,
@@ -471,10 +472,24 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             height: Some(TipsetHeight {
                 at: tipset.epoch(),
                 previous: true,
-                anchor: None,
+                anchor: Some(TipsetAnchor {
+                    key: None.into(),
+                    tag: None,
+                }),
             }),
             tag: None,
         },))?),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: None.into(),
+            height: Some(TipsetHeight {
+                at: tipset.epoch(),
+                previous: true,
+                anchor: None,
+            }),
+            tag: None,
+        },))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
+        .ignore("this case should pass when F3 is back on calibnet"),
         validate_tagged_tipset_v2(ChainGetTipSetV2::request((TipsetSelector {
             key: None.into(),
             height: None,
@@ -2421,12 +2436,6 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
         forest == lotus
-    })
-}
-
-fn validate_tagged_tipset(req: rpc::Request<Arc<Tipset>>) -> RpcTest {
-    RpcTest::validate(req, |forest, lotus| {
-        (forest.epoch() - lotus.epoch()).abs() <= 2
     })
 }
 
