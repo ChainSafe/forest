@@ -20,7 +20,7 @@ do
     # download the latest snapshot.
     # =============================
     # - calibnet ~6G, ~5min on a droplet
-    # - mainnet ~74G, ~20mins on a droplet
+    # - mainnet ~74G, ~60mins on a droplet
     aria2c -x5 https://forest-archive.chainsafe.dev/latest/"$chain"/ -o "$chain"
 
     # print out the checkpoints.
