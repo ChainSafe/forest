@@ -314,7 +314,8 @@ pub struct EthCallMessage {
     pub gas_price: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<EthBigInt>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
+    // Some clients use `input`, others use `data`. We have to support both.
+    #[serde(alias = "input", skip_serializing_if = "Option::is_none", default)]
     pub data: Option<EthBytes>,
 }
 lotus_json_with_self!(EthCallMessage);
