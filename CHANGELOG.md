@@ -29,6 +29,19 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.30.3 "Trishul"
+
+This is a non-mandatory release that brings important enhancements in Forest's tooling capabilities.
+The release includes new CLI commands for snapshot monitoring, a crucial fork handling bug fix and ETH API performance improvements, and error handling.
+
+### Added
+
 - [#6082](https://github.com/ChainSafe/forest/issues/6082) Added `forest-cli snapshot export-status` and `forest-cli snapshot export-cancel` subcommands to monitor or cancel an export, respectively.
 
 - [#6161](https://github.com/ChainSafe/forest/pull/6161) Added `forest-tool db import` subcommand.
@@ -44,8 +57,6 @@
 ### Changed
 
 - [#6145](https://github.com/ChainSafe/forest/pull/6145) Updated `forest-cli snapshot export` to use v2 format by default.
-
-### Removed
 
 ### Fixed
 
