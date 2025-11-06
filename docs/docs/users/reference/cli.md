@@ -252,9 +252,9 @@ Sign a message
 Usage: forest-wallet sign -m <MESSAGE> -a <ADDRESS>
 
 Options:
-  -m <MESSAGE>      The hex encoded message to sign
-  -a <ADDRESS>      The address to be used to sign the message
-  -h, --help        Print help
+  -m <MESSAGE>  The hex encoded message to sign
+  -a <ADDRESS>  The address to be used to sign the message
+  -h, --help    Print help
 ```
 
 ### `forest-wallet validate-address`
@@ -279,10 +279,10 @@ Verify the signature of a message. Returns true if the signature matches the mes
 Usage: forest-wallet verify -a <ADDRESS> -m <MESSAGE> -s <SIGNATURE>
 
 Options:
-  -a <ADDRESS>        The address used to sign the message
-  -m <MESSAGE>        The message to verify
-  -s <SIGNATURE>      The signature of the message to verify
-  -h, --help          Print help
+  -a <ADDRESS>    The address used to sign the message
+  -m <MESSAGE>    The message to verify
+  -s <SIGNATURE>  The signature of the message to verify
+  -h, --help      Print help
 ```
 
 ### `forest-wallet delete`
@@ -381,7 +381,7 @@ Usage: forest-cli chain block -c <CID>
 
 Options:
   -c <CID>
-  -h, --help    Print help
+  -h, --help  Print help
 ```
 
 ### `forest-cli chain message`
@@ -393,7 +393,7 @@ Usage: forest-cli chain message -c <CID>
 
 Options:
   -c <CID>
-  -h, --help    Print help
+  -h, --help  Print help
 ```
 
 ### `forest-cli chain read-obj`
@@ -405,7 +405,7 @@ Usage: forest-cli chain read-obj -c <CID>
 
 Options:
   -c <CID>
-  -h, --help    Print help
+  -h, --help  Print help
 ```
 
 ### `forest-cli chain set-head`
@@ -593,8 +593,8 @@ Check if a given block is marked bad, and for what reason
 Usage: forest-cli sync check-bad -c <CID>
 
 Options:
-  -c <CID>      The block CID to check
-  -h, --help    Print help
+  -c <CID>    The block CID to check
+  -h, --help  Print help
 ```
 
 ### `forest-cli sync mark-bad`
@@ -605,8 +605,8 @@ Mark a given block as bad
 Usage: forest-cli sync mark-bad -c <CID>
 
 Options:
-  -c <CID>      The block CID to mark as a bad block
-  -h, --help    Print help
+  -c <CID>    The block CID to mark as a bad block
+  -h, --help  Print help
 ```
 
 ### `forest-cli mpool`
