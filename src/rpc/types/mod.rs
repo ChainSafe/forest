@@ -157,7 +157,15 @@ lotus_json_with_self!(MessageLookup);
     derive_more::From,
     derive_more::Into,
 )]
-pub struct ApiTipsetKey(pub Option<TipsetKey>);
+pub struct ApiTipsetKey(
+    #[serde(skip_serializing_if = "Option::is_none", default)] pub Option<TipsetKey>,
+);
+
+impl ApiTipsetKey {
+    pub fn is_none(&self) -> bool {
+        self.0.is_none()
+    }
+}
 
 /// This wrapper is needed because of a bug in Lotus.
 /// See: <https://github.com/filecoin-project/lotus/issues/11461>.

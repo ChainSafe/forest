@@ -14,9 +14,7 @@ use crate::db::db_engine::db_root;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
 use crate::networks::NetworkChain;
-use crate::rpc;
-use crate::rpc::eth::types::*;
-use crate::rpc::prelude::*;
+use crate::rpc::{self, ApiPaths, eth::types::*, prelude::*};
 use crate::shim::address::Address;
 use crate::tool::offline_server::start_offline_server;
 use crate::tool::subcommands::api_cmd::stateful_tests::TestTransaction;
@@ -122,6 +120,9 @@ pub enum ApiCommands {
         /// Empty lines and lines starting with `#` are ignored.
         #[arg(long)]
         filter_file: Option<PathBuf>,
+        /// Filter methods for the specific API version.
+        #[arg(long)]
+        filter_version: Option<ApiPaths>,
         /// Cancel test run on the first failure
         #[arg(long)]
         fail_fast: bool,
@@ -285,6 +286,7 @@ impl ApiCommands {
                 lotus: UrlFromMultiAddr(lotus),
                 filter,
                 filter_file,
+                filter_version,
                 fail_fast,
                 run_ignored,
                 max_concurrent_requests,
@@ -300,16 +302,17 @@ impl ApiCommands {
 
                 api_compare_tests::run_tests(
                     tests,
-                    forest.clone(),
-                    lotus.clone(),
+                    forest,
+                    lotus,
                     max_concurrent_requests,
-                    filter_file.clone(),
-                    filter.clone(),
+                    filter_file,
+                    filter,
+                    filter_version,
                     run_ignored,
                     fail_fast,
-                    dump_dir.clone(),
+                    dump_dir,
                     &test_criteria_overrides,
-                    report_dir.clone(),
+                    report_dir,
                     report_mode,
                 )
                 .await?;
@@ -366,8 +369,7 @@ impl ApiCommands {
                                     },
                                     index,
                                     db,
-                                    // https://github.com/ChainSafe/forest/issues/6220
-                                    api_path: None,
+                                    api_path: Some(test_dump.path),
                                 }
                             };
 

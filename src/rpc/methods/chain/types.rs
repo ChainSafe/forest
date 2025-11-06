@@ -3,6 +3,9 @@
 
 use super::*;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, Eq, PartialEq, Default)]
 #[serde(rename_all = "PascalCase")]
 pub struct ObjStat {
@@ -11,14 +14,18 @@ pub struct ObjStat {
 }
 lotus_json_with_self!(ObjStat);
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 pub struct TipsetSelector {
-    #[serde(with = "crate::lotus_json")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "ApiTipsetKey::is_none",
+        default
+    )]
     #[schemars(with = "LotusJson<TipsetKey>")]
     pub key: ApiTipsetKey,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub height: Option<TipsetHeight>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tag: Option<TipsetTag>,
 }
 lotus_json_with_self!(TipsetSelector);
@@ -49,7 +56,7 @@ impl TipsetSelector {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 pub struct TipsetHeight {
     pub at: ChainEpoch,
     pub previous: bool,
@@ -83,7 +90,7 @@ impl TipsetHeight {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 pub struct TipsetAnchor {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<TipsetKey>")]
@@ -109,9 +116,19 @@ impl TipsetAnchor {
 }
 
 #[derive(
-    Debug, Clone, Copy, strum::Display, strum::EnumString, Serialize, Deserialize, JsonSchema,
+    Debug,
+    Clone,
+    Copy,
+    strum::Display,
+    strum::EnumString,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    JsonSchema,
 )]
 #[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum TipsetTag {
     Latest,
     Finalized,

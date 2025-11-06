@@ -11,6 +11,7 @@ use crate::message::{Message as _, SignedMessage};
 use crate::rpc::FilterList;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
+use crate::rpc::chain::types::*;
 use crate::rpc::eth::{
     BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
     new_eth_tx_from_signed_message, types::*,
@@ -145,12 +146,14 @@ impl TestSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestDump {
     pub request: rpc::Request,
+    pub path: rpc::ApiPaths,
     pub forest_response: Result<Value, String>,
     pub lotus_response: Result<Value, String>,
 }
 
 impl std::fmt::Display for TestDump {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Request path: {}", self.path.path())?;
         writeln!(f, "Request dump: {:?}", self.request)?;
         writeln!(f, "Request params JSON: {}", self.request.params)?;
         let (forest_response, lotus_response) = (
@@ -404,6 +407,7 @@ impl RpcTest {
             lotus_status,
             test_dump: Some(TestDump {
                 request: self.request.clone(),
+                path: self.request.api_path().expect("invalid api paths"),
                 forest_response,
                 lotus_response,
             }),
@@ -443,7 +447,49 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             tipset.epoch(),
             Default::default(),
         ))?),
-        RpcTest::identity(ChainGetTipSet::request((tipset.key().clone().into(),))?),
+        RpcTest::identity(ChainGetTipSet::request((tipset.key().into(),))?),
+        validate_tagged_tipset(ChainGetTipSet::request((None.into(),))?),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: None.into(),
+            height: None,
+            tag: None,
+        },))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: tipset.key().into(),
+            height: None,
+            tag: Some(TipsetTag::Latest),
+        },))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: tipset.key().into(),
+            height: None,
+            tag: None,
+        },))?),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: None.into(),
+            height: Some(TipsetHeight {
+                at: tipset.epoch(),
+                previous: true,
+                anchor: None,
+            }),
+            tag: None,
+        },))?),
+        validate_tagged_tipset_v2(ChainGetTipSetV2::request((TipsetSelector {
+            key: None.into(),
+            height: None,
+            tag: Some(TipsetTag::Safe),
+        },))?),
+        validate_tagged_tipset_v2(ChainGetTipSetV2::request((TipsetSelector {
+            key: None.into(),
+            height: None,
+            tag: Some(TipsetTag::Latest),
+        },))?),
+        validate_tagged_tipset_v2(ChainGetTipSetV2::request((TipsetSelector {
+            key: None.into(),
+            height: None,
+            tag: Some(TipsetTag::Finalized),
+        },))?),
         RpcTest::identity(ChainGetPath::request((
             tipset.key().clone(),
             tipset.parents().clone(),
@@ -2202,6 +2248,7 @@ pub(super) async fn run_tests(
     max_concurrent_requests: usize,
     filter_file: Option<PathBuf>,
     filter: String,
+    filter_version: Option<rpc::ApiPaths>,
     run_ignored: RunIgnored,
     fail_fast: bool,
     dump_dir: Option<PathBuf>,
@@ -2254,6 +2301,12 @@ pub(super) async fn run_tests(
         }
 
         if !filter_list.authorize(&test.request.method_name) {
+            continue;
+        }
+
+        if let Some(filter_version) = filter_version
+            && !test.request.api_paths.contains(filter_version)
+        {
             continue;
         }
 
@@ -2368,5 +2421,19 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
         forest == lotus
+    })
+}
+
+fn validate_tagged_tipset(req: rpc::Request<Arc<Tipset>>) -> RpcTest {
+    RpcTest::validate(req, |forest, lotus| {
+        (forest.epoch() - lotus.epoch()).abs() <= 2
+    })
+}
+
+fn validate_tagged_tipset_v2(req: rpc::Request<Option<Arc<Tipset>>>) -> RpcTest {
+    RpcTest::validate(req, |forest, lotus| match (forest, lotus) {
+        (None, None) => true,
+        (Some(forest), Some(lotus)) => (forest.epoch() - lotus.epoch()).abs() <= 2,
+        _ => false,
     })
 }
