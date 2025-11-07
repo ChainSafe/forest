@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6231](https://github.com/ChainSafe/forest/pull/6231) Implemented `Filecoin.ChainGetTipSet` for API v2.
+
 ### Changed
 
 ### Removed
