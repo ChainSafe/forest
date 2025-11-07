@@ -510,7 +510,7 @@ impl FullTipset {
         })
     }
     /// Returns the first block of the tipset.
-    fn first_block(&self) -> &Block {
+    pub fn first_block(&self) -> &Block {
         self.blocks.first()
     }
     /// Returns reference to all blocks in a full tipset.

@@ -641,8 +641,17 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 
         // Find any existing tipsets with same epoch and parents
         let mut to_remove = Vec::new();
-        #[allow(clippy::mutable_key_type)]
-        let mut merged_blocks: HashSet<_> = tipset.blocks().iter().cloned().collect();
+        let tipset_timestamp = tipset.first_block().header.timestamp as i64;
+        let now_timestamp = Utc::now().timestamp();
+        // Only merge blocks that are freshly mined
+        let mut merged_blocks: Option<HashSet<_>> = if tipset_timestamp
+            + self.cs.chain_config().block_delay_secs as i64 * 2
+            >= now_timestamp
+        {
+            Some(tipset.blocks().iter().cloned().collect())
+        } else {
+            None
+        };
 
         // Collect all parent references from existing tipsets
         let parent_refs: HashSet<_> = self
@@ -658,7 +667,9 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
                     to_remove.push(key.clone());
                 }
                 // Add blocks from existing tipset - HashSet handles deduplication automatically
-                merged_blocks.extend(existing_ts.blocks().iter().cloned());
+                if let Some(merged_blocks) = &mut merged_blocks {
+                    merged_blocks.extend(existing_ts.blocks().iter().cloned());
+                }
             }
         }
 
@@ -667,10 +678,14 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             self.tipsets.remove(&key);
         }
 
-        // Create and insert new merged tipset
-        if let Ok(merged_tipset) = FullTipset::new(merged_blocks) {
+        // Create and insert new merged tipset if applicable, or insert the raw tipset
+        if let Some(merged_blocks) = merged_blocks
+            && let Ok(merged_tipset) = FullTipset::new(merged_blocks)
+        {
             self.tipsets
                 .insert(merged_tipset.key().clone(), Arc::new(merged_tipset));
+        } else {
+            self.tipsets.insert(tipset.key().clone(), tipset);
         }
     }
 
