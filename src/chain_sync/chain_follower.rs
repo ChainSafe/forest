@@ -866,15 +866,15 @@ impl SyncTask {
                     }
                 }
             }
-            SyncTask::FetchTipset(key, _epoch) => {
-                if let Ok(parents) =
-                    get_full_tipset_batch(network.clone(), cs.clone(), None, &key).await
-                {
-                    Some(SyncEvent::NewFullTipsets(
+            SyncTask::FetchTipset(key, epoch) => {
+                match get_full_tipset_batch(network.clone(), cs.clone(), None, &key).await {
+                    Ok(parents) => Some(SyncEvent::NewFullTipsets(
                         parents.into_iter().map(Arc::new).collect(),
-                    ))
-                } else {
-                    None
+                    )),
+                    Err(e) => {
+                        tracing::warn!(%key, %epoch, "failed to fetch tipset: {e}");
+                        None
+                    }
                 }
             }
         }
