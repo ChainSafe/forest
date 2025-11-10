@@ -31,6 +31,7 @@ impl BadBlockCache {
 
     pub fn push(&self, c: Cid) {
         self.cache.push(c.into(), ());
+        tracing::warn!("Marked bad block: {c}");
     }
 
     /// Returns `Some` if the block CID is in bad block cache.
