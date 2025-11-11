@@ -35,6 +35,12 @@
 
 ### Fixed
 
+## Forest v0.30.4 "DeLorean"
+
+This is a non-mandatory release that fixes a chain sync issue that is caused by time traveling block(s).
+
+### Fixed
+
 - [#6241](https://github.com/ChainSafe/forest/pull/6241) Fixed a sync issue that is caused by time traveling block(s).
 
 ## Forest v0.30.3 "Trishul"
