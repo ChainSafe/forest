@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use crate::chain_sync::BadBlockCache;
 use crate::networks::Height;
 use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
 use crate::shim::crypto::SignatureType;
@@ -101,6 +102,7 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     chainstore: &ChainStore<DB>,
     full_tipset: FullTipset,
     genesis: &Tipset,
+    bad_block_cache: Option<Arc<BadBlockCache>>,
 ) -> Result<(), TipsetSyncerError> {
     if full_tipset.key().eq(genesis.key()) {
         trace!("Skipping genesis tipset validation");
@@ -124,12 +126,18 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
                 chainstore.add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {
-                warn!(
-                    "Validating block [CID = {}] in EPOCH = {} failed: {}",
-                    cid.clone(),
-                    epoch,
-                    why
-                );
+                warn!("Validating block [CID = {cid}] in EPOCH = {epoch} failed: {why}");
+                match &why {
+                    TipsetSyncerError::TimeTravellingBlock(_, _) => {
+                        // Do not mark a block as bad for temporary errors.
+                        // See <https://github.com/filecoin-project/lotus/blob/v1.34.1/chain/sync.go#L602> in Lotus
+                    }
+                    _ => {
+                        if let Some(bad_block_cache) = bad_block_cache {
+                            bad_block_cache.push(cid);
+                        }
+                    }
+                };
                 return Err(why);
             }
         }

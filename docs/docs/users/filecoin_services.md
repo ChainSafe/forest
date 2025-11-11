@@ -62,7 +62,7 @@ ChainSafe also operates an **archival bootstrap node** which maintains a full se
 /dns/bootstrap-mainnet-2.chainsafe-fil.io/tcp/34000/p2p/12D3KooWHQRSDFv4FvAjtU32shQ7znz7oRbLBryXzZ9NMK2feyyH
 ```
 
-Mainnet bootstrap nodes' status can be checked at [probelab.io/bootstrappers/filecoin](https://probelab.io/bootstrappers/filecoin).
+Mainnet bootstrap nodes' status can be checked at [https://probelab.io/filecoin/bootstrappers](https://probelab.io/filecoin/bootstrappers).
 
 </p>
 </details>

@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.30.3"
+version = "0.30.4"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -115,7 +115,7 @@ ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
 itertools = "0.14"
 jsonrpsee = { version = "0.26", features = ["server", "ws-client", "http-client", "macros"] }
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 keccak-hash = "0.12"
 kubert-prometheus-process = "0.2"
 lazy-regex = "3"
