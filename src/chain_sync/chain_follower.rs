@@ -230,6 +230,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         let state_machine = state_machine.clone();
         let state_changed = state_changed.clone();
         let tasks = tasks.clone();
+        let bad_block_cache = bad_block_cache.clone();
         async move {
             loop {
                 state_changed.notified().await;
@@ -256,6 +257,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                             network.clone(),
                             state_manager.clone(),
                             stateless_mode,
+                            bad_block_cache.clone(),
                         );
                         tokio::spawn({
                             let state_machine = state_machine.clone();
@@ -694,16 +696,8 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     // Remove all bad tipsets from the tipset map.
     fn mark_bad_tipset(&mut self, tipset: Arc<FullTipset>) {
         let mut stack = vec![tipset];
-
         while let Some(tipset) = stack.pop() {
             self.tipsets.remove(tipset.key());
-            // Mark all blocks in the tipset as bad
-            if let Some(bad_block_cache) = &self.bad_block_cache {
-                for block in tipset.blocks() {
-                    bad_block_cache.push(*block.cid());
-                }
-            }
-
             // Find all descendant tipsets (tipsets that have this tipset as a parent)
             let mut to_remove = Vec::new();
             let mut descendants = Vec::new();
@@ -852,6 +846,7 @@ impl SyncTask {
         network: SyncNetworkContext<DB>,
         state_manager: Arc<StateManager<DB>>,
         stateless_mode: bool,
+        bad_block_cache: Option<Arc<BadBlockCache>>,
     ) -> Option<SyncEvent> {
         tracing::trace!("SyncTask::execute {self}");
         let cs = state_manager.chain_store();
@@ -868,8 +863,14 @@ impl SyncTask {
                 is_proposed_head,
             } => {
                 let genesis = cs.genesis_tipset();
-                match validate_tipset(state_manager.clone(), cs, tipset.deref().clone(), &genesis)
-                    .await
+                match validate_tipset(
+                    state_manager.clone(),
+                    cs,
+                    tipset.deref().clone(),
+                    &genesis,
+                    bad_block_cache,
+                )
+                .await
                 {
                     Ok(()) => Some(SyncEvent::ValidatedTipset {
                         tipset,
