@@ -22,7 +22,7 @@
 //!     offset     =body length
 //! ```
 //!
-//! # CARv1 layout and seeking
+//! # `CARv1` layout and seeking
 //!
 //! The first varint frame is a _header frame_, where the frame body is a [`CarHeader`] encoded
 //! using [`ipld_dagcbor`](serde_ipld_dagcbor).
@@ -57,7 +57,7 @@
 //! - Use safe arithmetic for all operations - a malicious frame shouldn't cause a crash.
 //! - Theoretically, file-backed blockstores should be clonable (or even [`Sync`]) with very low
 //!   overhead, so that multiple threads could perform operations concurrently.
-//! - CARv2 support
+//! - `CARv2` support
 //! - A wrapper that abstracts over car formats for reading.
 
 use crate::chain::FilecoinSnapshotMetadata;
@@ -92,7 +92,7 @@ use tracing::{debug, trace};
 /// It can often be time, memory, or disk prohibitive to read large snapshots into a database like
 /// [`ParityDb`](crate::db::parity_db::ParityDb).
 ///
-/// This is an implementer of [`Blockstore`] that simply wraps an uncompressed [CARv1
+/// This is an implementer of [`Blockstore`] that simply wraps an uncompressed [`CARv1`
 /// file](https://ipld.io/specs/transport/car/carv1).
 ///
 /// On creation, [`PlainCar`] builds an in-memory index of the [`Cid`]s in the file,
@@ -374,7 +374,7 @@ fn read_v1_header(mut reader: impl Read) -> io::Result<CarV1Header> {
 /// Importantly, we seek `block data length`, rather than read any in.
 /// This allows us to keep indexing fast.
 ///
-/// [`Ok(None)`] on EOF
+/// [`Ok(None)`] on `EOF`
 #[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_block_data_location_and_skip(
     mut reader: impl Read + Seek,
@@ -410,7 +410,7 @@ fn read_block_data_location_and_skip(
 }
 
 /// Reads `body length`, leaving the reader at the start of a varint frame,
-/// or returns [`Ok(None)`] if we've reached EOF
+/// or returns [`Ok(None)`] if we've reached `EOF`
 /// ```text
 /// start ►│
 ///        ├───────────┬─────────────┐

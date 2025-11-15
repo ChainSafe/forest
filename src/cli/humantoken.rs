@@ -135,7 +135,7 @@ mod parse {
     /// ```
     ///
     /// # Known bugs
-    /// - `1efil` will not parse as an exa (`10^18`), because we'll try and
+    /// - `1efil` will not parse as an `exa` (`10^18`), because we'll try and
     ///   parse it as a exponent in the float. Instead use `1 efil`.
     pub fn parse(input: &str) -> anyhow::Result<TokenAmount> {
         let (mut big_decimal, scale) = parse_big_decimal_and_scale(input)?;

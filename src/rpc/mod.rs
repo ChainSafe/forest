@@ -358,7 +358,7 @@ pub fn collect_rpc_method_info() -> Vec<(&'static str, Permission)> {
 /// All the methods live in their own folder
 ///
 /// # Handling types
-/// - If a `struct` or enum is only used in the RPC API, it should live in `src/rpc`.
+/// - If a `struct` or `enum` is only used in the RPC API, it should live in `src/rpc`.
 ///   - If it is used in only one API vertical (i.e `auth` or `chain`), then it should live
 ///     in either:
 ///     - `src/rpc/methods/auth.rs` (if there are only a few).

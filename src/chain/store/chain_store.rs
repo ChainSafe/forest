@@ -52,7 +52,7 @@ pub enum HeadChange {
 }
 
 /// Stores chain data such as heaviest tipset and cached tipset info at each
-/// epoch. This structure is thread-safe, and all caches are wrapped in a mutex
+/// epoch. This structure is thread-safe, and all caches are wrapped in a `mutex`
 /// to allow a consistent `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
     /// Publisher for head change events
@@ -464,7 +464,7 @@ fn filter_lowest_index(values: Vec<(EthHash, Cid, u64, usize)>) -> Vec<(EthHash,
         .collect()
 }
 
-/// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
+/// Returns a Tuple of BLS messages of type `UnsignedMessage` and `SECP` messages
 /// of type `SignedMessage`
 pub fn block_messages<DB>(
     db: &DB,

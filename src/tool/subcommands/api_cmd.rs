@@ -219,7 +219,7 @@ pub enum ApiCommands {
     /// that rely on internal state.
     ///
     /// Inputs:
-    /// - `--to`, `--from`: delegated Filecoin (f4) addresses
+    /// - `--to`, `--from`: delegated Filecoin (`f4`) addresses
     /// - `--payload`: calldata in hex (accepts optional `0x` prefix)
     /// - `--topic`: `32‑byte` event topic in hex
     /// - `--filter`: run only tests that interact with a specific RPC method
@@ -237,10 +237,10 @@ pub enum ApiCommands {
     /// test result: ok. 7 passed; 0 failed; 0 ignored; 0 filtered out
     /// ```
     TestStateful {
-        /// Test Transaction `to` address (delegated f4)
+        /// Test Transaction `to` address (delegated `f4`)
         #[arg(long)]
         to: Address,
-        /// Test Transaction `from` address (delegated f4)
+        /// Test Transaction `from` address (delegated `f4`)
         #[arg(long)]
         from: Address,
         /// Test Transaction hex `payload`

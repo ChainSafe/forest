@@ -478,7 +478,7 @@ impl<T> Override<T> {
 
 /// [`Chain4U`] will change [`RawBlockHeader`] fields to create a valid graph of tipsets.
 ///
-/// This struct describes which fields are _allowed_ to change.
+/// This `struct` describes which fields are _allowed_ to change.
 #[derive(Default, Debug, Clone)]
 pub struct HeaderBuilder {
     pub miner_address: Override<Address>,

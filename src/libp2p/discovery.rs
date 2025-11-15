@@ -35,7 +35,7 @@ use crate::{networks::GenesisNetworkName, utils::version::FOREST_VERSION_STRING}
 pub struct DerivedDiscoveryBehaviour {
     /// Kademlia discovery.
     kademlia: Toggle<kad::Behaviour<kad::store::MemoryStore>>,
-    /// Kademlia discovery for bootstrapping F3 sidecar when the main Kademlia is disabled.
+    /// Kademlia discovery for bootstrapping `F3` sidecar when the main Kademlia is disabled.
     kademlia_f3_sidecar: kad::Behaviour<kad::store::MemoryStore>,
     /// Discovers nodes on the local network.
     mdns: Toggle<Mdns>,

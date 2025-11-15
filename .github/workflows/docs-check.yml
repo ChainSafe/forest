@@ -36,9 +36,7 @@ jobs:
           node-version: 20
           package-manager-cache: false
       - run: corepack enable
-      - run: make format-spellcheck-dictionary-check
       - run: yarn --immutable
       - run: yarn typecheck
-      - run: yarn spellcheck
       - run: yarn format-check
       - run: yarn build

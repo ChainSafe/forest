@@ -20,7 +20,7 @@
 //!
 //! # Tech debt
 //! - The real way to do this is to implement [`ipld_core::codec::Codec`] bits appropriately,
-//!   or embrace using our own struct.
+//!   or embrace using our own `struct`.
 
 use std::{collections::BTreeMap, fmt};
 

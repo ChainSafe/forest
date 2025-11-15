@@ -43,7 +43,7 @@ pub struct RpcTestScenario {
 }
 
 impl RpcTestScenario {
-    /// Create a basic scenario from a simple async closure.
+    /// Create a basic scenario from a simple `async` closure.
     pub fn basic<F, Fut>(run_fn: F) -> Self
     where
         F: Fn(Arc<rpc::Client>) -> Fut + Send + Sync + 'static,

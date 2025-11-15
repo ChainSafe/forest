@@ -100,7 +100,7 @@ pub struct PendingSubscriptionSink {
     pub(crate) inner: MethodSink,
     /// `MethodCallback`.
     pub(crate) method: &'static str,
-    /// Shared Mutex of subscriptions for this method.
+    /// Shared `Mutex` of subscriptions for this method.
     pub(crate) subscribers: Subscribers,
     /// ID of the `subscription call` (i.e. not the same as subscription id) which is used
     /// to reply to subscription method call and must only be used once.

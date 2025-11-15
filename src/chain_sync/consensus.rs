@@ -4,7 +4,7 @@
 use nunny::Vec as NonEmpty;
 use tokio::task::JoinSet;
 
-/// Helper function to collect errors from async validations.
+/// Helper function to collect errors from `async` validations.
 pub async fn collect_errs<E: 'static>(
     mut handles: JoinSet<Result<(), E>>,
 ) -> Result<(), NonEmpty<E>> {

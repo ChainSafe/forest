@@ -186,14 +186,14 @@ impl EthLegacyHomesteadTxArgs {
         Ok(stream.out().to_vec())
     }
 
-    /// Constructs a signed message using legacy homestead transaction args
+    /// Constructs a signed message using legacy homestead transaction `args`
     pub fn get_signed_message(&self, from: Address) -> anyhow::Result<SignedMessage> {
         let message = self.get_unsigned_message(from)?;
         let signature = self.signature()?;
         Ok(SignedMessage { message, signature })
     }
 
-    /// Constructs an unsigned message using legacy homestead transaction args
+    /// Constructs an unsigned message using legacy homestead transaction `args`
     pub fn get_unsigned_message(&self, from: Address) -> anyhow::Result<Message> {
         let method_info = get_filecoin_method_info(&self.to, &self.input)?;
         Ok(Message {

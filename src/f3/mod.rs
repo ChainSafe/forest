@@ -143,7 +143,7 @@ pub fn import_f3_snapshot(
     Ok(())
 }
 
-/// Whether F3 sidecar via FFI is enabled.
+/// Whether `F3` sidecar via FFI is enabled.
 pub fn is_sidecar_ffi_enabled(chain_config: &ChainConfig) -> bool {
     // Respect the environment variable when set, and fallback to chain config when not set.
     let enabled =

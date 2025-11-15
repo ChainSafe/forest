@@ -82,7 +82,7 @@ pub enum BitswapResponse {
     Block(Vec<u8>),
 }
 
-/// `Bitswap` message Enum type that is either a [`BitswapRequest`] or a
+/// `Bitswap` message `Enum` type that is either a [`BitswapRequest`] or a
 /// [`BitswapResponse`]
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum BitswapMessage {

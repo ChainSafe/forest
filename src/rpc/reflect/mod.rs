@@ -50,7 +50,7 @@ pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
 ///
 /// Note, an earlier draft of this trait had an additional type parameter for `Ctx`
 /// for generality.
-/// However, fixing it as [`Ctx<...>`] saves on complexity/confusion for implementors,
+/// However, fixing it as [`Ctx<...>`] saves on complexity/confusion for `implementors`,
 /// at the expense of handler flexibility, which could come back to bite us.
 /// - All handlers accept the same type.
 /// - All `Ctx`s must be `Send + Sync + 'static` due to bounds on [`RpcModule`].

@@ -219,7 +219,7 @@ impl EthLegacyEip155TxArgs {
         Ok(stream.out().to_vec())
     }
 
-    /// Constructs a signed message using legacy EIP-155 transaction args
+    /// Constructs a signed message using legacy EIP-155 transaction `args`
     pub fn get_signed_message(
         &self,
         from: Address,
@@ -230,7 +230,7 @@ impl EthLegacyEip155TxArgs {
         Ok(SignedMessage { message, signature })
     }
 
-    /// Constructs an unsigned message using legacy EIP-155 transaction args
+    /// Constructs an unsigned message using legacy EIP-155 transaction `args`
     pub fn get_unsigned_message(
         &self,
         from: Address,
@@ -238,7 +238,7 @@ impl EthLegacyEip155TxArgs {
     ) -> anyhow::Result<Message> {
         ensure!(
             validate_eip155_chain_id(eth_chain_id, &self.v).is_ok(),
-            "Failed to validate EIP155 chain Id"
+            "Failed to validate `EIP155` chain Id"
         );
         let method_info = get_filecoin_method_info(&self.to, &self.input)?;
         Ok(Message {
@@ -269,7 +269,7 @@ impl EthLegacyEip155TxArgsBuilder {
     }
 }
 
-/// Validates the EIP155 chain ID by deriving it from the given `v` value
+/// Validates the `EIP155` chain ID by deriving it from the given `v` value
 pub fn validate_eip155_chain_id(eth_chain_id: EthChainId, v: &BigInt) -> anyhow::Result<()> {
     let derived_chain_id = derive_eip_155_chain_id(v)?;
     ensure!(
@@ -283,7 +283,7 @@ pub fn validate_eip155_chain_id(eth_chain_id: EthChainId, v: &BigInt) -> anyhow:
     Ok(())
 }
 
-/// Derives the EIP155 chain ID from the `V` value
+/// Derives the `EIP155` chain ID from the `V` value
 pub fn derive_eip_155_chain_id(v: &BigInt) -> anyhow::Result<BigInt> {
     if v.bits() <= 64 {
         let v = v.to_u64().context("Failed to convert v to u64")?;

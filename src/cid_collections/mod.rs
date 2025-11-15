@@ -28,7 +28,7 @@ pub use small_cid_vec::SmallCidNonEmptyVec;
 /// assert_eq!(std::mem::size_of::<cid::Cid>(), 96);
 /// ```
 ///
-/// If other types of CID become popular, they should be added to this enum.
+/// If other types of CID become popular, they should be added to this `enum`.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
 enum MaybeCompactedCid {
     Compact(CidV1DagCborBlake2b256),

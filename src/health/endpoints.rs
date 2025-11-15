@@ -44,7 +44,7 @@ pub(crate) async fn livez(
 /// - The node is in sync with the network
 /// - The current epoch of the node is not too far behind the network
 /// - The RPC server is running if not disabled
-/// - The F3 side car is running if enabled
+/// - The `F3` side car is running if enabled
 ///
 /// If any of these conditions are not met, the nod is **not** ready to serve requests.
 pub(crate) async fn readyz(

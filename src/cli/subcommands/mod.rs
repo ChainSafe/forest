@@ -94,7 +94,7 @@ pub enum Subcommand {
     #[command(subcommand)]
     Healthcheck(HealthcheckCommand),
 
-    /// Manages Filecoin Fast Finality (F3) interactions
+    /// Manages Filecoin Fast Finality (`F3`) interactions
     #[command(subcommand)]
     F3(F3Commands),
 

@@ -133,7 +133,7 @@ impl<V> CidHashMap<V> {
 
 /// A view into a single entry in a map, which may either be vacant or occupied.
 ///
-/// This enum is constructed using [`CidHashMap::entry`].
+/// This `enum` is constructed using [`CidHashMap::entry`].
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum Entry<'a, V: 'a> {
@@ -144,7 +144,7 @@ pub enum Entry<'a, V: 'a> {
 }
 
 /// A view into an occupied entry in a `HashMap`.
-/// It is part of the [`Entry`] enum.
+/// It is part of the [`Entry`] `enum`.
 ///
 /// See also [`std::collections::hash_map::OccupiedEntry`].
 #[allow(dead_code)]
@@ -175,7 +175,7 @@ enum OccupiedEntryInner<'a, V> {
 }
 
 /// A view into a vacant entry in a `HashMap`.
-/// It is part of the [`Entry`] enum.
+/// It is part of the [`Entry`] `enum`.
 ///
 /// See also [`std::collections::hash_map::VacantEntry`].
 #[allow(dead_code)]

@@ -19,7 +19,7 @@ pin_project! {
 
 /// Trait marking the object that is collecting a kind of a checksum.
 pub trait Checksum<D: Digest> {
-    /// Return the checksum and resets the internal hasher.
+    /// Return the checksum and resets the internal `hasher`.
     fn finalize(&mut self) -> std::io::Result<Option<Output<D>>>;
 }
 

@@ -50,7 +50,7 @@ pub struct FilecoinSnapshotMetadata {
     pub version: FilecoinSnapshotVersion,
     /// Chain head tipset key
     pub head_tipset_key: NonEmpty<Cid>,
-    /// F3 snapshot `CID`
+    /// `F3` snapshot `CID`
     pub f3_data: Option<Cid>,
 }
 

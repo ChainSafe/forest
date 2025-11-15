@@ -43,7 +43,7 @@
 //!
 //! `zstd` frame format: <https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md>
 //!
-//! CARv1 specification: <https://ipld.io/specs/transport/car/carv1/>
+//! `CARv1` specification: <https://ipld.io/specs/transport/car/carv1/>
 //!
 
 use super::{CacheKey, ZstdFrameCache};
