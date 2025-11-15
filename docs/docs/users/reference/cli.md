@@ -340,7 +340,7 @@ SUBCOMMANDS:
   info         Print node info
   shutdown     Shutdown Forest
   healthcheck  Print healthcheck info
-  f3           Manages Filecoin Fast Finality (F3) interactions
+  f3           Manages Filecoin Fast Finality (`F3`) interactions
   wait-api     Wait for lotus API to come online
   help         Print this message or the help of the given subcommand(s)
 
@@ -832,16 +832,16 @@ Options:
 ### `forest-cli f3`
 
 ```
-Manages Filecoin Fast Finality (F3) interactions
+Manages Filecoin Fast Finality (`F3`) interactions
 
 Usage: forest-cli f3 <COMMAND>
 
 Commands:
-  manifest    Gets the current manifest used by F3
-  status      Checks the F3 status
-  certs       Manages interactions with F3 finality certificates [aliases: c]
-  powertable  Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: pt]
-  ready       Checks if F3 is in sync
+  manifest    Gets the current manifest used by `F3`
+  status      Checks the `F3` status
+  certs       Manages interactions with `F3` finality certificates [aliases: c]
+  powertable  Gets `F3` power table at a specific instance ID or latest instance if none is specified [aliases: pt]
+  ready       Checks if `F3` is in sync
   help        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -851,7 +851,7 @@ Options:
 ### `forest-cli f3 manifest`
 
 ```
-Gets the current manifest used by F3
+Gets the current manifest used by `F3`
 
 Usage: forest-cli f3 manifest [OPTIONS]
 
@@ -872,7 +872,7 @@ Options:
 ### `forest-cli f3 status`
 
 ```
-Checks the F3 status
+Checks the `F3` status
 
 Usage: forest-cli f3 status
 
@@ -883,13 +883,13 @@ Options:
 ### `forest-cli f3 certs`
 
 ```
-Manages interactions with F3 finality certificates
+Manages interactions with `F3` finality certificates
 
 Usage: forest-cli f3 certs <COMMAND>
 
 Commands:
-  get   Gets an F3 finality certificate to a given instance ID, or the latest certificate if no instance is specified
-  list  Lists a range of F3 finality certificates
+  get   Gets an `F3` finality certificate to a given instance ID, or the latest certificate if no instance is specified
+  list  Lists a range of `F3` finality certificates
   help  Print this message or the help of the given subcommand(s)
 
 Options:
@@ -899,7 +899,7 @@ Options:
 ### `forest-cli f3 certs get`
 
 ```
-Gets an F3 finality certificate to a given instance ID, or the latest certificate if no instance is specified
+Gets an `F3` finality certificate to a given instance ID, or the latest certificate if no instance is specified
 
 Usage: forest-cli f3 certs get [OPTIONS] [INSTANCE]
 
@@ -924,7 +924,7 @@ Options:
 ### `forest-cli f3 certs list`
 
 ```
-Lists a range of F3 finality certificates
+Lists a range of `F3` finality certificates
 
 Usage: forest-cli f3 certs list [OPTIONS] [RANGE]
 
@@ -957,12 +957,12 @@ Options:
 ### `forest-cli f3 powertable`
 
 ```
-Gets F3 power table at a specific instance ID or latest instance if none is specified
+Gets `F3` power table at a specific instance ID or latest instance if none is specified
 
 Usage: forest-cli f3 powertable <COMMAND>
 
 Commands:
-  get             Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: g]
+  get             Gets `F3` power table at a specific instance ID or latest instance if none is specified [aliases: g]
   get-proportion  Gets the total proportion of power for a list of actors at a given instance [aliases: gp]
   help            Print this message or the help of the given subcommand(s)
 
@@ -973,7 +973,7 @@ Options:
 ### `forest-cli f3 powertable get`
 
 ```
-Gets F3 power table at a specific instance ID or latest instance if none is specified
+Gets `F3` power table at a specific instance ID or latest instance if none is specified
 
 Usage: forest-cli f3 powertable get [OPTIONS] [INSTANCE]
 
@@ -1004,17 +1004,17 @@ Options:
 ### `forest-cli f3 ready`
 
 ```
-Checks if F3 is in sync
+Checks if `F3` is in sync
 
 Usage: forest-cli f3 ready [OPTIONS]
 
 Options:
       --wait
-          Wait until F3 is in sync
+          Wait until `F3` is in sync
       --threshold <THRESHOLD>
-          The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync [default: 20]
+          The threshold of the epoch gap between chain head and `F3` head within which `F3` is considered in sync [default: 20]
       --no-progress-timeout <NO_PROGRESS_TIMEOUT>
-          Exit after F3 making no progress for this duration [default: 10m]
+          Exit after `F3` making no progress for this duration [default: 10m]
   -h, --help
           Print help
 ```

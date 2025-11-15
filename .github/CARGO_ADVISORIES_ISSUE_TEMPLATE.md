@@ -5,4 +5,4 @@ labels: ["Bug"]
 
 ## Description
 
-Please [check the logs]({{ env.WORKFLOW_URL }}) for more information.
+Please [check the logs]({{ `env.WORKFLOW_URL` }}) for more information.

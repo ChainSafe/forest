@@ -26,7 +26,7 @@ flowchart TD
 ./test_bootstrapper.sh lotus
 ```
 
-## Teardown
+## `Teardown`
 
 ```bash
 docker compose -f ./docker-compose-forest.yml down -v --rmi all

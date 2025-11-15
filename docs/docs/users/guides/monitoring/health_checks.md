@@ -3,7 +3,7 @@ title: Health Checks
 ---
 
 import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
+import `TabItem` from '@theme/TabItem';
 
 All health check endpoints operate on port `2346` by default. This behavior can
 be changed via the `--healthcheck-address` flag. All endpoints expose a
@@ -75,7 +75,7 @@ Sample _ready_ response:
 [+] sync complete
 [+] epoch up to date
 [+] rpc server running
-[+] f3 running⏎
+[+] `f3` running⏎
 ```
 
 Sample _not ready_ response:
@@ -84,7 +84,7 @@ Sample _not ready_ response:
 [!] sync incomplete
 [!] epoch outdated
 [+] rpc server running
-[+] f3 running⏎
+[+] `f3` running⏎
 ```
 
   </TabItem>  
@@ -107,7 +107,7 @@ Sample _healthy_ response:
 [+] rpc server running
 [+] sync ok
 [+] peers connected
-[+] f3 running⏎
+[+] `f3` running⏎
 ```
 
 Sample _unhealthy_ response:
@@ -117,7 +117,7 @@ Sample _unhealthy_ response:
 [+] rpc server running
 [+] sync ok
 [+] peers connected
-[+] f3 running⏎
+[+] `f3` running⏎
 ```
 
   </TabItem>

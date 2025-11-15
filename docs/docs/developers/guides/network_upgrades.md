@@ -13,7 +13,7 @@ The network upgrades rough schedule is published in [Filecoin Core Devs discussi
 
 ### Network upgrade scope
 
-The network upgrades scope is published in the [Filecoin Core Devs discussions](https://github.com/filecoin-project/core-devs/discussions) (see the [NV23 scope](https://github.com/filecoin-project/core-devs/discussions/149)). The scope includes the changes in the Filecoin protocol in the form of accepted FIPs.
+The network upgrades scope is published in the [Filecoin Core Devs discussions](https://github.com/filecoin-project/core-devs/discussions) (see the [`NV23` scope](https://github.com/filecoin-project/core-devs/discussions/149)). The scope includes the changes in the Filecoin protocol in the form of accepted FIPs.
 
 Some FIPs require changes in the FVM, some (most) in the Builtin Actors, and some in the Forest. Additionally, some changes require state migrations, which may not be trivial to implement and require significant computing resources.
 
@@ -37,7 +37,7 @@ graph TD
 
 #### Skeleton with base migration
 
-This provides the base for the state migrations and network-aware node changes. See the sample PR for NV24 [here](https://github.com/ChainSafe/forest/pull/4819).
+This provides the base for the state migrations and network-aware node changes. See the sample PR for `NV24` [here](https://github.com/ChainSafe/forest/pull/4819).
 
 #### State migrations
 
@@ -61,7 +61,7 @@ The `fil-actor-states` repository is updated to the latest bundle release. The c
 
 Some changes are required in the Forest itself but outside migrations. These changes are usually related to the network upgrade itself, e.g., changes in the block validation rules.
 
-#### 2k network testing
+#### `2k` network testing
 
 The changes are tested locally on the devnet with a Lotus RC and a `builtin-actors` bundle RC.
 
@@ -118,7 +118,7 @@ The most crucial part of the network upgrade is coordinating with other Filecoin
 
 We communicate the network upgrades via the following channels:
 
-- [Forest Discussions](https://github.com/ChainSafe/forest/discussions). See the [NV23 announcement](https://github.com/ChainSafe/forest/discussions/4488) for an example.
+- [Forest Discussions](https://github.com/ChainSafe/forest/discussions). See the [`NV23` announcement](https://github.com/ChainSafe/forest/discussions/4488) for an example.
 - The `#fil-forest-announcements` channel in the Filecoin Slack.
 
 ## Network upgrade monitoring
