@@ -19,8 +19,8 @@ for chain in "${chains[@]}"
 do
     # download the latest snapshot.
     # =============================
-    # - calibnet ~3G, ~1min on a droplet
-    # - mainnet ~60G, ~15mins on a droplet
+    # - calibnet ~6G, ~5min on a droplet
+    # - mainnet ~74G, ~60mins on a droplet
     aria2c -x5 https://forest-archive.chainsafe.dev/latest/"$chain"/ -o "$chain"
 
     # print out the checkpoints.

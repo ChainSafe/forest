@@ -94,15 +94,20 @@ generate_markdown_section "forest-cli" "f3 ready"
 generate_markdown_section "forest-tool" ""
 
 generate_markdown_section "forest-tool" "backup"
-generate_markdown_section "forest-tool" "completion"
 generate_markdown_section "forest-tool" "backup create"
 generate_markdown_section "forest-tool" "backup restore"
+
+generate_markdown_section "forest-tool" "completion"
 
 generate_markdown_section "forest-tool" "benchmark"
 generate_markdown_section "forest-tool" "benchmark car-streaming"
 generate_markdown_section "forest-tool" "benchmark graph-traversal"
 generate_markdown_section "forest-tool" "benchmark forest-encoding"
 generate_markdown_section "forest-tool" "benchmark export"
+
+generate_markdown_section "forest-tool" "state"
+generate_markdown_section "forest-tool" "state compute"
+generate_markdown_section "forest-tool" "state replay-compute"
 
 generate_markdown_section "forest-tool" "state-migration"
 generate_markdown_section "forest-tool" "state-migration actor-bundle"

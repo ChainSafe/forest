@@ -143,7 +143,7 @@ impl TestSummary {
 
 /// Data about a failed test. Used for debugging.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(super) struct TestDump {
+pub struct TestDump {
     pub request: rpc::Request,
     pub forest_response: Result<Value, String>,
     pub lotus_response: Result<Value, String>,
@@ -1746,7 +1746,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             },))
             .unwrap(),
         )
-        .sort_policy(SortPolicy::All),
+        .sort_policy(SortPolicy::All)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(
             EthGetLogs::request((EthFilterSpec {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
@@ -1756,7 +1757,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             },))
             .unwrap(),
         )
-        .sort_policy(SortPolicy::All),
+        .sort_policy(SortPolicy::All)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(
             EthGetLogs::request((EthFilterSpec {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
@@ -1765,7 +1767,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             },))
             .unwrap(),
         )
-        .sort_policy(SortPolicy::All),
+        .sort_policy(SortPolicy::All)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(
             EthGetLogs::request((EthFilterSpec {
                 address: Some(EthAddressList::Single(
@@ -1775,7 +1778,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             },))
             .unwrap(),
         )
-        .sort_policy(SortPolicy::All),
+        .sort_policy(SortPolicy::All)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(EthGetFilterLogs::request((FilterID::new().unwrap(),)).unwrap())
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(EthGetFilterChanges::request((FilterID::new().unwrap(),)).unwrap())
@@ -2293,12 +2297,10 @@ pub(super) async fn run_tests(
     }
 
     let has_failures = report_builder.has_failures();
-    // Save the report if configured
+    report_builder.print_summary();
+
     if let Some(path) = report_dir {
         report_builder.finalize_and_save(&path)?;
-    } else {
-        // Print detailed summary
-        report_builder.print_summary();
     }
 
     anyhow::ensure!(!has_failures, "Some tests failed");

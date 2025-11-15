@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.30.2
+forest-filecoin 0.30.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.30.2
+forest-filecoin 0.30.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -252,9 +252,9 @@ Sign a message
 Usage: forest-wallet sign -m <MESSAGE> -a <ADDRESS>
 
 Options:
-  -m <MESSAGE>      The hex encoded message to sign
-  -a <ADDRESS>      The address to be used to sign the message
-  -h, --help        Print help
+  -m <MESSAGE>  The hex encoded message to sign
+  -a <ADDRESS>  The address to be used to sign the message
+  -h, --help    Print help
 ```
 
 ### `forest-wallet validate-address`
@@ -279,10 +279,10 @@ Verify the signature of a message. Returns true if the signature matches the mes
 Usage: forest-wallet verify -a <ADDRESS> -m <MESSAGE> -s <SIGNATURE>
 
 Options:
-  -a <ADDRESS>        The address used to sign the message
-  -m <MESSAGE>        The message to verify
-  -s <SIGNATURE>      The signature of the message to verify
-  -h, --help          Print help
+  -a <ADDRESS>    The address used to sign the message
+  -m <MESSAGE>    The message to verify
+  -s <SIGNATURE>  The signature of the message to verify
+  -h, --help      Print help
 ```
 
 ### `forest-wallet delete`
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.30.2
+forest-filecoin 0.30.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -381,7 +381,7 @@ Usage: forest-cli chain block -c <CID>
 
 Options:
   -c <CID>
-  -h, --help    Print help
+  -h, --help  Print help
 ```
 
 ### `forest-cli chain message`
@@ -393,7 +393,7 @@ Usage: forest-cli chain message -c <CID>
 
 Options:
   -c <CID>
-  -h, --help    Print help
+  -h, --help  Print help
 ```
 
 ### `forest-cli chain read-obj`
@@ -405,7 +405,7 @@ Usage: forest-cli chain read-obj -c <CID>
 
 Options:
   -c <CID>
-  -h, --help    Print help
+  -h, --help  Print help
 ```
 
 ### `forest-cli chain set-head`
@@ -593,8 +593,8 @@ Check if a given block is marked bad, and for what reason
 Usage: forest-cli sync check-bad -c <CID>
 
 Options:
-  -c <CID>      The block CID to check
-  -h, --help    Print help
+  -c <CID>    The block CID to check
+  -h, --help  Print help
 ```
 
 ### `forest-cli sync mark-bad`
@@ -605,8 +605,8 @@ Mark a given block as bad
 Usage: forest-cli sync mark-bad -c <CID>
 
 Options:
-  -c <CID>      The block CID to mark as a bad block
-  -h, --help    Print help
+  -c <CID>    The block CID to mark as a bad block
+  -h, --help  Print help
 ```
 
 ### `forest-cli mpool`
@@ -739,9 +739,11 @@ Manage snapshots
 Usage: forest-cli snapshot <COMMAND>
 
 Commands:
-  export       Export a snapshot of the chain to `<output_path>`
-  export-diff  Export a diff snapshot between `from` and `to` epochs to `<output_path>`
-  help         Print this message or the help of the given subcommand(s)
+  export         Export a snapshot of the chain to `<output_path>`
+  export-status  Show status of the current export
+  export-cancel  Cancel the current export
+  export-diff    Export a diff snapshot between `from` and `to` epochs to `<output_path>`
+  help           Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
@@ -1020,7 +1022,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.30.2
+forest-filecoin 0.30.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1040,6 +1042,7 @@ SUBCOMMANDS:
   api              API tooling
   net              Network utilities
   shed             Miscellaneous, semver-exempt commands for developer use
+  state            Interact with Filecoin chain state
   completion       Completion Command for generating shell completions for the CLI
   help             Print this message or the help of the given subcommand(s)
 
@@ -1062,21 +1065,6 @@ Commands:
 
 Options:
   -h, --help  Print help
-```
-
-### `forest-tool completion`
-
-```
-Completion Command for generating shell completions for the CLI
-
-Usage: forest-tool completion [OPTIONS] [BINARIES]...
-
-Arguments:
-  [BINARIES]...  The binaries for which to generate completions (e.g., 'forest-cli,forest-tool,forest-wallet'). If omitted, completions for all known binaries will be generated
-
-Options:
-      --shell <SHELL>  The Shell type to generate completions for [default: bash] [possible values: bash, elvish, fish, powershell, zsh]
-  -h, --help           Print help
 ```
 
 ### `forest-tool backup create`
@@ -1111,6 +1099,21 @@ Options:
   -d, --daemon-config <DAEMON_CONFIG>  Optional TOML file containing forest daemon configuration. If not provided, the default configuration will be used
       --force                          Force restore even if files already exist WARNING: This will overwrite existing files
   -h, --help                           Print help
+```
+
+### `forest-tool completion`
+
+```
+Completion Command for generating shell completions for the CLI
+
+Usage: forest-tool completion [OPTIONS] [BINARIES]...
+
+Arguments:
+  [BINARIES]...  The binaries for which to generate completions (e.g., 'forest-cli,forest-tool,forest-wallet'). If omitted, completions for all known binaries will be generated
+
+Options:
+      --shell <SHELL>  The Shell type to generate completions for [default: bash] [possible values: bash, elvish, fish, powershell, zsh]
+  -h, --help           Print help
 ```
 
 ### `forest-tool benchmark`
@@ -1200,6 +1203,53 @@ Options:
           How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet` [default: 2000]
   -h, --help
           Print help
+```
+
+### `forest-tool state`
+
+```
+Interact with Filecoin chain state
+
+Usage: forest-tool state <COMMAND>
+
+Commands:
+  compute         Compute state tree for an epoch
+  replay-compute  Replay state computation with a db snapshot To be used in conjunction with `forest-tool state compute`
+  help            Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-tool state compute`
+
+```
+Compute state tree for an epoch
+
+Usage: forest-tool state compute [OPTIONS] --epoch <EPOCH> --chain <CHAIN>
+
+Options:
+      --epoch <EPOCH>                Which epoch to compute the state transition for
+      --chain <CHAIN>                Filecoin network chain
+      --db <DB>                      Optional path to the database folder
+      --export-db-to <EXPORT_DB_TO>  Optional path to the database snapshot `CAR` file to write to for reproducing the computation
+  -h, --help                         Print help
+```
+
+### `forest-tool state replay-compute`
+
+```
+Replay state computation with a db snapshot To be used in conjunction with `forest-tool state compute`
+
+Usage: forest-tool state replay-compute [OPTIONS] --chain <CHAIN> <SNAPSHOT>
+
+Arguments:
+  <SNAPSHOT>  Path to the database snapshot `CAR` file generated by `forest-tool state compute`
+
+Options:
+      --chain <CHAIN>  Filecoin network chain
+  -n, --n <N>          Number of times to repeat the state computation [default: 1]
+  -h, --help           Print help
 ```
 
 ### `forest-tool state-migration`
@@ -1584,6 +1634,7 @@ Usage: forest-tool db <COMMAND>
 Commands:
   stats    Show DB stats
   destroy  DB destruction
+  import   Import CAR files into the key-value store
   help     Print this message or the help of the given subcommand(s)
 
 Options:
@@ -1614,6 +1665,23 @@ Options:
       --force            Answer yes to all forest-cli yes/no questions without prompting
   -c, --config <CONFIG>  Optional TOML file containing forest daemon configuration
       --chain <CHAIN>    Optional chain, will override the chain section of configuration file if used
+  -h, --help             Print help
+```
+
+### `forest-tool db import`
+
+```
+Import CAR files into the key-value store
+
+Usage: forest-tool db import [OPTIONS] --chain <CHAIN> <SNAPSHOT_FILES>...
+
+Arguments:
+  <SNAPSHOT_FILES>...  Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`
+
+Options:
+      --chain <CHAIN>    Filecoin network chain
+      --db <DB>          Optional path to the database folder that powers a Forest node
+      --skip-validation  Skip block validation
   -h, --help             Print help
 ```
 

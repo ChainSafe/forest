@@ -8,14 +8,57 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
+use chrono::{DateTime, Utc};
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
+use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::pin::Pin;
+use std::sync::LazyLock;
 use std::task::{Context, Poll};
+
+#[derive(Default)]
+pub struct ExportStatus {
+    pub epoch: i64,
+    pub initial_epoch: i64,
+    pub exporting: bool,
+    pub cancelled: bool,
+    pub start_time: Option<DateTime<Utc>>,
+}
+
+pub static CHAIN_EXPORT_STATUS: LazyLock<Mutex<ExportStatus>> =
+    LazyLock::new(|| ExportStatus::default().into());
+
+fn update_epoch(new_value: i64) {
+    let mut mutex = CHAIN_EXPORT_STATUS.lock();
+    mutex.epoch = new_value;
+    if mutex.initial_epoch == 0 {
+        mutex.initial_epoch = new_value;
+    }
+}
+
+pub fn start_export() {
+    let mut mutex = CHAIN_EXPORT_STATUS.lock();
+    mutex.epoch = 0;
+    mutex.initial_epoch = 0;
+    mutex.exporting = true;
+    mutex.cancelled = false;
+    mutex.start_time = Some(Utc::now());
+}
+
+pub fn end_export() {
+    let mut mutex = CHAIN_EXPORT_STATUS.lock();
+    mutex.exporting = false;
+}
+
+pub fn cancel_export() {
+    let mut mutex = CHAIN_EXPORT_STATUS.lock();
+    mutex.exporting = false;
+    mutex.cancelled = true;
+}
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity `CIDs`.
@@ -112,6 +155,7 @@ pin_project! {
         seen: CidHashSet,
         stateroot_limit_exclusive: ChainEpoch,
         fail_on_dead_links: bool,
+        track_progress: bool,
     }
 }
 
@@ -123,6 +167,11 @@ impl<DB, T> ChainStream<DB, T> {
 
     pub fn fail_on_dead_links(mut self, fail_on_dead_links: bool) -> Self {
         self.fail_on_dead_links = fail_on_dead_links;
+        self
+    }
+
+    pub fn track_progress(mut self, track_progress: bool) -> Self {
+        self.track_progress = track_progress;
         self
     }
 
@@ -155,6 +204,7 @@ pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
         seen: CidHashSet::default(),
         stateroot_limit_exclusive,
         fail_on_dead_links: true,
+        track_progress: false,
     }
 }
 
@@ -197,6 +247,9 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                         }
                     }
                     Iterate(epoch, block_cid, _type, cid_vec) => {
+                        if *this.track_progress {
+                            update_epoch(*epoch);
+                        }
                         while let Some(cid) = cid_vec.pop_front() {
                             // The link traversal implementation assumes there are three types of encoding:
                             // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
@@ -242,6 +295,9 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                 for block in tipset.borrow().block_headers() {
                     let (cid, data) = block.car_block()?;
                     if this.seen.insert(cid) {
+                        if *this.track_progress {
+                            update_epoch(block.epoch);
+                        }
                         // Make sure we always yield a block otherwise.
                         this.dfs.push_back(Emit(cid, Some(data)));
 

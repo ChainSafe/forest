@@ -9,10 +9,11 @@ mod logo;
 pub use logo::*;
 pub mod env;
 
-#[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, strum::EnumString)]
 #[strum(serialize_all = "kebab-case")]
 pub enum LoggingColor {
     Always,
+    #[default]
     Auto,
     Never,
 }
@@ -24,11 +25,5 @@ impl LoggingColor {
             LoggingColor::Always => true,
             LoggingColor::Never => false,
         }
-    }
-}
-
-impl Default for LoggingColor {
-    fn default() -> Self {
-        Self::Auto
     }
 }

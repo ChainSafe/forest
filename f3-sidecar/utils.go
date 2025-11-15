@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/ipfs/go-cid"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p/gologshim"
 )
 
 var CID_UNDEF_RUST = cid.MustParse("baeaaaaa")
@@ -56,12 +58,18 @@ func setLogLevel(name string, level string) error {
 }
 
 func setLogLevels() error {
+	// Route all slog logs through go-log
+	slog.SetDefault(slog.New(logging.SlogHandler()))
+
+	// Connect go-libp2p to go-log
+	gologshim.SetDefaultHandler(logging.SlogHandler())
+
 	logging.SetAllLoggers(logging.LevelInfo)
 	if err := setLogLevel("dht", "error"); err != nil {
 		return err
 	}
 	// Always mute RtRefreshManager because it breaks terminals
-	if err := setLogLevel("dht/RtRefreshManager", "warn"); err != nil {
+	if err := setLogLevel("dht/RtRefreshManager", "fatal"); err != nil {
 		return err
 	}
 	if err := setLogLevel("f3/sidecar", "debug"); err != nil {
