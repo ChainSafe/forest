@@ -68,6 +68,8 @@ The release includes new CLI commands for snapshot monitoring, a crucial fork ha
 
 ### Fixed
 
+- [#6118](https://github.com/ChainSafe/forest/pull/6118) Fixed `eth_getCode` and `eth_getStorageAt` so that they return the code and storage of the requested tipset and not its parent.
+
 - [#6178](https://github.com/ChainSafe/forest/pull/6178) Fixed incorrect error code for unsupported RPC methods.
 
 - [#6189](https://github.com/ChainSafe/forest/pull/6189) Improved performance of `eth_getBlockByHash` and `eth_getBlockByNumber`.
