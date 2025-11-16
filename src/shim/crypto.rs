@@ -81,7 +81,7 @@ impl Signature {
         }
     }
 
-    /// Creates a SECP Signature given the raw bytes.
+    /// Creates a `SECP` Signature given the raw bytes.
     pub fn new_secp256k1(bytes: Vec<u8>) -> Self {
         Self {
             sig_type: SignatureType::Secp256k1,
@@ -135,7 +135,7 @@ impl Signature {
 
     /// Authenticates the message signature using protocol-specific validation:
     /// - Delegated: Uses the Ethereum message with RLP encoding for signature verification, Verifies message roundtrip integrity
-    /// - BLS/SECP: Standard signature verification
+    /// - BLS/`SECP`: Standard signature verification
     pub fn authenticate_msg(
         &self,
         eth_chain_id: EthChainId,

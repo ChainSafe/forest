@@ -120,7 +120,7 @@ impl TipsetValidator<'_> {
         bls_msgs: &[Message],
         secp_msgs: &[SignedMessage],
     ) -> Result<Cid, TipsetValidationError> {
-        // Generate message CIDs
+        // Generate message `CIDs`
         let bls_cids = bls_msgs
             .iter()
             .map(Cid::from_cbor_blake2b256)

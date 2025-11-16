@@ -270,7 +270,7 @@ pub struct SectorOnChainInfo {
     /// sector activation, extension and whenever a sector's `QAP` is changed. This fee is payable for
     /// the lifetime of the sector and is aggregated in the deadline's `daily_fee` field.
     ///
-    /// This field is not included in the serialized form of the struct prior to the activation of
+    /// This field is not included in the serialized form of the `struct` prior to the activation of
     /// FIP-0100, and is added as the 16th element of the array after that point only for new sectors
     /// or sectors that are updated after that point. For old sectors, the value of this field will
     /// always be zero.

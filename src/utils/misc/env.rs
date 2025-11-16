@@ -12,13 +12,13 @@ pub fn env_or_default<T: FromStr>(key: &str, default: T) -> T {
         .unwrap_or(default)
 }
 
-/// Check if the given environment variable is set to truthy value.
+/// Check if the given environment variable is set to `truthy` value.
 /// Returns false if not set.
 pub fn is_env_truthy(env: &str) -> bool {
     is_env_set_and_truthy(env).unwrap_or_default()
 }
 
-/// Check if the given environment variable is set to truthy value.
+/// Check if the given environment variable is set to `truthy` value.
 /// Returns None if not set.
 pub fn is_env_set_and_truthy(env: &str) -> Option<bool> {
     std::env::var(env)

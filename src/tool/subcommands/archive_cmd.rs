@@ -98,9 +98,9 @@ pub enum ArchiveCommands {
         /// Path to an archive (`.car` or `.car.zst`).
         snapshot: PathBuf,
     },
-    /// Show FRC-0108 header of a standalone F3 snapshot.
+    /// Show FRC-0108 header of a standalone `F3` snapshot.
     F3Header {
-        /// Path to a standalone F3 snapshot.
+        /// Path to a standalone `F3` snapshot.
         snapshot: PathBuf,
     },
     /// Trim a snapshot of the chain and write it to `<output_path>`
@@ -150,12 +150,12 @@ pub enum ArchiveCommands {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
-    /// Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
+    /// Merge a `v1` Filecoin snapshot with an `F3` snapshot into a `v2` Filecoin snapshot in `.forest.car.zst` format
     MergeF3 {
-        /// Path to the v1 Filecoin snapshot
+        /// Path to the `v1` Filecoin snapshot
         #[arg(long = "v1")]
         filecoin_v1: PathBuf,
-        /// Path to the F3 snapshot
+        /// Path to the `F3` snapshot
         #[arg(long)]
         f3: PathBuf,
         /// Path to the snapshot output file in `.forest.car.zst` format

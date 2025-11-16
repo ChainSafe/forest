@@ -2027,8 +2027,8 @@ fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     ])
 }
 
-// Extract tests that use chain-specific data such as block CIDs or message
-// CIDs. Right now, only the last `n_tipsets` tipsets are used.
+// Extract tests that use chain-specific data such as block `CIDs` or message
+// `CIDs`. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(
     store: Arc<ManyCar>,
     num_tipsets: usize,

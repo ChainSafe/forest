@@ -140,7 +140,7 @@ impl ChainExchangeResponse {
             .collect()
     }
 }
-/// Contains all BLS and SECP messages and their indexes per block
+/// Contains all BLS and `SECP` messages and their indexes per block
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct CompactedMessages {
     /// Unsigned BLS messages.
@@ -149,7 +149,7 @@ pub struct CompactedMessages {
     /// if `bls_msg_includes[2] = vec![5]` then `TipsetBundle.blocks[2]` contains `bls_msgs[5]`
     pub bls_msg_includes: Vec<Vec<u64>>,
 
-    /// Signed SECP messages.
+    /// Signed `SECP` messages.
     pub secp_msgs: Vec<SignedMessage>,
     /// Describes which block each message belongs to.
     pub secp_msg_includes: Vec<Vec<u64>>,

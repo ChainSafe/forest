@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! This module contains the logic for fetching the proofs parameters from the network.
-//! As a general rule, the parameters are first fetched from ChainSafe's Cloudflare R2 bucket, if
+//! As a general rule, the parameters are first fetched from ChainSafe's Cloudflare `R2` bucket, if
 //! that fails (or is overridden by [`PROOFS_ONLY_IPFS_GATEWAY_ENV`]), the IPFS gateway is used as a fallback.
 //!
 //! The reason for this is that the IPFS gateway is not as reliable and performant as the centralized solution, which contributed to
@@ -34,7 +34,7 @@ use super::parameters::{
 /// Default IPFS gateway to use for fetching parameters.
 /// Set via the [`IPFS_GATEWAY_ENV`] environment variable.
 const DEFAULT_IPFS_GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
-/// Domain bound to the Cloudflare R2 bucket.
+/// Domain bound to the Cloudflare `R2` bucket.
 const CLOUDFLARE_PROOF_PARAMETER_DOMAIN: &str = "filecoin-proof-parameters.chainsafe.dev";
 
 /// If set to 1, enforce using the IPFS gateway for fetching parameters.
@@ -171,7 +171,7 @@ async fn fetch_params_ipfs_gateway(path: &Path, info: &ParameterData) -> anyhow:
     result
 }
 
-/// Downloads the parameter file from Cloudflare R2 to the given path. It wraps the [`download_from_cloudflare`] function with a retry and timeout mechanisms.
+/// Downloads the parameter file from Cloudflare `R2` to the given path. It wraps the [`download_from_cloudflare`] function with a retry and timeout mechanisms.
 async fn fetch_params_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> {
     info!("Fetching param file {name} from Cloudflare R2 {CLOUDFLARE_PROOF_PARAMETER_DOMAIN}");
     let result = (|| download_from_cloudflare(name, path))
@@ -190,7 +190,7 @@ async fn fetch_params_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> 
     result
 }
 
-/// Downloads the parameter file from Cloudflare R2 to the given path. In case of an error,
+/// Downloads the parameter file from Cloudflare `R2` to the given path. In case of an error,
 /// the file is not written to the final path to avoid corrupted files.
 async fn download_from_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> {
     let response = global_http_client()

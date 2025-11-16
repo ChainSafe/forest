@@ -414,7 +414,7 @@ impl State {
         }
     }
 
-    /// Unclaimed funds. Actor balance - (locked funds, precommit deposit, ip requirement) Can go negative if the miner is in IP debt.
+    /// Unclaimed funds. Actor balance - (locked funds, pre-commit deposit, IP requirement) Can go negative if the miner is in IP debt.
     pub fn available_balance(&self, balance: &BigInt) -> anyhow::Result<TokenAmount> {
         let balance: TokenAmount = TokenAmount::from_atto(balance.clone());
         let balance_v3 = from_token_v2_to_v3(&balance);
@@ -1349,11 +1349,11 @@ impl From<fil_actor_miner_state::v17::SectorOnChainInfo> for SectorOnChainInfo {
 pub struct DeadlineInfo {
     /// Epoch at which this info was calculated.
     pub current_epoch: ChainEpoch,
-    /// First epoch of the proving period (<= CurrentEpoch).
+    /// First epoch of the proving period (<= `CurrentEpoch`).
     pub period_start: ChainEpoch,
-    /// Current deadline index, in [0..WPoStProvingPeriodDeadlines).
+    /// Current deadline index, in [0..`WPoStProvingPeriodDeadlines`).
     pub index: u64,
-    /// First epoch from which a proof may be submitted (>= CurrentEpoch).
+    /// First epoch from which a proof may be submitted (>= `CurrentEpoch`).
     pub open: ChainEpoch,
     /// First epoch from which a proof may no longer be submitted (>= Open).
     pub close: ChainEpoch,

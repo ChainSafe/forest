@@ -78,32 +78,32 @@ pub enum F3OutputFormat {
     Json,
 }
 
-/// Manages Filecoin Fast Finality (F3) interactions
+/// Manages Filecoin Fast Finality (`F3`) interactions
 #[derive(Debug, Subcommand)]
 pub enum F3Commands {
-    /// Gets the current manifest used by F3
+    /// Gets the current manifest used by `F3`
     Manifest {
         /// The output format.
         #[arg(long, value_enum, default_value_t = F3OutputFormat::Text)]
         output: F3OutputFormat,
     },
-    /// Checks the F3 status.
+    /// Checks the `F3` status.
     Status,
-    /// Manages interactions with F3 finality certificates.
+    /// Manages interactions with `F3` finality certificates.
     #[command(subcommand, visible_alias = "c")]
     Certs(F3CertsCommands),
-    /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
+    /// Gets `F3` power table at a specific instance ID or latest instance if none is specified.
     #[command(subcommand, name = "powertable", visible_alias = "pt")]
     PowerTable(F3PowerTableCommands),
-    /// Checks if F3 is in sync.
+    /// Checks if `F3` is in sync.
     Ready {
-        /// Wait until F3 is in sync.
+        /// Wait until `F3` is in sync.
         #[arg(long)]
         wait: bool,
-        /// The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync.
+        /// The threshold of the epoch gap between chain head and `F3` head within which `F3` is considered in sync.
         #[arg(long, default_value_t = 20)]
         threshold: usize,
-        /// Exit after F3 making no progress for this duration.
+        /// Exit after `F3` making no progress for this duration.
         #[arg(long, default_value = "10m", requires = "wait")]
         no_progress_timeout: humantime::Duration,
     },
@@ -146,7 +146,7 @@ impl F3Commands {
 
                 let is_running = client.call(F3IsRunning::request(())?).await?;
                 if !is_running {
-                    anyhow::bail!("F3 is not running");
+                    anyhow::bail!("`F3` is not running");
                 }
 
                 async fn get_heads(
@@ -181,7 +181,7 @@ impl F3Commands {
                                 >= chain_head.epoch()
                             {
                                 let text = format!(
-                                    "[+] F3 is in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                    "[+] `F3` is in sync. Chain head epoch: {}, `F3` head epoch: {}",
                                     chain_head.epoch(),
                                     cert_head.chain_head().epoch
                                 );
@@ -190,7 +190,7 @@ impl F3Commands {
                                 break;
                             } else {
                                 let text = format!(
-                                    "[-] F3 is not in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                    "[-] `F3` is not in sync. Chain head epoch: {}, `F3` head epoch: {}",
                                     chain_head.epoch(),
                                     cert_head.chain_head().epoch
                                 );
@@ -229,17 +229,17 @@ impl F3Commands {
     }
 }
 
-/// Manages interactions with F3 finality certificates.
+/// Manages interactions with `F3` finality certificates.
 #[derive(Debug, Subcommand)]
 pub enum F3CertsCommands {
-    /// Gets an F3 finality certificate to a given instance ID, or the latest certificate if no instance is specified.
+    /// Gets an `F3` finality certificate to a given instance ID, or the latest certificate if no instance is specified.
     Get {
         instance: Option<u64>,
         /// The output format.
         #[arg(long, value_enum, default_value_t = F3OutputFormat::Text)]
         output: F3OutputFormat,
     },
-    /// Lists a range of F3 finality certificates.
+    /// Lists a range of `F3` finality certificates.
     List {
         /// Inclusive range of `from` and `to` instances in following notation:
         /// `<from>..<to>`. Either `<from>` or `<to>` may be omitted, but not both.
@@ -343,7 +343,7 @@ impl F3CertsCommands {
 
 #[derive(Debug, Subcommand)]
 pub enum F3PowerTableCommands {
-    /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
+    /// Gets `F3` power table at a specific instance ID or latest instance if none is specified.
     #[command(visible_alias = "g")]
     Get {
         /// instance ID. (default: latest)

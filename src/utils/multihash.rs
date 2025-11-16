@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //!
-//! This module back-fills the Identify hasher and code that was removed in `multihash` crate.
+//! This module back-fills the Identify `hasher` and code that was removed in `multihash` crate.
 //! See <https://github.com/multiformats/rust-multihash/blob/master/CHANGELOG.md#-breaking-changes>
 //! and <https://github.com/multiformats/rust-multihash/pull/289>
 //!
@@ -176,7 +176,7 @@ impl MultihashCode {
     }
 }
 
-/// Identity hasher with a maximum size.
+/// Identity `hasher` with a maximum size.
 ///
 /// # Panics
 ///

@@ -15,9 +15,9 @@ use multihash_codetable::Code;
 
 use serde::ser::Serialize;
 
-/// Extension methods for inserting and retrieving IPLD data with CIDs
+/// Extension methods for inserting and retrieving IPLD data with `CIDs`
 pub trait BlockstoreExt: Blockstore {
-    /// Batch put CBOR objects into block store and returns vector of CIDs
+    /// Batch put CBOR objects into block store and returns vector of `CIDs`
     #[allow(clippy::disallowed_types)]
     fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> anyhow::Result<Vec<Cid>>
     where

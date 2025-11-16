@@ -3,8 +3,8 @@ title: Installing
 sidebar_position: 2
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 <Tabs>
   <TabItem value="binaries" label="Binaries" default>
@@ -77,7 +77,7 @@ More information about Docker setup and usage can be found in the [Docker docume
 - Rust compiler (install via [rustup](https://rustup.rs/))
 - OS `Base-Devel`/`Build-Essential`
 - Clang compiler
-- Go for building F3 sidecar module
+- Go for building `F3` sidecar module
 
 For Ubuntu, you can install the dependencies (excluding Rust) with:
 

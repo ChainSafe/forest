@@ -3,7 +3,7 @@
 In addition to the Rust toolchain, Go toolchain is required to build the
 `f3-sidecar`. The Go version is specified in `go.mod`.
 
-Follow https://go.dev/doc/install or use one of the version managers of Go.
+Follow this [guide](https://go.dev/doc/install) to install or use one of the version managers of Go.
 (e.g. https://github.com/voidint/g?tab=readme-ov-file#installation)
 
 ### EC tests
@@ -17,15 +17,15 @@ Follow https://go.dev/doc/install or use one of the version managers of Go.
   `--save-token jwt_path`)
 - import a shared miner key for testing `forest-wallet --remote-wallet import`
   (the shared miner worker key can be found in `scripts/tests/api_compare/.env`)
-- run f3 sidecar `go run . -jwt $(cat jwt_path)`
+- run `f3` sidecar `go run . -jwt $(cat jwt_path)`
 - (optional) to inspect RPC calls, run
   `mitmproxy --mode reverse:http://localhost:2345 --listen-port 8080` then
   `go run . -rpc http://127.0.0.1:8080/rpc/v1`
 
-### How F3 sidecar interacts with Forest
+### How `F3` sidecar interacts with Forest
 
-An F3 sidecar node is a standalone node that is a part of a p2p network and
-participates in the f3 protocol.
+An `F3` sidecar node is a standalone node that is a part of a p2p network and
+participates in the `f3` protocol.
 
 Besides what have been handled internally(e.g. p2p communications) in the
 `go-f3` lib
@@ -40,7 +40,7 @@ Besides what have been handled internally(e.g. p2p communications) in the
   participating miners
 - it requires a backend that provides the actor IDs of the participating miners
 - it requires a p2p node as bootstrapper to discover more peers via Kademlia
-- additionally, to power the `Filecoin.F3*` RPC methods in forest, a sidecar
+- additionally, to power the `Filecoin.F3*` RPC methods in forest, a `f3` sidecar
   node runs an RPC server that implements the same RPC methods to which the
   associated forest node can delegate the RPC requests
 
@@ -57,10 +57,10 @@ flowchart TD
     A --> |dynamic manifest backend| D[manifest p2p server]
 ```
 
-### To build and run F3 sidecar within Forest via FFI
+### To build and run `F3` sidecar within Forest via FFI
 
-By default, the Go F3-sidecar is built and linked into Forest binary unless
+By default, the Go `F3`-sidecar is built and linked into Forest binary unless
 environment variable `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
 
-F3 sidecar is not started by default, set `FOREST_F3_SIDECAR_FFI_ENABLED=1` to
+`F3` sidecar is not started by default, set `FOREST_F3_SIDECAR_FFI_ENABLED=1` to
 opt in.

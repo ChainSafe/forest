@@ -2,7 +2,7 @@
 title: Metrics
 ---
 
-Prometheus metrics are exposed on localhost's port `6116` by default, under `/metrics`. They are enabled by default and can be disabled with the `--no-metrics` flag. The metrics endpoint can be modified with the `--metrics-address` flag.
+Prometheus metrics are exposed on `localhost`'s port `6116` by default, under `/metrics`. They are enabled by default and can be disabled with the `--no-metrics` flag. The metrics endpoint can be modified with the `--metrics-address` flag.
 
 ```bash
 curl localhost:6116/metrics

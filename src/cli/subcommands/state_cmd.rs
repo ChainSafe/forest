@@ -43,7 +43,7 @@ pub enum StateCommands {
         /// Actor address to read the state of
         actor_address: StrictAddress,
     },
-    /// Returns the built-in actor bundle CIDs for the current network
+    /// Returns the built-in actor bundle `CIDs` for the current network
     ActorCids {
         /// Format output
         #[arg(long, default_value = "text")]

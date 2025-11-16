@@ -34,7 +34,7 @@ const MAX_FRAME_LEN: usize = 512 * 1024 * 1024;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarV1Header {
-    // The roots array must contain one or more CIDs,
+    // The roots array must contain one or more `CIDs`,
     // each of which should be present somewhere in the remainder of the CAR.
     // See <https://ipld.io/specs/transport/car/carv1/#constraints>
     pub roots: NonEmpty<Cid>,
@@ -114,7 +114,7 @@ impl<T: Write> CarBlockWrite for T {
 pin_project! {
     /// Stream of CAR blocks. If the input data is compressed with zstd, it will
     /// automatically be decompressed.
-    /// Note that [`CarStream`] automatically skips the metadata block and F3 data
+    /// Note that [`CarStream`] automatically skips the metadata block and `F3` data
     /// block defined in [`FRC-0108`](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md)
     pub struct CarStream<ReaderT> {
         #[pin]
@@ -133,13 +133,13 @@ fn is_zstd(buf: &[u8]) -> bool {
 }
 
 impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
-    /// Create a stream with automatic but unsafe CARv2 header extraction.
+    /// Create a stream with automatic but unsafe `CARv2` header extraction.
     ///
-    /// Note that if the input is zstd compressed, the CARv2 header extraction
+    /// Note that if the input is zstd compressed, the `CARv2` header extraction
     /// is on a best efforts basis. It could fail when `reader.fill_buf()` is insufficient
-    /// for decoding the first zstd frame, and treat input as CARv1, because this method
+    /// for decoding the first zstd frame, and treat input as `CARv1`, because this method
     /// does not require the input to be [`tokio::io::AsyncSeek`].
-    /// It's recommended to use [`CarStream::new`] for zstd compressed CARv2 input.
+    /// It's recommended to use [`CarStream::new`] for zstd compressed `CARv2` input.
     #[allow(dead_code)]
     pub async fn new_unsafe(mut reader: ReaderT) -> io::Result<Self> {
         let header_v2 = Self::try_decode_header_v2_from_fill_buf(reader.fill_buf().await?)
@@ -149,7 +149,7 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
         Self::new_with_header_v2(reader, header_v2).await
     }
 
-    /// Create a stream with pre-extracted CARv2 header
+    /// Create a stream with pre-extracted `CARv2` header
     pub async fn new_with_header_v2(
         mut reader: ReaderT,
         header_v2: Option<CarV2Header>,
@@ -237,7 +237,7 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
         }
     }
 
-    /// Extracts CARv2 header from the input, returns the reader and CARv2 header.
+    /// Extracts `CARv2` header from the input, returns the reader and `CARv2` header.
     ///
     /// Note that position of the input reader has to be reset before calling [`CarStream::new_with_header_v2`].
     /// Use [`CarStream::extract_header_v2_and_reset_reader_position`] to automatically reset stream position.
@@ -274,13 +274,13 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
 }
 
 impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
-    /// Create a stream with automatic CARv2 header extraction.
+    /// Create a stream with automatic `CARv2` header extraction.
     pub async fn new(reader: ReaderT) -> io::Result<Self> {
         let (reader, header_v2) = Self::extract_header_v2_and_reset_reader_position(reader).await?;
         Self::new_with_header_v2(reader, header_v2).await
     }
 
-    /// Extracts CARv2 header from the input, resets the reader position and returns the reader and CARv2 header.
+    /// Extracts `CARv2` header from the input, resets the reader position and returns the reader and `CARv2` header.
     pub async fn extract_header_v2_and_reset_reader_position(
         mut reader: ReaderT,
     ) -> io::Result<(ReaderT, Option<CarV2Header>)> {

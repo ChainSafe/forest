@@ -32,7 +32,7 @@
 //!   ```
 //!
 //! In rust, the most common serialization framework is [`serde`].
-//! It has ONE (de)serialization model for each struct - the serialization code _cannot_ know
+//! It has ONE (de)serialization model for each `struct` - the serialization code _cannot_ know
 //! if it's writing JSON or CBOR.
 //!
 //! The cleanest way handle the distinction would be a serde-compatible trait:
@@ -54,7 +54,7 @@
 //! [`macro@serde::Serialize`] and [`macro@serde::Deserialize`] instead?
 //!
 //! # Lotus JSON in Forest
-//! - Have a struct which represents a domain object: e.g [`GossipBlock`](crate::blocks::GossipBlock).
+//! - Have a `struct` which represents a domain object: e.g [`GossipBlock`](crate::blocks::GossipBlock).
 //! - Implement [`serde::Serialize`] on that object, normally using [`fvm_ipld_encoding::tuple::Serialize_tuple`].
 //!   This corresponds to the CBOR representation.
 //! - Implement [`HasLotusJson`] on the domain object.
@@ -92,11 +92,11 @@
 //!
 //! If you require access to private fields, consider:
 //! - implementing an exhaustive helper method, e.g [`crate::beacon::BeaconEntry::into_parts`].
-//! - moving implementation to the module where the struct is defined, e.g [`crate::blocks::tipset::lotus_json`].
+//! - moving implementation to the module where the `struct` is defined, e.g [`crate::blocks::tipset::lotus_json`].
 //!   If you do this, you MUST manually add snapshot and `quickcheck` tests.
 //!
-//! ### Compound structs
-//! - Each field of a struct should be wrapped with [`LotusJson`].
+//! ### Compound `structs`
+//! - Each field of a `struct` should be wrapped with [`LotusJson`].
 //! - Implementations of [`HasLotusJson::into_lotus_json`] and [`HasLotusJson::from_lotus_json`]
 //!   should use [`Into`] and [`LotusJson::into_inner`] calls
 //! - Use destructuring to ensure exhaustiveness
@@ -119,7 +119,7 @@
 //!
 //! # Future work
 //! - use [`proptest`](https://docs.rs/proptest/) to test the parser pipeline
-//! - use a derive macro for simple compound structs
+//! - use a derive macro for simple compound `structs`
 
 use crate::shim::actors::miner::DeadlineInfo;
 use derive_more::From;
@@ -134,7 +134,7 @@ use uuid::Uuid;
 use {pretty_assertions::assert_eq, quickcheck::quickcheck};
 
 pub trait HasLotusJson: Sized {
-    /// The struct representing JSON. You should `#[derive(Deserialize, Serialize)]` on it.
+    /// The `struct` representing JSON. You should `#[derive(Deserialize, Serialize)]` on it.
     type LotusJson: Serialize + DeserializeOwned;
     /// To ensure code quality, conversion to/from lotus JSON MUST be tested.
     /// Provide snapshots of the JSON, and the domain type it should serialize to.
@@ -471,7 +471,7 @@ pub mod base64_standard {
     }
 }
 
-/// MUST NOT be used in any `LotusJson` structs
+/// MUST NOT be used in any `LotusJson` `structs`
 pub fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
@@ -480,7 +480,7 @@ where
     value.clone().into_lotus_json().serialize(serializer)
 }
 
-/// MUST NOT be used in any `LotusJson` structs.
+/// MUST NOT be used in any `LotusJson` `structs`.
 pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
@@ -489,7 +489,7 @@ where
     Ok(T::from_lotus_json(Deserialize::deserialize(deserializer)?))
 }
 
-/// A domain struct that is (de) serialized through its lotus JSON representation.
+/// A domain `struct` that is (de) serialized through its lotus JSON representation.
 #[derive(
     Debug, Deserialize, From, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Clone,
 )]

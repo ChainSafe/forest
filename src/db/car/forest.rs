@@ -43,7 +43,7 @@
 //!
 //! `zstd` frame format: <https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md>
 //!
-//! CARv1 specification: <https://ipld.io/specs/transport/car/carv1/>
+//! `CARv1` specification: <https://ipld.io/specs/transport/car/carv1/>
 //!
 
 use super::{CacheKey, ZstdFrameCache};
@@ -322,7 +322,7 @@ impl Encoder {
 
         offset += header_len;
 
-        // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
+        // Write seekable zstd and collect a mapping of `CIDs` to frame_offset+data_offset.
         let mut builder = index::Builder::new();
         while let Some((cids, zstd_frame)) = stream.try_next().await? {
             builder.extend(cids.into_iter().map(|cid| (cid, offset as u64)));
@@ -563,7 +563,7 @@ mod tests {
     fn encode_hash_collisions() {
         use crate::utils::multihash::prelude::*;
 
-        // Distinct CIDs may map to the same hash value
+        // Distinct `CIDs` may map to the same hash value
         let cid_a = Cid::new_v1(0, MultihashCode::Identity.digest(&[10]));
         let cid_b = Cid::new_v1(0, MultihashCode::Identity.digest(&[0]));
         // A and B are _not_ the same...
@@ -572,7 +572,7 @@ mod tests {
         assert_eq!(index::hash::summary(&cid_a), index::hash::summary(&cid_b));
 
         // For testing purposes, we ignore that the data doesn't map to the
-        // CIDs.
+        // `CIDs`.
         let blocks = nonempty![
             CarBlock {
                 cid: cid_a,
@@ -593,7 +593,7 @@ mod tests {
         ))
         .unwrap();
 
-        // Even with colliding hashes, the CIDs can still be queried:
+        // Even with colliding hashes, the `CIDs` can still be queried:
         assert_eq!(forest_car.get(&cid_a).unwrap().unwrap(), blocks[0].data);
         assert_eq!(forest_car.get(&cid_b).unwrap().unwrap(), blocks[1].data);
     }

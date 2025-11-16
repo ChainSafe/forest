@@ -133,7 +133,7 @@ impl EthEip1559TxArgs {
         Ok(stream.out().to_vec())
     }
 
-    /// Constructs a signed message using EIP-1559 transaction args
+    /// Constructs a signed message using EIP-1559 transaction `args`
     pub fn get_signed_message(
         &self,
         from: Address,
@@ -144,7 +144,7 @@ impl EthEip1559TxArgs {
         Ok(SignedMessage { message, signature })
     }
 
-    /// Constructs an unsigned message using EIP-1559 transaction args
+    /// Constructs an unsigned message using EIP-1559 transaction `args`
     pub fn get_unsigned_message(
         &self,
         from: Address,

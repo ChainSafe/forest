@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
 
-/// A set of `CIDs` forming a unique key for a Tipset.
-/// Equal keys will have equivalent iteration order, but note that the `CIDs`
+/// A set of ``CIDs`` forming a unique key for a Tipset.
+/// Equal keys will have equivalent iteration order, but note that the ``CIDs``
 /// are *not* maintained in the same order as the canonical iteration order of
 /// blocks in a tipset (which is by ticket)
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, GetSize)]
@@ -337,7 +337,7 @@ impl Tipset {
         self.key
             .get_or_init(|| TipsetKey::from(self.headers.iter_ne().map(|h| *h.cid()).collect_vec()))
     }
-    /// Returns a non-empty collection of `CIDs` for the current tipset
+    /// Returns a non-empty collection of ``CIDs`` for the current tipset
     pub fn cids(&self) -> NonEmpty<Cid> {
         self.key().to_cids()
     }

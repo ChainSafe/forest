@@ -5,9 +5,9 @@ title: "NVXX Tracking"
 labels: "Type: Epic"
 ---
 
-<!-- Replace NVXX with the actual network version number, e.g., NV27 -->
+<!-- Replace `NVXX` with the actual network version number, e.g., NV27 -->
 
-# Tracking issue for the NVXX network upgrade
+# Tracking issue for the `NVXX` network upgrade
 
 <!-- Review the tasks below and modify as necessary. Each network upgrade has different set of FIPs and tasks. -->
 <!-- Create sub-issues for each task. -->

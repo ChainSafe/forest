@@ -6,7 +6,7 @@
 //! header and the first key-value block, and picks the appropriate block store
 //! (either [`super::ForestCar`] or [`super::PlainCar`]).
 //!
-//! CARv2 is not supported yet.
+//! `CARv2` is not supported yet.
 
 use super::{CacheKey, RandomAccessFileReader, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};

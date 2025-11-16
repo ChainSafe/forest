@@ -3,7 +3,7 @@ title: Docker Tips & Tricks
 sidebar_position: 3
 ---
 
-# Forest in Docker🌲❤️🐋
+# Forest in Docker 🌲❤️🐋
 
 ## Prerequisites
 
@@ -11,15 +11,15 @@ sidebar_position: 3
   the following engines:
   - Docker Engine (Community) on Linux,
   - Docker for macOS
-  - Docker on Windows Subsystem for Linux 2(WSL2)
+  - Docker on Windows Subsystem for Linux 2(`WSL2`)
 
 Native images are available for the following platform/architecture(s):
 
 - `linux/arm64`
 - `linux/amd64`
 
-The images will work out-of-the box on both Intel processors and macOS with
-M1 / M2.
+The images will work out-of-the-box on both Intel processors and macOS with
+`M1` / `M2`.
 
 ## Tags
 

@@ -9,7 +9,7 @@ The Forest client provides two types of wallets:
 
 1. **Local wallet (only accessible by you)**: This wallet is recommended for day-to-day use due to its higher security. Since it is only accessible by you, it minimizes exposure and reduces the likelihood of compromise.
 
-2. **Node wallet (accessible by the Forest node)**: This wallet is managed by the Forest node and is included for backward compatibility with Lotus. It’s less secure as the node may have direct access to it for network operations. This could potentially expose it to unauthorized access or other network-related vulnerabilities.
+2. **Node wallet (accessible by the Forest node)**: This wallet is managed by the Forest node and is included for backward compatibility with Lotus. It is less secure as the node may have direct access to it for network operations. This could potentially expose it to unauthorized access or other network-related vulnerabilities.
 
 In the following sections, we will be using the wallet in its local mode.
 

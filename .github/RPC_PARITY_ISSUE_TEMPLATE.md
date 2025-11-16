@@ -5,4 +5,4 @@ labels: ["Bug"]
 
 ## Description
 
-Latest RPC parity test failed. Please [check the logs]({{ env.WORKFLOW_URL }}) for more information.
+Latest RPC parity test failed. Please [check the logs]({{ `env.WORKFLOW_URL` }}) for more information.

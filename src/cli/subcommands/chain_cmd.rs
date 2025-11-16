@@ -63,7 +63,7 @@ pub enum ChainCommands {
     /// Manually set the head to the given tipset. This invalidates blocks
     /// between the desired head and the new head
     SetHead {
-        /// Construct the new head tipset from these CIDs
+        /// Construct the new head tipset from these `CIDs`
         #[arg(num_args = 1.., required = true)]
         cids: Vec<Cid>,
         /// Use the tipset from this epoch as the new head.
