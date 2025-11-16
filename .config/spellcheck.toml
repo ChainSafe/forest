@@ -22,7 +22,7 @@ transform_regex = [
   "^\\{\\{$",
   "^\\}\\}$",
   # YAML frontmatter - skip underscore_words common in config
-  "^[a-z]+_[a-z]+.*$",
+  "^[a-z]+_[a-z]+$",
   # Numbers with underscores like 30_000
   "^[0-9_]+$",
   # Plus signs and other operators

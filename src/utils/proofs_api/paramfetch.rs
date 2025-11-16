@@ -173,7 +173,7 @@ async fn fetch_params_ipfs_gateway(path: &Path, info: &ParameterData) -> anyhow:
 
 /// Downloads the parameter file from Cloudflare `R2` to the given path. It wraps the [`download_from_cloudflare`] function with a retry and timeout mechanisms.
 async fn fetch_params_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> {
-    info!("Fetching param file {name} from Cloudflare `R2` {CLOUDFLARE_PROOF_PARAMETER_DOMAIN}");
+    info!("Fetching param file {name} from Cloudflare R2 {CLOUDFLARE_PROOF_PARAMETER_DOMAIN}");
     let result = (|| download_from_cloudflare(name, path))
         .retry(ExponentialBuilder::default())
         .notify(|err, dur| {

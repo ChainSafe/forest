@@ -18,7 +18,7 @@ Native images are available for the following platform/architecture(s):
 - `linux/arm64`
 - `linux/amd64`
 
-The images will work out-of-the box on both Intel processors and macOS with
+The images will work out-of-the-box on both Intel processors and macOS with
 `M1` / `M2`.
 
 ## Tags
