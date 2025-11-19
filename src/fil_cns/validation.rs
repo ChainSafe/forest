@@ -236,7 +236,7 @@ fn validate_miner<DB: Blockstore>(
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     state
-        .miner_power(state_manager.blockstore(), &miner_addr.into())
+        .miner_power(state_manager.blockstore(), miner_addr)
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     Ok(())
