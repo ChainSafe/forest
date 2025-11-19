@@ -95,7 +95,7 @@ pub struct EthEventHandler {
     mempool_filter_manager: Option<Arc<MempoolFilterManager>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum SkipEvent {
     OnUnresolvedAddress,
     Never,
@@ -434,20 +434,11 @@ impl EthEventHandler {
                     ResolveNullTipset::TakeOlder,
                 )?;
                 for tipset in max_tipset
-                    .as_ref()
-                    .clone()
-                    .chain(&ctx.store())
+                    .chain_arc(&ctx.store())
                     .take_while(|ts| ts.epoch() >= *range.start())
                 {
-                    let tipset = Arc::new(tipset);
-                    Self::collect_events(
-                        ctx,
-                        &tipset,
-                        Some(pf),
-                        skip_event.clone(),
-                        &mut collected_events,
-                    )
-                    .await?;
+                    Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
+                        .await?;
                 }
             }
         }
