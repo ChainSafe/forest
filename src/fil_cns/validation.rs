@@ -99,11 +99,11 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     // Miner validations
     let v_state_manager = state_manager.clone();
     let v_base_tipset = base_tipset.clone();
-    let v_header = header.clone();
+    let v_block = block.clone();
     validations.spawn_blocking(move || {
         validate_miner(
             v_state_manager.as_ref(),
-            &v_header.miner_address,
+            &v_block.header.miner_address,
             v_base_tipset.parent_state(),
         )
     });
@@ -233,7 +233,7 @@ fn validate_miner<DB: Blockstore>(
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     state
-        .miner_power(state_manager.blockstore(), &miner_addr.into())
+        .miner_power(state_manager.blockstore(), miner_addr)
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     Ok(())

@@ -391,7 +391,7 @@ where
 
         let spas = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
-        Ok(spas.miner_power(self.blockstore(), &addr.into())?.is_none())
+        Ok(spas.miner_power(self.blockstore(), addr)?.is_none())
     }
 
     /// Returns raw work address of a miner given the state root.
@@ -421,13 +421,13 @@ where
 
         if let Some(maddr) = addr {
             let m_pow = spas
-                .miner_power(self.blockstore(), &maddr.into())?
+                .miner_power(self.blockstore(), maddr)?
                 .ok_or_else(|| Error::state(format!("Miner for address {maddr} not found")))?;
 
             let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
                 &self.chain_config().policy,
                 self.blockstore(),
-                &maddr.into(),
+                maddr,
             )?;
             if min_pow {
                 return Ok(Some((m_pow, t_pow)));
@@ -857,7 +857,7 @@ where
 
         // Non-empty power claim.
         let claim = power_state
-            .miner_power(self.blockstore(), &address.into())?
+            .miner_power(self.blockstore(), address)?
             .ok_or_else(|| Error::Other("Could not get claim".to_string()))?;
         if claim.quality_adj_power <= BigInt::zero() {
             return Ok(false);
@@ -1522,7 +1522,7 @@ where
             .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
         let ps = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
-        ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), &addr.into())
+        ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), addr)
     }
 
     /// Validates all tipsets at epoch `start..=end` behind the heaviest tipset.

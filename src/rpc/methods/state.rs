@@ -1839,11 +1839,7 @@ impl RpcMethod<1> for StateListMiners {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let miners = state
-            .list_all_miners(ctx.store())?
-            .iter()
-            .map(From::from)
-            .collect();
+        let miners = state.list_all_miners(ctx.store())?;
         Ok(miners)
     }
 }
