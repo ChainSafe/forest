@@ -29,7 +29,7 @@ docker compose up --build
 
 This will build the local Forest (using the Dockerfile in the project's root)
 image, tagged Lotus and setup the devnet. Initial setup may be slow due to
-fetching params and setting everyting up. Consecutive starts will be quick.
+fetching params and setting everything up. Consecutive starts will be quick.
 
 Stop the devnet with:
 
