@@ -295,7 +295,7 @@ impl EthEventHandler {
                 let id_addr = Address::new_id(event.emitter());
                 let result = ctx
                     .state_manager
-                    .resolve_to_deterministic_address(id_addr, tipset.clone())
+                    .resolve_to_deterministic_address(id_addr, tipset)
                     .await
                     .with_context(|| {
                         format!(

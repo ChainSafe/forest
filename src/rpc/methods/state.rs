@@ -83,7 +83,7 @@ pub enum StateCall {}
 
 impl StateCall {
     pub fn run<DB: Blockstore + Send + Sync + 'static>(
-        state_manager: &Arc<StateManager<DB>>,
+        state_manager: &StateManager<DB>,
         message: &Message,
         tsk: Option<TipsetKey>,
     ) -> anyhow::Result<ApiInvocResult> {
@@ -200,7 +200,7 @@ impl RpcMethod<2> for StateAccountKey {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx
             .state_manager
-            .resolve_to_deterministic_address(address, ts)
+            .resolve_to_deterministic_address(address, &ts)
             .await?)
     }
 }

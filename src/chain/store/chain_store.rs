@@ -319,9 +319,9 @@ where
     /// is usually 900. The `heaviest_tipset` is a reference point in the
     /// blockchain. It must be a child of the look-back tipset.
     pub fn get_lookback_tipset_for_round(
-        chain_index: Arc<ChainIndex<Arc<DB>>>,
-        chain_config: Arc<ChainConfig>,
-        heaviest_tipset: Arc<Tipset>,
+        chain_index: &Arc<ChainIndex<Arc<DB>>>,
+        chain_config: &Arc<ChainConfig>,
+        heaviest_tipset: &Arc<Tipset>,
         round: ChainEpoch,
     ) -> Result<(Arc<Tipset>, Cid), Error>
     where
@@ -343,19 +343,19 @@ where
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let StateOutput { state_root, .. } = crate::state_manager::apply_block_messages(
                 genesis_timestamp,
-                Arc::clone(&chain_index),
-                Arc::clone(&chain_config),
+                Arc::clone(chain_index),
+                Arc::clone(chain_config),
                 beacon,
                 // Using shared WASM engine here as creating new WASM engines is expensive
                 // (takes seconds to minutes). It's only acceptable here because this situation is
                 // so rare (may happen in dev-networks, doesn't happen in calibnet or mainnet.)
                 &crate::shim::machine::GLOBAL_MULTI_ENGINE,
-                Arc::clone(&heaviest_tipset),
+                Arc::clone(heaviest_tipset),
                 crate::state_manager::NO_CALLBACK,
                 VMTrace::NotTraced,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
-            return Ok((heaviest_tipset, state_root));
+            return Ok((heaviest_tipset.clone(), state_root));
         }
 
         let next_ts = chain_index
@@ -616,9 +616,9 @@ impl Default for MsgsInTipsetCache {
 
 /// Same as [`messages_for_tipset`] but uses a cache to store messages for each tipset.
 pub fn messages_for_tipset_with_cache<DB>(
-    db: Arc<DB>,
+    db: &Arc<DB>,
     ts: &Tipset,
-    cache: Arc<MsgsInTipsetCache>,
+    cache: &MsgsInTipsetCache,
 ) -> Result<Vec<ChainMessage>, Error>
 where
     DB: Blockstore,
@@ -626,7 +626,7 @@ where
     let key = ts.key();
     cache
         .get_or_insert_with(key, || {
-            messages_for_tipset(Arc::clone(&db), ts).context("failed to get messages for tipset")
+            messages_for_tipset(db, ts).context("failed to get messages for tipset")
         })
         .map_err(Into::into)
 }
@@ -634,18 +634,18 @@ where
 /// Given a tipset this function will return all unique messages in that tipset.
 /// Note: This function is resource-intensive and can be a bottleneck for certain use-cases.
 /// Consider using [`messages_for_tipset_with_cache`] for better performance.
-pub fn messages_for_tipset<DB>(db: Arc<DB>, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
+pub fn messages_for_tipset<DB>(db: &Arc<DB>, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
 where
     DB: Blockstore,
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, TokenAmount> = HashMap::new();
-    let state = StateTree::new_from_tipset(Arc::clone(&db), ts)?;
+    let state = StateTree::new_from_tipset(Arc::clone(db), ts)?;
 
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header =
         |b: &CachingBlockHeader| -> Result<Vec<ChainMessage>, Error> {
-            let (unsigned, signed) = block_messages(&db, b)?;
+            let (unsigned, signed) = block_messages(db, b)?;
             let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
             let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
             let signed_box = signed.into_iter().map(ChainMessage::Signed);

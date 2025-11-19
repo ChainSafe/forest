@@ -448,7 +448,7 @@ impl GetPowerTable {
         for (id, power, worker) in id_power_worker_mappings {
             let waddr = ctx
                 .state_manager
-                .resolve_to_deterministic_address(worker, ts.clone())
+                .resolve_to_deterministic_address(worker, ts)
                 .await?;
             if waddr.protocol() != Protocol::BLS {
                 anyhow::bail!("wrong type of worker address");

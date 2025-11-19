@@ -439,7 +439,7 @@ where
 
     // Returns all sectors
     pub fn get_all_sectors(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
         ts: &Tipset,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
@@ -483,9 +483,7 @@ where
 
                 // First, try to look up the state and receipt if not found in the blockstore
                 // compute it
-                if let Some(state_from_child) =
-                    self.try_lookup_state_from_next_tipset(tipset.as_ref())
-                {
+                if let Some(state_from_child) = self.try_lookup_state_from_next_tipset(tipset) {
                     return Ok(state_from_child);
                 }
 
@@ -583,7 +581,7 @@ where
 
     #[instrument(skip(self, rand))]
     fn call_raw(
-        self: &Arc<Self>,
+        &self,
         msg: &Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
@@ -614,7 +612,7 @@ where
                 base_fee: tipset.block_headers().first().parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
-                    &self.blockstore_owned(),
+                    self.blockstore(),
                     state_cid,
                 )?,
                 chain_config: self.chain_config().clone(),
@@ -660,7 +658,7 @@ where
     /// runs the given message and returns its result without any persisted
     /// changes.
     pub fn call(
-        self: &Arc<Self>,
+        &self,
         message: &Message,
         tipset: Option<Arc<Tipset>>,
     ) -> Result<ApiInvocResult, Error> {
@@ -741,7 +739,7 @@ where
                     base_fee: ts.block_headers().first().parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
-                        &self.blockstore_owned(),
+                        self.blockstore(),
                         &st,
                     )?,
                     chain_config: self.chain_config().clone(),
@@ -1244,7 +1242,7 @@ where
     }
 
     pub async fn search_for_message(
-        self: &Arc<Self>,
+        &self,
         from: Option<Arc<Tipset>>,
         msg_cid: Cid,
         look_back_limit: Option<i64>,
@@ -1449,9 +1447,9 @@ where
         let base = entries.last().unwrap_or(&prev_beacon);
 
         let (lb_tipset, lb_state_root) = ChainStore::get_lookback_tipset_for_round(
-            self.chain_index().clone(),
-            self.chain_config().clone(),
-            tipset.clone(),
+            self.chain_index(),
+            self.chain_config(),
+            &tipset,
             epoch,
         )?;
 
@@ -1493,7 +1491,7 @@ where
         let info = miner_state.info(self.blockstore())?;
 
         let worker_key = self
-            .resolve_to_deterministic_address(info.worker.into(), tipset.clone())
+            .resolve_to_deterministic_address(info.worker.into(), &tipset)
             .await?;
         let eligible = self.eligible_to_mine(&addr, &tipset, &lb_tipset)?;
 
@@ -1549,7 +1547,7 @@ where
     /// This function is blocking, but we do observe threads waiting and synchronizing.
     /// This is suspected to be due something in the VM or its `WASM` runtime.
     #[tracing::instrument(skip(self))]
-    pub fn validate_range(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
+    pub fn validate_range(&self, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
         let heaviest = self.heaviest_tipset();
         let heaviest_epoch = heaviest.epoch();
         let end = self
@@ -1571,7 +1569,7 @@ where
         self.validate_tipsets(tipsets)
     }
 
-    pub fn validate_tipsets<T>(self: &Arc<Self>, tipsets: T) -> anyhow::Result<()>
+    pub fn validate_tipsets<T>(&self, tipsets: T) -> anyhow::Result<()>
     where
         T: Iterator<Item = Arc<Tipset>> + Send,
     {
@@ -1660,7 +1658,7 @@ where
     pub async fn resolve_to_deterministic_address(
         self: &Arc<Self>,
         address: Address,
-        ts: Arc<Tipset>,
+        ts: &Arc<Tipset>,
     ) -> anyhow::Result<Address> {
         use crate::shim::address::Protocol::*;
         match address.protocol() {
@@ -1677,7 +1675,7 @@ where
                 }
 
                 // If that fails, compute the tip-set and try again.
-                let (state_root, _) = self.tipset_state(&ts).await?;
+                let (state_root, _) = self.tipset_state(ts).await?;
                 let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
