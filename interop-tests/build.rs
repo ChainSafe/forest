@@ -6,6 +6,8 @@ fn main() {
     unsafe {
         std::env::set_var("GOWORK", "off");
         std::env::set_var("GOFLAGS", "-tags=netgo");
+        // https://go.dev/doc/go1.25#new-experimental-garbage-collector
+        std::env::set_var("GOEXPERIMENT", "greenteagc");
     }
     rust2go::Builder::default()
         .with_go_src("./src/tests/go_app")
