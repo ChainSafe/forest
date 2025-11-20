@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
 	"github.com/urfave/cli/v3"
 )
@@ -43,7 +42,7 @@ func main() {
 }
 
 func Validate(metrics []byte) error {
-	p, err := textparse.New(metrics, "text/plain", "", false, false, true, labels.NewSymbolTable())
+	p, err := textparse.New(metrics, "text/plain", nil, textparse.ParserOptions{EnableTypeAndUnitLabels: true, ConvertClassicHistogramsToNHCB: true})
 	if err != nil {
 		return err
 	}
