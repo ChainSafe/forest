@@ -442,7 +442,7 @@ async fn handle_network_message(
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
-    peer_manager: &Arc<PeerManager>,
+    peer_manager: &PeerManager,
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
@@ -865,7 +865,7 @@ async fn handle_chain_exchange_event<DB>(
 async fn handle_forest_behaviour_event<DB>(
     swarm: &mut Swarm<ForestBehaviour>,
     bitswap_request_manager: &Arc<BitswapRequestManager>,
-    peer_manager: &Arc<PeerManager>,
+    peer_manager: &PeerManager,
     event: ForestBehaviourEvent,
     db: &Arc<ChainStore<DB>>,
     genesis_cid: &Cid,

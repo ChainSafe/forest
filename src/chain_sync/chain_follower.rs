@@ -849,7 +849,7 @@ impl SyncTask {
             } => {
                 let genesis = cs.genesis_tipset();
                 match validate_tipset(
-                    state_manager.clone(),
+                    &state_manager,
                     cs,
                     tipset.deref().clone(),
                     &genesis,

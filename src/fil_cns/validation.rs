@@ -72,9 +72,9 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
 
     // Retrieve lookback tipset for validation
     let (lookback_tipset, lookback_state) = ChainStore::get_lookback_tipset_for_round(
-        chain_store.chain_index().clone(),
-        state_manager.chain_config().clone(),
-        base_tipset.clone(),
+        chain_store.chain_index(),
+        state_manager.chain_config(),
+        &base_tipset,
         block.header().epoch,
     )
     .map_err(to_errs)?;
@@ -97,75 +97,78 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     let mut validations = JoinSet::new();
 
     // Miner validations
-    let v_state_manager = state_manager.clone();
-    let v_base_tipset = base_tipset.clone();
-    let v_block = block.clone();
-    validations.spawn_blocking(move || {
-        validate_miner(
-            v_state_manager.as_ref(),
-            &v_block.header.miner_address,
-            v_base_tipset.parent_state(),
-        )
+    validations.spawn_blocking({
+        let state_manager = state_manager.clone();
+        let base_tipset = base_tipset.clone();
+        let block = block.clone();
+        move || {
+            validate_miner(
+                &state_manager,
+                &block.header.miner_address,
+                base_tipset.parent_state(),
+            )
+        }
     });
 
     // Winner election PoSt validations
-    let v_block = Arc::clone(&block);
-    let v_prev_beacon = Arc::clone(&prev_beacon);
-    let v_base_tipset = Arc::clone(&base_tipset);
-    let v_state_manager = Arc::clone(&state_manager);
-    let v_lookback_state = lookback_state.clone();
-    validations.spawn_blocking(move || {
-        validate_winner_election(
-            v_block.header(),
-            v_base_tipset.as_ref(),
-            lookback_tipset.as_ref(),
-            v_lookback_state.as_ref(),
-            v_prev_beacon.as_ref(),
-            &work_addr,
-            v_state_manager.as_ref(),
-        )
+    validations.spawn_blocking({
+        let block = block.clone();
+        let prev_beacon = prev_beacon.clone();
+        let base_tipset = base_tipset.clone();
+        let state_manager = state_manager.clone();
+        let lookback_state = lookback_state.clone();
+        move || {
+            validate_winner_election(
+                block.header(),
+                &base_tipset,
+                &lookback_tipset,
+                &lookback_state,
+                &prev_beacon,
+                &work_addr,
+                &state_manager,
+            )
+        }
     });
 
     // Beacon values check
     if !is_env_truthy(IGNORE_DRAND_VAR) {
         validations.spawn({
-            let block = Arc::clone(&block);
+            let block = block.clone();
             let parent_epoch = base_tipset.epoch();
-            let prev_beacon = Arc::clone(&prev_beacon);
+            let prev_beacon = prev_beacon.clone();
             let nv = state_manager.get_network_version(header.epoch);
             async move {
                 block
                     .header()
-                    .validate_block_drand(nv, beacon_schedule.as_ref(), parent_epoch, &prev_beacon)
+                    .validate_block_drand(nv, &beacon_schedule, parent_epoch, &prev_beacon)
                     .map_err(|e| FilecoinConsensusError::BeaconValidation(e.to_string()))
             }
         });
     }
 
     // Ticket election proof validations
-    let v_block = Arc::clone(&block);
-    let v_base_tipset = Arc::clone(&base_tipset);
-    let v_prev_beacon = Arc::clone(&prev_beacon);
-    let v_state_manager = Arc::clone(&state_manager);
-    validations.spawn_blocking(move || {
-        validate_ticket_election(
-            v_block.header(),
-            v_base_tipset.as_ref(),
-            v_prev_beacon.as_ref(),
-            &work_addr,
-            v_state_manager.chain_config(),
-        )
+    validations.spawn_blocking({
+        let block = block.clone();
+        let prev_beacon = prev_beacon.clone();
+        let chain_config = state_manager.chain_config().clone();
+        move || {
+            validate_ticket_election(
+                block.header(),
+                &base_tipset,
+                &prev_beacon,
+                &work_addr,
+                &chain_config,
+            )
+        }
     });
 
     // Winning PoSt proof validation
-    let v_block = block.clone();
-    let v_prev_beacon = Arc::clone(&prev_beacon);
     validations.spawn_blocking(move || {
         verify_winning_post_proof::<_>(
             &state_manager,
             win_p_nv,
-            v_block.header(),
-            &v_prev_beacon,
+            block.header(),
+            &prev_beacon,
             &lookback_state,
         )?;
         Ok(())

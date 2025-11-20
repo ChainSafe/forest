@@ -152,7 +152,7 @@ impl GenesisInfo {
                         if network_version >= NetworkVersion::V23 {
                             circ += actor_balance;
                         } else {
-                            let ms = market::State::load(&db, actor.code, actor.state)?;
+                            let ms = market::State::load(db, actor.code, actor.state)?;
                             let locked_balance: TokenAmount = ms.total_locked().into();
                             circ += actor_balance - &locked_balance;
                             un_circ += locked_balance;

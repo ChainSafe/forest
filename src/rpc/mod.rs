@@ -483,7 +483,7 @@ impl<DB: Blockstore> RPCState<DB> {
         self.state_manager.chain_config()
     }
 
-    pub fn store(&self) -> &DB {
+    pub fn store(&self) -> &Arc<DB> {
         self.chain_store().blockstore()
     }
 

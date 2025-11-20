@@ -140,7 +140,7 @@ impl SyncStatusReport {
 
     pub(crate) fn update<DB: Blockstore + Sync + Send + 'static>(
         &mut self,
-        state_manager: &Arc<StateManager<DB>>,
+        state_manager: &StateManager<DB>,
         current_active_forks: Vec<ForkSyncInfo>,
         stateless_mode: bool,
     ) {

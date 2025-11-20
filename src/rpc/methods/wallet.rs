@@ -250,7 +250,7 @@ impl RpcMethod<2> for WalletSignMessage {
         let ts = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
             .state_manager
-            .resolve_to_deterministic_address(address, ts)
+            .resolve_to_deterministic_address(address, &ts)
             .await?;
 
         let keystore = &mut *ctx.keystore.write();
