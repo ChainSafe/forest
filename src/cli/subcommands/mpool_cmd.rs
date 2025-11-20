@@ -324,7 +324,7 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        // Create a message with adresses from an external wallet
+        // Create a message with addresses from an external wallet
         let ext_keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut ext_wallet = Wallet::new(ext_keystore);
         let ext_sender = ext_wallet.generate_addr(SignatureType::Secp256k1).unwrap();

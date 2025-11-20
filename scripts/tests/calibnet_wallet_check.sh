@@ -154,7 +154,7 @@ while [[ $i != 20 && $ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; do
   ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_THREE" --exact-balance)
 done
 
-# wallet list should contain address two with transfered FIL amount
+# wallet list should contain address two with transferred FIL amount
 $FOREST_WALLET_PATH list
 $FOREST_WALLET_PATH --remote-wallet list
 

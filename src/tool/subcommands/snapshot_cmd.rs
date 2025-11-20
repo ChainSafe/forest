@@ -326,7 +326,7 @@ where
 }
 
 // The Filecoin block chain is a DAG of Ipld nodes. The complete graph isn't
-// required to sync to the network and snapshot files usually disgard data after
+// required to sync to the network and snapshot files usually discard data after
 // 2000 epochs. Validity can be verified by ensuring there are no bad IPLD or
 // broken links in the N most recent epochs.
 async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: u32) -> anyhow::Result<()>
