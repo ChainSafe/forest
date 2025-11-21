@@ -595,8 +595,11 @@ pub(super) async fn start_services(
     if opts.exit_after_init {
         return Ok(());
     }
-    if !opts.stateless {
-        ctx.state_manager.maybe_rewind_heaviest_tipset()?;
+    if !opts.stateless
+        && !opts.skip_load_actors
+        && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset()
+    {
+        tracing::warn!("error in maybe_rewind_heaviest_tipset: {e}");
     }
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;

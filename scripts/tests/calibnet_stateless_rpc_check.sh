@@ -10,7 +10,7 @@ function forest_run_node_stateless_detached_with_filter_list {
   pkill -9 forest || true
   local filter_list=$1
 
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --skip-load-actors --stateless --rpc-filter-list "$filter_list" &
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --stateless --rpc-filter-list "$filter_list" &
   forest_wait_api
 }
 

@@ -86,7 +86,7 @@ function forest_run_node_stateless_detached {
 		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
 	EOF
 
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --skip-load-actors --stateless &
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --stateless &
 }
 
 function forest_wait_api {
