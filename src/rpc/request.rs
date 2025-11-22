@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::ApiPaths;
+use anyhow::Context as _;
 use enumflags2::BitFlags;
 use jsonrpsee::core::traits::ToRpcParams;
 use serde::{Deserialize, Serialize};
@@ -40,6 +41,14 @@ impl<T> Request<T> {
             api_paths: self.api_paths,
             timeout: self.timeout,
         }
+    }
+
+    pub fn max_api_path(api_paths: BitFlags<ApiPaths>) -> anyhow::Result<ApiPaths> {
+        api_paths.iter().max().context("No supported versions")
+    }
+
+    pub fn api_path(&self) -> anyhow::Result<ApiPaths> {
+        Self::max_api_path(self.api_paths)
     }
 }
 

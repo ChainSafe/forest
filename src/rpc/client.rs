@@ -14,8 +14,7 @@ use std::fmt::{self, Debug};
 use std::sync::LazyLock;
 use std::time::Duration;
 
-use anyhow::{Context as _, bail};
-use enumflags2::BitFlags;
+use anyhow::bail;
 use futures::future::Either;
 use http::{HeaderMap, HeaderValue, header};
 use jsonrpsee::core::ClientError;
@@ -93,15 +92,17 @@ impl Client {
         &self,
         req: Request<T>,
     ) -> Result<T, ClientError> {
+        let max_api_path = req
+            .api_path()
+            .map_err(|e| ClientError::Custom(e.to_string()))?;
         let Request {
             method_name,
             params,
-            api_paths,
             timeout,
             ..
         } = req;
         let method_name = method_name.as_ref();
-        let client = self.get_or_init_client(api_paths).await?;
+        let client = self.get_or_init_client(max_api_path).await?;
         let span = tracing::debug_span!("request", method = %method_name, url = %client.url);
         let work = async {
             // jsonrpsee's clients have a global `timeout`, but not a per-request timeout, which
@@ -149,31 +150,16 @@ impl Client {
         };
         work.instrument(span.or_current()).await
     }
-    async fn get_or_init_client(
-        &self,
-        version: BitFlags<ApiPaths>,
-    ) -> Result<&UrlClient, ClientError> {
-        let path = version
-            .iter()
-            .max()
-            .context("No supported versions")
-            .map_err(|e| ClientError::Custom(e.to_string()))?;
+    async fn get_or_init_client(&self, path: ApiPaths) -> Result<&UrlClient, ClientError> {
         match path {
             ApiPaths::V0 => &self.v0,
             ApiPaths::V1 => &self.v1,
             ApiPaths::V2 => &self.v2,
         }
         .get_or_try_init(|| async {
-            let url = self
-                .base_url
-                .join(match path {
-                    ApiPaths::V0 => "rpc/v0",
-                    ApiPaths::V1 => "rpc/v1",
-                    ApiPaths::V2 => "rpc/v2",
-                })
-                .map_err(|it| {
-                    ClientError::Custom(format!("creating url for endpoint failed: {it}"))
-                })?;
+            let url = self.base_url.join(path.path()).map_err(|it| {
+                ClientError::Custom(format!("creating url for endpoint failed: {it}"))
+            })?;
             UrlClient::new(url, self.token.clone()).await
         })
         .await

@@ -162,6 +162,14 @@ impl ApiPaths {
             uri.path().split("/").last().expect("infallible"),
         )?)
     }
+
+    pub fn path(&self) -> &'static str {
+        match self {
+            Self::V0 => "rpc/v0",
+            Self::V1 => "rpc/v1",
+            Self::V2 => "rpc/v2",
+        }
+    }
 }
 
 /// Utility methods, defined as an extension trait to avoid having to specify
