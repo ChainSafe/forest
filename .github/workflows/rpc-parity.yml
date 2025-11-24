@@ -16,7 +16,7 @@ jobs:
           sudo ln -sf /mnt/docker-volumes /var/lib/docker/volumes
           sudo ls /var/lib/docker/volumes
           df -h
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Run api compare tests on calibnet
         shell: bash
         run: |
