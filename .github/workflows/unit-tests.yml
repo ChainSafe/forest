@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -63,7 +63,7 @@ jobs:
         run: curl ifconfig.me
         continue-on-error: true
       - name: Checkout Sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - uses: actions/cache/restore@v4
         with:
           path: |
