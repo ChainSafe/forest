@@ -38,11 +38,24 @@ pub struct Libp2pConfig {
 impl Default for Libp2pConfig {
     fn default() -> Self {
         Self {
-            listening_multiaddrs: vec!["/ip4/0.0.0.0/tcp/0".parse().expect("Infallible")],
+            listening_multiaddrs: vec![
+                "/ip4/0.0.0.0/tcp/0".parse().expect("Infallible"),
+                "/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Infallible"),
+            ],
             bootstrap_peers: vec![],
             mdns: false,
             kademlia: true,
             target_peer_count: 75,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn config_default() {
+        let _ = Libp2pConfig::default();
     }
 }
