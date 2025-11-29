@@ -59,8 +59,8 @@ impl HasLotusJson for SignedMessage {
                 },
             }),
             SignedMessage {
-                message: crate::shim::message::Message::default(),
-                signature: crate::shim::crypto::Signature {
+                message: Message::default(),
+                signature: Signature {
                     sig_type: crate::shim::crypto::SignatureType::Bls,
                     bytes: Vec::from_iter(*b"hello world!"),
                 },
