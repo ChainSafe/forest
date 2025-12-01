@@ -27,3 +27,5 @@
 !Filecoin.EthGetBlockByNumber
 !eth_getBlockByNumber
 !Filecoin.ChainSetHead
+# Ignoring ChainGetEvents for now, as we are not sure if we should get duplicated events or not.'
+!Filecoin.ChainGetEvents
