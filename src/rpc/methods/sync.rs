@@ -11,7 +11,6 @@ use cid::Cid;
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use std::sync::Arc;
 pub use types::*;
 
 use crate::chain;
@@ -140,7 +139,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
             .context("failed to validate the tipset")?;
 
         ctx.tipset_send
-            .try_send(Arc::new(ts))
+            .try_send(ts)
             .context("tipset queue is full")?;
 
         ctx.network_send().send(NetworkMessage::PubsubMessage {
@@ -209,9 +208,7 @@ mod tests {
             let ts = Tipset::from(header);
             let db = cs_for_test.blockstore();
             let tsk = ts.key();
-            cs_for_test
-                .set_heaviest_tipset(Arc::new(ts.clone()))
-                .unwrap();
+            cs_for_test.set_heaviest_tipset(ts.clone()).unwrap();
 
             for i in tsk.to_cids() {
                 let bz2 = bz.clone();

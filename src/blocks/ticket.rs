@@ -28,6 +28,7 @@ pub struct Ticket {
 }
 
 impl Ticket {
+    #[cfg(test)]
     /// Ticket constructor
     pub fn new(vrfproof: VRFProof) -> Self {
         Self { vrfproof }

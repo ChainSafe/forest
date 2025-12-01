@@ -124,7 +124,7 @@ impl ReplayComputeCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let Self { snapshot, chain, n } = self;
         let snap_car = AnyCar::try_from(&snapshot)?;
-        let ts = Arc::new(snap_car.heaviest_tipset()?);
+        let ts = snap_car.heaviest_tipset()?;
         let epoch = ts.epoch();
         let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(snap_car)?);
         let chain_config = Arc::new(ChainConfig::from_chain(&chain));

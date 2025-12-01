@@ -271,7 +271,7 @@ impl EthEventHandler {
 
     pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
-        tipset: &Arc<Tipset>,
+        tipset: &Tipset,
         spec: Option<&impl Matcher>,
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
@@ -367,7 +367,7 @@ impl EthEventHandler {
 
     pub async fn collect_chain_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
-        tipset: &Arc<Tipset>,
+        tipset: &Tipset,
         events_root: &Cid,
     ) -> anyhow::Result<Vec<Event>> {
         let state_events = ctx
@@ -434,7 +434,7 @@ impl EthEventHandler {
                     ResolveNullTipset::TakeOlder,
                 )?;
                 for tipset in max_tipset
-                    .chain_arc(&ctx.store())
+                    .chain(&ctx.store())
                     .take_while(|ts| ts.epoch() >= *range.start())
                 {
                     Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)

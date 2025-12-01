@@ -6,7 +6,7 @@
 //! `select_messages` API which selects an appropriate set of messages such that
 //! it optimizes miner reward and chain capacity. See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
-use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
+use std::{borrow::BorrowMut, cmp::Ordering};
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
 use crate::message::{Message, SignedMessage};
@@ -822,17 +822,17 @@ pub(in crate::message_pool) fn run_head_change<T>(
 where
     T: Provider,
 {
-    let mut left = Arc::new(from);
-    let mut right = Arc::new(to);
+    let mut left = from;
+    let mut right = to;
     let mut left_chain = Vec::new();
     let mut right_chain = Vec::new();
     while left != right {
         if left.epoch() > right.epoch() {
-            left_chain.push(left.as_ref().clone());
+            left_chain.push(left.clone());
             let par = api.load_tipset(left.parents())?;
             left = par;
         } else {
-            right_chain.push(right.as_ref().clone());
+            right_chain.push(right.clone());
             let par = api.load_tipset(right.parents())?;
             right = par;
         }

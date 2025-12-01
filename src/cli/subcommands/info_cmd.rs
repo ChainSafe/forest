@@ -188,19 +188,17 @@ mod tests {
     use crate::shim::{address::Address, econ::TokenAmount};
     use chrono::DateTime;
     use quickcheck_macros::quickcheck;
-    use std::{str::FromStr, sync::Arc, time::Duration};
+    use std::{str::FromStr, time::Duration};
 
     use super::{NodeStatusInfo, SyncStatus};
 
-    fn mock_tipset_at(seconds_since_unix_epoch: u64) -> Arc<Tipset> {
-        let mock_header = CachingBlockHeader::new(RawBlockHeader {
+    fn mock_tipset_at(seconds_since_unix_epoch: u64) -> Tipset {
+        CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap(),
             timestamp: seconds_since_unix_epoch,
             ..Default::default()
-        });
-        let tipset = Tipset::from(&mock_header);
-
-        Arc::new(tipset)
+        })
+        .into()
     }
 
     fn mock_node_status() -> NodeStatusInfo {
@@ -233,7 +231,7 @@ mod tests {
     fn test_sync_status_ok(duration: Duration) {
         let tipset = mock_tipset_at(duration.as_secs() + (EPOCH_DURATION_SECONDS as u64 * 3 / 2));
 
-        let status = node_status(duration, tipset.as_ref());
+        let status = node_status(duration, &tipset);
 
         assert_ne!(status.sync_status, SyncStatus::Slow);
         assert_ne!(status.sync_status, SyncStatus::Behind);
@@ -243,7 +241,7 @@ mod tests {
     fn test_sync_status_behind(duration: Duration) {
         let duration = duration + Duration::from_secs(300);
         let tipset = mock_tipset_at(duration.as_secs().saturating_sub(200));
-        let status = node_status(duration, tipset.as_ref());
+        let status = node_status(duration, &tipset);
 
         assert!(status.health.is_finite());
         assert_ne!(status.sync_status, SyncStatus::Ok);
@@ -258,7 +256,7 @@ mod tests {
                 .as_secs()
                 .saturating_sub(EPOCH_DURATION_SECONDS as u64 * 4),
         );
-        let status = node_status(duration, tipset.as_ref());
+        let status = node_status(duration, &tipset);
         assert!(status.health.is_finite());
         assert_ne!(status.sync_status, SyncStatus::Behind);
         assert_ne!(status.sync_status, SyncStatus::Ok);
@@ -268,7 +266,7 @@ mod tests {
     fn block_sync_timestamp() {
         let duration = Duration::from_secs(60);
         let tipset = mock_tipset_at(duration.as_secs() - 10);
-        let status = node_status(duration, tipset.as_ref());
+        let status = node_status(duration, &tipset);
 
         assert!(
             status
@@ -292,7 +290,7 @@ mod tests {
     fn chain_status_test() {
         let duration = Duration::from_secs(100_000);
         let tipset = mock_tipset_at(duration.as_secs() - 59);
-        let status = node_status(duration, tipset.as_ref());
+        let status = node_status(duration, &tipset);
         let expected_status_fmt =
             "[sync: Slow! (59s behind)] [basefee: 0 FIL] [epoch: 0]".to_string();
         assert!(
@@ -302,7 +300,7 @@ mod tests {
         );
 
         let tipset = mock_tipset_at(duration.as_secs() - 30000);
-        let status = node_status(duration, tipset.as_ref());
+        let status = node_status(duration, &tipset);
 
         let expected_status_fmt =
             "[sync: Behind! (8h 20m behind)] [basefee: 0 FIL] [epoch: 0]".to_string();

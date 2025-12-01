@@ -48,7 +48,7 @@ pub type ChainEpochDelta = ChainEpoch;
 /// contained in message type.
 #[derive(Clone, Debug)]
 pub enum HeadChange {
-    Apply(Arc<Tipset>),
+    Apply(Tipset),
 }
 
 /// Stores chain data such as heaviest tipset and cached tipset info at each
@@ -142,7 +142,7 @@ where
     }
 
     /// Sets heaviest tipset
-    pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub fn set_heaviest_tipset(&self, ts: Tipset) -> Result<(), Error> {
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(ts.key())?;
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
@@ -163,7 +163,7 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
-        self.update_heaviest(Arc::new(expanded))?;
+        self.update_heaviest(expanded)?;
         Ok(())
     }
 
@@ -218,7 +218,7 @@ where
     }
 
     /// Returns the currently tracked heaviest tipset.
-    pub fn heaviest_tipset(&self) -> Arc<Tipset> {
+    pub fn heaviest_tipset(&self) -> Tipset {
         let tsk = self
             .heaviest_tipset_key_provider
             .heaviest_tipset_key()
@@ -261,7 +261,7 @@ where
     pub fn load_required_tipset_or_heaviest<'a>(
         &self,
         maybe_key: impl Into<Option<&'a TipsetKey>>,
-    ) -> Result<Arc<Tipset>, Error> {
+    ) -> Result<Tipset, Error> {
         match maybe_key.into() {
             Some(key) => self.chain_index.load_required_tipset(key),
             None => Ok(self.heaviest_tipset()),
@@ -270,11 +270,11 @@ where
 
     /// Determines if provided tipset is heavier than existing known heaviest
     /// tipset
-    fn update_heaviest(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+    fn update_heaviest(&self, ts: Tipset) -> Result<(), Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = fil_cns::weight(self.blockstore(), &self.heaviest_tipset())?;
 
-        let new_weight = fil_cns::weight(self.blockstore(), ts.as_ref())?;
+        let new_weight = fil_cns::weight(self.blockstore(), &ts)?;
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
@@ -321,9 +321,9 @@ where
     pub fn get_lookback_tipset_for_round(
         chain_index: &Arc<ChainIndex<Arc<DB>>>,
         chain_config: &Arc<ChainConfig>,
-        heaviest_tipset: &Arc<Tipset>,
+        heaviest_tipset: &Tipset,
         round: ChainEpoch,
-    ) -> Result<(Arc<Tipset>, Cid), Error>
+    ) -> Result<(Tipset, Cid), Error>
     where
         DB: Send + Sync + 'static,
     {
@@ -350,7 +350,7 @@ where
                 // (takes seconds to minutes). It's only acceptable here because this situation is
                 // so rare (may happen in dev-networks, doesn't happen in calibnet or mainnet.)
                 &crate::shim::machine::GLOBAL_MULTI_ENGINE,
-                Arc::clone(heaviest_tipset),
+                heaviest_tipset.clone(),
                 crate::state_manager::NO_CALLBACK,
                 VMTrace::NotTraced,
             )
