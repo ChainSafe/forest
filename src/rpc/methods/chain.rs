@@ -40,11 +40,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::fs::File;
-use std::{
-    collections::VecDeque,
-    path::PathBuf,
-    sync::{Arc, LazyLock},
-};
+use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
 use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
@@ -141,7 +137,7 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
     );
 
     type Params = ();
-    type Ok = Arc<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -174,7 +170,7 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
 async fn get_f3_finality_tipset<DB: Blockstore + Sync + Send + 'static>(
     ctx: &Ctx<DB>,
     ec_finality_epoch: ChainEpoch,
-) -> Result<Arc<Tipset>> {
+) -> Result<Tipset> {
     let f3_finalized_cert = crate::rpc::f3::F3GetLatestCertificate::handle(ctx.clone(), ())
         .await
         .map_err(|e| anyhow::anyhow!("Failed to get F3 certificate: {}", e))?;
@@ -867,7 +863,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset at the specified height.");
 
     type Params = (ChainEpoch, ApiTipsetKey);
-    type Ok = Arc<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -896,7 +892,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     );
 
     type Params = (ChainEpoch, ApiTipsetKey);
-    type Ok = Arc<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -937,7 +933,7 @@ impl RpcMethod<0> for ChainHead {
     const DESCRIPTION: Option<&'static str> = Some("Returns the chain head (heaviest tipset).");
 
     type Params = ();
-    type Ok = Arc<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let heaviest = ctx.chain_store().heaviest_tipset();
@@ -974,7 +970,7 @@ impl RpcMethod<1> for ChainGetTipSet {
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
     type Params = (ApiTipsetKey,);
-    type Ok = Arc<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -996,7 +992,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
     type Params = (ApiTipsetKey,);
-    type Ok = Arc<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
         Err(ServerError::unsupported_method())
@@ -1245,13 +1241,13 @@ pub struct ApiHeadChange {
     pub change: String,
     #[serde(rename = "Val", with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Tipset>")]
-    pub tipset: Arc<Tipset>,
+    pub tipset: Tipset,
 }
 lotus_json_with_self!(ApiHeadChange);
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(tag = "Type", content = "Val", rename_all = "snake_case")]
-pub enum PathChange<T = Arc<Tipset>> {
+pub enum PathChange<T = Tipset> {
     Revert(T),
     Apply(T),
 }
@@ -1287,23 +1283,21 @@ impl HasLotusJson for PathChange {
                     "Height": 0
                 }
             }),
-            Self::Revert(Arc::new(Tipset::from(RawBlockHeader::default()))),
+            Self::Revert(RawBlockHeader::default().into()),
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
         match self {
-            PathChange::Revert(it) => {
-                PathChange::Revert(Arc::unwrap_or_clone(it).into_lotus_json())
-            }
-            PathChange::Apply(it) => PathChange::Apply(Arc::unwrap_or_clone(it).into_lotus_json()),
+            PathChange::Revert(it) => PathChange::Revert(it.into_lotus_json()),
+            PathChange::Apply(it) => PathChange::Apply(it.into_lotus_json()),
         }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         match lotus_json {
-            PathChange::Revert(it) => PathChange::Revert(Tipset::from_lotus_json(it).into()),
-            PathChange::Apply(it) => PathChange::Apply(Tipset::from_lotus_json(it).into()),
+            PathChange::Revert(it) => PathChange::Revert(Tipset::from_lotus_json(it)),
+            PathChange::Apply(it) => PathChange::Apply(Tipset::from_lotus_json(it)),
         }
     }
 }
@@ -1336,8 +1330,6 @@ quickcheck::quickcheck! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use PathChange::{Apply, Revert};
-
     use crate::{
         blocks::{Chain4U, RawBlockHeader, chain4u},
         db::{
@@ -1346,6 +1338,8 @@ mod tests {
         },
         networks::{self, ChainConfig},
     };
+    use PathChange::{Apply, Revert};
+    use std::sync::Arc;
 
     #[test]
     fn revert_to_ancestor_linear() {
@@ -1540,8 +1534,8 @@ mod tests {
         let expected = expected
             .into_iter()
             .map(|change| match change {
-                PathChange::Revert(it) => PathChange::Revert(Arc::new(it.make_tipset())),
-                PathChange::Apply(it) => PathChange::Apply(Arc::new(it.make_tipset())),
+                PathChange::Revert(it) => PathChange::Revert(it.make_tipset()),
+                PathChange::Apply(it) => PathChange::Apply(it.make_tipset()),
             })
             .collect::<Vec<_>>();
         if expected != actual {

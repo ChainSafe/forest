@@ -871,9 +871,9 @@ fn get_tipset_from_hash<DB: Blockstore>(
 
 fn resolve_predefined_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
-    head: Arc<Tipset>,
+    head: Tipset,
     predefined: Predefined,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     match predefined {
         Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
         Predefined::Pending => Ok(head),
@@ -883,10 +883,10 @@ fn resolve_predefined_tipset<DB: Blockstore>(
 
 fn resolve_ext_predefined_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
-    head: Arc<Tipset>,
+    head: Tipset,
     ext_predefined: ExtPredefined,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     if let Ok(common) = Predefined::try_from(&ext_predefined) {
         resolve_predefined_tipset(chain, head, common)
     } else {
@@ -912,10 +912,10 @@ fn resolve_ext_predefined_tipset<DB: Blockstore>(
 
 fn resolve_block_number_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
-    head: Arc<Tipset>,
+    head: Tipset,
     block_number: EthInt64,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     let height = ChainEpoch::from(block_number.0);
     if height > head.epoch() - 1 {
         bail!("requested a future epoch (beyond \"latest\")");
@@ -927,12 +927,12 @@ fn resolve_block_number_tipset<DB: Blockstore>(
 
 fn resolve_block_hash_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
-    head: Arc<Tipset>,
+    head: Tipset,
     block_hash: &EthHash,
     require_canonical: bool,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
-    let ts = Arc::new(get_tipset_from_hash(chain, block_hash)?);
+) -> anyhow::Result<Tipset> {
+    let ts = get_tipset_from_hash(chain, block_hash)?;
     // verify that the tipset is in the canonical chain
     if require_canonical {
         // walk up the current chain (our head) until we reach ts.epoch()
@@ -951,7 +951,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_param: BlockNumberOrHash,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     let head = chain.heaviest_tipset();
     match block_param {
         BlockNumberOrHash::PredefinedBlock(predefined) => {
@@ -975,7 +975,7 @@ fn tipset_by_ext_block_number_or_hash<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_param: ExtBlockNumberOrHash,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     let head = chain.heaviest_tipset();
     match block_param {
         ExtBlockNumberOrHash::PredefinedBlock(ext_predefined) => {
@@ -997,7 +997,7 @@ fn tipset_by_ext_block_number_or_hash<DB: Blockstore>(
 
 async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: &Ctx<DB>,
-    tipset: &Arc<Tipset>,
+    tipset: &Tipset,
 ) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
     let msgs = data.chain_store().messages_for_tipset(tipset)?;
 
@@ -1267,7 +1267,7 @@ fn new_eth_tx<DB: Blockstore>(
 
 async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    tipset: &Arc<Tipset>,
+    tipset: &Tipset,
     tx: &ApiEthTx,
     msg_receipt: &Receipt,
 ) -> anyhow::Result<EthTxReceipt> {
@@ -1334,7 +1334,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
 
 pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    ts: &Arc<Tipset>,
+    ts: &Tipset,
     block_hash: &EthHash,
     tx_hash: &EthHash,
 ) -> anyhow::Result<Vec<EthLog>> {
@@ -1348,7 +1348,7 @@ pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + '
 
 pub async fn eth_logs_with_filter<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    ts: &Arc<Tipset>,
+    ts: &Tipset,
     spec: Option<EthFilterSpec>,
     tx_hash: Option<&EthHash>,
 ) -> anyhow::Result<Vec<EthLog>> {
@@ -1389,7 +1389,7 @@ fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result
 
 pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
-    tipset: Arc<Tipset>,
+    tipset: Tipset,
     full_tx_info: bool,
 ) -> Result<Block> {
     let parent_cid = tipset.parents().cid()?;
@@ -1812,7 +1812,7 @@ impl RpcMethod<2> for EthEstimateGas {
 
 async fn apply_message<DB>(
     ctx: &Ctx<DB>,
-    tipset: Option<Arc<Tipset>>,
+    tipset: Option<Tipset>,
     msg: Message,
 ) -> Result<ApiInvocResult, Error>
 where
@@ -1896,7 +1896,7 @@ impl EthEstimateGas {
         data: &Ctx<DB>,
         msg: &Message,
         prior_messages: &[ChainMessage],
-        ts: Arc<Tipset>,
+        ts: Tipset,
     ) -> anyhow::Result<u64>
     where
         DB: Blockstore + Send + Sync + 'static,
@@ -1908,7 +1908,7 @@ impl EthEstimateGas {
             data: &Ctx<DB>,
             mut msg: Message,
             prior_messages: &[ChainMessage],
-            ts: Arc<Tipset>,
+            ts: Tipset,
             limit: u64,
         ) -> anyhow::Result<bool>
         where
@@ -1990,7 +1990,7 @@ impl RpcMethod<3> for EthFeeHistory {
         let mut rewards_array = vec![];
         let mut gas_used_ratio_array = vec![];
         for ts in tipset
-            .chain_arc(ctx.store())
+            .chain(ctx.store())
             .filter(|i| i.epoch() > 0)
             .take(block_count as _)
         {
@@ -2123,7 +2123,7 @@ impl RpcMethod<2> for EthGetCode {
         };
 
         let api_invoc_result = 'invoc: {
-            for ts in ts.chain_arc(ctx.store()) {
+            for ts in ts.chain(ctx.store()) {
                 match ctx.state_manager.call(&message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;
@@ -2194,7 +2194,7 @@ impl RpcMethod<3> for EthGetStorageAt {
             ..Default::default()
         };
         let api_invoc_result = 'invoc: {
-            for ts in ts.chain_arc(ctx.store()) {
+            for ts in ts.chain(ctx.store()) {
                 match ctx.state_manager.call(&message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;

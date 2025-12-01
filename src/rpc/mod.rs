@@ -460,7 +460,7 @@ pub struct RPCState<DB> {
     pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,
-    pub tipset_send: flume::Sender<Arc<FullTipset>>,
+    pub tipset_send: flume::Sender<FullTipset>,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
     pub shutdown: mpsc::Sender<()>,

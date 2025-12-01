@@ -159,7 +159,7 @@ pub enum GetPowerTable {}
 impl GetPowerTable {
     async fn compute(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
     ) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
         const BLOCKSTORE_CACHE_CAP: usize = 65536;
@@ -581,7 +581,7 @@ impl RpcMethod<1> for Finalize {
                 finalized_ts.epoch()
             );
             if !head
-                .chain_arc(ctx.store())
+                .chain(ctx.store())
                 .take_while(|ts| ts.epoch() >= finalized_ts.epoch())
                 .any(|ts| ts == finalized_ts)
             {

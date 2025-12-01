@@ -18,7 +18,7 @@ use fvm_ipld_blockstore::Blockstore;
 /// Allows for deriving the randomness from a particular tipset.
 pub struct ChainRand<DB> {
     chain_config: Arc<ChainConfig>,
-    tipset: Arc<Tipset>,
+    tipset: Tipset,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     beacon: Arc<BeaconSchedule>,
 }
@@ -27,7 +27,7 @@ impl<DB> Clone for ChainRand<DB> {
     fn clone(&self) -> Self {
         ChainRand {
             chain_config: self.chain_config.clone(),
-            tipset: Arc::clone(&self.tipset),
+            tipset: self.tipset.clone(),
             chain_index: self.chain_index.clone(),
             beacon: self.beacon.clone(),
         }
@@ -40,7 +40,7 @@ where
 {
     pub fn new(
         chain_config: Arc<ChainConfig>,
-        tipset: Arc<Tipset>,
+        tipset: Tipset,
         chain_index: Arc<ChainIndex<Arc<DB>>>,
         beacon: Arc<BeaconSchedule>,
     ) -> Self {
@@ -59,7 +59,7 @@ where
         round: ChainEpoch,
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let ts = Arc::clone(&self.tipset);
+        let ts = self.tipset.clone();
 
         if round > ts.epoch() {
             bail!("cannot draw randomness from the future");
@@ -113,13 +113,13 @@ where
         round: ChainEpoch,
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(round, lookback)?;
+        let rand_ts: Tipset = self.get_beacon_randomness_tipset(round, lookback)?;
         let be = self.chain_index.latest_beacon_entry(rand_ts)?;
         Ok(digest(be.signature()))
     }
 
     pub fn extract_beacon_entry_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<BeaconEntry> {
-        let mut rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(epoch, false)?;
+        let mut rand_ts: Tipset = self.get_beacon_randomness_tipset(epoch, false)?;
         let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
         let round =
             beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch);
@@ -146,8 +146,8 @@ where
         &self,
         round: ChainEpoch,
         lookback: bool,
-    ) -> anyhow::Result<Arc<Tipset>> {
-        let ts = Arc::clone(&self.tipset);
+    ) -> anyhow::Result<Tipset> {
+        let ts = self.tipset.clone();
 
         if round > ts.epoch() {
             bail!("cannot draw randomness from the future");

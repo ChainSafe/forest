@@ -112,12 +112,6 @@ impl From<Tipset> for F3TipSet {
     }
 }
 
-impl From<Arc<Tipset>> for F3TipSet {
-    fn from(ts: Arc<Tipset>) -> Self {
-        Arc::unwrap_or_clone(ts).into()
-    }
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ECTipSet {
