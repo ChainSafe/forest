@@ -47,7 +47,7 @@ async fn prepare_validation(
     snapshot: &Path,
 ) -> anyhow::Result<(Arc<StateManager<ManyCar>>, Tipset)> {
     let snap_car = AnyCar::try_from(snapshot)?;
-    let ts = Arc::new(snap_car.heaviest_tipset()?);
+    let ts = snap_car.heaviest_tipset()?;
     let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(snap_car)?);
     let chain_config = Arc::new(ChainConfig::from_chain(chain));
     let genesis_header =
