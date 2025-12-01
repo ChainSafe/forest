@@ -205,7 +205,7 @@ where
     }
 
     /// Returns the currently tracked heaviest tipset.
-    pub fn heaviest_tipset(&self) -> Arc<Tipset> {
+    pub fn heaviest_tipset(&self) -> Tipset {
         self.chain_store().heaviest_tipset()
     }
 
@@ -359,7 +359,7 @@ where
         self.cs.chain_config()
     }
 
-    pub fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
+    pub fn chain_rand(&self, tipset: Tipset) -> ChainRand<DB> {
         ChainRand::new(
             self.chain_config().clone(),
             tipset,
@@ -458,7 +458,7 @@ where
     /// Returns the pair of (state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
-    pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
+    pub async fn tipset_state(self: &Arc<Self>, tipset: &Tipset) -> anyhow::Result<CidPair> {
         let StateOutput {
             state_root,
             receipt_root,
@@ -469,7 +469,7 @@ where
 
     pub async fn tipset_state_output(
         self: &Arc<Self>,
-        tipset: &Arc<Tipset>,
+        tipset: &Tipset,
     ) -> anyhow::Result<StateOutput> {
         let key = tipset.key();
         self.cache
@@ -489,7 +489,7 @@ where
 
                 trace!("Computing state for tipset at epoch {}", tipset.epoch());
                 let state_output = self
-                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
+                    .compute_tipset_state(tipset.clone(), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 for events_root in state_output.events_roots.iter().flatten() {
                     trace!("Indexing events root @{}: {}", tipset.epoch(), events_root);
@@ -529,7 +529,7 @@ where
     #[instrument(skip(self))]
     pub async fn tipset_message_receipts(
         self: &Arc<Self>,
-        tipset: &Arc<Tipset>,
+        tipset: &Tipset,
     ) -> anyhow::Result<Vec<Receipt>> {
         let key = tipset.key();
         let ts = tipset.clone();
@@ -553,7 +553,7 @@ where
     #[instrument(skip(self))]
     pub async fn tipset_state_events(
         self: &Arc<Self>,
-        tipset: &Arc<Tipset>,
+        tipset: &Tipset,
         events_root: Option<&Cid>,
     ) -> anyhow::Result<StateEvents> {
         let key = tipset.key();
@@ -584,7 +584,7 @@ where
         &self,
         msg: &Message,
         rand: ChainRand<DB>,
-        tipset: &Arc<Tipset>,
+        tipset: &Tipset,
     ) -> Result<ApiInvocResult, Error> {
         let mut msg = msg.clone();
 
@@ -605,7 +605,7 @@ where
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         let mut vm = VM::new(
             ExecutionContext {
-                heaviest_tipset: Arc::clone(tipset),
+                heaviest_tipset: tipset.clone(),
                 state_tree_root: *state_cid,
                 epoch: height,
                 rand: Box::new(rand),
@@ -657,19 +657,15 @@ where
 
     /// runs the given message and returns its result without any persisted
     /// changes.
-    pub fn call(
-        &self,
-        message: &Message,
-        tipset: Option<Arc<Tipset>>,
-    ) -> Result<ApiInvocResult, Error> {
+    pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
-        let chain_rand = self.chain_rand(Arc::clone(&ts));
+        let chain_rand = self.chain_rand(ts.clone());
         self.call_raw(message, chain_rand, &ts)
     }
 
     pub async fn apply_on_state_with_gas(
         self: &Arc<Self>,
-        tipset: Option<Arc<Tipset>>,
+        tipset: Option<Tipset>,
         msg: Message,
     ) -> anyhow::Result<ApiInvocResult> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
@@ -713,7 +709,7 @@ where
         self: &Arc<Self>,
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
-        tipset: Option<Arc<Tipset>>,
+        tipset: Option<Tipset>,
         trace_config: VMTrace,
     ) -> Result<(InvocResult, ApplyRet, Duration), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
@@ -721,7 +717,7 @@ where
             .tipset_state(&ts)
             .await
             .map_err(|e| Error::Other(format!("Could not load tipset state: {e}")))?;
-        let chain_rand = self.chain_rand(Arc::clone(&ts));
+        let chain_rand = self.chain_rand(ts.clone());
 
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
@@ -732,7 +728,7 @@ where
         let (ret, duration) = stacker::grow(64 << 20, || -> ApplyResult {
             let mut vm = VM::new(
                 ExecutionContext {
-                    heaviest_tipset: Arc::clone(&ts),
+                    heaviest_tipset: ts.clone(),
                     state_tree_root: st,
                     epoch,
                     rand: Box::new(chain_rand),
@@ -770,11 +766,7 @@ where
 
     /// Replays the given message and returns the result of executing the
     /// indicated message, assuming it was executed in the indicated tipset.
-    pub async fn replay(
-        self: &Arc<Self>,
-        ts: Arc<Tipset>,
-        mcid: Cid,
-    ) -> Result<ApiInvocResult, Error> {
+    pub async fn replay(self: &Arc<Self>, ts: Tipset, mcid: Cid) -> Result<ApiInvocResult, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || this.replay_blocking(ts, mcid))
             .await
@@ -784,7 +776,7 @@ where
     /// Blocking version of `replay`
     pub fn replay_blocking(
         self: &Arc<Self>,
-        ts: Arc<Tipset>,
+        ts: Tipset,
         mcid: Cid,
     ) -> Result<ApiInvocResult, Error> {
         const REPLAY_HALT: &str = "replay_halt";
@@ -899,7 +891,7 @@ where
     #[instrument(skip_all)]
     pub async fn compute_tipset_state(
         self: &Arc<Self>,
-        tipset: Arc<Tipset>,
+        tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
     ) -> Result<StateOutput, Error> {
@@ -914,7 +906,7 @@ where
     #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking(
         &self,
-        tipset: Arc<Tipset>,
+        tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
     ) -> Result<StateOutput, Error> {
@@ -944,7 +936,7 @@ where
         self: &Arc<Self>,
         height: ChainEpoch,
         messages: Vec<Message>,
-        tipset: Arc<Tipset>,
+        tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
     ) -> Result<StateOutput, Error> {
@@ -961,7 +953,7 @@ where
         &self,
         height: ChainEpoch,
         messages: Vec<Message>,
-        tipset: Arc<Tipset>,
+        tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
     ) -> Result<StateOutput, Error> {
@@ -1039,18 +1031,18 @@ where
 
     fn check_search(
         &self,
-        mut current: Arc<Tipset>,
+        mut current: Tipset,
         message: &ChainMessage,
         look_back_limit: Option<i64>,
         allow_replaced: Option<bool>,
-    ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
+    ) -> Result<Option<(Tipset, Receipt)>, Error> {
         let allow_replaced = allow_replaced.unwrap_or(true);
         let message_from_address = message.from();
         let message_sequence = message.sequence();
         let mut current_actor_state = self
             .get_required_actor(&message_from_address, *current.parent_state())
             .map_err(Error::state)?;
-        let message_from_id = self.lookup_required_id(&message_from_address, current.as_ref())?;
+        let message_from_id = self.lookup_required_id(&message_from_address, &current)?;
         while current.epoch() > look_back_limit.unwrap_or_default() {
             let parent_tipset = self
                 .chain_index()
@@ -1070,7 +1062,7 @@ where
                     && parent_actor_state.as_ref().unwrap().sequence <= message_sequence)
             {
                 let receipt = self
-                    .tipset_executed_message(current.as_ref(), message, allow_replaced)?
+                    .tipset_executed_message(&current, message, allow_replaced)?
                     .context("Failed to get receipt with tipset_executed_message")?;
                 return Ok(Some((current, receipt)));
             }
@@ -1088,16 +1080,16 @@ where
 
     fn search_back_for_message(
         &self,
-        current: Arc<Tipset>,
+        current: Tipset,
         message: &ChainMessage,
         look_back_limit: Option<i64>,
         allow_replaced: Option<bool>,
-    ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
+    ) -> Result<Option<(Tipset, Receipt)>, Error> {
         self.check_search(current, message, look_back_limit, allow_replaced)
     }
 
     /// Returns a message receipt from a given tipset and message CID.
-    pub fn get_receipt(&self, tipset: Arc<Tipset>, msg: Cid) -> Result<Receipt, Error> {
+    pub fn get_receipt(&self, tipset: Tipset, msg: Cid) -> Result<Receipt, Error> {
         let m = crate::chain::get_chain_message(self.blockstore(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_receipt = self.tipset_executed_message(&tipset, &m, true)?;
@@ -1124,7 +1116,7 @@ where
         confidence: i64,
         look_back_limit: Option<ChainEpoch>,
         allow_replaced: Option<bool>,
-    ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error> {
+    ) -> Result<(Option<Tipset>, Option<Receipt>), Error> {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
@@ -1136,7 +1128,7 @@ where
             return Ok((Some(current_tipset.clone()), Some(r)));
         }
 
-        let mut candidate_tipset: Option<Arc<Tipset>> = None;
+        let mut candidate_tipset: Option<Tipset> = None;
         let mut candidate_receipt: Option<Receipt> = None;
 
         let sm_cloned = Arc::clone(self);
@@ -1243,11 +1235,11 @@ where
 
     pub async fn search_for_message(
         &self,
-        from: Option<Arc<Tipset>>,
+        from: Option<Tipset>,
         msg_cid: Cid,
         look_back_limit: Option<i64>,
         allow_replaced: Option<bool>,
-    ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
+    ) -> Result<Option<(Tipset, Receipt)>, Error> {
         let from = from.unwrap_or_else(|| self.heaviest_tipset());
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
@@ -1396,7 +1388,7 @@ where
     pub async fn resolve_to_key_addr(
         self: &Arc<Self>,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
     ) -> Result<Address, anyhow::Error> {
         match addr.protocol() {
             Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated => return Ok(*addr),
@@ -1426,7 +1418,7 @@ where
     pub async fn miner_get_base_info(
         self: &Arc<Self>,
         beacon_schedule: &BeaconSchedule,
-        tipset: Arc<Tipset>,
+        tipset: Tipset,
         addr: Address,
         epoch: ChainEpoch,
     ) -> anyhow::Result<Option<MiningBaseInfo>> {
@@ -1571,7 +1563,7 @@ where
 
     pub fn validate_tipsets<T>(&self, tipsets: T) -> anyhow::Result<()>
     where
-        T: Iterator<Item = Arc<Tipset>> + Send,
+        T: Iterator<Item = Tipset> + Send,
     {
         let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
         validate_tipsets(
@@ -1658,7 +1650,7 @@ where
     pub async fn resolve_to_deterministic_address(
         self: &Arc<Self>,
         address: Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
     ) -> anyhow::Result<Address> {
         use crate::shim::address::Protocol::*;
         match address.protocol() {
@@ -1712,7 +1704,7 @@ where
             self.chain_config().clone(),
             self.beacon_schedule().clone(),
             &self.engine,
-            Arc::new(tipset.clone()),
+            tipset.clone(),
             Some(callback),
             VMTrace::Traced,
         )?;
@@ -1770,7 +1762,7 @@ pub fn validate_tipsets<DB, T>(
 ) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
-    T: Iterator<Item = Arc<Tipset>> + Send,
+    T: Iterator<Item = Tipset> + Send,
 {
     use rayon::iter::ParallelIterator as _;
     tipsets
@@ -1895,7 +1887,7 @@ pub fn apply_block_messages<DB>(
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
     engine: &MultiEngine,
-    tipset: Arc<Tipset>,
+    tipset: Tipset,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
 ) -> anyhow::Result<StateOutput>
@@ -1926,7 +1918,7 @@ where
 
     let rand = ChainRand::new(
         Arc::clone(&chain_config),
-        Arc::clone(&tipset),
+        tipset.clone(),
         Arc::clone(&chain_index),
         beacon,
     );
@@ -1937,7 +1929,7 @@ where
             genesis_info.get_vm_circulating_supply(epoch, chain_index.db(), &state_root)?;
         VM::new(
             ExecutionContext {
-                heaviest_tipset: Arc::clone(&tipset),
+                heaviest_tipset: tipset.clone(),
                 state_tree_root: state_root,
                 epoch,
                 rand: Box::new(rand.clone()),
@@ -2011,7 +2003,7 @@ where
 pub fn compute_state<DB>(
     _height: ChainEpoch,
     messages: Vec<Message>,
-    tipset: Arc<Tipset>,
+    tipset: Tipset,
     genesis_timestamp: u64,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,

@@ -32,7 +32,7 @@ use fvm2::externs::{Consensus, Externs, Rand};
 
 pub struct ForestExternsV2<DB> {
     rand: Box<dyn Rand>,
-    heaviest_tipset: Arc<Tipset>,
+    heaviest_tipset: Tipset,
     epoch: ChainEpoch,
     root: Cid,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
@@ -43,7 +43,7 @@ pub struct ForestExternsV2<DB> {
 impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
     pub fn new(
         rand: impl Rand + 'static,
-        heaviest_tipset: Arc<Tipset>,
+        heaviest_tipset: Tipset,
         epoch: ChainEpoch,
         root: Cid,
         chain_index: Arc<ChainIndex<Arc<DB>>>,

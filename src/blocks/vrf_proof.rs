@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::encoding::{blake2b_256, serde_byte_array};
+use crate::utils::encoding::serde_byte_array;
 use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +12,7 @@ pub struct VRFProof(#[serde(with = "serde_byte_array")] pub Vec<u8>);
 
 impl VRFProof {
     /// Creates a `VRFProof` from a raw vector.
+    #[cfg(test)]
     pub fn new(output: Vec<u8>) -> Self {
         Self(output)
     }
@@ -22,8 +23,9 @@ impl VRFProof {
     }
 
     /// Compute the `BLAKE2b256` digest of the proof.
+    #[allow(dead_code)]
     pub fn digest(&self) -> [u8; 32] {
-        blake2b_256(&self.0)
+        crate::utils::encoding::blake2b_256(&self.0)
     }
 }
 

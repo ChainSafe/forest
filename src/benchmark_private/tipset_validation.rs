@@ -45,9 +45,9 @@ async fn get_snapshot(chain: &NetworkChain, epoch: i64) -> anyhow::Result<PathBu
 async fn prepare_validation(
     chain: &NetworkChain,
     snapshot: &Path,
-) -> anyhow::Result<(Arc<StateManager<ManyCar>>, Arc<Tipset>)> {
+) -> anyhow::Result<(Arc<StateManager<ManyCar>>, Tipset)> {
     let snap_car = AnyCar::try_from(snapshot)?;
-    let ts = Arc::new(snap_car.heaviest_tipset()?);
+    let ts = snap_car.heaviest_tipset()?;
     let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(snap_car)?);
     let chain_config = Arc::new(ChainConfig::from_chain(chain));
     let genesis_header =
@@ -66,7 +66,7 @@ async fn prepare_validation(
     Ok((state_manager, ts))
 }
 
-async fn validate(state_manager: Arc<StateManager<ManyCar>>, ts: Arc<Tipset>) {
+async fn validate(state_manager: Arc<StateManager<ManyCar>>, ts: Tipset) {
     state_manager
         .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
         .await

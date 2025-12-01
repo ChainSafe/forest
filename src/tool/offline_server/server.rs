@@ -89,7 +89,7 @@ pub async fn start_offline_server(
         &db,
     )
     .await?;
-    let head_ts = Arc::new(db.heaviest_tipset()?);
+    let head_ts = db.heaviest_tipset()?;
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
         db.clone(),
@@ -134,7 +134,7 @@ pub async fn start_offline_server(
     if validate_until_epoch <= head_ts.epoch() {
         state_manager.validate_tipsets(
             head_ts
-                .chain_arc(&db)
+                .chain(&db)
                 .take_while(|ts| ts.epoch() >= validate_until_epoch),
         )?;
     }

@@ -61,12 +61,8 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
         .load_required_tipset(&header.parents)
         .map_err(to_errs)?;
 
-    block_timestamp_checks(
-        header,
-        base_tipset.as_ref(),
-        state_manager.chain_config().as_ref(),
-    )
-    .map_err(to_errs)?;
+    block_timestamp_checks(header, &base_tipset, state_manager.chain_config().as_ref())
+        .map_err(to_errs)?;
 
     let win_p_nv = state_manager.get_network_version(base_tipset.epoch());
 

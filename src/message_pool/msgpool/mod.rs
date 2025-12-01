@@ -57,7 +57,7 @@ async fn republish_pending_messages<T>(
     api: &T,
     network_sender: &flume::Sender<NetworkMessage>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &SyncRwLock<Arc<Tipset>>,
+    cur_tipset: &SyncRwLock<Tipset>,
     republished: &SyncRwLock<HashSet<Cid>>,
     local_addrs: &SyncRwLock<Vec<Address>>,
     chain_config: &ChainConfig,
@@ -85,7 +85,7 @@ where
         }
     }
 
-    let msgs = select_messages_for_block(api, chain_config, ts.as_ref(), pending_map)?;
+    let msgs = select_messages_for_block(api, chain_config, &ts, pending_map)?;
 
     let network_name = chain_config.network.genesis_name();
     for m in msgs.iter() {
@@ -216,7 +216,7 @@ pub async fn head_change<T>(
     repub_trigger: Arc<flume::Sender<()>>,
     republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &SyncRwLock<Arc<Tipset>>,
+    cur_tipset: &SyncRwLock<Tipset>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -266,7 +266,7 @@ where
                 }
             }
         }
-        *cur_tipset.write() = Arc::new(ts);
+        *cur_tipset.write() = ts;
     }
     if repub {
         repub_trigger
@@ -610,14 +610,13 @@ pub mod tests {
         let header = mock_block(1, 1);
         let tipset = Tipset::from(&header.clone());
 
-        let ts = tipset.clone();
-        mpool.api.set_heaviest_tipset(Arc::new(ts));
+        mpool.api.set_heaviest_tipset(tipset.clone());
 
         // sleep allows for async block to update mpool's cur_tipset
         tokio::time::sleep(Duration::new(2, 0)).await;
 
         let cur_ts = mpool.current_tipset();
-        assert_eq!(cur_ts.as_ref(), &tipset);
+        assert_eq!(cur_ts, tipset);
     }
 
     #[tokio::test]

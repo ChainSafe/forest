@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{convert::TryFrom, sync::Arc};
+use std::convert::TryFrom;
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, CachingBlockHeader, FullTipset, Tipset};
 use crate::message::SignedMessage;
@@ -170,14 +170,6 @@ impl TryFrom<TipsetBundle> for Tipset {
 
     fn try_from(tsb: TipsetBundle) -> Result<Self, Self::Error> {
         Tipset::new(tsb.blocks).map_err(|e| e.to_string())
-    }
-}
-
-impl TryFrom<TipsetBundle> for Arc<Tipset> {
-    type Error = String;
-
-    fn try_from(tsb: TipsetBundle) -> Result<Self, Self::Error> {
-        Tipset::try_from(tsb).map(Arc::new)
     }
 }
 

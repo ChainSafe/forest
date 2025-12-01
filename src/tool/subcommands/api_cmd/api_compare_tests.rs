@@ -2179,7 +2179,7 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
         genesis_header.clone(),
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
-    let head_ts = Arc::new(db.heaviest_tipset()?);
+    let head_ts = db.heaviest_tipset()?;
 
     // Set proof parameter data dir and make sure the proofs are available. Otherwise,
     // validation might fail due to missing proof parameters.
@@ -2187,7 +2187,7 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
     ensure_proof_params_downloaded().await?;
     state_manager.validate_tipsets(
         head_ts
-            .chain_arc(&db)
+            .chain(&db)
             .take(SAFE_EPOCH_DELAY as usize + n_ts_to_validate),
     )?;
 

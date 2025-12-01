@@ -154,9 +154,7 @@ async fn maybe_import_snapshot(
         let ts_epoch = ts.epoch();
         // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
         // in the current setting store
-        ctx.state_manager
-            .chain_store()
-            .set_heaviest_tipset(ts.into())?;
+        ctx.state_manager.chain_store().set_heaviest_tipset(ts)?;
         debug!(
             "Loaded car DB at {} and set current head to epoch {ts_epoch}",
             car_db_path.display(),
@@ -321,9 +319,7 @@ fn create_chain_follower(
     let chain_follower = ChainFollower::new(
         ctx.state_manager.clone(),
         network,
-        Arc::new(Tipset::from(
-            ctx.state_manager.chain_store().genesis_block_header(),
-        )),
+        Tipset::from(ctx.state_manager.chain_store().genesis_block_header()),
         p2p_service.network_receiver(),
         opts.stateless,
         mpool,

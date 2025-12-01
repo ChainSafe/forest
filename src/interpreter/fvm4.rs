@@ -36,7 +36,7 @@ use fvm4::{
 
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
-    heaviest_tipset: Arc<Tipset>,
+    heaviest_tipset: Tipset,
     epoch: ChainEpoch,
     root: Cid,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
@@ -47,7 +47,7 @@ pub struct ForestExterns<DB> {
 impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
     pub fn new(
         rand: impl Rand + 'static,
-        heaviest_tipset: Arc<Tipset>,
+        heaviest_tipset: Tipset,
         epoch: ChainEpoch,
         root: Cid,
         chain_index: Arc<ChainIndex<Arc<DB>>>,

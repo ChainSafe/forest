@@ -263,7 +263,7 @@ impl ArchiveCommands {
                 let heaviest_tipset = store.heaviest_tipset()?;
                 do_export(
                     &store.into(),
-                    heaviest_tipset.into(),
+                    heaviest_tipset,
                     output_path,
                     epoch,
                     depth,
@@ -512,7 +512,7 @@ fn build_output_path(
 #[allow(clippy::too_many_arguments)]
 pub async fn do_export(
     store: &Arc<impl Blockstore + Send + Sync + 'static>,
-    root: Arc<Tipset>,
+    root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
@@ -544,7 +544,7 @@ pub async fn do_export(
         .context("unable to get a tipset at given height")?;
 
     let seen = if let Some(diff) = diff {
-        let diff_ts: Arc<Tipset> = index
+        let diff_ts: Tipset = index
             .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
@@ -768,7 +768,7 @@ async fn show_tipset_diff(
 
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
 
-    let heaviest_tipset = Arc::new(store.heaviest_tipset()?);
+    let heaviest_tipset = store.heaviest_tipset()?;
     if heaviest_tipset.epoch() <= epoch {
         anyhow::bail!(
             "Highest epoch must be at least 1 greater than the target epoch. \
@@ -791,13 +791,13 @@ async fn show_tipset_diff(
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index.tipset_by_height(
         epoch,
-        Arc::clone(&heaviest_tipset),
+        heaviest_tipset.clone(),
         ResolveNullTipset::TakeOlder,
     )?;
 
     let child_tipset = chain_index.tipset_by_height(
         epoch + 1,
-        Arc::clone(&heaviest_tipset),
+        heaviest_tipset.clone(),
         ResolveNullTipset::TakeNewer,
     )?;
 
@@ -990,7 +990,7 @@ async fn export_lite_snapshot(
     let force = false;
     do_export(
         &store,
-        root.into(),
+        root,
         output_path.clone(),
         Some(epoch),
         depth,
@@ -1023,7 +1023,7 @@ async fn export_diff_snapshot(
     let force = false;
     do_export(
         &store,
-        root.into(),
+        root,
         output_path.clone(),
         Some(epoch),
         depth,
@@ -1165,7 +1165,7 @@ mod tests {
         let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
             &store.into(),
-            heaviest_tipset.into(),
+            heaviest_tipset,
             output_path.path().into(),
             Some(0),
             1,

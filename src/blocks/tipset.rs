@@ -25,7 +25,6 @@ use num::BigInt;
 use nunny::{Vec as NonEmpty, vec as nonempty};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::info;
 
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
@@ -151,9 +150,9 @@ impl IntoIterator for TipsetKey {
 pub struct Tipset {
     /// Sorted
     #[get_size(size_fn = nunny_vec_heap_size_helper)]
-    headers: NonEmpty<CachingBlockHeader>,
+    headers: Arc<NonEmpty<CachingBlockHeader>>,
     // key is lazily initialized via `fn key()`.
-    key: OnceLock<TipsetKey>,
+    key: Arc<OnceLock<TipsetKey>>,
 }
 
 impl From<RawBlockHeader> for Tipset {
@@ -171,8 +170,8 @@ impl From<&CachingBlockHeader> for Tipset {
 impl From<CachingBlockHeader> for Tipset {
     fn from(value: CachingBlockHeader) -> Self {
         Self {
-            headers: nonempty![value],
-            key: OnceLock::new(),
+            headers: nonempty![value].into(),
+            key: OnceLock::new().into(),
         }
     }
 }
@@ -180,8 +179,8 @@ impl From<CachingBlockHeader> for Tipset {
 impl From<NonEmpty<CachingBlockHeader>> for Tipset {
     fn from(headers: NonEmpty<CachingBlockHeader>) -> Self {
         Self {
-            headers,
-            key: OnceLock::new(),
+            headers: headers.into(),
+            key: OnceLock::new().into(),
         }
     }
 }
@@ -202,14 +201,12 @@ impl quickcheck::Arbitrary for Tipset {
 }
 
 impl From<FullTipset> for Tipset {
-    fn from(full_tipset: FullTipset) -> Self {
-        let key = full_tipset.key;
-        let headers = full_tipset
-            .blocks
+    fn from(FullTipset { key, blocks }: FullTipset) -> Self {
+        let headers = Arc::unwrap_or_clone(blocks)
             .into_iter_ne()
             .map(|block| block.header)
-            .collect_vec();
-
+            .collect_vec()
+            .into();
         Tipset { headers, key }
     }
 }
@@ -254,8 +251,8 @@ impl Tipset {
         verify_block_headers(&headers)?;
 
         Ok(Self {
-            headers,
-            key: OnceLock::new(),
+            headers: headers.into(),
+            key: OnceLock::new().into(),
         })
     }
 
@@ -309,9 +306,6 @@ impl Tipset {
     pub fn block_headers(&self) -> &NonEmpty<CachingBlockHeader> {
         &self.headers
     }
-    pub fn into_block_headers(self) -> NonEmpty<CachingBlockHeader> {
-        self.headers
-    }
     /// Returns the smallest ticket of all blocks in the tipset
     pub fn min_ticket(&self) -> Option<&Ticket> {
         self.min_ticket_block().ticket.as_ref()
@@ -355,6 +349,7 @@ impl Tipset {
     }
     /// Returns true if self wins according to the Filecoin tie-break rule
     /// (FIP-0023)
+    #[cfg(test)]
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
         let broken = self
@@ -369,9 +364,9 @@ impl Tipset {
                 ticket.vrfproof < other_ticket.vrfproof
             });
         if broken {
-            info!("Weight tie broken in favour of {}", self.key());
+            tracing::info!("Weight tie broken in favour of {}", self.key());
         } else {
-            info!("Weight tie left unbroken, default to {}", other.key());
+            tracing::info!("Weight tie left unbroken, default to {}", other.key());
         }
         broken
     }
@@ -392,21 +387,6 @@ impl Tipset {
         std::iter::from_fn(move || {
             let child = tipset.take()?;
             tipset = Tipset::load_required(store, child.parents()).ok();
-            Some(child)
-        })
-    }
-
-    /// Returns an iterator of all tipsets
-    pub fn chain_arc(
-        self: Arc<Self>,
-        store: &impl Blockstore,
-    ) -> impl Iterator<Item = Arc<Tipset>> + '_ {
-        let mut tipset = Some(self);
-        std::iter::from_fn(move || {
-            let child = tipset.take()?;
-            tipset = Tipset::load_required(store, child.parents())
-                .ok()
-                .map(Arc::new);
             Some(child)
         })
     }
@@ -450,22 +430,15 @@ impl Tipset {
         }
         anyhow::bail!("Genesis block not found")
     }
-
-    /// Check if `self` is the child of `other`
-    pub fn is_child_of(&self, other: &Self) -> bool {
-        // Note: the extra `&& self.epoch() > other.epoch()` check in lotus is dropped
-        // See <https://github.com/filecoin-project/lotus/blob/01ec22974942fb7328a1e665704c6cfd75d93372/chain/types/tipset.go#L258>
-        self.parents() == other.key()
-    }
 }
 
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
 /// and messages.
 #[derive(Debug, Clone, Eq)]
 pub struct FullTipset {
-    blocks: NonEmpty<Block>,
+    blocks: Arc<NonEmpty<Block>>,
     // key is lazily initialized via `fn key()`.
-    key: OnceLock<TipsetKey>,
+    key: Arc<OnceLock<TipsetKey>>,
 }
 
 impl std::hash::Hash for FullTipset {
@@ -478,8 +451,8 @@ impl std::hash::Hash for FullTipset {
 impl From<Block> for FullTipset {
     fn from(block: Block) -> Self {
         FullTipset {
-            blocks: nonempty![block],
-            key: OnceLock::new(),
+            blocks: nonempty![block].into(),
+            key: OnceLock::new().into(),
         }
     }
 }
@@ -492,21 +465,23 @@ impl PartialEq for FullTipset {
 
 impl FullTipset {
     pub fn new(blocks: impl IntoIterator<Item = Block>) -> Result<Self, CreateTipsetError> {
-        let blocks = NonEmpty::new(
-            // sort blocks on creation to allow for more seamless conversions between
-            // FullTipset and Tipset
-            blocks
-                .into_iter()
-                .sorted_by_cached_key(|it| it.header.tipset_sort_key())
-                .collect(),
-        )
-        .map_err(|_| CreateTipsetError::Empty)?;
+        let blocks = Arc::new(
+            NonEmpty::new(
+                // sort blocks on creation to allow for more seamless conversions between
+                // FullTipset and Tipset
+                blocks
+                    .into_iter()
+                    .sorted_by_cached_key(|it| it.header.tipset_sort_key())
+                    .collect(),
+            )
+            .map_err(|_| CreateTipsetError::Empty)?,
+        );
 
         verify_block_headers(blocks.iter().map(|it| &it.header))?;
 
         Ok(Self {
             blocks,
-            key: OnceLock::new(),
+            key: Arc::new(OnceLock::new()),
         })
     }
     /// Returns the first block of the tipset.
@@ -519,7 +494,7 @@ impl FullTipset {
     }
     /// Returns all blocks in a full tipset.
     pub fn into_blocks(self) -> NonEmpty<Block> {
-        self.blocks
+        Arc::unwrap_or_clone(self.blocks)
     }
     /// Converts the full tipset into a [Tipset] which removes the messages
     /// attached.
@@ -637,8 +612,8 @@ mod lotus_json {
             let Self(tipset) = self;
             TipsetLotusJsonInner {
                 cids: tipset.key().clone(),
-                blocks: tipset.clone().into_block_headers(),
                 height: tipset.epoch(),
+                blocks: tipset.block_headers().clone(),
             }
             .serialize(serializer)
         }

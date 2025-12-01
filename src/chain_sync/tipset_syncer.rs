@@ -232,7 +232,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Base fee check
     validations.spawn_blocking({
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
-        let base_tipset = Arc::clone(&base_tipset);
+        let base_tipset = base_tipset.clone();
         let block_store = state_manager.blockstore_owned();
         let block = Arc::clone(&block);
         move || {
@@ -352,7 +352,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
-    base_tipset: Arc<Tipset>,
+    base_tipset: Tipset,
 ) -> Result<(), TipsetSyncerError> {
     let network_version = state_manager
         .chain_config()
