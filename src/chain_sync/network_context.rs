@@ -148,14 +148,10 @@ where
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
         count: NonZeroU64,
-    ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_chain_exchange_request(
-            peer_id,
-            tsk,
-            count,
-            HEADERS,
-            |tipsets: &Vec<Arc<Tipset>>| validate_network_tipsets(tipsets, tsk),
-        )
+    ) -> Result<Vec<Tipset>, String> {
+        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |tipsets: &Vec<Tipset>| {
+            validate_network_tipsets(tipsets, tsk)
+        })
         .await
     }
 
@@ -467,7 +463,7 @@ where
 /// Validates network tipsets that are sorted by epoch in descending order with the below checks
 /// 1. The latest(first) tipset has the desired tipset key
 /// 2. The sorted tipsets are chained by their tipset keys
-fn validate_network_tipsets(tipsets: &[Arc<Tipset>], start_tipset_key: &TipsetKey) -> bool {
+fn validate_network_tipsets(tipsets: &[Tipset], start_tipset_key: &TipsetKey) -> bool {
     if let Some(start) = tipsets.first() {
         if start.key() != start_tipset_key {
             tracing::warn!(epoch=%start.epoch(), expected=%start_tipset_key, actual=%start.key(), "start tipset key mismatch");
@@ -601,11 +597,6 @@ mod tests {
             -> t3 @ [third]
             -> t4 @ [fourth]
         };
-        let t0 = Arc::new(t0.clone());
-        let t1 = Arc::new(t1.clone());
-        let t2 = Arc::new(t2.clone());
-        let t3 = Arc::new(t3.clone());
-        let t4 = Arc::new(t4.clone());
         assert!(validate_network_tipsets(
             &[t4.clone(), t3.clone(), t2.clone(), t1.clone(), t0.clone()],
             t4.key()

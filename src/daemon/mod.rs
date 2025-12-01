@@ -154,9 +154,7 @@ async fn maybe_import_snapshot(
         let ts_epoch = ts.epoch();
         // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
         // in the current setting store
-        ctx.state_manager
-            .chain_store()
-            .set_heaviest_tipset(ts.into())?;
+        ctx.state_manager.chain_store().set_heaviest_tipset(ts)?;
         debug!(
             "Loaded car DB at {} and set current head to epoch {ts_epoch}",
             car_db_path.display(),
@@ -321,9 +319,7 @@ fn create_chain_follower(
     let chain_follower = ChainFollower::new(
         ctx.state_manager.clone(),
         network,
-        Arc::new(Tipset::from(
-            ctx.state_manager.chain_store().genesis_block_header(),
-        )),
+        Tipset::from(ctx.state_manager.chain_store().genesis_block_header()),
         p2p_service.network_receiver(),
         opts.stateless,
         mpool,
@@ -595,8 +591,11 @@ pub(super) async fn start_services(
     if opts.exit_after_init {
         return Ok(());
     }
-    if !opts.stateless {
-        ctx.state_manager.maybe_rewind_heaviest_tipset()?;
+    if !opts.stateless
+        && !opts.skip_load_actors
+        && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset()
+    {
+        tracing::warn!("error in maybe_rewind_heaviest_tipset: {e}");
     }
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;

@@ -63,11 +63,6 @@ pub struct DrandConfig<'a> {
 pub struct BeaconSchedule(pub Vec<BeaconPoint>);
 
 impl BeaconSchedule {
-    /// Constructs a new, empty `BeaconSchedule<T>` with the specified capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        BeaconSchedule(Vec::with_capacity(capacity))
-    }
-
     /// Returns the beacon entries for a given epoch.
     /// When the beacon for the given epoch is on a new beacon, randomness
     /// entries are taken from the last two rounds.

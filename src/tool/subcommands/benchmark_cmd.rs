@@ -18,7 +18,6 @@ use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::{
@@ -203,7 +202,7 @@ async fn benchmark_exporting(
     let idx = ChainIndex::new(&store);
     let ts = idx.tipset_by_height(
         epoch.unwrap_or(heaviest.epoch()),
-        Arc::new(heaviest),
+        heaviest,
         ResolveNullTipset::TakeOlder,
     )?;
     // We don't do any sanity checking for 'depth'. The output is discarded so
@@ -214,7 +213,7 @@ async fn benchmark_exporting(
 
     let blocks = stream_chain(
         Arc::clone(&store),
-        ts.deref().clone().chain_owned(Arc::clone(&store)),
+        ts.clone().chain_owned(Arc::clone(&store)),
         stateroot_lookup_limit,
     );
 

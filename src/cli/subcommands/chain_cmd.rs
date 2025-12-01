@@ -16,7 +16,6 @@ use anyhow::{bail, ensure};
 use cid::Cid;
 use clap::Subcommand;
 use nunny::Vec as NonEmpty;
-use std::sync::Arc;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Format {
@@ -143,7 +142,7 @@ impl ChainCommands {
 async fn tipset_by_epoch_or_offset(
     client: &rpc::Client,
     epoch_or_offset: i64,
-) -> Result<Arc<Tipset>, jsonrpsee::core::ClientError> {
+) -> Result<Tipset, jsonrpsee::core::ClientError> {
     let current_head = ChainHead::call(client, ()).await?;
 
     let target_epoch = match epoch_or_offset.is_negative() {

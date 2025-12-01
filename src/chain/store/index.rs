@@ -1,8 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::num::NonZeroUsize;
 use std::sync::LazyLock;
-use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{Tipset, TipsetKey};
@@ -18,7 +18,7 @@ use num::Integer;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
 
-type TipsetCache = SizeTrackingLruCache<TipsetKey, Arc<Tipset>>;
+type TipsetCache = SizeTrackingLruCache<TipsetKey, Tipset>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
@@ -51,7 +51,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
     /// identical to [`Tipset::load`] but the result is cached.
-    pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
+    pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Tipset>, Error> {
         let cache_enabled = !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED");
         if cache_enabled && let Some(ts) = self.ts_cache.get_cloned(tsk) {
             metrics::LRU_CACHE_HIT
@@ -60,7 +60,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
             return Ok(Some(ts));
         }
 
-        let ts_opt = Tipset::load(&self.db, tsk)?.map(Arc::new);
+        let ts_opt = Tipset::load(&self.db, tsk)?;
         if cache_enabled && let Some(ts) = &ts_opt {
             self.ts_cache.push(tsk.clone(), ts.clone());
             metrics::LRU_CACHE_MISS
@@ -74,7 +74,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// Loads a tipset from memory given the tipset keys and cache.
     /// This calls fails if the tipset is missing or invalid. Semantically
     /// identical to [`Tipset::load_required`] but the result is cached.
-    pub fn load_required_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
+    pub fn load_required_tipset(&self, tsk: &TipsetKey) -> Result<Tipset, Error> {
         self.load_tipset(tsk)?
             .ok_or_else(|| Error::NotFound("Key for header".into()))
     }
@@ -121,9 +121,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
     pub fn tipset_by_height(
         &self,
         to: ChainEpoch,
-        mut from: Arc<Tipset>,
+        mut from: Tipset,
         resolve: ResolveNullTipset,
-    ) -> Result<Arc<Tipset>, Error> {
+    ) -> Result<Tipset, Error> {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
         static CACHE: LazyLock<SizeTrackingLruCache<ChainEpoch, TipsetKey>> = LazyLock::new(|| {
@@ -153,7 +153,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         if to == 0 {
-            return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
+            return Ok(Tipset::from(from.genesis(&self.db)?));
         }
         if to > from.epoch() {
             return Err(Error::Other(format!(
@@ -188,7 +188,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// Iterate from the given tipset to genesis. Missing tipsets cut the chain
     /// short. Semantically identical to [`Tipset::chain`] but the results are
     /// cached.
-    pub fn chain(&self, from: Arc<Tipset>) -> impl Iterator<Item = Arc<Tipset>> + '_ {
+    pub fn chain(&self, from: Tipset) -> impl Iterator<Item = Tipset> + '_ {
         let mut tipset = Some(from);
         std::iter::from_fn(move || {
             let child = tipset.take()?;
@@ -198,8 +198,8 @@ impl<DB: Blockstore> ChainIndex<DB> {
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
-    pub fn latest_beacon_entry(&self, tipset: Arc<Tipset>) -> Result<BeaconEntry, Error> {
-        for ts in tipset.chain_arc(&self.db).take(20) {
+    pub fn latest_beacon_entry(&self, tipset: Tipset) -> Result<BeaconEntry, Error> {
+        for ts in tipset.chain(&self.db).take(20) {
             if let Some(entry) = ts.min_ticket_block().beacon_entries.last() {
                 return Ok(entry.clone());
             }
@@ -222,11 +222,13 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    };
 
     use super::*;
-    use crate::blocks::CachingBlockHeader;
-    use crate::blocks::RawBlockHeader;
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
     use crate::db::MemoryDB;
     use crate::utils::db::CborStoreExt;
 
@@ -268,18 +270,16 @@ mod tests {
         // epoch 2 is null. ResolveNullTipset decided whether to return epoch 1 or epoch 3
         assert_eq!(
             index
-                .tipset_by_height(2, Arc::new(epoch4.clone()), ResolveNullTipset::TakeOlder)
-                .unwrap()
-                .as_ref(),
-            &epoch1
+                .tipset_by_height(2, epoch4.clone(), ResolveNullTipset::TakeOlder)
+                .unwrap(),
+            epoch1
         );
 
         assert_eq!(
             index
-                .tipset_by_height(2, Arc::new(epoch4), ResolveNullTipset::TakeNewer)
-                .unwrap()
-                .as_ref(),
-            &epoch3
+                .tipset_by_height(2, epoch4, ResolveNullTipset::TakeNewer)
+                .unwrap(),
+            epoch3
         );
     }
 
@@ -306,18 +306,16 @@ mod tests {
         // The chain as forked, epoch 2 and 3 are ambiguous
         assert_eq!(
             index
-                .tipset_by_height(2, Arc::new(epoch3a), ResolveNullTipset::TakeOlder)
-                .unwrap()
-                .as_ref(),
-            &epoch2a
+                .tipset_by_height(2, epoch3a, ResolveNullTipset::TakeOlder)
+                .unwrap(),
+            epoch2a
         );
 
         assert_eq!(
             index
-                .tipset_by_height(2, Arc::new(epoch3b), ResolveNullTipset::TakeOlder)
-                .unwrap()
-                .as_ref(),
-            &epoch2b
+                .tipset_by_height(2, epoch3b, ResolveNullTipset::TakeOlder)
+                .unwrap(),
+            epoch2b
         );
     }
 }

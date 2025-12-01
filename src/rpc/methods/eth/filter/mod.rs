@@ -95,7 +95,7 @@ pub struct EthEventHandler {
     mempool_filter_manager: Option<Arc<MempoolFilterManager>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum SkipEvent {
     OnUnresolvedAddress,
     Never,
@@ -271,7 +271,7 @@ impl EthEventHandler {
 
     pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
-        tipset: &Arc<Tipset>,
+        tipset: &Tipset,
         spec: Option<&impl Matcher>,
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
@@ -295,7 +295,7 @@ impl EthEventHandler {
                 let id_addr = Address::new_id(event.emitter());
                 let result = ctx
                     .state_manager
-                    .resolve_to_deterministic_address(id_addr, tipset.clone())
+                    .resolve_to_deterministic_address(id_addr, tipset)
                     .await
                     .with_context(|| {
                         format!(
@@ -367,7 +367,7 @@ impl EthEventHandler {
 
     pub async fn collect_chain_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
-        tipset: &Arc<Tipset>,
+        tipset: &Tipset,
         events_root: &Cid,
     ) -> anyhow::Result<Vec<Event>> {
         let state_events = ctx
@@ -434,20 +434,11 @@ impl EthEventHandler {
                     ResolveNullTipset::TakeOlder,
                 )?;
                 for tipset in max_tipset
-                    .as_ref()
-                    .clone()
                     .chain(&ctx.store())
                     .take_while(|ts| ts.epoch() >= *range.start())
                 {
-                    let tipset = Arc::new(tipset);
-                    Self::collect_events(
-                        ctx,
-                        &tipset,
-                        Some(pf),
-                        skip_event.clone(),
-                        &mut collected_events,
-                    )
-                    .await?;
+                    Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
+                        .await?;
                 }
             }
         }

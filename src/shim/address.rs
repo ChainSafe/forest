@@ -343,6 +343,24 @@ impl From<&Address_v4> for Address {
     }
 }
 
+impl From<Address> for Address_v4 {
+    fn from(addr: Address) -> Self {
+        addr.0
+    }
+}
+
+impl From<&Address> for Address_v4 {
+    fn from(other: &Address) -> Self {
+        other.0
+    }
+}
+
+impl<'a> From<&'a Address> for &'a Address_v4 {
+    fn from(addr: &'a Address) -> Self {
+        &addr.0
+    }
+}
+
 impl From<&Address_v3> for Address {
     fn from(other: &Address_v3) -> Self {
         Address::from(
@@ -372,18 +390,6 @@ impl From<&Address_v2> for Address {
 impl From<Address_v2> for Address {
     fn from(other: Address_v2) -> Self {
         (&other).into()
-    }
-}
-
-impl From<Address> for Address_v4 {
-    fn from(other: Address) -> Address_v4 {
-        other.0
-    }
-}
-
-impl From<&Address> for Address_v4 {
-    fn from(other: &Address) -> Self {
-        other.0
     }
 }
 

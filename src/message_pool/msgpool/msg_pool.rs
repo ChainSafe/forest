@@ -177,7 +177,7 @@ pub struct MessagePool<T> {
     /// A map of pending messages where the key is the address
     pub pending: Arc<SyncRwLock<HashMap<Address, MsgSet>>>,
     /// The current tipset (a set of blocks)
-    pub cur_tipset: Arc<SyncRwLock<Arc<Tipset>>>,
+    pub cur_tipset: Arc<SyncRwLock<Tipset>>,
     /// The underlying provider
     pub api: Arc<T>,
     /// Sender half to send messages to other components
@@ -203,7 +203,7 @@ where
     T: Provider,
 {
     /// Gets the current tipset
-    pub fn current_tipset(&self) -> Arc<Tipset> {
+    pub fn current_tipset(&self) -> Tipset {
         self.cur_tipset.read().clone()
     }
 
@@ -369,7 +369,7 @@ where
 
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
-    pub fn pending(&self) -> Result<(Vec<SignedMessage>, Arc<Tipset>), Error> {
+    pub fn pending(&self) -> Result<(Vec<SignedMessage>, Tipset), Error> {
         let mut out: Vec<SignedMessage> = Vec::new();
         let pending = self.pending.read().clone();
 
@@ -521,11 +521,9 @@ where
                 match subscriber.recv().await {
                     Ok(ts) => {
                         let (cur, rev, app) = match ts {
-                            HeadChange::Apply(tipset) => (
-                                cur_tipset.clone(),
-                                Vec::new(),
-                                vec![tipset.as_ref().clone()],
-                            ),
+                            HeadChange::Apply(tipset) => {
+                                (cur_tipset.clone(), Vec::new(), vec![tipset])
+                            }
                         };
                         head_change(
                             api.as_ref(),

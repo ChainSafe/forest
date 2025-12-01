@@ -4,16 +4,17 @@
 pub mod ext;
 
 use crate::list_miners_for_state;
-use crate::shim::actors::FilterEstimate;
-use crate::shim::actors::Policy;
-use crate::shim::actors::convert::*;
+use crate::shim::{
+    actors::{FilterEstimate, Policy, convert::*},
+    address::Address,
+};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared2::{address::Address, econ::TokenAmount, sector::StoragePower};
+use fvm_shared2::{econ::TokenAmount, sector::StoragePower};
 use serde::{Deserialize, Serialize};
 
 /// Power actor address.
 // TODO(forest): https://github.com/ChainSafe/forest/issues/5011
-pub const ADDRESS: Address = Address::new_id(4);
+pub const ADDRESS: fvm_shared2::address::Address = fvm_shared2::address::Address::new_id(4);
 
 /// Power actor method.
 // TODO(forest): https://github.com/ChainSafe/forest/issues/5011
@@ -104,7 +105,7 @@ impl State {
                 let claims = st.load_claims(store)?;
                 let mut miners = Vec::new();
                 claims.for_each(|addr, _claim| {
-                    miners.push(from_address_v4_to_v2(addr));
+                    miners.push(addr.into());
                     Ok(())
                 })?;
                 Ok(miners)
@@ -113,7 +114,7 @@ impl State {
                 let claims = st.load_claims(store)?;
                 let mut miners = Vec::new();
                 claims.for_each(|addr, _claim| {
-                    miners.push(from_address_v4_to_v2(addr));
+                    miners.push(addr.into());
                     Ok(())
                 })?;
                 Ok(miners)
@@ -122,7 +123,7 @@ impl State {
                 let claims = st.load_claims(store)?;
                 let mut miners = Vec::new();
                 claims.for_each(|addr, _claim| {
-                    miners.push(from_address_v4_to_v2(addr));
+                    miners.push(addr.into());
                     Ok(())
                 })?;
                 Ok(miners)
@@ -131,7 +132,7 @@ impl State {
                 let claims = st.load_claims(store)?;
                 let mut miners = Vec::new();
                 claims.for_each(|addr, _claim| {
-                    miners.push(from_address_v4_to_v2(addr));
+                    miners.push(addr.into());
                     Ok(())
                 })?;
                 Ok(miners)
@@ -140,7 +141,7 @@ impl State {
                 let claims = st.load_claims(store)?;
                 let mut miners = Vec::new();
                 claims.for_each(|addr, _claim| {
-                    miners.push(from_address_v4_to_v2(addr));
+                    miners.push(addr.into());
                     Ok(())
                 })?;
                 Ok(miners)
@@ -149,7 +150,7 @@ impl State {
                 let claims = st.load_claims(store)?;
                 let mut miners = Vec::new();
                 claims.for_each(|addr, _claim| {
-                    miners.push(from_address_v4_to_v2(addr));
+                    miners.push(addr.into());
                     Ok(())
                 })?;
                 Ok(miners)
@@ -226,32 +227,16 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<Option<Claim>> {
         match self {
-            State::V8(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
-            State::V9(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
-            State::V10(st) => Ok(st
-                .miner_power(&s, &from_address_v2_to_v3(*miner))?
-                .map(From::from)),
-            State::V11(st) => Ok(st
-                .miner_power(&s, &from_address_v2_to_v3(*miner))?
-                .map(From::from)),
-            State::V12(st) => Ok(st
-                .miner_power(&s, &from_address_v2_to_v4(*miner))?
-                .map(From::from)),
-            State::V13(st) => Ok(st
-                .miner_power(&s, &from_address_v2_to_v4(*miner))?
-                .map(From::from)),
-            State::V14(st) => Ok(st
-                .miner_power(&s, &from_address_v2_to_v4(*miner))?
-                .map(From::from)),
-            State::V15(st) => Ok(st
-                .miner_power(&s, &from_address_v2_to_v4(*miner))?
-                .map(From::from)),
-            State::V16(st) => Ok(st
-                .miner_power(&s, &from_address_v2_to_v4(*miner))?
-                .map(From::from)),
-            State::V17(st) => Ok(st
-                .miner_power(&s, &from_address_v2_to_v4(*miner))?
-                .map(From::from)),
+            State::V8(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
+            State::V9(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
+            State::V10(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
+            State::V11(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
+            State::V12(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
+            State::V13(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
+            State::V14(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
+            State::V15(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
+            State::V16(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
+            State::V17(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
         }
     }
 
@@ -266,12 +251,12 @@ impl State {
             State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(
                 &from_policy_v13_to_v9(policy),
                 &s,
-                miner,
+                &miner.into(),
             ),
             State::V9(st) => st.miner_nominal_power_meets_consensus_minimum(
                 &from_policy_v13_to_v9(policy),
                 &s,
-                miner,
+                &miner.into(),
             ),
             State::V10(st) => st
                 .miner_nominal_power_meets_consensus_minimum(

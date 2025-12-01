@@ -6,7 +6,7 @@ mod tests;
 
 use std::{
     borrow::Cow,
-    sync::{Arc, LazyLock},
+    sync::LazyLock,
     time::{Duration, Instant},
 };
 
@@ -151,7 +151,7 @@ impl F3Commands {
 
                 async fn get_heads(
                     client: &rpc::Client,
-                ) -> anyhow::Result<(Arc<Tipset>, FinalityCertificate)> {
+                ) -> anyhow::Result<(Tipset, FinalityCertificate)> {
                     let cert_head = client.call(F3GetLatestCertificate::request(())?).await?;
                     let chain_head = client.call(ChainHead::request(())?).await?;
                     Ok((chain_head, cert_head))

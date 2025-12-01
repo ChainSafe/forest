@@ -161,7 +161,7 @@ nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars1"] }
 openrpc-types = "0.5"
 parity-db = { version = "0.5" }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
-pastey = "0.1"
+pastey = "0.2"
 pathfinding = "4"
 pin-project-lite = "0.2"
 positioned-io = "0.3"
@@ -254,7 +254,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.304"
+ra_ap_syntax = "0.0.307"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }

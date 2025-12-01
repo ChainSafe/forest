@@ -1,8 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
-
 use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
@@ -118,11 +116,8 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
         }
         let pts = data.chain_index().load_required_tipset(ts.parents())?;
         blocks += pts.block_headers().len();
-        let msgs = crate::chain::messages_for_tipset_with_cache(
-            data.store_owned(),
-            &pts,
-            data.msgs_in_tipset.clone(),
-        )?;
+        let msgs =
+            crate::chain::messages_for_tipset_with_cache(data.store(), &pts, &data.msgs_in_tipset)?;
 
         prices.append(
             &mut msgs
@@ -202,7 +197,7 @@ impl GasEstimateGasLimit {
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
         trace_config: VMTrace,
-    ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Arc<Tipset>)>
+    ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Tipset)>
     where
         DB: Blockstore + Send + Sync + 'static,
     {

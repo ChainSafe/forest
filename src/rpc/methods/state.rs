@@ -83,7 +83,7 @@ pub enum StateCall {}
 
 impl StateCall {
     pub fn run<DB: Blockstore + Send + Sync + 'static>(
-        state_manager: &Arc<StateManager<DB>>,
+        state_manager: &StateManager<DB>,
         message: &Message,
         tsk: Option<TipsetKey>,
     ) -> anyhow::Result<ApiInvocResult> {
@@ -200,7 +200,7 @@ impl RpcMethod<2> for StateAccountKey {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx
             .state_manager
-            .resolve_to_deterministic_address(address, ts)
+            .resolve_to_deterministic_address(address, &ts)
             .await?)
     }
 }
@@ -225,9 +225,7 @@ impl RpcMethod<2> for StateLookupID {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        Ok(ctx
-            .state_manager
-            .lookup_required_id(&address, ts.as_ref())?)
+        Ok(ctx.state_manager.lookup_required_id(&address, &ts)?)
     }
 }
 
@@ -274,9 +272,7 @@ impl RpcMethod<2> for StateVerifierStatus {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let aid = ctx
-            .state_manager
-            .lookup_required_id(&address, ts.as_ref())?;
+        let aid = ctx.state_manager.lookup_required_id(&address, &ts)?;
         let verifreg_state: verifreg::State = ctx.state_manager.get_actor_state(&ts)?;
         Ok(verifreg_state.verifier_data_cap(ctx.store(), aid.into())?)
     }
@@ -1475,7 +1471,7 @@ impl RpcMethod<2> for ForestStateCompute {
 
         let mut futures = FuturesOrdered::new();
         for ts in to_ts
-            .chain_arc(ctx.store())
+            .chain(ctx.store())
             .take_while(|ts| ts.epoch() >= from_ts.epoch())
         {
             let chain_store = ctx.chain_store().clone();
@@ -1839,11 +1835,7 @@ impl RpcMethod<1> for StateListMiners {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let miners = state
-            .list_all_miners(ctx.store())?
-            .iter()
-            .map(From::from)
-            .collect();
+        let miners = state.list_all_miners(ctx.store())?;
         Ok(miners)
     }
 }
@@ -2543,11 +2535,11 @@ impl RpcMethod<3> for StateListMessages {
         } else if let Some(to) = from_to.to {
             // this is following lotus logic, it probably should be `if let` instead of `else if let`
             // see <https://github.com/ChainSafe/forest/pull/3827#discussion_r1462691005>
-            if ctx.state_manager.lookup_id(&to, ts.as_ref())?.is_none() {
+            if ctx.state_manager.lookup_id(&to, &ts)?.is_none() {
                 return Ok(vec![]);
             }
         } else if let Some(from) = from_to.from
-            && ctx.state_manager.lookup_id(&from, ts.as_ref())?.is_none()
+            && ctx.state_manager.lookup_id(&from, &ts)?.is_none()
         {
             return Ok(vec![]);
         }

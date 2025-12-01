@@ -36,7 +36,7 @@ use fvm4::{
 
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
-    heaviest_tipset: Arc<Tipset>,
+    heaviest_tipset: Tipset,
     epoch: ChainEpoch,
     root: Cid,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
@@ -47,7 +47,7 @@ pub struct ForestExterns<DB> {
 impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
     pub fn new(
         rand: impl Rand + 'static,
-        heaviest_tipset: Arc<Tipset>,
+        heaviest_tipset: Tipset,
         epoch: ChainEpoch,
         root: Cid,
         chain_index: Arc<ChainIndex<Arc<DB>>>,
@@ -66,9 +66,9 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
 
     fn get_lookback_tipset_state_root_for_round(&self, height: ChainEpoch) -> anyhow::Result<Cid> {
         let (_, st) = ChainStore::get_lookback_tipset_for_round(
-            self.chain_index.clone(),
-            Arc::clone(&self.chain_config),
-            Arc::clone(&self.heaviest_tipset),
+            &self.chain_index,
+            &self.chain_config,
+            &self.heaviest_tipset,
             height,
         )?;
         Ok(st)

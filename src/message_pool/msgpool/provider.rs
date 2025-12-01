@@ -33,7 +33,7 @@ pub trait Provider {
     /// Update `Mpool`'s `cur_tipset` whenever there is a change to the provider
     fn subscribe_head_changes(&self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
-    fn get_heaviest_tipset(&self) -> Arc<Tipset>;
+    fn get_heaviest_tipset(&self) -> Tipset;
     /// Add a message to the `MpoolProvider`, return either Cid or Error
     /// depending on successful put
     fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error>;
@@ -47,7 +47,7 @@ pub trait Provider {
         h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>;
     /// Return a tipset given the tipset keys from the `ChainStore`
-    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error>;
+    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Tipset, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
     // Get max number of messages per actor in the pool
@@ -85,7 +85,7 @@ where
         self.subscriber.subscribe()
     }
 
-    fn get_heaviest_tipset(&self) -> Arc<Tipset> {
+    fn get_heaviest_tipset(&self) -> Tipset {
         self.sm.chain_store().heaviest_tipset()
     }
 
@@ -111,7 +111,7 @@ where
         crate::chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 
-    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
+    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Tipset, Error> {
         Ok(self
             .sm
             .chain_store()

@@ -3,14 +3,15 @@
 
 //! Contains mock implementations for testing internal `MessagePool` APIs
 
-use std::{convert::TryFrom, sync::Arc};
+use std::convert::TryFrom;
 
-use crate::blocks::RawBlockHeader;
-use crate::blocks::VRFProof;
-use crate::blocks::{CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey};
+use crate::blocks::{
+    CachingBlockHeader, ElectionProof, RawBlockHeader, Ticket, Tipset, TipsetKey, VRFProof,
+};
 use crate::chain::HeadChange;
 use crate::cid_collections::CidHashMap;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use crate::message_pool::{Error, provider::Provider};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use ahash::HashMap;
 use async_trait::async_trait;
@@ -18,8 +19,6 @@ use cid::Cid;
 use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
-
-use crate::message_pool::{Error, provider::Provider};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 /// Structure used for creating a provider when writing tests involving message
@@ -81,7 +80,7 @@ impl TestApi {
     }
 
     /// Set the heaviest tipset for `TestApi`
-    pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) {
+    pub fn set_heaviest_tipset(&self, ts: Tipset) {
         self.publisher.send(HeadChange::Apply(ts)).unwrap();
     }
 
@@ -124,8 +123,8 @@ impl Provider for TestApi {
         self.publisher.subscribe()
     }
 
-    fn get_heaviest_tipset(&self) -> Arc<Tipset> {
-        Arc::new(Tipset::from(create_header(1)))
+    fn get_heaviest_tipset(&self) -> Tipset {
+        Tipset::from(create_header(1))
     }
 
     fn put_message(&self, _msg: &ChainMessage) -> Result<Cid, Error> {
@@ -187,11 +186,11 @@ impl Provider for TestApi {
         }
     }
 
-    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
+    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Tipset, Error> {
         let inner = self.inner.lock();
         for ts in &inner.tipsets {
             if tsk == ts.key() {
-                return Ok(ts.clone().into());
+                return Ok(ts.clone());
             }
         }
         Err(Error::InvalidToAddr)

@@ -11,7 +11,7 @@ jobs:
   docker-check:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: |
           docker build -t forest-test .
           docker run --rm forest-test --version

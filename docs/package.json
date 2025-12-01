@@ -35,7 +35,7 @@
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.9.2",
     "@docusaurus/tsconfig": "^3.9.2",
-    "spellchecker-cli": "^7.0.0",
+    "spellchecker-cli": "^7.0.1",
     "typescript": "^5.9.3"
   },
   "browserslist": {
