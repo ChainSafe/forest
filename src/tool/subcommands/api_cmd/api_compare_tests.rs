@@ -11,6 +11,7 @@ use crate::message::{Message as _, SignedMessage};
 use crate::rpc::FilterList;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
+use crate::rpc::chain::types::*;
 use crate::rpc::eth::{
     BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
     new_eth_tx_from_signed_message, types::*,
@@ -145,12 +146,14 @@ impl TestSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestDump {
     pub request: rpc::Request,
+    pub path: rpc::ApiPaths,
     pub forest_response: Result<Value, String>,
     pub lotus_response: Result<Value, String>,
 }
 
 impl std::fmt::Display for TestDump {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Request path: {}", self.path.path())?;
         writeln!(f, "Request dump: {:?}", self.request)?;
         writeln!(f, "Request params JSON: {}", self.request.params)?;
         let (forest_response, lotus_response) = (
@@ -404,6 +407,7 @@ impl RpcTest {
             lotus_status,
             test_dump: Some(TestDump {
                 request: self.request.clone(),
+                path: self.request.api_path().expect("invalid api paths"),
                 forest_response,
                 lotus_response,
             }),
@@ -432,6 +436,7 @@ fn chain_tests() -> Vec<RpcTest> {
 
 fn chain_tests_with_tipset<DB: Blockstore>(
     store: &Arc<DB>,
+    offline: bool,
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
@@ -443,7 +448,57 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             tipset.epoch(),
             Default::default(),
         ))?),
-        RpcTest::identity(ChainGetTipSet::request((tipset.key().clone().into(),))?),
+        RpcTest::identity(ChainGetTipSet::request((tipset.key().into(),))?),
+        RpcTest::identity(ChainGetTipSet::request((None.into(),))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: None.into(),
+            height: None,
+            tag: None,
+        },))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: tipset.key().into(),
+            height: None,
+            tag: Some(TipsetTag::Latest),
+        },))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: tipset.key().into(),
+            height: None,
+            tag: None,
+        },))?),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: None.into(),
+            height: Some(TipsetHeight {
+                at: tipset.epoch(),
+                previous: true,
+                anchor: Some(TipsetAnchor {
+                    key: None.into(),
+                    tag: None,
+                }),
+            }),
+            tag: None,
+        },))?),
+        RpcTest::identity(ChainGetTipSetV2::request((TipsetSelector {
+            key: None.into(),
+            height: Some(TipsetHeight {
+                at: tipset.epoch(),
+                previous: true,
+                anchor: None,
+            }),
+            tag: None,
+        },))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
+        .ignore("this case should pass when F3 is back on calibnet"),
+        validate_tagged_tipset_v2(
+            ChainGetTipSetV2::request((TipsetSelector {
+                key: None.into(),
+                height: None,
+                tag: Some(TipsetTag::Latest),
+            },))?,
+            offline,
+        ),
         RpcTest::identity(ChainGetPath::request((
             tipset.key().clone(),
             tipset.parents().clone(),
@@ -455,6 +510,29 @@ fn chain_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
         RpcTest::basic(ChainGetFinalizedTipset::request(())?),
     ];
+
+    if !offline {
+        tests.extend([
+            // Requires F3, disabled for offline RPC server
+            validate_tagged_tipset_v2(
+                ChainGetTipSetV2::request((TipsetSelector {
+                    key: None.into(),
+                    height: None,
+                    tag: Some(TipsetTag::Safe),
+                },))?,
+                offline,
+            ),
+            // Requires F3, disabled for offline RPC server
+            validate_tagged_tipset_v2(
+                ChainGetTipSetV2::request((TipsetSelector {
+                    key: None.into(),
+                    height: None,
+                    tag: Some(TipsetTag::Finalized),
+                },))?,
+                offline,
+            ),
+        ]);
+    }
 
     for block in tipset.block_headers() {
         let block_cid = *block.cid();
@@ -2031,6 +2109,7 @@ fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(
     store: Arc<ManyCar>,
+    offline: bool,
     num_tipsets: usize,
     miner_address: Option<Address>,
     eth_chain_id: u64,
@@ -2046,7 +2125,7 @@ fn snapshot_tests(
         .expect("Infallible");
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
-        tests.extend(chain_tests_with_tipset(&store, &tipset)?);
+        tests.extend(chain_tests_with_tipset(&store, offline, &tipset)?);
         tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
         tests.extend(eth_tests_with_tipset(&store, &tipset));
@@ -2110,6 +2189,7 @@ fn sample_signed_messages<'a>(
 
 pub(super) async fn create_tests(
     CreateTestsArgs {
+        offline,
         n_tipsets,
         miner_address,
         worker_address,
@@ -2132,6 +2212,7 @@ pub(super) async fn create_tests(
         revalidate_chain(store.clone(), n_tipsets).await?;
         tests.extend(snapshot_tests(
             store,
+            offline,
             n_tipsets,
             miner_address,
             eth_chain_id,
@@ -2202,6 +2283,7 @@ pub(super) async fn run_tests(
     max_concurrent_requests: usize,
     filter_file: Option<PathBuf>,
     filter: String,
+    filter_version: Option<rpc::ApiPaths>,
     run_ignored: RunIgnored,
     fail_fast: bool,
     dump_dir: Option<PathBuf>,
@@ -2254,6 +2336,12 @@ pub(super) async fn run_tests(
         }
 
         if !filter_list.authorize(&test.request.method_name) {
+            continue;
+        }
+
+        if let Some(filter_version) = filter_version
+            && !test.request.api_paths.contains(filter_version)
+        {
             continue;
         }
 
@@ -2368,5 +2456,19 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
         forest == lotus
+    })
+}
+
+fn validate_tagged_tipset_v2(req: rpc::Request<Option<Tipset>>, offline: bool) -> RpcTest {
+    RpcTest::validate(req, move |forest, lotus| match (forest, lotus) {
+        (None, None) => true,
+        (Some(forest), Some(lotus)) => {
+            if offline {
+                true
+            } else {
+                (forest.epoch() - lotus.epoch()).abs() <= 2
+            }
+        }
+        _ => false,
     })
 }

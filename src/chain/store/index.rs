@@ -157,7 +157,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
         if to > from.epoch() {
             return Err(Error::Other(format!(
-                "Looking for tipset {to} with height greater than start point {from}",
+                "looking for tipset with height greater than start point, req: {to}, head: {from}",
                 from = from.epoch()
             )));
         }

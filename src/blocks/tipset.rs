@@ -141,6 +141,13 @@ impl IntoIterator for TipsetKey {
     }
 }
 
+#[cfg(test)]
+impl Default for TipsetKey {
+    fn default() -> Self {
+        nunny::vec![Cid::default()].into()
+    }
+}
+
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
 ///
