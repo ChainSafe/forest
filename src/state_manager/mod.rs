@@ -61,14 +61,14 @@ use crate::utils::get_size::{
     GetSize, vec_heap_size_helper, vec_with_stack_only_item_heap_size_helper,
 };
 use ahash::{HashMap, HashMapExt};
-use anyhow::{Context as _, bail};
+use anyhow::{Context as _, bail, ensure};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
 pub use circulating_supply::GenesisInfo;
 use fil_actor_verifreg_state::v12::DataCap;
 use fil_actor_verifreg_state::v13::ClaimID;
-use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
 use fil_actors_shared::v13::runtime::Policy;
@@ -90,6 +90,7 @@ use tokio::sync::{RwLock, broadcast::error::RecvError};
 use tracing::{error, info, instrument, trace, warn};
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
+const EVENTS_AMT_BITWIDTH: u32 = 5;
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
@@ -559,11 +560,24 @@ where
         let ts = tipset.clone();
         let this = Arc::clone(self);
         let cids = tipset.cids();
+        let events_root = events_root.cloned();
         self.receipt_event_cache_handler
             .get_events_or_else(
                 key,
                 Box::new(move || {
                     Box::pin(async move {
+                        // If the events are not in the cache, try to load them from the blockstore
+                        if let Some(events_root) = events_root
+                            && let Ok(stamped_events) =
+                                StampedEvent::get_events(this.blockstore(), &events_root)
+                        {
+                            return Ok(StateEvents {
+                                events: vec![stamped_events],
+                                roots: vec![Some(events_root)],
+                            });
+                        }
+
+                        // If the events are neither in the cache nor in the blockstore, compute them.
                         let state_out = this
                             .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
                             .await?;
@@ -1999,8 +2013,28 @@ where
         let (receipts, events, events_roots) =
             vm.apply_block_messages(&block_messages, epoch, callback)?;
 
-        // step 5: construct receipt root from receipts and flush the state-tree
-        let receipt_root = Amt::new_from_iter(chain_index.db(), receipts)?;
+        // step 5: construct receipt root from receipts
+        let receipt_root = Amtv0::new_from_iter(chain_index.db(), receipts)?;
+
+        // step 6: store events AMTs in the blockstore
+        for (msg_events, events_root) in events.iter().zip(events_roots.iter()) {
+            if let Some(event_root) = events_root {
+                // Store the events AMT - the root CID should match the one computed by FVM
+                let derived_event_root = Amt::new_from_iter_with_bit_width(
+                    chain_index.db(),
+                    EVENTS_AMT_BITWIDTH,
+                    msg_events.iter(),
+                )
+                .map_err(|e| Error::Other(format!("failed to store events AMT: {e}")))?;
+
+                // Verify the stored root matches the FVM-computed root
+                ensure!(
+                    derived_event_root.eq(event_root),
+                    "Events AMT root mismatch: derived={derived_event_root}, actual={event_root}."
+                );
+            }
+        }
+
         let state_root = vm.flush()?;
 
         Ok(StateOutput {

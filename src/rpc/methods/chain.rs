@@ -257,8 +257,8 @@ impl RpcMethod<1> for ChainGetEvents {
         let tsk = ctx
             .state_manager
             .chain_store()
-            .get_tipset_key(&root_cid)?
-            .with_context(|| format!("can't find events with cid {root_cid}"))?;
+            .get_tipset_key_by_events_root(&root_cid)?
+            .with_context(|| format!("can't find tipset for events root {root_cid}"))?;
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 

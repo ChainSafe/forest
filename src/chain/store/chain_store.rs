@@ -209,7 +209,7 @@ where
         Ok(())
     }
 
-    pub fn get_tipset_key(&self, key: &Cid) -> Result<Option<TipsetKey>, Error> {
+    pub fn get_tipset_key_by_events_root(&self, key: &Cid) -> Result<Option<TipsetKey>, Error> {
         Ok(self.indices.read_obj(key)?)
     }
 
