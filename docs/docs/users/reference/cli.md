@@ -1833,6 +1833,14 @@ Options:
       --filter-file <FILTER_FILE>
           Filter file which tests to run according to method name. Case sensitive. The file should contain one entry per line. Lines starting with `!` are considered as rejected methods, while the others are allowed. Empty lines and lines starting with `#` are ignored
 
+      --filter-version <FILTER_VERSION>
+          Filter methods for the specific API version
+
+          Possible values:
+          - v0: Only expose this method on `/rpc/v0`
+          - v1: Only expose this method on `/rpc/v1`
+          - v2: Only expose this method on `/rpc/v2`
+
       --fail-fast
           Cancel test run on the first failure
 
@@ -1846,6 +1854,9 @@ Options:
           Maximum number of concurrent requests
 
           [default: 8]
+
+      --offline
+          The nodes to test against is offline, the chain is out of sync
 
   -n, --n-tipsets <N_TIPSETS>
           The number of tipsets to use to generate test cases
@@ -1945,6 +1956,9 @@ Arguments:
           Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`
 
 Options:
+      --offline
+          The nodes to test against is offline, the chain is out of sync
+
   -n, --n-tipsets <N_TIPSETS>
           The number of tipsets to use to generate test cases
 
