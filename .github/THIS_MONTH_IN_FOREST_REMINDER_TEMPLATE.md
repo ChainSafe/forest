@@ -20,7 +20,7 @@ After gathering the information:
 - [ ] Organize the collected information into a coherent summary.
 - [ ] Gather any relevant statistics or metrics that showcase the project's progress.
 - [ ] Draft the summary and share it with the team for feedback.
-- [ ] Publish it to the [Forest announcements on Github Discussions](https://github.com/ChainSafe/forest/discussions)
+- [ ] Publish it to the [Forest announcements on GitHub Discussions](https://github.com/ChainSafe/forest/discussions)
 - [ ] Pin it in the discussions tab for visibility.
 - [ ] Re-publish on other channels, e.g., `#fil-forest-announcements` on Slack.
 - [ ] Let the content team know for further dissemination.
