@@ -22,10 +22,16 @@ pub enum EthErrors {
 
 impl EthErrors {
     /// Create a new ExecutionReverted error with formatted message
-    pub fn execution_reverted(exit_code: ExitCode, error: &str, reason: &str, data: &[u8]) -> Self {
+    pub fn execution_reverted(exit_code: ExitCode, reason: &str, error: &str, data: &[u8]) -> Self {
+        let revert_reason = if reason.is_empty() {
+            String::new()
+        } else {
+            format!(", revert reason=[{reason}]")
+        };
+
         Self::ExecutionReverted {
             message: format!(
-                "message execution failed (exit=[{exit_code}], revert reason=[{reason}], vm error=[{error}])"
+                "message execution failed (exit=[{exit_code}]{revert_reason}, vm error=[{error}])"
             ),
             data: (!data.is_empty()).then(|| format!("0x{}", hex::encode(data))),
         }
