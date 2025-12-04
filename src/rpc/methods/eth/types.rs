@@ -58,6 +58,14 @@ impl FromStr for EthBytes {
     }
 }
 
+impl Deref for EthBytes {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetBytecodeReturn(pub Option<Cid>);
 
