@@ -1,0 +1,17 @@
+name: This Month in Forest Reminder
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 1 * *" # The 1st of every month
+
+jobs:
+  checkpoint_issue:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/THIS_MONTH_IN_FOREST_REMINDER_TEMPLATE.md
