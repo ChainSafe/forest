@@ -2,7 +2,7 @@ name: Lotus devnet image
 
 # Only build and publish this image on demand.
 # The compilation adds significant overhead to the CI and it is not supposed
-# to change very often (roughly once per per network upgrade; ~3-4 months).
+# to change very often (roughly once per network upgrade; ~3-4 months).
 # This image is used in the local devnet for both the lotus-node and the lotus-miner.
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ jobs:
         run: docker image ls
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Login to Github Packages
         uses: docker/login-action@v3
         with:

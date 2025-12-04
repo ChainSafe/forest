@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod types;
+pub mod types;
 use enumflags2::{BitFlags, make_bitflags};
 use types::*;
 
@@ -12,13 +12,14 @@ use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
+use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
 use crate::rpc::f3::F3ExportLatestSnapshot;
-use crate::rpc::types::{ApiTipsetKey, Event};
+use crate::rpc::types::{ApiExportResult, ApiExportStatus, ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
@@ -39,20 +40,33 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::fs::File;
-use std::{
-    collections::VecDeque,
-    path::PathBuf,
-    sync::{Arc, LazyLock},
-};
+use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
 use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
 };
 use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
-static CHAIN_EXPORT_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+/// [`SAFE_HEIGHT_DISTANCE`] is the distance from the latest tipset, i.e. "heaviest", that
+/// is considered to be safe from re-orgs at an increasingly diminishing
+/// probability.
+///
+/// This is used to determine the safe tipset when using the "safe" tag in
+/// [`TipsetSelector`] or via Eth JSON-RPC APIs. Note that "safe" doesn't guarantee
+/// finality, but rather a high probability of not being reverted. For guaranteed
+/// finality, use the "finalized" tag.
+///
+/// This constant is experimental and may change in the future.
+/// Discussion on this current value and a tracking item to document the
+/// probabilistic impact of various values is in
+/// https://github.com/filecoin-project/go-f3/issues/944
+const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
+
+static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 /// Subscribes to head changes from the chain store and broadcasts new blocks.
 ///
@@ -140,9 +154,60 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
     type Params = ();
     type Ok = Tipset;
 
-    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_for_openrpc())
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let head = ctx.chain_store().heaviest_tipset();
+        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
+
+        // Either get the f3 finalized tipset or the ec finalized tipset
+        match get_f3_finality_tipset(&ctx, ec_finality_epoch).await {
+            Ok(f3_tipset) => {
+                tracing::debug!("Using F3 finalized tipset at epoch {}", f3_tipset.epoch());
+                Ok(f3_tipset)
+            }
+            Err(_) => {
+                // fallback to ec finality
+                tracing::warn!("F3 finalization unavailable, falling back to EC finality");
+                let ec_tipset = ctx.chain_index().tipset_by_height(
+                    ec_finality_epoch,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                Ok(ec_tipset)
+            }
+        }
     }
+}
+
+// get f3 finalized tipset based on ec finality epoch
+async fn get_f3_finality_tipset<DB: Blockstore + Sync + Send + 'static>(
+    ctx: &Ctx<DB>,
+    ec_finality_epoch: ChainEpoch,
+) -> Result<Tipset> {
+    let f3_finalized_cert = crate::rpc::f3::F3GetLatestCertificate::handle(ctx.clone(), ())
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to get F3 certificate: {}", e))?;
+
+    let f3_finalized_head = f3_finalized_cert.chain_head();
+    if f3_finalized_head.epoch < ec_finality_epoch {
+        return Err(anyhow::anyhow!(
+            "F3 finalized tipset epoch {} is further back than EC finalized tipset epoch {}",
+            f3_finalized_head.epoch,
+            ec_finality_epoch
+        ));
+    }
+
+    ctx.chain_index()
+        .load_required_tipset(&f3_finalized_head.key)
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to load F3 finalized tipset at epoch {}: {}",
+                f3_finalized_head.epoch,
+                e
+            )
+        })
 }
 
 pub enum ChainGetMessage {}
@@ -332,7 +397,7 @@ impl RpcMethod<1> for ForestChainExport {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ForestChainExportParams,);
-    type Ok = Option<String>;
+    type Ok = ApiExportResult;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -348,10 +413,17 @@ impl RpcMethod<1> for ForestChainExport {
             dry_run,
         } = params;
 
-        let _locked = CHAIN_EXPORT_LOCK.try_lock();
-        if _locked.is_err() {
-            return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
+        let token = CancellationToken::new();
+        {
+            let mut guard = CHAIN_EXPORT_LOCK.lock().await;
+            if guard.is_some() {
+                return Err(
+                    anyhow::anyhow!("A chain export is still in progress. Cancel it with the export-cancel subcommand if needed.").into(),
+                );
+            }
+            *guard = Some(token.clone());
         }
+        start_export();
 
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let start_ts =
@@ -367,18 +439,27 @@ impl RpcMethod<1> for ForestChainExport {
         } else {
             tokio_util::either::Either::Right(tokio::fs::File::create(&output_path).await?)
         };
-        match match version {
+        let result = match version {
             FilecoinSnapshotVersion::V1 => {
-                crate::chain::export::<Sha256>(
-                    &ctx.store_owned(),
-                    &start_ts,
-                    recent_roots,
-                    writer,
-                    options,
-                )
-                .await
+                let db = ctx.store_owned();
+
+                let chain_export =
+                    crate::chain::export::<Sha256>(&db, &start_ts, recent_roots, writer, options);
+
+                tokio::select! {
+                    result = chain_export => {
+                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
+                    },
+                    _ = token.cancelled() => {
+                        cancel_export();
+                        tracing::warn!("Snapshot export was cancelled");
+                        Ok(ApiExportResult::Cancelled)
+                    },
+                }
             }
             FilecoinSnapshotVersion::V2 => {
+                let db = ctx.store_owned();
+
                 let f3_snap_tmp_path = {
                     let mut f3_snap_dir = output_path.clone();
                     let mut builder = tempfile::Builder::new();
@@ -400,20 +481,93 @@ impl RpcMethod<1> for ForestChainExport {
                         }
                     }
                 };
-                crate::chain::export_v2::<Sha256>(
-                    &ctx.store_owned(),
+
+                let chain_export = crate::chain::export_v2::<Sha256, _>(
+                    &db,
                     f3_snap,
                     &start_ts,
                     recent_roots,
                     writer,
                     options,
-                )
-                .await
+                );
+
+                tokio::select! {
+                    result = chain_export => {
+                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
+                    },
+                    _ = token.cancelled() => {
+                        cancel_export();
+                        tracing::warn!("Snapshot export was cancelled");
+                        Ok(ApiExportResult::Cancelled)
+                    },
+                }
             }
-        } {
-            Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
+        };
+        end_export();
+        // Clean up token
+        let mut guard = CHAIN_EXPORT_LOCK.lock().await;
+        *guard = None;
+        match result {
+            Ok(export_result) => Ok(export_result),
             Err(e) => Err(anyhow::anyhow!(e).into()),
         }
+    }
+}
+
+pub enum ForestChainExportStatus {}
+impl RpcMethod<0> for ForestChainExportStatus {
+    const NAME: &'static str = "Forest.ChainExportStatus";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = ApiExportStatus;
+
+    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let mutex = CHAIN_EXPORT_STATUS.lock();
+
+        let progress = if mutex.initial_epoch == 0 {
+            0.0
+        } else {
+            let p = 1.0 - ((mutex.epoch as f64) / (mutex.initial_epoch as f64));
+            if p.is_finite() {
+                p.clamp(0.0, 1.0)
+            } else {
+                0.0
+            }
+        };
+        // only two decimal places
+        let progress = (progress * 100.0).round() / 100.0;
+
+        let status = ApiExportStatus {
+            progress,
+            exporting: mutex.exporting,
+            cancelled: mutex.cancelled,
+            start_time: mutex.start_time,
+        };
+
+        Ok(status)
+    }
+}
+
+pub enum ForestChainExportCancel {}
+impl RpcMethod<0> for ForestChainExportCancel {
+    const NAME: &'static str = "Forest.ChainExportCancel";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = bool;
+
+    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        if let Some(token) = CHAIN_EXPORT_LOCK.lock().await.as_ref() {
+            token.cancel();
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 }
 
@@ -481,7 +635,7 @@ impl RpcMethod<1> for ChainExport {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainExportParams,);
-    type Ok = Option<String>;
+    type Ok = ApiExportResult;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -739,7 +893,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
         let tss = ctx
             .chain_index()
             .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
-        Ok((*tss).clone())
+        Ok(tss)
     }
 }
 
@@ -768,7 +922,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
         let tss = ctx
             .chain_index()
             .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
-        Ok((*tss).clone())
+        Ok(tss)
     }
 }
 
@@ -801,7 +955,7 @@ impl RpcMethod<0> for ChainHead {
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let heaviest = ctx.chain_store().heaviest_tipset();
-        Ok((*heaviest).clone())
+        Ok(heaviest)
     }
 }
 
@@ -829,7 +983,7 @@ pub enum ChainGetTipSet {}
 impl RpcMethod<1> for ChainGetTipSet {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V0 | V1 });
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
@@ -838,12 +992,156 @@ impl RpcMethod<1> for ChainGetTipSet {
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (ApiTipsetKey(tipset_key),): Self::Params,
+        (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        if let Some(tsk) = &tsk {
+            let ts = ctx.chain_index().load_required_tipset(tsk)?;
+            Ok(ts)
+        } else {
+            // It contains Lotus error message `NewTipSet called with zero length array of blocks` for parity tests
+            Err(anyhow::anyhow!(
+                "TipsetKey cannot be empty (NewTipSet called with zero length array of blocks)"
+            )
+            .into())
+        }
+    }
+}
+
+pub enum ChainGetTipSetV2 {}
+
+impl ChainGetTipSetV2 {
+    pub async fn get_tipset_by_anchor(
+        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        anchor: &Option<TipsetAnchor>,
+    ) -> anyhow::Result<Option<Tipset>> {
+        if let Some(anchor) = anchor {
+            match (&anchor.key.0, &anchor.tag) {
+                // Anchor is zero-valued. Fall back to heaviest tipset.
+                (None, None) => Ok(Some(ctx.state_manager.heaviest_tipset())),
+                // Get tipset at the specified key.
+                (Some(tsk), None) => Ok(Some(ctx.chain_index().load_required_tipset(tsk)?)),
+                (None, Some(tag)) => Self::get_tipset_by_tag(ctx, *tag).await,
+                _ => {
+                    anyhow::bail!("invalid anchor")
+                }
+            }
+        } else {
+            // No anchor specified. Fall back to finalized tipset.
+            Self::get_tipset_by_tag(ctx, TipsetTag::Finalized).await
+        }
+    }
+
+    pub async fn get_tipset_by_tag(
+        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        tag: TipsetTag,
+    ) -> anyhow::Result<Option<Tipset>> {
+        match tag {
+            TipsetTag::Latest => Ok(Some(ctx.state_manager.heaviest_tipset())),
+            TipsetTag::Finalized => Self::get_latest_finalized_tipset(ctx).await,
+            TipsetTag::Safe => Some(Self::get_latest_safe_tipset(ctx).await).transpose(),
+        }
+    }
+
+    pub async fn get_latest_safe_tipset(
+        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+    ) -> anyhow::Result<Tipset> {
+        let finalized = Self::get_latest_finalized_tipset(ctx).await?;
+        let head = ctx.chain_store().heaviest_tipset();
+        let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
+        if let Some(finalized) = finalized
+            && finalized.epoch() >= safe_height
+        {
+            Ok(finalized)
+        } else {
+            Ok(ctx.chain_index().tipset_by_height(
+                safe_height,
+                head,
+                ResolveNullTipset::TakeOlder,
+            )?)
+        }
+    }
+
+    pub async fn get_latest_finalized_tipset(
+        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+    ) -> anyhow::Result<Option<Tipset>> {
+        let Ok(f3_finalized_cert) =
+            crate::rpc::f3::F3GetLatestCertificate::handle(ctx.clone(), ()).await
+        else {
+            return Self::get_ec_finalized_tipset(ctx);
+        };
+
+        let f3_finalized_head = f3_finalized_cert.chain_head();
+        let head = ctx.chain_store().heaviest_tipset();
+        // Latest F3 finalized tipset is older than EC finality, falling back to EC finality
+        if head.epoch() > f3_finalized_head.epoch + ctx.chain_config().policy.chain_finality {
+            return Self::get_ec_finalized_tipset(ctx);
+        }
+
         let ts = ctx
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tipset_key)?;
-        Ok((*ts).clone())
+            .chain_index()
+            .load_required_tipset(&f3_finalized_head.key)
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to load F3 finalized tipset at epoch {} with key {}: {e}",
+                    f3_finalized_head.epoch,
+                    f3_finalized_head.key,
+                )
+            })?;
+        Ok(Some(ts))
+    }
+
+    pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Option<Tipset>> {
+        let head = ctx.chain_store().heaviest_tipset();
+        let ec_finality_epoch = head.epoch() - ctx.chain_config().policy.chain_finality;
+        if ec_finality_epoch >= 0 {
+            let ts = ctx.chain_index().tipset_by_height(
+                ec_finality_epoch,
+                head,
+                ResolveNullTipset::TakeOlder,
+            )?;
+            Ok(Some(ts))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl RpcMethod<1> for ChainGetTipSetV2 {
+    const NAME: &'static str = "Filecoin.ChainGetTipSet";
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetSelector"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
+
+    type Params = (TipsetSelector,);
+    type Ok = Option<Tipset>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (selector,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        selector.validate()?;
+        // Get tipset by key.
+        if let ApiTipsetKey(Some(tsk)) = &selector.key {
+            let ts = ctx.chain_index().load_required_tipset(tsk)?;
+            return Ok(Some(ts));
+        }
+        // Get tipset by height.
+        if let Some(height) = &selector.height {
+            let anchor = Self::get_tipset_by_anchor(&ctx, &height.anchor).await?;
+            let ts = ctx.chain_index().tipset_by_height(
+                height.at,
+                anchor.unwrap_or_else(|| ctx.chain_store().heaviest_tipset()),
+                height.resolve_null_tipset_policy(),
+            )?;
+            return Ok(Some(ts));
+        }
+        // Get tipset by tag, either latest or finalized.
+        if let Some(tag) = &selector.tag {
+            let ts = Self::get_tipset_by_tag(&ctx, *tag).await?;
+            return Ok(ts);
+        }
+        Err(anyhow::anyhow!("no tipset found for selector").into())
     }
 }
 
@@ -942,10 +1240,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     let current = data.chain_store().heaviest_tipset();
     let (change, tipset) = ("current".into(), current);
     sender
-        .send(vec![ApiHeadChange {
-            change,
-            tipset: tipset.as_ref().clone(),
-        }])
+        .send(vec![ApiHeadChange { change, tipset }])
         .expect("receiver is not dropped");
 
     let mut subscriber = data.chain_store().publisher().subscribe();
@@ -959,13 +1254,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
                 HeadChange::Apply(ts) => ("apply".into(), ts),
             };
 
-            if sender
-                .send(vec![ApiHeadChange {
-                    change,
-                    tipset: tipset.as_ref().clone(),
-                }])
-                .is_err()
-            {
+            if sender.send(vec![ApiHeadChange { change, tipset }]).is_err() {
                 break;
             }
         }
@@ -1116,7 +1405,7 @@ lotus_json_with_self!(ApiHeadChange);
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(tag = "Type", content = "Val", rename_all = "snake_case")]
-pub enum PathChange<T = Arc<Tipset>> {
+pub enum PathChange<T = Tipset> {
     Revert(T),
     Apply(T),
 }
@@ -1152,23 +1441,21 @@ impl HasLotusJson for PathChange {
                     "Height": 0
                 }
             }),
-            Self::Revert(Arc::new(Tipset::from(RawBlockHeader::default()))),
+            Self::Revert(RawBlockHeader::default().into()),
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
         match self {
-            PathChange::Revert(it) => {
-                PathChange::Revert(Arc::unwrap_or_clone(it).into_lotus_json())
-            }
-            PathChange::Apply(it) => PathChange::Apply(Arc::unwrap_or_clone(it).into_lotus_json()),
+            PathChange::Revert(it) => PathChange::Revert(it.into_lotus_json()),
+            PathChange::Apply(it) => PathChange::Apply(it.into_lotus_json()),
         }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         match lotus_json {
-            PathChange::Revert(it) => PathChange::Revert(Tipset::from_lotus_json(it).into()),
-            PathChange::Apply(it) => PathChange::Apply(Tipset::from_lotus_json(it).into()),
+            PathChange::Revert(it) => PathChange::Revert(Tipset::from_lotus_json(it)),
+            PathChange::Apply(it) => PathChange::Apply(Tipset::from_lotus_json(it)),
         }
     }
 }
@@ -1201,8 +1488,6 @@ quickcheck::quickcheck! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use PathChange::{Apply, Revert};
-
     use crate::{
         blocks::{Chain4U, RawBlockHeader, chain4u},
         db::{
@@ -1211,6 +1496,8 @@ mod tests {
         },
         networks::{self, ChainConfig},
     };
+    use PathChange::{Apply, Revert};
+    use std::sync::Arc;
 
     #[test]
     fn revert_to_ancestor_linear() {
@@ -1405,8 +1692,8 @@ mod tests {
         let expected = expected
             .into_iter()
             .map(|change| match change {
-                PathChange::Revert(it) => PathChange::Revert(Arc::new(it.make_tipset())),
-                PathChange::Apply(it) => PathChange::Apply(Arc::new(it.make_tipset())),
+                PathChange::Revert(it) => PathChange::Revert(it.make_tipset()),
+                PathChange::Apply(it) => PathChange::Apply(it.make_tipset()),
             })
             .collect::<Vec<_>>();
         if expected != actual {

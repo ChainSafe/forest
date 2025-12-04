@@ -9,8 +9,8 @@ pub mod main;
 use crate::blocks::Tipset;
 use crate::chain::HeadChange;
 use crate::chain::index::ResolveNullTipset;
-use crate::chain_sync::ChainFollower;
 use crate::chain_sync::network_context::SyncNetworkContext;
+use crate::chain_sync::{ChainFollower, SyncStatus};
 use crate::cli_shared::snapshot;
 use crate::cli_shared::{
     chain_path,
@@ -32,6 +32,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
 use crate::utils;
+use crate::utils::misc::env::is_env_truthy;
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
 use dialoguer::theme::ColorfulTheme;
@@ -153,9 +154,7 @@ async fn maybe_import_snapshot(
         let ts_epoch = ts.epoch();
         // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
         // in the current setting store
-        ctx.state_manager
-            .chain_store()
-            .set_heaviest_tipset(ts.into())?;
+        ctx.state_manager.chain_store().set_heaviest_tipset(ts)?;
         debug!(
             "Loaded car DB at {} and set current head to epoch {ts_epoch}",
             car_db_path.display(),
@@ -320,9 +319,7 @@ fn create_chain_follower(
     let chain_follower = ChainFollower::new(
         ctx.state_manager.clone(),
         network,
-        Arc::new(Tipset::from(
-            ctx.state_manager.chain_store().genesis_block_header(),
-        )),
+        Tipset::from(ctx.state_manager.chain_store().genesis_block_header()),
         p2p_service.network_receiver(),
         opts.stateless,
         mpool,
@@ -390,6 +387,11 @@ fn maybe_start_rpc_service(
             .transpose()?;
         info!("JSON-RPC endpoint will listen at {rpc_address}");
         let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
+        if is_env_truthy("FOREST_JWT_DISABLE_EXP_VALIDATION") {
+            warn!(
+                "JWT expiration validation is disabled; this significantly weakens security and should only be used in tightly controlled environments"
+            );
+        }
         services.spawn({
             let state_manager = ctx.state_manager.clone();
             let bad_blocks = chain_follower.bad_blocks.clone();
@@ -561,8 +563,9 @@ pub(super) async fn start(
             _ = snap_gc_reboot_rx.recv_async() => {
                 snap_gc.cleanup_before_reboot().await;
             }
-            result = start_services(start_time, &opts, config.clone(), shutdown_send.clone(), |ctx| {
+            result = start_services(start_time, &opts, config.clone(), shutdown_send.clone(), |ctx, sync_status| {
                 snap_gc.set_db(ctx.db.clone());
+                snap_gc.set_sync_status(sync_status);
                 snap_gc.set_car_db_head_epoch(ctx.db.heaviest_tipset().map(|ts|ts.epoch()).unwrap_or_default());
             }) => {
                 break result
@@ -576,7 +579,7 @@ pub(super) async fn start_services(
     opts: &CliOpts,
     mut config: Config,
     shutdown_send: mpsc::Sender<()>,
-    on_app_context_and_db_initialized: impl Fn(&AppContext),
+    on_app_context_and_db_initialized: impl FnOnce(&AppContext, SyncStatus),
 ) -> anyhow::Result<()> {
     // Cleanup the collector prometheus metrics registry on start
     crate::metrics::reset_collector_registry();
@@ -587,6 +590,12 @@ pub(super) async fn start_services(
     utils::misc::display_chain_logo(config.chain());
     if opts.exit_after_init {
         return Ok(());
+    }
+    if !opts.stateless
+        && !opts.skip_load_actors
+        && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset()
+    {
+        tracing::warn!("error in maybe_rewind_heaviest_tipset: {e}");
     }
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
@@ -608,7 +617,7 @@ pub(super) async fn start_services(
         services.shutdown().await;
         return Ok(());
     }
-    on_app_context_and_db_initialized(&ctx);
+    on_app_context_and_db_initialized(&ctx, chain_follower.sync_status.clone());
     warmup_in_background(&ctx);
     ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;

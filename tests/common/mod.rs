@@ -3,19 +3,19 @@
 
 use std::path::PathBuf;
 
-use assert_cmd::Command;
+use assert_cmd::{Command, cargo::cargo_bin_cmd};
 use tempfile::TempDir;
 
 pub fn cli() -> Command {
-    Command::cargo_bin("forest-cli").unwrap()
+    cargo_bin_cmd!("forest-cli")
 }
 
 pub fn tool() -> Command {
-    Command::cargo_bin("forest-tool").unwrap()
+    cargo_bin_cmd!("forest-tool")
 }
 
 pub fn daemon() -> Command {
-    Command::cargo_bin("forest").unwrap()
+    cargo_bin_cmd!("forest")
 }
 
 pub trait CommonArgs {

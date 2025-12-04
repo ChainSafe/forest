@@ -714,7 +714,7 @@ impl RpcMethod<0> for Web3ClientVersion {
     const NAME: &'static str = "Filecoin.Web3ClientVersion";
     const NAME_ALIAS: Option<&'static str> = Some("web3_clientVersion");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -736,7 +736,7 @@ impl RpcMethod<0> for EthAccounts {
     const NAME: &'static str = "Filecoin.EthAccounts";
     const NAME_ALIAS: Option<&'static str> = Some("eth_accounts");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -756,7 +756,7 @@ impl RpcMethod<0> for EthBlockNumber {
     const NAME: &'static str = "Filecoin.EthBlockNumber";
     const NAME_ALIAS: Option<&'static str> = Some("eth_blockNumber");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -791,7 +791,7 @@ impl RpcMethod<0> for EthChainId {
     const NAME: &'static str = "Filecoin.EthChainId";
     const NAME_ALIAS: Option<&'static str> = Some("eth_chainId");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -810,7 +810,7 @@ impl RpcMethod<0> for EthGasPrice {
     const NAME: &'static str = "Filecoin.EthGasPrice";
     const NAME_ALIAS: Option<&'static str> = Some("eth_gasPrice");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the current gas price in attoFIL");
 
@@ -871,9 +871,9 @@ fn get_tipset_from_hash<DB: Blockstore>(
 
 fn resolve_predefined_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
-    head: Arc<Tipset>,
+    head: Tipset,
     predefined: Predefined,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     match predefined {
         Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
         Predefined::Pending => Ok(head),
@@ -883,10 +883,10 @@ fn resolve_predefined_tipset<DB: Blockstore>(
 
 fn resolve_ext_predefined_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
-    head: Arc<Tipset>,
+    head: Tipset,
     ext_predefined: ExtPredefined,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     if let Ok(common) = Predefined::try_from(&ext_predefined) {
         resolve_predefined_tipset(chain, head, common)
     } else {
@@ -912,10 +912,10 @@ fn resolve_ext_predefined_tipset<DB: Blockstore>(
 
 fn resolve_block_number_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
-    head: Arc<Tipset>,
+    head: Tipset,
     block_number: EthInt64,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     let height = ChainEpoch::from(block_number.0);
     if height > head.epoch() - 1 {
         bail!("requested a future epoch (beyond \"latest\")");
@@ -927,12 +927,12 @@ fn resolve_block_number_tipset<DB: Blockstore>(
 
 fn resolve_block_hash_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
-    head: Arc<Tipset>,
+    head: Tipset,
     block_hash: &EthHash,
     require_canonical: bool,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
-    let ts = Arc::new(get_tipset_from_hash(chain, block_hash)?);
+) -> anyhow::Result<Tipset> {
+    let ts = get_tipset_from_hash(chain, block_hash)?;
     // verify that the tipset is in the canonical chain
     if require_canonical {
         // walk up the current chain (our head) until we reach ts.epoch()
@@ -951,7 +951,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_param: BlockNumberOrHash,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     let head = chain.heaviest_tipset();
     match block_param {
         BlockNumberOrHash::PredefinedBlock(predefined) => {
@@ -975,7 +975,7 @@ fn tipset_by_ext_block_number_or_hash<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_param: ExtBlockNumberOrHash,
     resolve: ResolveNullTipset,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> anyhow::Result<Tipset> {
     let head = chain.heaviest_tipset();
     match block_param {
         ExtBlockNumberOrHash::PredefinedBlock(ext_predefined) => {
@@ -997,7 +997,7 @@ fn tipset_by_ext_block_number_or_hash<DB: Blockstore>(
 
 async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: &Ctx<DB>,
-    tipset: &Arc<Tipset>,
+    tipset: &Tipset,
 ) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
     let msgs = data.chain_store().messages_for_tipset(tipset)?;
 
@@ -1267,7 +1267,7 @@ fn new_eth_tx<DB: Blockstore>(
 
 async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    tipset: &Arc<Tipset>,
+    tipset: &Tipset,
     tx: &ApiEthTx,
     msg_receipt: &Receipt,
 ) -> anyhow::Result<EthTxReceipt> {
@@ -1334,7 +1334,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
 
 pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    ts: &Arc<Tipset>,
+    ts: &Tipset,
     block_hash: &EthHash,
     tx_hash: &EthHash,
 ) -> anyhow::Result<Vec<EthLog>> {
@@ -1348,7 +1348,7 @@ pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + '
 
 pub async fn eth_logs_with_filter<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    ts: &Arc<Tipset>,
+    ts: &Tipset,
     spec: Option<EthFilterSpec>,
     tx_hash: Option<&EthHash>,
 ) -> anyhow::Result<Vec<EthLog>> {
@@ -1389,7 +1389,7 @@ fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result
 
 pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
-    tipset: Arc<Tipset>,
+    tipset: Tipset,
     full_tx_info: bool,
 ) -> Result<Block> {
     let parent_cid = tipset.parents().cid()?;
@@ -1457,7 +1457,7 @@ impl RpcMethod<2> for EthGetBlockByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockByHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByHash");
     const PARAM_NAMES: [&'static str; 2] = ["blockHash", "fullTxInfo"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash, bool);
@@ -1646,7 +1646,7 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
     const NAME: &'static str = "Filecoin.EthGetMessageCidByTransactionHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getMessageCidByTransactionHash");
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash,);
@@ -1706,7 +1706,7 @@ impl RpcMethod<0> for EthSyncing {
     const NAME: &'static str = "Filecoin.EthSyncing";
     const NAME_ALIAS: Option<&'static str> = Some("eth_syncing");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -1812,7 +1812,7 @@ impl RpcMethod<2> for EthEstimateGas {
 
 async fn apply_message<DB>(
     ctx: &Ctx<DB>,
-    tipset: Option<Arc<Tipset>>,
+    tipset: Option<Tipset>,
     msg: Message,
 ) -> Result<ApiInvocResult, Error>
 where
@@ -1896,7 +1896,7 @@ impl EthEstimateGas {
         data: &Ctx<DB>,
         msg: &Message,
         prior_messages: &[ChainMessage],
-        ts: Arc<Tipset>,
+        ts: Tipset,
     ) -> anyhow::Result<u64>
     where
         DB: Blockstore + Send + Sync + 'static,
@@ -1908,7 +1908,7 @@ impl EthEstimateGas {
             data: &Ctx<DB>,
             mut msg: Message,
             prior_messages: &[ChainMessage],
-            ts: Arc<Tipset>,
+            ts: Tipset,
             limit: u64,
         ) -> anyhow::Result<bool>
         where
@@ -1990,7 +1990,7 @@ impl RpcMethod<3> for EthFeeHistory {
         let mut rewards_array = vec![];
         let mut gas_used_ratio_array = vec![];
         for ts in tipset
-            .chain_arc(ctx.store())
+            .chain(ctx.store())
             .filter(|i| i.epoch() > 0)
             .take(block_count as _)
         {
@@ -2123,7 +2123,7 @@ impl RpcMethod<2> for EthGetCode {
         };
 
         let api_invoc_result = 'invoc: {
-            for ts in ts.chain_arc(ctx.store()) {
+            for ts in ts.chain(ctx.store()) {
                 match ctx.state_manager.call(&message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;
@@ -2194,7 +2194,7 @@ impl RpcMethod<3> for EthGetStorageAt {
             ..Default::default()
         };
         let api_invoc_result = 'invoc: {
-            for ts in ts.chain_arc(ctx.store()) {
+            for ts in ts.chain(ctx.store()) {
                 match ctx.state_manager.call(&message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;
@@ -2276,7 +2276,7 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
     const NAME: &'static str = "Filecoin.EthMaxPriorityFeePerGas";
     const NAME_ALIAS: Option<&'static str> = Some("eth_maxPriorityFeePerGas");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -2298,7 +2298,7 @@ impl RpcMethod<0> for EthProtocolVersion {
     const NAME: &'static str = "Filecoin.EthProtocolVersion";
     const NAME_ALIAS: Option<&'static str> = Some("eth_protocolVersion");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -2367,7 +2367,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     const NAME: &'static str = "Filecoin.EthGetTransactionByBlockHashAndIndex";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockHashAndIndex");
     const PARAM_NAMES: [&'static str; 2] = ["blockHash", "txIndex"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash, EthUint64);
@@ -2410,7 +2410,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
     const NAME: &'static str = "Filecoin.EthGetTransactionByHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByHash");
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash,);
@@ -2429,7 +2429,7 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
     const NAME: &'static str = "Filecoin.EthGetTransactionByHashLimited";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByHashLimited");
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "limit"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash, ChainEpoch);
@@ -2502,7 +2502,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     const NAME: &'static str = "Filecoin.EthGetTransactionHashByCid";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionHashByCid");
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
@@ -2601,7 +2601,7 @@ impl RpcMethod<0> for EthNewPendingTransactionFilter {
     const NAME: &'static str = "Filecoin.EthNewPendingTransactionFilter";
     const NAME_ALIAS: Option<&'static str> = Some("eth_newPendingTransactionFilter");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -2622,7 +2622,7 @@ impl RpcMethod<0> for EthNewBlockFilter {
     const NAME: &'static str = "Filecoin.EthNewBlockFilter";
     const NAME_ALIAS: Option<&'static str> = Some("eth_newBlockFilter");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -2643,7 +2643,7 @@ impl RpcMethod<1> for EthUninstallFilter {
     const NAME: &'static str = "Filecoin.EthUninstallFilter";
     const NAME_ALIAS: Option<&'static str> = Some("eth_uninstallFilter");
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (FilterID,);
@@ -2664,7 +2664,7 @@ impl RpcMethod<0> for EthUnsubscribe {
     const NAME: &'static str = "Filecoin.EthUnsubscribe";
     const NAME_ALIAS: Option<&'static str> = Some("eth_unsubscribe");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const SUBSCRIPTION: bool = true;
 
@@ -2689,7 +2689,7 @@ impl RpcMethod<0> for EthSubscribe {
     const NAME: &'static str = "Filecoin.EthSubscribe";
     const NAME_ALIAS: Option<&'static str> = Some("eth_subscribe");
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const SUBSCRIPTION: bool = true;
 
@@ -2715,7 +2715,7 @@ impl RpcMethod<1> for EthAddressToFilecoinAddress {
     const NAME_ALIAS: Option<&'static str> = None;
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["ethAddress"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthAddress,);
     type Ok = FilecoinAddress;
@@ -2787,7 +2787,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionReceipt");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthHash,);
     type Ok = EthTxReceipt;
@@ -2805,7 +2805,7 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionReceiptLimited");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "limit"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthHash, ChainEpoch);
     type Ok = EthTxReceipt;
@@ -2822,7 +2822,7 @@ impl RpcMethod<1> for EthSendRawTransaction {
     const NAME: &'static str = "Filecoin.EthSendRawTransaction";
     const NAME_ALIAS: Option<&'static str> = Some("eth_sendRawTransaction");
     const PARAM_NAMES: [&'static str; 1] = ["rawTx"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthBytes,);
@@ -3092,7 +3092,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getFilterLogs");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Write;
     type Params = (FilterID,);
     type Ok = EthFilterResult;
@@ -3139,7 +3139,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getFilterChanges");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns event logs which occurred since the last poll");
@@ -3320,7 +3320,7 @@ impl RpcMethod<1> for EthTraceTransaction {
     const NAME_ALIAS: Option<&'static str> = Some("trace_transaction");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the traces for a specific transaction.");

@@ -263,7 +263,7 @@ impl ArchiveCommands {
                 let heaviest_tipset = store.heaviest_tipset()?;
                 do_export(
                     &store.into(),
-                    heaviest_tipset.into(),
+                    heaviest_tipset,
                     output_path,
                     epoch,
                     depth,
@@ -512,7 +512,7 @@ fn build_output_path(
 #[allow(clippy::too_many_arguments)]
 pub async fn do_export(
     store: &Arc<impl Blockstore + Send + Sync + 'static>,
-    root: Arc<Tipset>,
+    root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
@@ -544,7 +544,7 @@ pub async fn do_export(
         .context("unable to get a tipset at given height")?;
 
     let seen = if let Some(diff) = diff {
-        let diff_ts: Arc<Tipset> = index
+        let diff_ts: Tipset = index
             .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
@@ -678,11 +678,7 @@ async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> a
     let mut f3_data = File::open(f3)?;
     let f3_cid = crate::f3::snapshot::get_f3_snapshot_cid(&mut f3_data)?;
 
-    let car_stream = CarStream::new(tokio::io::BufReader::new(
-        tokio::fs::File::open(&filecoin).await?,
-    ))
-    .await?;
-
+    let car_stream = CarStream::new_from_path(&filecoin).await?;
     let chain_head = car_stream.header_v1.roots.clone();
 
     println!("f3 snapshot cid: {f3_cid}");
@@ -719,7 +715,7 @@ async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> a
             crate::db::car::forest::new_encoder(DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
         let f3_data_len = f3_data.seek(SeekFrom::End(0))?;
         f3_data.seek(SeekFrom::Start(0))?;
-        encoder.write_car_block(f3_cid, f3_data_len as _, &mut f3_data)?;
+        encoder.write_car_block(f3_cid, f3_data_len, &mut f3_data)?;
         anyhow::Ok((
             vec![f3_cid],
             crate::db::car::forest::finalize_frame(
@@ -772,7 +768,7 @@ async fn show_tipset_diff(
 
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
 
-    let heaviest_tipset = Arc::new(store.heaviest_tipset()?);
+    let heaviest_tipset = store.heaviest_tipset()?;
     if heaviest_tipset.epoch() <= epoch {
         anyhow::bail!(
             "Highest epoch must be at least 1 greater than the target epoch. \
@@ -795,13 +791,13 @@ async fn show_tipset_diff(
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index.tipset_by_height(
         epoch,
-        Arc::clone(&heaviest_tipset),
+        heaviest_tipset.clone(),
         ResolveNullTipset::TakeOlder,
     )?;
 
     let child_tipset = chain_index.tipset_by_height(
         epoch + 1,
-        Arc::clone(&heaviest_tipset),
+        heaviest_tipset.clone(),
         ResolveNullTipset::TakeNewer,
     )?;
 
@@ -994,7 +990,7 @@ async fn export_lite_snapshot(
     let force = false;
     do_export(
         &store,
-        root.into(),
+        root,
         output_path.clone(),
         Some(epoch),
         depth,
@@ -1027,7 +1023,7 @@ async fn export_diff_snapshot(
     let force = false;
     do_export(
         &store,
-        root.into(),
+        root,
         output_path.clone(),
         Some(epoch),
         depth,
@@ -1169,7 +1165,7 @@ mod tests {
         let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
             &store.into(),
-            heaviest_tipset.into(),
+            heaviest_tipset,
             output_path.path().into(),
             Some(0),
             1,

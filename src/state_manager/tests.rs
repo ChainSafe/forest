@@ -80,7 +80,7 @@ fn setup_chain_with_tipsets() -> TestChainSetup {
         .unwrap();
 
     chain_store
-        .set_heaviest_tipset(Arc::new(chain_store.genesis_tipset()))
+        .set_heaviest_tipset(chain_store.genesis_tipset())
         .unwrap();
 
     TestChainSetup {
@@ -127,9 +127,7 @@ fn test_try_lookup_state_from_next_tipset_success() {
     assert_eq!(child_block.epoch, 11);
     assert_eq!(child_block.state_root, state_root);
 
-    chain_store
-        .set_heaviest_tipset(Arc::new(child_ts.clone()))
-        .unwrap();
+    chain_store.set_heaviest_tipset(child_ts.clone()).unwrap();
 
     let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 
@@ -160,9 +158,7 @@ fn test_try_lookup_state_from_next_tipset_no_next_tipset() {
 
     assert_eq!(a.epoch, 10);
 
-    chain_store
-        .set_heaviest_tipset(Arc::new(a_ts.clone()))
-        .unwrap();
+    chain_store.set_heaviest_tipset(a_ts.clone()).unwrap();
 
     let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 
@@ -219,9 +215,7 @@ fn test_try_lookup_state_from_next_tipset_different_parent() {
     // a tipset key should be different from `a1` tipset key
     assert_ne!(a_ts.key(), a1_ts.key());
 
-    chain_store
-        .set_heaviest_tipset(Arc::new(b_ts.clone()))
-        .unwrap();
+    chain_store.set_heaviest_tipset(b_ts.clone()).unwrap();
 
     let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 
@@ -262,9 +256,7 @@ fn test_try_lookup_state_from_next_tipset_missing_receipt_root() {
     assert_eq!(a.epoch, 10);
     assert_eq!(b.epoch, 11);
 
-    chain_store
-        .set_heaviest_tipset(Arc::new(b_ts.clone()))
-        .unwrap();
+    chain_store.set_heaviest_tipset(b_ts.clone()).unwrap();
 
     let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 
@@ -305,9 +297,7 @@ fn test_try_lookup_state_from_next_tipset_missing_state_root() {
     assert_eq!(a.epoch, 10);
     assert_eq!(b.epoch, 11);
 
-    chain_store
-        .set_heaviest_tipset(Arc::new(b_ts.clone()))
-        .unwrap();
+    chain_store.set_heaviest_tipset(b_ts.clone()).unwrap();
 
     let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 

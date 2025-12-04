@@ -228,7 +228,7 @@ services:
     user: 0:0
     command:
       - |
-        set -euxo pipefail
+        set -uxo pipefail
         LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
         FOREST_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
@@ -238,8 +238,16 @@ services:
           --test-criteria-overrides=valid-and-timeout,timeout-and-timeout \
           --filter-file /data/filter-list \
           --miner-address ${MINER_ADDRESS} \
-          --worker-address ${MINER_WORKER_ADDRESS}
+          --worker-address ${MINER_WORKER_ADDRESS} \
+          --report-mode=failure-only \
+          --report-dir=/data/api-compare-report
+
+        status=$$?
+        echo "==== API Compare Report ===="
+        cat /data/api-compare-report/*.json || echo "(Report file not accessible)"
         FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
+        exit $$status
+
   api-compare-offline:
     profiles:
       - include-offline-rpc
@@ -264,15 +272,22 @@ services:
     user: 0:0
     command:
       - |
-        set -euxo pipefail
+        set -uxo pipefail
         LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
         FOREST_API_INFO="$(cat /data/forest-token-offline):/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http"
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest $$FOREST_API_INFO \
           --lotus $$LOTUS_API_INFO \
+          --offline \
           --n-tipsets 5 \
-          --filter-file /data/filter-list-offline
+          --filter-file /data/filter-list-offline \
+          --report-mode=failure-only \
+          --report-dir=/data/api-compare-report-offline
+        status=$$?
+        echo "==== Offline API Compare Report ===="
+        cat /data/api-compare-report-offline/*.json || echo "(Report file not accessible)"
         FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
+        exit $$status
   post-setup:
     depends_on:
       api-compare:

@@ -27,7 +27,7 @@ fn main() {
         }
         rust2go::Builder::default()
             .with_go_src("./f3-sidecar")
-            // the generated Go file has been commited to the git repository,
+            // the generated Go file has been committed to the git repository,
             // uncomment to regenerate the code locally
             // .with_regen_arg(rust2go::RegenArgs {
             //     src: "./src/f3/go_ffi.rs".into(),

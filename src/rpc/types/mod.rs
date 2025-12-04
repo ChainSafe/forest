@@ -15,7 +15,6 @@ mod tests;
 
 use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
-use crate::libp2p::Multihash;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::shim::actors::market::AllocationID;
 use crate::shim::actors::market::{DealProposal, DealState};
@@ -31,6 +30,7 @@ use crate::shim::{
     message::Message,
     sector::{ExtendedSectorInfo, RegisteredSealProof, SectorNumber, StoragePower},
 };
+use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::RawBytes;
@@ -148,11 +148,6 @@ pub struct MessageLookup {
 
 lotus_json_with_self!(MessageLookup);
 
-#[derive(Serialize, Deserialize)]
-pub struct PeerID {
-    pub multihash: Multihash<64>,
-}
-
 #[derive(
     Debug,
     Clone,
@@ -164,7 +159,15 @@ pub struct PeerID {
     derive_more::From,
     derive_more::Into,
 )]
-pub struct ApiTipsetKey(pub Option<TipsetKey>);
+pub struct ApiTipsetKey(
+    #[serde(skip_serializing_if = "Option::is_none", default)] pub Option<TipsetKey>,
+);
+
+impl ApiTipsetKey {
+    pub fn is_none(&self) -> bool {
+        self.0.is_none()
+    }
+}
 
 /// This wrapper is needed because of a bug in Lotus.
 /// See: <https://github.com/filecoin-project/lotus/issues/11461>.
@@ -208,24 +211,6 @@ pub struct ApiActorState {
 }
 
 lotus_json_with_self!(ApiActorState);
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiState {
-    #[schemars(with = "serde_json::Value")]
-    #[serde(with = "crate::lotus_json")]
-    pub builtin_actors: Ipld,
-}
-
-lotus_json_with_self!(ApiState);
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiDecodedParams {
-    pub params: serde_json::Value,
-}
-
-lotus_json_with_self!(ApiDecodedParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -587,3 +572,21 @@ impl From<StampedEvent> for Event {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
+pub struct ApiExportStatus {
+    pub progress: f64,
+    pub exporting: bool,
+    pub cancelled: bool,
+    pub start_time: Option<chrono::DateTime<Utc>>,
+}
+
+lotus_json_with_self!(ApiExportStatus);
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
+pub enum ApiExportResult {
+    Done(Option<String>),
+    Cancelled,
+}
+
+lotus_json_with_self!(ApiExportResult);

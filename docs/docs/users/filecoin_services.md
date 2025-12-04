@@ -62,14 +62,19 @@ ChainSafe also operates an **archival bootstrap node** which maintains a full se
 /dns/bootstrap-mainnet-2.chainsafe-fil.io/tcp/34000/p2p/12D3KooWHQRSDFv4FvAjtU32shQ7znz7oRbLBryXzZ9NMK2feyyH
 ```
 
-Mainnet bootstrap nodes' status can be checked at [probelab.io/bootstrappers/filecoin](https://probelab.io/bootstrappers/filecoin).
+Mainnet bootstrap nodes' status can be checked at [https://probelab.io/filecoin/bootstrappers](https://probelab.io/filecoin/bootstrappers).
 
 </p>
 </details>
 
 ## Latest Filecoin Snapshots
 
-The latest snapshots are required for new nodes to sync with the network. The snapshots are updated hourly and are available for both [mainnet](https://forest-archive.chainsafe.dev/list/mainnet/latest) and [calibnet](https://forest-archive.chainsafe.dev/list/calibnet/latest).
+The latest snapshots are required for new nodes to sync with the network. The snapshots are updated hourly and are available on [this site](https://forest-archive.chainsafe.dev/).
+
+To download the latest snapshots (`v2` by default, as outlined in [`FRC-108`](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md)) use:
+
+- [`mainnet-latest`](https://forest-archive.chainsafe.dev/latest/mainnet)
+- [`calibnet-latest`](https://forest-archive.chainsafe.dev/latest/calibnet)
 
 ## Filecoin Archive
 

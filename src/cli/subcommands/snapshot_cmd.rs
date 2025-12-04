@@ -7,6 +7,7 @@ use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::networks::calibnet;
 use crate::rpc::chain::ForestChainExportDiffParams;
+use crate::rpc::types::ApiExportResult;
 use crate::rpc::{self, chain::ForestChainExportParams, prelude::*};
 use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use anyhow::Context as _;
@@ -18,6 +19,12 @@ use std::{
     time::Duration,
 };
 use tokio::io::AsyncWriteExt;
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum Format {
+    Json,
+    Text,
+}
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -39,9 +46,20 @@ pub enum SnapshotCommands {
         #[arg(short, long, default_value_t = DEFAULT_RECENT_STATE_ROOTS)]
         depth: crate::chain::ChainEpochDelta,
         /// Snapshot format to export.
-        #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V1)]
+        #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V2)]
         format: FilecoinSnapshotVersion,
     },
+    /// Show status of the current export.
+    ExportStatus {
+        /// Wait until it completes and print progress.
+        #[arg(long)]
+        wait: bool,
+        /// Format of the output. `json` or `text`.
+        #[arg(long, value_enum, default_value_t = Format::Text)]
+        format: Format,
+    },
+    /// Cancel the current export.
+    ExportCancel {},
     /// Export a diff snapshot between `from` and `to` epochs to `<output_path>`
     ExportDiff {
         /// `./forest_snapshot_diff_{chain}_{from}_{to}+{depth}.car.zst`.
@@ -134,7 +152,7 @@ impl SnapshotCommands {
                         "{spinner} {msg} {binary_total_bytes} written in {elapsed} ({binary_bytes_per_sec})",
                     )
                     .expect("indicatif template must be valid"),
-                ).with_message(format!("Exporting {} ...", output_path.display()));
+                ).with_message(format!("Exporting v{} snapshot to {} ...", format as u64, output_path.display()));
                 pb.enable_steady_tick(std::time::Duration::from_millis(80));
                 let handle = tokio::spawn({
                     let path: PathBuf = (&temp_path).into();
@@ -152,7 +170,7 @@ impl SnapshotCommands {
 
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
-                let hash_result = client
+                let export_result = client
                     .call(ForestChainExport::request((params,))?.with_timeout(Duration::MAX))
                     .await?;
 
@@ -161,13 +179,106 @@ impl SnapshotCommands {
                 _ = handle.await;
 
                 if !dry_run {
-                    if let Some(hash) = hash_result {
-                        save_checksum(&output_path, hash).await?;
+                    match export_result.clone() {
+                        ApiExportResult::Done(hash_opt) => {
+                            // Move the file first; prevents orphaned checksum on persist error.
+                            temp_path.persist(&output_path)?;
+                            if let Some(hash) = hash_opt {
+                                save_checksum(&output_path, hash).await?;
+                            }
+                        }
+                        ApiExportResult::Cancelled => { /* no file to persist on cancel */ }
                     }
-                    temp_path.persist(output_path)?;
                 }
 
-                println!("Export completed.");
+                match export_result {
+                    ApiExportResult::Done(_) => {
+                        println!("Export completed.");
+                    }
+                    ApiExportResult::Cancelled => {
+                        println!("Export cancelled.");
+                    }
+                }
+                Ok(())
+            }
+            Self::ExportStatus { wait, format } => {
+                let result = client
+                    .call(
+                        ForestChainExportStatus::request(())?.with_timeout(Duration::from_secs(30)),
+                    )
+                    .await?;
+                if !result.exporting
+                    && let Format::Text = format
+                {
+                    if result.cancelled {
+                        println!("No export in progress (last export was cancelled)");
+                    } else {
+                        println!("No export in progress");
+                    }
+                    return Ok(());
+                }
+                if wait {
+                    let elapsed = chrono::Utc::now()
+                        .signed_duration_since(result.start_time.unwrap_or_default())
+                        .to_std()
+                        .unwrap_or(Duration::ZERO);
+                    let pb = ProgressBar::new(10000)
+                        .with_elapsed(elapsed)
+                        .with_message("Exporting");
+                    pb.set_style(
+                        ProgressStyle::with_template(
+                            "[{elapsed_precise}] [{wide_bar}] {percent}% {msg} ",
+                        )
+                        .expect("indicatif template must be valid")
+                        .progress_chars("#>-"),
+                    );
+                    loop {
+                        let result = client
+                            .call(
+                                ForestChainExportStatus::request(())?
+                                    .with_timeout(Duration::from_secs(30)),
+                            )
+                            .await?;
+                        if result.cancelled {
+                            pb.set_message("Export cancelled");
+                            pb.abandon();
+
+                            return Ok(());
+                        }
+                        let position = (result.progress.clamp(0.0, 1.0) * 10000.0).trunc() as u64;
+                        pb.set_position(position);
+
+                        if position >= 10000 {
+                            break;
+                        }
+                        tokio::time::sleep(Duration::from_millis(500)).await;
+                    }
+                    pb.finish_with_message("Export completed");
+
+                    return Ok(());
+                }
+                match format {
+                    Format::Text => {
+                        println!("Exporting: {:.1}%", result.progress.clamp(0.0, 1.0) * 100.0);
+                    }
+                    Format::Json => {
+                        println!("{}", serde_json::to_string_pretty(&result)?);
+                    }
+                }
+
+                Ok(())
+            }
+            Self::ExportCancel {} => {
+                let result = client
+                    .call(
+                        ForestChainExportCancel::request(())?.with_timeout(Duration::from_secs(30)),
+                    )
+                    .await?;
+                if result {
+                    println!("Export cancelled.");
+                } else {
+                    println!("No export in progress to cancel.");
+                }
                 Ok(())
             }
             Self::ExportDiff {

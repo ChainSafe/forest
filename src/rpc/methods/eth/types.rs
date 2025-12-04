@@ -58,6 +58,14 @@ impl FromStr for EthBytes {
     }
 }
 
+impl Deref for EthBytes {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetBytecodeReturn(pub Option<Cid>);
 
@@ -314,7 +322,8 @@ pub struct EthCallMessage {
     pub gas_price: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<EthBigInt>,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
+    // Some clients use `input`, others use `data`. We have to support both.
+    #[serde(alias = "input", skip_serializing_if = "Option::is_none", default)]
     pub data: Option<EthBytes>,
 }
 lotus_json_with_self!(EthCallMessage);
@@ -399,11 +408,6 @@ lotus_json_with_self!(EthHash);
 pub struct FilterID(EthHash);
 
 lotus_json_with_self!(FilterID);
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
-pub struct SubscriptionID(pub String);
-
-lotus_json_with_self!(SubscriptionID);
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<CachingBlockHeader>);
@@ -512,8 +516,8 @@ impl Deref for EthAddressList {
 ///     If omitted, the default value is `"latest"`.
 ///     This field is skipped during serialization if `None`.
 ///
-/// * `address` - Actor address or a list of addresses (`Vec<EthAddress>`) from which event logs should originate.
-///   If the filter needs to match a single address, it can be specified as single element vector.
+/// * `address` - Optional field interpreted as Actor address or a list of addresses (`Vec<EthAddress>`) from which event logs should originate.
+///   If the filter needs to match a single address, it can be specified as a single element vector.
 ///   This field is required and cannot be omitted.
 ///
 /// * `topics` - List of topics (`EthTopicSpec`) to be matched in the event logs.  
@@ -530,7 +534,8 @@ pub struct EthFilterSpec {
     pub from_block: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub to_block: Option<String>,
-    pub address: EthAddressList,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub address: Option<EthAddressList>,
     pub topics: Option<EthTopicSpec>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub block_hash: Option<EthHash>,
@@ -543,7 +548,7 @@ impl From<LogFilter> for EthFilterSpec {
             from_block: None,
             to_block: None,
             block_hash: None,
-            address: filter.address,
+            address: Some(filter.address),
             topics: filter.topics,
         }
     }

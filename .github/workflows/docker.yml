@@ -54,7 +54,7 @@ jobs:
         run: curl ifconfig.me
         continue-on-error: true
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -67,7 +67,7 @@ jobs:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
         run: make install
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: "forest-linux-amd64"
           path: |
@@ -97,7 +97,7 @@ jobs:
         run: curl ifconfig.me
         continue-on-error: true
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -111,7 +111,7 @@ jobs:
       - name: Cargo Install
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         run: make install
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         with:
           name: "forest-linux-arm64"
@@ -134,14 +134,14 @@ jobs:
         run: docker image ls
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           name: "forest-linux-amd64"
           path: /tmp/forest/forest-linux-amd64
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         # Compile Docker image only for AMD64 for a regular PR to save some CI time.
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         with:

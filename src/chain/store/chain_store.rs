@@ -48,7 +48,7 @@ pub type ChainEpochDelta = ChainEpoch;
 /// contained in message type.
 #[derive(Clone, Debug)]
 pub enum HeadChange {
-    Apply(Arc<Tipset>),
+    Apply(Tipset),
 }
 
 /// Stores chain data such as heaviest tipset and cached tipset info at each
@@ -142,7 +142,7 @@ where
     }
 
     /// Sets heaviest tipset
-    pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub fn set_heaviest_tipset(&self, ts: Tipset) -> Result<(), Error> {
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(ts.key())?;
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
@@ -163,7 +163,7 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
-        self.update_heaviest(Arc::new(expanded))?;
+        self.update_heaviest(expanded)?;
         Ok(())
     }
 
@@ -218,7 +218,7 @@ where
     }
 
     /// Returns the currently tracked heaviest tipset.
-    pub fn heaviest_tipset(&self) -> Arc<Tipset> {
+    pub fn heaviest_tipset(&self) -> Tipset {
         let tsk = self
             .heaviest_tipset_key_provider
             .heaviest_tipset_key()
@@ -261,7 +261,7 @@ where
     pub fn load_required_tipset_or_heaviest<'a>(
         &self,
         maybe_key: impl Into<Option<&'a TipsetKey>>,
-    ) -> Result<Arc<Tipset>, Error> {
+    ) -> Result<Tipset, Error> {
         match maybe_key.into() {
             Some(key) => self.chain_index.load_required_tipset(key),
             None => Ok(self.heaviest_tipset()),
@@ -270,11 +270,11 @@ where
 
     /// Determines if provided tipset is heavier than existing known heaviest
     /// tipset
-    fn update_heaviest(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+    fn update_heaviest(&self, ts: Tipset) -> Result<(), Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = fil_cns::weight(self.blockstore(), &self.heaviest_tipset())?;
 
-        let new_weight = fil_cns::weight(self.blockstore(), ts.as_ref())?;
+        let new_weight = fil_cns::weight(self.blockstore(), &ts)?;
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
@@ -319,11 +319,11 @@ where
     /// is usually 900. The `heaviest_tipset` is a reference point in the
     /// blockchain. It must be a child of the look-back tipset.
     pub fn get_lookback_tipset_for_round(
-        chain_index: Arc<ChainIndex<Arc<DB>>>,
-        chain_config: Arc<ChainConfig>,
-        heaviest_tipset: Arc<Tipset>,
+        chain_index: &Arc<ChainIndex<Arc<DB>>>,
+        chain_config: &Arc<ChainConfig>,
+        heaviest_tipset: &Tipset,
         round: ChainEpoch,
-    ) -> Result<(Arc<Tipset>, Cid), Error>
+    ) -> Result<(Tipset, Cid), Error>
     where
         DB: Send + Sync + 'static,
     {
@@ -343,19 +343,19 @@ where
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let StateOutput { state_root, .. } = crate::state_manager::apply_block_messages(
                 genesis_timestamp,
-                Arc::clone(&chain_index),
-                Arc::clone(&chain_config),
+                Arc::clone(chain_index),
+                Arc::clone(chain_config),
                 beacon,
                 // Using shared WASM engine here as creating new WASM engines is expensive
                 // (takes seconds to minutes). It's only acceptable here because this situation is
                 // so rare (may happen in dev-networks, doesn't happen in calibnet or mainnet.)
                 &crate::shim::machine::GLOBAL_MULTI_ENGINE,
-                Arc::clone(&heaviest_tipset),
+                heaviest_tipset.clone(),
                 crate::state_manager::NO_CALLBACK,
                 VMTrace::NotTraced,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
-            return Ok((heaviest_tipset, state_root));
+            return Ok((heaviest_tipset.clone(), state_root));
         }
 
         let next_ts = chain_index
@@ -616,9 +616,9 @@ impl Default for MsgsInTipsetCache {
 
 /// Same as [`messages_for_tipset`] but uses a cache to store messages for each tipset.
 pub fn messages_for_tipset_with_cache<DB>(
-    db: Arc<DB>,
+    db: &Arc<DB>,
     ts: &Tipset,
-    cache: Arc<MsgsInTipsetCache>,
+    cache: &MsgsInTipsetCache,
 ) -> Result<Vec<ChainMessage>, Error>
 where
     DB: Blockstore,
@@ -626,7 +626,7 @@ where
     let key = ts.key();
     cache
         .get_or_insert_with(key, || {
-            messages_for_tipset(Arc::clone(&db), ts).context("failed to get messages for tipset")
+            messages_for_tipset(db, ts).context("failed to get messages for tipset")
         })
         .map_err(Into::into)
 }
@@ -634,18 +634,18 @@ where
 /// Given a tipset this function will return all unique messages in that tipset.
 /// Note: This function is resource-intensive and can be a bottleneck for certain use-cases.
 /// Consider using [`messages_for_tipset_with_cache`] for better performance.
-pub fn messages_for_tipset<DB>(db: Arc<DB>, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
+pub fn messages_for_tipset<DB>(db: &Arc<DB>, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
 where
     DB: Blockstore,
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, TokenAmount> = HashMap::new();
-    let state = StateTree::new_from_tipset(Arc::clone(&db), ts)?;
+    let state = StateTree::new_from_tipset(Arc::clone(db), ts)?;
 
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header =
         |b: &CachingBlockHeader| -> Result<Vec<ChainMessage>, Error> {
-            let (unsigned, signed) = block_messages(&db, b)?;
+            let (unsigned, signed) = block_messages(db, b)?;
             let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
             let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
             let signed_box = signed.into_iter().map(ChainMessage::Signed);
@@ -721,28 +721,6 @@ pub fn get_parent_receipt(
         &block_header.message_receipts,
         i as u64,
     )?)
-}
-
-pub mod headchange_json {
-    use serde::{Deserialize, Serialize};
-
-    use super::*;
-
-    #[derive(Deserialize, Serialize)]
-    #[serde(rename_all = "lowercase")]
-    #[serde(tag = "type", content = "val")]
-    pub enum HeadChangeJson {
-        #[serde(with = "crate::lotus_json")]
-        Apply(Tipset),
-    }
-
-    impl From<HeadChange> for HeadChangeJson {
-        fn from(wrapper: HeadChange) -> Self {
-            match wrapper {
-                HeadChange::Apply(arc) => Self::Apply((*arc).clone()),
-            }
-        }
-    }
 }
 
 #[cfg(test)]

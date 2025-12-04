@@ -10,12 +10,12 @@ jobs:
   update-docs:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run update script
         run: |
           cd docs/docs/users/reference
           ./generate_cli_md.sh docker > cli.md
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           package-manager-cache: false

@@ -18,7 +18,7 @@ jobs:
             file: forest-${{ github.ref_name }}-macos-arm64.zip
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Homebrew Utils
         if: contains(matrix.os, 'macos')
         run: |
@@ -56,5 +56,5 @@ jobs:
     name: cargo publish
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: cargo publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }}

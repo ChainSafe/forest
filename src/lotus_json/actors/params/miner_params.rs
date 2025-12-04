@@ -15,7 +15,7 @@ use fvm_ipld_encoding::{BytesDe, RawBytes};
 use fvm_shared4::deal::DealID;
 use fvm_shared4::sector::RegisteredUpdateProof;
 use num::BigInt;
-use paste::paste;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -254,12 +254,6 @@ pub struct SectorClaimLotusJson {
     pub sector_number: SectorNumber,
     pub maintain_claims: Vec<u64>,
     pub drop_claims: Vec<u64>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "PascalCase")]
-pub struct ExtendSectorExpirationParams {
-    pub extensions: Vec<ExpirationExtension2LotusJson>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]

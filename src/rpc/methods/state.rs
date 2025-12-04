@@ -58,7 +58,7 @@ use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use futures::StreamExt;
+use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 pub use fvm_shared3::sector::StoragePower;
@@ -83,7 +83,7 @@ pub enum StateCall {}
 
 impl StateCall {
     pub fn run<DB: Blockstore + Send + Sync + 'static>(
-        state_manager: &Arc<StateManager<DB>>,
+        state_manager: &StateManager<DB>,
         message: &Message,
         tsk: Option<TipsetKey>,
     ) -> anyhow::Result<ApiInvocResult> {
@@ -200,7 +200,7 @@ impl RpcMethod<2> for StateAccountKey {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx
             .state_manager
-            .resolve_to_deterministic_address(address, ts)
+            .resolve_to_deterministic_address(address, &ts)
             .await?)
     }
 }
@@ -225,9 +225,7 @@ impl RpcMethod<2> for StateLookupID {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        Ok(ctx
-            .state_manager
-            .lookup_required_id(&address, ts.as_ref())?)
+        Ok(ctx.state_manager.lookup_required_id(&address, &ts)?)
     }
 }
 
@@ -274,9 +272,7 @@ impl RpcMethod<2> for StateVerifierStatus {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let aid = ctx
-            .state_manager
-            .lookup_required_id(&address, ts.as_ref())?;
+        let aid = ctx.state_manager.lookup_required_id(&address, &ts)?;
         let verifreg_state: verifreg::State = ctx.state_manager.get_actor_state(&ts)?;
         Ok(verifreg_state.verifier_data_cap(ctx.store(), aid.into())?)
     }
@@ -1109,7 +1105,7 @@ impl RpcMethod<2> for StateGetReceipt {
 pub enum StateWaitMsgV0 {}
 
 impl RpcMethod<2> for StateWaitMsgV0 {
-    const NAME: &'static str = "Filecoin.StateWaitMsgV0";
+    const NAME: &'static str = "Filecoin.StateWaitMsg";
     const PARAM_NAMES: [&'static str; 2] = ["messageCid", "confidence"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
@@ -1352,7 +1348,7 @@ impl RpcMethod<2> for StateFetchRoot {
                     // stack, unavailable nodes will be requested in worker tasks.
                     for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
                         counter += 1;
-                        if counter % 1_000 == 0 {
+                        if counter.is_multiple_of(1_000) {
                             // set RUST_LOG=forest::rpc::state_api=debug to enable these printouts.
                             tracing::debug!(
                                 "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
@@ -1475,7 +1471,7 @@ impl RpcMethod<2> for ForestStateCompute {
 
         let mut futures = FuturesOrdered::new();
         for ts in to_ts
-            .chain_arc(ctx.store())
+            .chain(ctx.store())
             .take_while(|ts| ts.epoch() >= from_ts.epoch())
         {
             let chain_store = ctx.chain_store().clone();
@@ -1483,10 +1479,20 @@ impl RpcMethod<2> for ForestStateCompute {
             futures.push_front(async move {
                 if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
                     // Backfill full tipset from the network
-                    let fts = network_context
-                        .chain_exchange_messages(None, &ts)
-                        .await
-                        .map_err(|e| anyhow::anyhow!(e))?;
+                    const MAX_RETRIES: usize = 5;
+                    let fts = 'retry_loop: {
+                        for i in 1..=MAX_RETRIES {
+                            match network_context.chain_exchange_messages(None, &ts).await {
+                                Ok(fts) => break 'retry_loop Ok(fts),
+                                Err(e) if i >= MAX_RETRIES => break 'retry_loop Err(e),
+                                Err(_) => continue,
+                            }
+                        }
+                        Err("unreachable chain exchange error in ForestStateCompute".into())
+                    }
+                    .map_err(|e| {
+                        anyhow::anyhow!("failed to download messages@{}: {e}", ts.epoch())
+                    })?;
                     fts.persist(chain_store.blockstore())?;
                 }
                 anyhow::Ok(ts)
@@ -1494,7 +1500,7 @@ impl RpcMethod<2> for ForestStateCompute {
         }
 
         let mut results = Vec::with_capacity(n_epochs as _);
-        while let Some(Ok(ts)) = futures.next().await {
+        while let Some(ts) = futures.try_next().await? {
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
             let StateOutput { state_root, .. } = ctx
@@ -1829,11 +1835,7 @@ impl RpcMethod<1> for StateListMiners {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let miners = state
-            .list_all_miners(ctx.store())?
-            .iter()
-            .map(From::from)
-            .collect();
+        let miners = state.list_all_miners(ctx.store())?;
         Ok(miners)
     }
 }
@@ -2037,7 +2039,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
 pub enum StateSectorPreCommitInfoV0 {}
 
 impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
-    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfoV0";
+    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
@@ -2533,11 +2535,11 @@ impl RpcMethod<3> for StateListMessages {
         } else if let Some(to) = from_to.to {
             // this is following lotus logic, it probably should be `if let` instead of `else if let`
             // see <https://github.com/ChainSafe/forest/pull/3827#discussion_r1462691005>
-            if ctx.state_manager.lookup_id(&to, ts.as_ref())?.is_none() {
+            if ctx.state_manager.lookup_id(&to, &ts)?.is_none() {
                 return Ok(vec![]);
             }
         } else if let Some(from) = from_to.from
-            && ctx.state_manager.lookup_id(&from, ts.as_ref())?.is_none()
+            && ctx.state_manager.lookup_id(&from, &ts)?.is_none()
         {
             return Ok(vec![]);
         }

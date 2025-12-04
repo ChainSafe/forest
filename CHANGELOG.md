@@ -29,11 +29,7 @@
 
 ### Added
 
-- [#6074](https://github.com/ChainSafe/forest/issues/6074) Added `forest-cli snapshot export-diff` subcommand for exporting a diff snapshot.
-
-- [#6061](https://github.com/ChainSafe/forest/pull/6061) Added `forest-cli state actor-cids` command for listing all actor CIDs in the state tree for the current tipset.
-
-- [#5568](https://github.com/ChainSafe/forest/issues/5568) Added `--n-tipsets` flag to the `forest-tool index backfill` subcommand to specify the number of epochs to backfill.
+- [#6231](https://github.com/ChainSafe/forest/pull/6231) Implemented `Filecoin.ChainGetTipSet` for API v2.
 
 ### Changed
 
@@ -41,9 +37,71 @@
 
 ### Fixed
 
+## Forest v0.30.4 "DeLorean"
+
+This is a non-mandatory release that fixes a chain sync issue that is caused by time traveling block(s).
+
+### Fixed
+
+- [#6241](https://github.com/ChainSafe/forest/pull/6241) Fixed a sync issue that is caused by time traveling block(s).
+
+## Forest v0.30.3 "Trishul"
+
+This is a non-mandatory release that brings important enhancements in Forest's tooling capabilities.
+The release includes new CLI commands for snapshot monitoring, a crucial fork handling bug fix and ETH API performance improvements, and error handling.
+
+### Added
+
+- [#6082](https://github.com/ChainSafe/forest/issues/6082) Added `forest-cli snapshot export-status` and `forest-cli snapshot export-cancel` subcommands to monitor or cancel an export, respectively.
+
+- [#6161](https://github.com/ChainSafe/forest/pull/6161) Added `forest-tool db import` subcommand.
+
+- [#6166](https://github.com/ChainSafe/forest/pull/6166) Gate `JWT` expiration validation behind environment variable `FOREST_JWT_DISABLE_EXP_VALIDATION`.
+
+- [#6167](https://github.com/ChainSafe/forest/pull/6167) Added `forest-tool state compute` subcommand to generate database snapshot for tipset validation.
+
+- [#6167](https://github.com/ChainSafe/forest/pull/6167) Added `forest-tool state replay-compute` subcommand to replay tipset validation with a minimal database snapshot.
+
+- [#6171](https://github.com/ChainSafe/forest/pull/6171) Enable V2 API support for basic Eth RPC methods: `EthChainId`, `EthProtocolVersion`, `EthSyncing`, `EthAccounts`.
+
+### Changed
+
+- [#6145](https://github.com/ChainSafe/forest/pull/6145) Updated `forest-cli snapshot export` to use v2 format by default.
+
+### Fixed
+
+- [#6178](https://github.com/ChainSafe/forest/pull/6178) Fixed incorrect error code for unsupported RPC methods.
+
+- [#6189](https://github.com/ChainSafe/forest/pull/6189) Improved performance of `eth_getBlockByHash` and `eth_getBlockByNumber`.
+
+- [#6206](https://github.com/ChainSafe/forest/pull/6206) Fixed batch request error in RPC server.
+
+- [#6234](https://github.com/ChainSafe/forest/pull/6234) Support `input` as an alias for `data` in `eth_call` and `eth_estimateGas` RPC methods.
+
+- [#6235](https://github.com/ChainSafe/forest/pull/6235) Fixed a potential deadlock in chain follower when handling fork(s).
+
+## Forest v0.30.2 "Garuda"
+
+This is a non-mandatory release that brings important enhancements to Forest's tooling capabilities, Ethereum RPC compatibility, and F3 integration.
+The release includes new CLI commands for snapshot management and state inspection, along with critical fixes for Ethereum RPC methods.
+
+### Added
+
+- [#6074](https://github.com/ChainSafe/forest/issues/6074) Added `forest-cli snapshot export-diff` subcommand for exporting a diff snapshot.
+
+- [#6061](https://github.com/ChainSafe/forest/pull/6061) Added `forest-cli state actor-cids` command for listing all actor CIDs in the state tree for the current tipset.
+
+- [#5568](https://github.com/ChainSafe/forest/issues/5568) Added `--n-tipsets` flag to the `forest-tool index backfill` subcommand to specify the number of epochs to backfill.
+
+- [#6133](https://github.com/ChainSafe/forest/pull/6133) Added `Filecoin.ChainGetFinalizedTipset` API method to get the finalized tipset using f3.
+
+### Fixed
+
 - [#5055](https://github.com/ChainSafe/forest/issues/5055) Fixed an issue where Forest fails on duplicate drand entries. This would only happen on new devnets.
 
 - [#6103](https://github.com/ChainSafe/forest/pull/6103) Fixed `eth_getTransactionCount` to return the nonce of the requested tipset and not its parent.
+
+- [#6140](https://github.com/ChainSafe/forest/pull/6140) Fixed the `eth_getLogs` RPC method to accept `None` as the `address` parameter.
 
 ## Forest v0.30.1 "Laurelin"
 

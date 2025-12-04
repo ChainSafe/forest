@@ -3,14 +3,14 @@
 
 use super::ApiPaths;
 use jsonrpsee::MethodResponse;
-use jsonrpsee::core::middleware::{Batch, Notification};
+use jsonrpsee::core::middleware::{Batch, BatchEntry, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use tower::Layer;
 
 /// JSON-RPC middleware layer for setting extensions in RPC requests
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(super) struct SetExtensionLayer {
-    pub path: Option<ApiPaths>,
+    pub path: ApiPaths,
 }
 
 impl<S> Layer<S> for SetExtensionLayer {
@@ -27,7 +27,7 @@ impl<S> Layer<S> for SetExtensionLayer {
 #[derive(Clone)]
 pub(super) struct SetExtensionService<S> {
     service: S,
-    path: Option<ApiPaths>,
+    path: ApiPaths,
 }
 
 impl<S> RpcServiceT for SetExtensionService<S>
@@ -42,8 +42,7 @@ where
         &self,
         mut req: jsonrpsee::types::Request<'a>,
     ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
-        req.extensions_mut()
-            .insert(self.path.unwrap_or(ApiPaths::V1));
+        req.extensions_mut().insert(self.path);
         self.service.call(req)
     }
 
@@ -51,9 +50,17 @@ where
         &self,
         mut batch: Batch<'a>,
     ) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
-        batch
-            .extensions_mut()
-            .insert(self.path.unwrap_or(ApiPaths::V1));
+        for req in batch.iter_mut() {
+            match req {
+                Ok(BatchEntry::Call(req)) => {
+                    req.extensions_mut().insert(self.path);
+                }
+                Ok(BatchEntry::Notification(n)) => {
+                    n.extensions_mut().insert(self.path);
+                }
+                Err(_) => {}
+            }
+        }
         self.service.batch(batch)
     }
 
@@ -61,7 +68,7 @@ where
         &self,
         mut n: Notification<'a>,
     ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
-        n.extensions_mut().insert(self.path.unwrap_or(ApiPaths::V1));
+        n.extensions_mut().insert(self.path);
         self.service.notification(n)
     }
 }

@@ -1,4 +1,6 @@
 # This list contains potentially broken methods (or tests) that are ignored.
 # They should be considered bugged, and not used until the root cause is resolved.
-# Disable until next Lotus release with go-f3 0.8.6
-!Filecoin.F3GetManifest
+
+# Ignoring ChainGetEvents for now, as we are not sure if we should get duplicated events or not.
+# TODO(forest): https://github.com/ChainSafe/forest/issues/6271.
+!Filecoin.ChainGetEvents

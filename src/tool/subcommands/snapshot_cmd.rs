@@ -326,7 +326,7 @@ where
 }
 
 // The Filecoin block chain is a DAG of Ipld nodes. The complete graph isn't
-// required to sync to the network and snapshot files usually disgard data after
+// required to sync to the network and snapshot files usually discard data after
 // 2000 epochs. Validity can be verified by ensuring there are no bad IPLD or
 // broken links in the N most recent epochs.
 async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: u32) -> anyhow::Result<()>
@@ -428,7 +428,7 @@ where
 
     // Prepare tipsets for validation
     let tipsets = chain_index
-        .chain(Arc::new(ts))
+        .chain(ts)
         .take_while(|tipset| tipset.epoch() >= last_epoch)
         .inspect(|tipset| {
             pb.set_message(format!("epoch queue: {}", tipset.epoch() - last_epoch));
@@ -480,7 +480,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
-        .tipset_by_height(epoch, Arc::new(ts), ResolveNullTipset::TakeOlder)
+        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .with_context(|| format!("couldn't get a tipset at height {epoch}"))?;
 
     let mut message_calls = vec![];

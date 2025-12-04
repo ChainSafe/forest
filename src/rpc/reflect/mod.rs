@@ -25,6 +25,7 @@ use crate::lotus_json::HasLotusJson;
 
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
+use ahash::HashMap;
 use anyhow::Context as _;
 use enumflags2::{BitFlags, bitflags, make_bitflags};
 use fvm_ipld_blockstore::Blockstore;
@@ -115,13 +116,28 @@ pub enum Permission {
 /// This information is important when using [`crate::rpc::client`].
 #[bitflags]
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, clap::ValueEnum, EnumString)]
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    clap::ValueEnum,
+    EnumString,
+    Deserialize,
+    Serialize,
+)]
 pub enum ApiPaths {
     /// Only expose this method on `/rpc/v0`
     #[strum(ascii_case_insensitive)]
     V0 = 0b00000001,
     /// Only expose this method on `/rpc/v1`
     #[strum(ascii_case_insensitive)]
+    #[default]
     V1 = 0b00000010,
     /// Only expose this method on `/rpc/v2`
     #[strum(ascii_case_insensitive)]
@@ -134,10 +150,25 @@ impl ApiPaths {
         make_bitflags!(Self::{ V0 | V1 })
     }
 
+    // Remove this helper once all RPC methods are migrated to V2.
+    // We're incrementally migrating methods to V2 support. Once complete,
+    // update all() to include V2 and remove this temporary helper.
+    pub const fn all_with_v2() -> BitFlags<Self> {
+        Self::all().union_c(make_bitflags!(Self::{ V2 }))
+    }
+
     pub fn from_uri(uri: &Uri) -> anyhow::Result<Self> {
         Ok(Self::from_str(
             uri.path().split("/").last().expect("infallible"),
         )?)
+    }
+
+    pub fn path(&self) -> &'static str {
+        match self {
+            Self::V0 => "rpc/v0",
+            Self::V1 => "rpc/v1",
+            Self::V2 => "rpc/v2",
+        }
     }
 }
 
@@ -214,24 +245,20 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             ..Default::default()
         }
     }
-    /// Register this method's alias with an [`RpcModule`].
-    fn register_alias(
-        module: &mut RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
-    ) -> Result<(), jsonrpsee::core::RegisterMethodError> {
-        if let Some(alias) = Self::NAME_ALIAS {
-            module.register_alias(alias, Self::NAME)?
-        }
-        Ok(())
-    }
 
     /// Register a method with an [`RpcModule`].
     fn register(
-        module: &mut RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
+        modules: &mut HashMap<
+            ApiPaths,
+            RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
+        >,
         calling_convention: ParamStructure,
-    ) -> Result<&mut jsonrpsee::MethodCallback, jsonrpsee::core::RegisterMethodError>
+    ) -> Result<(), jsonrpsee::core::RegisterMethodError>
     where
         <Self::Ok as HasLotusJson>::LotusJson: Clone + 'static,
     {
+        use clap::ValueEnum as _;
+
         assert!(
             Self::N_REQUIRED_PARAMS <= ARITY,
             "N_REQUIRED_PARAMS({}) can not be greater than ARITY({ARITY}) in {}",
@@ -239,12 +266,25 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             Self::NAME
         );
 
-        module.register_async_method(Self::NAME, move |params, ctx, _extensions| async move {
-            let params = Self::parse_params(params.as_str(), calling_convention)
-                .map_err(|e| Error::invalid_params(e, None))?;
-            let ok = Self::handle(ctx, params).await?;
-            Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
-        })
+        for api_version in ApiPaths::value_variants() {
+            if Self::API_PATHS.contains(*api_version)
+                && let Some(module) = modules.get_mut(api_version)
+            {
+                module.register_async_method(
+                    Self::NAME,
+                    move |params, ctx, _extensions| async move {
+                        let params = Self::parse_params(params.as_str(), calling_convention)
+                            .map_err(|e| Error::invalid_params(e, None))?;
+                        let ok = Self::handle(ctx, params).await?;
+                        Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
+                    },
+                )?;
+                if let Some(alias) = Self::NAME_ALIAS {
+                    module.register_alias(alias, Self::NAME)?
+                }
+            }
+        }
+        Ok(())
     }
     /// Returns [`Err`] if any of the parameters fail to serialize.
     fn request(params: Self::Params) -> Result<crate::rpc::Request<Self::Ok>, serde_json::Error> {

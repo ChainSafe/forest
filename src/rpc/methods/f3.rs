@@ -159,7 +159,7 @@ pub enum GetPowerTable {}
 impl GetPowerTable {
     async fn compute(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
     ) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
         const BLOCKSTORE_CACHE_CAP: usize = 65536;
@@ -448,7 +448,7 @@ impl GetPowerTable {
         for (id, power, worker) in id_power_worker_mappings {
             let waddr = ctx
                 .state_manager
-                .resolve_to_deterministic_address(worker, ts.clone())
+                .resolve_to_deterministic_address(worker, ts)
                 .await?;
             if waddr.protocol() != Protocol::BLS {
                 anyhow::bail!("wrong type of worker address");
@@ -581,7 +581,7 @@ impl RpcMethod<1> for Finalize {
                 finalized_ts.epoch()
             );
             if !head
-                .chain_arc(ctx.store())
+                .chain(ctx.store())
                 .take_while(|ts| ts.epoch() >= finalized_ts.epoch())
                 .any(|ts| ts == finalized_ts)
             {
@@ -698,7 +698,10 @@ impl RpcMethod<0> for F3GetLatestCertificate {
     type Params = ();
     type Ok = FinalityCertificate;
 
-    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _: Ctx<impl Blockstore + Send + Sync + 'static>,
+        _: Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
         let client = get_rpc_http_client()?;
         let response: LotusJson<Self::Ok> = client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response.into_inner())
@@ -948,7 +951,7 @@ pub fn get_f3_rpc_endpoint() -> Cow<'static, str> {
     }
 }
 
-fn get_rpc_http_client() -> anyhow::Result<jsonrpsee::http_client::HttpClient> {
+pub fn get_rpc_http_client() -> anyhow::Result<jsonrpsee::http_client::HttpClient> {
     let client = jsonrpsee::http_client::HttpClientBuilder::new()
         .build(format!("http://{}", get_f3_rpc_endpoint()))?;
     Ok(client)

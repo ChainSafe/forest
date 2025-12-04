@@ -15,40 +15,36 @@
 //!
 //! The state machine does not do any network requests or validation. Those are
 //! handled by an external actor.
-use crate::libp2p::hello::HelloRequest;
-use crate::message_pool::MessagePool;
-use crate::message_pool::MpoolRpcProvider;
-use crate::networks::calculate_expected_epoch;
-use crate::shim::clock::ChainEpoch;
-use crate::state_manager::StateManager;
-use crate::utils::misc::env::is_env_truthy;
+
+use super::network_context::SyncNetworkContext;
+use crate::{
+    blocks::{Block, FullTipset, Tipset, TipsetKey},
+    chain::ChainStore,
+    chain_sync::{
+        ForkSyncInfo, ForkSyncStage, SyncStatus, SyncStatusReport, TipsetValidator,
+        bad_block_cache::BadBlockCache, metrics, tipset_syncer::validate_tipset,
+    },
+    libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
+    message_pool::{MessagePool, MpoolRpcProvider},
+    networks::calculate_expected_epoch,
+    shim::clock::ChainEpoch,
+    state_manager::StateManager,
+    utils::misc::env::is_env_truthy,
+};
 use ahash::{HashMap, HashSet};
 use chrono::Utc;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::PeerId;
-use parking_lot::Mutex;
-use std::time::Instant;
-use std::{ops::Deref as _, sync::Arc};
+use parking_lot::{Mutex, RwLock};
+use std::{sync::Arc, time::Instant};
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
-use super::network_context::SyncNetworkContext;
-use crate::chain_sync::sync_status::SyncStatusReport;
-use crate::chain_sync::tipset_syncer::validate_tipset;
-use crate::chain_sync::{ForkSyncInfo, ForkSyncStage};
-use crate::{
-    blocks::{Block, FullTipset, Tipset, TipsetKey},
-    chain::ChainStore,
-    chain_sync::{TipsetValidator, bad_block_cache::BadBlockCache, metrics},
-    libp2p::{NetworkEvent, PubsubMessage},
-};
-use parking_lot::RwLock;
-
 pub struct ChainFollower<DB> {
     /// Syncing status of the chain
-    pub sync_status: Arc<RwLock<SyncStatusReport>>,
+    pub sync_status: SyncStatus,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -57,7 +53,7 @@ pub struct ChainFollower<DB> {
     pub network: SyncNetworkContext<DB>,
 
     /// Genesis tipset
-    genesis: Arc<Tipset>,
+    genesis: Tipset,
 
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all children as bad in this bounded
@@ -68,10 +64,10 @@ pub struct ChainFollower<DB> {
     net_handler: flume::Receiver<NetworkEvent>,
 
     /// Tipset channel sender
-    pub tipset_sender: flume::Sender<Arc<FullTipset>>,
+    pub tipset_sender: flume::Sender<FullTipset>,
 
     /// Tipset channel receiver
-    tipset_receiver: flume::Receiver<Arc<FullTipset>>,
+    tipset_receiver: flume::Receiver<FullTipset>,
 
     /// When `stateless_mode` is true, forest connects to the P2P network but
     /// does not execute any state transitions. This drastically reduces the
@@ -87,7 +83,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
     pub fn new(
         state_manager: Arc<StateManager<DB>>,
         network: SyncNetworkContext<DB>,
-        genesis: Arc<Tipset>,
+        genesis: Tipset,
         net_handler: flume::Receiver<NetworkEvent>,
         stateless_mode: bool,
         mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
@@ -135,11 +131,11 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
     bad_block_cache: Option<Arc<BadBlockCache>>,
     network_rx: flume::Receiver<NetworkEvent>,
-    tipset_receiver: flume::Receiver<Arc<FullTipset>>,
+    tipset_receiver: flume::Receiver<FullTipset>,
     network: SyncNetworkContext<DB>,
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
-    sync_status: Arc<RwLock<SyncStatusReport>>,
-    genesis: Arc<Tipset>,
+    sync_status: SyncStatus,
+    genesis: Tipset,
     stateless_mode: bool,
 ) -> anyhow::Result<()> {
     let state_changed = Arc::new(Notify::new());
@@ -164,7 +160,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
 
                 update_peer_info(
                     &event,
-                    network.clone(),
+                    &network,
                     state_manager.chain_store().clone(),
                     &genesis,
                 );
@@ -173,8 +169,8 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     NetworkEvent::HelloResponseOutbound { request, source } => {
                         let tipset_keys = TipsetKey::from(request.heaviest_tip_set.clone());
                         get_full_tipset(
-                            network.clone(),
-                            state_manager.chain_store().clone(),
+                            &network,
+                            state_manager.chain_store(),
                             Some(source),
                             &tipset_keys,
                         )
@@ -184,13 +180,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     NetworkEvent::PubsubMessage { message } => match message {
                         PubsubMessage::Block(b) => {
                             let key = TipsetKey::from(nunny::vec![*b.header.cid()]);
-                            get_full_tipset(
-                                network.clone(),
-                                state_manager.chain_store().clone(),
-                                None,
-                                &key,
-                            )
-                            .await
+                            get_full_tipset(&network, state_manager.chain_store(), None, &key).await
                         }
                         PubsubMessage::Message(m) => {
                             if let Err(why) = mem_pool.add(m) {
@@ -206,7 +196,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 {
                     state_machine
                         .lock()
-                        .update(SyncEvent::NewFullTipsets(vec![Arc::new(tipset)]));
+                        .update(SyncEvent::NewFullTipsets(vec![tipset]));
                     state_changed.notify_one();
                 }
             }
@@ -234,6 +224,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         let state_machine = state_machine.clone();
         let state_changed = state_changed.clone();
         let tasks = tasks.clone();
+        let bad_block_cache = bad_block_cache.clone();
         async move {
             loop {
                 state_changed.notified().await;
@@ -255,13 +246,14 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     // insert task into tasks. If task is already in tasks, skip. If it is not, spawn it.
                     let new = tasks_set.insert(task.clone());
                     if new {
-                        let tasks_clone = tasks.clone();
                         let action = task.clone().execute(
                             network.clone(),
                             state_manager.clone(),
                             stateless_mode,
+                            bad_block_cache.clone(),
                         );
                         tokio::spawn({
+                            let tasks = tasks.clone();
                             let state_machine = state_machine.clone();
                             let state_changed = state_changed.clone();
                             async move {
@@ -269,7 +261,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                                     state_machine.lock().update(event);
                                     state_changed.notify_one();
                                 }
-                                tasks_clone.lock().remove(&task);
+                                tasks.lock().remove(&task);
                             }
                         });
                     }
@@ -363,7 +355,7 @@ fn inc_gossipsub_event_metrics(event: &NetworkEvent) {
 // Keep our peer manager up to date.
 fn update_peer_info<DB: Blockstore + Sync + Send + 'static>(
     event: &NetworkEvent,
-    network: SyncNetworkContext<DB>,
+    network: &SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
     genesis: &Tipset,
 ) {
@@ -372,7 +364,7 @@ fn update_peer_info<DB: Blockstore + Sync + Send + 'static>(
             let genesis_cid = *genesis.block_headers().first().cid();
             // Spawn and immediately move on to the next event
             tokio::task::spawn(handle_peer_connected_event(
-                network,
+                network.clone(),
                 chain_store,
                 *peer_id,
                 genesis_cid,
@@ -424,7 +416,7 @@ async fn handle_peer_connected_event<DB: Blockstore + Sync + Send + 'static>(
 }
 
 fn handle_peer_disconnected_event<DB: Blockstore + Sync + Send + 'static>(
-    network: SyncNetworkContext<DB>,
+    network: &SyncNetworkContext<DB>,
     peer_id: PeerId,
 ) {
     network.peer_manager().remove_peer(&peer_id);
@@ -432,13 +424,13 @@ fn handle_peer_disconnected_event<DB: Blockstore + Sync + Send + 'static>(
 }
 
 pub async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
-    network: SyncNetworkContext<DB>,
-    chain_store: Arc<ChainStore<DB>>,
+    network: &SyncNetworkContext<DB>,
+    chain_store: &ChainStore<DB>,
     peer_id: Option<PeerId>,
     tipset_keys: &TipsetKey,
 ) -> anyhow::Result<FullTipset> {
     // Attempt to load from the store
-    if let Ok(full_tipset) = load_full_tipset(&chain_store, tipset_keys) {
+    if let Ok(full_tipset) = load_full_tipset(chain_store, tipset_keys) {
         return Ok(full_tipset);
     }
     // Load from the network
@@ -452,13 +444,13 @@ pub async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
 }
 
 async fn get_full_tipset_batch<DB: Blockstore + Sync + Send + 'static>(
-    network: SyncNetworkContext<DB>,
-    chain_store: Arc<ChainStore<DB>>,
+    network: &SyncNetworkContext<DB>,
+    chain_store: &ChainStore<DB>,
     peer_id: Option<PeerId>,
     tipset_keys: &TipsetKey,
 ) -> anyhow::Result<Vec<FullTipset>> {
     // Attempt to load from the store
-    if let Ok(full_tipset) = load_full_tipset(&chain_store, tipset_keys) {
+    if let Ok(full_tipset) = load_full_tipset(chain_store, tipset_keys) {
         return Ok(vec![full_tipset]);
     }
     // Load from the network
@@ -501,17 +493,17 @@ pub fn load_full_tipset<DB: Blockstore>(
 }
 
 enum SyncEvent {
-    NewFullTipsets(Vec<Arc<FullTipset>>),
-    BadTipset(Arc<FullTipset>),
+    NewFullTipsets(Vec<FullTipset>),
+    BadTipset(FullTipset),
     ValidatedTipset {
-        tipset: Arc<FullTipset>,
+        tipset: FullTipset,
         is_proposed_head: bool,
     },
 }
 
 impl std::fmt::Display for SyncEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn tss_to_string(tss: &[Arc<FullTipset>]) -> String {
+        fn tss_to_string(tss: &[FullTipset]) -> String {
             format!(
                 "epoch: {}-{}",
                 tss.first().map(|ts| ts.epoch()).unwrap_or_default(),
@@ -541,7 +533,7 @@ struct SyncStateMachine<DB> {
     cs: Arc<ChainStore<DB>>,
     bad_block_cache: Option<Arc<BadBlockCache>>,
     // Map from TipsetKey to FullTipset
-    tipsets: HashMap<TipsetKey, Arc<FullTipset>>,
+    tipsets: HashMap<TipsetKey, FullTipset>,
     stateless_mode: bool,
 }
 
@@ -560,7 +552,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     }
 
     // Compute the list of chains from the tipsets map
-    fn chains(&self) -> Vec<Vec<Arc<FullTipset>>> {
+    fn chains(&self) -> Vec<Vec<FullTipset>> {
         let mut chains = Vec::new();
         let mut remaining_tipsets = self.tipsets.clone();
 
@@ -588,7 +580,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         chains
     }
 
-    fn is_validated(&self, tipset: &FullTipset) -> bool {
+    fn is_parent_validated(&self, tipset: &FullTipset) -> bool {
         let db = self.cs.blockstore();
         self.stateless_mode || db.has(tipset.parent_state()).unwrap_or(false)
     }
@@ -609,14 +601,14 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             } else if parent_ts.epoch() >= head_ts.epoch() {
                 false
             } else {
-                self.is_validated(&parent_ts)
+                self.is_parent_validated(tipset)
             }
         } else {
             false
         }
     }
 
-    fn add_full_tipset(&mut self, tipset: Arc<FullTipset>) {
+    fn add_full_tipset(&mut self, tipset: FullTipset) {
         if let Err(why) = TipsetValidator(&tipset).validate(
             &self.cs,
             self.bad_block_cache.as_ref().map(AsRef::as_ref),
@@ -674,25 +666,17 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         // Create and insert new merged tipset
         if let Ok(merged_tipset) = FullTipset::new(merged_blocks) {
             self.tipsets
-                .insert(merged_tipset.key().clone(), Arc::new(merged_tipset));
+                .insert(merged_tipset.key().clone(), merged_tipset);
         }
     }
 
     // Mark blocks in tipset as bad.
     // Mark all descendants of tipsets as bad.
     // Remove all bad tipsets from the tipset map.
-    fn mark_bad_tipset(&mut self, tipset: Arc<FullTipset>) {
+    fn mark_bad_tipset(&mut self, tipset: FullTipset) {
         let mut stack = vec![tipset];
-
         while let Some(tipset) = stack.pop() {
             self.tipsets.remove(tipset.key());
-            // Mark all blocks in the tipset as bad
-            if let Some(bad_block_cache) = &self.bad_block_cache {
-                for block in tipset.blocks() {
-                    bad_block_cache.push(*block.cid());
-                }
-            }
-
             // Find all descendant tipsets (tipsets that have this tipset as a parent)
             let mut to_remove = Vec::new();
             let mut descendants = Vec::new();
@@ -714,20 +698,20 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         }
     }
 
-    fn mark_validated_tipset(&mut self, tipset: Arc<FullTipset>, is_proposed_head: bool) {
-        if !self.is_validated(&tipset) {
+    fn mark_validated_tipset(&mut self, tipset: FullTipset, is_proposed_head: bool) {
+        if !self.is_parent_validated(&tipset) {
             tracing::error!(epoch = %tipset.epoch(), tsk = %tipset.key(), "Tipset must be validated");
             return;
         }
 
         self.tipsets.remove(tipset.key());
-        let tipset = tipset.deref().clone().into_tipset();
+        let tipset = tipset.into_tipset();
         // cs.put_tipset requires state and doesn't work in stateless mode
         if self.stateless_mode {
             let epoch = tipset.epoch();
             let terse_key = tipset.key().terse();
             if self.cs.heaviest_tipset().weight() < tipset.weight() {
-                if let Err(e) = self.cs.set_heaviest_tipset(Arc::new(tipset)) {
+                if let Err(e) = self.cs.set_heaviest_tipset(tipset) {
                     error!("Error setting heaviest tipset: {}", e);
                 } else {
                     info!("Heaviest tipset: {} ({})", epoch, terse_key);
@@ -737,7 +721,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             if let Err(e) = self.cs.put_tipset(&tipset) {
                 error!("Error putting tipset: {e}");
             }
-        } else if let Err(e) = self.cs.set_heaviest_tipset(tipset.into()) {
+        } else if let Err(e) = self.cs.set_heaviest_tipset(tipset) {
             error!("Error setting heaviest tipset: {e}");
         }
     }
@@ -805,7 +789,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 enum SyncTask {
     ValidateTipset {
-        tipset: Arc<FullTipset>,
+        tipset: FullTipset,
         is_proposed_head: bool,
     },
     FetchTipset(TipsetKey, ChainEpoch),
@@ -841,6 +825,7 @@ impl SyncTask {
         network: SyncNetworkContext<DB>,
         state_manager: Arc<StateManager<DB>>,
         stateless_mode: bool,
+        bad_block_cache: Option<Arc<BadBlockCache>>,
     ) -> Option<SyncEvent> {
         tracing::trace!("SyncTask::execute {self}");
         let cs = state_manager.chain_store();
@@ -857,8 +842,14 @@ impl SyncTask {
                 is_proposed_head,
             } => {
                 let genesis = cs.genesis_tipset();
-                match validate_tipset(state_manager.clone(), cs, tipset.deref().clone(), &genesis)
-                    .await
+                match validate_tipset(
+                    &state_manager,
+                    cs,
+                    tipset.clone(),
+                    &genesis,
+                    bad_block_cache,
+                )
+                .await
                 {
                     Ok(()) => Some(SyncEvent::ValidatedTipset {
                         tipset,
@@ -870,15 +861,13 @@ impl SyncTask {
                     }
                 }
             }
-            SyncTask::FetchTipset(key, _epoch) => {
-                if let Ok(parents) =
-                    get_full_tipset_batch(network.clone(), cs.clone(), None, &key).await
-                {
-                    Some(SyncEvent::NewFullTipsets(
-                        parents.into_iter().map(Arc::new).collect(),
-                    ))
-                } else {
-                    None
+            SyncTask::FetchTipset(key, epoch) => {
+                match get_full_tipset_batch(&network, cs, None, &key).await {
+                    Ok(parents) => Some(SyncEvent::NewFullTipsets(parents)),
+                    Err(e) => {
+                        tracing::warn!(%key, %epoch, "failed to fetch tipset: {e}");
+                        None
+                    }
                 }
             }
         }
@@ -936,8 +925,7 @@ mod tests {
             .unwrap(),
         );
 
-        cs.set_heaviest_tipset(Arc::new(cs.genesis_tipset()))
-            .unwrap();
+        cs.set_heaviest_tipset(cs.genesis_tipset()).unwrap();
 
         (cs, c4u)
     }
@@ -979,7 +967,7 @@ mod tests {
                 secp_messages: vec![],
             }])
             .unwrap();
-            state_machine.update(SyncEvent::NewFullTipsets(vec![Arc::new(full_tipset)]));
+            state_machine.update(SyncEvent::NewFullTipsets(vec![full_tipset]));
         }
 
         // Record validation order by processing all validation tasks in each iteration
@@ -1047,7 +1035,7 @@ mod tests {
                 secp_messages: vec![],
             }])
             .unwrap();
-            state_machine.update(SyncEvent::NewFullTipsets(vec![Arc::new(full_tipset)]));
+            state_machine.update(SyncEvent::NewFullTipsets(vec![full_tipset]));
         }
 
         let chains = state_machine

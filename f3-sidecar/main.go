@@ -10,22 +10,7 @@ import (
 var logger = logging.Logger("f3/sidecar")
 
 func main() {
-	logging.SetAllLoggers(logging.LevelInfo)
-	if err := logging.SetLogLevel("dht", "error"); err != nil {
-		panic(err)
-	}
-	if err := logging.SetLogLevel("dht/RtRefreshManager", "warn"); err != nil {
-		panic(err)
-	}
-	if err := logging.SetLogLevel("net/identify", "error"); err != nil {
-		panic(err)
-	}
-	if err := logging.SetLogLevel("pubsub", "warn"); err != nil {
-		panic(err)
-	}
-	if err := logging.SetLogLevel("f3/sidecar", "debug"); err != nil {
-		panic(err)
-	}
+	checkError(setLogLevels())
 
 	var rpcEndpoint string
 	flag.StringVar(&rpcEndpoint, "rpc", "http://127.0.0.1:2345/rpc/v1", "forest RPC endpoint")

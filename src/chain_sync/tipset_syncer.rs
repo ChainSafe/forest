@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use crate::chain_sync::BadBlockCache;
 use crate::networks::Height;
 use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
 use crate::shim::crypto::SignatureType;
@@ -25,12 +26,13 @@ use crate::{
 };
 use ahash::HashMap;
 use cid::Cid;
-use futures::{StreamExt, TryFutureExt, stream::FuturesUnordered};
+use futures::TryFutureExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 use thiserror::Error;
+use tokio::task::JoinSet;
 use tracing::{error, trace, warn};
 
 use crate::chain_sync::{consensus::collect_errs, metrics, validation::TipsetValidator};
@@ -96,10 +98,11 @@ impl TipsetSyncerError {
 /// ones to the bad block cache, depending on strategy. Any bad block fails
 /// validation.
 pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
-    state_manager: Arc<StateManager<DB>>,
+    state_manager: &Arc<StateManager<DB>>,
     chainstore: &ChainStore<DB>,
     full_tipset: FullTipset,
     genesis: &Tipset,
+    bad_block_cache: Option<Arc<BadBlockCache>>,
 ) -> Result<(), TipsetSyncerError> {
     if full_tipset.key().eq(genesis.key()) {
         trace!("Skipping genesis tipset validation");
@@ -110,29 +113,31 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
 
     let epoch = full_tipset.epoch();
     let full_tipset_key = full_tipset.key().clone();
-
-    let mut validations = FuturesUnordered::new();
-    let blocks = full_tipset.into_blocks();
-
     trace!("Tipset keys: {full_tipset_key}");
-
+    let blocks = full_tipset.into_blocks();
+    let mut validations = JoinSet::new();
     for b in blocks {
-        let validation_fn = tokio::task::spawn(validate_block(state_manager.clone(), Arc::new(b)));
-        validations.push(validation_fn);
+        validations.spawn(validate_block(state_manager.clone(), Arc::new(b)));
     }
 
-    while let Some(result) = validations.next().await {
+    while let Some(result) = validations.join_next().await {
         match result? {
             Ok(block) => {
                 chainstore.add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {
-                warn!(
-                    "Validating block [CID = {}] in EPOCH = {} failed: {}",
-                    cid.clone(),
-                    epoch,
-                    why
-                );
+                warn!("Validating block [CID = {cid}] in EPOCH = {epoch} failed: {why}");
+                match &why {
+                    TipsetSyncerError::TimeTravellingBlock(_, _) => {
+                        // Do not mark a block as bad for temporary errors.
+                        // See <https://github.com/filecoin-project/lotus/blob/v1.34.1/chain/sync.go#L602> in Lotus
+                    }
+                    _ => {
+                        if let Some(bad_block_cache) = bad_block_cache {
+                            bad_block_cache.push(cid);
+                        }
+                    }
+                };
                 return Err(why);
             }
         }
@@ -200,9 +205,9 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 
     // Retrieve lookback tipset for validation
     let lookback_state = ChainStore::get_lookback_tipset_for_round(
-        state_manager.chain_store().chain_index().clone(),
-        state_manager.chain_config().clone(),
-        base_tipset.clone(),
+        state_manager.chain_store().chain_index(),
+        state_manager.chain_config(),
+        &base_tipset,
         block.header().epoch,
     )
     .map_err(|e| (*block_cid, e.into()))
@@ -215,105 +220,114 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Async validations
-    let validations = FuturesUnordered::new();
+    let mut validations = JoinSet::new();
 
     // Check block messages
-    validations.push(tokio::task::spawn(check_block_messages(
-        Arc::clone(&state_manager),
-        Arc::clone(&block),
-        Arc::clone(&base_tipset),
-    )));
+    validations.spawn(check_block_messages(
+        state_manager.clone(),
+        block.clone(),
+        base_tipset.clone(),
+    ));
 
     // Base fee check
-    let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
-    let v_base_tipset = Arc::clone(&base_tipset);
-    let v_block_store = state_manager.blockstore_owned();
-    let v_block = Arc::clone(&block);
-    validations.push(tokio::task::spawn_blocking(move || {
-        let base_fee = crate::chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
-            .map_err(|e| {
-                TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))
-            })?;
-        let parent_base_fee = &v_block.header.parent_base_fee;
-        if &base_fee != parent_base_fee {
-            return Err(TipsetSyncerError::Validation(format!(
-                "base fee doesn't match: {parent_base_fee} (header), {base_fee} (computed)"
-            )));
+    validations.spawn_blocking({
+        let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
+        let base_tipset = base_tipset.clone();
+        let block_store = state_manager.blockstore_owned();
+        let block = Arc::clone(&block);
+        move || {
+            let base_fee = crate::chain::compute_base_fee(&block_store, &base_tipset, smoke_height)
+                .map_err(|e| {
+                    TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))
+                })?;
+            let parent_base_fee = &block.header.parent_base_fee;
+            if &base_fee != parent_base_fee {
+                return Err(TipsetSyncerError::Validation(format!(
+                    "base fee doesn't match: {parent_base_fee} (header), {base_fee} (computed)"
+                )));
+            }
+            Ok(())
         }
-        Ok(())
-    }));
+    });
 
     // Parent weight calculation check
-    let v_block_store = state_manager.blockstore_owned();
-    let v_base_tipset = Arc::clone(&base_tipset);
-    let weight = header.weight.clone();
-    validations.push(tokio::task::spawn_blocking(move || {
-        let calc_weight = fil_cns::weight(&v_block_store, &v_base_tipset).map_err(|e| {
-            TipsetSyncerError::Calculation(format!("Error calculating weight: {e}"))
-        })?;
-        if weight != calc_weight {
-            return Err(TipsetSyncerError::Validation(format!(
-                "Parent weight doesn't match: {weight} (header), {calc_weight} (computed)"
-            )));
+    validations.spawn_blocking({
+        let block_store = state_manager.blockstore_owned();
+        let base_tipset = base_tipset.clone();
+        let weight = header.weight.clone();
+        move || {
+            let calc_weight = fil_cns::weight(&block_store, &base_tipset).map_err(|e| {
+                TipsetSyncerError::Calculation(format!("Error calculating weight: {e}"))
+            })?;
+            if weight != calc_weight {
+                return Err(TipsetSyncerError::Validation(format!(
+                    "Parent weight doesn't match: {weight} (header), {calc_weight} (computed)"
+                )));
+            }
+            Ok(())
         }
-        Ok(())
-    }));
+    });
 
     // State root and receipt root validations
-    let v_state_manager = Arc::clone(&state_manager);
-    let v_base_tipset = Arc::clone(&base_tipset);
-    let v_block = Arc::clone(&block);
-    validations.push(tokio::task::spawn(async move {
-        let header = v_block.header();
-        let (state_root, receipt_root) = v_state_manager
-            .tipset_state(&v_base_tipset)
-            .await
-            .map_err(|e| {
-                TipsetSyncerError::Calculation(format!("Failed to calculate state: {e}"))
-            })?;
+    validations.spawn({
+        let state_manager = state_manager.clone();
+        let block = block.clone();
+        async move {
+            let header = block.header();
+            let (state_root, receipt_root) = state_manager
+                .tipset_state(&base_tipset)
+                .await
+                .map_err(|e| {
+                    TipsetSyncerError::Calculation(format!("Failed to calculate state: {e}"))
+                })?;
 
-        if state_root != header.state_root {
-            return Err(TipsetSyncerError::Validation(format!(
-                "Parent state root did not match computed state: {} (header), {} (computed)",
-                header.state_root, state_root,
-            )));
-        }
+            if state_root != header.state_root {
+                return Err(TipsetSyncerError::Validation(format!(
+                    "Parent state root did not match computed state: {} (header), {} (computed)",
+                    header.state_root, state_root,
+                )));
+            }
 
-        if receipt_root != header.message_receipts {
-            return Err(TipsetSyncerError::Validation(format!(
-                "Parent receipt root did not match computed root: {} (header), {} (computed)",
-                header.message_receipts, receipt_root
-            )));
+            if receipt_root != header.message_receipts {
+                return Err(TipsetSyncerError::Validation(format!(
+                    "Parent receipt root did not match computed root: {} (header), {} (computed)",
+                    header.message_receipts, receipt_root
+                )));
+            }
+            Ok(())
         }
-        Ok(())
-    }));
+    });
 
     // Block signature check
-    let v_block = block.clone();
-    validations.push(tokio::task::spawn_blocking(move || {
-        v_block.header().verify_signature_against(&work_addr)?;
-        Ok(())
-    }));
+    validations.spawn_blocking({
+        let block = block.clone();
+        move || {
+            block.header().verify_signature_against(&work_addr)?;
+            Ok(())
+        }
+    });
 
-    let v_block = block.clone();
-    validations.push(tokio::task::spawn(async move {
-        consensus
-            .validate_block(state_manager, v_block)
-            .map_err(|errs| {
-                // NOTE: Concatenating errors here means the wrapper type of error
-                // never surfaces, yet we always pay the cost of the generic argument.
-                // But there's no reason `validate_block` couldn't return a list of all
-                // errors instead of a single one that has all the error messages,
-                // removing the caller's ability to distinguish between them.
+    validations.spawn({
+        let block = block.clone();
+        async move {
+            consensus
+                .validate_block(state_manager, block)
+                .map_err(|errs| {
+                    // NOTE: Concatenating errors here means the wrapper type of error
+                    // never surfaces, yet we always pay the cost of the generic argument.
+                    // But there's no reason `validate_block` couldn't return a list of all
+                    // errors instead of a single one that has all the error messages,
+                    // removing the caller's ability to distinguish between them.
 
-                TipsetSyncerError::concat(
-                    errs.into_iter_ne()
-                        .map(TipsetSyncerError::ConsensusError)
-                        .collect_vec(),
-                )
-            })
-            .await
-    }));
+                    TipsetSyncerError::concat(
+                        errs.into_iter_ne()
+                            .map(TipsetSyncerError::ConsensusError)
+                            .collect_vec(),
+                    )
+                })
+                .await
+        }
+    });
 
     // Collect the errors from the async validations
     if let Err(errs) = collect_errs(validations).await {
@@ -338,7 +352,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
-    base_tipset: Arc<Tipset>,
+    base_tipset: Tipset,
 ) -> Result<(), TipsetSyncerError> {
     let network_version = state_manager
         .chain_config()
@@ -350,9 +364,9 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         // check block message and signatures in them
         let mut pub_keys = Vec::with_capacity(block.bls_msgs().len());
         let mut cids = Vec::with_capacity(block.bls_msgs().len());
-        let db = state_manager.blockstore_owned();
+        let db = state_manager.blockstore();
         for m in block.bls_msgs() {
-            let pk = StateManager::get_bls_public_key(&db, &m.from, *base_tipset.parent_state())?;
+            let pk = StateManager::get_bls_public_key(db, &m.from, *base_tipset.parent_state())?;
             pub_keys.push(pk);
             cids.push(m.cid().to_bytes());
         }

@@ -16,7 +16,7 @@ use crate::{
     message_pool::{MessagePool, MpoolRpcProvider},
     networks::{ChainConfig, NetworkChain},
     rpc::{
-        RPCState, RpcMethod, RpcMethodExt as _,
+        ApiPaths, RPCState, RpcMethod, RpcMethodExt as _,
         eth::{filter::EthEventHandler, types::EthHash},
     },
     shim::address::{CurrentNetwork, Network},
@@ -48,6 +48,8 @@ pub struct RpcTestSnapshot {
     pub index: Option<Index>,
     #[serde(with = "crate::lotus_json::base64_standard")]
     pub db: Vec<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_path: Option<ApiPaths>,
 }
 
 fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
@@ -85,10 +87,12 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         index,
         db: db_bytes,
         response: expected_response,
+        api_path,
     } = serde_json::from_slice(snapshot_bytes.as_slice())?;
     if chain.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
+    let api_path = api_path.unwrap_or(ApiPaths::V1);
     let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(AnyCar::new(db_bytes)?)?);
     // backfill db with index data
     backfill_eth_mappings(db.writer(), index)?;
@@ -101,7 +105,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
 
     macro_rules! run_test {
         ($ty:ty) => {
-            if method_name.as_str() == <$ty>::NAME {
+            if method_name.as_str() == <$ty>::NAME && <$ty>::API_PATHS.contains(api_path) {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
                 let result = <$ty>::handle(ctx.clone(), params)
                     .await

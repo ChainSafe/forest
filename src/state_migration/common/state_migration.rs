@@ -158,7 +158,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                         });
                     job_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let job_counter = job_counter.load(std::sync::atomic::Ordering::Relaxed);
-                    if job_counter % 100_000 == 0 {
+                    if job_counter.is_multiple_of(100_000) {
                         tracing::info!("Processed {job_counter} actors", job_counter = job_counter);
                     }
                 }

@@ -106,12 +106,10 @@ pub fn decode_revert_reason(return_data: RawBytes) -> (Vec<u8>, String) {
     let (data, reason) = match decode_payload(&return_data, CBOR) {
         Err(e) => {
             log::warn!("failed to unmarshal cbor bytes from message receipt return error: {e}");
-            (
-                EthBytes::default(),
-                String::from("ERROR: revert reason is not cbor encoded bytes"),
-            )
+            (EthBytes::default(), String::default())
         }
-        Ok(data) => (data.clone(), parse_eth_revert(data.0.as_slice())),
+        Ok(data) if !data.is_empty() => (data.clone(), parse_eth_revert(data.as_slice())),
+        Ok(data) => (data.clone(), "none".to_string()),
     };
 
     (data.0, reason)

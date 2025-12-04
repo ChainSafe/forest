@@ -26,25 +26,6 @@ function forest_download_and_import_snapshot {
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
 }
 
-function forest_download_and_import_snapshot_with_f3 {
-  echo "Downloading v1 snapshot"
-  aria2c -x5 https://forest-archive.chainsafe.dev/latest-v1/calibnet -o v1.forest.car.zst
-  echo "Inspecting v1 snapshot"
-  $FOREST_TOOL_PATH archive info v1.forest.car.zst
-  echo "Downloading F3 snapshot"
-  aria2c -x5 https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/f3/f3_snap_calibnet_622579.bin -o f3.bin
-  echo "Inspecting F3 snapshot"
-  $FOREST_TOOL_PATH archive f3-header f3.bin
-  echo "Generating v2 snapshot"
-  $FOREST_TOOL_PATH archive merge-f3 --v1 v1.forest.car.zst --f3 f3.bin --output v2.forest.car.zst
-  echo "Inspecting v2 snapshot info"
-  $FOREST_TOOL_PATH archive info v2.forest.car.zst
-  echo "Inspecting v2 snapshot metadata"
-  $FOREST_TOOL_PATH archive metadata v2.forest.car.zst
-  echo "Importing the v2 snapshot"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot v2.forest.car.zst
-}
-
 function get_epoch_from_car_db {
   DB_PATH=$($FOREST_TOOL_PATH db stats --chain calibnet | grep "Database path:" | cut -d':' -f2- | xargs)
   SNAPSHOT=$(ls "$DB_PATH/car_db"/*.car.zst)
@@ -105,7 +86,7 @@ function forest_run_node_stateless_detached {
 		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
 	EOF
 
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --skip-load-actors --stateless &
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --stateless &
 }
 
 function forest_wait_api {
@@ -147,25 +128,6 @@ function forest_init {
   FULLNODE_API_INFO="${ADMIN_TOKEN}:/ip4/127.0.0.1/tcp/2345/http"
 
   export FULLNODE_API_INFO
-}
-
-function forest_init_with_f3 {
-  forest_download_and_import_snapshot_with_f3
-
-  forest_check_db_stats
-  forest_run_node_detached
-
-  forest_wait_api
-
-  forest_wait_for_sync
-  forest_check_db_stats
-
-  forest_wait_for_healthcheck_ready
-  
-  echo "Print the latest F3 certificate"
-  $FOREST_CLI_PATH f3 c get
-  echo "ensure F3 certificate at instance 622000 has been imported"
-  $FOREST_CLI_PATH f3 c get 622000
 }
 
 function forest_init_stateless {
