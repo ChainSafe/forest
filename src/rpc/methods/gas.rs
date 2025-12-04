@@ -21,7 +21,6 @@ use fvm_ipld_blockstore::Blockstore;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
-use std::sync::Arc;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
