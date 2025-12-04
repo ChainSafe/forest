@@ -5,6 +5,7 @@ use std::num::NonZeroUsize;
 
 use anyhow::Context as _;
 use itertools::Itertools;
+use nonzero_ext::nonzero;
 use num::{BigInt, Zero as _};
 
 use crate::{
@@ -25,7 +26,7 @@ pub struct ChainListCommand {
     #[arg(long)]
     epoch: Option<u64>,
     /// Number of tipsets
-    #[arg(long, default_value_t = NonZeroUsize::new(30).unwrap())]
+    #[arg(long, default_value_t = nonzero!(30usize))]
     count: NonZeroUsize,
     #[arg(long)]
     /// View gas statistics for the chain

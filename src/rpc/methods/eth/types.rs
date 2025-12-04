@@ -5,6 +5,7 @@ use super::*;
 use crate::blocks::CachingBlockHeader;
 use crate::rpc::eth::pubsub_trait::LogFilter;
 use anyhow::ensure;
+use get_size2::GetSize;
 use ipld_core::serde::SerdeError;
 use jsonrpsee::core::traits::IdProvider;
 use jsonrpsee::types::SubscriptionId;
@@ -28,6 +29,7 @@ pub const METHOD_GET_STORAGE_AT: u64 = 5;
     JsonSchema,
     derive_more::From,
     derive_more::Into,
+    GetSize,
 )]
 pub struct EthBytes(
     #[schemars(with = "String")]
@@ -116,6 +118,12 @@ pub struct EthAddress(
     pub ethereum_types::Address,
 );
 lotus_json_with_self!(EthAddress);
+
+impl GetSize for EthAddress {
+    fn get_heap_size(&self) -> usize {
+        0
+    }
+}
 
 impl EthAddress {
     pub fn to_filecoin_address(&self) -> anyhow::Result<FilecoinAddress> {
@@ -393,8 +401,13 @@ impl TryFrom<EthCallMessage> for Message {
 )]
 #[displaydoc("{0:#x}")]
 pub struct EthHash(#[schemars(with = "String")] pub ethereum_types::H256);
-
 lotus_json_with_self!(EthHash);
+
+impl GetSize for EthHash {
+    fn get_heap_size(&self) -> usize {
+        0
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
 pub struct FilterID(EthHash);
