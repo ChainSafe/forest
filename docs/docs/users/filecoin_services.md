@@ -84,10 +84,6 @@ Filecoin Archive is a collection of Filecoin snapshots aiming to provide a histo
 
 [Lotus Fountain](https://github.com/filecoin-project/lotus/blob/master/cmd/lotus-fountain/main.go)-based faucet for calibnet FIL and datacap. The faucet is available at [faucet.calibnet.chainsafe-fil.io](https://faucet.calibnet.chainsafe-fil.io).
 
-## Storage
-
-The S3-compatible IPFS/Filecoin gateway is available at [storage.chainsafe.io](https://storage.chainsafe.io).
-
 :::tip
 You can check the status of many ChainSafe services at [status.chainsafe.dev](https://status.chainsafe.dev).
 :::
