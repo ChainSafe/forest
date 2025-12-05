@@ -90,7 +90,7 @@ use tokio::sync::{RwLock, broadcast::error::RecvError};
 use tracing::{error, info, instrument, trace, warn};
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
-const EVENTS_AMT_BITWIDTH: u32 = 5;
+pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
@@ -566,18 +566,19 @@ where
                 key,
                 Box::new(move || {
                     Box::pin(async move {
-                        // If the events are not in the cache, try to load them from the blockstore
-                        if let Some(events_root) = events_root
-                            && let Ok(stamped_events) =
-                                StampedEvent::get_events(this.blockstore(), &events_root)
+                        // Try to load events directly from the blockstore
+                        if let Some(stamped_events) = events_root
+                            .as_ref()
+                            .and_then(|root| StampedEvent::get_events(this.blockstore(), root).ok())
+                            .filter(|events| !events.is_empty())
                         {
                             return Ok(StateEvents {
                                 events: vec![stamped_events],
-                                roots: vec![Some(events_root)],
+                                roots: vec![events_root],
                             });
                         }
 
-                        // If the events are neither in the cache nor in the blockstore, compute them.
+                        // Fallback: compute the tipset state if events not found in the blockstore
                         let state_out = this
                             .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
                             .await?;
