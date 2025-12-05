@@ -7,7 +7,7 @@ use crate::shim::{
 };
 use crate::utils::get_size::{GetSize, vec_heap_size_with_fn_helper};
 use cid::Cid;
-use fil_actors_shared::fvm_ipld_amt::Amtv0;
+use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
@@ -339,6 +339,7 @@ impl ActorEvent {
 
 /// Event with extra information stamped by the FVM.
 #[derive(Clone, Debug, Serialize)]
+#[serde(untagged)]
 pub enum StampedEvent {
     V3(StampedEvent_v3),
     V4(StampedEvent_v4),
@@ -384,6 +385,32 @@ impl StampedEvent {
             Self::V3(v3) => v3.event.clone().into(),
             Self::V4(v4) => v4.event.clone().into(),
         }
+    }
+
+    /// Loads events directly from the events AMT root CID.
+    /// Returns events in the exact order they are stored in the AMT.
+    pub fn get_events<DB: Blockstore>(
+        db: &DB,
+        events_root: &Cid,
+    ) -> anyhow::Result<Vec<StampedEvent>> {
+        let mut events = Vec::new();
+
+        // Try StampedEvent_v4 first (StampedEvent_v4 and StampedEvent_v3 are identical, use v4 here)
+        if let Ok(amt) = Amt::<StampedEvent_v4, _>::load(events_root, db) {
+            amt.for_each(|_, event| {
+                events.push(StampedEvent::V4(event.clone()));
+                Ok(())
+            })?;
+        } else {
+            // Fallback to StampedEvent_v3
+            let amt = Amt::<StampedEvent_v3, _>::load(events_root, db)?;
+            amt.for_each(|_, event| {
+                events.push(StampedEvent::V3(event.clone()));
+                Ok(())
+            })?;
+        }
+
+        Ok(events)
     }
 }
 

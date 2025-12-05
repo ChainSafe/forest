@@ -45,7 +45,6 @@ use anyhow::{Context, Error, anyhow, bail, ensure};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
-use itertools::Itertools;
 use serde::*;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
@@ -286,7 +285,9 @@ impl EthEventHandler {
 
         ensure!(
             messages.len() == events.len(),
-            "Length of messages and events do not match"
+            "Length of messages ({}) and events ({}) do not match",
+            messages.len(),
+            events.len(),
         );
 
         let mut event_count = 0;
@@ -375,7 +376,12 @@ impl EthEventHandler {
             .tipset_state_events(tipset, Some(events_root))
             .await?;
 
-        ensure!(state_events.roots.len() == state_events.events.len());
+        ensure!(
+            state_events.roots.len() == state_events.events.len(),
+            "State events roots ({}) and events length ({}) mismatch ",
+            state_events.roots.len(),
+            state_events.events.len(),
+        );
 
         let filtered_events = state_events
             .roots
@@ -384,11 +390,13 @@ impl EthEventHandler {
             .filter(|(cid, _)| cid.as_ref() == Some(events_root))
             .map(|(_, v)| v);
 
-        let chain_events = filtered_events
+        // Do NOT deduplicate events - the AMT can legitimately contain duplicate events
+        // if a contract emits the same event multiple times. We must preserve the exact
+        // order and count of events as stored in the AMT.
+        let chain_events: Vec<Event> = filtered_events
             .into_iter()
             .flat_map(|events| events.into_iter())
             .map(Into::into)
-            .unique()
             .collect();
 
         Ok(chain_events)
