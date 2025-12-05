@@ -197,6 +197,8 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::state::StateDealProviderCollateralBounds);
         $callback!($crate::rpc::state::StateFetchRoot);
         $callback!($crate::rpc::state::StateGetActor);
+        $callback!($crate::rpc::state::StateGetActorV2);
+        $callback!($crate::rpc::state::StateGetID);
         $callback!($crate::rpc::state::StateGetAllAllocations);
         $callback!($crate::rpc::state::StateGetAllClaims);
         $callback!($crate::rpc::state::StateGetAllocation);
