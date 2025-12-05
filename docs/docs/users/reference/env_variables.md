@@ -51,6 +51,7 @@ process.
 | `FOREST_DISABLE_BAD_BLOCK_CACHE`                          | 1 or true                        | empty                                          | 1                                                             | Whether or not to disable bad block cache                                                                             |
 | `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE`                | positive integer                 | 268435456                                      | 536870912                                                     | The default zstd frame cache max size in bytes                                                                        |
 | `FOREST_JWT_DISABLE_EXP_VALIDATION`                       | 1 or true                        | empty                                          | 1                                                             | Whether or not to disable JWT expiration validation                                                                   |
+| `FOREST_ETH_BLOCK_CACHE_SIZE`                             | positive integer                 | 500                                            | 1                                                             | The size of Eth block cache                                                                                           |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 
