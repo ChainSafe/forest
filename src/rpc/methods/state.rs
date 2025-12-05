@@ -310,7 +310,7 @@ impl RpcMethod<2> for StateGetActorV2 {
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
-        Some("Retrieves the ID address for the specified address at the selected tipset.");
+        Some("Returns the nonce and balance for the specified actor.");
 
     type Params = (Address, TipsetSelector);
     type Ok = Option<ActorState>;
