@@ -11,7 +11,6 @@ use crate::message::{Message as _, SignedMessage};
 use crate::rpc::FilterList;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
-use crate::rpc::chain::types::*;
 use crate::rpc::eth::{
     BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
     new_eth_tx_from_signed_message, types::*,
@@ -20,7 +19,7 @@ use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::state::StateGetAllClaims;
-use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
+use crate::rpc::types::*;
 use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
@@ -826,6 +825,20 @@ fn state_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(StateGetActor::request((
             Address::SYSTEM_ACTOR,
             tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateGetActorV2::request((
+            Address::SYSTEM_ACTOR,
+            TipsetSelector {
+                key: tipset.key().into(),
+                ..Default::default()
+            },
+        ))?),
+        RpcTest::identity(StateGetID::request((
+            Address::SYSTEM_ACTOR,
+            TipsetSelector {
+                key: tipset.key().into(),
+                ..Default::default()
+            },
         ))?),
         RpcTest::identity(StateGetRandomnessFromTickets::request((
             DomainSeparationTag::ElectionProofProduction as i64,

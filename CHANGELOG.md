@@ -31,6 +31,10 @@
 
 - [#6231](https://github.com/ChainSafe/forest/pull/6231) Implemented `Filecoin.ChainGetTipSet` for API v2.
 
+- [#6312](https://github.com/ChainSafe/forest/pull/6312) Implemented `Filecoin.StateGetActor` for API v2.
+
+- [#6312](https://github.com/ChainSafe/forest/pull/6312) Implemented `Filecoin.StateGetID` for API v2.
+
 ### Changed
 
 ### Removed
