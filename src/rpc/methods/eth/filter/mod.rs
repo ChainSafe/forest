@@ -285,7 +285,9 @@ impl EthEventHandler {
 
         ensure!(
             messages.len() == events.len(),
-            "Length of messages and events do not match"
+            "Length of messages ({}) and events ({}) do not match",
+            messages.len(),
+            events.len(),
         );
 
         let mut event_count = 0;
@@ -374,7 +376,12 @@ impl EthEventHandler {
             .tipset_state_events(tipset, Some(events_root))
             .await?;
 
-        ensure!(state_events.roots.len() == state_events.events.len());
+        ensure!(
+            state_events.roots.len() == state_events.events.len(),
+            "State events roots ({}) and events length ({}) mismatch ",
+            state_events.roots.len(),
+            state_events.events.len(),
+        );
 
         let filtered_events = state_events
             .roots
