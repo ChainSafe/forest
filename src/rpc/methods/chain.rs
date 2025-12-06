@@ -219,7 +219,7 @@ impl RpcMethod<1> for ChainGetMessage {
     const DESCRIPTION: Option<&'static str> = Some("Returns the message with the specified CID.");
 
     type Params = (Cid,);
-    type Ok = Message;
+    type Ok = FlattenedApiMessage;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -229,10 +229,13 @@ impl RpcMethod<1> for ChainGetMessage {
             .store()
             .get_cbor(&message_cid)?
             .with_context(|| format!("can't find message with cid {message_cid}"))?;
-        Ok(match chain_message {
+        let message = match chain_message {
             ChainMessage::Signed(m) => m.into_message(),
             ChainMessage::Unsigned(m) => m,
-        })
+        };
+
+        let cid = message.cid();
+        Ok(FlattenedApiMessage { message, cid })
     }
 }
 
@@ -1356,6 +1359,18 @@ pub struct ApiMessage {
 }
 
 lotus_json_with_self!(ApiMessage);
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, Eq, PartialEq)]
+pub struct FlattenedApiMessage {
+    #[serde(flatten, with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Message>")]
+    pub message: Message,
+    #[serde(rename = "CID", with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Cid>")]
+    pub cid: Cid,
+}
+
+lotus_json_with_self!(FlattenedApiMessage);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ForestChainExportParams {
