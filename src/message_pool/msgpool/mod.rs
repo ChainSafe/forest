@@ -9,7 +9,7 @@ pub mod selection;
 pub mod test_provider;
 pub(in crate::message_pool) mod utils;
 
-use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
+use std::{borrow::BorrowMut, cmp::Ordering};
 
 use crate::blocks::Tipset;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
@@ -213,7 +213,7 @@ where
 pub async fn head_change<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
-    repub_trigger: Arc<flume::Sender<()>>,
+    repub_trigger: flume::Sender<()>,
     republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &SyncRwLock<Tipset>,
@@ -356,8 +356,14 @@ pub mod tests {
 
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool =
-            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
+        let mpool = MessagePool::new(
+            tma,
+            tx,
+            Default::default(),
+            Default::default(),
+            &mut services,
+        )
+        .unwrap();
         let mut smsg_vec = Vec::new();
         for i in 0..(mpool.api.max_actor_pending_messages() + 1) {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -436,8 +442,14 @@ pub mod tests {
 
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool =
-            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
+        let mpool = MessagePool::new(
+            tma,
+            tx,
+            Default::default(),
+            Default::default(),
+            &mut services,
+        )
+        .unwrap();
         let mut smsg_vec = Vec::new();
         for i in 0..2 {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -458,7 +470,7 @@ pub mod tests {
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
         let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
         head_change(
             api.as_ref(),
@@ -497,8 +509,14 @@ pub mod tests {
         }
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool =
-            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
+        let mpool = MessagePool::new(
+            tma,
+            tx,
+            Default::default(),
+            Default::default(),
+            &mut services,
+        )
+        .unwrap();
 
         {
             let mut api_temp = mpool.api.inner.lock();
@@ -519,7 +537,7 @@ pub mod tests {
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
         let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
         head_change(
             api.as_ref(),
@@ -590,8 +608,14 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool =
-            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
+        let mpool = MessagePool::new(
+            tma,
+            tx,
+            Default::default(),
+            Default::default(),
+            &mut services,
+        )
+        .unwrap();
 
         let mut smsg_vec = Vec::new();
         for i in 0..3 {

@@ -513,7 +513,7 @@ where
         let republished = mp.republished.clone();
 
         let cur_tipset = mp.cur_tipset.clone();
-        let repub_trigger = Arc::new(mp.repub_trigger.clone());
+        let repub_trigger = mp.repub_trigger.clone();
 
         // Reacts to new HeadChanges
         services.spawn(async move {
