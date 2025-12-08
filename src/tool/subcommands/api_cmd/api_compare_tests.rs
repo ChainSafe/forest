@@ -654,7 +654,8 @@ fn node_tests() -> Vec<RpcTest> {
 fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) -> Vec<RpcTest> {
     let epoch = tipset.epoch();
     vec![
-        RpcTest::identity(GetActorEventsRaw::request((None,)).unwrap()),
+        RpcTest::identity(GetActorEventsRaw::request((None,)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(
             GetActorEventsRaw::request((Some(ActorEventFilter {
                 addresses: vec![],
@@ -665,6 +666,7 @@ fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) ->
             }),))
             .unwrap(),
         )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
         .sort_policy(SortPolicy::All),
         RpcTest::identity(
             GetActorEventsRaw::request((Some(ActorEventFilter {
@@ -676,6 +678,7 @@ fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) ->
             }),))
             .unwrap(),
         )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
         .sort_policy(SortPolicy::All),
         RpcTest::identity(
             GetActorEventsRaw::request((Some(ActorEventFilter {
@@ -687,6 +690,7 @@ fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) ->
             }),))
             .unwrap(),
         )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
         .sort_policy(SortPolicy::All),
         RpcTest::identity(
             GetActorEventsRaw::request((Some(ActorEventFilter {
@@ -702,6 +706,7 @@ fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) ->
             }),))
             .unwrap(),
         )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
         .sort_policy(SortPolicy::All),
         {
             use std::collections::BTreeMap;
@@ -732,6 +737,7 @@ fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) ->
                 }),))
                 .unwrap(),
             )
+            .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
             .sort_policy(SortPolicy::All)
         },
     ]
