@@ -10,7 +10,6 @@ use crate::utils::misc::env::is_env_set_and_truthy;
 use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::str::FromStr;
 
 const FOREST_CHAIN_INDEXER_ENABLED: &str = "FOREST_CHAIN_INDEXER_ENABLED";
 
@@ -96,18 +95,16 @@ impl Default for ChainIndexerConfig {
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct FeeConfig {
+    /// Indicates the default max fee for a message
     #[serde(with = "crate::lotus_json")]
     pub max_fee: TokenAmount,
 }
 
 impl Default for FeeConfig {
     fn default() -> Self {
-        // This indicates the default max fee for a message,
         // The code is taken from https://github.com/filecoin-project/lotus/blob/release/v1.34.1/node/config/def.go#L39
         Self {
-            max_fee: TokenAmount::from_atto(
-                num_bigint::BigInt::from_str("70000000000000000").unwrap(),
-            ), // 0.07 FIL
+            max_fee: TokenAmount::from_atto(70_000_000_000_000_000u64), // 0.07 FIL
         }
     }
 }

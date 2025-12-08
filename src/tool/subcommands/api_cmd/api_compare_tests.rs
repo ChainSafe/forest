@@ -2091,7 +2091,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             |forest_api_msg, lotus_api_msg| {
                 let forest_msg = forest_api_msg.message;
                 let lotus_msg = lotus_api_msg.message;
-                // Validate that the gas limit is identical (should be deterministic)
+                // Validate that the gas limit is identical (must be deterministic)
                 if forest_msg.gas_limit != lotus_msg.gas_limit {
                     return false;
                 }
@@ -2107,17 +2107,22 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                     if val1.is_zero() && val2.is_zero() {
                         return true;
                     }
+                    // If only one value is zero, the estimates are fundamentally different
+                    // (one node thinks there's no cost, the other doesn't),
+                    // so we fail the comparison
                     if val1.is_zero() || val2.is_zero() {
                         return false;
                     }
 
+                    // Gas fee values are always positive, so we just need max - min
                     let diff = if val1 > val2 {
                         val1 - val2.clone()
                     } else {
                         val2 - val1.clone()
                     };
 
-                    // Calculate 5% of the larger value
+                    // Calculate 5% threshold using integer arithmetic to avoid floating-point issues
+                    // This is equivalent to: threshold = 0.05 * max(val1, val2)
                     let max_val = val1.max(val2);
                     let threshold = (max_val * 5u64).div_floor(100u64);
 

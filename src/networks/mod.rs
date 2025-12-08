@@ -10,6 +10,7 @@ use fil_actors_shared::v13::runtime::Policy;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::Multiaddr;
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::Display;
@@ -283,7 +284,7 @@ pub struct ChainConfig {
     pub f3_initial_power_table: Option<Cid>,
     pub enable_indexer: bool,
     pub enable_receipt_event_caching: bool,
-    pub default_max_fee: Option<TokenAmount>,
+    pub default_max_fee: TokenAmount,
 }
 
 impl ChainConfig {
@@ -317,7 +318,7 @@ impl ChainConfig {
             ),
             enable_indexer: false,
             enable_receipt_event_caching: true,
-            default_max_fee: None,
+            default_max_fee: TokenAmount::zero(),
         }
     }
 
@@ -354,7 +355,7 @@ impl ChainConfig {
             ),
             enable_indexer: false,
             enable_receipt_event_caching: true,
-            default_max_fee: None,
+            default_max_fee: TokenAmount::zero(),
         }
     }
 
@@ -381,7 +382,7 @@ impl ChainConfig {
             f3_initial_power_table: None,
             enable_indexer: false,
             enable_receipt_event_caching: true,
-            default_max_fee: None,
+            default_max_fee: TokenAmount::zero(),
         }
     }
 
@@ -414,7 +415,7 @@ impl ChainConfig {
             f3_initial_power_table: None,
             enable_indexer: false,
             enable_receipt_event_caching: true,
-            default_max_fee: None,
+            default_max_fee: TokenAmount::zero(),
         }
     }
 

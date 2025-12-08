@@ -79,7 +79,7 @@ fn get_chain_config_and_set_network(config: &Config) -> Arc<ChainConfig> {
     Arc::new(ChainConfig {
         enable_indexer: config.chain_indexer.enable_indexer,
         enable_receipt_event_caching: config.client.enable_rpc,
-        default_max_fee: Some(config.fee.max_fee.clone()),
+        default_max_fee: config.fee.max_fee.clone(),
         ..chain_config
     })
 }

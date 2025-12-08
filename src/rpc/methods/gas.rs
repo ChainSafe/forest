@@ -21,6 +21,7 @@ use fvm_ipld_blockstore::Blockstore;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
+use std::ops::Add;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
@@ -62,11 +63,7 @@ fn estimate_fee_cap<DB: Blockstore>(
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .context("failed to convert fee_in_future f64 to bigint")?;
-    let mut out: TokenAmount = fee_in_future.div_floor(1 << 8);
-    if !msg.gas_premium.is_zero() {
-        out += msg.gas_premium();
-    }
-
+    let out = fee_in_future.div_floor(1 << 8).add(msg.gas_premium());
     Ok(out)
 }
 
@@ -340,17 +337,13 @@ where
         msg.set_gas_fee_cap(gfp);
     }
 
-    cap_gas_fee(
-        data.chain_config().default_max_fee.as_ref(),
-        &mut msg,
-        msg_spec,
-    );
+    cap_gas_fee(&data.chain_config().default_max_fee, &mut msg, msg_spec);
 
     Ok(msg)
 }
 
 fn cap_gas_fee(
-    default_max_fee: Option<&TokenAmount>,
+    default_max_fee: &TokenAmount,
     msg: &mut Message,
     msg_spec: Option<MessageSendSpec>,
 ) {
@@ -363,11 +356,7 @@ fn cap_gas_fee(
     }
 
     max_fee = if max_fee.is_zero() {
-        if let Some(default_max_fee) = default_max_fee {
-            default_max_fee.clone()
-        } else {
-            TokenAmount::zero()
-        }
+        default_max_fee.clone()
     } else {
         max_fee
     };

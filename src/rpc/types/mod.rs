@@ -51,7 +51,7 @@ pub struct MessageSendSpec {
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub max_fee: TokenAmount,
-
+    pub msg_uuid: uuid::Uuid,
     pub maximize_fee_cap: bool,
 }
 
