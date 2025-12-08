@@ -26,16 +26,16 @@
     "@docusaurus/theme-mermaid": "^3.9.2",
     "@easyops-cn/docusaurus-search-local": "^0.52.2",
     "mdx-mermaid": "^2.0.3",
-    "mermaid": "^11.12.1",
+    "mermaid": "^11.12.2",
     "prettier": "^3.6.2",
     "prism-react-renderer": "^2.4.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.9.2",
     "@docusaurus/tsconfig": "^3.9.2",
-    "spellchecker-cli": "^7.0.1",
+    "spellchecker-cli": "^7.0.2",
     "typescript": "^5.9.3"
   },
   "browserslist": {

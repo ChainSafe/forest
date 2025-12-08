@@ -41,12 +41,6 @@ fn raw_bytes_heap_size(b: &RawBytes) -> usize {
     b.bytes().get_heap_size()
 }
 
-// impl GetSize for Message{
-//     fn get_heap_size(&self) -> usize {
-
-//     }
-// }
-
 impl From<Message_v4> for Message {
     fn from(other: Message_v4) -> Self {
         Self {

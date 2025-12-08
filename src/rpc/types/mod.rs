@@ -5,6 +5,9 @@
 //!
 //! If a type here is used by only one API, it should be relocated.
 
+mod tipset_selector;
+pub use tipset_selector::*;
+
 mod address_impl;
 mod deal_impl;
 mod sector_impl;

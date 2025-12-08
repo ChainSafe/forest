@@ -19,6 +19,7 @@ use async_trait::async_trait;
 use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
 use itertools::Itertools as _;
+use nonzero_ext::nonzero;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use tracing::debug;
 use url::Url;
@@ -243,7 +244,7 @@ impl DrandBeacon {
     /// Construct a new `DrandBeacon`.
     pub fn new(genesis_ts: u64, interval: u64, config: &DrandConfig<'_>) -> Self {
         assert_ne!(genesis_ts, 0, "Genesis timestamp cannot be 0");
-        const CACHE_SIZE: usize = 1000;
+        const CACHE_SIZE: NonZeroUsize = nonzero!(1000usize);
         Self {
             servers: config.servers.clone(),
             hash: config.chain_info.hash.to_string(),
@@ -256,7 +257,7 @@ impl DrandBeacon {
             fil_gen_time: genesis_ts,
             verified_beacons: SizeTrackingLruCache::new_with_metrics(
                 "verified_beacons".into(),
-                NonZeroUsize::new(CACHE_SIZE).expect("Infallible"),
+                CACHE_SIZE,
             ),
         }
     }
