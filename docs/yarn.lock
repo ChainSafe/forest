@@ -8010,12 +8010,12 @@ __metadata:
     "@docusaurus/tsconfig": "npm:^3.9.2"
     "@easyops-cn/docusaurus-search-local": "npm:^0.52.2"
     mdx-mermaid: "npm:^2.0.3"
-    mermaid: "npm:^11.12.1"
+    mermaid: "npm:^11.12.2"
     prettier: "npm:^3.6.2"
     prism-react-renderer: "npm:^2.4.1"
-    react: "npm:^19.2.0"
-    react-dom: "npm:^19.2.0"
-    spellchecker-cli: "npm:^7.0.1"
+    react: "npm:^19.2.1"
+    react-dom: "npm:^19.2.1"
+    spellchecker-cli: "npm:^7.0.2"
     typescript: "npm:^5.9.3"
   languageName: unknown
   linkType: soft
@@ -10583,7 +10583,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mermaid@npm:>=11.6.0, mermaid@npm:^11.12.1":
+"mermaid@npm:>=11.6.0":
   version: 11.12.1
   resolution: "mermaid@npm:11.12.1"
   dependencies:
@@ -10608,6 +10608,34 @@ __metadata:
     ts-dedent: "npm:^2.2.0"
     uuid: "npm:^11.1.0"
   checksum: 10c0/0dd07a5986bb25ca038f68f7a187a0b6ccf5fa8c738603c3145bd4b6289d50312053818f52617cf575a6652e6c57809ae115c016725f7ce446496be5971a150a
+  languageName: node
+  linkType: hard
+
+"mermaid@npm:^11.12.2":
+  version: 11.12.2
+  resolution: "mermaid@npm:11.12.2"
+  dependencies:
+    "@braintree/sanitize-url": "npm:^7.1.1"
+    "@iconify/utils": "npm:^3.0.1"
+    "@mermaid-js/parser": "npm:^0.6.3"
+    "@types/d3": "npm:^7.4.3"
+    cytoscape: "npm:^3.29.3"
+    cytoscape-cose-bilkent: "npm:^4.1.0"
+    cytoscape-fcose: "npm:^2.2.0"
+    d3: "npm:^7.9.0"
+    d3-sankey: "npm:^0.12.3"
+    dagre-d3-es: "npm:7.0.13"
+    dayjs: "npm:^1.11.18"
+    dompurify: "npm:^3.2.5"
+    katex: "npm:^0.16.22"
+    khroma: "npm:^2.1.0"
+    lodash-es: "npm:^4.17.21"
+    marked: "npm:^16.2.1"
+    roughjs: "npm:^4.6.6"
+    stylis: "npm:^4.3.6"
+    ts-dedent: "npm:^2.2.0"
+    uuid: "npm:^11.1.0"
+  checksum: 10c0/00969b96171f1f11cf897df205d932237a6303041d9519b82bd727cfca43507b54cbf28dfb951aa7ff5e6129607f2297703a464361fc95942db9364c579da9f3
   languageName: node
   linkType: hard
 
@@ -13620,14 +13648,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:^19.2.0":
-  version: 19.2.0
-  resolution: "react-dom@npm:19.2.0"
+"react-dom@npm:^19.2.1":
+  version: 19.2.1
+  resolution: "react-dom@npm:19.2.1"
   dependencies:
     scheduler: "npm:^0.27.0"
   peerDependencies:
-    react: ^19.2.0
-  checksum: 10c0/fa2cae05248d01288e91523b590ce4e7635b1e13f1344e225f850d722a8da037bf0782f63b1c1d46353334e0c696909b82e582f8cad607948fde6f7646cc18d9
+    react: ^19.2.1
+  checksum: 10c0/e56b6b3d72314df580ca800b70a69a21c6372703c8f45d9b5451ca6519faefb2496d76ffa9c5adb94136d2bbf2fd303d0dfc208a2cd77ede3132877471af9470
   languageName: node
   linkType: hard
 
@@ -13741,10 +13769,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react@npm:^19.2.0":
-  version: 19.2.0
-  resolution: "react@npm:19.2.0"
-  checksum: 10c0/1b6d64eacb9324725bfe1e7860cb7a6b8a34bc89a482920765ebff5c10578eb487e6b46b2f0df263bd27a25edbdae2c45e5ea5d81ae61404301c1a7192c38330
+"react@npm:^19.2.1":
+  version: 19.2.1
+  resolution: "react@npm:19.2.1"
+  checksum: 10c0/2b5eaf407abb3db84090434c20d6c5a8e447ab7abcd8fe9eaf1ddc299babcf31284ee9db7ea5671d21c85ac5298bd632fa1a7da1ed78d5b368a537f5e1cd5d62
   languageName: node
   linkType: hard
 
@@ -14974,9 +15002,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"spellchecker-cli@npm:^7.0.1":
-  version: 7.0.1
-  resolution: "spellchecker-cli@npm:7.0.1"
+"spellchecker-cli@npm:^7.0.2":
+  version: 7.0.2
+  resolution: "spellchecker-cli@npm:7.0.2"
   dependencies:
     chalk: "npm:^2.4.2"
     command-line-args: "npm:^5.1.1"
@@ -15012,7 +15040,7 @@ __metadata:
     vfile-reporter: "npm:^6.0.0"
   bin:
     spellchecker: build/index.js
-  checksum: 10c0/fd68388b8e4969c3b73db477be5bcd5492e4b0a51c0e857762f52229dcac51e281dac00e76a657f34a2933c690ad0237c1e2c82173fac673e1dd7cf7c0922d2f
+  checksum: 10c0/718e23552b8e86ee67354f3dd4787a8f36b4a2895bd3ee38abd6ae576c0ab5a47f33c032e445ef6db39c9b726c3f1df70b2933a279d9e9e12f90d707c0532372
   languageName: node
   linkType: hard
 
