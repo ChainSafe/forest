@@ -53,7 +53,7 @@ cid = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 colored = "3"
-criterion = { version = "0.7", default-features = false, features = ["async_tokio"], optional = true }
+criterion = { version = "0.8", default-features = false, features = ["async_tokio"], optional = true }
 crypto_secretbox = "0.1"
 data-encoding = "2"
 data-encoding-macro = "0.1"
@@ -238,7 +238,7 @@ assert_cmd = "2"
 bimap = "0.6"
 cargo_metadata = "0.23"
 cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
-criterion = { version = "0.7", features = ["async_tokio", "csv_output"] }
+criterion = { version = "0.8", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
@@ -254,7 +254,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.307"
+ra_ap_syntax = "0.0.308"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }

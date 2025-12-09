@@ -19,7 +19,7 @@ use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
 use crate::rpc::f3::F3ExportLatestSnapshot;
-use crate::rpc::types::{ApiExportResult, ApiExportStatus, ApiTipsetKey, Event};
+use crate::rpc::types::*;
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
@@ -1101,6 +1101,43 @@ impl ChainGetTipSetV2 {
             Ok(None)
         }
     }
+
+    pub async fn get_tipset(
+        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        selector: &TipsetSelector,
+    ) -> anyhow::Result<Option<Tipset>> {
+        selector.validate()?;
+        // Get tipset by key.
+        if let ApiTipsetKey(Some(tsk)) = &selector.key {
+            let ts = ctx.chain_index().load_required_tipset(tsk)?;
+            return Ok(Some(ts));
+        }
+        // Get tipset by height.
+        if let Some(height) = &selector.height {
+            let anchor = Self::get_tipset_by_anchor(ctx, &height.anchor).await?;
+            let ts = ctx.chain_index().tipset_by_height(
+                height.at,
+                anchor.unwrap_or_else(|| ctx.chain_store().heaviest_tipset()),
+                height.resolve_null_tipset_policy(),
+            )?;
+            return Ok(Some(ts));
+        }
+        // Get tipset by tag, either latest or finalized.
+        if let Some(tag) = &selector.tag {
+            let ts = Self::get_tipset_by_tag(ctx, *tag).await?;
+            return Ok(ts);
+        }
+        anyhow::bail!("no tipset found for selector")
+    }
+
+    pub async fn get_required_tipset(
+        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        selector: &TipsetSelector,
+    ) -> anyhow::Result<Tipset> {
+        Self::get_tipset(ctx, selector)
+            .await?
+            .context("failed to select a tipset")
+    }
 }
 
 impl RpcMethod<1> for ChainGetTipSetV2 {
@@ -1117,28 +1154,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (selector,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        selector.validate()?;
-        // Get tipset by key.
-        if let ApiTipsetKey(Some(tsk)) = &selector.key {
-            let ts = ctx.chain_index().load_required_tipset(tsk)?;
-            return Ok(Some(ts));
-        }
-        // Get tipset by height.
-        if let Some(height) = &selector.height {
-            let anchor = Self::get_tipset_by_anchor(&ctx, &height.anchor).await?;
-            let ts = ctx.chain_index().tipset_by_height(
-                height.at,
-                anchor.unwrap_or_else(|| ctx.chain_store().heaviest_tipset()),
-                height.resolve_null_tipset_policy(),
-            )?;
-            return Ok(Some(ts));
-        }
-        // Get tipset by tag, either latest or finalized.
-        if let Some(tag) = &selector.tag {
-            let ts = Self::get_tipset_by_tag(&ctx, *tag).await?;
-            return Ok(ts);
-        }
-        Err(anyhow::anyhow!("no tipset found for selector").into())
+        Ok(Self::get_tipset(&ctx, &selector).await?)
     }
 }
 

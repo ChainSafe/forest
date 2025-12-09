@@ -35,6 +35,7 @@ use libp2p::{
     swarm::{DialError, SwarmEvent},
     tcp, yamux,
 };
+use nonzero_ext::nonzero;
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, info, trace, warn};
 
@@ -206,9 +207,7 @@ where
             .with_behaviour(|_| behaviour)?
             .with_swarm_config(|config| {
                 config
-                    .with_notify_handler_buffer_size(
-                        std::num::NonZeroUsize::new(20).expect("Not zero"),
-                    )
+                    .with_notify_handler_buffer_size(nonzero!(20usize))
                     .with_per_connection_event_buffer_size(64)
                     .with_idle_connection_timeout(Duration::from_secs(60 * 10))
             })

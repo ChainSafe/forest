@@ -1,20 +1,20 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
+use super::{
+    MigrationCache, Migrator, PostMigrationCheckArc, PostMigratorArc,
+    migration_job::{MigrationJob, MigrationJobOutput},
+    verifier::MigrationVerifier,
+};
 use crate::cid_collections::CidHashMap;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_migration::common::MigrationCache;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use nonzero_ext::nonzero;
 use parking_lot::Mutex;
-
-use super::PostMigrationCheckArc;
-use super::{Migrator, PostMigratorArc, verifier::MigrationVerifier};
-use crate::state_migration::common::migration_job::{MigrationJob, MigrationJobOutput};
 
 /// Handles several cases of migration:
 /// - nil migrations, essentially mapping one Actor to another,
@@ -79,7 +79,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
             verifier.verify_migration(store, &self.migrations, &actors_in)?;
         }
 
-        let cache = MigrationCache::new(NonZeroUsize::new(10_000).expect("infallible"));
+        let cache = MigrationCache::new(nonzero!(10_000usize));
         let num_threads = std::env::var("FOREST_STATE_MIGRATION_THREADS")
             .ok()
             .and_then(|s| s.parse().ok())

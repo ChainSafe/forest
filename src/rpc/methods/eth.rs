@@ -53,8 +53,10 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
+use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
@@ -64,11 +66,14 @@ use enumflags2::BitFlags;
 use filter::{ParsedFilter, ParsedFilterTipsets};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
+use get_size2::GetSize;
 use ipld_core::ipld::Ipld;
 use itertools::Itertools;
+use nonzero_ext::nonzero;
 use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
@@ -132,6 +137,12 @@ pub struct EthBigInt(
 );
 lotus_json_with_self!(EthBigInt);
 
+impl GetSize for EthBigInt {
+    fn get_heap_size(&self) -> usize {
+        big_int_heap_size_helper(&self.0)
+    }
+}
+
 impl From<TokenAmount> for EthBigInt {
     fn from(amount: TokenAmount) -> Self {
         (&amount).into()
@@ -152,8 +163,13 @@ pub struct Nonce(
     #[serde(with = "crate::lotus_json::hexify_bytes")]
     pub ethereum_types::H64,
 );
-
 lotus_json_with_self!(Nonce);
+
+impl GetSize for Nonce {
+    fn get_heap_size(&self) -> usize {
+        0
+    }
+}
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct Bloom(
@@ -161,8 +177,13 @@ pub struct Bloom(
     #[serde(with = "crate::lotus_json::hexify_bytes")]
     pub ethereum_types::Bloom,
 );
-
 lotus_json_with_self!(Bloom);
+
+impl GetSize for Bloom {
+    fn get_heap_size(&self) -> usize {
+        0
+    }
+}
 
 impl Bloom {
     pub fn accrue(&mut self, input: &[u8]) {
@@ -182,6 +203,7 @@ impl Bloom {
     JsonSchema,
     derive_more::From,
     derive_more::Into,
+    GetSize,
 )]
 pub struct EthUint64(
     #[schemars(with = "String")]
@@ -449,7 +471,7 @@ impl ExtBlockNumberOrHash {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
 pub enum Transactions {
     Hash(Vec<String>),
@@ -481,7 +503,7 @@ impl Default for Transactions {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
     pub hash: EthHash,
@@ -526,7 +548,7 @@ impl Block {
 
 lotus_json_with_self!(Block);
 
-#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiEthTx {
     pub chain_id: EthUint64,
@@ -1392,64 +1414,77 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     tipset: Tipset,
     full_tx_info: bool,
 ) -> Result<Block> {
-    let parent_cid = tipset.parents().cid()?;
+    static ETH_BLOCK_CACHE: LazyLock<SizeTrackingLruCache<CidWrapper, Block>> =
+        LazyLock::new(|| {
+            const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(500usize);
+            let cache_size = std::env::var("FOREST_ETH_BLOCK_CACHE_SIZE")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(DEFAULT_CACHE_SIZE);
+            SizeTrackingLruCache::new_with_metrics("eth_block".into(), cache_size)
+        });
 
-    let block_number = EthUint64(tipset.epoch() as u64);
+    let block_cid = tipset.key().cid()?;
+    let mut block = if let Some(b) = ETH_BLOCK_CACHE.get_cloned(&block_cid.into()) {
+        b
+    } else {
+        let parent_cid = tipset.parents().cid()?;
+        let block_number = EthUint64(tipset.epoch() as u64);
+        let block_hash: EthHash = block_cid.into();
 
-    let tsk = tipset.key();
-    let block_cid = tsk.cid()?;
-    let block_hash: EthHash = block_cid.into();
+        let (state_root, msgs_and_receipts) = execute_tipset(&data, &tipset).await?;
 
-    let (state_root, msgs_and_receipts) = execute_tipset(&data, &tipset).await?;
+        let state_tree = StateTree::new_from_root(data.store_owned(), &state_root)?;
 
-    let state_tree = StateTree::new_from_root(data.store_owned(), &state_root)?;
+        let mut full_transactions = vec![];
+        let mut gas_used = 0;
+        for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
+            let ti = EthUint64(i as u64);
+            gas_used += receipt.gas_used();
+            let smsg = match msg {
+                ChainMessage::Signed(msg) => msg.clone(),
+                ChainMessage::Unsigned(msg) => {
+                    let sig = Signature::new_bls(vec![]);
+                    SignedMessage::new_unchecked(msg.clone(), sig)
+                }
+            };
 
-    let mut full_transactions = vec![];
-    let mut hash_transactions = vec![];
-    let mut gas_used = 0;
-    for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
-        let ti = EthUint64(i as u64);
-        gas_used += receipt.gas_used();
-        let smsg = match msg {
-            ChainMessage::Signed(msg) => msg.clone(),
-            ChainMessage::Unsigned(msg) => {
-                let sig = Signature::new_bls(vec![]);
-                SignedMessage::new_unchecked(msg.clone(), sig)
-            }
-        };
-
-        let mut tx =
-            new_eth_tx_from_signed_message(&smsg, &state_tree, data.chain_config().eth_chain_id)?;
-        tx.block_hash = block_hash.clone();
-        tx.block_number = block_number.clone();
-        tx.transaction_index = ti;
-
-        if full_tx_info {
+            let mut tx = new_eth_tx_from_signed_message(
+                &smsg,
+                &state_tree,
+                data.chain_config().eth_chain_id,
+            )?;
+            tx.block_hash = block_hash.clone();
+            tx.block_number = block_number.clone();
+            tx.transaction_index = ti;
             full_transactions.push(tx);
-        } else {
-            hash_transactions.push(tx.hash.to_string());
         }
+
+        let b = Block {
+            hash: block_hash,
+            number: block_number,
+            parent_hash: parent_cid.into(),
+            timestamp: EthUint64(tipset.block_headers().first().timestamp),
+            base_fee_per_gas: tipset
+                .block_headers()
+                .first()
+                .parent_base_fee
+                .clone()
+                .into(),
+            gas_used: EthUint64(gas_used),
+            transactions: Transactions::Full(full_transactions),
+            ..Block::new(!msgs_and_receipts.is_empty(), tipset.len())
+        };
+        ETH_BLOCK_CACHE.push(block_cid.into(), b.clone());
+        b
+    };
+
+    if !full_tx_info && let Transactions::Full(transactions) = &block.transactions {
+        block.transactions =
+            Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
     }
 
-    Ok(Block {
-        hash: block_hash,
-        number: block_number,
-        parent_hash: parent_cid.into(),
-        timestamp: EthUint64(tipset.block_headers().first().timestamp),
-        base_fee_per_gas: tipset
-            .block_headers()
-            .first()
-            .parent_base_fee
-            .clone()
-            .into(),
-        gas_used: EthUint64(gas_used),
-        transactions: if full_tx_info {
-            Transactions::Full(full_transactions)
-        } else {
-            Transactions::Hash(hash_transactions)
-        },
-        ..Block::new(!msgs_and_receipts.is_empty(), tipset.len())
-    })
+    Ok(block)
 }
 
 pub enum EthGetBlockByHash {}

@@ -905,7 +905,7 @@ mod test_selection {
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
         let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
 
         head_change(
@@ -943,7 +943,7 @@ mod test_selection {
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
         let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
 
         head_change(

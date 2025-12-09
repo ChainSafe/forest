@@ -31,7 +31,8 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools;
-use parking_lot::Mutex;
+use nonzero_ext::nonzero;
+use parking_lot::{Mutex, RwLock};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::broadcast::{self, Sender as Publisher};
@@ -63,6 +64,9 @@ pub struct ChainStore<DB> {
 
     /// Heaviest tipset key provider
     heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
+
+    /// Heaviest tipset cache
+    heaviest_tipset_cache: Arc<RwLock<Option<Tipset>>>,
 
     /// Used as a cache for tipset `lookbacks`.
     chain_index: Arc<ChainIndex<Arc<DB>>>,
@@ -131,6 +135,7 @@ where
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,
             heaviest_tipset_key_provider,
+            heaviest_tipset_cache: Default::default(),
             genesis_block_header,
             validated_blocks,
             eth_mappings,
@@ -145,6 +150,7 @@ where
     pub fn set_heaviest_tipset(&self, ts: Tipset) -> Result<(), Error> {
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(ts.key())?;
+        *self.heaviest_tipset_cache.write() = Some(ts.clone());
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
@@ -219,6 +225,9 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Tipset {
+        if let Some(ts) = &*self.heaviest_tipset_cache.read() {
+            return ts.clone();
+        }
         let tsk = self
             .heaviest_tipset_key_provider
             .heaviest_tipset_key()
@@ -600,7 +609,7 @@ impl MsgsInTipsetCache {
     /// Reads the intended cache size for this process from the environment or uses the default.
     fn read_cache_size() -> NonZeroUsize {
         // Arbitrary number, can be adjusted
-        const DEFAULT: NonZeroUsize = NonZeroUsize::new(100).expect("infallible");
+        const DEFAULT: NonZeroUsize = nonzero!(100usize);
         std::env::var("FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE")
             .ok()
             .and_then(|s| s.parse().ok())

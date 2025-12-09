@@ -130,15 +130,14 @@ pub(in crate::state_migration) struct TypeMigrator;
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroUsize;
-
     use super::MigrationCache;
     use crate::utils::cid::CidCborExt;
     use cid::Cid;
+    use nonzero_ext::nonzero;
 
     #[test]
     fn test_migration_cache() {
-        let cache = MigrationCache::new(NonZeroUsize::new(10).unwrap());
+        let cache = MigrationCache::new(nonzero!(10usize));
         let cid = Cid::from_cbor_blake2b256(&42).unwrap();
         cache.push("Cthulhu".to_owned(), cid);
         assert_eq!(cache.get("Cthulhu"), Some(cid));

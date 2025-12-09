@@ -5,6 +5,7 @@ mod types;
 use futures::stream::FuturesOrdered;
 pub use types::*;
 
+use super::chain::ChainGetTipSetV2;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
@@ -298,6 +299,50 @@ impl RpcMethod<2> for StateGetActor {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state = ctx.state_manager.get_actor(&address, *ts.parent_state())?;
         Ok(state)
+    }
+}
+
+pub enum StateGetActorV2 {}
+
+impl RpcMethod<2> for StateGetActorV2 {
+    const NAME: &'static str = "Filecoin.StateGetActor";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetSelector"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the nonce and balance for the specified actor.");
+
+    type Params = (Address, TipsetSelector);
+    type Ok = Option<ActorState>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, selector): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ChainGetTipSetV2::get_required_tipset(&ctx, &selector).await?;
+        Ok(ctx.state_manager.get_actor(&address, *ts.parent_state())?)
+    }
+}
+
+pub enum StateGetID {}
+
+impl RpcMethod<2> for StateGetID {
+    const NAME: &'static str = "Filecoin.StateGetID";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetSelector"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves the ID address for the specified address at the selected tipset.");
+
+    type Params = (Address, TipsetSelector);
+    type Ok = Address;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, selector): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ChainGetTipSetV2::get_required_tipset(&ctx, &selector).await?;
+        Ok(ctx.state_manager.lookup_required_id(&address, &ts)?)
     }
 }
 

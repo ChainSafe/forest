@@ -15,6 +15,7 @@ use crate::{
     shim::clock::ChainEpoch,
     state_manager::{StateManager, StateOutput},
 };
+use nonzero_ext::nonzero;
 use std::{num::NonZeroUsize, path::PathBuf, sync::Arc, time::Instant};
 
 /// Interact with Filecoin chain state
@@ -116,7 +117,7 @@ pub struct ReplayComputeCommand {
     #[arg(long, required = true)]
     chain: NetworkChain,
     /// Number of times to repeat the state computation
-    #[arg(short, long, default_value_t = NonZeroUsize::new(1).unwrap())]
+    #[arg(short, long, default_value_t = nonzero!(1usize))]
     n: NonZeroUsize,
 }
 
