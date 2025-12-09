@@ -35,6 +35,8 @@
 
 - [#6312](https://github.com/ChainSafe/forest/pull/6312) Implemented `Filecoin.StateGetID` for API v2.
 
+- [#6323](https://github.com/ChainSafe/forest/pull/6323) Implemented `Filecoin.FilecoinAddressToEthAddress` for API v1 and v2.
+
 ### Changed
 
 ### Removed
