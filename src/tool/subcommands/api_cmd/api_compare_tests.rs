@@ -1456,10 +1456,18 @@ fn eth_tests() -> Vec<RpcTest> {
             EthUninstallFilter::request_with_alias((FilterID::new().unwrap(),), use_alias).unwrap(),
         ));
         tests.push(RpcTest::identity(
-            EthAddressToFilecoinAddress::request((EthAddress::from_str(
-                "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
-            )
-            .unwrap(),))
+            EthAddressToFilecoinAddress::request(("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa"
+                .parse()
+                .unwrap(),))
+            .unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((
+                "t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy"
+                    .parse()
+                    .unwrap(),
+                None,
+            ))
             .unwrap(),
         ));
     }
