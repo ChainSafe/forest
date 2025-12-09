@@ -280,8 +280,7 @@ impl EthEventHandler {
 
         let messages = ctx.chain_store().messages_for_tipset(tipset)?;
 
-        let StateEvents { events, .. } =
-            ctx.state_manager.tipset_state_events(tipset, None).await?;
+        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
 
         ensure!(
             messages.len() == events.len(),

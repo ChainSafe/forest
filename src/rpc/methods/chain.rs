@@ -1611,7 +1611,6 @@ mod tests {
                 db,
                 Arc::new(MemoryDB::default()),
                 Arc::new(MemoryDB::default()),
-                Arc::new(MemoryDB::default()),
                 Arc::new(ChainConfig::calibnet()),
                 genesis_block_header,
             )
