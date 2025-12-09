@@ -2747,11 +2747,11 @@ impl RpcMethod<0> for EthSubscribe {
 pub enum EthAddressToFilecoinAddress {}
 impl RpcMethod<1> for EthAddressToFilecoinAddress {
     const NAME: &'static str = "Filecoin.EthAddressToFilecoinAddress";
-    const NAME_ALIAS: Option<&'static str> = None;
-    const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["ethAddress"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Converts an EthAddress into an f410 Filecoin Address");
     type Params = (EthAddress,);
     type Ok = FilecoinAddress;
     async fn handle(
@@ -2759,6 +2759,39 @@ impl RpcMethod<1> for EthAddressToFilecoinAddress {
         (eth_address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         Ok(eth_address.to_filecoin_address()?)
+    }
+}
+
+pub enum FilecoinAddressToEthAddress {}
+impl RpcMethod<2> for FilecoinAddressToEthAddress {
+    const NAME: &'static str = "Filecoin.FilecoinAddressToEthAddress";
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["filecoinAddress", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Converts any Filecoin address to an EthAddress");
+    type Params = (FilecoinAddress, Option<BlockNumberOrPredefined>);
+    type Ok = EthAddress;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if let Ok(eth_address) = EthAddress::from_filecoin_address(&address) {
+            Ok(eth_address)
+        } else {
+            let block_param = block_param.unwrap_or(BlockNumberOrPredefined::PredefinedBlock(
+                ExtPredefined::Finalized,
+            ));
+            let ts = tipset_by_ext_block_number_or_hash(
+                ctx.chain_store(),
+                block_param.into(),
+                ResolveNullTipset::TakeOlder,
+            )?;
+
+            let id_address = ctx.state_manager.lookup_required_id(&address, &ts)?;
+            Ok(EthAddress::from_filecoin_address(&id_address)?)
+        }
     }
 }
 
