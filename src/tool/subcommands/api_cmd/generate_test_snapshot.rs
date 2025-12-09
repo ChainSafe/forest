@@ -10,8 +10,8 @@ use crate::{
     chain_sync::network_context::SyncNetworkContext,
     daemon::db_util::load_all_forest_cars,
     db::{
-        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, IndicesStore, MemoryDB,
-        SettingsStore, SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
+        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
+        SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -89,13 +89,6 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
             .get_or_insert_with(ahash::HashMap::default)
             .insert(k.to_string(), Payload(v.clone()));
     }
-    let reader = db.tracker.indices_db.read();
-    for (k, v) in reader.iter() {
-        index
-            .indices
-            .get_or_insert_with(ahash::HashMap::default)
-            .insert(k.to_string(), Payload(v.clone()));
-    }
     if index == Index::default() {
         None
     } else {
@@ -121,7 +114,6 @@ async fn ctx(
             db.clone(),
             db.clone(),
             db.clone(),
-            db,
             chain_config,
             genesis_header,
         )
@@ -303,23 +295,5 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         self.inner.delete(keys)
-    }
-}
-
-impl<T: IndicesStore> IndicesStore for ReadOpsTrackingStore<T> {
-    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let result = self.inner.read_bin(key)?;
-        if let Some(v) = &result {
-            IndicesStore::write_bin(&self.tracker, key, v.as_slice())?;
-        }
-        self.inner.read_bin(key)
-    }
-
-    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
-        self.inner.write_bin(key, value)
-    }
-
-    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
-        self.inner.exists(key)
     }
 }

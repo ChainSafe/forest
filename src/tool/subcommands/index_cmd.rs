@@ -84,7 +84,6 @@ impl IndexCommands {
                     db.clone(),
                     db.clone(),
                     db.clone(),
-                    db.writer().clone(),
                     chain_config,
                     genesis_header.clone(),
                 )?);

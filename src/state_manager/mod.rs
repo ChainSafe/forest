@@ -491,15 +491,10 @@ where
                 let state_output = self
                     .compute_tipset_state(tipset.clone(), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
-                for events_root in state_output.events_roots.iter().flatten() {
-                    trace!("Indexing events root @{}: {}", tipset.epoch(), events_root);
-                    self.chain_store().put_index(events_root, key)?;
-                }
 
                 self.update_cache_with_state_output(key, &state_output);
 
                 let ts_state = state_output.into();
-                trace!("Completed tipset state calculation {:?}", tipset.cids());
 
                 Ok(ts_state)
             })
@@ -554,7 +549,6 @@ where
     pub async fn tipset_state_events(
         self: &Arc<Self>,
         tipset: &Tipset,
-        _events_root: Option<&Cid>,
     ) -> anyhow::Result<StateEvents> {
         let key = tipset.key();
         let ts = tipset.clone();

@@ -62,7 +62,6 @@ fn setup_chain_with_tipsets() -> TestChainSetup {
             db.clone(),
             db.clone(),
             db.clone(),
-            db.clone(),
             chain_config.clone(),
             genesis_header.clone().into(),
         )

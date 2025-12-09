@@ -187,15 +187,7 @@ mod tests {
         });
 
         let cs_arc = Arc::new(
-            ChainStore::new(
-                db.clone(),
-                db.clone(),
-                db.clone(),
-                db,
-                chain_config,
-                genesis_header,
-            )
-            .unwrap(),
+            ChainStore::new(db.clone(), db.clone(), db, chain_config, genesis_header).unwrap(),
         );
 
         let state_manager = Arc::new(StateManager::new(cs_arc.clone()).unwrap());
