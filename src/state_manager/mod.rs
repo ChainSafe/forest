@@ -554,30 +554,17 @@ where
     pub async fn tipset_state_events(
         self: &Arc<Self>,
         tipset: &Tipset,
-        events_root: Option<&Cid>,
+        _events_root: Option<&Cid>,
     ) -> anyhow::Result<StateEvents> {
         let key = tipset.key();
         let ts = tipset.clone();
         let this = Arc::clone(self);
         let cids = tipset.cids();
-        let events_root = events_root.cloned();
         self.receipt_event_cache_handler
             .get_events_or_else(
                 key,
                 Box::new(move || {
                     Box::pin(async move {
-                        // Try to load events directly from the blockstore
-                        if let Some(stamped_events) = events_root
-                            .as_ref()
-                            .and_then(|root| StampedEvent::get_events(this.blockstore(), root).ok())
-                            .filter(|events| !events.is_empty())
-                        {
-                            return Ok(StateEvents {
-                                events: vec![stamped_events],
-                                roots: vec![events_root],
-                            });
-                        }
-
                         // Fallback: compute the tipset state if events not found in the blockstore
                         let state_out = this
                             .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)

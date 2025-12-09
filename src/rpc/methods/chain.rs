@@ -254,16 +254,7 @@ impl RpcMethod<1> for ChainGetEvents {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (root_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tsk = ctx
-            .state_manager
-            .chain_store()
-            .get_tipset_key_by_events_root(&root_cid)?
-            .with_context(|| format!("can't find tipset for events root {root_cid}"))?;
-
-        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-
-        let events = EthEventHandler::collect_chain_events(&ctx, &ts, &root_cid).await?;
-
+        let events = EthEventHandler::get_events_by_event_root(&ctx, &root_cid)?;
         Ok(events)
     }
 }
