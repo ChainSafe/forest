@@ -5,7 +5,7 @@
 <p align="center">
     <a href="https://github.com/ChainSafe/forest/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge"></a>
     <a href="https://docs.forest.chainsafe.io"><img alt="Docs" src="https://img.shields.io/badge/doc-user_guide-green?style=for-the-badge"></a>
-    <a href="https://codecov.io/github/ChainSafe/forest"><img src="https://codecov.io/github/ChainSafe/forest/graph/badge.svg?token=1OHO2CSD17"/></a>
+    <a href="https://codecov.io/github/ChainSafe/forest"><img alt="Codecov" src="https://codecov.io/github/ChainSafe/forest/graph/badge.svg?token=1OHO2CSD17"/></a>
 </p>
  <p align="center">
     <a href="https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE"><img alt="License Apache 2.0" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge"></a>
