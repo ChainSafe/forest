@@ -397,14 +397,14 @@ impl StampedEvent {
 
         // Try StampedEvent_v4 first (StampedEvent_v4 and StampedEvent_v3 are identical, use v4 here)
         if let Ok(amt) = Amt::<StampedEvent_v4, _>::load(events_root, db) {
-            amt.for_each(|_, event| {
+            amt.for_each_cacheless(|_, event| {
                 events.push(StampedEvent::V4(event.clone()));
                 Ok(())
             })?;
         } else {
             // Fallback to StampedEvent_v3
             let amt = Amt::<StampedEvent_v3, _>::load(events_root, db)?;
-            amt.for_each(|_, event| {
+            amt.for_each_cacheless(|_, event| {
                 events.push(StampedEvent::V3(event.clone()));
                 Ok(())
             })?;
