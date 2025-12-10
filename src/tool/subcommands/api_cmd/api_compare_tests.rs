@@ -1944,9 +1944,27 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
     ];
 
     for block in shared_tipset.block_headers() {
+        tests.extend([RpcTest::identity(
+            FilecoinAddressToEthAddress::request((
+                block.miner_address,
+                Some(BlockNumberOrPredefined::PredefinedBlock(
+                    ExtPredefined::Latest,
+                )),
+            ))
+            .unwrap(),
+        )]);
         let (bls_messages, secp_messages) =
             crate::chain::store::block_messages(store, block).unwrap();
         for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
+            tests.extend([RpcTest::identity(
+                FilecoinAddressToEthAddress::request((
+                    msg.from(),
+                    Some(BlockNumberOrPredefined::PredefinedBlock(
+                        ExtPredefined::Latest,
+                    )),
+                ))
+                .unwrap(),
+            )]);
             if let Ok(eth_to_addr) = msg.to.try_into() {
                 tests.extend([RpcTest::identity(
                     EthEstimateGas::request((
