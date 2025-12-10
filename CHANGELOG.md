@@ -41,6 +41,8 @@
 
 ### Fixed
 
+- [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
+
 ## Forest v0.30.4 "DeLorean"
 
 This is a non-mandatory release that fixes a chain sync issue that is caused by time traveling block(s).
