@@ -2121,35 +2121,8 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 let forest_premium = &forest_msg.gas_premium;
                 let lotus_premium = &lotus_msg.gas_premium;
 
-                // Helper function to check if values are within 5% of each other
-                let within_bounds = |val1: &TokenAmount, val2: &TokenAmount| -> bool {
-                    if val1.is_zero() && val2.is_zero() {
-                        return true;
-                    }
-                    // If only one value is zero, the estimates are fundamentally different
-                    // (one node thinks there's no cost, the other doesn't),
-                    // so we fail the comparison
-                    if val1.is_zero() || val2.is_zero() {
-                        return false;
-                    }
-
-                    // Gas fee values are always positive, so we just need max - min
-                    let diff = if val1 > val2 {
-                        val1 - val2.clone()
-                    } else {
-                        val2 - val1.clone()
-                    };
-
-                    // Calculate 5% threshold using integer arithmetic to avoid floating-point issues
-                    // This is equivalent to: threshold = 0.05 * max(val1, val2)
-                    let max_val = val1.max(val2);
-                    let threshold = (max_val * 5u64).div_floor(100u64);
-
-                    diff <= threshold
-                };
-
-                within_bounds(forest_fee_cap, lotus_fee_cap)
-                    && within_bounds(forest_premium, lotus_premium)
+                forest_fee_cap.is_within_percent(lotus_fee_cap, 5)
+                    && forest_premium.is_within_percent(lotus_premium, 5)
             },
         ),
     ]

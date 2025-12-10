@@ -1,12 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    fmt,
-    ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign},
-    sync::LazyLock,
-};
-
 use super::fvm_shared_latest::econ::TokenAmount as TokenAmount_latest;
 use crate::utils::get_size::big_int_heap_size_helper;
 use fvm_shared2::econ::TokenAmount as TokenAmount_v2;
@@ -15,9 +9,14 @@ pub use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN_BASE};
 use fvm_shared4::econ::TokenAmount as TokenAmount_v4;
 use get_size2::GetSize;
 use num_bigint::BigInt;
-use num_traits::Zero;
+use num_traits::{One, Signed, Zero};
 use serde::{Deserialize, Serialize};
 use static_assertions::const_assert_eq;
+use std::{
+    fmt,
+    ops::{Add, AddAssign, Deref, DerefMut, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign},
+    sync::LazyLock,
+};
 
 const_assert_eq!(BLOCK_GAS_LIMIT, fvm_shared2::BLOCK_GAS_LIMIT as u64);
 const_assert_eq!(TOTAL_FILECOIN_BASE, fvm_shared2::TOTAL_FILECOIN_BASE);
@@ -67,6 +66,36 @@ impl Zero for TokenAmount {
     }
     fn is_zero(&self) -> bool {
         self.0.is_zero()
+    }
+}
+
+impl One for TokenAmount {
+    fn one() -> Self {
+        TokenAmount::from_atto(1)
+    }
+}
+
+impl num_traits::Num for TokenAmount {
+    type FromStrRadixErr = num_bigint::ParseBigIntError;
+
+    fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+        Ok(Self::from_atto(BigInt::from_str_radix(str, radix)?))
+    }
+}
+
+impl Neg for TokenAmount {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        TokenAmount::from_atto(self.atto().neg())
+    }
+}
+
+impl Neg for &TokenAmount {
+    type Output = TokenAmount;
+
+    fn neg(self) -> Self::Output {
+        TokenAmount::from_atto(self.atto().neg())
     }
 }
 
@@ -129,6 +158,29 @@ impl TokenAmount {
     #[inline]
     pub fn div_floor(&self, other: impl Into<BigInt>) -> TokenAmount {
         self.0.div_floor(other).into()
+    }
+
+    /// Checks if two `TokenAmounts` are within a percentage delta of each other.
+    /// This method computes the absolute difference between `self` and `other`, then checks
+    /// if this difference is within `delta_percent` of the larger of the two values.
+    /// # Arguments
+    /// * `other` - The value to compare against
+    /// * `delta_percent` - The allowed percentage difference relative to the larger value (e.g., 5 for 5%)
+    ///
+    /// # Returns
+    /// `true` if the values are within the delta, `false` otherwise
+    pub fn is_within_percent(&self, other: &TokenAmount, delta_percent: u64) -> bool {
+        match (self.is_zero(), other.is_zero()) {
+            (true, true) => return true,                   // Both zero: equal
+            (true, false) | (false, true) => return false, // One zero: fundamentally different
+            _ => {}                                        // Both non-zero: continue
+        }
+
+        let diff = (self - other).abs();
+        let max_val = self.max(other);
+        let threshold = (max_val * delta_percent).div_floor(100u64);
+
+        diff <= threshold
     }
 }
 
@@ -264,33 +316,86 @@ impl Mul<u64> for TokenAmount {
     }
 }
 
-impl Add<TokenAmount> for &TokenAmount {
-    type Output = TokenAmount;
-    fn add(self, rhs: TokenAmount) -> Self::Output {
-        (&self.0).add(rhs.0).into()
-    }
+// Macro to implement binary operators for all owned/reference combinations.
+macro_rules! impl_token_amount_binop {
+    // Pattern for operators that work on atto values (Mul, Div, Rem)
+    ($trait:ident, $method:ident, $op:tt) => {
+        impl $trait<TokenAmount> for TokenAmount {
+            type Output = TokenAmount;
+            #[inline]
+            fn $method(self, rhs: TokenAmount) -> Self::Output {
+                TokenAmount::from_atto(self.atto() $op rhs.atto())
+            }
+        }
+
+        impl $trait<&TokenAmount> for TokenAmount {
+            type Output = TokenAmount;
+            #[inline]
+            fn $method(self, rhs: &TokenAmount) -> Self::Output {
+                TokenAmount::from_atto(self.atto() $op rhs.atto())
+            }
+        }
+
+        impl $trait<TokenAmount> for &TokenAmount {
+            type Output = TokenAmount;
+            #[inline]
+            fn $method(self, rhs: TokenAmount) -> Self::Output {
+                TokenAmount::from_atto(self.atto() $op rhs.atto())
+            }
+        }
+
+        impl $trait<&TokenAmount> for &TokenAmount {
+            type Output = TokenAmount;
+            #[inline]
+            fn $method(self, rhs: &TokenAmount) -> Self::Output {
+                TokenAmount::from_atto(self.atto() $op rhs.atto())
+            }
+        }
+    };
 }
 
-impl Add<&TokenAmount> for &TokenAmount {
-    type Output = TokenAmount;
-    fn add(self, rhs: &TokenAmount) -> Self::Output {
-        (&self.0).add(&rhs.0).into()
-    }
+// Macro for Add/Sub that delegate to the underlying TokenAmount_latest type
+macro_rules! impl_token_amount_addsub {
+    ($trait:ident, $method:ident) => {
+        impl $trait<TokenAmount> for TokenAmount {
+            type Output = TokenAmount;
+            #[inline]
+            fn $method(self, rhs: TokenAmount) -> Self::Output {
+                (&self.0).$method(rhs.0).into()
+            }
+        }
+
+        impl $trait<&TokenAmount> for TokenAmount {
+            type Output = TokenAmount;
+            #[inline]
+            fn $method(self, rhs: &TokenAmount) -> Self::Output {
+                (&self.0).$method(&rhs.0).into()
+            }
+        }
+
+        impl $trait<TokenAmount> for &TokenAmount {
+            type Output = TokenAmount;
+            #[inline]
+            fn $method(self, rhs: TokenAmount) -> Self::Output {
+                (&self.0).$method(rhs.0).into()
+            }
+        }
+
+        impl $trait<&TokenAmount> for &TokenAmount {
+            type Output = TokenAmount;
+            #[inline]
+            fn $method(self, rhs: &TokenAmount) -> Self::Output {
+                (&self.0).$method(&rhs.0).into()
+            }
+        }
+    };
 }
 
-impl Add<TokenAmount> for TokenAmount {
-    type Output = TokenAmount;
-    fn add(self, rhs: TokenAmount) -> Self::Output {
-        (&self.0).add(rhs.0).into()
-    }
-}
-
-impl Add<&TokenAmount> for TokenAmount {
-    type Output = TokenAmount;
-    fn add(self, rhs: &TokenAmount) -> Self::Output {
-        (&self.0).add(&rhs.0).into()
-    }
-}
+impl_token_amount_addsub!(Add, add);
+impl_token_amount_addsub!(Sub, sub);
+impl_token_amount_binop!(Mul, mul, *);
+impl_token_amount_binop!(Div, div, /);
+impl_token_amount_binop!(Rem, rem, %);
 
 impl AddAssign for TokenAmount {
     fn add_assign(&mut self, other: Self) {
@@ -304,16 +409,193 @@ impl SubAssign for TokenAmount {
     }
 }
 
-impl Sub<&TokenAmount> for TokenAmount {
-    type Output = TokenAmount;
-    fn sub(self, rhs: &TokenAmount) -> Self::Output {
-        (&self.0).sub(&rhs.0).into()
+impl Signed for TokenAmount {
+    fn abs(&self) -> Self {
+        if self.is_negative() {
+            -self
+        } else {
+            self.clone()
+        }
+    }
+
+    fn abs_sub(&self, other: &Self) -> Self {
+        if *self <= *other {
+            Self::zero()
+        } else {
+            (self - other.clone()).abs()
+        }
+    }
+
+    fn signum(&self) -> Self {
+        if self.is_positive() {
+            Self::one()
+        } else if self.is_negative() {
+            -Self::one()
+        } else {
+            Self::zero()
+        }
+    }
+
+    fn is_positive(&self) -> bool {
+        self.atto().is_positive()
+    }
+
+    fn is_negative(&self) -> bool {
+        self.atto().is_negative()
     }
 }
 
-impl Sub<TokenAmount> for &TokenAmount {
-    type Output = TokenAmount;
-    fn sub(self, rhs: TokenAmount) -> Self::Output {
-        (&self.0).sub(&rhs.0).into()
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use num_traits::Signed;
+
+    #[test]
+    fn test_abs_positive() {
+        let val = TokenAmount::from_atto(100);
+        assert_eq!(val.abs(), val);
+    }
+
+    #[test]
+    fn test_abs_negative() {
+        let val = TokenAmount::from_atto(-100);
+        let expected = TokenAmount::from_atto(100);
+        assert_eq!(val.abs(), expected);
+    }
+
+    #[test]
+    fn test_abs_zero() {
+        let val = TokenAmount::zero();
+        assert_eq!(val.abs(), val);
+    }
+
+    #[test]
+    fn test_signum_positive() {
+        let val = TokenAmount::from_atto(100);
+        assert_eq!(val.signum(), TokenAmount::one());
+    }
+
+    #[test]
+    fn test_signum_negative() {
+        let val = TokenAmount::from_atto(-100);
+        assert_eq!(val.signum(), -TokenAmount::one());
+    }
+
+    #[test]
+    fn test_signum_zero() {
+        let val = TokenAmount::zero();
+        assert_eq!(val.signum(), TokenAmount::zero());
+    }
+
+    #[test]
+    fn test_is_positive() {
+        assert!(TokenAmount::from_atto(1).is_positive());
+        assert!(TokenAmount::from_atto(100).is_positive());
+        assert!(!TokenAmount::from_atto(-1).is_positive());
+        assert!(!TokenAmount::zero().is_positive());
+    }
+
+    #[test]
+    fn test_is_negative() {
+        assert!(TokenAmount::from_atto(-1).is_negative());
+        assert!(TokenAmount::from_atto(-100).is_negative());
+        assert!(!TokenAmount::from_atto(1).is_negative());
+        assert!(!TokenAmount::zero().is_negative());
+    }
+
+    #[test]
+    fn test_abs_sub() {
+        let val1 = TokenAmount::from_atto(100);
+        let val2 = TokenAmount::from_atto(70);
+        assert_eq!(val1.abs_sub(&val2), TokenAmount::from_atto(30));
+        assert_eq!(val2.abs_sub(&val1), TokenAmount::zero());
+    }
+
+    #[test]
+    fn test_neg_trait() {
+        let val = TokenAmount::from_atto(100);
+        assert_eq!(-val.clone(), TokenAmount::from_atto(-100));
+        assert_eq!(-(-val), TokenAmount::from_atto(100));
+    }
+
+    #[test]
+    fn test_is_within_percent_both_zero() {
+        let val1 = TokenAmount::zero();
+        let val2 = TokenAmount::zero();
+        assert!(val1.is_within_percent(&val2, 5));
+    }
+
+    #[test]
+    fn test_is_within_percent_one_zero() {
+        let val1 = TokenAmount::from_atto(100);
+        let val2 = TokenAmount::zero();
+        assert!(!val1.is_within_percent(&val2, 5));
+        assert!(!val2.is_within_percent(&val1, 5));
+    }
+
+    #[test]
+    fn test_is_within_percent_exactly_at_threshold() {
+        let val1 = TokenAmount::from_atto(100);
+        let val2 = TokenAmount::from_atto(105);
+        assert!(val1.is_within_percent(&val2, 5));
+        assert!(val2.is_within_percent(&val1, 5));
+    }
+
+    #[test]
+    fn test_is_within_percent_just_over_threshold() {
+        let val1 = TokenAmount::from_atto(100);
+        let val2 = TokenAmount::from_atto(106);
+        assert!(!val1.is_within_percent(&val2, 5));
+        assert!(!val2.is_within_percent(&val1, 5));
+    }
+
+    #[test]
+    fn test_is_within_percent_symmetric() {
+        let val1 = TokenAmount::from_atto(100);
+        let val2 = TokenAmount::from_atto(104);
+        // Should work both directions
+        assert!(val1.is_within_percent(&val2, 5));
+        assert!(val2.is_within_percent(&val1, 5));
+    }
+
+    #[test]
+    fn test_is_within_percent_large_values() {
+        let val1 = TokenAmount::from_atto(1_500_000_000_000_000u64);
+        let val2 = TokenAmount::from_atto(1_570_000_000_000_000u64);
+        assert!(val1.is_within_percent(&val2, 5));
+        assert!(!val1.is_within_percent(&val2, 4));
+    }
+
+    #[test]
+    fn test_is_within_percent_different_deltas() {
+        let val1 = TokenAmount::from_atto(1000);
+        let val2 = TokenAmount::from_atto(1030);
+
+        assert!(val1.is_within_percent(&val2, 5));
+        assert!(val1.is_within_percent(&val2, 3));
+        assert!(!val1.is_within_percent(&val2, 2));
+    }
+
+    #[test]
+    fn test_is_within_percent_below_threshold() {
+        let val1 = TokenAmount::from_atto(100);
+        let val2 = TokenAmount::from_atto(95);
+        assert!(val1.is_within_percent(&val2, 5));
+    }
+
+    #[test]
+    fn test_div_rem() {
+        let dividend = TokenAmount::from_atto(100);
+        let divisor = TokenAmount::from_atto(30);
+        let quotient = dividend.clone() / divisor.clone();
+        let remainder = dividend.clone() % divisor.clone();
+
+        assert_eq!(quotient, TokenAmount::from_atto(3));
+        assert_eq!(remainder, TokenAmount::from_atto(10));
+    }
+
+    #[test]
+    fn test_one_trait() {
+        assert_eq!(TokenAmount::one(), TokenAmount::from_atto(1));
     }
 }
