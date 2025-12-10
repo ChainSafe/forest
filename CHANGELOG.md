@@ -43,6 +43,8 @@
 
 ### Fixed
 
+- [#6325](https://github.com/ChainSafe/forest/pull/6325) Fixed a panic that could occur under certain message pool conditions and the `Filecoin.MpoolSelect` RPC method.
+
 ## Forest v0.30.4 "DeLorean"
 
 This is a non-mandatory release that fixes a chain sync issue that is caused by time traveling block(s).
