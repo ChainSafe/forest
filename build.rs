@@ -60,7 +60,10 @@ fn rpc_regression_tests_gen() {
 
     let tests: Vec<&str> = include_str!("src/tool/subcommands/api_cmd/test_snapshots.txt")
         .lines()
-        .map(str::trim)
+        .map(|i| {
+            // Remove comment
+            i.split("#").next().unwrap().trim()
+        })
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
         .collect();
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());

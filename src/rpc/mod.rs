@@ -98,6 +98,7 @@ macro_rules! for_each_rpc_method {
         // eth vertical
         $callback!($crate::rpc::eth::EthAccounts);
         $callback!($crate::rpc::eth::EthAddressToFilecoinAddress);
+        $callback!($crate::rpc::eth::FilecoinAddressToEthAddress);
         $callback!($crate::rpc::eth::EthBlockNumber);
         $callback!($crate::rpc::eth::EthCall);
         $callback!($crate::rpc::eth::EthChainId);

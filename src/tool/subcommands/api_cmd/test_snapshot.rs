@@ -260,6 +260,8 @@ mod tests {
                 .trim()
                 .split("\n")
                 .map(|i| {
+                    // Remove comment
+                    let i = i.split("#").next().unwrap().trim();
                     let captures = pattern.captures(i).expect("pattern capture failure");
                     captures
                         .name("name")
