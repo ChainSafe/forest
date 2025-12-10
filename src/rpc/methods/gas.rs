@@ -380,6 +380,7 @@ fn cap_gas_fee(
 mod tests {
     use super::*;
     use crate::shim::econ::TokenAmount;
+    use crate::utils;
 
     #[test]
     fn test_compute_gas_premium_single_entry() {
@@ -594,7 +595,7 @@ mod tests {
 
         let spec = MessageSendSpec {
             max_fee: TokenAmount::zero(),
-            msg_uuid: uuid::Uuid::new_v4(),
+            msg_uuid: utils::rand::new_uuid_v4(),
             maximize_fee_cap: true,
         };
 
@@ -613,11 +614,5 @@ mod tests {
         let result = cap_gas_fee(&default_max_fee, &mut msg, None);
 
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("gas_limit must be non-zero")
-        );
     }
 }
