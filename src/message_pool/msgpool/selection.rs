@@ -545,9 +545,8 @@ where
                     if chains[i].cmp_effective(&chains[i + 1]) == Ordering::Greater {
                         break;
                     }
+                    chains.key_vec.swap(i, i + 1);
                 }
-
-                chains.key_vec.swap(i, i + 1);
             }
 
             // select the next (valid and fitting) chain and its dependencies for inclusion
