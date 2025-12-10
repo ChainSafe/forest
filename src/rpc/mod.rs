@@ -585,7 +585,17 @@ where
             let filter_list = filter_list.clone();
             move |req| {
                 let is_websocket = jsonrpsee::server::ws::is_upgrade_request(&req);
-                let path = ApiPaths::from_uri(req.uri()).unwrap_or(ApiPaths::V1);
+                let path = if let Ok(p) = ApiPaths::from_uri(req.uri()) {
+                    p
+                } else {
+                    return async move {
+                        Ok(http::Response::builder()
+                            .status(http::StatusCode::NOT_FOUND)
+                            .body(Default::default())
+                            .unwrap_or_else(|_| http::Response::new(Default::default())))
+                    }
+                    .boxed();
+                };
                 let methods = methods.get(&path).cloned().unwrap_or_default();
                 let PerConnection {
                     stop_handle,
