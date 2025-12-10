@@ -337,16 +337,21 @@ where
         msg.set_gas_fee_cap(gfp);
     }
 
-    cap_gas_fee(&data.chain_config().default_max_fee, &mut msg, msg_spec);
+    cap_gas_fee(&data.chain_config().default_max_fee, &mut msg, msg_spec)?;
 
     Ok(msg)
 }
 
+/// Caps the gas fee to ensure it doesn't exceed the maximum allowed fee.
+/// Returns an error if the msg `gas_limit` is zero
 fn cap_gas_fee(
     default_max_fee: &TokenAmount,
     msg: &mut Message,
     msg_spec: Option<MessageSendSpec>,
-) {
+) -> Result<()> {
+    let gas_limit = msg.gas_limit();
+    anyhow::ensure!(gas_limit > 0, "gas limit must be non-zero for fee capping");
+
     let mut max_fee = TokenAmount::zero();
     let mut maximize_fee_cap = false;
 
@@ -361,7 +366,6 @@ fn cap_gas_fee(
         max_fee
     };
 
-    let gas_limit = msg.gas_limit();
     let total_fee = msg.gas_fee_cap() * gas_limit;
     if !max_fee.is_zero() && (maximize_fee_cap || total_fee.gt(&max_fee)) {
         msg.set_gas_fee_cap(max_fee.div_floor(gas_limit));
@@ -369,6 +373,7 @@ fn cap_gas_fee(
 
     // cap premium at FeeCap
     msg.set_gas_premium(msg.gas_fee_cap().min(msg.gas_premium()));
+    Ok(())
 }
 
 #[cfg(test)]
@@ -531,5 +536,88 @@ mod tests {
 
         // With more blocks, the threshold is higher, so we should pick a lower price
         assert!(result_3_blocks <= result_1_block);
+    }
+
+    // Helper function to create a test message with gas parameters
+    fn create_test_message(gas_limit: u64, gas_fee_cap: u64, gas_premium: u64) -> Message {
+        Message {
+            from: Address::new_id(1000),
+            to: Address::new_id(1001),
+            gas_limit,
+            gas_fee_cap: TokenAmount::from_atto(gas_fee_cap),
+            gas_premium: TokenAmount::from_atto(gas_premium),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_cap_gas_fee_within_limit() {
+        // Normal case: total fee is within default max fee
+        let default_max_fee = TokenAmount::from_atto(1_000_000);
+        let mut msg = create_test_message(1000, 500, 100);
+
+        cap_gas_fee(&default_max_fee, &mut msg, None).unwrap();
+
+        assert_eq!(msg.gas_fee_cap(), TokenAmount::from_atto(500));
+        assert_eq!(msg.gas_premium(), TokenAmount::from_atto(100));
+    }
+
+    #[test]
+    fn test_cap_gas_fee_exceeds_limit() {
+        // Fee exceeds max: should cap gas_fee_cap
+        let default_max_fee = TokenAmount::from_atto(500_000);
+        let mut msg = create_test_message(1000, 1000, 200);
+
+        cap_gas_fee(&default_max_fee, &mut msg, None).unwrap();
+
+        assert_eq!(msg.gas_fee_cap(), TokenAmount::from_atto(500));
+        assert_eq!(msg.gas_premium(), TokenAmount::from_atto(200));
+    }
+
+    #[test]
+    fn test_cap_gas_fee_premium_exceeds_fee_cap() {
+        // Premium exceeds fee cap after capping: premium should be capped too
+        let default_max_fee = TokenAmount::from_atto(300_000);
+        let mut msg = create_test_message(1000, 1000, 800);
+
+        cap_gas_fee(&default_max_fee, &mut msg, None).unwrap();
+
+        assert_eq!(msg.gas_fee_cap(), TokenAmount::from_atto(300));
+        assert_eq!(msg.gas_premium(), TokenAmount::from_atto(300));
+    }
+
+    #[test]
+    fn test_cap_gas_fee_maximize_flag() {
+        // maximize_fee_cap flag: should set gas_fee_cap to max even if within limit
+        let default_max_fee = TokenAmount::from_atto(1_000_000);
+        let mut msg = create_test_message(1000, 500, 100);
+
+        let spec = MessageSendSpec {
+            max_fee: TokenAmount::zero(),
+            msg_uuid: uuid::Uuid::new_v4(),
+            maximize_fee_cap: true,
+        };
+
+        cap_gas_fee(&default_max_fee, &mut msg, Some(spec)).unwrap();
+
+        assert_eq!(msg.gas_fee_cap(), TokenAmount::from_atto(1000));
+        assert_eq!(msg.gas_premium(), TokenAmount::from_atto(100));
+    }
+
+    #[test]
+    fn test_cap_gas_fee_zero_gas_limit() {
+        // Edge case: zero gas_limit should return an error
+        let default_max_fee = TokenAmount::from_atto(1_000_000);
+        let mut msg = create_test_message(0, 1000, 200);
+
+        let result = cap_gas_fee(&default_max_fee, &mut msg, None);
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("gas_limit must be non-zero")
+        );
     }
 }
