@@ -2121,6 +2121,15 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 let forest_premium = &forest_msg.gas_premium;
                 let lotus_premium = &lotus_msg.gas_premium;
 
+                // Gas fee cap and premium should not be negative
+                if forest_fee_cap.is_negative() || lotus_fee_cap.is_negative() {
+                    return false;
+                }
+
+                if forest_premium.is_negative() || lotus_premium.is_negative() {
+                    return false;
+                }
+
                 forest_fee_cap.is_within_percent(lotus_fee_cap, 5)
                     && forest_premium.is_within_percent(lotus_premium, 5)
             },

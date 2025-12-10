@@ -87,7 +87,7 @@ impl Neg for TokenAmount {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        TokenAmount::from_atto(self.atto().neg())
+        TokenAmount(-self.0)
     }
 }
 
@@ -95,7 +95,7 @@ impl Neg for &TokenAmount {
     type Output = TokenAmount;
 
     fn neg(self) -> Self::Output {
-        TokenAmount::from_atto(self.atto().neg())
+        TokenAmount(-&self.0)
     }
 }
 
@@ -177,8 +177,8 @@ impl TokenAmount {
         }
 
         let diff = (self - other).abs();
-        let max_val = self.max(other);
-        let threshold = (max_val * delta_percent).div_floor(100u64);
+        let max_magnitude = self.abs().max(other.abs());
+        let threshold = (max_magnitude * delta_percent).div_floor(100u64);
 
         diff <= threshold
     }
@@ -318,13 +318,12 @@ impl Mul<u64> for TokenAmount {
 
 // Macro to implement binary operators for all owned/reference combinations.
 macro_rules! impl_token_amount_binop {
-    // Pattern for operators that work on atto values (Mul, Div, Rem)
     ($trait:ident, $method:ident, $op:tt) => {
         impl $trait<TokenAmount> for TokenAmount {
             type Output = TokenAmount;
             #[inline]
             fn $method(self, rhs: TokenAmount) -> Self::Output {
-                TokenAmount::from_atto(self.atto() $op rhs.atto())
+                TokenAmount(TokenAmount_latest::from_atto(self.atto() $op rhs.atto()))
             }
         }
 
@@ -332,7 +331,7 @@ macro_rules! impl_token_amount_binop {
             type Output = TokenAmount;
             #[inline]
             fn $method(self, rhs: &TokenAmount) -> Self::Output {
-                TokenAmount::from_atto(self.atto() $op rhs.atto())
+                TokenAmount(TokenAmount_latest::from_atto(self.atto() $op rhs.atto()))
             }
         }
 
@@ -340,7 +339,7 @@ macro_rules! impl_token_amount_binop {
             type Output = TokenAmount;
             #[inline]
             fn $method(self, rhs: TokenAmount) -> Self::Output {
-                TokenAmount::from_atto(self.atto() $op rhs.atto())
+                TokenAmount(TokenAmount_latest::from_atto(self.atto() $op rhs.atto()))
             }
         }
 
@@ -348,7 +347,7 @@ macro_rules! impl_token_amount_binop {
             type Output = TokenAmount;
             #[inline]
             fn $method(self, rhs: &TokenAmount) -> Self::Output {
-                TokenAmount::from_atto(self.atto() $op rhs.atto())
+                TokenAmount(TokenAmount_latest::from_atto(self.atto() $op rhs.atto()))
             }
         }
     };
@@ -437,11 +436,11 @@ impl Signed for TokenAmount {
     }
 
     fn is_positive(&self) -> bool {
-        self.atto().is_positive()
+        self.0.is_positive()
     }
 
     fn is_negative(&self) -> bool {
-        self.atto().is_negative()
+        self.0.is_negative()
     }
 }
 
@@ -519,43 +518,39 @@ mod tests {
     }
 
     #[test]
-    fn test_is_within_percent_both_zero() {
-        let val1 = TokenAmount::zero();
-        let val2 = TokenAmount::zero();
+    fn test_is_within_percent_zero_edge_cases() {
+        let zero = TokenAmount::zero();
+        assert!(zero.is_within_percent(&zero, 5));
+
+        let val = TokenAmount::from_atto(100);
+        assert!(!val.is_within_percent(&zero, 5));
+        assert!(!zero.is_within_percent(&val, 5));
+    }
+
+    #[test]
+    fn test_is_within_percent_boundary_conditions() {
+        let base = TokenAmount::from_atto(100);
+
+        // exactly at threshold
+        let at_threshold = TokenAmount::from_atto(105);
+        assert!(base.is_within_percent(&at_threshold, 5));
+        assert!(at_threshold.is_within_percent(&base, 5));
+
+        // over threshold
+        let over_threshold = TokenAmount::from_atto(106);
+        assert!(!base.is_within_percent(&over_threshold, 5));
+        assert!(!over_threshold.is_within_percent(&base, 5));
+
+        // below base
+        let below = TokenAmount::from_atto(95);
+        assert!(base.is_within_percent(&below, 5));
+
+        // different thresholds (3% difference)
+        let val1 = TokenAmount::from_atto(1000);
+        let val2 = TokenAmount::from_atto(1030);
         assert!(val1.is_within_percent(&val2, 5));
-    }
-
-    #[test]
-    fn test_is_within_percent_one_zero() {
-        let val1 = TokenAmount::from_atto(100);
-        let val2 = TokenAmount::zero();
-        assert!(!val1.is_within_percent(&val2, 5));
-        assert!(!val2.is_within_percent(&val1, 5));
-    }
-
-    #[test]
-    fn test_is_within_percent_exactly_at_threshold() {
-        let val1 = TokenAmount::from_atto(100);
-        let val2 = TokenAmount::from_atto(105);
-        assert!(val1.is_within_percent(&val2, 5));
-        assert!(val2.is_within_percent(&val1, 5));
-    }
-
-    #[test]
-    fn test_is_within_percent_just_over_threshold() {
-        let val1 = TokenAmount::from_atto(100);
-        let val2 = TokenAmount::from_atto(106);
-        assert!(!val1.is_within_percent(&val2, 5));
-        assert!(!val2.is_within_percent(&val1, 5));
-    }
-
-    #[test]
-    fn test_is_within_percent_symmetric() {
-        let val1 = TokenAmount::from_atto(100);
-        let val2 = TokenAmount::from_atto(104);
-        // Should work both directions
-        assert!(val1.is_within_percent(&val2, 5));
-        assert!(val2.is_within_percent(&val1, 5));
+        assert!(val1.is_within_percent(&val2, 3));
+        assert!(!val1.is_within_percent(&val2, 2));
     }
 
     #[test]
@@ -567,20 +562,25 @@ mod tests {
     }
 
     #[test]
-    fn test_is_within_percent_different_deltas() {
-        let val1 = TokenAmount::from_atto(1000);
-        let val2 = TokenAmount::from_atto(1030);
+    fn test_is_within_percent_negative_values() {
+        let neg1 = TokenAmount::from_atto(-100);
+        let neg2 = TokenAmount::from_atto(-95);
+        assert!(neg1.is_within_percent(&neg2, 5));
+        assert!(neg2.is_within_percent(&neg1, 5));
 
-        assert!(val1.is_within_percent(&val2, 5));
-        assert!(val1.is_within_percent(&val2, 3));
-        assert!(!val1.is_within_percent(&val2, 2));
+        // over threshold
+        let neg3 = TokenAmount::from_atto(-94);
+        assert!(!neg1.is_within_percent(&neg3, 5));
+        assert!(!neg3.is_within_percent(&neg1, 5));
     }
 
     #[test]
-    fn test_is_within_percent_below_threshold() {
-        let val1 = TokenAmount::from_atto(100);
-        let val2 = TokenAmount::from_atto(95);
-        assert!(val1.is_within_percent(&val2, 5));
+    fn test_is_within_percent_mixed_signs() {
+        let pos = TokenAmount::from_atto(100);
+        let neg = TokenAmount::from_atto(-100);
+        assert!(!pos.is_within_percent(&neg, 5));
+        assert!(!pos.is_within_percent(&neg, 100));
+        assert!(pos.is_within_percent(&neg, 200));
     }
 
     #[test]
