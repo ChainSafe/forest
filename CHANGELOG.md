@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
+
 ## Forest v0.30.5 "Dulce de Leche"
 
 Non-mandatory release supporting new API methods and addressing a critical panic issue.

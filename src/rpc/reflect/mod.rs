@@ -158,9 +158,7 @@ impl ApiPaths {
     }
 
     pub fn from_uri(uri: &Uri) -> anyhow::Result<Self> {
-        Ok(Self::from_str(
-            uri.path().split("/").last().expect("infallible"),
-        )?)
+        Ok(Self::from_str(uri.path().trim_start_matches("/rpc/"))?)
     }
 
     pub fn path(&self) -> &'static str {
