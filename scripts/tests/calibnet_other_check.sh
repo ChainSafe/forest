@@ -97,10 +97,9 @@ if [ "$session" == "" ]; then
   exit 1
 fi
 
-# Assert invalid RPC path returns HTTP 404
-echo "Testing invalid RPC path handling"
-invalid_path_response=$(curl -s -X POST http://localhost:2345/rpc/v3 -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"Filecoin.Version","id":1}')
-status_code=$(echo "$invalid_path_response" | jq -r '.status')
+# Assert invalid API path returns HTTP 404
+echo "Testing invalid API path handling"
+status_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:2345/rpc/v3 -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"Filecoin.Version","id":1}')
 if [ "$status_code" != "404" ]; then
   echo "Unexpected status code for invalid RPC path: $status_code"
   exit 1
