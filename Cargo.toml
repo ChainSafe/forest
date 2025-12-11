@@ -83,7 +83,6 @@ fil_actor_reward_state = { version = "24.1.3" }
 fil_actor_system_state = { version = "24.1.3" }
 fil_actor_verifreg_state = { version = "24.1.3" }
 fil_actors_shared = { version = "24.1.3", features = ["json"] }
-fjall = { version = "2", features = ["bytes"] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
@@ -226,6 +225,7 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
+fjall = { version = "2", optional = true }
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
@@ -307,6 +307,7 @@ lto = "fat"
 default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
 slim = ["rustalloc"]
 doctest-private = []                                                      # see lib.rs::doctest_private
+benchmark-tools = ["dep:fjall"]
 benchmark-private = ["dep:criterion"]                                     # see lib.rs::benchmark_private
 interop-tests-private = []                                                # see lib.rs::interop_tests_private
 

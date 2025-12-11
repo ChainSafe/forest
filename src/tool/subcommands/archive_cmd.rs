@@ -679,7 +679,7 @@ async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> a
     let f3_cid = crate::f3::snapshot::get_f3_snapshot_cid(&mut f3_data)?;
 
     let car_stream = CarStream::new_from_path(&filecoin).await?;
-    let chain_head = car_stream.header_v1.roots.clone();
+    let chain_head = car_stream.head_tipset_key().to_cids();
 
     println!("f3 snapshot cid: {f3_cid}");
     println!(

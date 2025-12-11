@@ -4,7 +4,6 @@
 mod api_cmd;
 pub(crate) mod archive_cmd;
 mod backup_cmd;
-mod benchmark_cmd;
 mod car_cmd;
 mod db_cmd;
 mod fetch_params_cmd;
@@ -14,6 +13,9 @@ mod shed_cmd;
 mod snapshot_cmd;
 mod state_compute_cmd;
 mod state_migration_cmd;
+
+#[cfg(feature = "benchmark-tools")]
+mod benchmark_cmd;
 
 use crate::cli_shared::cli::*;
 use crate::cli_shared::cli::{CompletionCommand, HELP_MESSAGE};
@@ -39,6 +41,7 @@ pub enum Subcommand {
     Backup(backup_cmd::BackupCommands),
 
     /// Benchmark various Forest subsystems
+    #[cfg(feature = "benchmark-tools")]
     #[command(subcommand)]
     Benchmark(benchmark_cmd::BenchmarkCommands),
 
