@@ -83,6 +83,7 @@ fil_actor_reward_state = { version = "24.1.3" }
 fil_actor_system_state = { version = "24.1.3" }
 fil_actor_verifreg_state = { version = "24.1.3" }
 fil_actors_shared = { version = "24.1.3", features = ["json"] }
+fjall = { version = "2", features = ["bytes"] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"

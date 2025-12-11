@@ -14,13 +14,15 @@ pub use blockstore_with_read_cache::*;
 pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
 pub use memory::MemoryDB;
 mod db_mode;
+mod either;
 pub mod migration;
+pub use either::Either;
 
 use crate::blocks::TipsetKey;
 use crate::rpc::eth::types::EthHash;
 use anyhow::{Context as _, bail};
 use cid::Cid;
-use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
+pub use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;

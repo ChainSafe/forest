@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::blocks::TipsetKey;
 use crate::chain::FilecoinSnapshotMetadata;
 use crate::db::car::plain::read_v2_header;
 use crate::utils::io::skip_bytes;
@@ -121,6 +122,7 @@ pin_project! {
         reader: FramedRead<Take<Either<ReaderT, ZstdDecoder<ReaderT>>>,UviBytes>,
         pub header_v1: CarV1Header,
         pub header_v2: Option<CarV2Header>,
+        pub metadata: Option<FilecoinSnapshotMetadata>,
         first_block: Option<CarBlock>,
     }
 }
@@ -190,7 +192,9 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                 ));
             }
 
-            let first_block = if header_v1.roots.len() == crate::db::car::V2_SNAPSHOT_ROOT_COUNT {
+            let (first_block, metadata) = if header_v1.roots.len()
+                == crate::db::car::V2_SNAPSHOT_ROOT_COUNT
+            {
                 let maybe_metadata_cid = header_v1.roots.first();
                 if maybe_metadata_cid == &block.cid
                     && let Ok(metadata) =
@@ -213,18 +217,19 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                     }
 
                     // Skip the metadata block in the block stream
-                    None
+                    (None, Some(metadata))
                 } else {
-                    Some(block)
+                    (Some(block), None)
                 }
             } else {
-                Some(block)
+                (Some(block), None)
             };
 
             Ok(CarStream {
                 reader: FramedRead::new(reader, uvi_bytes()),
                 header_v1,
                 header_v2,
+                metadata,
                 first_block,
             })
         } else {
@@ -232,6 +237,7 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                 reader: FramedRead::new(reader, uvi_bytes()),
                 header_v1,
                 header_v2,
+                metadata: None,
                 first_block: None,
             })
         }
@@ -288,6 +294,16 @@ impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
         let (mut reader, header_v2) = Self::extract_header_v2(reader).await?;
         reader.seek(SeekFrom::Start(stream_position)).await?;
         Ok((reader, header_v2))
+    }
+}
+
+impl<ReaderT> CarStream<ReaderT> {
+    pub fn head_tipset_key(&self) -> TipsetKey {
+        self.metadata
+            .as_ref()
+            .map(|m| m.head_tipset_key.clone())
+            .unwrap_or_else(|| self.header_v1.roots.clone())
+            .into()
     }
 }
 

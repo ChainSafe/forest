@@ -1,29 +1,44 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain::{
-    ChainEpochDelta,
-    index::{ChainIndex, ResolveNullTipset},
-};
+use crate::blocks::Tipset;
 use crate::db::car::ManyCar;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::ipld::{stream_chain, stream_graph};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
+use crate::utils::multihash::MultihashCode;
 use crate::utils::stream::par_buffer;
+use crate::{
+    chain::{
+        ChainEpochDelta,
+        index::{ChainIndex, ResolveNullTipset},
+    },
+    db::{Blockstore, Either, parity_db::ParityDb, parity_db_config::ParityDbConfig},
+};
 use anyhow::Context as _;
+use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
+use human_repr::HumanCount as _;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::{
     fs::File,
     io::{AsyncWrite, AsyncWriteExt, BufReader},
 };
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum DbType {
+    Parity,
+    ParityOpt,
+    Fjall,
+}
 
 #[derive(Debug, Subcommand)]
 pub enum BenchmarkCommands {
@@ -70,6 +85,14 @@ pub enum BenchmarkCommands {
         #[arg(short, long, default_value_t = 2000)]
         depth: ChainEpochDelta,
     },
+    /// Benchmark key-value blockstore
+    Blockstore {
+        /// Snapshot input file (`.car.`, `.car.zst`, `.forest.car.zst`)
+        #[arg(required = true)]
+        snapshot_file: PathBuf,
+        #[arg(long, default_value = "parity")]
+        db: DbType,
+    },
 }
 
 impl BenchmarkCommands {
@@ -100,6 +123,7 @@ impl BenchmarkCommands {
                 benchmark_exporting(snapshot_files, compression_level, frame_size, epoch, depth)
                     .await
             }
+            Self::Blockstore { snapshot_file, db } => benchmark_blockstore(snapshot_file, db).await,
         }
     }
 }
@@ -227,6 +251,51 @@ async fn benchmark_exporting(
     Ok(())
 }
 
+async fn benchmark_blockstore(snapshot: PathBuf, db: DbType) -> anyhow::Result<()> {
+    let mut car_stream = CarStream::new_from_path(snapshot).await?;
+    let head_tsk = car_stream.head_tipset_key();
+    println!("head tipset key: {head_tsk}");
+    let tmp_db_path = tempfile::tempdir()?;
+    println!("temp db path: {}", tmp_db_path.path().display());
+    let bs = match db {
+        DbType::Parity => Either::Left(ParityDb::open(
+            tmp_db_path.path(),
+            &ParityDbConfig::default(),
+        )?),
+        DbType::ParityOpt => Either::Right(Either::Left(ParityDbOpt::open(tmp_db_path.path())?)),
+        DbType::Fjall => Either::Right(Either::Right(FjallDb::open(tmp_db_path.path())?)),
+    };
+    println!("importing CAR into {db:?} blockstore...");
+    let start = Instant::now();
+    let mut n = 0;
+    while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
+        bs.put_keyed(&cid, &data)?;
+        n += 1;
+    }
+    drop(car_stream);
+    let db_size = fs_extra::dir::get_size(tmp_db_path.path()).unwrap_or_default();
+    println!(
+        "imported {n} records into {db:?} blockstore(size={}), took {}",
+        db_size.human_count_bytes(),
+        humantime::format_duration(start.elapsed())
+    );
+    println!("Traversing the chain...");
+    let head = Tipset::load_required(&bs, &head_tsk)?;
+    let mut sink = indicatif_sink("traversed");
+    let start = Instant::now();
+    let mut s = stream_graph(&bs, head.chain(&bs), 0);
+    n = 0;
+    while let Some(block) = s.try_next().await? {
+        sink.write_all(&block.data).await?;
+        n += 1;
+    }
+    println!(
+        "Traversed {n} records, took {}",
+        humantime::format_duration(start.elapsed())
+    );
+    Ok(())
+}
+
 // Sink with attached progress indicator
 fn indicatif_sink(task: &'static str) -> impl AsyncWrite {
     let sink = tokio::io::sink();
@@ -258,4 +327,131 @@ fn open_store(input: Vec<PathBuf>) -> anyhow::Result<ManyCar> {
     pb.finish_and_clear();
 
     Ok(store)
+}
+
+struct FjallDb {
+    keyspace: fjall::Keyspace,
+    p0: fjall::PartitionHandle,
+    p_dag_cbor_blake2b256: fjall::PartitionHandle,
+}
+
+impl FjallDb {
+    fn open(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let keyspace = fjall::Config::new(path).open()?;
+        let p0 = keyspace.open_partition(
+            "0",
+            fjall::PartitionCreateOptions::default().with_kv_separation(Default::default()),
+        )?;
+        let p_dag_cbor_blake2b256 = keyspace.open_partition(
+            "0opt",
+            fjall::PartitionCreateOptions::default().with_kv_separation(Default::default()),
+        )?;
+        Ok(Self {
+            keyspace,
+            p0,
+            p_dag_cbor_blake2b256,
+        })
+    }
+}
+
+impl Blockstore for FjallDb {
+    fn has(&self, k: &cid::Cid) -> anyhow::Result<bool> {
+        Ok(if is_dag_cbor_blake2b256(k) {
+            self.p_dag_cbor_blake2b256.contains_key(k.hash().digest())?
+        } else {
+            self.p0.contains_key(k.to_bytes())?
+        })
+    }
+
+    fn get(&self, k: &cid::Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(if is_dag_cbor_blake2b256(k) {
+            self.p_dag_cbor_blake2b256.get(k.hash().digest())?
+        } else {
+            self.p0.get(k.to_bytes())?
+        }
+        .map(|v| v.to_vec()))
+    }
+
+    fn put_keyed(&self, k: &cid::Cid, block: &[u8]) -> anyhow::Result<()> {
+        if is_dag_cbor_blake2b256(k) {
+            self.p_dag_cbor_blake2b256
+                .insert(k.hash().digest(), block)?;
+        } else {
+            self.p0.insert(k.to_bytes(), block)?;
+        }
+        Ok(())
+    }
+
+    fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
+    where
+        Self: Sized,
+        D: AsRef<[u8]>,
+        I: IntoIterator<Item = (Cid, D)>,
+    {
+        let mut batch = self.keyspace.batch();
+        for (c, b) in blocks {
+            if is_dag_cbor_blake2b256(&c) {
+                batch.insert(&self.p_dag_cbor_blake2b256, c.hash().digest(), b.as_ref());
+            } else {
+                batch.insert(&self.p0, c.to_bytes(), b.as_ref());
+            }
+        }
+        Ok(batch.commit()?)
+    }
+}
+
+struct ParityDbOpt {
+    db: parity_db::Db,
+}
+
+impl ParityDbOpt {
+    fn open(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
+        let opts = parity_db::Options {
+            path: path.into(),
+            sync_wal: true,
+            sync_data: true,
+            stats: false,
+            salt: None,
+            columns: vec![
+                parity_db::ColumnOptions {
+                    preimage: true,
+                    uniform: true,
+                    compression: parity_db::CompressionType::Lz4,
+                    ..Default::default()
+                },
+                parity_db::ColumnOptions {
+                    preimage: true,
+                    compression: parity_db::CompressionType::Lz4,
+                    ..Default::default()
+                },
+            ],
+            compression_threshold: [(0, 128)].into_iter().collect(),
+        };
+        let db = parity_db::Db::open_or_create(&opts)?;
+        Ok(Self { db })
+    }
+}
+
+impl Blockstore for ParityDbOpt {
+    fn get(&self, k: &cid::Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(if is_dag_cbor_blake2b256(k) {
+            self.db.get(0, k.hash().digest())?
+        } else {
+            self.db.get(1, &k.to_bytes())?
+        })
+    }
+
+    fn put_keyed(&self, k: &cid::Cid, block: &[u8]) -> anyhow::Result<()> {
+        if is_dag_cbor_blake2b256(k) {
+            self.db
+                .commit([(0, k.hash().digest(), Some(block.to_vec()))])?;
+        } else {
+            self.db.commit([(1, k.to_bytes(), Some(block.to_vec()))])?;
+        }
+        Ok(())
+    }
+}
+
+fn is_dag_cbor_blake2b256(cid: &Cid) -> bool {
+    cid.codec() == DAG_CBOR && cid.hash().code() == u64::from(MultihashCode::Blake2b256)
 }
