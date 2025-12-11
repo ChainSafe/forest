@@ -25,7 +25,6 @@ where
             // Run command
             match cmd {
                 Subcommand::Backup(cmd) => cmd.run(),
-                #[cfg(feature = "benchmark-tools")]
                 Subcommand::Benchmark(cmd) => cmd.run().await,
                 Subcommand::StateMigration(cmd) => cmd.run().await,
                 Subcommand::Snapshot(cmd) => cmd.run().await,

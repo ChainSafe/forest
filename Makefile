@@ -69,7 +69,7 @@ lint-clippy:
 	cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
 	cargo clippy --all-targets --no-default-features --features slim --quiet --no-deps -- --deny=warnings
 	cargo clippy --all-targets --no-default-features --quiet --no-deps -- --deny=warnings
-	cargo clippy --benches --features "benchmark-private benchmark-tools" --quiet --no-deps -- --deny=warnings
+	cargo clippy --benches --features benchmark-private --quiet --no-deps -- --deny=warnings
 	# check docs.rs build
 	DOCS_RS=1 cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
 

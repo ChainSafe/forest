@@ -173,7 +173,6 @@ fn default_tool_filter() -> EnvFilter {
         "tracing_loki=off",
         "hickory_resolver::hosts=off",
         "libp2p_swarm=off",
-        "fjall::partition=warn",
     ];
     EnvFilter::try_new(default_directives.join(",")).unwrap()
 }

@@ -25,7 +25,7 @@ use fvm_ipld_encoding::DAG_CBOR;
 use human_repr::HumanCount as _;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::{
@@ -37,7 +37,6 @@ use tokio::{
 pub enum DbType {
     Parity,
     ParityOpt,
-    Fjall,
 }
 
 #[derive(Debug, Subcommand)]
@@ -262,8 +261,7 @@ async fn benchmark_blockstore(snapshot: PathBuf, db: DbType) -> anyhow::Result<(
             tmp_db_path.path(),
             &ParityDbConfig::default(),
         )?),
-        DbType::ParityOpt => Either::Right(Either::Left(ParityDbOpt::open(tmp_db_path.path())?)),
-        DbType::Fjall => Either::Right(Either::Right(FjallDb::open(tmp_db_path.path())?)),
+        DbType::ParityOpt => Either::Right(ParityDbOpt::open(tmp_db_path.path())?),
     };
     println!("importing CAR into {db:?} blockstore...");
     let start = Instant::now();
@@ -327,77 +325,6 @@ fn open_store(input: Vec<PathBuf>) -> anyhow::Result<ManyCar> {
     pb.finish_and_clear();
 
     Ok(store)
-}
-
-struct FjallDb {
-    keyspace: fjall::Keyspace,
-    p0: fjall::PartitionHandle,
-    p_dag_cbor_blake2b256: fjall::PartitionHandle,
-}
-
-impl FjallDb {
-    fn open(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let keyspace = fjall::Config::new(path).open()?;
-        let p0 = keyspace.open_partition(
-            "0",
-            fjall::PartitionCreateOptions::default().with_kv_separation(Default::default()),
-        )?;
-        let p_dag_cbor_blake2b256 = keyspace.open_partition(
-            "0opt",
-            fjall::PartitionCreateOptions::default().with_kv_separation(Default::default()),
-        )?;
-        Ok(Self {
-            keyspace,
-            p0,
-            p_dag_cbor_blake2b256,
-        })
-    }
-}
-
-impl Blockstore for FjallDb {
-    fn has(&self, k: &cid::Cid) -> anyhow::Result<bool> {
-        Ok(if is_dag_cbor_blake2b256(k) {
-            self.p_dag_cbor_blake2b256.contains_key(k.hash().digest())?
-        } else {
-            self.p0.contains_key(k.to_bytes())?
-        })
-    }
-
-    fn get(&self, k: &cid::Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        Ok(if is_dag_cbor_blake2b256(k) {
-            self.p_dag_cbor_blake2b256.get(k.hash().digest())?
-        } else {
-            self.p0.get(k.to_bytes())?
-        }
-        .map(|v| v.to_vec()))
-    }
-
-    fn put_keyed(&self, k: &cid::Cid, block: &[u8]) -> anyhow::Result<()> {
-        if is_dag_cbor_blake2b256(k) {
-            self.p_dag_cbor_blake2b256
-                .insert(k.hash().digest(), block)?;
-        } else {
-            self.p0.insert(k.to_bytes(), block)?;
-        }
-        Ok(())
-    }
-
-    fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
-    where
-        Self: Sized,
-        D: AsRef<[u8]>,
-        I: IntoIterator<Item = (Cid, D)>,
-    {
-        let mut batch = self.keyspace.batch();
-        for (c, b) in blocks {
-            if is_dag_cbor_blake2b256(&c) {
-                batch.insert(&self.p_dag_cbor_blake2b256, c.hash().digest(), b.as_ref());
-            } else {
-                batch.insert(&self.p0, c.to_bytes(), b.as_ref());
-            }
-        }
-        Ok(batch.commit()?)
-    }
 }
 
 struct ParityDbOpt {
