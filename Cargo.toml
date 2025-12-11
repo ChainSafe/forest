@@ -14,7 +14,7 @@ name = "forest"
 [workspace.dependencies]
 anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
-flume = "0.11"
+flume = "0.12"
 futures = "0.3"
 get-size2 = { version = "0.7", features = ["derive", "hashbrown"] }
 hashlink = "0.11"
@@ -254,7 +254,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.308"
+ra_ap_syntax = "0.0.309"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
