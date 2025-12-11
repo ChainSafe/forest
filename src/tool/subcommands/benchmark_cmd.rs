@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::db::car::ManyCar;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::ipld::{stream_chain, stream_graph};
@@ -25,7 +25,7 @@ use fvm_ipld_encoding::DAG_CBOR;
 use human_repr::HumanCount as _;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::{
@@ -251,18 +251,30 @@ async fn benchmark_exporting(
 }
 
 async fn benchmark_blockstore(snapshot: PathBuf, db: DbType) -> anyhow::Result<()> {
+    let tmp_db_path = tempfile::tempdir()?;
+    let bs = open_blockstore(&db, tmp_db_path.path())?;
+    let head_tsk = benchmark_blockstore_import(&snapshot, &db, &bs, tmp_db_path.path()).await?;
+    benchmark_blockstore_traversal(&bs, &head_tsk).await?;
+    Ok(())
+}
+
+fn open_blockstore(db: &DbType, db_path: &Path) -> anyhow::Result<impl Blockstore> {
+    println!("temp db path: {}", db_path.display());
+    Ok(match db {
+        DbType::Parity => Either::Left(ParityDb::open(db_path, &ParityDbConfig::default())?),
+        DbType::ParityOpt => Either::Right(ParityDbOpt::open(db_path)?),
+    })
+}
+
+async fn benchmark_blockstore_import(
+    snapshot: &Path,
+    db: &DbType,
+    bs: &impl Blockstore,
+    bs_path: &Path,
+) -> anyhow::Result<TipsetKey> {
     let mut car_stream = CarStream::new_from_path(snapshot).await?;
     let head_tsk = car_stream.head_tipset_key();
     println!("head tipset key: {head_tsk}");
-    let tmp_db_path = tempfile::tempdir()?;
-    println!("temp db path: {}", tmp_db_path.path().display());
-    let bs = match db {
-        DbType::Parity => Either::Left(ParityDb::open(
-            tmp_db_path.path(),
-            &ParityDbConfig::default(),
-        )?),
-        DbType::ParityOpt => Either::Right(ParityDbOpt::open(tmp_db_path.path())?),
-    };
     println!("importing CAR into {db:?} blockstore...");
     let start = Instant::now();
     let mut n = 0;
@@ -270,19 +282,25 @@ async fn benchmark_blockstore(snapshot: PathBuf, db: DbType) -> anyhow::Result<(
         bs.put_keyed(&cid, &data)?;
         n += 1;
     }
-    drop(car_stream);
-    let db_size = fs_extra::dir::get_size(tmp_db_path.path()).unwrap_or_default();
+    let db_size = fs_extra::dir::get_size(bs_path).unwrap_or_default();
     println!(
         "imported {n} records into {db:?} blockstore(size={}), took {}",
         db_size.human_count_bytes(),
         humantime::format_duration(start.elapsed())
     );
+    Ok(head_tsk)
+}
+
+async fn benchmark_blockstore_traversal(
+    bs: &impl Blockstore,
+    head_tsk: &TipsetKey,
+) -> anyhow::Result<()> {
     println!("Traversing the chain...");
-    let head = Tipset::load_required(&bs, &head_tsk)?;
+    let head = Tipset::load_required(bs, head_tsk)?;
     let mut sink = indicatif_sink("traversed");
     let start = Instant::now();
-    let mut s = stream_graph(&bs, head.chain(&bs), 0);
-    n = 0;
+    let mut s = stream_graph(bs, head.chain(bs), 0);
+    let mut n = 0;
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?;
         n += 1;
