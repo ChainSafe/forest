@@ -1,0 +1,14 @@
+codecov:
+  require_ci_to_pass: false
+comment: true
+coverage:
+  status:
+    patch:
+      default:
+        informational: true
+    project:
+      default:
+        informational: true
+        threshold: 1.0
+github_checks:
+  annotations: false
