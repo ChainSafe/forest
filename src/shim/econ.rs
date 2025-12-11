@@ -87,7 +87,7 @@ impl Neg for TokenAmount {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        TokenAmount(-self.0)
+        self.0.neg().into()
     }
 }
 
@@ -95,7 +95,7 @@ impl Neg for &TokenAmount {
     type Output = TokenAmount;
 
     fn neg(self) -> Self::Output {
-        TokenAmount(-&self.0)
+        (&self.0).neg().into()
     }
 }
 
@@ -316,51 +316,14 @@ impl Mul<u64> for TokenAmount {
     }
 }
 
-// Macro to implement binary operators for all owned/reference combinations.
-macro_rules! impl_token_amount_binop {
-    ($trait:ident, $method:ident, $op:tt) => {
-        impl $trait<TokenAmount> for TokenAmount {
-            type Output = TokenAmount;
-            #[inline]
-            fn $method(self, rhs: TokenAmount) -> Self::Output {
-                TokenAmount(TokenAmount_latest::from_atto(self.atto() $op rhs.atto()))
-            }
-        }
-
-        impl $trait<&TokenAmount> for TokenAmount {
-            type Output = TokenAmount;
-            #[inline]
-            fn $method(self, rhs: &TokenAmount) -> Self::Output {
-                TokenAmount(TokenAmount_latest::from_atto(self.atto() $op rhs.atto()))
-            }
-        }
-
-        impl $trait<TokenAmount> for &TokenAmount {
-            type Output = TokenAmount;
-            #[inline]
-            fn $method(self, rhs: TokenAmount) -> Self::Output {
-                TokenAmount(TokenAmount_latest::from_atto(self.atto() $op rhs.atto()))
-            }
-        }
-
-        impl $trait<&TokenAmount> for &TokenAmount {
-            type Output = TokenAmount;
-            #[inline]
-            fn $method(self, rhs: &TokenAmount) -> Self::Output {
-                TokenAmount(TokenAmount_latest::from_atto(self.atto() $op rhs.atto()))
-            }
-        }
-    };
-}
-
-// Macro for Add/Sub that delegate to the underlying TokenAmount_latest type
-macro_rules! impl_token_amount_addsub {
+/// Macro to implement binary operators for TokenAmount by delegating to the underlying BigInt.
+macro_rules! impl_token_amount_op {
     ($trait:ident, $method:ident) => {
         impl $trait<TokenAmount> for TokenAmount {
             type Output = TokenAmount;
             #[inline]
             fn $method(self, rhs: TokenAmount) -> Self::Output {
-                (&self.0).$method(rhs.0).into()
+                self.atto().$method(rhs.atto()).into()
             }
         }
 
@@ -368,7 +331,7 @@ macro_rules! impl_token_amount_addsub {
             type Output = TokenAmount;
             #[inline]
             fn $method(self, rhs: &TokenAmount) -> Self::Output {
-                (&self.0).$method(&rhs.0).into()
+                self.atto().$method(rhs.atto()).into()
             }
         }
 
@@ -376,7 +339,7 @@ macro_rules! impl_token_amount_addsub {
             type Output = TokenAmount;
             #[inline]
             fn $method(self, rhs: TokenAmount) -> Self::Output {
-                (&self.0).$method(rhs.0).into()
+                self.atto().$method(rhs.atto()).into()
             }
         }
 
@@ -384,17 +347,17 @@ macro_rules! impl_token_amount_addsub {
             type Output = TokenAmount;
             #[inline]
             fn $method(self, rhs: &TokenAmount) -> Self::Output {
-                (&self.0).$method(&rhs.0).into()
+                self.atto().$method(rhs.atto()).into()
             }
         }
     };
 }
 
-impl_token_amount_addsub!(Add, add);
-impl_token_amount_addsub!(Sub, sub);
-impl_token_amount_binop!(Mul, mul, *);
-impl_token_amount_binop!(Div, div, /);
-impl_token_amount_binop!(Rem, rem, %);
+impl_token_amount_op!(Add, add);
+impl_token_amount_op!(Sub, sub);
+impl_token_amount_op!(Mul, mul);
+impl_token_amount_op!(Div, div);
+impl_token_amount_op!(Rem, rem);
 
 impl AddAssign for TokenAmount {
     fn add_assign(&mut self, other: Self) {
@@ -410,29 +373,15 @@ impl SubAssign for TokenAmount {
 
 impl Signed for TokenAmount {
     fn abs(&self) -> Self {
-        if self.is_negative() {
-            -self
-        } else {
-            self.clone()
-        }
+        self.0.atto().abs().into()
     }
 
     fn abs_sub(&self, other: &Self) -> Self {
-        if *self <= *other {
-            Self::zero()
-        } else {
-            (self - other.clone()).abs()
-        }
+        self.0.atto().abs_sub(other.0.atto()).into()
     }
 
     fn signum(&self) -> Self {
-        if self.is_positive() {
-            Self::one()
-        } else if self.is_negative() {
-            -Self::one()
-        } else {
-            Self::zero()
-        }
+        self.0.atto().signum().into()
     }
 
     fn is_positive(&self) -> bool {

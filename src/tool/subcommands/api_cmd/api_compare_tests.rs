@@ -2122,11 +2122,10 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 let lotus_premium = &lotus_msg.gas_premium;
 
                 // Gas fee cap and premium should not be negative
-                if forest_fee_cap.is_negative() || lotus_fee_cap.is_negative() {
-                    return false;
-                }
-
-                if forest_premium.is_negative() || lotus_premium.is_negative() {
+                if [forest_fee_cap, lotus_fee_cap, forest_premium, lotus_premium]
+                    .iter()
+                    .any(|amt| amt.is_negative())
+                {
                     return false;
                 }
 
