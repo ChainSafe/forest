@@ -1,6 +1,5 @@
 codecov:
   require_ci_to_pass: false
-comment: true
 coverage:
   status:
     patch:
@@ -12,3 +11,8 @@ coverage:
         threshold: 1.0
 github_checks:
   annotations: false
+comment:
+  layout: "header, files, footer"
+  behavior: default
+  require_changes: "coverage_drop OR uncovered_patch"
+  hide_project_coverage: false
