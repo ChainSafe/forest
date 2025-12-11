@@ -316,7 +316,7 @@ impl Mul<u64> for TokenAmount {
     }
 }
 
-/// Macro to implement binary operators for TokenAmount by delegating to the underlying BigInt.
+/// Macro to implement binary operators for `TokenAmount`.
 macro_rules! impl_token_amount_op {
     ($trait:ident, $method:ident) => {
         impl $trait<TokenAmount> for TokenAmount {
