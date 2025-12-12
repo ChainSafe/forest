@@ -51,6 +51,7 @@ jobs:
           go-version-file: "go.work"
       - name: install nextest
         uses: taiki-e/install-action@nextest
+      - run: cargo run --bin forest-dev --no-default-features --profile quick -- fetch-rpc-tests
       - run: make test
   tests-release:
     runs-on: ubuntu-24.04-arm

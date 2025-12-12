@@ -3,5 +3,5 @@
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
-    forest::forest_tool_main(std::env::args_os()).await
+    forest::forest_dev_main(std::env::args_os()).await
 }
