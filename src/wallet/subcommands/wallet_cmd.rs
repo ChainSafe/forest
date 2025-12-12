@@ -35,7 +35,7 @@ use crate::{
 };
 use anyhow::{Context as _, bail};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use clap::{Subcommand, arg};
+use clap::Subcommand;
 use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
 use num::Zero as _;
