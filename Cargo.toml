@@ -263,12 +263,14 @@ tokio-test = "0.4"
 [build-dependencies]
 rust2go = { workspace = true, features = ["build"] }
 
-# This needs to be set as default. Otherwise, a regular build or test will produce
-# gargantuan artifacts (around 70G for all tests). For a debugging session, you can
-# temporarily comment it out.
+# https://doc.rust-lang.org/stable/cargo/guide/build-performance.html#reduce-amount-of-generated-debug-information
 [profile.dev]
-debug = 0
+debug = "line-tables-only"
 split-debuginfo = "unpacked"
+
+# Avoid generating any debug information for dependencies
+[profile.dev.package."*"]
+debug = false
 
 # Profile for interactive debugging sessions, e.g., with LLDB.
 # Doesn't work with Go FFI - disable it with `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1`.
