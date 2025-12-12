@@ -273,7 +273,6 @@ split-debuginfo = "unpacked"
 [profile.codecov]
 inherits = "test"
 opt-level = 1
-lto = "off"
 
 # Profile for interactive debugging sessions, e.g., with LLDB.
 # Doesn't work with Go FFI - disable it with `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1`.
