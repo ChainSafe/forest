@@ -185,6 +185,7 @@ async fn ctx(
 mod tests {
     use super::*;
     use crate::Config;
+    use crate::utils::misc::env::is_env_truthy;
     use crate::utils::proofs_api::ensure_proof_params_downloaded;
     use ahash::HashSet;
     use std::sync::LazyLock;
@@ -195,6 +196,10 @@ mod tests {
     include!(concat!(env!("OUT_DIR"), "/__rpc_regression_tests_gen.rs"));
 
     async fn rpc_regression_test_run(name: &str) {
+        if is_env_truthy("FOREST_RPC_SNAPSHOT_TEST_OPT_OUT") {
+            return;
+        }
+
         // Set proof parameter data dir and make sure the proofs are available
         {
             static PROOF_PARAMS_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));

@@ -99,6 +99,8 @@ docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
 test:
+	# Skip RPC snapshot tests for debug build
+	export FOREST_RPC_SNAPSHOT_TEST_OPT_OUT=1
 	cargo nextest run --workspace --no-fail-fast
 
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
