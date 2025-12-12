@@ -170,6 +170,7 @@ pub enum RetryError {
 }
 
 #[cfg(test)]
+#[allow(dead_code)]
 pub fn is_debug_build() -> bool {
     cfg!(debug_assertions)
 }
