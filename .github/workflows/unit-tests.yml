@@ -52,6 +52,9 @@ jobs:
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test
+        env:
+          # Skip RPC snapshot tests for debug build
+          FOREST_RPC_SNAPSHOT_TEST_OPT_OUT: 1
   tests-release:
     runs-on: ubuntu-24.04-arm
     # Run the job only if the PR is not a draft.

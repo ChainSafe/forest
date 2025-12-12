@@ -99,8 +99,6 @@ docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
 test:
-	# Skip RPC snapshot tests for debug build
-	export FOREST_RPC_SNAPSHOT_TEST_OPT_OUT=1
 	cargo nextest run --workspace --no-fail-fast
 
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
@@ -111,6 +109,9 @@ test-release:
 	cargo nextest run --cargo-profile quick --workspace --no-fail-fast
 
 test-all: test test-release
+
+codecov:
+	cargo llvm-cov -p forest-filecoin --ignore-run-fail --no-default-features --profile codecov --codecov --output-path lcov.info
 
 # Checks if all headers are present and adds if not
 license:
