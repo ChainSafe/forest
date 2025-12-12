@@ -2157,9 +2157,10 @@ impl RpcMethod<2> for EthGetCode {
             ..Default::default()
         };
 
+        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
         let api_invoc_result = 'invoc: {
             for ts in ts.chain(ctx.store()) {
-                match ctx.state_manager.call(&message, Some(ts)) {
+                match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;
                     }
@@ -2208,10 +2209,8 @@ impl RpcMethod<3> for EthGetStorageAt {
             ResolveNullTipset::TakeOlder,
         )?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
-        let Some(actor) = ctx
-            .state_manager
-            .get_actor(&to_address, *ts.parent_state())?
-        else {
+        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
+        let Some(actor) = ctx.state_manager.get_actor(&to_address, state)? else {
             return Ok(make_empty_result());
         };
 
@@ -2230,7 +2229,7 @@ impl RpcMethod<3> for EthGetStorageAt {
         };
         let api_invoc_result = 'invoc: {
             for ts in ts.chain(ctx.store()) {
-                match ctx.state_manager.call(&message, Some(ts)) {
+                match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;
                     }
