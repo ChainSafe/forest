@@ -52,7 +52,7 @@ jobs:
       - run: cargo run --bin forest-dev --no-default-features --profile quick -- fetch-rpc-tests
       - name: Generate code coverage
         run: |
-          cargo llvm-cov --workspace --codecov --output-path lcov.info nextest
+          cargo llvm-cov --workspace --profile quick --codecov --output-path lcov.info test
         env:
           CC: "sccache clang"
           CXX: "sccache clang++"
