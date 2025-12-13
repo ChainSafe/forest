@@ -51,10 +51,9 @@ services:
       lotus_init:
         condition: service_completed_successfully
     healthcheck:
-      test: >-
-        curl -s -x post -h "content-type: application/json"
-        --data '{ "jsonrpc": "2.0", "method": "filecoin.chainhead", "params": [], "id": 1 }'
-        http://lotus_node:${LOTUS_RPC_PORT}/rpc/v0 || exit 1
+      test: |
+        export FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/${LOTUS_RPC_PORT}/http"
+        lotus chain head || exit 1
       interval: 10s
       retries: 10
       timeout: 5s
