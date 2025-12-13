@@ -1128,6 +1128,7 @@ Commands:
   graph-traversal  Depth-first traversal of the Filecoin graph
   forest-encoding  Encoding of a `.forest.car.zst` file
   export           Exporting a `.forest.car.zst` file from HEAD
+  blockstore       Benchmark key-value blockstore
   help             Print this message or the help of the given subcommand(s)
 
 Options:
