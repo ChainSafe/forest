@@ -18,7 +18,6 @@ where
 
     let client = crate::rpc::Client::default_or_from_env(None)?;
 
-    // Run command
     match cmd {
         Subcommand::Backup(cmd) => cmd.run(),
         Subcommand::Benchmark(cmd) => cmd.run().await,
