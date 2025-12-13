@@ -848,7 +848,7 @@ impl RpcMethod<0> for EthGasPrice {
         let ts = ctx.chain_store().heaviest_tipset();
         let block0 = ts.block_headers().first();
         let base_fee = block0.parent_base_fee.atto();
-        let tip = crate::rpc::gas::estimate_gas_premium(&ctx, 0)
+        let tip = crate::rpc::gas::estimate_gas_premium(&ctx, 0, &ApiTipsetKey(None))
             .await
             .map(|gas_premium| gas_premium.atto().to_owned())
             .unwrap_or_default();
@@ -2321,7 +2321,7 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        match crate::rpc::gas::estimate_gas_premium(&ctx, 0).await {
+        match gas::estimate_gas_premium(&ctx, 0, &ApiTipsetKey(None)).await {
             Ok(gas_premium) => Ok(EthBigInt(gas_premium.atto().clone())),
             Err(_) => Ok(EthBigInt(num_bigint::BigInt::zero())),
         }

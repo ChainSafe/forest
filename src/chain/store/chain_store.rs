@@ -661,7 +661,7 @@ where
 
             for message in unsigned_box.chain(signed_box) {
                 let from_address = &message.from();
-                if applied.contains_key(from_address) {
+                if !applied.contains_key(from_address) {
                     let actor_state = state
                         .get_actor(from_address)?
                         .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
