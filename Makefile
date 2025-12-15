@@ -111,7 +111,7 @@ test-release:
 test-all: test test-release
 
 codecov:
-	cargo llvm-cov -p forest-filecoin --ignore-run-fail --no-default-features --profile codecov --codecov --output-path lcov.info
+	cargo llvm-cov -p forest-filecoin --ignore-run-fail --no-default-features --codecov --output-path lcov.info
 
 # Checks if all headers are present and adds if not
 license:
