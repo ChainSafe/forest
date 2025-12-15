@@ -51,6 +51,8 @@ Non-mandatory release supporting new API methods and addressing a critical panic
 
 - [#6323](https://github.com/ChainSafe/forest/pull/6323) Implemented `Filecoin.FilecoinAddressToEthAddress` for API v1 and v2.
 
+- [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
+
 ### Fixed
 
 - [#6325](https://github.com/ChainSafe/forest/pull/6325) Fixed a panic that could occur under certain message pool conditions and the `Filecoin.MpoolSelect` RPC method.
