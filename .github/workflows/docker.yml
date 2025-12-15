@@ -136,12 +136,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: "forest-linux-amd64"
           path: /tmp/forest/forest-linux-amd64
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         # Compile Docker image only for AMD64 for a regular PR to save some CI time.
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         with:
