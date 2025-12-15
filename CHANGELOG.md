@@ -37,8 +37,6 @@
 
 - [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
 
-- [#6140](https://github.com/ChainSafe/forest/pull/6140) Fixed the `eth_getLogs` RPC method to accept `None` as the `address` parameter.
-
 ## Forest v0.30.5 "Dulce de Leche"
 
 Non-mandatory release supporting new API methods and addressing a critical panic issue.
@@ -121,6 +119,7 @@ The release includes new CLI commands for snapshot management and state inspecti
 
 - [#6103](https://github.com/ChainSafe/forest/pull/6103) Fixed `eth_getTransactionCount` to return the nonce of the requested tipset and not its parent.
 
+- [#6140](https://github.com/ChainSafe/forest/pull/6140) Fixed the `eth_getLogs` RPC method to accept `None` as the `address` parameter.
 
 ## Forest v0.30.1 "Laurelin"
 
