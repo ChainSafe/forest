@@ -350,24 +350,22 @@ fn cap_gas_fee(
     msg_spec: Option<MessageSendSpec>,
 ) -> Result<()> {
     let gas_limit = msg.gas_limit();
-    anyhow::ensure!(gas_limit > 0, "gas limit must be non-zero for fee capping");
+    anyhow::ensure!(gas_limit > 0, "gas limit must be positive for fee capping");
 
-    let mut max_fee = TokenAmount::zero();
-    let mut maximize_fee_cap = false;
-
-    if let Some(spec) = msg_spec {
-        maximize_fee_cap = spec.maximize_fee_cap;
-        max_fee = spec.max_fee;
-    }
-
-    max_fee = if max_fee.is_zero() {
-        default_max_fee.clone()
-    } else {
-        max_fee
+    let (maximize_fee_cap, max_fee) = match &msg_spec {
+        Some(spec) => (
+            spec.maximize_fee_cap,
+            if spec.max_fee.is_zero() {
+                default_max_fee
+            } else {
+                &spec.max_fee
+            },
+        ),
+        None => (false, default_max_fee),
     };
 
     let total_fee = msg.gas_fee_cap() * gas_limit;
-    if !max_fee.is_zero() && (maximize_fee_cap || total_fee.gt(&max_fee)) {
+    if !max_fee.is_zero() && (maximize_fee_cap || total_fee > *max_fee) {
         msg.set_gas_fee_cap(max_fee.div_floor(gas_limit));
     }
 
