@@ -35,7 +35,7 @@ impl RpcMethod<2> for MsigGetAvailableBalance {
             .get_required_actor(&address, *ts.parent_state())?;
         let actor_balance = TokenAmount::from(&actor.balance);
         let ms = multisig::State::load(ctx.store(), actor.code, actor.state)?;
-        let locked_balance = ms.locked_balance(height)?.into();
+        let locked_balance: TokenAmount = ms.locked_balance(height)?.into();
         let avail_balance = &actor_balance - locked_balance;
         Ok(avail_balance)
     }

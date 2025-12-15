@@ -53,7 +53,9 @@ use std::str::FromStr;
 pub struct MessageSendSpec {
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
-    max_fee: TokenAmount,
+    pub max_fee: TokenAmount,
+    pub msg_uuid: uuid::Uuid,
+    pub maximize_fee_cap: bool,
 }
 
 lotus_json_with_self!(MessageSendSpec);

@@ -8,7 +8,7 @@ use super::subcommands::Subcommand;
 use crate::cli_shared::logger::setup_minimal_logger;
 use clap::Parser as _;
 
-pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
+pub async fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
 where
     ArgT: Into<OsString> + Clone,
 {
@@ -18,26 +18,21 @@ where
 
     let client = crate::rpc::Client::default_or_from_env(None)?;
 
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?
-        .block_on(async {
-            // Run command
-            match cmd {
-                Subcommand::Backup(cmd) => cmd.run(),
-                Subcommand::Benchmark(cmd) => cmd.run().await,
-                Subcommand::StateMigration(cmd) => cmd.run().await,
-                Subcommand::Snapshot(cmd) => cmd.run().await,
-                Subcommand::Fetch(cmd) => cmd.run().await,
-                Subcommand::Archive(cmd) => cmd.run().await,
-                Subcommand::DB(cmd) => cmd.run().await,
-                Subcommand::Index(cmd) => cmd.run().await,
-                Subcommand::Car(cmd) => cmd.run().await,
-                Subcommand::Api(cmd) => cmd.run().await,
-                Subcommand::Net(cmd) => cmd.run().await,
-                Subcommand::Shed(cmd) => cmd.run(client).await,
-                Subcommand::State(cmd) => cmd.run().await,
-                Subcommand::Completion(cmd) => cmd.run(&mut std::io::stdout()),
-            }
-        })
+    // Run command
+    match cmd {
+        Subcommand::Backup(cmd) => cmd.run(),
+        Subcommand::Benchmark(cmd) => cmd.run().await,
+        Subcommand::StateMigration(cmd) => cmd.run().await,
+        Subcommand::Snapshot(cmd) => cmd.run().await,
+        Subcommand::Fetch(cmd) => cmd.run().await,
+        Subcommand::Archive(cmd) => cmd.run().await,
+        Subcommand::DB(cmd) => cmd.run().await,
+        Subcommand::Index(cmd) => cmd.run().await,
+        Subcommand::Car(cmd) => cmd.run().await,
+        Subcommand::Api(cmd) => cmd.run().await,
+        Subcommand::Net(cmd) => cmd.run().await,
+        Subcommand::Shed(cmd) => cmd.run(client).await,
+        Subcommand::State(cmd) => cmd.run().await,
+        Subcommand::Completion(cmd) => cmd.run(&mut std::io::stdout()),
+    }
 }

@@ -15,7 +15,7 @@ use crate::rpc::eth::{
     BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
     new_eth_tx_from_signed_message, types::*,
 };
-use crate::rpc::gas::GasEstimateGasLimit;
+use crate::rpc::gas::{GasEstimateGasLimit, GasEstimateMessageGas};
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::state::StateGetAllClaims;
@@ -2182,14 +2182,52 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         ..Default::default()
     };
 
-    // The tipset is only used for resolving the 'from' address and not when
-    // computing the gas cost. This means that the `GasEstimateGasLimit` method
-    // is inherently non-deterministic but I'm fairly sure we're compensated for
-    // everything. If not, this test will be flaky. Instead of disabling it, we
-    // should relax the verification requirement.
-    vec![RpcTest::identity(
-        GasEstimateGasLimit::request((message, shared_tipset.key().into())).unwrap(),
-    )]
+    vec![
+        // The tipset is only used for resolving the 'from' address and not when
+        // computing the gas cost. This means that the `GasEstimateGasLimit` method
+        // is inherently non-deterministic, but I'm fairly sure we're compensated for
+        // everything. If not, this test will be flaky. Instead of disabling it, we
+        // should relax the verification requirement.
+        RpcTest::identity(
+            GasEstimateGasLimit::request((message.clone(), shared_tipset.key().into())).unwrap(),
+        ),
+        // Gas estimation is inherently non-deterministic due to randomness in gas premium
+        // calculation and network state changes. We validate that both implementations
+        // return reasonable values within expected bounds rather than exact equality.
+        RpcTest::validate(
+            GasEstimateMessageGas::request((
+                message,
+                None, // No MessageSendSpec
+                shared_tipset.key().into(),
+            ))
+            .unwrap(),
+            |forest_api_msg, lotus_api_msg| {
+                let forest_msg = forest_api_msg.message;
+                let lotus_msg = lotus_api_msg.message;
+                // Validate that the gas limit is identical (must be deterministic)
+                if forest_msg.gas_limit != lotus_msg.gas_limit {
+                    return false;
+                }
+
+                // Validate gas fee cap and premium are within reasonable bounds (±5%)
+                let forest_fee_cap = &forest_msg.gas_fee_cap;
+                let lotus_fee_cap = &lotus_msg.gas_fee_cap;
+                let forest_premium = &forest_msg.gas_premium;
+                let lotus_premium = &lotus_msg.gas_premium;
+
+                // Gas fee cap and premium should not be negative
+                if [forest_fee_cap, lotus_fee_cap, forest_premium, lotus_premium]
+                    .iter()
+                    .any(|amt| amt.is_negative())
+                {
+                    return false;
+                }
+
+                forest_fee_cap.is_within_percent(lotus_fee_cap, 5)
+                    && forest_premium.is_within_percent(lotus_premium, 5)
+            },
+        ),
+    ]
 }
 
 fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {
