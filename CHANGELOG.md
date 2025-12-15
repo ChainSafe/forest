@@ -37,6 +37,8 @@
 
 - [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
 
+- [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
+
 ## Forest v0.30.5 "Dulce de Leche"
 
 Non-mandatory release supporting new API methods and addressing a critical panic issue.
@@ -50,8 +52,6 @@ Non-mandatory release supporting new API methods and addressing a critical panic
 - [#6312](https://github.com/ChainSafe/forest/pull/6312) Implemented `Filecoin.StateGetID` for API v2.
 
 - [#6323](https://github.com/ChainSafe/forest/pull/6323) Implemented `Filecoin.FilecoinAddressToEthAddress` for API v1 and v2.
-
-- [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
 
 ### Fixed
 
