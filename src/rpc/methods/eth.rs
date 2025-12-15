@@ -913,8 +913,8 @@ async fn resolve_predefined_tipset_v2<DB: Blockstore + Send + Sync + 'static>(
         resolve_predefined_tipset(ctx.chain_store(), head, common)
     } else {
         match tag {
-            ExtPredefined::Safe => Ok(ChainGetTipSetV2::get_latest_safe_tipset(&ctx).await?),
-            ExtPredefined::Finalized => Ok(ChainGetTipSetV2::get_latest_finalized_tipset(&ctx)
+            ExtPredefined::Safe => Ok(ChainGetTipSetV2::get_latest_safe_tipset(ctx).await?),
+            ExtPredefined::Finalized => Ok(ChainGetTipSetV2::get_latest_finalized_tipset(ctx)
                 .await?
                 .unwrap_or(ctx.chain_index().tipset_by_height(
                     0,
@@ -1025,7 +1025,7 @@ async fn tipset_by_block_number_or_hash_v2<DB: Blockstore + Send + Sync + 'stati
     let head = chain.heaviest_tipset();
     match block_param {
         ExtBlockNumberOrHash::PredefinedBlock(predefined) => {
-            resolve_predefined_tipset_v2(&ctx, head, predefined).await
+            resolve_predefined_tipset_v2(ctx, head, predefined).await
         }
         ExtBlockNumberOrHash::BlockNumber(block_number)
         | ExtBlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
