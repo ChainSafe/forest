@@ -603,12 +603,6 @@ where
         bls_sig_cache.push(msg.cid().into(), msg.signature().clone());
     }
 
-    if msg.message().gas_limit > 100_000_000 {
-        return Err(Error::Other(
-            "given message has too high of a gas limit".to_string(),
-        ));
-    }
-
     api.put_message(&ChainMessage::Signed(msg.clone()))?;
     api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
