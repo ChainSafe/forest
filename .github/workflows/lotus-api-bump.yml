@@ -35,7 +35,7 @@ jobs:
           app-id: ${{ secrets.LESHY_APP_ID }}
           private-key: ${{ secrets.LESHY_APP_PRIVATE_KEY }}
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           base: main
           branch: leshy/update-lotus-version
