@@ -33,7 +33,7 @@ use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 use thiserror::Error;
 use tokio::task::JoinSet;
-use tracing::{error, trace, warn};
+use tracing::{trace, warn};
 
 use crate::chain_sync::{consensus::collect_errs, metrics, validation::TipsetValidator};
 

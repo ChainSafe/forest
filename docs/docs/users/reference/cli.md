@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.30.4
+forest-filecoin 0.30.5
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.30.4
+forest-filecoin 0.30.5
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.30.4
+forest-filecoin 0.30.5
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1022,7 +1022,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.30.4
+forest-filecoin 0.30.5
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1128,6 +1128,7 @@ Commands:
   graph-traversal  Depth-first traversal of the Filecoin graph
   forest-encoding  Encoding of a `.forest.car.zst` file
   export           Exporting a `.forest.car.zst` file from HEAD
+  blockstore       Benchmark key-value blockstore
   help             Print this message or the help of the given subcommand(s)
 
 Options:

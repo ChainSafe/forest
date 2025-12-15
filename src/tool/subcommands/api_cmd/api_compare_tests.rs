@@ -87,6 +87,42 @@ static KNOWN_EMPTY_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
         .into()
 });
 
+// this is the ID address of the `t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly` address
+static KNOWN_CALIBNET_F0_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t0168923")
+        .unwrap()
+        .into()
+});
+
+static KNOWN_CALIBNET_F1_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly")
+        .unwrap()
+        .into()
+});
+
+static KNOWN_CALIBNET_F2_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t2nfplhzpyeck5dcc4fokj5ar6nbs3mhbdmq6xu3q")
+        .unwrap()
+        .into()
+});
+
+static KNOWN_CALIBNET_F3_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t3wmbvnabsj6x2uki33phgtqqemmunnttowpx3chklrchy76pv52g5ajnaqdypxoomq5ubfk65twl5ofvkhshq")
+        .unwrap()
+        .into()
+});
+
+static KNOWN_CALIBNET_F4_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t410fx2cumi6pgaz64varl77xbuub54bgs3k5xsvn3ki")
+        .unwrap()
+        .into()
+});
+
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
 const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
@@ -1255,11 +1291,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
 fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
     let prefunded_wallets = [
         // the following addresses should have 666 attoFIL each
-        Address::from_str("t0168923").unwrap(), // this is the ID address of the `t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly` address
-        Address::from_str("t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly").unwrap(),
-        Address::from_str("t2nfplhzpyeck5dcc4fokj5ar6nbs3mhbdmq6xu3q").unwrap(),
-        Address::from_str("t3wmbvnabsj6x2uki33phgtqqemmunnttowpx3chklrchy76pv52g5ajnaqdypxoomq5ubfk65twl5ofvkhshq").unwrap(),
-        Address::from_str("t410fx2cumi6pgaz64varl77xbuub54bgs3k5xsvn3ki").unwrap(),
+        *KNOWN_CALIBNET_F0_ADDRESS,
+        *KNOWN_CALIBNET_F1_ADDRESS,
+        *KNOWN_CALIBNET_F2_ADDRESS,
+        *KNOWN_CALIBNET_F3_ADDRESS,
+        *KNOWN_CALIBNET_F4_ADDRESS,
         // This address should have 0 FIL
         *KNOWN_EMPTY_CALIBNET_ADDRESS,
     ];
@@ -1456,11 +1492,25 @@ fn eth_tests() -> Vec<RpcTest> {
             EthUninstallFilter::request_with_alias((FilterID::new().unwrap(),), use_alias).unwrap(),
         ));
         tests.push(RpcTest::identity(
-            EthAddressToFilecoinAddress::request((EthAddress::from_str(
-                "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
-            )
-            .unwrap(),))
+            EthAddressToFilecoinAddress::request(("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa"
+                .parse()
+                .unwrap(),))
             .unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F0_ADDRESS, None)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F1_ADDRESS, None)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F2_ADDRESS, None)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F3_ADDRESS, None)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F4_ADDRESS, None)).unwrap(),
         ));
     }
     tests
@@ -1936,9 +1986,27 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
     ];
 
     for block in shared_tipset.block_headers() {
+        tests.extend([RpcTest::identity(
+            FilecoinAddressToEthAddress::request((
+                block.miner_address,
+                Some(BlockNumberOrPredefined::PredefinedBlock(
+                    ExtPredefined::Latest,
+                )),
+            ))
+            .unwrap(),
+        )]);
         let (bls_messages, secp_messages) =
             crate::chain::store::block_messages(store, block).unwrap();
         for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
+            tests.extend([RpcTest::identity(
+                FilecoinAddressToEthAddress::request((
+                    msg.from(),
+                    Some(BlockNumberOrPredefined::PredefinedBlock(
+                        ExtPredefined::Latest,
+                    )),
+                ))
+                .unwrap(),
+            )]);
             if let Ok(eth_to_addr) = msg.to.try_into() {
                 tests.extend([RpcTest::identity(
                     EthEstimateGas::request((

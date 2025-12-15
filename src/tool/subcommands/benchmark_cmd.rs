@@ -1,29 +1,43 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain::{
-    ChainEpochDelta,
-    index::{ChainIndex, ResolveNullTipset},
-};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::db::car::ManyCar;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::ipld::{stream_chain, stream_graph};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
+use crate::utils::multihash::MultihashCode;
 use crate::utils::stream::par_buffer;
+use crate::{
+    chain::{
+        ChainEpochDelta,
+        index::{ChainIndex, ResolveNullTipset},
+    },
+    db::{Blockstore, Either, parity_db::ParityDb, parity_db_config::ParityDbConfig},
+};
 use anyhow::Context as _;
+use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
+use human_repr::HumanCount as _;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::{
     fs::File,
     io::{AsyncWrite, AsyncWriteExt, BufReader},
 };
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum DbType {
+    Parity,
+    ParityOpt,
+}
 
 #[derive(Debug, Subcommand)]
 pub enum BenchmarkCommands {
@@ -70,6 +84,14 @@ pub enum BenchmarkCommands {
         #[arg(short, long, default_value_t = 2000)]
         depth: ChainEpochDelta,
     },
+    /// Benchmark key-value blockstore
+    Blockstore {
+        /// Snapshot input file (`.car.`, `.car.zst`, `.forest.car.zst`)
+        #[arg(required = true)]
+        snapshot_file: PathBuf,
+        #[arg(long, default_value = "parity")]
+        db: DbType,
+    },
 }
 
 impl BenchmarkCommands {
@@ -100,6 +122,7 @@ impl BenchmarkCommands {
                 benchmark_exporting(snapshot_files, compression_level, frame_size, epoch, depth)
                     .await
             }
+            Self::Blockstore { snapshot_file, db } => benchmark_blockstore(snapshot_file, db).await,
         }
     }
 }
@@ -227,6 +250,68 @@ async fn benchmark_exporting(
     Ok(())
 }
 
+async fn benchmark_blockstore(snapshot: PathBuf, db: DbType) -> anyhow::Result<()> {
+    let tmp_db_path = tempfile::tempdir()?;
+    let bs = open_blockstore(&db, tmp_db_path.path())?;
+    let head_tsk = benchmark_blockstore_import(&snapshot, &db, &bs, tmp_db_path.path()).await?;
+    benchmark_blockstore_traversal(&bs, &head_tsk).await?;
+    Ok(())
+}
+
+fn open_blockstore(db: &DbType, db_path: &Path) -> anyhow::Result<impl Blockstore> {
+    println!("temp db path: {}", db_path.display());
+    Ok(match db {
+        DbType::Parity => Either::Left(ParityDb::open(db_path, &ParityDbConfig::default())?),
+        DbType::ParityOpt => Either::Right(ParityDbOpt::open(db_path)?),
+    })
+}
+
+async fn benchmark_blockstore_import(
+    snapshot: &Path,
+    db: &DbType,
+    bs: &impl Blockstore,
+    bs_path: &Path,
+) -> anyhow::Result<TipsetKey> {
+    let mut car_stream = CarStream::new_from_path(snapshot).await?;
+    let head_tsk = car_stream.head_tipset_key();
+    println!("head tipset key: {head_tsk}");
+    println!("importing CAR into {db:?} blockstore...");
+    let start = Instant::now();
+    let mut n = 0;
+    while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
+        bs.put_keyed(&cid, &data)?;
+        n += 1;
+    }
+    let db_size = fs_extra::dir::get_size(bs_path).unwrap_or_default();
+    println!(
+        "imported {n} records into {db:?} blockstore(size={}), took {}",
+        db_size.human_count_bytes(),
+        humantime::format_duration(start.elapsed())
+    );
+    Ok(head_tsk)
+}
+
+async fn benchmark_blockstore_traversal(
+    bs: &impl Blockstore,
+    head_tsk: &TipsetKey,
+) -> anyhow::Result<()> {
+    println!("Traversing the chain...");
+    let head = Tipset::load_required(bs, head_tsk)?;
+    let mut sink = indicatif_sink("traversed");
+    let start = Instant::now();
+    let mut s = stream_graph(bs, head.chain(bs), 0);
+    let mut n = 0;
+    while let Some(block) = s.try_next().await? {
+        sink.write_all(&block.data).await?;
+        n += 1;
+    }
+    println!(
+        "Traversed {n} records, took {}",
+        humantime::format_duration(start.elapsed())
+    );
+    Ok(())
+}
+
 // Sink with attached progress indicator
 fn indicatif_sink(task: &'static str) -> impl AsyncWrite {
     let sink = tokio::io::sink();
@@ -258,4 +343,60 @@ fn open_store(input: Vec<PathBuf>) -> anyhow::Result<ManyCar> {
     pb.finish_and_clear();
 
     Ok(store)
+}
+
+struct ParityDbOpt {
+    db: parity_db::Db,
+}
+
+impl ParityDbOpt {
+    fn open(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
+        let opts = parity_db::Options {
+            path: path.into(),
+            sync_wal: true,
+            sync_data: true,
+            stats: false,
+            salt: None,
+            columns: vec![
+                parity_db::ColumnOptions {
+                    preimage: true,
+                    uniform: true,
+                    compression: parity_db::CompressionType::Lz4,
+                    ..Default::default()
+                },
+                parity_db::ColumnOptions {
+                    preimage: true,
+                    compression: parity_db::CompressionType::Lz4,
+                    ..Default::default()
+                },
+            ],
+            compression_threshold: [(0, 128)].into_iter().collect(),
+        };
+        let db = parity_db::Db::open_or_create(&opts)?;
+        Ok(Self { db })
+    }
+}
+
+impl Blockstore for ParityDbOpt {
+    fn get(&self, k: &cid::Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(if is_dag_cbor_blake2b256(k) {
+            self.db.get(0, k.hash().digest())?
+        } else {
+            self.db.get(1, &k.to_bytes())?
+        })
+    }
+
+    fn put_keyed(&self, k: &cid::Cid, block: &[u8]) -> anyhow::Result<()> {
+        if is_dag_cbor_blake2b256(k) {
+            self.db
+                .commit([(0, k.hash().digest(), Some(block.to_vec()))])?;
+        } else {
+            self.db.commit([(1, k.to_bytes(), Some(block.to_vec()))])?;
+        }
+        Ok(())
+    }
+}
+
+fn is_dag_cbor_blake2b256(cid: &Cid) -> bool {
+    cid.codec() == DAG_CBOR && cid.hash().code() == u64::from(MultihashCode::Blake2b256)
 }
