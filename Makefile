@@ -1,23 +1,14 @@
 install:
 	cargo install --locked --path . --force
 
-install-quick:
-	cargo install --profile quick --locked --path . --force
-
 install-slim:
 	cargo install --no-default-features --features slim --locked --path . --force
-
-install-slim-quick:
-	cargo install --profile quick --no-default-features --features slim --locked --path . --force
 
 install-minimum:
 	cargo install --no-default-features --locked --path . --force
 
 install-lto-fat:
 	cargo install --locked --force --profile release-lto-fat --path .
-
-install-minimum-quick:
-	cargo install --profile quick --no-default-features --locked --path . --force
 
 # Installs Forest binaries with default rust global allocator
 install-with-rustalloc:
@@ -106,7 +97,7 @@ test:
 	cargo test --doc --features doctest-private
 
 test-release:
-	cargo nextest run --cargo-profile quick --workspace --no-fail-fast
+	cargo nextest run --cargo-profile release --workspace --no-fail-fast
 
 test-all: test test-release
 

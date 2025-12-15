@@ -282,11 +282,6 @@ debug = "full"
 # This works on Linux. On other platforms, refer to https://doc.rust-lang.org/rustc/codegen-options/index.html#split-debuginfo
 split-debuginfo = "off"
 
-[profile.quick]
-inherits = "release"
-opt-level = 1
-lto = "off"
-
 [profile.profiling]
 inherits = "dev"
 opt-level = 0

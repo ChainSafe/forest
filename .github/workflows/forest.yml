@@ -92,7 +92,7 @@ jobs:
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-        run: make install-slim-quick
+        run: make install-slim
       - uses: actions/upload-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
