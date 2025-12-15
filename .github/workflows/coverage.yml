@@ -64,7 +64,7 @@ jobs:
           path: lcov.info
           if-no-files-found: error
       - name: Upload CodeCov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
