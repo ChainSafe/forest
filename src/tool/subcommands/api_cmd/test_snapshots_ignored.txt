@@ -81,6 +81,7 @@ Forest.ChainExportCancel
 Forest.ChainExportDiff
 Forest.ChainExportStatus
 Forest.ChainGetMinBaseFee
+Forest.ChainGetTipsetByParentState
 Forest.NetInfo
 Forest.SnapshotGC
 Forest.StateActorInfo

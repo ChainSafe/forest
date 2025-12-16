@@ -26,13 +26,13 @@ use enumflags2::BitFlags;
 use crate::shim::sector::PoStProof;
 use crate::utils::db::CborStoreExt;
 
+use crate::shim::crypto::BLS_SIG_LEN;
 use anyhow::{Context as _, Result};
 use bls_signatures::Serialize as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
-use fvm_shared2::crypto::signature::BLS_SIG_LEN;
 use group::prime::PrimeCurveAffine as _;
 use itertools::Itertools;
 use parking_lot::RwLock;

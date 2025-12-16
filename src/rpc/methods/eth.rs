@@ -2157,9 +2157,10 @@ impl RpcMethod<2> for EthGetCode {
             ..Default::default()
         };
 
+        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
         let api_invoc_result = 'invoc: {
             for ts in ts.chain(ctx.store()) {
-                match ctx.state_manager.call(&message, Some(ts)) {
+                match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;
                     }
@@ -2208,10 +2209,8 @@ impl RpcMethod<3> for EthGetStorageAt {
             ResolveNullTipset::TakeOlder,
         )?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
-        let Some(actor) = ctx
-            .state_manager
-            .get_actor(&to_address, *ts.parent_state())?
-        else {
+        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
+        let Some(actor) = ctx.state_manager.get_actor(&to_address, state)? else {
             return Ok(make_empty_result());
         };
 
@@ -2230,7 +2229,7 @@ impl RpcMethod<3> for EthGetStorageAt {
         };
         let api_invoc_result = 'invoc: {
             for ts in ts.chain(ctx.store()) {
-                match ctx.state_manager.call(&message, Some(ts)) {
+                match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;
                     }
@@ -2799,7 +2798,7 @@ async fn get_eth_transaction_receipt(
     ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
     tx_hash: EthHash,
     limit: Option<ChainEpoch>,
-) -> Result<EthTxReceipt, ServerError> {
+) -> Result<Option<EthTxReceipt>, ServerError> {
     let msg_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
         tracing::debug!(
             "could not find transaction hash {} in Ethereum mapping",
@@ -2813,7 +2812,16 @@ async fn get_eth_transaction_receipt(
         .state_manager
         .search_for_message(None, msg_cid, limit, Some(true))
         .await
-        .with_context(|| format!("failed to lookup Eth Txn {tx_hash} as {msg_cid}"))?;
+        .with_context(|| format!("failed to lookup Eth Txn {tx_hash} as {msg_cid}"));
+
+    let option = match option {
+        Ok(opt) => opt,
+        // Ethereum clients expect an empty response when the message was not found
+        Err(e) => {
+            tracing::debug!("could not find transaction receipt for hash {tx_hash}: {e}");
+            return Ok(None);
+        }
+    };
 
     let (tipset, receipt) = option.context("not indexed")?;
     let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
@@ -2846,7 +2854,7 @@ async fn get_eth_transaction_receipt(
 
     let tx_receipt = new_eth_tx_receipt(&ctx, &parent_ts, &tx, &message_lookup.receipt).await?;
 
-    Ok(tx_receipt)
+    Ok(Some(tx_receipt))
 }
 
 pub enum EthGetTransactionReceipt {}
@@ -2858,7 +2866,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthHash,);
-    type Ok = EthTxReceipt;
+    type Ok = Option<EthTxReceipt>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
@@ -2876,7 +2884,7 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthHash, ChainEpoch);
-    type Ok = EthTxReceipt;
+    type Ok = Option<EthTxReceipt>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash, limit): Self::Params,

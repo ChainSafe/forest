@@ -581,13 +581,14 @@ where
     #[instrument(skip(self, rand))]
     fn call_raw(
         &self,
+        state_cid: Option<Cid>,
         msg: &Message,
         rand: ChainRand<DB>,
         tipset: &Tipset,
     ) -> Result<ApiInvocResult, Error> {
         let mut msg = msg.clone();
 
-        let state_cid = tipset.parent_state();
+        let state_cid = state_cid.unwrap_or(*tipset.parent_state());
 
         let tipset_messages = self
             .chain_store()
@@ -605,14 +606,14 @@ where
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: tipset.clone(),
-                state_tree_root: *state_cid,
+                state_tree_root: state_cid,
                 epoch: height,
                 rand: Box::new(rand),
                 base_fee: tipset.block_headers().first().parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
                     self.blockstore(),
-                    state_cid,
+                    &state_cid,
                 )?,
                 chain_config: self.chain_config().clone(),
                 chain_index: self.chain_index().clone(),
@@ -659,7 +660,20 @@ where
     pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let chain_rand = self.chain_rand(ts.clone());
-        self.call_raw(message, chain_rand, &ts)
+        self.call_raw(None, message, chain_rand, &ts)
+    }
+
+    /// Same as [`StateManager::call`] but runs the message on the given state and not
+    /// on the parent state of the tipset.
+    pub fn call_on_state(
+        &self,
+        state_cid: Cid,
+        message: &Message,
+        tipset: Option<Tipset>,
+    ) -> Result<ApiInvocResult, Error> {
+        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
+        let chain_rand = self.chain_rand(ts.clone());
+        self.call_raw(Some(state_cid), message, chain_rand, &ts)
     }
 
     pub async fn apply_on_state_with_gas(
