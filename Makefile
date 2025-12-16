@@ -97,7 +97,7 @@ test:
 	cargo test --doc --features doctest-private
 
 test-release:
-	cargo nextest run --cargo-profile release --workspace --no-fail-fast
+	cargo nextest run --release --workspace --no-fail-fast
 
 test-all: test test-release
 
