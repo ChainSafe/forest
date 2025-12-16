@@ -1,15 +1,15 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::client::Client;
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::econ::TokenAmount;
 use crate::utils::misc::env::is_env_set_and_truthy;
 use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-
-use super::client::Client;
 
 const FOREST_CHAIN_INDEXER_ENABLED: &str = "FOREST_CHAIN_INDEXER_ENABLED";
 
@@ -92,6 +92,23 @@ impl Default for ChainIndexerConfig {
     }
 }
 
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct FeeConfig {
+    /// Indicates the default max fee for a message
+    #[serde(with = "crate::lotus_json")]
+    pub max_fee: TokenAmount,
+}
+
+impl Default for FeeConfig {
+    fn default() -> Self {
+        // The code is taken from https://github.com/filecoin-project/lotus/blob/release/v1.34.1/node/config/def.go#L39
+        Self {
+            max_fee: TokenAmount::from_atto(70_000_000_000_000_000u64), // 0.07 FIL
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
@@ -104,6 +121,7 @@ pub struct Config {
     pub daemon: DaemonConfig,
     pub events: EventsConfig,
     pub fevm: FevmConfig,
+    pub fee: FeeConfig,
     pub chain_indexer: ChainIndexerConfig,
 }
 

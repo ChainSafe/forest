@@ -25,6 +25,8 @@ exclude = [
   "ubuntu.com",
   # Bot protection / 403 Forbidden errors
   "beryx.io/faucet",
+  # Frequent timeouts
+  "curiostorage.org",
 ]
 timeout = 30
 max_retries = 6

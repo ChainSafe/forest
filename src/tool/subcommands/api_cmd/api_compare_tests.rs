@@ -15,7 +15,7 @@ use crate::rpc::eth::{
     BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
     new_eth_tx_from_signed_message, types::*,
 };
-use crate::rpc::gas::GasEstimateGasLimit;
+use crate::rpc::gas::{GasEstimateGasLimit, GasEstimateMessageGas};
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::state::StateGetAllClaims;
@@ -83,6 +83,42 @@ static KNOWN_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
 static KNOWN_EMPTY_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
     crate::shim::address::Network::Testnet
         .parse_address("t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y")
+        .unwrap()
+        .into()
+});
+
+// this is the ID address of the `t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly` address
+static KNOWN_CALIBNET_F0_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t0168923")
+        .unwrap()
+        .into()
+});
+
+static KNOWN_CALIBNET_F1_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly")
+        .unwrap()
+        .into()
+});
+
+static KNOWN_CALIBNET_F2_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t2nfplhzpyeck5dcc4fokj5ar6nbs3mhbdmq6xu3q")
+        .unwrap()
+        .into()
+});
+
+static KNOWN_CALIBNET_F3_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t3wmbvnabsj6x2uki33phgtqqemmunnttowpx3chklrchy76pv52g5ajnaqdypxoomq5ubfk65twl5ofvkhshq")
+        .unwrap()
+        .into()
+});
+
+static KNOWN_CALIBNET_F4_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t410fx2cumi6pgaz64varl77xbuub54bgs3k5xsvn3ki")
         .unwrap()
         .into()
 });
@@ -1255,11 +1291,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
 fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
     let prefunded_wallets = [
         // the following addresses should have 666 attoFIL each
-        Address::from_str("t0168923").unwrap(), // this is the ID address of the `t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly` address
-        Address::from_str("t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly").unwrap(),
-        Address::from_str("t2nfplhzpyeck5dcc4fokj5ar6nbs3mhbdmq6xu3q").unwrap(),
-        Address::from_str("t3wmbvnabsj6x2uki33phgtqqemmunnttowpx3chklrchy76pv52g5ajnaqdypxoomq5ubfk65twl5ofvkhshq").unwrap(),
-        Address::from_str("t410fx2cumi6pgaz64varl77xbuub54bgs3k5xsvn3ki").unwrap(),
+        *KNOWN_CALIBNET_F0_ADDRESS,
+        *KNOWN_CALIBNET_F1_ADDRESS,
+        *KNOWN_CALIBNET_F2_ADDRESS,
+        *KNOWN_CALIBNET_F3_ADDRESS,
+        *KNOWN_CALIBNET_F4_ADDRESS,
         // This address should have 0 FIL
         *KNOWN_EMPTY_CALIBNET_ADDRESS,
     ];
@@ -1456,11 +1492,25 @@ fn eth_tests() -> Vec<RpcTest> {
             EthUninstallFilter::request_with_alias((FilterID::new().unwrap(),), use_alias).unwrap(),
         ));
         tests.push(RpcTest::identity(
-            EthAddressToFilecoinAddress::request((EthAddress::from_str(
-                "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
-            )
-            .unwrap(),))
+            EthAddressToFilecoinAddress::request(("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa"
+                .parse()
+                .unwrap(),))
             .unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F0_ADDRESS, None)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F1_ADDRESS, None)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F2_ADDRESS, None)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F3_ADDRESS, None)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            FilecoinAddressToEthAddress::request((*KNOWN_CALIBNET_F4_ADDRESS, None)).unwrap(),
         ));
     }
     tests
@@ -1933,12 +1983,41 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         // both nodes could fail on, e.g., "too many results, maximum supported is 500, try paginating
         // requests with After and Count"
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(
+            EthGetTransactionReceipt::request((
+                // A transaction that should not exist, to test the `null` response in case
+                // of missing transaction.
+                EthHash::from_str(
+                    "0xf234567890123456789d6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f70809",
+                )
+                .unwrap(),
+            ))
+            .unwrap(),
+        ),
     ];
 
     for block in shared_tipset.block_headers() {
+        tests.extend([RpcTest::identity(
+            FilecoinAddressToEthAddress::request((
+                block.miner_address,
+                Some(BlockNumberOrPredefined::PredefinedBlock(
+                    ExtPredefined::Latest,
+                )),
+            ))
+            .unwrap(),
+        )]);
         let (bls_messages, secp_messages) =
             crate::chain::store::block_messages(store, block).unwrap();
         for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
+            tests.extend([RpcTest::identity(
+                FilecoinAddressToEthAddress::request((
+                    msg.from(),
+                    Some(BlockNumberOrPredefined::PredefinedBlock(
+                        ExtPredefined::Latest,
+                    )),
+                ))
+                .unwrap(),
+            )]);
             if let Ok(eth_to_addr) = msg.to.try_into() {
                 tests.extend([RpcTest::identity(
                     EthEstimateGas::request((
@@ -2088,14 +2167,52 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         ..Default::default()
     };
 
-    // The tipset is only used for resolving the 'from' address and not when
-    // computing the gas cost. This means that the `GasEstimateGasLimit` method
-    // is inherently non-deterministic but I'm fairly sure we're compensated for
-    // everything. If not, this test will be flaky. Instead of disabling it, we
-    // should relax the verification requirement.
-    vec![RpcTest::identity(
-        GasEstimateGasLimit::request((message, shared_tipset.key().into())).unwrap(),
-    )]
+    vec![
+        // The tipset is only used for resolving the 'from' address and not when
+        // computing the gas cost. This means that the `GasEstimateGasLimit` method
+        // is inherently non-deterministic, but I'm fairly sure we're compensated for
+        // everything. If not, this test will be flaky. Instead of disabling it, we
+        // should relax the verification requirement.
+        RpcTest::identity(
+            GasEstimateGasLimit::request((message.clone(), shared_tipset.key().into())).unwrap(),
+        ),
+        // Gas estimation is inherently non-deterministic due to randomness in gas premium
+        // calculation and network state changes. We validate that both implementations
+        // return reasonable values within expected bounds rather than exact equality.
+        RpcTest::validate(
+            GasEstimateMessageGas::request((
+                message,
+                None, // No MessageSendSpec
+                shared_tipset.key().into(),
+            ))
+            .unwrap(),
+            |forest_api_msg, lotus_api_msg| {
+                let forest_msg = forest_api_msg.message;
+                let lotus_msg = lotus_api_msg.message;
+                // Validate that the gas limit is identical (must be deterministic)
+                if forest_msg.gas_limit != lotus_msg.gas_limit {
+                    return false;
+                }
+
+                // Validate gas fee cap and premium are within reasonable bounds (±5%)
+                let forest_fee_cap = &forest_msg.gas_fee_cap;
+                let lotus_fee_cap = &lotus_msg.gas_fee_cap;
+                let forest_premium = &forest_msg.gas_premium;
+                let lotus_premium = &lotus_msg.gas_premium;
+
+                // Gas fee cap and premium should not be negative
+                if [forest_fee_cap, lotus_fee_cap, forest_premium, lotus_premium]
+                    .iter()
+                    .any(|amt| amt.is_negative())
+                {
+                    return false;
+                }
+
+                forest_fee_cap.is_within_percent(lotus_fee_cap, 5)
+                    && forest_premium.is_within_percent(lotus_premium, 5)
+            },
+        ),
+    ]
 }
 
 fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {

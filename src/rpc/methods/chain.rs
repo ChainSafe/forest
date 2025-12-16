@@ -219,7 +219,7 @@ impl RpcMethod<1> for ChainGetMessage {
     const DESCRIPTION: Option<&'static str> = Some("Returns the message with the specified CID.");
 
     type Params = (Cid,);
-    type Ok = Message;
+    type Ok = FlattenedApiMessage;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -229,10 +229,13 @@ impl RpcMethod<1> for ChainGetMessage {
             .store()
             .get_cbor(&message_cid)?
             .with_context(|| format!("can't find message with cid {message_cid}"))?;
-        Ok(match chain_message {
+        let message = match chain_message {
             ChainMessage::Signed(m) => m.into_message(),
             ChainMessage::Unsigned(m) => m,
-        })
+        };
+
+        let cid = message.cid();
+        Ok(FlattenedApiMessage { message, cid })
     }
 }
 
@@ -1242,6 +1245,29 @@ impl RpcMethod<1> for ChainTipSetWeight {
     }
 }
 
+pub enum ChainGetTipsetByParentState {}
+impl RpcMethod<1> for ChainGetTipsetByParentState {
+    const NAME: &'static str = "Forest.ChainGetTipsetByParentState";
+    const PARAM_NAMES: [&'static str; 1] = ["parentState"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Cid,);
+    type Ok = Option<Tipset>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (parent_state,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(ctx
+            .chain_store()
+            .heaviest_tipset()
+            .chain(ctx.store())
+            .find(|ts| ts.parent_state() == &parent_state)
+            .clone())
+    }
+}
+
 pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
 pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
@@ -1356,6 +1382,18 @@ pub struct ApiMessage {
 }
 
 lotus_json_with_self!(ApiMessage);
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, Eq, PartialEq)]
+pub struct FlattenedApiMessage {
+    #[serde(flatten, with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Message>")]
+    pub message: Message,
+    #[serde(rename = "CID", with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Cid>")]
+    pub cid: Cid,
+}
+
+lotus_json_with_self!(FlattenedApiMessage);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ForestChainExportParams {

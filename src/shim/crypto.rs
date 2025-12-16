@@ -14,6 +14,7 @@ use fvm_ipld_encoding::{
     repr::{Deserialize_repr, Serialize_repr},
     ser, strict_bytes,
 };
+pub use fvm_shared_latest::crypto::signature::BLS_SIG_LEN;
 pub use fvm_shared3::TICKET_RANDOMNESS_LOOKBACK;
 use get_size2::GetSize;
 use num::FromPrimitive;

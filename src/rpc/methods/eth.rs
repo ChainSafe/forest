@@ -848,7 +848,7 @@ impl RpcMethod<0> for EthGasPrice {
         let ts = ctx.chain_store().heaviest_tipset();
         let block0 = ts.block_headers().first();
         let base_fee = block0.parent_base_fee.atto();
-        let tip = crate::rpc::gas::estimate_gas_premium(&ctx, 0)
+        let tip = crate::rpc::gas::estimate_gas_premium(&ctx, 0, &ApiTipsetKey(None))
             .await
             .map(|gas_premium| gas_premium.atto().to_owned())
             .unwrap_or_default();
@@ -2157,9 +2157,10 @@ impl RpcMethod<2> for EthGetCode {
             ..Default::default()
         };
 
+        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
         let api_invoc_result = 'invoc: {
             for ts in ts.chain(ctx.store()) {
-                match ctx.state_manager.call(&message, Some(ts)) {
+                match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;
                     }
@@ -2208,10 +2209,8 @@ impl RpcMethod<3> for EthGetStorageAt {
             ResolveNullTipset::TakeOlder,
         )?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
-        let Some(actor) = ctx
-            .state_manager
-            .get_actor(&to_address, *ts.parent_state())?
-        else {
+        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
+        let Some(actor) = ctx.state_manager.get_actor(&to_address, state)? else {
             return Ok(make_empty_result());
         };
 
@@ -2230,7 +2229,7 @@ impl RpcMethod<3> for EthGetStorageAt {
         };
         let api_invoc_result = 'invoc: {
             for ts in ts.chain(ctx.store()) {
-                match ctx.state_manager.call(&message, Some(ts)) {
+                match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
                     Ok(res) => {
                         break 'invoc res;
                     }
@@ -2321,7 +2320,7 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        match crate::rpc::gas::estimate_gas_premium(&ctx, 0).await {
+        match gas::estimate_gas_premium(&ctx, 0, &ApiTipsetKey(None)).await {
             Ok(gas_premium) => Ok(EthBigInt(gas_premium.atto().clone())),
             Err(_) => Ok(EthBigInt(num_bigint::BigInt::zero())),
         }
@@ -2747,11 +2746,11 @@ impl RpcMethod<0> for EthSubscribe {
 pub enum EthAddressToFilecoinAddress {}
 impl RpcMethod<1> for EthAddressToFilecoinAddress {
     const NAME: &'static str = "Filecoin.EthAddressToFilecoinAddress";
-    const NAME_ALIAS: Option<&'static str> = None;
-    const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["ethAddress"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Converts an EthAddress into an f410 Filecoin Address");
     type Params = (EthAddress,);
     type Ok = FilecoinAddress;
     async fn handle(
@@ -2762,11 +2761,44 @@ impl RpcMethod<1> for EthAddressToFilecoinAddress {
     }
 }
 
+pub enum FilecoinAddressToEthAddress {}
+impl RpcMethod<2> for FilecoinAddressToEthAddress {
+    const NAME: &'static str = "Filecoin.FilecoinAddressToEthAddress";
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["filecoinAddress", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Converts any Filecoin address to an EthAddress");
+    type Params = (FilecoinAddress, Option<BlockNumberOrPredefined>);
+    type Ok = EthAddress;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if let Ok(eth_address) = EthAddress::from_filecoin_address(&address) {
+            Ok(eth_address)
+        } else {
+            let block_param = block_param.unwrap_or(BlockNumberOrPredefined::PredefinedBlock(
+                ExtPredefined::Finalized,
+            ));
+            let ts = tipset_by_ext_block_number_or_hash(
+                ctx.chain_store(),
+                block_param.into(),
+                ResolveNullTipset::TakeOlder,
+            )?;
+
+            let id_address = ctx.state_manager.lookup_required_id(&address, &ts)?;
+            Ok(EthAddress::from_filecoin_address(&id_address)?)
+        }
+    }
+}
+
 async fn get_eth_transaction_receipt(
     ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
     tx_hash: EthHash,
     limit: Option<ChainEpoch>,
-) -> Result<EthTxReceipt, ServerError> {
+) -> Result<Option<EthTxReceipt>, ServerError> {
     let msg_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
         tracing::debug!(
             "could not find transaction hash {} in Ethereum mapping",
@@ -2780,7 +2812,16 @@ async fn get_eth_transaction_receipt(
         .state_manager
         .search_for_message(None, msg_cid, limit, Some(true))
         .await
-        .with_context(|| format!("failed to lookup Eth Txn {tx_hash} as {msg_cid}"))?;
+        .with_context(|| format!("failed to lookup Eth Txn {tx_hash} as {msg_cid}"));
+
+    let option = match option {
+        Ok(opt) => opt,
+        // Ethereum clients expect an empty response when the message was not found
+        Err(e) => {
+            tracing::debug!("could not find transaction receipt for hash {tx_hash}: {e}");
+            return Ok(None);
+        }
+    };
 
     let (tipset, receipt) = option.context("not indexed")?;
     let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
@@ -2813,7 +2854,7 @@ async fn get_eth_transaction_receipt(
 
     let tx_receipt = new_eth_tx_receipt(&ctx, &parent_ts, &tx, &message_lookup.receipt).await?;
 
-    Ok(tx_receipt)
+    Ok(Some(tx_receipt))
 }
 
 pub enum EthGetTransactionReceipt {}
@@ -2825,7 +2866,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthHash,);
-    type Ok = EthTxReceipt;
+    type Ok = Option<EthTxReceipt>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
@@ -2843,7 +2884,7 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthHash, ChainEpoch);
-    type Ok = EthTxReceipt;
+    type Ok = Option<EthTxReceipt>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash, limit): Self::Params,

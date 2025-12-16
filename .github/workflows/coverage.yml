@@ -1,0 +1,67 @@
+name: Code coverage
+
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+on:
+  workflow_dispatch:
+  merge_group:
+  pull_request:
+    branches:
+      - main
+    # This needs to be declared explicitly so that the job is actually
+    # run when moved out of draft.
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/docs-*.yml"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/docs-*.yml"
+
+env:
+  CI: 1
+  CARGO_INCREMENTAL: 0
+  CACHE_TIMEOUT_MINUTES: 5
+  RUSTC_WRAPPER: sccache
+  CC: sccache clang
+  CXX: sccache clang++
+  # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
+  RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+
+jobs:
+  codecov:
+    name: Coverage
+    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
+    runs-on: buildjet-4vcpu-ubuntu-2204
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.work"
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@nextest
+      - name: Generate code coverage
+        run: make codecov
+      # Save lcov.info as an artifact for debugging purposes
+      - uses: actions/upload-artifact@v6
+        with:
+          name: lcov.info
+          path: lcov.info
+          if-no-files-found: error
+      - name: Upload CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true

@@ -29,17 +29,37 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
+
+## Forest v0.30.5 "Dulce de Leche"
+
+Non-mandatory release supporting new API methods and addressing a critical panic issue.
+
+### Added
+
 - [#6231](https://github.com/ChainSafe/forest/pull/6231) Implemented `Filecoin.ChainGetTipSet` for API v2.
 
 - [#6312](https://github.com/ChainSafe/forest/pull/6312) Implemented `Filecoin.StateGetActor` for API v2.
 
 - [#6312](https://github.com/ChainSafe/forest/pull/6312) Implemented `Filecoin.StateGetID` for API v2.
 
-### Changed
-
-### Removed
+- [#6323](https://github.com/ChainSafe/forest/pull/6323) Implemented `Filecoin.FilecoinAddressToEthAddress` for API v1 and v2.
 
 ### Fixed
+
+- [#6325](https://github.com/ChainSafe/forest/pull/6325) Fixed a panic that could occur under certain message pool conditions and the `Filecoin.MpoolSelect` RPC method.
+
+- [#5979](https://github.com/ChainSafe/forest/issues/5979) Fixed an issue with `Filecoin.EthGetCode` and `Filecoin.EthGetStorageAt` returning parent tipset data instead of the requested tipset.
+
+- [#6118](https://github.com/ChainSafe/forest/pull/6118) Fixed the `Filecoin.EthGetTransactionReceipt` and `Filecoin.EthGetTransactionReceiptLimited` RPC methods to return null for non-existent transactions instead of an error. This aligns with the Ethereum RPC API provided by Lotus.
+
+- [#6118](https://github.com/ChainSafe/forest/pull/6118) Removed a legacy limit of 100M gas for messages which was preventing contract deployments.
 
 ## Forest v0.30.4 "DeLorean"
 
