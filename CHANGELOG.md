@@ -57,6 +57,12 @@ Non-mandatory release supporting new API methods and addressing a critical panic
 
 - [#6325](https://github.com/ChainSafe/forest/pull/6325) Fixed a panic that could occur under certain message pool conditions and the `Filecoin.MpoolSelect` RPC method.
 
+- [#5979](https://github.com/ChainSafe/forest/issues/5979) Fixed an issue with `Filecoin.EthGetCode` and `Filecoin.EthGetStorageAt` returning parent tipset data instead of the requested tipset.
+
+- [#6118](https://github.com/ChainSafe/forest/pull/6118) Fixed the `Filecoin.EthGetTransactionReceipt` and `Filecoin.EthGetTransactionReceiptLimited` RPC methods to return null for non-existent transactions instead of an error. This aligns with the Ethereum RPC API provided by Lotus.
+
+- [#6118](https://github.com/ChainSafe/forest/pull/6118) Removed a legacy limit of 100M gas for messages which was preventing contract deployments.
+
 ## Forest v0.30.4 "DeLorean"
 
 This is a non-mandatory release that fixes a chain sync issue that is caused by time traveling block(s).
