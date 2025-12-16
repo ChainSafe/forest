@@ -1985,7 +1985,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(
             EthGetTransactionReceipt::request((
-                // A transaction that should not exist exist, to test the `null` response in case
+                // A transaction that should not exist, to test the `null` response in case
                 // of missing transaction.
                 EthHash::from_str(
                     "0xf234567890123456789d6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f70809",
