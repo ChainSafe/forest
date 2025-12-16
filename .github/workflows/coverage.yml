@@ -37,8 +37,8 @@ env:
 jobs:
   codecov:
     name: Coverage
-    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    # if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
