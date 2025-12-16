@@ -98,6 +98,14 @@ impl SignedMessage {
         };
         Ok(serialized.len())
     }
+
+    /// Creates a mock signed message for testing purposes. The signature check will fail if
+    /// invoked.
+    #[cfg(test)]
+    pub fn mock_bls_signed_message(message: Message) -> SignedMessage {
+        let signature = Signature::new_bls(vec![0; crate::shim::crypto::BLS_SIG_LEN]);
+        SignedMessage::new_unchecked(message, signature)
+    }
 }
 
 impl MessageTrait for SignedMessage {
