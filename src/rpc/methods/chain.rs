@@ -1245,6 +1245,29 @@ impl RpcMethod<1> for ChainTipSetWeight {
     }
 }
 
+pub enum ChainGetTipsetByParentState {}
+impl RpcMethod<1> for ChainGetTipsetByParentState {
+    const NAME: &'static str = "Forest.ChainGetTipsetByParentState";
+    const PARAM_NAMES: [&'static str; 1] = ["parentState"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Cid,);
+    type Ok = Option<Tipset>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (parent_state,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(ctx
+            .chain_store()
+            .heaviest_tipset()
+            .chain(ctx.store())
+            .find(|ts| ts.parent_state() == &parent_state)
+            .clone())
+    }
+}
+
 pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
 pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
