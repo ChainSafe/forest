@@ -603,12 +603,6 @@ where
         bls_sig_cache.push(msg.cid().into(), msg.signature().clone());
     }
 
-    if msg.message().gas_limit > 100_000_000 {
-        return Err(Error::Other(
-            "given message has too high of a gas limit".to_string(),
-        ));
-    }
-
     api.put_message(&ChainMessage::Signed(msg.clone()))?;
     api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
@@ -681,4 +675,29 @@ pub fn remove(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::message_pool::test_provider::TestApi;
+
+    use super::*;
+    use crate::shim::message::Message as ShimMessage;
+
+    // Regression test for https://github.com/ChainSafe/forest/pull/6118 which fixed a bogus 100M
+    // gas limit. There are no limits on a single message.
+    #[test]
+    fn add_helper_message_gas_limit_test() {
+        let api = TestApi::default();
+        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
+        let pending = SyncRwLock::new(HashMap::new());
+        let message = ShimMessage {
+            gas_limit: 666_666_666,
+            ..ShimMessage::default()
+        };
+        let msg = SignedMessage::mock_bls_signed_message(message);
+        let sequence = msg.message().sequence;
+        let res = add_helper(&api, &bls_sig_cache, &pending, msg, sequence);
+        assert!(res.is_ok());
+    }
 }
