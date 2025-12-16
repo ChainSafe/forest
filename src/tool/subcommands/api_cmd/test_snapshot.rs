@@ -22,7 +22,6 @@ use crate::{
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
 };
-use cid::Cid;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -53,20 +52,12 @@ pub struct RpcTestSnapshot {
 }
 
 fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
-    if let Some(index) = index {
-        if let Some(mut guard) = db.eth_mappings_db.try_write()
-            && let Some(eth_mappings) = index.eth_mappings
-        {
-            for (k, v) in eth_mappings.iter() {
-                guard.insert(EthHash::from_str(k)?, v.0.clone());
-            }
-        }
-        if let Some(mut guard) = db.indices_db.try_write()
-            && let Some(indices) = index.indices
-        {
-            for (k, v) in indices.iter() {
-                guard.insert(Cid::from_str(k)?, v.0.clone());
-            }
+    if let Some(index) = index
+        && let Some(mut guard) = db.eth_mappings_db.try_write()
+        && let Some(eth_mappings) = index.eth_mappings
+    {
+        for (k, v) in eth_mappings.iter() {
+            guard.insert(EthHash::from_str(k)?, v.0.clone());
         }
     }
     Ok(())
@@ -140,17 +131,13 @@ async fn ctx(
     let (tipset_send, _) = flume::bounded(5);
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
-    let chain_store = Arc::new(
-        ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            db,
-            chain_config,
-            genesis_header.clone(),
-        )
-        .unwrap(),
-    );
+    let chain_store = Arc::new(ChainStore::new(
+        db.clone(),
+        db.clone(),
+        db,
+        chain_config,
+        genesis_header.clone(),
+    )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
