@@ -33,25 +33,6 @@ env:
   CXX: "sccache clang++"
 
 jobs:
-  tests:
-    runs-on: ubuntu-24.04-arm
-    # Run the job only if the PR is not a draft.
-    # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
-    timeout-minutes: 45
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.work"
-      - name: install nextest
-        uses: taiki-e/install-action@nextest
-      - run: make test
   tests-release:
     runs-on: ubuntu-24.04-arm
     # Run the job only if the PR is not a draft.
@@ -80,7 +61,9 @@ jobs:
           go-version-file: "go.work"
       - name: install nextest
         uses: taiki-e/install-action@nextest
-      - run: make test-release
+      - run: |
+          make test-release-docs
+          make test-release
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"

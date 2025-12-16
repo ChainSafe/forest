@@ -101,17 +101,21 @@ docker-run:
 test:
 	cargo nextest run --workspace --no-fail-fast
 
+test-docs:
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
 	cargo test --doc --features doctest-private
 
 test-release:
-	cargo nextest run --cargo-profile quick --workspace --no-fail-fast
+	cargo nextest run --release --workspace --no-fail-fast
 
-test-all: test test-release
+test-release-docs:
+	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
+	# see also lib.rs::doctest_private
+	cargo test --release --doc --features doctest-private
 
 codecov:
-	cargo llvm-cov --workspace --codecov --output-path lcov.info --ignore-run-fail
+	cargo llvm-cov --workspace --codecov --output-path lcov.info
 
 # Checks if all headers are present and adds if not
 license:
