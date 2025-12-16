@@ -319,16 +319,16 @@ impl RpcTest {
     }
     /// Check that an endpoint exists, has the same JSON schema, and do custom
     /// validation over both responses.
-    fn validate<T: HasLotusJson>(
+    fn custom<T: HasLotusJson>(
         request: rpc::Request<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
     ) -> Self {
-        Self::validate_raw(request.map_ty::<T::LotusJson>(), move |l, r| {
+        Self::custom_raw(request.map_ty::<T::LotusJson>(), move |l, r| {
             validate(T::from_lotus_json(l), T::from_lotus_json(r))
         })
     }
-    /// See [Self::validate], and note on this `impl` block.
-    fn validate_raw<T: DeserializeOwned>(
+    /// See [Self::custom], and note on this `impl` block.
+    fn custom_raw<T: DeserializeOwned>(
         request: rpc::Request<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
     ) -> Self {
@@ -366,7 +366,7 @@ impl RpcTest {
     /// Check that an endpoint exists and that Forest returns exactly the same
     /// JSON as Lotus.
     pub(crate) fn identity<T: PartialEq + HasLotusJson>(request: rpc::Request<T>) -> RpcTest {
-        Self::validate(request, |forest, lotus| forest == lotus)
+        Self::custom(request, |forest, lotus| forest == lotus)
     }
 
     fn ignore(mut self, msg: &'static str) -> Self {
@@ -454,7 +454,7 @@ impl RpcTest {
 fn common_tests() -> Vec<RpcTest> {
     vec![
         // We don't check the `version` field as it differs between Lotus and Forest.
-        RpcTest::validate(Version::request(()).unwrap(), |forest, lotus| {
+        RpcTest::custom(Version::request(()).unwrap(), |forest, lotus| {
             forest.api_version == lotus.api_version && forest.block_delay == lotus.block_delay
         }),
         RpcTest::basic(StartTime::request(()).unwrap()),
@@ -1381,7 +1381,7 @@ fn eth_tests() -> Vec<RpcTest> {
             EthChainId::request_with_alias((), use_alias).unwrap(),
         ));
         // There is randomness in the result of this API, but at least check that the results are non-zero.
-        tests.push(RpcTest::validate(
+        tests.push(RpcTest::custom(
             EthGasPrice::request_with_alias((), use_alias).unwrap(),
             |forest, lotus| forest.0.is_positive() && lotus.0.is_positive(),
         ));
@@ -2179,7 +2179,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         // Gas estimation is inherently non-deterministic due to randomness in gas premium
         // calculation and network state changes. We validate that both implementations
         // return reasonable values within expected bounds rather than exact equality.
-        RpcTest::validate(
+        RpcTest::custom(
             GasEstimateMessageGas::request((
                 message,
                 None, // No MessageSendSpec
@@ -2587,7 +2587,7 @@ fn dump_test_data(dump_dir: &Path, success: bool, test_dump: &TestDump) -> anyho
 }
 
 fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
-    RpcTest::validate(req, |mut forest, mut lotus| {
+    RpcTest::custom(req, |mut forest, mut lotus| {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
@@ -2596,7 +2596,7 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
 }
 
 fn validate_tagged_tipset_v2(req: rpc::Request<Option<Tipset>>, offline: bool) -> RpcTest {
-    RpcTest::validate(req, move |forest, lotus| match (forest, lotus) {
+    RpcTest::custom(req, move |forest, lotus| match (forest, lotus) {
         (None, None) => true,
         (Some(forest), Some(lotus)) => {
             if offline {
