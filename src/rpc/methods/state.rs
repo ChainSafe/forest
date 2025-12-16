@@ -1266,7 +1266,6 @@ impl RpcMethod<4> for StateSearchMsg {
     }
 }
 
-/// Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md#StateSearchMsgLimited>
 pub enum StateSearchMsgLimited {}
 
@@ -1275,7 +1274,9 @@ impl RpcMethod<2> for StateSearchMsgLimited {
     const PARAM_NAMES: [&'static str; 2] = ["message_cid", "look_back_limit"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Not supported in V1
     const PERMISSION: Permission = Permission::Read;
-
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.",
+    );
     type Params = (Cid, i64);
     type Ok = MessageLookup;
 

@@ -41,7 +41,7 @@ pub use methods::*;
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
 
-const LOOKBACK_NO_LIMIT: ChainEpoch = -1;
+pub const LOOKBACK_NO_LIMIT: ChainEpoch = -1;
 
 /// The macro `callback` will be passed in each type that implements
 /// [`RpcMethod`].
