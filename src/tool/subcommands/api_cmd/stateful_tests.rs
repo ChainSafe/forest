@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::eth::EVMMethod;
+use crate::message::SignedMessage;
+use crate::networks::calibnet::ETH_CHAIN_ID;
 use crate::rpc::eth::EthUint64;
 use crate::rpc::eth::types::*;
 use crate::rpc::types::ApiTipsetKey;
@@ -300,13 +302,15 @@ async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow:
             .call(MpoolPending::request((ApiTipsetKey(None),))?)
             .await?;
 
-        if pending.0.iter().any(|msg| msg.cid() == message_cid) {
+        if pending.0.iter().all(|msg| msg.cid() != message_cid) {
+            // Wait until the message is included.
+            tokio::time::sleep(Duration::from_secs(30)).await;
             break Ok(());
         }
-        ensure!(retries != 0, "Message not found in mpool");
+        ensure!(retries != 0, "Message still in mpool");
         retries -= 1;
 
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 }
 
@@ -469,19 +473,36 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                 )
                 .context("failed to encode params")?;
 
+                let nonce = client.call(MpoolGetNonce::request((tx.from,))?).await?;
                 let message = Message {
                     to: tx.to,
                     from: tx.from,
+                    sequence: nonce,
                     method_num: EVMMethod::InvokeContract as u64,
                     params: encoded.into(),
                     ..Default::default()
                 };
-
-                let smsg = client
-                    .call(MpoolPushMessage::request((message, None))?)
+                let unsigned_msg = client
+                    .call(GasEstimateMessageGas::request((
+                        message,
+                        None,
+                        ApiTipsetKey(None),
+                    ))?)
                     .await?;
 
-                wait_pending_message(&client, smsg.cid()).await?;
+                let eth_tx_args = crate::eth::EthEip1559TxArgsBuilder::default()
+                    .chain_id(ETH_CHAIN_ID)
+                    .unsigned_message(&unsigned_msg.message)?
+                    .build()
+                    .map_err(|e| anyhow::anyhow!("Failed to build EIP-1559 transaction: {}", e))?;
+                let eth_tx = crate::eth::EthTx::Eip1559(Box::new(eth_tx_args));
+                let data = eth_tx.rlp_unsigned_message(ETH_CHAIN_ID)?;
+                let sig = client.call(WalletSign::request((tx.from, data))?).await?;
+                let smsg = SignedMessage::new_unchecked(unsigned_msg.message, sig);
+                let cid = smsg.cid();
+                client.call(MpoolPush::request((smsg,))?).await?;
+
+                wait_pending_message(&client, cid).await?;
 
                 let filter_result = client
                     .call(EthGetFilterChanges::request((filter_id.clone(),))?)
@@ -500,7 +521,7 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                         }
                     }
 
-                    anyhow::ensure!(cids.contains(&smsg.cid()));
+                    anyhow::ensure!(cids.contains(&cid));
 
                     Ok(())
                 } else {
@@ -641,8 +662,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         ),
         with_methods!(
             eth_new_pending_transaction_filter(tx.clone())
-                .name("eth_newPendingTransactionFilter works")
-                .ignore("https://github.com/ChainSafe/forest/issues/5916"),
+                .name("eth_newPendingTransactionFilter works"),
             EthNewPendingTransactionFilter,
             EthGetFilterChanges,
             EthUninstallFilter
