@@ -108,7 +108,7 @@ where
                         tracing::info!("Snapshot GC is set to keep {i} epochs of state trees");
                         Some(i)
                     } else {
-                        tracing::warn!("Snapshot GC cannot to be set to keep {i} epochs of state trees, at least {} is required for snapshot export", config.sync.recent_state_roots);
+                        tracing::warn!("Snapshot GC cannot be set to keep {i} epochs of state trees, at least {} is required for snapshot export", config.sync.recent_state_roots);
                         None
                     }
                 })
