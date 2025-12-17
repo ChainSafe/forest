@@ -107,12 +107,12 @@ test-docs:
 	cargo test --doc --features doctest-private
 
 test-release:
-	cargo nextest run --release --workspace --no-fail-fast
+	cargo nextest run --cargo-profile quick --workspace --no-fail-fast
 
 test-release-docs:
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
-	cargo test --release --doc --features doctest-private
+	cargo test --profile quick --doc --features doctest-private
 
 codecov:
 	cargo llvm-cov --workspace --codecov --output-path lcov.info
