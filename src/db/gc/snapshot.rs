@@ -100,7 +100,20 @@ where
         let chain_data_path = chain_path(config);
         let db_root_dir = db_root(&chain_data_path)?;
         let car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
-        let recent_state_roots = config.sync.recent_state_roots;
+        let recent_state_roots = std::env::var("FOREST_SNAPSHOT_GC_KEEP_STATE_TREE_EPOCHS")
+            .ok()
+            .and_then(|i| {
+                i.parse().ok().and_then(|i| {
+                    if i >= config.sync.recent_state_roots {
+                        tracing::info!("Snapshot GC is set to keep {i} epochs of state trees");
+                        Some(i)
+                    } else {
+                        tracing::warn!("Snapshot GC cannot be set to keep {i} epochs of state trees, at least {} is required for snapshot export", config.sync.recent_state_roots);
+                        None
+                    }
+                })
+            })
+            .unwrap_or(config.sync.recent_state_roots);
         let (reboot_tx, reboot_rx) = flume::bounded(1);
         let (trigger_tx, trigger_rx) = flume::bounded(1);
         Ok((
