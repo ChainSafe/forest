@@ -110,6 +110,9 @@ test-release:
 
 test-all: test test-release
 
+codecov:
+	cargo llvm-cov --workspace --codecov --output-path lcov.info --ignore-run-fail
+
 # Checks if all headers are present and adds if not
 license:
 	./scripts/add_license.sh

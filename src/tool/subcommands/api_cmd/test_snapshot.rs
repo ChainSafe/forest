@@ -199,11 +199,6 @@ mod tests {
     include!(concat!(env!("OUT_DIR"), "/__rpc_regression_tests_gen.rs"));
 
     async fn rpc_regression_test_run(name: &str) {
-        // Skip for debug build on CI as the downloading is slow and flaky
-        if crate::utils::is_ci() && crate::utils::is_debug_build() {
-            return;
-        }
-
         // Set proof parameter data dir and make sure the proofs are available
         {
             static PROOF_PARAMS_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
