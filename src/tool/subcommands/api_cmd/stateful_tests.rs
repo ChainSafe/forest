@@ -296,21 +296,26 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
 }
 
 async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
+    let tipset = client.call(ChainHead::request(())?).await?;
     let mut retries = 100;
     loop {
         let pending = client
             .call(MpoolPending::request((ApiTipsetKey(None),))?)
             .await?;
 
-        if pending.0.iter().all(|msg| msg.cid() != message_cid) {
-            // Wait until the message is included.
-            tokio::time::sleep(Duration::from_secs(30)).await;
+        if pending.0.iter().any(|msg| msg.cid() == message_cid) {
+            client
+                .call(
+                    StateWaitMsg::request((message_cid, 0, tipset.epoch(), false))?
+                        .with_timeout(Duration::from_secs(300)),
+                )
+                .await?;
             break Ok(());
         }
-        ensure!(retries != 0, "Message still in mpool");
+        ensure!(retries != 0, "Message not found in mpool");
         retries -= 1;
 
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
 
