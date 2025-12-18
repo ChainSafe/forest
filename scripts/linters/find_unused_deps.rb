@@ -16,7 +16,7 @@ def excluded?(crates, crate)
   crate == 'quickcheck' && crates.include?('quickcheck_macros')
 end
 
-Dir.glob('**/*.toml').each do |file|
+Dir.glob('**/Cargo.toml').each do |file|
   crate_dir = File.dirname(file)
   toml = TomlRB.load_file(file)
   crates = Set.new

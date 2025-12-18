@@ -15,8 +15,7 @@ on:
       - main
     paths:
       - ".github/workflows/go-lint.yml"
-      - "Makefile"
-      - "go.work"
+      - "mise.toml"
       - "f3-sidecar/**"
       - "interop-tests/src/tests/**"
   push:
@@ -24,8 +23,7 @@ on:
       - main
     paths:
       - ".github/workflows/go-lint.yml"
-      - "Makefile"
-      - "go.work"
+      - "mise.toml"
       - "f3-sidecar/**"
       - "interop-tests/src/tests/**"
 
@@ -35,7 +33,5 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.work"
-      - run: make lint-go
+      - uses: jdx/mise-action@v3
+      - run: mise lint:golang

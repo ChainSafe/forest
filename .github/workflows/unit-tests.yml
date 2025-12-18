@@ -77,9 +77,9 @@ jobs:
         run: |
           cargo run --bin forest-dev --no-default-features --profile quick -- fetch-rpc-tests
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
+      - uses: jdx/mise-action@v3
       - run: |
-          make test-release-docs
-          make test-release
+          mise test release
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"

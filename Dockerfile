@@ -20,6 +20,9 @@ ENV CC=clang-14 CXX=clang++-14
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+# install mise-en-place
+RUN curl https://mise.run | sh
+
 WORKDIR /forest
 COPY . .
 
@@ -27,7 +30,7 @@ COPY . .
 RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/root/.rustup \
     --mount=type=cache,sharing=private,target=/forest/target \
-    make install && \
+    mise install && \
     mkdir /forest_out && \
     cp /root/.cargo/bin/forest* /forest_out
 
