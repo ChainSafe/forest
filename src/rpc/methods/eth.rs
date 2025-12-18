@@ -2040,7 +2040,7 @@ where
         Ok(apply_ret.msg_receipt().exit_code().is_success())
     }
 
-    while high <= BLOCK_GAS_LIMIT {
+    while high < BLOCK_GAS_LIMIT {
         if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
             break;
         }
@@ -2051,7 +2051,7 @@ where
     let mut check_threshold = high / 100;
     while (high - low) > check_threshold {
         let median = (high + low) / 2;
-        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
+        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), median).await? {
             high = median;
         } else {
             low = median;
