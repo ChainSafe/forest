@@ -1845,10 +1845,6 @@ impl RpcMethod<2> for EthEstimateGas {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let mut msg = Message::try_from(tx)?;
-        // Set the gas limit to the zero sentinel value, which makes
-        // gas estimation actually run.
-        msg.gas_limit = 0;
         let tipset = if let Some(block_param) = block_param {
             tipset_by_block_number_or_hash(
                 ctx.chain_store(),
@@ -1858,37 +1854,77 @@ impl RpcMethod<2> for EthEstimateGas {
         } else {
             ctx.chain_store().heaviest_tipset()
         };
+        eth_estimate_gas(&ctx, tx, tipset).await
+    }
+}
 
-        match gas::estimate_message_gas(&ctx, msg.clone(), None, tipset.key().clone().into()).await
-        {
-            Err(mut err) => {
-                // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
-                // it just returns an error. That means we can't get the revert reason.
-                //
-                // So we re-execute the message with EthCall (well, applyMessage which contains the
-                // guts of EthCall). This will give us an ethereum specific error with revert
-                // information.
-                msg.set_gas_limit(BLOCK_GAS_LIMIT);
-                if let Err(e) = apply_message(&ctx, Some(tipset), msg).await {
-                    // if the error is an execution reverted, return it directly
-                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
-                        matches!(eth_err, EthErrors::ExecutionReverted { .. })
-                    }) {
-                        return Err(e.into());
-                    }
+pub enum EthEstimateGasV2 {}
 
-                    err = e.into();
+impl RpcMethod<2> for EthEstimateGasV2 {
+    const NAME: &'static str = "Filecoin.EthEstimateGas";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_estimateGas");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthCallMessage, Option<ExtBlockNumberOrHash>);
+    type Ok = EthUint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = if let Some(block_param) = block_param {
+            tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+                .await?
+        } else {
+            ctx.chain_store().heaviest_tipset()
+        };
+        eth_estimate_gas(&ctx, tx, tipset).await
+    }
+}
+
+async fn eth_estimate_gas<DB>(
+    ctx: &Ctx<DB>,
+    tx: EthCallMessage,
+    tipset: Tipset,
+) -> Result<EthUint64, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let mut msg = Message::try_from(tx)?;
+    // Set the gas limit to the zero sentinel value, which makes
+    // gas estimation actually run.
+    msg.gas_limit = 0;
+
+    match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
+        Err(mut err) => {
+            // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
+            // it just returns an error. That means we can't get the revert reason.
+            //
+            // So we re-execute the message with EthCall (well, applyMessage which contains the
+            // guts of EthCall). This will give us an ethereum specific error with revert
+            // information.
+            msg.set_gas_limit(BLOCK_GAS_LIMIT);
+            if let Err(e) = apply_message(ctx, Some(tipset), msg).await {
+                // if the error is an execution reverted, return it directly
+                if e.downcast_ref::<EthErrors>()
+                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::ExecutionReverted { .. }))
+                {
+                    return Err(e.into());
                 }
 
-                Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+                err = e.into();
             }
-            Ok(gassed_msg) => {
-                log::info!("correct gassed_msg: do eth_gas_search {gassed_msg:?}");
-                let expected_gas =
-                    Self::eth_gas_search(&ctx, gassed_msg, &tipset.key().into()).await?;
-                log::info!("trying eth_gas search: {expected_gas}");
-                Ok(expected_gas.into())
-            }
+
+            Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+        }
+        Ok(gassed_msg) => {
+            log::info!("correct gassed_msg: do eth_gas_search {gassed_msg:?}");
+            let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
+            log::info!("trying eth_gas search: {expected_gas}");
+            Ok(expected_gas.into())
         }
     }
 }
@@ -1928,109 +1964,102 @@ where
     Ok(invoc_res)
 }
 
-impl EthEstimateGas {
-    pub async fn eth_gas_search<DB>(
-        data: &Ctx<DB>,
-        msg: Message,
-        tsk: &ApiTipsetKey,
-    ) -> anyhow::Result<u64>
-    where
-        DB: Blockstore + Send + Sync + 'static,
-    {
-        let (_invoc_res, apply_ret, prior_messages, ts) =
-            gas::GasEstimateGasLimit::estimate_call_with_gas(
-                data,
-                msg.clone(),
-                tsk,
-                VMTrace::Traced,
-            )
+pub async fn eth_gas_search<DB>(
+    data: &Ctx<DB>,
+    msg: Message,
+    tsk: &ApiTipsetKey,
+) -> anyhow::Result<u64>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let (_invoc_res, apply_ret, prior_messages, ts) =
+        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk, VMTrace::Traced)
             .await?;
-        if apply_ret.msg_receipt().exit_code().is_success() {
-            return Ok(msg.gas_limit());
-        }
-
-        let exec_trace = apply_ret.exec_trace();
-        let _expected_exit_code: ExitCode = fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS.into();
-        if exec_trace.iter().any(|t| {
-            matches!(
-                t,
-                &ExecutionEvent::CallReturn(CallReturn {
-                    exit_code: Some(_expected_exit_code),
-                    ..
-                })
-            )
-        }) {
-            let ret = Self::gas_search(data, &msg, &prior_messages, ts).await?;
-            Ok(((ret as f64) * data.mpool.config.gas_limit_overestimation) as u64)
-        } else {
-            anyhow::bail!(
-                "message execution failed: exit {}, reason: {}",
-                apply_ret.msg_receipt().exit_code(),
-                apply_ret.failure_info().unwrap_or_default(),
-            );
-        }
+    if apply_ret.msg_receipt().exit_code().is_success() {
+        return Ok(msg.gas_limit());
     }
 
-    /// `gas_search` does an exponential search to find a gas value to execute the
-    /// message with. It first finds a high gas limit that allows the message to execute
-    /// by doubling the previous gas limit until it succeeds then does a binary
-    /// search till it gets within a range of 1%
-    async fn gas_search<DB>(
+    let exec_trace = apply_ret.exec_trace();
+    let _expected_exit_code: ExitCode = fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS.into();
+    if exec_trace.iter().any(|t| {
+        matches!(
+            t,
+            &ExecutionEvent::CallReturn(CallReturn {
+                exit_code: Some(_expected_exit_code),
+                ..
+            })
+        )
+    }) {
+        let ret = gas_search(data, &msg, &prior_messages, ts).await?;
+        Ok(((ret as f64) * data.mpool.config.gas_limit_overestimation) as u64)
+    } else {
+        anyhow::bail!(
+            "message execution failed: exit {}, reason: {}",
+            apply_ret.msg_receipt().exit_code(),
+            apply_ret.failure_info().unwrap_or_default(),
+        );
+    }
+}
+
+/// `gas_search` does an exponential search to find a gas value to execute the
+/// message with. It first finds a high gas limit that allows the message to execute
+/// by doubling the previous gas limit until it succeeds then does a binary
+/// search till it gets within a range of 1%
+async fn gas_search<DB>(
+    data: &Ctx<DB>,
+    msg: &Message,
+    prior_messages: &[ChainMessage],
+    ts: Tipset,
+) -> anyhow::Result<u64>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let mut high = msg.gas_limit;
+    let mut low = msg.gas_limit;
+
+    async fn can_succeed<DB>(
         data: &Ctx<DB>,
-        msg: &Message,
+        mut msg: Message,
         prior_messages: &[ChainMessage],
         ts: Tipset,
-    ) -> anyhow::Result<u64>
+        limit: u64,
+    ) -> anyhow::Result<bool>
     where
         DB: Blockstore + Send + Sync + 'static,
     {
-        let mut high = msg.gas_limit;
-        let mut low = msg.gas_limit;
-
-        async fn can_succeed<DB>(
-            data: &Ctx<DB>,
-            mut msg: Message,
-            prior_messages: &[ChainMessage],
-            ts: Tipset,
-            limit: u64,
-        ) -> anyhow::Result<bool>
-        where
-            DB: Blockstore + Send + Sync + 'static,
-        {
-            msg.gas_limit = limit;
-            let (_invoc_res, apply_ret, _) = data
-                .state_manager
-                .call_with_gas(
-                    &mut msg.into(),
-                    prior_messages,
-                    Some(ts),
-                    VMTrace::NotTraced,
-                )
-                .await?;
-            Ok(apply_ret.msg_receipt().exit_code().is_success())
-        }
-
-        while high <= BLOCK_GAS_LIMIT {
-            if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
-                break;
-            }
-            low = high;
-            high = high.saturating_mul(2).min(BLOCK_GAS_LIMIT);
-        }
-
-        let mut check_threshold = high / 100;
-        while (high - low) > check_threshold {
-            let median = (high + low) / 2;
-            if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
-                high = median;
-            } else {
-                low = median;
-            }
-            check_threshold = median / 100;
-        }
-
-        Ok(high)
+        msg.gas_limit = limit;
+        let (_invoc_res, apply_ret, _) = data
+            .state_manager
+            .call_with_gas(
+                &mut msg.into(),
+                prior_messages,
+                Some(ts),
+                VMTrace::NotTraced,
+            )
+            .await?;
+        Ok(apply_ret.msg_receipt().exit_code().is_success())
     }
+
+    while high <= BLOCK_GAS_LIMIT {
+        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
+            break;
+        }
+        low = high;
+        high = high.saturating_mul(2).min(BLOCK_GAS_LIMIT);
+    }
+
+    let mut check_threshold = high / 100;
+    while (high - low) > check_threshold {
+        let median = (high + low) / 2;
+        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
+            high = median;
+        } else {
+            low = median;
+        }
+        check_threshold = median / 100;
+    }
+
+    Ok(high)
 }
 
 pub enum EthFeeHistory {}
@@ -2663,7 +2692,7 @@ impl RpcMethod<2> for EthCallV2 {
     const NAME_ALIAS: Option<&'static str> = Some("eth_call");
     const N_REQUIRED_PARAMS: usize = 2;
     const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthCallMessage, ExtBlockNumberOrHash);
     type Ok = EthBytes;
