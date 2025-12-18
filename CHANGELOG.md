@@ -39,6 +39,8 @@
 
 - [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
 
+- [#6364](https://github.com/ChainSafe/forest/pull/6364) Implemented `Filecoin.EthEstimateGas` for API v2.
+
 ## Forest v0.30.5 "Dulce de Leche"
 
 Non-mandatory release supporting new API methods and addressing a critical panic issue.
