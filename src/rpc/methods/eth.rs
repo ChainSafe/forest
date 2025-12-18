@@ -2663,26 +2663,12 @@ impl RpcMethod<2> for EthCall {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let msg = Message::try_from(tx)?;
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
-        let invoke_result = apply_message(&ctx, Some(ts), msg.clone()).await?;
-
-        if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
-            Ok(EthBytes::default())
-        } else {
-            let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
-            let return_data = msg_rct.return_data();
-            if return_data.is_empty() {
-                Ok(Default::default())
-            } else {
-                let bytes = decode_payload(&return_data, CBOR)?;
-                Ok(bytes)
-            }
-        }
+        eth_call(&ctx, tx, ts).await
     }
 }
 
@@ -2700,22 +2686,33 @@ impl RpcMethod<2> for EthCallV2 {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let msg = Message::try_from(tx)?;
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        let invoke_result = apply_message(&ctx, Some(ts), msg.clone()).await?;
+        eth_call(&ctx, tx, ts).await
+    }
+}
 
-        if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
-            Ok(EthBytes::default())
+async fn eth_call<DB>(
+    ctx: &Ctx<DB>,
+    tx: EthCallMessage,
+    ts: Tipset,
+) -> Result<EthBytes, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let msg = Message::try_from(tx)?;
+    let invoke_result = apply_message(ctx, Some(ts), msg.clone()).await?;
+
+    if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+        Ok(EthBytes::default())
+    } else {
+        let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
+        let return_data = msg_rct.return_data();
+        if return_data.is_empty() {
+            Ok(Default::default())
         } else {
-            let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
-            let return_data = msg_rct.return_data();
-            if return_data.is_empty() {
-                Ok(Default::default())
-            } else {
-                let bytes = decode_payload(&return_data, CBOR)?;
-                Ok(bytes)
-            }
+            let bytes = decode_payload(&return_data, CBOR)?;
+            Ok(bytes)
         }
     }
 }
