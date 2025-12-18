@@ -33,6 +33,7 @@ use crate::rpc::eth::filter::{
 };
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::eth::utils::decode_revert_reason;
+use crate::rpc::methods::chain::ChainGetTipSetV2;
 use crate::rpc::state::ApiInvocResult;
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
@@ -62,7 +63,7 @@ use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
 use anyhow::{Context, Error, Result, anyhow, bail, ensure};
 use cid::Cid;
-use enumflags2::BitFlags;
+use enumflags2::{BitFlags, make_bitflags};
 use filter::{ParsedFilter, ParsedFilterTipsets};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
@@ -903,6 +904,28 @@ fn resolve_predefined_tipset<DB: Blockstore>(
     }
 }
 
+async fn resolve_predefined_tipset_v2<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    head: Tipset,
+    tag: ExtPredefined,
+) -> anyhow::Result<Tipset> {
+    if let Ok(common) = Predefined::try_from(&tag) {
+        resolve_predefined_tipset(ctx.chain_store(), head, common)
+    } else {
+        match tag {
+            ExtPredefined::Safe => Ok(ChainGetTipSetV2::get_latest_safe_tipset(ctx).await?),
+            ExtPredefined::Finalized => Ok(ChainGetTipSetV2::get_latest_finalized_tipset(ctx)
+                .await?
+                .unwrap_or(ctx.chain_index().tipset_by_height(
+                    0,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?)),
+            _ => bail!("unknown block tag: {:?}", tag),
+        }
+    }
+}
+
 fn resolve_ext_predefined_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
     head: Tipset,
@@ -987,6 +1010,31 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             resolve_block_hash_tipset(chain, head, &block_hash, false, resolve)
         }
         BlockNumberOrHash::BlockHashObject(BlockHash {
+            block_hash,
+            require_canonical,
+        }) => resolve_block_hash_tipset(chain, head, &block_hash, require_canonical, resolve),
+    }
+}
+
+async fn tipset_by_block_number_or_hash_v2<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    block_param: ExtBlockNumberOrHash,
+    resolve: ResolveNullTipset,
+) -> anyhow::Result<Tipset> {
+    let chain = ctx.chain_store();
+    let head = chain.heaviest_tipset();
+    match block_param {
+        ExtBlockNumberOrHash::PredefinedBlock(predefined) => {
+            resolve_predefined_tipset_v2(ctx, head, predefined).await
+        }
+        ExtBlockNumberOrHash::BlockNumber(block_number)
+        | ExtBlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
+            resolve_block_number_tipset(chain, head, block_number, resolve)
+        }
+        ExtBlockNumberOrHash::BlockHash(block_hash) => {
+            resolve_block_hash_tipset(chain, head, &block_hash, false, resolve)
+        }
+        ExtBlockNumberOrHash::BlockHashObject(BlockHash {
             block_hash,
             require_canonical,
         }) => resolve_block_hash_tipset(chain, head, &block_hash, require_canonical, resolve),
@@ -2592,6 +2640,40 @@ impl RpcMethod<2> for EthCall {
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
+        let invoke_result = apply_message(&ctx, Some(ts), msg.clone()).await?;
+
+        if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+            Ok(EthBytes::default())
+        } else {
+            let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
+            let return_data = msg_rct.return_data();
+            if return_data.is_empty() {
+                Ok(Default::default())
+            } else {
+                let bytes = decode_payload(&return_data, CBOR)?;
+                Ok(bytes)
+            }
+        }
+    }
+}
+
+pub enum EthCallV2 {}
+impl RpcMethod<2> for EthCallV2 {
+    const NAME: &'static str = "Filecoin.EthCall";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_call");
+    const N_REQUIRED_PARAMS: usize = 2;
+    const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthCallMessage, ExtBlockNumberOrHash);
+    type Ok = EthBytes;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let msg = Message::try_from(tx)?;
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
         let invoke_result = apply_message(&ctx, Some(ts), msg.clone()).await?;
 
         if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {

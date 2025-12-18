@@ -51,6 +51,9 @@ filecoin_ethblocknumber_1741272348346171.rpcsnap.json.zst
 filecoin_ethcall_1744204533050503.rpcsnap.json.zst
 filecoin_ethcall_1744204533058637.rpcsnap.json.zst
 filecoin_ethcall_1744204533066529.rpcsnap.json.zst
+filecoin_ethcall_v2_1765790311230200.rpcsnap.json.zst
+filecoin_ethcall_v2_1765790311230270.rpcsnap.json.zst
+filecoin_ethcall_v2_1765790311230334.rpcsnap.json.zst
 filecoin_ethchainid_1736937942819147.rpcsnap.json.zst
 filecoin_ethfeehistory_1737446676883828.rpcsnap.json.zst
 filecoin_ethgasprice_1758725940980141.rpcsnap.json.zst
