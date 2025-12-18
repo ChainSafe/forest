@@ -84,7 +84,7 @@ impl RpcTestScenario {
         self
     }
 
-    fn ignore(mut self, msg: &'static str) -> Self {
+    fn _ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
         self
     }
