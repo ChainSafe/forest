@@ -319,6 +319,46 @@ async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow:
     }
 }
 
+async fn invoke_contract(client: &rpc::Client, tx: &TestTransaction) -> anyhow::Result<Cid> {
+    let encoded_params = cbor4ii::serde::to_vec(
+        Vec::with_capacity(tx.payload.len()),
+        &Value::Bytes(tx.payload.clone()),
+    )
+    .context("failed to encode params")?;
+    let nonce = client.call(MpoolGetNonce::request((tx.from,))?).await?;
+    let message = Message {
+        to: tx.to,
+        from: tx.from,
+        sequence: nonce,
+        method_num: EVMMethod::InvokeContract as u64,
+        params: encoded_params.into(),
+        ..Default::default()
+    };
+    let unsigned_msg = client
+        .call(GasEstimateMessageGas::request((
+            message,
+            None,
+            ApiTipsetKey(None),
+        ))?)
+        .await?;
+
+    let eth_tx_args = crate::eth::EthEip1559TxArgsBuilder::default()
+        .chain_id(ETH_CHAIN_ID)
+        .unsigned_message(&unsigned_msg.message)?
+        .build()
+        .map_err(|e| anyhow::anyhow!("Failed to build EIP-1559 transaction: {}", e))?;
+    let eth_tx = crate::eth::EthTx::Eip1559(Box::new(eth_tx_args));
+    let data = eth_tx.rlp_unsigned_message(ETH_CHAIN_ID)?;
+
+    let sig = client.call(WalletSign::request((tx.from, data))?).await?;
+    let smsg = SignedMessage::new_unchecked(unsigned_msg.message, sig);
+    let cid = smsg.cid();
+
+    client.call(MpoolPush::request((smsg,))?).await?;
+
+    Ok(cid)
+}
+
 fn create_eth_new_filter_test() -> RpcTestScenario {
     RpcTestScenario::basic(|client| async move {
         const BLOCK_RANGE: u64 = 200;
@@ -472,40 +512,7 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                 .await?;
 
             let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
-                let encoded = cbor4ii::serde::to_vec(
-                    Vec::with_capacity(tx.payload.len()),
-                    &Value::Bytes(tx.payload.clone()),
-                )
-                .context("failed to encode params")?;
-
-                let nonce = client.call(MpoolGetNonce::request((tx.from,))?).await?;
-                let message = Message {
-                    to: tx.to,
-                    from: tx.from,
-                    sequence: nonce,
-                    method_num: EVMMethod::InvokeContract as u64,
-                    params: encoded.into(),
-                    ..Default::default()
-                };
-                let unsigned_msg = client
-                    .call(GasEstimateMessageGas::request((
-                        message,
-                        None,
-                        ApiTipsetKey(None),
-                    ))?)
-                    .await?;
-
-                let eth_tx_args = crate::eth::EthEip1559TxArgsBuilder::default()
-                    .chain_id(ETH_CHAIN_ID)
-                    .unsigned_message(&unsigned_msg.message)?
-                    .build()
-                    .map_err(|e| anyhow::anyhow!("Failed to build EIP-1559 transaction: {}", e))?;
-                let eth_tx = crate::eth::EthTx::Eip1559(Box::new(eth_tx_args));
-                let data = eth_tx.rlp_unsigned_message(ETH_CHAIN_ID)?;
-                let sig = client.call(WalletSign::request((tx.from, data))?).await?;
-                let smsg = SignedMessage::new_unchecked(unsigned_msg.message, sig);
-                let cid = smsg.cid();
-                client.call(MpoolPush::request((smsg,))?).await?;
+                let cid = invoke_contract(&client, &tx).await?;
 
                 wait_pending_message(&client, cid).await?;
 
