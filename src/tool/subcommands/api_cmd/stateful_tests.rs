@@ -296,6 +296,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
 }
 
 async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
+    let tipset = client.call(ChainHead::request(())?).await?;
     let mut retries = 100;
     loop {
         let pending = client
@@ -303,6 +304,12 @@ async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow:
             .await?;
 
         if pending.0.iter().any(|msg| msg.cid() == message_cid) {
+            client
+                .call(
+                    StateWaitMsg::request((message_cid, 0, tipset.epoch(), false))?
+                        .with_timeout(Duration::from_secs(300)),
+                )
+                .await?;
             break Ok(());
         }
         ensure!(retries != 0, "Message not found in mpool");
@@ -505,25 +512,9 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                 .await?;
 
             let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
-                let encoded = cbor4ii::serde::to_vec(
-                    Vec::with_capacity(tx.payload.len()),
-                    &Value::Bytes(tx.payload.clone()),
-                )
-                .context("failed to encode params")?;
+                let cid = invoke_contract(&client, &tx).await?;
 
-                let message = Message {
-                    to: tx.to,
-                    from: tx.from,
-                    method_num: EVMMethod::InvokeContract as u64,
-                    params: encoded.into(),
-                    ..Default::default()
-                };
-
-                let smsg = client
-                    .call(MpoolPushMessage::request((message, None))?)
-                    .await?;
-
-                wait_pending_message(&client, smsg.cid()).await?;
+                wait_pending_message(&client, cid).await?;
 
                 let filter_result = client
                     .call(EthGetFilterChanges::request((filter_id.clone(),))?)
@@ -542,7 +533,7 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                         }
                     }
 
-                    anyhow::ensure!(cids.contains(&smsg.cid()));
+                    anyhow::ensure!(cids.contains(&cid));
 
                     Ok(())
                 } else {
@@ -660,8 +651,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         ),
         with_methods!(
             eth_new_pending_transaction_filter(tx.clone())
-                .name("eth_newPendingTransactionFilter works")
-                .ignore("https://github.com/ChainSafe/forest/issues/5916"),
+                .name("eth_newPendingTransactionFilter works"),
             EthNewPendingTransactionFilter,
             EthGetFilterChanges,
             EthUninstallFilter
