@@ -15,7 +15,6 @@ anyhow = { workspace = true }
 cid = { workspace = true }
 flume = { workspace = true }
 forest = { package = "forest-filecoin", path = "../", default-features = false, features = [
-  "rustalloc",
   "interop-tests-private",
   "no-f3-sidecar",
 ] }
