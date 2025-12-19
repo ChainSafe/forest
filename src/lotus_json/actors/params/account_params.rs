@@ -27,40 +27,48 @@ pub struct AuthenticateParamsLotusJson {
     pub message: Vec<u8>,
 }
 
-macro_rules!  impl_account_authenticate_params {
+macro_rules! impl_account_authenticate_params {
     ($type_suffix:path: $($version:literal),+) => {
         $(
         paste! {
-            impl HasLotusJson for fil_actor_account_state::[<v $version>]::$type_suffix {
-                    type LotusJson = AuthenticateParamsLotusJson;
+            mod [<impl_account_authenticate_params_ $version>] {
+                use super::*;
+                type T = fil_actor_account_state::[<v $version>]::$type_suffix;
+                #[test]
+                fn snapshots() {
+                    crate::lotus_json::assert_all_snapshots::<T>();
+                }
+                impl HasLotusJson for T {
+                        type LotusJson = AuthenticateParamsLotusJson;
 
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "Signature": null,
-                                    "Message": null,
-                                }),
-                                Self {
-                                   signature: vec![],
-                                   message: vec![],
-                                },
-                            ),
-                        ]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        AuthenticateParamsLotusJson {
-                            signature: self.signature,
-                            message: self.message,
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "Signature": null,
+                                        "Message": null,
+                                    }),
+                                    Self {
+                                    signature: vec![],
+                                    message: vec![],
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            signature: lotus_json.signature,
-                            message: lotus_json.message,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            AuthenticateParamsLotusJson {
+                                signature: self.signature,
+                                message: self.message,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                signature: lotus_json.signature,
+                                message: lotus_json.message,
+                            }
                         }
                     }
                 }
@@ -72,28 +80,36 @@ macro_rules!  impl_account_authenticate_params {
 macro_rules!  impl_account_constructor_params {
     ($type_suffix:path: $($version:literal),+) => {
         $(
-        paste! {
-                 impl HasLotusJson for fil_actor_account_state::[<v $version>]::$type_suffix {
-                    type LotusJson = AccountConstructorParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!("f01234"),
-                                Self {
-                                    address: Address::new_id(1234).into(),
-                                },
-                            ),
-                        ]
+            paste! {
+                mod [<impl_account_constructor_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_account_state::[<v $version>]::$type_suffix;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
+                    impl HasLotusJson for T {
+                        type LotusJson = AccountConstructorParamsLotusJson;
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        AccountConstructorParamsLotusJson { address: self.address.into() }
-                    }
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!("f01234"),
+                                    Self {
+                                        address: Address::new_id(1234).into(),
+                                    },
+                                ),
+                            ]
+                        }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self { address: lotus_json.address.into() }
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            AccountConstructorParamsLotusJson { address: self.address.into() }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self { address: lotus_json.address.into() }
+                        }
                     }
                 }
             }
@@ -101,7 +117,7 @@ macro_rules!  impl_account_constructor_params {
     };
 }
 
-impl_account_constructor_params!(types::ConstructorParams: 15, 16, 17);
 impl_account_constructor_params!(ConstructorParams: 11, 12, 13, 14);
-impl_account_authenticate_params!(types::AuthenticateMessageParams: 15, 16, 17);
+impl_account_constructor_params!(types::ConstructorParams: 15, 16, 17);
 impl_account_authenticate_params!(AuthenticateMessageParams: 9, 10, 11, 12, 13, 14);
+impl_account_authenticate_params!(types::AuthenticateMessageParams: 15, 16, 17);

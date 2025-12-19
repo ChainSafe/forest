@@ -6,7 +6,7 @@ use super::*;
 use crate::blocks::{CachingBlockHeader, GossipBlock};
 use ::cid::Cid;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "GossipBlock")]
 pub struct GossipBlockLotusJson {

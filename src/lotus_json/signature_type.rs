@@ -11,7 +11,7 @@ use crate::shim::crypto::SignatureType;
 // and
 // https://github.com/filecoin-project/lotus/blob/7bb1f98ac6f5a6da2cc79afc26d8cd9fe323eb30/chain/types/keystore.go#L47
 
-#[derive(Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(untagged)] // try an int, then a string
 pub enum SignatureTypeLotusJson {
     Integer(#[schemars(with = "u8")] SignatureType),

@@ -6,7 +6,7 @@ use super::*;
 use crate::shim::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use fil_actor_miner_state::v12::PendingBeneficiaryChange;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "PendingBeneficiaryChange")]
 pub struct PendingBeneficiaryChangeLotusJson {
