@@ -601,46 +601,54 @@ pub struct ProveCommitSectorsNIParamsLotusJson {
     pub require_activation_success: bool,
 }
 
-macro_rules!  impl_lotus_json_for_miner_change_worker_param {
+macro_rules! impl_lotus_json_for_miner_change_worker_param {
     ($($version:literal),+) => {
         $(
-        paste! {
-                impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ChangeWorkerAddressParams {
-                    type LotusJson = ChangeWorkerAddressParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "NewWorker": "f01234",
-                                    "NewControlAddrs": ["f01236", "f01237"],
-                                }),
-                                Self {
-                                    new_worker: Address::new_id(1234).into(),
-                                    new_control_addresses: vec![Address::new_id(1236).into(), Address::new_id(1237).into()],
-                                },
-                            ),
-                        ]
+            paste! {
+                mod [<impl_miner_change_worker_param_ $version>] {
+                    use super::*;
+					type T = fil_actor_miner_state::[<v $version>]::ChangeWorkerAddressParams;
+					#[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
+                    impl HasLotusJson for T {
+                        type LotusJson = ChangeWorkerAddressParamsLotusJson;
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        ChangeWorkerAddressParamsLotusJson {
-                            new_worker: self.new_worker.into(),
-                            new_control_addresses: self.new_control_addresses
-                                .into_iter()
-                                .map(|a| a.into())
-                                .collect(),
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "NewWorker": "f01234",
+                                        "NewControlAddrs": ["f01236", "f01237"],
+                                    }),
+                                    Self {
+                                        new_worker: Address::new_id(1234).into(),
+                                        new_control_addresses: vec![Address::new_id(1236).into(), Address::new_id(1237).into()],
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            new_worker: lotus_json.new_worker.into(),
-                            new_control_addresses: lotus_json.new_control_addresses
-                                .into_iter()
-                                .map(|a| a.into())
-                                .collect(),
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ChangeWorkerAddressParamsLotusJson {
+                                new_worker: self.new_worker.into(),
+                                new_control_addresses: self.new_control_addresses
+                                    .into_iter()
+                                    .map(|a| a.into())
+                                    .collect(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                new_worker: lotus_json.new_worker.into(),
+                                new_control_addresses: lotus_json.new_control_addresses
+                                    .into_iter()
+                                    .map(|a| a.into())
+                                    .collect(),
+                            }
                         }
                     }
                 }
@@ -652,56 +660,65 @@ macro_rules!  impl_lotus_json_for_miner_change_worker_param {
 macro_rules! impl_lotus_json_for_miner_constructor_params {
     ($($version:literal),+) => {
             $(
-            paste! {
-                impl HasLotusJson for fil_actor_miner_state::[<v $version>]::MinerConstructorParams {
-                    type LotusJson = ConstructorParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "Owner": "f01234",
-                                    "Worker": "f01235",
-                                    "ControlAddrs": ["f01236", "f01237"],
-                                    "WindowPoStProofType": 1,
-                                    "PeerId": "AQ==",
-                                    "Multiaddrs": ["Ag==", "Aw=="],
-                                }),
-                                Self {
-                                    owner: Address::new_id(1234).into(),
-                                    worker: Address::new_id(1235).into(),
-                                    control_addresses: vec![Address::new_id(1236).into(), Address::new_id(1237).into()],
-                                    window_post_proof_type: RegisteredPoStProof::from(fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow2KiBV1P1).into(),
-                                    peer_id: vec![1],
-                                    multi_addresses: vec![],
-                                },
-                            ),
-                        ]
+                paste! {
+                    mod [<impl_miner_constructor_params_ $version>] {
+                    use super::*;
+					type T = fil_actor_miner_state::[<v $version>]::MinerConstructorParams;
+					#[test]
+                    #[ignore = "https://github.com/ChainSafe/forest/issues/6369"]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
+                    impl HasLotusJson for T {
+                        type LotusJson = ConstructorParamsLotusJson;
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        ConstructorParamsLotusJson {
-                            owner_addr: self.owner.into(),
-                            worker_addr: self.worker.into(),
-                            control_addrs: self.control_addresses.into_iter().map(|a| a.into()).collect(),
-                            window_po_st_proof_type: self.window_post_proof_type.into(),
-                            peer_id: self.peer_id,
-                            multiaddrs: self.multi_addresses.into_iter().map(|addr| addr.0).collect(),
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "OwnerAddr": "f01234",
+                                        "WorkerAddr": "f01235",
+                                        "ControlAddrs": ["f01236", "f01237"],
+                                        "WindowPoStProofType": 1,
+                                        "PeerId": "AQ==",
+                                        "Multiaddrs": ["Ag==", "Aw=="],
+                                    }),
+                                    Self {
+                                        owner: Address::new_id(1234).into(),
+                                        worker: Address::new_id(1235).into(),
+                                        control_addresses: vec![Address::new_id(1236).into(), Address::new_id(1237).into()],
+                                        window_post_proof_type: RegisteredPoStProof::from(fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow2KiBV1P1).into(),
+                                        peer_id: vec![1],
+                                        multi_addresses: vec![],
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            owner: lotus_json.owner_addr.into(),
-                            worker: lotus_json.worker_addr.into(),
-                            control_addresses: lotus_json.control_addrs
-                                .into_iter()
-                                .map(|a| a.into())
-                                .collect(),
-                            window_post_proof_type: lotus_json.window_po_st_proof_type.into(),
-                            peer_id: lotus_json.peer_id,
-                            multi_addresses: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ConstructorParamsLotusJson {
+                                owner_addr: self.owner.into(),
+                                worker_addr: self.worker.into(),
+                                control_addrs: self.control_addresses.into_iter().map(|a| a.into()).collect(),
+                                window_po_st_proof_type: self.window_post_proof_type.into(),
+                                peer_id: self.peer_id,
+                                multiaddrs: self.multi_addresses.into_iter().map(|addr| addr.0).collect(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                owner: lotus_json.owner_addr.into(),
+                                worker: lotus_json.worker_addr.into(),
+                                control_addresses: lotus_json.control_addrs
+                                    .into_iter()
+                                    .map(|a| a.into())
+                                    .collect(),
+                                window_post_proof_type: lotus_json.window_po_st_proof_type.into(),
+                                peer_id: lotus_json.peer_id,
+                                multi_addresses: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
+                            }
                         }
                     }
                 }
@@ -713,28 +730,28 @@ macro_rules! impl_lotus_json_for_miner_constructor_params {
 macro_rules! impl_lotus_json_for_miner_declare_faults_recovered_params {
     ($($version:literal),+) => {
         $(
-        paste! {
-            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::DeclareFaultsRecoveredParams {
-                type LotusJson = DeclareFaultsRecoveredParamsLotusJson;
+            paste! {
+                impl HasLotusJson for fil_actor_miner_state::[<v $version>]::DeclareFaultsRecoveredParams {
+                    type LotusJson = DeclareFaultsRecoveredParamsLotusJson;
 
-                #[cfg(test)]
-                fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
-                }
-
-                fn into_lotus_json(self) -> Self::LotusJson {
-                    DeclareFaultsRecoveredParamsLotusJson {
-                        recoveries: self.recoveries.into_iter().map(|r| r.into_lotus_json()).collect(),
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![]
                     }
-                }
 
-                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                    Self {
-                        recoveries: lotus_json.recoveries.into_iter().map(|r| fil_actor_miner_state::[<v $version>]::RecoveryDeclaration::from_lotus_json(r)).collect(),
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        DeclareFaultsRecoveredParamsLotusJson {
+                            recoveries: self.recoveries.into_iter().map(|r| r.into_lotus_json()).collect(),
+                        }
+                    }
+
+                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                        Self {
+                            recoveries: lotus_json.recoveries.into_iter().map(|r| fil_actor_miner_state::[<v $version>]::RecoveryDeclaration::from_lotus_json(r)).collect(),
+                        }
                     }
                 }
             }
-        }
         )+
     };
 }
@@ -742,44 +759,53 @@ macro_rules! impl_lotus_json_for_miner_declare_faults_recovered_params {
 macro_rules! impl_lotus_json_for_recover_declaration_params_v9_and_above {
     ($($version:literal),+) => {
         $(
-        paste! {
-            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::RecoveryDeclaration {
-                type LotusJson = RecoveryDeclarationLotusJson;
-
-                #[cfg(test)]
-                fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    let sectors = BitField::new();
-                    vec![(
-                        json!({
-                            "Deadline": 1,
-                            "Partition": 2,
-                            "Sectors": "gCI="
-                        }),
-                        Self {
-                            deadline: 1,
-                            partition: 2,
-                            sectors,
-                        },
-                    )]
-                }
-
-                fn into_lotus_json(self) -> Self::LotusJson {
-                    RecoveryDeclarationLotusJson {
-                        deadline: self.deadline,
-                        partition: self.partition,
-                        sectors: self.sectors,
+            paste! {
+                mod [<impl_recover_declaration_params_ $version>] {
+                    use super::*;
+					type T = fil_actor_miner_state::[<v $version>]::RecoveryDeclaration;
+					#[test]
+                    #[ignore = "https://github.com/ChainSafe/forest/issues/6370"]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
-                }
+                    impl HasLotusJson for T {
+                        type LotusJson = RecoveryDeclarationLotusJson;
 
-                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                    Self {
-                        deadline: lotus_json.deadline,
-                        partition: lotus_json.partition,
-                        sectors: lotus_json.sectors,
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            let sectors = BitField::new();
+                            vec![(
+                                json!({
+                                    "Deadline": 1,
+                                    "Partition": 2,
+                                    "Sectors": "gCI="
+                                }),
+                                Self {
+                                    deadline: 1,
+                                    partition: 2,
+                                    sectors,
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            RecoveryDeclarationLotusJson {
+                                deadline: self.deadline,
+                                partition: self.partition,
+                                sectors: self.sectors,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                deadline: lotus_json.deadline,
+                                partition: lotus_json.partition,
+                                sectors: lotus_json.sectors,
+                            }
+                        }
                     }
                 }
             }
-        }
         )+
     };
 }

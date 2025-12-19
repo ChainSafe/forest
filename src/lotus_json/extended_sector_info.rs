@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::sector::{ExtendedSectorInfo, RegisteredSealProof};
 use ::cid::Cid;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "ExtendedSectorInfo")]
 pub struct ExtendedSectorInfoLotusJson {
