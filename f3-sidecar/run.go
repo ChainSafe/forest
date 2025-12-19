@@ -58,8 +58,8 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		}
 	}()
 	verif := blssig.VerifierWithKeyOnG1()
-	networkName := getNetworkName(rawNetwork)
-	m := Network2PredefinedManifestMappings[networkName]
+	networkName := gpbft.NetworkName(rawNetwork)
+	m := RawNetwork2PredefinedManifestMappings[networkName]
 	if m == nil {
 		m2 := manifest.LocalDevnetManifest()
 		m = &m2

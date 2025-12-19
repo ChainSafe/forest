@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/filecoin-project/go-f3/gpbft"
 	"github.com/ipfs/go-cid"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	logging "github.com/ipfs/go-log/v2"
@@ -37,17 +36,6 @@ func waitRawNetworkName(ctx context.Context, f3api *F3Api) string {
 		logger.Infoln("Forest RPC server is online")
 		return rawNetwork
 	}
-}
-
-func getNetworkName(rawNetworkName string) gpbft.NetworkName {
-	networkName := gpbft.NetworkName(rawNetworkName)
-	// See <https://github.com/filecoin-project/lotus/blob/v1.33.1/chain/lf3/config.go#L65>
-	// Use "filecoin" as the network name on mainnet, otherwise use the network name. Yes,
-	// mainnet is called testnetnet in state.
-	if networkName == "testnetnet" {
-		networkName = "filecoin"
-	}
-	return networkName
 }
 
 func setLogLevel(name string, level string) error {
