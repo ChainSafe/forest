@@ -303,13 +303,11 @@ lto = "fat"
 # These should be refactored (probably removed) in #2984
 [features]
 default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
-slim = ["rustalloc"]
 doctest-private = []                                                      # see lib.rs::doctest_private
 benchmark-private = ["dep:criterion"]                                     # see lib.rs::benchmark_private
 interop-tests-private = []                                                # see lib.rs::interop_tests_private
 
 # Allocator. Use at most one of these.
-rustalloc = []
 jemalloc = ["dep:tikv-jemallocator"]
 system-alloc = []                    # Use the platform allocator (for memory profiling).
 

@@ -10,8 +10,7 @@ use crate::utils::io::read_toml;
 use std::path::PathBuf;
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "rustalloc")] {
-    } else if #[cfg(feature = "jemalloc")] {
+    if #[cfg(feature = "jemalloc")] {
         pub use tikv_jemallocator;
     }
 }

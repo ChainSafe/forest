@@ -25,8 +25,7 @@
 )]
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "rustalloc")] {
-    } else if #[cfg(feature = "jemalloc")] {
+    if #[cfg(feature = "jemalloc")] {
         use crate::cli_shared::tikv_jemallocator::Jemalloc;
         #[global_allocator]
         static GLOBAL: Jemalloc = Jemalloc;

@@ -31,7 +31,7 @@ jobs:
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-        run: make install-slim
+        run: make install-minimum-quick
       - name: Run butterflynet checks
         run: ./scripts/tests/butterflynet_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
