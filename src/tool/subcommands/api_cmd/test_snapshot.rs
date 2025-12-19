@@ -190,9 +190,7 @@ mod tests {
     use ahash::HashSet;
     use anyhow::Context as _;
     use directories::ProjectDirs;
-    use std::sync::LazyLock;
     use std::time::{Duration, Instant};
-    use tokio::sync::Mutex;
     use url::Url;
 
     // To run a single test: cargo test --lib filecoin_multisig_statedecodeparams_1754230255631789 -- --nocapture
@@ -201,8 +199,6 @@ mod tests {
     async fn rpc_regression_test_run(name: &str) {
         // Set proof parameter data dir and make sure the proofs are available
         {
-            static PROOF_PARAMS_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-            let _guard = PROOF_PARAMS_LOCK.lock().await;
             crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
                 &Config::default().client.data_dir,
             );
