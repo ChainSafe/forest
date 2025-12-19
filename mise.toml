@@ -61,8 +61,8 @@ DOCS_RS=1 cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
 [tasks."lint:unused-deps"]
 description = "Check for unused dependencies in Rust code."
 tools.ruby = "latest"
+tools."gem:toml-rb" = "4.1"
 run = '''
-gem install toml-rb --no-document
 ruby scripts/linters/find_unused_deps.rb
 '''
 
@@ -90,8 +90,8 @@ golangci-lint run ./f3-sidecar ./interop-tests/src/tests/go_app
 [tasks."lint:ruby"]
 description = "Lint Ruby code using rubocop."
 tools.ruby = "latest"
+tools."gem:rubocop" = "1.58"
 run = '''
-gem install rubocop -v 1.58 --no-document
 rubocop scripts/
 '''
 
