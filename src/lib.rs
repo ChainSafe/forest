@@ -47,6 +47,7 @@ mod cli;
 mod cli_shared;
 mod daemon;
 mod db;
+mod dev;
 mod documentation;
 mod eth;
 mod f3;
@@ -124,6 +125,7 @@ pub use auth::{JWT_IDENTIFIER, verify_token};
 pub use cli::main::main as forest_main;
 pub use cli_shared::cli::{Client, Config};
 pub use daemon::main::main as forestd_main;
+pub use dev::main::main as forest_dev_main;
 pub use key_management::{
     ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME, KeyStore, KeyStoreConfig,
 };
