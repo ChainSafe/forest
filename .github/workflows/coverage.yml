@@ -46,13 +46,11 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.work"
+      - uses: jdx/mise-action@v3
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
       - name: Generate code coverage
-        run: make codecov
+        run: mise codecov
       # Save lcov.info as an artifact for debugging purposes
       - uses: actions/upload-artifact@v6
         with:

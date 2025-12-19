@@ -106,12 +106,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - name: Install Apt Dependencies
-        run: |
-          sudo make install-deps
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.work"
+      - uses: jdx/mise-action@v3
       - run: cargo publish --dry-run
   forest-cli-check:
     needs:
