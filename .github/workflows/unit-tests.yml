@@ -89,6 +89,7 @@ jobs:
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+          FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
       - id: get-cache-hash
         run: |
           ls -lhR ~/.cache/forest/test/rpc-snapshots/rpc_test/*
