@@ -115,7 +115,7 @@ test-release-docs:
 	cargo test --profile quick --doc --features doctest-private
 
 codecov:
-	cargo llvm-cov -p forest-filecoin --no-default-features --codecov --output-path lcov.info
+	cargo llvm-cov -p forest-filecoin --no-default-features --codecov --output-path lcov.info nextest
 
 # Checks if all headers are present and adds if not
 license:
