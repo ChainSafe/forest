@@ -89,7 +89,7 @@ pub(super) async fn check_parameter_file(path: &Path, info: &ParameterData) -> a
 // %DATA_DIR/filecoin-proof-parameters unless the FIL_PROOFS_PARAMETER_CACHE
 // environment variable is set.
 pub(super) fn param_dir(data_dir: &Path) -> PathBuf {
-    std::env::var(PathBuf::from(PROOFS_PARAMETER_CACHE_ENV))
+    std::env::var(PROOFS_PARAMETER_CACHE_ENV)
         .ok()
         .and_then(|v| {
             if v.is_empty() {
