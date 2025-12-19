@@ -38,4 +38,4 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
-      - run: make lint-go
+      - run: mise run lint::golangci
