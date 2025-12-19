@@ -71,6 +71,7 @@ jobs:
             --entrypoint forest-tool \
             ghcr.io/chainsafe/forest \
             fetch-params --keys
+          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - name: Generate code coverage
         run: make codecov
