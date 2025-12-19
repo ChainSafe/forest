@@ -114,7 +114,7 @@ description = "Format all supported code."
 run = '''
 cargo fmt --all
 taplo fmt --write
-corepack enable && yarn
+corepack enable && yarn && yarn install
 yarn md-fmt
 yarn yaml-fmt
 '''
