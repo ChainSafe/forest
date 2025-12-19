@@ -1442,20 +1442,36 @@ fn eth_tests() -> Vec<RpcTest> {
         ];
 
         for (to, data) in cases {
+            let msg = EthCallMessage {
+                to: to.clone(),
+                data: data.clone(),
+                ..EthCallMessage::default()
+            };
+
             tests.push(RpcTest::identity(
                 EthCall::request_with_alias(
                     (
-                        EthCallMessage {
-                            to,
-                            data,
-                            ..EthCallMessage::default()
-                        },
+                        msg.clone(),
                         BlockNumberOrHash::from_predefined(Predefined::Latest),
                     ),
                     use_alias,
                 )
                 .unwrap(),
             ));
+
+            for tag in [
+                ExtPredefined::Latest,
+                ExtPredefined::Safe,
+                ExtPredefined::Finalized,
+            ] {
+                tests.push(RpcTest::identity(
+                    EthCallV2::request_with_alias(
+                        (msg.clone(), ExtBlockNumberOrHash::PredefinedBlock(tag)),
+                        use_alias,
+                    )
+                    .unwrap(),
+                ));
+            }
         }
 
         let cases = [
@@ -1530,28 +1546,38 @@ fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
         include_str!("./contracts/uninitialized_fn_err/uninitialized_fn_err.hex"),
     ];
 
-    contract_codes
-        .iter()
-        .map(|&contract_hex| {
-            let contract_code =
-                EthBytes::from_str(contract_hex).expect("Contract bytecode should be valid hex");
+    let mut tests = Vec::new();
 
-            let zero_address = EthAddress::from_str(ZERO_ADDRESS).unwrap();
-            // Setting the `EthCallMessage` `to` field to null will deploy the contract.
-            let eth_call_request = EthCall::request((
-                EthCallMessage {
-                    from: Some(zero_address),
-                    data: Some(contract_code),
-                    ..EthCallMessage::default()
-                },
-                BlockNumberOrHash::from_block_number(epoch),
-            ))
-            .unwrap();
+    for &contract_hex in &contract_codes {
+        let contract_code =
+            EthBytes::from_str(contract_hex).expect("Contract bytecode should be valid hex");
 
+        let zero_address = EthAddress::from_str(ZERO_ADDRESS).unwrap();
+        // Setting the `EthCallMessage` `to` field to null will deploy the contract.
+        let msg = EthCallMessage {
+            from: Some(zero_address),
+            data: Some(contract_code),
+            ..EthCallMessage::default()
+        };
+
+        let eth_call_request =
+            EthCall::request((msg.clone(), BlockNumberOrHash::from_block_number(epoch))).unwrap();
+
+        tests.push(
             RpcTest::identity(eth_call_request)
-                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError)
-        })
-        .collect()
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        );
+
+        let eth_call_v2_request =
+            EthCallV2::request((msg, ExtBlockNumberOrHash::from_block_number(epoch))).unwrap();
+
+        tests.push(
+            RpcTest::identity(eth_call_v2_request)
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        );
+    }
+
+    tests
 }
 
 fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {

@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/filecoin-project/go-f3/certstore"
+	"github.com/filecoin-project/go-f3/gpbft"
 	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/ipfs/go-datastore/namespace"
@@ -22,8 +23,8 @@ func importSnap(ctx context.Context, rpcEndpoint string, f3Root string, snapshot
 	}
 	defer closer()
 	rawNetworkName := waitRawNetworkName(ctx, &f3api)
-	networkName := getNetworkName(rawNetworkName)
-	m := Network2PredefinedManifestMappings[networkName]
+	networkName := gpbft.NetworkName(rawNetworkName)
+	m := RawNetwork2PredefinedManifestMappings[networkName]
 	if m == nil {
 		m2 := manifest.LocalDevnetManifest()
 		m = &m2

@@ -8,13 +8,13 @@ import (
 	"github.com/filecoin-project/go-f3/manifest"
 )
 
-var Network2PredefinedManifestMappings map[gpbft.NetworkName]*manifest.Manifest = make(map[gpbft.NetworkName]*manifest.Manifest)
+var RawNetwork2PredefinedManifestMappings map[gpbft.NetworkName]*manifest.Manifest = make(map[gpbft.NetworkName]*manifest.Manifest)
 
 func init() {
-	for _, bytes := range [][]byte{F3ManifestBytes2K, F3ManifestBytesButterfly, F3ManifestBytesCalibnet, F3ManifestBytesMainnet} {
-		m := loadManifest(bytes)
-		Network2PredefinedManifestMappings[m.NetworkName] = m
-	}
+	RawNetwork2PredefinedManifestMappings["testnetnet"] = loadManifest(F3ManifestBytesMainnet)
+	RawNetwork2PredefinedManifestMappings["calibrationnet"] = loadManifest(F3ManifestBytesCalibnet)
+	RawNetwork2PredefinedManifestMappings["butterflynet"] = loadManifest(F3ManifestBytesButterfly)
+	RawNetwork2PredefinedManifestMappings["2k"] = loadManifest(F3ManifestBytes2K)
 }
 
 //go:embed f3manifest_2k.json

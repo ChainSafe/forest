@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::eth::EVMMethod;
+use crate::message::SignedMessage;
+use crate::networks::calibnet::ETH_CHAIN_ID;
 use crate::rpc::eth::EthUint64;
 use crate::rpc::eth::types::*;
 use crate::rpc::types::ApiTipsetKey;
@@ -82,7 +84,7 @@ impl RpcTestScenario {
         self
     }
 
-    fn ignore(mut self, msg: &'static str) -> Self {
+    fn _ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
         self
     }
@@ -294,6 +296,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
 }
 
 async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
+    let tipset = client.call(ChainHead::request(())?).await?;
     let mut retries = 100;
     loop {
         let pending = client
@@ -301,6 +304,12 @@ async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow:
             .await?;
 
         if pending.0.iter().any(|msg| msg.cid() == message_cid) {
+            client
+                .call(
+                    StateWaitMsg::request((message_cid, 0, tipset.epoch(), false))?
+                        .with_timeout(Duration::from_secs(300)),
+                )
+                .await?;
             break Ok(());
         }
         ensure!(retries != 0, "Message not found in mpool");
@@ -308,6 +317,46 @@ async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow:
 
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
+}
+
+async fn invoke_contract(client: &rpc::Client, tx: &TestTransaction) -> anyhow::Result<Cid> {
+    let encoded_params = cbor4ii::serde::to_vec(
+        Vec::with_capacity(tx.payload.len()),
+        &Value::Bytes(tx.payload.clone()),
+    )
+    .context("failed to encode params")?;
+    let nonce = client.call(MpoolGetNonce::request((tx.from,))?).await?;
+    let message = Message {
+        to: tx.to,
+        from: tx.from,
+        sequence: nonce,
+        method_num: EVMMethod::InvokeContract as u64,
+        params: encoded_params.into(),
+        ..Default::default()
+    };
+    let unsigned_msg = client
+        .call(GasEstimateMessageGas::request((
+            message,
+            None,
+            ApiTipsetKey(None),
+        ))?)
+        .await?;
+
+    let eth_tx_args = crate::eth::EthEip1559TxArgsBuilder::default()
+        .chain_id(ETH_CHAIN_ID)
+        .unsigned_message(&unsigned_msg.message)?
+        .build()
+        .map_err(|e| anyhow::anyhow!("Failed to build EIP-1559 transaction: {}", e))?;
+    let eth_tx = crate::eth::EthTx::Eip1559(Box::new(eth_tx_args));
+    let data = eth_tx.rlp_unsigned_message(ETH_CHAIN_ID)?;
+
+    let sig = client.call(WalletSign::request((tx.from, data))?).await?;
+    let smsg = SignedMessage::new_unchecked(unsigned_msg.message, sig);
+    let cid = smsg.cid();
+
+    client.call(MpoolPush::request((smsg,))?).await?;
+
+    Ok(cid)
 }
 
 fn create_eth_new_filter_test() -> RpcTestScenario {
@@ -463,25 +512,9 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                 .await?;
 
             let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
-                let encoded = cbor4ii::serde::to_vec(
-                    Vec::with_capacity(tx.payload.len()),
-                    &Value::Bytes(tx.payload.clone()),
-                )
-                .context("failed to encode params")?;
+                let cid = invoke_contract(&client, &tx).await?;
 
-                let message = Message {
-                    to: tx.to,
-                    from: tx.from,
-                    method_num: EVMMethod::InvokeContract as u64,
-                    params: encoded.into(),
-                    ..Default::default()
-                };
-
-                let smsg = client
-                    .call(MpoolPushMessage::request((message, None))?)
-                    .await?;
-
-                wait_pending_message(&client, smsg.cid()).await?;
+                wait_pending_message(&client, cid).await?;
 
                 let filter_result = client
                     .call(EthGetFilterChanges::request((filter_id.clone(),))?)
@@ -500,7 +533,7 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                         }
                     }
 
-                    anyhow::ensure!(cids.contains(&smsg.cid()));
+                    anyhow::ensure!(cids.contains(&cid));
 
                     Ok(())
                 } else {
@@ -534,51 +567,28 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
             const BLOCK_RANGE: u64 = 1;
 
             let tipset = client.call(ChainHead::request(())?).await?;
-
-            let encoded = cbor4ii::serde::to_vec(
-                Vec::with_capacity(tx.payload.len()),
-                &Value::Bytes(tx.payload.clone()),
-            )
-            .context("failed to encode params")?;
-
-            let message = Message {
-                to: tx.to,
-                from: tx.from,
-                method_num: EVMMethod::InvokeContract as u64,
-                params: encoded.into(),
-                ..Default::default()
-            };
-
-            let smsg = client
-                .call(MpoolPushMessage::request((message, None))?)
-                .await?;
-
+            let cid = invoke_contract(&client, &tx).await?;
             let lookup = client
                 .call(
-                    StateWaitMsg::request((smsg.cid(), 0, tipset.epoch(), false))?
+                    StateWaitMsg::request((cid, 0, tipset.epoch(), false))?
                         .with_timeout(Duration::from_secs(300)),
                 )
                 .await?;
-
             let block_num = EthUint64(lookup.height as u64);
 
             let topics = EthTopicSpec(vec![EthHashList::Single(Some(tx.topic))]);
-
             let filter_spec = EthFilterSpec {
                 from_block: Some(format!("0x{:x}", block_num.0.saturating_sub(BLOCK_RANGE))),
-                to_block: Some(block_num.to_hex_string()),
                 topics: Some(topics),
                 ..Default::default()
             };
 
             let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
-
             let filter_result = as_logs(
                 client
                     .call(EthGetFilterLogs::request((filter_id.clone(),))?)
                     .await?,
             );
-
             let result = if let EthFilterResult::Logs(logs) = filter_result {
                 anyhow::ensure!(!logs.is_empty());
                 Ok(())
@@ -641,16 +651,13 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         ),
         with_methods!(
             eth_new_pending_transaction_filter(tx.clone())
-                .name("eth_newPendingTransactionFilter works")
-                .ignore("https://github.com/ChainSafe/forest/issues/5916"),
+                .name("eth_newPendingTransactionFilter works"),
             EthNewPendingTransactionFilter,
             EthGetFilterChanges,
             EthUninstallFilter
         ),
         with_methods!(
-            eth_get_filter_logs(tx.clone())
-                .name("eth_getFilterLogs works")
-                .ignore("https://github.com/ChainSafe/forest/issues/5917"),
+            eth_get_filter_logs(tx.clone()).name("eth_getFilterLogs works"),
             EthNewFilter,
             EthGetFilterLogs,
             EthUninstallFilter

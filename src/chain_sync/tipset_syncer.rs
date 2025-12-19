@@ -11,7 +11,7 @@ use crate::shim::{
     address::Address, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
-use crate::state_manager::{Error as StateManagerError, StateManager, is_valid_for_sending};
+use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},

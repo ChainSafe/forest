@@ -431,10 +431,10 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Api test stateful check
         env:
-          CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
+          CALIBNET_T4_WALLET: "${{ secrets.CALIBNET_T4_WALLET }}"
         run: |
-          if [[ "$CALIBNET_WALLET" != "" ]]; then
-            ./scripts/tests/calibnet_api_test_stateful_check.sh "$CALIBNET_WALLET"
+          if [[ "$CALIBNET_T4_WALLET" != "" ]]; then
+            ./scripts/tests/calibnet_api_test_stateful_check.sh "$CALIBNET_T4_WALLET"
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   db-migration-checks:
