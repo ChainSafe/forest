@@ -185,13 +185,9 @@ async fn ctx(
 mod tests {
     use super::*;
     use crate::Config;
-    use crate::utils::net::{DownloadFileOption, download_file_with_cache};
     use crate::utils::proofs_api::ensure_proof_params_downloaded;
     use ahash::HashSet;
-    use anyhow::Context as _;
-    use directories::ProjectDirs;
-    use std::time::{Duration, Instant};
-    use url::Url;
+    use std::time::Instant;
 
     // To run a single test: cargo test --lib filecoin_multisig_statedecodeparams_1754230255631789 -- --nocapture
     include!(concat!(env!("OUT_DIR"), "/__rpc_regression_tests_gen.rs"));
@@ -204,30 +200,9 @@ mod tests {
             );
             ensure_proof_params_downloaded().await.unwrap();
         }
-        let url: Url =
-            format!("https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{name}")
-                .parse()
-                .with_context(|| format!("Failed to parse URL for test: {name}"))
-                .unwrap();
-        let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
-        let cache_dir = project_dir.cache_dir().join("test").join("rpc-snapshots");
-        let path = crate::utils::retry(
-            crate::utils::RetryArgs {
-                timeout: Some(Duration::from_secs(if crate::utils::is_ci() {
-                    20
-                } else {
-                    120
-                })),
-                max_retries: Some(10),
-                delay: Some(Duration::from_secs(1)),
-            },
-            || async {
-                download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable).await
-            },
-        )
-        .await
-        .unwrap()
-        .path;
+        let path = crate::dev::subcommands::fetch_rpc_test_snapshot(name.into())
+            .await
+            .unwrap();
 
         // We need to set RNG seed so that tests are run with deterministic
         // output. The snapshots should be generated with a node running with the same seed, if

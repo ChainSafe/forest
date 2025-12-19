@@ -64,15 +64,9 @@ jobs:
           go-version-file: "go.work"
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
-      - name: Fetch proof params
+      - name: Fetch proof params and RPC test snapshots
         run: |
-          docker run --rm \
-            -v $FIL_PROOFS_PARAMETER_CACHE:$FIL_PROOFS_PARAMETER_CACHE \
-            -e FIL_PROOFS_PARAMETER_CACHE=$FIL_PROOFS_PARAMETER_CACHE \
-            --entrypoint forest-tool \
-            ghcr.io/chainsafe/forest \
-            fetch-params --keys
-          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
+          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-rpc-tests
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - name: Generate code coverage
         run: make codecov
