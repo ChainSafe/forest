@@ -10,6 +10,7 @@ use fil_actors_shared::frc46_token::token::types::{
     IncreaseAllowanceParams, RevokeAllowanceParams, TransferFromParams, TransferParams,
 };
 use fvm_ipld_encoding::RawBytes;
+use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -24,24 +25,34 @@ pub struct DatacapBalanceParamsLotusJson {
 macro_rules! impl_datacap_balance_params_lotus_json {
     ($($version:ident),*) => {
         $(
-            impl HasLotusJson for datacap::$version::BalanceParams {
-                type LotusJson = DatacapBalanceParamsLotusJson;
+            paste! {
+                mod [<impl_datacap_ $version _balance_params>] {
+                    use super::*;
+                    type T = datacap::$version::BalanceParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+                    impl HasLotusJson for T {
+                        type LotusJson = DatacapBalanceParamsLotusJson;
 
-                #[cfg(test)]
-                fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![(
-                        serde_json::json!("f01234"),
-                        datacap::$version::BalanceParams {
-                            address: Address::new_id(1234).into(),
-                        },
-                    )]
-                }
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                serde_json::json!("f01234"),
+                                Self {
+                                    address: Address::new_id(1234).into(),
+                                },
+                            )]
+                        }
 
-                fn into_lotus_json(self) -> Self::LotusJson {
-                    DatacapBalanceParamsLotusJson { address: self.address.into() }
-                }
-                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                    datacap::$version::BalanceParams { address: lotus_json.address.into() }
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            DatacapBalanceParamsLotusJson { address: self.address.into() }
+                        }
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self { address: lotus_json.address.into() }
+                        }
+                    }
                 }
             }
         )*
@@ -61,24 +72,34 @@ pub struct DatacapConstructorParamsLotusJson {
 macro_rules! impl_datacap_constructor_params_lotus_json {
     ($($version:ident),*) => {
         $(
-            impl HasLotusJson for datacap::$version::ConstructorParams {
-                type LotusJson = DatacapConstructorParamsLotusJson;
+            paste! {
+                mod [<impl_datacap_ $version _constructor_params>] {
+                    use super::*;
+                    type T = datacap::$version::ConstructorParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+                    impl HasLotusJson for T {
+                        type LotusJson = DatacapConstructorParamsLotusJson;
 
-                #[cfg(test)]
-                fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![(
-                        serde_json::json!("f01234"),
-                        datacap::$version::ConstructorParams {
-                            governor: Address::new_id(1234).into(),
-                        },
-                    )]
-                }
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                serde_json::json!("f01234"),
+                                Self {
+                                    governor: Address::new_id(1234).into(),
+                                },
+                            )]
+                        }
 
-                fn into_lotus_json(self) -> Self::LotusJson {
-                    DatacapConstructorParamsLotusJson { governor: self.governor.into() }
-                }
-                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                    datacap::$version::ConstructorParams { governor: lotus_json.governor.into() }
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            DatacapConstructorParamsLotusJson { governor: self.governor.into() }
+                        }
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self { governor: lotus_json.governor.into() }
+                        }
+                    }
                 }
             }
         )*
@@ -101,33 +122,43 @@ pub struct DatacapDestroyParamsLotusJson {
 macro_rules! impl_datacap_destroy_params_lotus_json {
     ($($version:ident),*) => {
         $(
-            impl HasLotusJson for datacap::$version::DestroyParams {
-                type LotusJson = DatacapDestroyParamsLotusJson;
-
-                #[cfg(test)]
-                fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![(
-                        serde_json::json!({
-                            "owner": "f01234",
-                            "amount": "1000000000000000000"
-                        }),
-                        datacap::$version::DestroyParams {
-                            owner: Address::new_id(1234).into(),
-                            amount: TokenAmount::from_atto(1_000_000_000_000_000_000_i64).into(),
-                        },
-                    )]
-                }
-
-                fn into_lotus_json(self) -> Self::LotusJson {
-                    DatacapDestroyParamsLotusJson {
-                        owner: self.owner.into(),
-                        amount: self.amount.into(),
+            paste! {
+                mod [<impl_datacap_ $version _destroy_params>] {
+                    use super::*;
+					type T = datacap::$version::DestroyParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
-                }
-                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                    datacap::$version::DestroyParams {
-                        owner: lotus_json.owner.into(),
-                        amount: lotus_json.amount.into(),
+                    impl HasLotusJson for T {
+                        type LotusJson = DatacapDestroyParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                serde_json::json!({
+                                    "Owner": "f01234",
+                                    "Amount": "1000000000000000000"
+                                }),
+                                Self {
+                                    owner: Address::new_id(1234).into(),
+                                    amount: TokenAmount::from_atto(1_000_000_000_000_000_000_i64).into(),
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            DatacapDestroyParamsLotusJson {
+                                owner: self.owner.into(),
+                                amount: self.amount.into(),
+                            }
+                        }
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                owner: lotus_json.owner.into(),
+                                amount: lotus_json.amount.into(),
+                            }
+                        }
                     }
                 }
             }
@@ -154,40 +185,50 @@ pub struct DatacapMintParamsLotusJson {
 macro_rules! impl_datacap_mint_params_lotus_json {
     ($($version:ident),*) => {
         $(
-            impl HasLotusJson for datacap::$version::MintParams {
-                type LotusJson = DatacapMintParamsLotusJson;
-
-                #[cfg(test)]
-                fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![(
-                        serde_json::json!({
-                            "to": "f01234",
-                            "amount": "1000000000000000000",
-                            "operators": ["f01235", "f01236"]
-                        }),
-                        datacap::$version::MintParams {
-                            to: Address::new_id(1234).into(),
-                            amount: TokenAmount::from_atto(1_000_000_000_000_000_000_i64).into(),
-                            operators: vec![
-                                Address::new_id(1235).into(),
-                                Address::new_id(1236).into(),
-                            ],
-                        },
-                    )]
-                }
-
-                fn into_lotus_json(self) -> Self::LotusJson {
-                    DatacapMintParamsLotusJson {
-                        to: self.to.into(),
-                        amount: self.amount.into(),
-                        operators: self.operators.into_iter().map(|a| a.into()).collect(),
+            paste! {
+                mod [<impl_datacap_ $version _mint_params>] {
+                    use super::*;
+					type T = datacap::$version::MintParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
-                }
-                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                    datacap::$version::MintParams {
-                        to: lotus_json.to.into(),
-                        amount: lotus_json.amount.into(),
-                        operators: lotus_json.operators.into_iter().map(|a| a.into()).collect(),
+                    impl HasLotusJson for T {
+                        type LotusJson = DatacapMintParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                serde_json::json!({
+                                    "To": "f01234",
+                                    "Amount": "1000000000000000000",
+                                    "Operators": ["f01235", "f01236"]
+                                }),
+                                Self {
+                                    to: Address::new_id(1234).into(),
+                                    amount: TokenAmount::from_atto(1_000_000_000_000_000_000_i64).into(),
+                                    operators: vec![
+                                        Address::new_id(1235).into(),
+                                        Address::new_id(1236).into(),
+                                    ],
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            DatacapMintParamsLotusJson {
+                                to: self.to.into(),
+                                amount: self.amount.into(),
+                                operators: self.operators.into_iter().map(|a| a.into()).collect(),
+                            }
+                        }
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                to: lotus_json.to.into(),
+                                amount: lotus_json.amount.into(),
+                                operators: lotus_json.operators.into_iter().map(|a| a.into()).collect(),
+                            }
+                        }
                     }
                 }
             }
@@ -218,9 +259,9 @@ impl HasLotusJson for TransferParams {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             serde_json::json!({
-                "to": "f01234",
-                "amount": "1000000000000000000",
-                "operator_data": "dGVzdCBkYXRh"
+                "To": "f01234",
+                "Amount": "1000000000000000000",
+                "OperatorData": "dGVzdCBkYXRh"
             }),
             TransferParams {
                 to: Address::new_id(1234).into(),
@@ -246,6 +287,7 @@ impl HasLotusJson for TransferParams {
         }
     }
 }
+crate::test_snapshots!(TransferParams);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -271,10 +313,10 @@ impl HasLotusJson for TransferFromParams {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             serde_json::json!({
-                "from": "f01234",
-                "to": "f01235",
-                "amount": "1000000000000000000",
-                "operator_data": "dGVzdCBkYXRh"
+                "From": "f01234",
+                "To": "f01235",
+                "Amount": "1000000000000000000",
+                "OperatorData": "dGVzdCBkYXRh"
             }),
             TransferFromParams {
                 from: Address::new_id(1234).into(),
@@ -303,6 +345,7 @@ impl HasLotusJson for TransferFromParams {
         }
     }
 }
+crate::test_snapshots!(TransferFromParams);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -322,8 +365,8 @@ impl HasLotusJson for IncreaseAllowanceParams {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             serde_json::json!({
-                "operator": "f01234",
-                "increase": "1000000000000000000"
+                "Operator": "f01234",
+                "Increase": "1000000000000000000"
             }),
             IncreaseAllowanceParams {
                 operator: Address::new_id(1234).into(),
@@ -346,6 +389,7 @@ impl HasLotusJson for IncreaseAllowanceParams {
         }
     }
 }
+crate::test_snapshots!(IncreaseAllowanceParams);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -365,8 +409,8 @@ impl HasLotusJson for DecreaseAllowanceParams {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             serde_json::json!({
-                "operator": "f01234",
-                "decrease": "1000000000000000000"
+                "Operator": "f01234",
+                "Decrease": "1000000000000000000"
             }),
             DecreaseAllowanceParams {
                 operator: Address::new_id(1234).into(),
@@ -389,6 +433,7 @@ impl HasLotusJson for DecreaseAllowanceParams {
         }
     }
 }
+crate::test_snapshots!(DecreaseAllowanceParams);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -405,7 +450,7 @@ impl HasLotusJson for RevokeAllowanceParams {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             serde_json::json!({
-                "operator": "f01234"
+                "Operator": "f01234"
             }),
             RevokeAllowanceParams {
                 operator: Address::new_id(1234).into(),
@@ -425,6 +470,7 @@ impl HasLotusJson for RevokeAllowanceParams {
         }
     }
 }
+crate::test_snapshots!(RevokeAllowanceParams);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -441,7 +487,7 @@ impl HasLotusJson for BurnParams {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             serde_json::json!({
-                "amount": "1000000000000000000"
+                "Amount": "1000000000000000000"
             }),
             BurnParams {
                 amount: TokenAmount::from_atto(1_000_000_000_000_000_000_i64).into(),
@@ -461,6 +507,7 @@ impl HasLotusJson for BurnParams {
         }
     }
 }
+crate::test_snapshots!(BurnParams);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -480,8 +527,8 @@ impl HasLotusJson for BurnFromParams {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             serde_json::json!({
-                "owner": "f01234",
-                "amount": "1000000000000000000"
+                "Owner": "f01234",
+                "Amount": "1000000000000000000"
             }),
             BurnFromParams {
                 owner: Address::new_id(1234).into(),
@@ -504,6 +551,7 @@ impl HasLotusJson for BurnFromParams {
         }
     }
 }
+crate::test_snapshots!(BurnFromParams);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -523,8 +571,8 @@ impl HasLotusJson for GetAllowanceParams {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             serde_json::json!({
-                "owner": "f01234",
-                "operator": "f01235"
+                "Owner": "f01234",
+                "Operator": "f01235"
             }),
             GetAllowanceParams {
                 owner: Address::new_id(1234).into(),
@@ -547,3 +595,4 @@ impl HasLotusJson for GetAllowanceParams {
         }
     }
 }
+crate::test_snapshots!(GetAllowanceParams);

@@ -4,7 +4,7 @@
 use super::*;
 use crate::shim::sector::SectorSize;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "SectorSize")]
 // This should probably be a JSON Schema `enum`
 pub struct SectorSizeLotusJson(#[schemars(with = "u64")] SectorSize);

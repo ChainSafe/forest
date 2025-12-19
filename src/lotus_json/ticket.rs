@@ -5,7 +5,7 @@ use crate::blocks::{Ticket, VRFProof};
 
 use super::*;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "Ticket")]
 pub struct TicketLotusJson {

@@ -5,7 +5,7 @@ use crate::blocks::{ElectionProof, VRFProof};
 
 use super::*;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "ElectionProof")]
 pub struct ElectionProofLotusJson {
