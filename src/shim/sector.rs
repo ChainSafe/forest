@@ -226,7 +226,7 @@ impl quickcheck::Arbitrary for ExtendedSectorInfo {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, derive_more::Into)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Eq, PartialEq, derive_more::Into)]
 pub struct RegisteredPoStProof(RegisteredPoStProofV4);
 
 #[cfg(test)]

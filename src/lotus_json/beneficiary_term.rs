@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::{clock::ChainEpoch, econ::TokenAmount};
 use fil_actor_miner_state::v12::BeneficiaryTerm;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "BeneficiaryTerm")]
 pub struct BeneficiaryTermLotusJson {
