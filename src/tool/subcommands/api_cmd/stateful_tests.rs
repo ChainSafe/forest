@@ -84,7 +84,7 @@ impl RpcTestScenario {
         self
     }
 
-    fn ignore(mut self, msg: &'static str) -> Self {
+    fn _ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
         self
     }
@@ -567,51 +567,28 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
             const BLOCK_RANGE: u64 = 1;
 
             let tipset = client.call(ChainHead::request(())?).await?;
-
-            let encoded = cbor4ii::serde::to_vec(
-                Vec::with_capacity(tx.payload.len()),
-                &Value::Bytes(tx.payload.clone()),
-            )
-            .context("failed to encode params")?;
-
-            let message = Message {
-                to: tx.to,
-                from: tx.from,
-                method_num: EVMMethod::InvokeContract as u64,
-                params: encoded.into(),
-                ..Default::default()
-            };
-
-            let smsg = client
-                .call(MpoolPushMessage::request((message, None))?)
-                .await?;
-
+            let cid = invoke_contract(&client, &tx).await?;
             let lookup = client
                 .call(
-                    StateWaitMsg::request((smsg.cid(), 0, tipset.epoch(), false))?
+                    StateWaitMsg::request((cid, 0, tipset.epoch(), false))?
                         .with_timeout(Duration::from_secs(300)),
                 )
                 .await?;
-
             let block_num = EthUint64(lookup.height as u64);
 
             let topics = EthTopicSpec(vec![EthHashList::Single(Some(tx.topic))]);
-
             let filter_spec = EthFilterSpec {
                 from_block: Some(format!("0x{:x}", block_num.0.saturating_sub(BLOCK_RANGE))),
-                to_block: Some(block_num.to_hex_string()),
                 topics: Some(topics),
                 ..Default::default()
             };
 
             let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
-
             let filter_result = as_logs(
                 client
                     .call(EthGetFilterLogs::request((filter_id.clone(),))?)
                     .await?,
             );
-
             let result = if let EthFilterResult::Logs(logs) = filter_result {
                 anyhow::ensure!(!logs.is_empty());
                 Ok(())
@@ -680,9 +657,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
             EthUninstallFilter
         ),
         with_methods!(
-            eth_get_filter_logs(tx.clone())
-                .name("eth_getFilterLogs works")
-                .ignore("https://github.com/ChainSafe/forest/issues/5917"),
+            eth_get_filter_logs(tx.clone()).name("eth_getFilterLogs works"),
             EthNewFilter,
             EthGetFilterLogs,
             EthUninstallFilter
