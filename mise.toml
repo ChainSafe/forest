@@ -129,3 +129,4 @@ cargo llvm-cov --workspace --codecov --output-path lcov.info
 
 [tools]
 cargo-binstall = "latest"
+go = "latest"
