@@ -61,8 +61,8 @@ DOCS_RS=1 cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
 [tasks."lint:unused-deps"]
 description = "Check for unused dependencies in Rust code."
 tools.ruby = "latest"
-tools."gem:toml-rb" = "4.1"
 run = '''
+gem install --no-document toml-rb
 ruby scripts/linters/find_unused_deps.rb
 '''
 
