@@ -45,13 +45,18 @@ use lints::{Lint, Violation};
 use proc_macro2::{LineColumn, Span};
 use syn::visit::Visit;
 use tracing::{debug, info, level_filters::LevelFilter};
-use tracing_subscriber::util::SubscriberInitExt as _;
+use tracing_subscriber::{EnvFilter, util::SubscriberInitExt as _};
 
 #[test]
 fn lint() {
     let _guard = tracing_subscriber::fmt()
         .without_time()
-        .with_max_level(LevelFilter::DEBUG)
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::DEBUG.into())
+                .from_env()
+                .unwrap(),
+        )
         .set_default();
     LintRunner::new()
         .run::<lints::NoTestsWithReturn>()
