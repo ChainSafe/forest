@@ -58,6 +58,14 @@ cargo clippy --benches --features benchmark-private --quiet --no-deps -- --deny=
 DOCS_RS=1 cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
 '''
 
+[tasks."lint:unused-deps"]
+description = "Check for unused dependencies in Rust code."
+tools.ruby = "latest"
+run = '''
+gem install toml-rb --no-document
+ruby scripts/linters/find_unused_deps.rb
+'''
+
 [tasks."lint:dockerfile"]
 description = "Lint Dockerfiles using hadolint."
 tools.hadolint = "latest"
@@ -65,16 +73,41 @@ run = '''
 hadolint Dockerfile*
 '''
 
-[tasks."lint:golangci"]
+[tasks."lint:shellcheck"]
+description = "Lint shell scripts using shellcheck."
+tools.shellcheck = "latest"
+run = '''
+shellcheck --external-sources --source-path=SCRIPTDIR **/*.sh
+'''
+
+[tasks."lint:golang"]
 description = "Lint Go code using golangci-lint."
 tools.golangci-lint = "latest"
 run = '''
 golangci-lint run ./f3-sidecar ./interop-tests/src/tests/go_app
 '''
 
+[tasks."lint:ruby"]
+description = "Lint Ruby code using rubocop."
+tools.ruby = "latest"
+run = '''
+gem install rubocop -v 1.58 --no-document
+rubocop scripts/
+'''
+
 [tasks.lint]
 description = "Run all linting tasks."
 depends = ["lint:*"]
+
+[tasks."lint:all-rust"]
+description = "Run all Rust linting tasks."
+depends = [
+    "lint:deny",
+    "lint:spellcheck",
+    "lint:rust-fmt",
+    "lint:clippy",
+    "lint:unused-deps"
+]
 
 [tasks.fmt]
 description = "Format all supported code."
@@ -130,3 +163,4 @@ cargo llvm-cov --workspace --codecov --output-path lcov.info
 [tools]
 cargo-binstall = "latest"
 go = "latest"
+yarn = "latest"

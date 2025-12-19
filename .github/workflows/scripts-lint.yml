@@ -16,21 +16,18 @@ on:
 
 jobs:
   shellcheck:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
       - name: Run shellcheck
-        uses: ludeeus/action-shellcheck@2.0.0
-        env:
-          SHELLCHECK_OPTS: --external-sources --source-path=SCRIPTDIR
+        run: mise lint:shellcheck
+
   rubocop:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.0"
+      - uses: jdx/mise-action@v3
       - name: Run rubocop
         run: |
           gem install rubocop -v 1.58 --no-document
@@ -75,18 +72,14 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          package-manager-cache: false
-      - run: corepack enable
-      - run: yarn --immutable
+      - uses: jdx/mise-action@v3
       - run: yarn yaml-check
   lists-lint:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
       - name: Sort and verify lists
         run: |
-          make sort-lists
+          mise lint:lists
           git diff --exit-code
