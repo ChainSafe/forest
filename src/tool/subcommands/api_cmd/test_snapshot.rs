@@ -218,8 +218,8 @@ mod tests {
                 } else {
                     120
                 })),
-                max_retries: Some(5),
-                ..Default::default()
+                max_retries: Some(10),
+                delay: Some(Duration::from_secs(1)),
             },
             || async {
                 download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable).await
