@@ -38,4 +38,5 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
-      - run: mise run lint::golangci
+      - uses: jdx/mise-action@v3
+      - run: mise lint:golangci

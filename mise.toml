@@ -93,7 +93,7 @@ cargo clean
 rm -rf node_modules
 '''
 
-[tasks."test::docs"]
+[tasks."test:docs"]
 # nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 # We need to run them separately.
 description = "Run doctests."
@@ -106,7 +106,7 @@ run = '''
 cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-fail-fast
 '''
 
-[tasks."test::rust"]
+[tasks."test:rust"]
 description = "Run Rust unit and integration tests."
 usage = '''
 arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
@@ -119,7 +119,7 @@ cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-fail-fast
 
 [tasks.test]
 description = "Run all tests."
-depends = ["test::*"]
+depends = ["test:*"]
 
 [tasks.codecov]
 description = "Generate codecov report"

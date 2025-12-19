@@ -61,8 +61,9 @@ jobs:
           go-version-file: "go.work"
       - name: install nextest
         uses: taiki-e/install-action@nextest
+      - uses: jdx/mise-action@v3
       - run: |
-          mise run test
+          mise test
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
