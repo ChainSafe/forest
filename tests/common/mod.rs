@@ -41,7 +41,10 @@ impl CommonEnv for Command {
     // Always downloads proofs to same location to lower the overall test time
     // (by reducing multiple "fetching param file" steps).
     fn common_env(&mut self) -> &mut Self {
-        self.env("FIL_PROOFS_PARAMETER_CACHE", "/tmp/forest-test-fil-proofs")
+        match std::env::var("FIL_PROOFS_PARAMETER_CACHE").ok() {
+            Some(v) if !v.is_empty() => self,
+            _ => self.env("FIL_PROOFS_PARAMETER_CACHE", "/tmp/forest-test-fil-proofs"),
+        }
     }
 }
 
