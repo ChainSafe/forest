@@ -37,7 +37,7 @@ env:
   RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
   FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT: 1
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
-  RUST_LOG: warn
+  RUST_LOG: error
 
 jobs:
   codecov:
