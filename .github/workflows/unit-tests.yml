@@ -28,9 +28,12 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
+  AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+  AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
   RUSTC_WRAPPER: "sccache"
   CC: "sccache clang"
   CXX: "sccache clang++"
+  FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
 
 jobs:
   tests-release:
@@ -39,6 +42,14 @@ jobs:
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
     steps:
+      - name: Configure SCCache variables
+        run: |
+          # External PRs do not have access to 'vars' or 'secrets'.
+          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
+            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
+            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
+            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+          fi
       # find the nearest S3 space for storing cache files
       - name: Show IP
         run: curl ifconfig.me
