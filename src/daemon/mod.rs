@@ -36,7 +36,7 @@ use crate::utils::misc::env::is_env_truthy;
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
 use dialoguer::theme::ColorfulTheme;
-use futures::{Future, FutureExt, select};
+use futures::{Future, FutureExt};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -738,13 +738,9 @@ async fn maybe_set_snapshot_path(
 async fn propagate_error(
     services: &mut JoinSet<Result<(), anyhow::Error>>,
 ) -> anyhow::Result<std::convert::Infallible> {
-    while !services.is_empty() {
-        select! {
-            option = services.join_next().fuse() => {
-                if let Some(Ok(Err(error_message))) = option {
-                    return Err(error_message)
-                }
-            },
+    while let Some(result) = services.join_next().await {
+        if let Ok(Err(error_message)) = result {
+            return Err(error_message);
         }
     }
     std::future::pending().await

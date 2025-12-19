@@ -217,17 +217,11 @@ mod tests {
         let cache_dir = project_dir.cache_dir().join("test").join("rpc-snapshots");
         let path = crate::utils::retry(
             crate::utils::RetryArgs {
-                timeout: Some(Duration::from_secs(if crate::utils::is_ci() {
-                    20
-                } else {
-                    120
-                })),
+                timeout: Some(Duration::from_secs(30)),
                 max_retries: Some(5),
-                ..Default::default()
+                delay: Some(Duration::from_secs(1)),
             },
-            || async {
-                download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable).await
-            },
+            || download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable),
         )
         .await
         .unwrap()

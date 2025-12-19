@@ -85,7 +85,7 @@ async fn test_state_migration(
         retry(
             RetryArgs {
                 timeout: Some(timeout),
-                max_retries: Some(5),
+                max_retries: Some(15),
                 ..Default::default()
             },
             || async {
