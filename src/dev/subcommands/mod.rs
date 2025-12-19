@@ -74,13 +74,11 @@ pub async fn fetch_rpc_test_snapshot<'a>(name: Cow<'a, str>) -> anyhow::Result<P
     let cache_dir = project_dir.cache_dir().join("test").join("rpc-snapshots");
     let path = crate::utils::retry(
         crate::utils::RetryArgs {
-            timeout: Some(Duration::from_secs(60)),
+            timeout: Some(Duration::from_secs(30)),
             max_retries: Some(5),
             delay: Some(Duration::from_secs(1)),
         },
-        || async {
-            download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable).await
-        },
+        || download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable),
     )
     .await
     .map_err(|e| anyhow::anyhow!("failed to fetch rpc test snapshot {name} :{e}"))?

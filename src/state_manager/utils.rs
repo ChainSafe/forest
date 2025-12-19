@@ -197,6 +197,7 @@ pub mod state_compute {
     use std::{
         path::{Path, PathBuf},
         sync::{Arc, LazyLock},
+        time::Duration,
     };
     use url::Url;
 
@@ -215,11 +216,22 @@ pub mod state_compute {
         let url = Url::parse(&format!(
             "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/state_compute/{chain}_{epoch}.forest.car.zst"
         ))?;
-        Ok(
-            download_file_with_cache(&url, &SNAPSHOT_CACHE_DIR, DownloadFileOption::NonResumable)
-                .await?
-                .path,
+        Ok(crate::utils::retry(
+            crate::utils::RetryArgs {
+                timeout: Some(Duration::from_secs(30)),
+                max_retries: Some(5),
+                delay: Some(Duration::from_secs(1)),
+            },
+            || {
+                download_file_with_cache(
+                    &url,
+                    &SNAPSHOT_CACHE_DIR,
+                    DownloadFileOption::NonResumable,
+                )
+            },
         )
+        .await?
+        .path)
     }
 
     pub async fn prepare_state_compute(
