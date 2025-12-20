@@ -1046,17 +1046,17 @@ where
         &self,
         mut current: Tipset,
         message: &ChainMessage,
-        look_back_limit: Option<i64>,
-        allow_replaced: Option<bool>,
+        min_epoch: ChainEpoch,
+        allow_replaced: bool,
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
-        let allow_replaced = allow_replaced.unwrap_or(true);
         let message_from_address = message.from();
         let message_sequence = message.sequence();
         let mut current_actor_state = self
             .get_required_actor(&message_from_address, *current.parent_state())
             .map_err(Error::state)?;
         let message_from_id = self.lookup_required_id(&message_from_address, &current)?;
-        while current.epoch() > look_back_limit.unwrap_or_default() {
+
+        while current.epoch() >= min_epoch {
             let parent_tipset = self
                 .chain_index()
                 .load_required_tipset(current.parents())
@@ -1091,6 +1091,17 @@ where
         Ok(None)
     }
 
+    /// Searches backwards through the chain for a message receipt.
+    ///
+    /// # Arguments
+    /// * `current` - The tipset to start searching from
+    /// * `message` - The message to search for
+    /// * `look_back_limit` - Maximum number of epochs to search backwards:
+    ///   - `None` or `Some(-1)` (LOOKBACK_NO_LIMIT): Search all the way to genesis
+    ///   - `Some(0)`: No search performed, returns `None` immediately
+    ///   - `Some(N)` where `N > 0`: Search back at most N epochs
+    ///   - `Some(N)` where `N >= current.epoch()`: Same as unlimited (to genesis)
+    /// * `allow_replaced` - Whether to accept replacement messages (same nonce, different CID)
     fn search_back_for_message(
         &self,
         current: Tipset,
@@ -1098,7 +1109,21 @@ where
         look_back_limit: Option<i64>,
         allow_replaced: Option<bool>,
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
-        self.check_search(current, message, look_back_limit, allow_replaced)
+        let current_epoch = current.epoch();
+        let allow_replaced = allow_replaced.unwrap_or(true);
+
+        // Calculate the minimum epoch (inclusive lower bound) for the search.
+        let min_epoch = match look_back_limit {
+            // No search: limit = 0 means search 0 epochs
+            Some(0) => return Ok(None),
+            // Limited search: calculate the inclusive lower bound
+            // For ex: limit = 5 at epoch 1000: min_epoch = 996, searches [996, 1000] = 5 epochs
+            Some(limit) if limit > 0 && limit < current_epoch => current_epoch - limit + 1,
+            // Search all the way to genesis (epoch 0)
+            _ => 0,
+        };
+
+        self.check_search(current, message, min_epoch, allow_replaced)
     }
 
     /// Returns a message receipt from a given tipset and message CID.
