@@ -99,23 +99,23 @@ docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
 test:
-	cargo nextest run --workspace --no-default-features --no-fail-fast
+	cargo nextest run --workspace --no-fail-fast
 
 test-docs:
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
-	cargo test --doc --no-default-features --features doctest-private
+	cargo test --doc --features doctest-private
 
 test-release:
-	cargo nextest run --cargo-profile quick --workspace --no-default-features --no-fail-fast
+	cargo nextest run --cargo-profile quick --workspace --no-fail-fast
 
 test-release-docs:
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
-	cargo test --profile quick --doc --no-default-features --features doctest-private
+	cargo test --profile quick --doc --features doctest-private
 
 codecov:
-	cargo llvm-cov -p forest-filecoin --no-default-features --codecov --output-path lcov.info
+	cargo llvm-cov -p forest-filecoin --codecov --output-path lcov.info
 
 # Checks if all headers are present and adds if not
 license:
