@@ -6,7 +6,7 @@ use crate::shim::actors::datacap::State;
 use crate::shim::address::Address;
 use fil_actors_shared::frc46_token::token::state::TokenState;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "DatacapState")]
 pub struct DatacapStateLotusJson {
@@ -26,12 +26,12 @@ impl HasLotusJson for State {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
-                "governor": "t00",
-                "token": {
-                    "supply": "0",
-                    "balances": {"/":"baeaaaaa"},
-                    "allowances": {"/":"baeaaaaa"},
-                    "hamt_bit_width": 0
+                "Governor": "f00",
+                "Token": {
+                    "Supply": "0",
+                    "Balances": {"/":"baeaaaaa"},
+                    "Allowances": {"/":"baeaaaaa"},
+                    "HamtBitWidth": 0
                 }
             }),
             State::default_latest_version(
@@ -70,3 +70,4 @@ impl HasLotusJson for State {
         State::default_latest_version(lotus_json.governor.into(), lotus_json.token)
     }
 }
+crate::test_snapshots!(State);

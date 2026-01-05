@@ -10,7 +10,7 @@ use fvm_shared4::clock::ChainEpoch;
 
 use super::vesting_funds::{VestingFundLotusJson, VestingFundsLotusJson};
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "MinerState")]
 pub struct MinerStateLotusJson {
@@ -69,7 +69,7 @@ pub struct MinerStateLotusJson {
 }
 
 // VestingFunds can be either embedded (V16+) or referenced via Cid (V8-V15).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum VestingFundsValue {
     Embedded(VestingFundsLotusJson),
@@ -136,13 +136,13 @@ impl HasLotusJson for State {
         vec![(
             json!({
                 "Info": {"/":"baeaaaaa"},
-                "PreCommitDeposits": "1000000000000000000",
-                "LockedFunds": "2000000000000000000",
+                "PreCommitDeposits": "0",
+                "LockedFunds": "0",
                 "VestingFunds": null,
-                "FeeDebt": "400000000000000000",
-                "InitialPledge": "5000000000000000000",
+                "FeeDebt": "0",
+                "InitialPledge": "0",
                 "PreCommittedSectors": {"/":"baeaaaaa"},
-                "PreCommittedSectorsCleanup": {"/":"baeaaaaa"},
+                "PreCommittedSectorsCleanUp": {"/":"baeaaaaa"},
                 "AllocatedSectors": {"/":"baeaaaaa"},
                 "Sectors": {"/":"baeaaaaa"},
                 "ProvingPeriodStart": 0,
@@ -236,3 +236,4 @@ impl HasLotusJson for State {
         )
     }
 }
+crate::test_snapshots!(State);

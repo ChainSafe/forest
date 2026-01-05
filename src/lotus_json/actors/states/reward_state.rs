@@ -8,7 +8,7 @@ use crate::shim::econ::TokenAmount;
 use fil_actors_shared::v16::reward::FilterEstimate;
 use num_bigint::BigInt;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "RewardState")]
 pub struct RewardStateLotusJson {
@@ -70,8 +70,8 @@ impl HasLotusJson for State {
                 "EffectiveBaselinePower": "1",
                 "ThisEpochReward": "1",
                 "ThisEpochRewardSmoothed": {
-                    "Position": "1",
-                    "Velocity": "1",
+                    "PositionEstimate": "1",
+                    "VelocityEstimate": "1",
                 },
                 "ThisEpochBaselinePower": "1",
                 "Epoch": 1,
@@ -147,3 +147,4 @@ impl HasLotusJson for State {
         )
     }
 }
+crate::test_snapshots!(State);

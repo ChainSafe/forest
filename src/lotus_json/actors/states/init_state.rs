@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::actors::init::State;
 use ::cid::Cid;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "InitState")]
 pub struct InitStateLotusJson {
@@ -59,3 +59,4 @@ impl HasLotusJson for State {
         )
     }
 }
+crate::test_snapshots!(State);
