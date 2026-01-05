@@ -2099,7 +2099,7 @@ async fn eth_fee_history<B: Blockstore + Send + Sync + 'static>(
     }
 
     let reward_percentiles = reward_percentiles.unwrap_or_default();
-    validate_reward_precentiles(&reward_percentiles)?;
+    validate_reward_percentiles(&reward_percentiles)?;
 
     let mut oldest_block_height = 1;
     // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
@@ -2155,7 +2155,7 @@ async fn eth_fee_history<B: Blockstore + Send + Sync + 'static>(
     })
 }
 
-fn validate_reward_precentiles(reward_percentiles: &[f64]) -> anyhow::Result<()> {
+fn validate_reward_percentiles(reward_percentiles: &[f64]) -> anyhow::Result<()> {
     if reward_percentiles.len() > 100 {
         anyhow::bail!("length of the reward percentile array cannot be greater than 100");
     }
