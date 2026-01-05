@@ -884,13 +884,18 @@ mod tests {
     use num_bigint::BigInt;
     use num_traits::ToPrimitive;
     use std::sync::Arc;
+    use tracing::level_filters::LevelFilter;
+    use tracing_subscriber::EnvFilter;
 
     fn setup() -> (Arc<ChainStore<MemoryDB>>, Chain4U<Arc<MemoryDB>>) {
         // Initialize test logger
         let _ = tracing_subscriber::fmt()
+            .without_time()
             .with_env_filter(
-                tracing_subscriber::EnvFilter::from_default_env()
-                    .add_directive(tracing::Level::DEBUG.into()),
+                EnvFilter::builder()
+                    .with_default_directive(LevelFilter::DEBUG.into())
+                    .from_env()
+                    .unwrap(),
             )
             .try_init();
 

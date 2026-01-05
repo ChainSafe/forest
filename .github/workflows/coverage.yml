@@ -33,6 +33,7 @@ env:
   CXX: sccache clang++
   # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
   RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+  RUST_LOG: error
 
 jobs:
   codecov:
