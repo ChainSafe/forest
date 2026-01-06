@@ -34,7 +34,7 @@ env:
   CC: "sccache clang"
   CXX: "sccache clang++"
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
-  RUST_LOG: warn
+  RUST_LOG: error
 
 jobs:
   tests-release:
