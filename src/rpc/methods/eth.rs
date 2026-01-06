@@ -2079,121 +2079,159 @@ impl RpcMethod<3> for EthFeeHistory {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        if block_count > 1024 {
-            return Err(anyhow::anyhow!("block count should be smaller than 1024").into());
-        }
-
-        let reward_percentiles = reward_percentiles.unwrap_or_default();
-        Self::validate_reward_precentiles(&reward_percentiles)?;
-
         let tipset = tipset_by_ext_block_number_or_hash(
             ctx.chain_store(),
             newest_block_number.into(),
             ResolveNullTipset::TakeOlder,
         )?;
-        let mut oldest_block_height = 1;
-        // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
-        //  because the next base fee can be inferred from the messages in the newest block.
-        //  However, this is NOT the case in Filecoin due to deferred execution, so the best
-        //  we can do is duplicate the last value.
-        let mut base_fee_array = vec![EthBigInt::from(
-            &tipset.block_headers().first().parent_base_fee,
-        )];
-        let mut rewards_array = vec![];
-        let mut gas_used_ratio_array = vec![];
-        for ts in tipset
-            .chain(ctx.store())
-            .filter(|i| i.epoch() > 0)
-            .take(block_count as _)
-        {
-            let base_fee = &ts.block_headers().first().parent_base_fee;
-            let (_state_root, messages_and_receipts) = execute_tipset(&ctx, &ts).await?;
-            let mut tx_gas_rewards = Vec::with_capacity(messages_and_receipts.len());
-            for (message, receipt) in messages_and_receipts {
-                let premium = message.effective_gas_premium(base_fee);
-                tx_gas_rewards.push(GasReward {
-                    gas_used: receipt.gas_used(),
-                    premium,
-                });
-            }
-            let (rewards, total_gas_used) =
-                Self::calculate_rewards_and_gas_used(&reward_percentiles, tx_gas_rewards);
-            let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
 
-            // arrays should be reversed at the end
-            base_fee_array.push(EthBigInt::from(base_fee));
-            gas_used_ratio_array.push((total_gas_used as f64) / (max_gas as f64));
-            rewards_array.push(rewards);
-
-            oldest_block_height = ts.epoch();
-        }
-
-        // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.
-        base_fee_array.reverse();
-        gas_used_ratio_array.reverse();
-        rewards_array.reverse();
-
-        Ok(EthFeeHistoryResult {
-            oldest_block: EthUint64(oldest_block_height as _),
-            base_fee_per_gas: base_fee_array,
-            gas_used_ratio: gas_used_ratio_array,
-            reward: if reward_percentiles.is_empty() {
-                None
-            } else {
-                Some(rewards_array)
-            },
-        })
+        eth_fee_history(ctx, tipset, block_count, reward_percentiles).await
     }
 }
 
-impl EthFeeHistory {
-    fn validate_reward_precentiles(reward_percentiles: &[f64]) -> anyhow::Result<()> {
-        if reward_percentiles.len() > 100 {
-            anyhow::bail!("length of the reward percentile array cannot be greater than 100");
-        }
+pub enum EthFeeHistoryV2 {}
 
-        for (&rp, &rp_prev) in reward_percentiles
-            .iter()
-            .zip(std::iter::once(&0.).chain(reward_percentiles.iter()))
-        {
-            if !(0. ..=100.).contains(&rp) {
-                anyhow::bail!("invalid reward percentile: {rp} should be between 0 and 100");
-            }
-            if rp < rp_prev {
-                anyhow::bail!("invalid reward percentile: {rp} should be larger than {rp_prev}");
-            }
-        }
+impl RpcMethod<3> for EthFeeHistoryV2 {
+    const NAME: &'static str = "Filecoin.EthFeeHistory";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_feeHistory");
+    const N_REQUIRED_PARAMS: usize = 2;
+    const PARAM_NAMES: [&'static str; 3] = ["blockCount", "newestBlockNumber", "rewardPercentiles"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
 
-        Ok(())
+    type Params = (EthUint64, ExtBlockNumberOrHash, Option<Vec<f64>>);
+    type Ok = EthFeeHistoryResult;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = tipset_by_block_number_or_hash_v2(
+            &ctx,
+            newest_block_number,
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
+
+        eth_fee_history(ctx, tipset, block_count, reward_percentiles).await
+    }
+}
+
+async fn eth_fee_history<B: Blockstore + Send + Sync + 'static>(
+    ctx: Ctx<B>,
+    tipset: Tipset,
+    block_count: u64,
+    reward_percentiles: Option<Vec<f64>>,
+) -> Result<EthFeeHistoryResult, ServerError> {
+    if block_count > 1024 {
+        return Err(anyhow::anyhow!("block count should be smaller than 1024").into());
     }
 
-    fn calculate_rewards_and_gas_used(
-        reward_percentiles: &[f64],
-        mut tx_gas_rewards: Vec<GasReward>,
-    ) -> (Vec<EthBigInt>, u64) {
-        const MIN_GAS_PREMIUM: u64 = 100000;
+    let reward_percentiles = reward_percentiles.unwrap_or_default();
+    validate_reward_percentiles(&reward_percentiles)?;
 
-        let gas_used_total = tx_gas_rewards.iter().map(|i| i.gas_used).sum();
-        let mut rewards = reward_percentiles
-            .iter()
-            .map(|_| EthBigInt(MIN_GAS_PREMIUM.into()))
-            .collect_vec();
-        if !tx_gas_rewards.is_empty() {
-            tx_gas_rewards.sort_by_key(|i| i.premium.clone());
-            let mut idx = 0;
-            let mut sum = 0;
-            #[allow(clippy::indexing_slicing)]
-            for (i, &percentile) in reward_percentiles.iter().enumerate() {
-                let threshold = ((gas_used_total as f64) * percentile / 100.) as u64;
-                while sum < threshold && idx < tx_gas_rewards.len() - 1 {
-                    sum += tx_gas_rewards[idx].gas_used;
-                    idx += 1;
-                }
-                rewards[i] = (&tx_gas_rewards[idx].premium).into();
-            }
+    let mut oldest_block_height = 1;
+    // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
+    //  because the next base fee can be inferred from the messages in the newest block.
+    //  However, this is NOT the case in Filecoin due to deferred execution, so the best
+    //  we can do is duplicate the last value.
+    let mut base_fee_array = vec![EthBigInt::from(
+        &tipset.block_headers().first().parent_base_fee,
+    )];
+    let mut rewards_array = vec![];
+    let mut gas_used_ratio_array = vec![];
+    for ts in tipset
+        .chain(ctx.store())
+        .filter(|i| i.epoch() > 0)
+        .take(block_count as _)
+    {
+        let base_fee = &ts.block_headers().first().parent_base_fee;
+        let (_state_root, messages_and_receipts) = execute_tipset(&ctx, &ts).await?;
+        let mut tx_gas_rewards = Vec::with_capacity(messages_and_receipts.len());
+        for (message, receipt) in messages_and_receipts {
+            let premium = message.effective_gas_premium(base_fee);
+            tx_gas_rewards.push(GasReward {
+                gas_used: receipt.gas_used(),
+                premium,
+            });
         }
-        (rewards, gas_used_total)
+        let (rewards, total_gas_used) =
+            calculate_rewards_and_gas_used(&reward_percentiles, tx_gas_rewards);
+        let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
+
+        // arrays should be reversed at the end
+        base_fee_array.push(EthBigInt::from(base_fee));
+        gas_used_ratio_array.push((total_gas_used as f64) / (max_gas as f64));
+        rewards_array.push(rewards);
+
+        oldest_block_height = ts.epoch();
     }
+
+    // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.
+    base_fee_array.reverse();
+    gas_used_ratio_array.reverse();
+    rewards_array.reverse();
+
+    Ok(EthFeeHistoryResult {
+        oldest_block: EthUint64(oldest_block_height as _),
+        base_fee_per_gas: base_fee_array,
+        gas_used_ratio: gas_used_ratio_array,
+        reward: if reward_percentiles.is_empty() {
+            None
+        } else {
+            Some(rewards_array)
+        },
+    })
+}
+
+fn validate_reward_percentiles(reward_percentiles: &[f64]) -> anyhow::Result<()> {
+    if reward_percentiles.len() > 100 {
+        anyhow::bail!("length of the reward percentile array cannot be greater than 100");
+    }
+
+    for (&rp_prev, &rp) in std::iter::once(&0.0)
+        .chain(reward_percentiles.iter())
+        .tuple_windows()
+    {
+        if !(0. ..=100.).contains(&rp) {
+            anyhow::bail!("invalid reward percentile: {rp} should be between 0 and 100");
+        }
+        if rp < rp_prev {
+            anyhow::bail!(
+                "invalid reward percentile: {rp} should be larger than or equal to {rp_prev}"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn calculate_rewards_and_gas_used(
+    reward_percentiles: &[f64],
+    mut tx_gas_rewards: Vec<GasReward>,
+) -> (Vec<EthBigInt>, u64) {
+    const MIN_GAS_PREMIUM: u64 = 100000;
+
+    let gas_used_total = tx_gas_rewards.iter().map(|i| i.gas_used).sum();
+    let mut rewards = reward_percentiles
+        .iter()
+        .map(|_| EthBigInt(MIN_GAS_PREMIUM.into()))
+        .collect_vec();
+    if !tx_gas_rewards.is_empty() {
+        tx_gas_rewards.sort_by_key(|i| i.premium.clone());
+        let mut idx = 0;
+        let mut sum = 0;
+        #[allow(clippy::indexing_slicing)]
+        for (i, &percentile) in reward_percentiles.iter().enumerate() {
+            let threshold = ((gas_used_total as f64) * percentile / 100.) as u64;
+            while sum < threshold && idx < tx_gas_rewards.len() - 1 {
+                sum += tx_gas_rewards[idx].gas_used;
+                idx += 1;
+            }
+            rewards[i] = (&tx_gas_rewards[idx].premium).into();
+        }
+    }
+    (rewards, gas_used_total)
 }
 
 pub enum EthGetCode {}
