@@ -6,7 +6,7 @@ use ::cid::Cid;
 use fvm_shared4::ActorID;
 use pastey::paste;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "TransientData")]
 pub struct TransientDataLotusJson {
@@ -16,7 +16,7 @@ pub struct TransientDataLotusJson {
     pub transient_data_lifespan: TransientDataLifespanLotusJson,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "TransientDataLifespan")]
 pub struct TransientDataLifespanLotusJson {

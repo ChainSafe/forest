@@ -44,7 +44,7 @@ impl State {
     }
 }
 
-#[derive(Clone, Serialize, Debug)]
+#[derive(Clone, PartialEq, Serialize, Debug)]
 #[serde(untagged)]
 pub enum Entry {
     V8(fil_actor_cron_state::v8::Entry),

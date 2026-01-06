@@ -8,7 +8,7 @@ use ::cid::Cid;
 use fil_actors_shared::v16::reward::FilterEstimate;
 use num::BigInt;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "PowerState")]
 pub struct PowerStateLotusJson {
@@ -134,8 +134,8 @@ impl HasLotusJson for State {
                 "ThisEpochQualityAdjPower": "0",
                 "ThisEpochPledgeCollateral": "0",
                 "ThisEpochQAPowerSmoothed": {
-                    "Position": "0",
-                    "Velocity": "0"
+                    "PositionEstimate": "0",
+                    "VelocityEstimate": "0"
                 },
                 "MinerCount": 0,
                 "MinerAboveMinPowerCount": 0,
@@ -217,3 +217,4 @@ impl HasLotusJson for State {
         )
     }
 }
+crate::test_snapshots!(State);

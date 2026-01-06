@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::actors::cron::{Entry, State};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct CronStateLotusJson {
     #[schemars(with = "LotusJson<Vec<Entry>>")]
@@ -75,3 +75,4 @@ impl HasLotusJson for State {
         State::default_latest_version_from_entries(entries)
     }
 }
+crate::test_snapshots!(State);
