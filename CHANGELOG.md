@@ -29,6 +29,12 @@
 
 ### Added
 
+- [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
+
+- [#6364](https://github.com/ChainSafe/forest/pull/6364) Implemented `Filecoin.EthEstimateGas` for API v2.
+
+- [#6380](https://github.com/ChainSafe/forest/pull/6380) Implemented `Filecoin.EthFeeHistory` for API v2.
+
 ### Changed
 
 ### Removed
@@ -36,8 +42,6 @@
 ### Fixed
 
 - [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
-
-- [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
 
 ## Forest v0.30.5 "Dulce de Leche"
 

@@ -8,7 +8,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "PaymentChannelState")]
 pub struct PaymentChannelStateLotusJson {
@@ -96,3 +96,4 @@ impl HasLotusJson for State {
         )
     }
 }
+crate::test_snapshots!(State);
