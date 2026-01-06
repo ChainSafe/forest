@@ -7,7 +7,7 @@ use pastey::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct CronConstructorParamsLotusJson {
     #[schemars(with = "LotusJson<Vec<Entry>>")]
@@ -19,58 +19,67 @@ macro_rules! impl_lotus_json_for_cron_constructor_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_cron_state::[<v $version>]::ConstructorParams {
-                    type LotusJson = CronConstructorParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        use crate::shim::address::Address;
-                        vec![(
-                            json!({
-                                "Entries": [
-                                    {
-                                        "Receiver": "f01",
-                                        "MethodNum": 2
-                                    },
-                                    {
-                                        "Receiver": "f02",
-                                        "MethodNum": 3
-                                    }
-                                ]
-                            }),
-                            Self {
-                                entries: vec![
-                                    fil_actor_cron_state::[<v $version>]::Entry {
-                                        receiver: Address::new_id(1).into(),
-                                        method_num: 2,
-                                    },
-                                    fil_actor_cron_state::[<v $version>]::Entry {
-                                        receiver: Address::new_id(2).into(),
-                                        method_num: 3,
-                                    },
-                                ],
-                            },
-                        )]
+                mod [<impl_lotus_json_for_cron_constructor_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_cron_state::[<v $version>]::ConstructorParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        Self::LotusJson {
-                            entries: self.entries.into_iter().map(Entry::[<V $version>]).collect(),
+                    impl HasLotusJson for T {
+                        type LotusJson = CronConstructorParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            use crate::shim::address::Address;
+                            vec![(
+                                json!({
+                                    "Entries": [
+                                        {
+                                            "Receiver": "f01",
+                                            "MethodNum": 2
+                                        },
+                                        {
+                                            "Receiver": "f02",
+                                            "MethodNum": 3
+                                        }
+                                    ]
+                                }),
+                                Self {
+                                    entries: vec![
+                                        fil_actor_cron_state::[<v $version>]::Entry {
+                                            receiver: Address::new_id(1).into(),
+                                            method_num: 2,
+                                        },
+                                        fil_actor_cron_state::[<v $version>]::Entry {
+                                            receiver: Address::new_id(2).into(),
+                                            method_num: 3,
+                                        },
+                                    ],
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(json: Self::LotusJson) -> Self {
-                        Self {
-                            entries: json.entries.into_iter().map(|entry| match entry {
-                                Entry::[<V $version>](e) => e,
-                                _ => {
-                                    let lotus_entry = entry.into_lotus_json();
-                                    fil_actor_cron_state::[<v $version>]::Entry {
-                                        receiver: lotus_entry.receiver.into(),
-                                        method_num: lotus_entry.method_num,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            Self::LotusJson {
+                                entries: self.entries.into_iter().map(Entry::[<V $version>]).collect(),
+                            }
+                        }
+
+                        fn from_lotus_json(json: Self::LotusJson) -> Self {
+                            Self {
+                                entries: json.entries.into_iter().map(|entry| match entry {
+                                    Entry::[<V $version>](e) => e,
+                                    _ => {
+                                        let lotus_entry = entry.into_lotus_json();
+                                        fil_actor_cron_state::[<v $version>]::Entry {
+                                            receiver: lotus_entry.receiver.into(),
+                                            method_num: lotus_entry.method_num,
+                                        }
                                     }
-                                }
-                            }).collect(),
+                                }).collect(),
+                            }
                         }
                     }
                 }
