@@ -105,6 +105,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthCallV2);
         $callback!($crate::rpc::eth::EthChainId);
         $callback!($crate::rpc::eth::EthEstimateGas);
+        $callback!($crate::rpc::eth::EthEstimateGasV2);
         $callback!($crate::rpc::eth::EthFeeHistory);
         $callback!($crate::rpc::eth::EthFeeHistoryV2);
         $callback!($crate::rpc::eth::EthGasPrice);

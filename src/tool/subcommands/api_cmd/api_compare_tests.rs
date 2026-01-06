@@ -2101,16 +2101,31 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 ))
                 .unwrap(),
             )]);
-            if let Ok(eth_to_addr) = msg.to.try_into() {
+            if let Ok(eth_to_addr) = EthAddress::try_from(msg.to) {
                 tests.extend([RpcTest::identity(
                     EthEstimateGas::request((
+                        EthCallMessage {
+                            to: Some(eth_to_addr.clone()),
+                            value: Some(msg.value.clone().into()),
+                            data: Some(msg.params.clone().into()),
+                            ..Default::default()
+                        },
+                        Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
+                    ))
+                    .unwrap(),
+                )
+                .policy_on_rejected(PolicyOnRejected::Pass)]);
+                tests.extend([RpcTest::identity(
+                    EthEstimateGasV2::request((
                         EthCallMessage {
                             to: Some(eth_to_addr),
                             value: Some(msg.value.clone().into()),
                             data: Some(msg.params.clone().into()),
                             ..Default::default()
                         },
-                        Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
+                        Some(ExtBlockNumberOrHash::BlockNumber(
+                            shared_tipset.epoch().into(),
+                        )),
                     ))
                     .unwrap(),
                 )
