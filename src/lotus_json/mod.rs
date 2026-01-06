@@ -247,7 +247,7 @@ pub use vec::*;
 
 #[macro_export]
 macro_rules! test_snapshots {
-    ($ty:ident) => {
+    ($ty:ty) => {
         pastey::paste! {
             #[test]
             fn [<snapshots_ $ty:snake>]() {

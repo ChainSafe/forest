@@ -5,7 +5,7 @@ use crate::shim::actors::cron::Entry;
 use crate::shim::address::Address;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct EntryLotusJson {
     #[schemars(with = "LotusJson<Address>")]
@@ -49,3 +49,4 @@ impl HasLotusJson for Entry {
         Entry::default_latest_version(lotus_json.receiver.into(), lotus_json.method_num)
     }
 }
+crate::test_snapshots!(Entry);
