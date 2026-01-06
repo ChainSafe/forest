@@ -2169,7 +2169,7 @@ fn validate_reward_percentiles(reward_percentiles: &[f64]) -> anyhow::Result<()>
         }
         if rp < rp_prev {
             anyhow::bail!(
-                "invalid reward percentile: {rp} should be larger than or equal to{rp_prev}"
+                "invalid reward percentile: {rp} should be larger than or equal to {rp_prev}"
             );
         }
     }
