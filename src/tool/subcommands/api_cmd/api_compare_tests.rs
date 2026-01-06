@@ -1849,6 +1849,63 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                None,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                Some(vec![10., 50., 90.]),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Earliest),
+                None,
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::basic(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Pending),
+                Some(vec![10., 50., 90.]),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
+                None,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),
+                None,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+                Some(vec![10., 50., 90.]),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetCode::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),

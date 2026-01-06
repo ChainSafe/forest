@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6380](https://github.com/ChainSafe/forest/pull/6380) Implemented `Filecoin.EthFeeHistory` for API v2.
+
 ### Changed
 
 ### Removed
