@@ -738,7 +738,6 @@ macro_rules! impl_lotus_json_for_miner_declare_faults_recovered_params {
                     use super::*;
                     type T = fil_actor_miner_state::[<v $version>]::DeclareFaultsRecoveredParams;
                     #[test]
-                    #[ignore = "https://github.com/ChainSafe/forest/issues/6370"]
                     fn snapshots() {
                         crate::lotus_json::assert_all_snapshots::<T>();
                     }
@@ -747,7 +746,24 @@ macro_rules! impl_lotus_json_for_miner_declare_faults_recovered_params {
 
                         #[cfg(test)]
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                            vec![]
+                            vec![(
+                                json!({
+                                    "Recoveries": [
+                                        {
+                                            "Deadline": 1,
+                                            "Partition": 2,
+                                            "Sectors": [0]
+                                        }
+                                    ]
+                                }),
+                                Self {
+                                    recoveries: vec![fil_actor_miner_state::[<v $version>]::RecoveryDeclaration {
+                                        deadline: 1,
+                                        partition: 2,
+                                        sectors: BitField::new().into(),
+                                    }],
+                                },
+                            )]
                         }
 
                         fn into_lotus_json(self) -> Self::LotusJson {
@@ -776,7 +792,6 @@ macro_rules! impl_lotus_json_for_recover_declaration_params_v9_and_above {
                     use super::*;
                     type T = fil_actor_miner_state::[<v $version>]::RecoveryDeclaration;
                     #[test]
-                    #[ignore = "https://github.com/ChainSafe/forest/issues/6370"]
                     fn snapshots() {
                         crate::lotus_json::assert_all_snapshots::<T>();
                     }
