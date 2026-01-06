@@ -2160,9 +2160,9 @@ fn validate_reward_percentiles(reward_percentiles: &[f64]) -> anyhow::Result<()>
         anyhow::bail!("length of the reward percentile array cannot be greater than 100");
     }
 
-    for (&rp, &rp_prev) in reward_percentiles
-        .iter()
-        .zip(std::iter::once(&0.).chain(reward_percentiles.iter()))
+    for (&rp_prev, &rp) in std::iter::once(&0.0)
+        .chain(reward_percentiles.iter())
+        .tuple_windows()
     {
         if !(0. ..=100.).contains(&rp) {
             anyhow::bail!("invalid reward percentile: {rp} should be between 0 and 100");
