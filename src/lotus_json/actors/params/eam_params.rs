@@ -20,36 +20,45 @@ macro_rules! impl_eam_create_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_eam_state::[<v $version>]::CreateParams {
-                    type LotusJson = EAMCreateParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "Initcode": "ESIzRFU=",
-                                    "Nonce": 42
-                                }),
-                                Self {
-                                    initcode: hex::decode("1122334455").unwrap(),
-                                    nonce: 42,
-                                },
-                            ),
-                        ]
+                mod [<impl_eam_create_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_eam_state::[<v $version>]::CreateParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        EAMCreateParamsLotusJson {
-                            initcode: RawBytes::new(self.initcode),
-                            nonce: self.nonce,
+                    impl HasLotusJson for T {
+                        type LotusJson = EAMCreateParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "Initcode": "ESIzRFU=",
+                                        "Nonce": 42
+                                    }),
+                                    Self {
+                                        initcode: hex::decode("1122334455").unwrap(),
+                                        nonce: 42,
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            initcode: lotus_json.initcode.into(),
-                            nonce: lotus_json.nonce,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            EAMCreateParamsLotusJson {
+                                initcode: RawBytes::new(self.initcode),
+                                nonce: self.nonce,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                initcode: lotus_json.initcode.into(),
+                                nonce: lotus_json.nonce,
+                            }
                         }
                     }
                 }
@@ -71,36 +80,45 @@ macro_rules! impl_eam_create2_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_eam_state::[<v $version>]::Create2Params {
-                    type LotusJson = EAMCreate2ParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "Initcode": "ESIzRFU=",
-                                    "Salt": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-                                }),
-                                Self {
-                                    initcode: hex::decode("1122334455").unwrap(),
-                                    salt: [0; 32],
-                                },
-                            ),
-                        ]
+                mod [<impl_eam_create2_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_eam_state::[<v $version>]::Create2Params;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        EAMCreate2ParamsLotusJson {
-                            initcode: self.initcode,
-                            salt: self.salt,
+                    impl HasLotusJson for T {
+                        type LotusJson = EAMCreate2ParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "Initcode": "ESIzRFU=",
+                                        "Salt": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+                                    }),
+                                    Self {
+                                        initcode: hex::decode("1122334455").unwrap(),
+                                        salt: [0; 32],
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            initcode: lotus_json.initcode,
-                            salt: lotus_json.salt,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            EAMCreate2ParamsLotusJson {
+                                initcode: self.initcode,
+                                salt: self.salt,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                initcode: lotus_json.initcode,
+                                salt: lotus_json.salt,
+                            }
                         }
                     }
                 }
@@ -121,25 +139,34 @@ macro_rules! impl_eam_create_external_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_eam_state::[<v $version>]::CreateExternalParams {
-                    type LotusJson = EAMCreateExternalParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!("ESIzRFU="),
-                                Self(hex::decode("1122334455").unwrap()),
-                            ),
-                        ]
+                mod [<impl_eam_create_external_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_eam_state::[<v $version>]::CreateExternalParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        EAMCreateExternalParamsLotusJson(RawBytes::new(self.0))
-                    }
+                    impl HasLotusJson for T {
+                        type LotusJson = EAMCreateExternalParamsLotusJson;
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self(lotus_json.0.into())
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!("ESIzRFU="),
+                                    Self(hex::decode("1122334455").unwrap()),
+                                ),
+                            ]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            EAMCreateExternalParamsLotusJson(RawBytes::new(self.0))
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self(lotus_json.0.into())
+                        }
                     }
                 }
             }

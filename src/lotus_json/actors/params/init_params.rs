@@ -50,32 +50,41 @@ macro_rules! impl_lotus_json_for_init_constructor_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_init_state::[<v $version>]::ConstructorParams {
-                    type LotusJson = InitConstructorParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "NetworkName": "calibnet",
-                                }),
-                                Self {
-                                    network_name: "calibnet".to_string(),
-                                },
-                            ),
-                        ]
+                mod [<impl_lotus_json_for_init_constructor_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_init_state::[<v $version>]::ConstructorParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        Self::LotusJson {
-                            network_name: self.network_name,
+                    impl HasLotusJson for T {
+                        type LotusJson = InitConstructorParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "NetworkName": "calibnet",
+                                    }),
+                                    Self {
+                                        network_name: "calibnet".to_string(),
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(json: Self::LotusJson) -> Self {
-                        Self {
-                            network_name: json.network_name,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            Self::LotusJson {
+                                network_name: self.network_name,
+                            }
+                        }
+
+                        fn from_lotus_json(json: Self::LotusJson) -> Self {
+                            Self {
+                                network_name: json.network_name,
+                            }
                         }
                     }
                 }
@@ -88,38 +97,47 @@ macro_rules! impl_lotus_json_for_init_exec_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_init_state::[<v $version>]::ExecParams {
-                    type LotusJson = InitExecParamsLotusJson;
+                mod [<impl_lotus_json_for_init_exec_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_init_state::[<v $version>]::ExecParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
 
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "CodeCID": {
-                                        "/": "baeaaaaa"
+                    impl HasLotusJson for T {
+                        type LotusJson = InitExecParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "CodeCID": {
+                                            "/": "baeaaaaa"
+                                        },
+                                        "ConstructorParams": "ESIzRFU=",
+                                    }),
+                                    Self {
+                                        code_cid: Cid::default(),
+                                        constructor_params: RawBytes::new(hex::decode("1122334455").unwrap()),
                                     },
-                                    "ConstructorParams": "ESIzRFU=",
-                                }),
-                                Self {
-                                    code_cid: Cid::default(),
-                                    constructor_params: RawBytes::new(hex::decode("1122334455").unwrap()),
-                                },
-                            ),
-                        ]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        Self::LotusJson {
-                            code_cid: self.code_cid,
-                            constructor_params: self.constructor_params,
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(json: Self::LotusJson) -> Self {
-                        Self {
-                            code_cid: json.code_cid,
-                            constructor_params: json.constructor_params,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            Self::LotusJson {
+                                code_cid: self.code_cid,
+                                constructor_params: self.constructor_params,
+                            }
+                        }
+
+                        fn from_lotus_json(json: Self::LotusJson) -> Self {
+                            Self {
+                                code_cid: json.code_cid,
+                                constructor_params: json.constructor_params,
+                            }
                         }
                     }
                 }
@@ -132,42 +150,51 @@ macro_rules! impl_lotus_json_for_init_exec4_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_init_state::[<v $version>]::Exec4Params {
-                    type LotusJson = InitExec4ParamsLotusJson;
+                mod [<impl_lotus_json_for_init_exec4_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_init_state::[<v $version>]::Exec4Params;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
 
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "CodeCID": {
-                                        "/": "baeaaaaa"
+                    impl HasLotusJson for T {
+                        type LotusJson = InitExec4ParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "CodeCID": {
+                                            "/": "baeaaaaa"
+                                        },
+                                        "ConstructorParams": "ESIzRFU=",
+                                        "SubAddress": "ESIzRFU=",
+                                    }),
+                                    Self {
+                                        code_cid: Cid::default(),
+                                        constructor_params: RawBytes::new(hex::decode("1122334455").unwrap()),
+                                        subaddress: RawBytes::new(hex::decode("1122334455").unwrap()),
                                     },
-                                    "ConstructorParams": "ESIzRFU=",
-                                    "SubAddress": "ESIzRFU=",
-                                }),
-                                Self {
-                                    code_cid: Cid::default(),
-                                    constructor_params: RawBytes::new(hex::decode("1122334455").unwrap()),
-                                    subaddress: RawBytes::new(hex::decode("1122334455").unwrap()),
-                                },
-                            ),
-                        ]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        Self::LotusJson {
-                            code_cid: self.code_cid,
-                            constructor_params: self.constructor_params,
-                            sub_address: self.subaddress,
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(json: Self::LotusJson) -> Self {
-                        Self {
-                            code_cid: json.code_cid,
-                            constructor_params: json.constructor_params,
-                            subaddress: json.sub_address,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            Self::LotusJson {
+                                code_cid: self.code_cid,
+                                constructor_params: self.constructor_params,
+                                sub_address: self.subaddress,
+                            }
+                        }
+
+                        fn from_lotus_json(json: Self::LotusJson) -> Self {
+                            Self {
+                                code_cid: json.code_cid,
+                                constructor_params: json.constructor_params,
+                                subaddress: json.sub_address,
+                            }
                         }
                     }
                 }
