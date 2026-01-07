@@ -55,6 +55,7 @@ fn test_download_location_of_proof_parameter_files_default() {
 
     tool()
         .env("FOREST_CONFIG_PATH", config_file.path())
+        .env("FIL_PROOFS_PARAMETER_CACHE", "")
         .arg("fetch-params")
         .arg("--keys")
         .arg("--dry-run")
