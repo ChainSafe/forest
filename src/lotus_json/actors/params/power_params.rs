@@ -97,16 +97,19 @@ macro_rules! impl_lotus_json_for_power_create_miner_params {
                                     json!({
                                         "Owner": "f01234",
                                         "Worker": "f01235",
-                                        "WindowPostProofType": 1,
+                                        "WindowPoStProofType": 10,
                                         "Peer": "AQ==",
-                                        "Multiaddrs": ["Ag==", "Aw=="],
+                                        "Multiaddrs": ["L2lwNC8xMjcuMC4wLjEvdGNwLzgwODA=", "L2Rucy9leGFtcGxlLmNvbQ=="],
                                     }),
                                     Self {
                                         owner: Address::new_id(1234).into(),
                                         worker: Address::new_id(1235).into(),
                                         window_post_proof_type: RegisteredPoStProof::from(fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow2KiBV1P1).into(),
                                         peer: vec![1],
-                                        multiaddrs: vec![],
+                                        multiaddrs: vec![
+                                            BytesDe(b"/ip4/127.0.0.1/tcp/8080".to_vec()),
+                                            BytesDe(b"/dns/example.com".to_vec()),
+                                        ],
                                     },
                                 ),
                             ]
@@ -262,9 +265,7 @@ macro_rules! impl_lotus_json_for_power_update_pledge_total_params {
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
                             vec![
                                 (
-                                    json!({
-                                        "PledgeDelta": "1000000000000000000",
-                                    }),
+                                    json!("1000000000000000000"),
                                     Self {
                                         pledge_delta: TokenAmount::from_atto(1000000000000000000u64).into(),
                                     },
@@ -308,9 +309,7 @@ macro_rules! impl_lotus_json_for_power_miner_raw_power_params {
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
                             vec![
                                 (
-                                    json!({
-                                        "Miner": 1001,
-                                    }),
+                                    json!(1001),
                                     Self {
                                         miner: 1001,
                                     },

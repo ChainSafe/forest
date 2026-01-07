@@ -284,9 +284,7 @@ macro_rules! impl_constructor_params {
                         #[cfg(test)]
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
                             vec![(
-                                json!({
-                                    "RootKey": "f01234",
-                                }),
+                                json!("f01234"),
                                 Self {
                                     root_key: Address::new_id(1234).into(),
                                 },
@@ -377,9 +375,7 @@ macro_rules! impl_remove_verifier_params {
                         #[cfg(test)]
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
                             vec![(
-                                json!({
-                                    "Verifier": "f01234",
-                                }),
+                                json!("f01234"),
                                 Self {
                                     verifier: Address::new_id(1234).into(),
                                 },
@@ -681,14 +677,14 @@ macro_rules! impl_remove_data_cap_params_v2 {
                                     "DataCapAmountToRemove": "1000000000000000000",
                                     "VerifierRequest1": {
                                         "Verifier": "f01235",
-                                        "Signature": {
+                                        "VerifierSignature": {
                                             "Type": 1,
                                             "Data": "dGVzdA==",
                                         }
                                     },
                                     "VerifierRequest2": {
                                         "Verifier": "f01236",
-                                        "Signature": {
+                                        "VerifierSignature": {
                                             "Type": 1,
                                             "Data": "dGVzdA==",
                                         }
@@ -960,7 +956,7 @@ macro_rules! impl_claim_allocations_params_v12_plus {
                                     "Sectors": [
                                         {
                                             "Sector": 1,
-                                            "Expiry": 12345,
+                                            "SectorExpiry": 12345,
                                             "Claims": [
                                                 {
                                                     "Client": 1001,
