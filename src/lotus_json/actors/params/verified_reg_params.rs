@@ -270,28 +270,35 @@ macro_rules! impl_constructor_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::ConstructorParams {
-                    type LotusJson = ConstructorParamsLotusJson;
+                mod [<impl_verifreg_constructor_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::ConstructorParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
 
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "RootKey": "f01234",
-                            }),
+                    impl HasLotusJson for T {
+                        type LotusJson = ConstructorParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!("f01234"),
+                                Self {
+                                    root_key: Address::new_id(1234).into(),
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ConstructorParamsLotusJson(self.root_key.into())
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                             Self {
-                                root_key: Address::new_id(1234).into(),
-                            },
-                        )]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        ConstructorParamsLotusJson(self.root_key.into())
-                    }
-
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            root_key: lotus_json.0.into(),
+                                root_key: lotus_json.0.into(),
+                            }
                         }
                     }
                 }
@@ -304,34 +311,43 @@ macro_rules! impl_verifier_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::VerifierParams {
-                    type LotusJson = VerifierParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Address": "f01234",
-                                "Allowance": "1000000000000000000",
-                            }),
-                            Self {
-                                address: Address::new_id(1234).into(),
-                                allowance: BigInt::from(1000000000000000000u64),
-                            },
-                        )]
+                mod [<impl_verifreg_verifier_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::VerifierParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        VerifierParamsLotusJson {
-                            address: self.address.into(),
-                            allowance: self.allowance,
+                    impl HasLotusJson for T {
+                        type LotusJson = VerifierParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Address": "f01234",
+                                    "Allowance": "1000000000000000000",
+                                }),
+                                Self {
+                                    address: Address::new_id(1234).into(),
+                                    allowance: BigInt::from(1000000000000000000u64),
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            address: lotus_json.address.into(),
-                            allowance: lotus_json.allowance,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            VerifierParamsLotusJson {
+                                address: self.address.into(),
+                                allowance: self.allowance,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                address: lotus_json.address.into(),
+                                allowance: lotus_json.allowance,
+                            }
                         }
                     }
                 }
@@ -345,28 +361,35 @@ macro_rules! impl_remove_verifier_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::RemoveVerifierParams {
-                    type LotusJson = RemoveVerifierParamsLotusJson;
+                mod [<impl_verifreg_remove_verifier_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::RemoveVerifierParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
 
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Verifier": "f01234",
-                            }),
+                    impl HasLotusJson for T {
+                        type LotusJson = RemoveVerifierParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!("f01234"),
+                                Self {
+                                    verifier: Address::new_id(1234).into(),
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            RemoveVerifierParamsLotusJson(self.verifier.into())
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                             Self {
-                                verifier: Address::new_id(1234).into(),
-                            },
-                        )]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        RemoveVerifierParamsLotusJson(self.verifier.into())
-                    }
-
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            verifier: lotus_json.0.into(),
+                                verifier: lotus_json.0.into(),
+                            }
                         }
                     }
                 }
@@ -380,34 +403,43 @@ macro_rules! impl_remove_expired_allocations_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::RemoveExpiredAllocationsParams {
-                    type LotusJson = RemoveExpiredAllocationsParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Client": 1001,
-                                "AllocationIds": [1, 2, 3],
-                            }),
-                            Self {
-                                client: 1001,
-                                allocation_ids: vec![1, 2, 3],
-                            },
-                        )]
+                mod [<impl_verifreg_remove_expired_allocations_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::RemoveExpiredAllocationsParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        RemoveExpiredAllocationsParamsLotusJson {
-                            client: self.client,
-                            allocation_ids: self.allocation_ids,
+                    impl HasLotusJson for T {
+                        type LotusJson = RemoveExpiredAllocationsParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Client": 1001,
+                                    "AllocationIds": [1, 2, 3],
+                                }),
+                                Self {
+                                    client: 1001,
+                                    allocation_ids: vec![1, 2, 3],
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            client: lotus_json.client,
-                            allocation_ids: lotus_json.allocation_ids,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            RemoveExpiredAllocationsParamsLotusJson {
+                                client: self.client,
+                                allocation_ids: self.allocation_ids,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                client: lotus_json.client,
+                                allocation_ids: lotus_json.allocation_ids,
+                            }
                         }
                     }
                 }
@@ -421,34 +453,43 @@ macro_rules! impl_get_claims_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::GetClaimsParams {
-                    type LotusJson = GetClaimsParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Provider": 1001,
-                                "ClaimIds": [1, 2, 3],
-                            }),
-                            Self {
-                                provider: 1001,
-                                claim_ids: vec![1, 2, 3],
-                            },
-                        )]
+                mod [<impl_verifreg_get_claims_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::GetClaimsParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        GetClaimsParamsLotusJson {
-                            provider: self.provider,
-                            claim_ids: self.claim_ids,
+                    impl HasLotusJson for T {
+                        type LotusJson = GetClaimsParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Provider": 1001,
+                                    "ClaimIds": [1, 2, 3],
+                                }),
+                                Self {
+                                    provider: 1001,
+                                    claim_ids: vec![1, 2, 3],
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            provider: lotus_json.provider,
-                            claim_ids: lotus_json.claim_ids,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            GetClaimsParamsLotusJson {
+                                provider: self.provider,
+                                claim_ids: self.claim_ids,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                provider: lotus_json.provider,
+                                claim_ids: lotus_json.claim_ids,
+                            }
                         }
                     }
                 }
@@ -462,34 +503,43 @@ macro_rules! impl_remove_expired_claims_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::RemoveExpiredClaimsParams {
-                    type LotusJson = RemoveExpiredClaimsParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Provider": 1001,
-                                "ClaimIds": [1, 2, 3],
-                            }),
-                            Self {
-                                provider: 1001,
-                                claim_ids: vec![1, 2, 3],
-                            },
-                        )]
+                mod [<impl_verifreg_remove_expired_claims_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::RemoveExpiredClaimsParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        RemoveExpiredClaimsParamsLotusJson {
-                            provider: self.provider,
-                            claim_ids: self.claim_ids,
+                    impl HasLotusJson for T {
+                        type LotusJson = RemoveExpiredClaimsParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Provider": 1001,
+                                    "ClaimIds": [1, 2, 3],
+                                }),
+                                Self {
+                                    provider: 1001,
+                                    claim_ids: vec![1, 2, 3],
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            provider: lotus_json.provider,
-                            claim_ids: lotus_json.claim_ids,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            RemoveExpiredClaimsParamsLotusJson {
+                                provider: self.provider,
+                                claim_ids: self.claim_ids,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                provider: lotus_json.provider,
+                                claim_ids: lotus_json.claim_ids,
+                            }
                         }
                     }
                 }
@@ -536,56 +586,65 @@ macro_rules! impl_extend_claim_terms_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::ExtendClaimTermsParams {
-                    type LotusJson = ExtendClaimTermsParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Terms": [
-                                    {
-                                        "Provider": 1001,
-                                        "ClaimId": 1,
-                                        "TermMax": 12345,
-                                    }
-                                ],
-                            }),
-                            Self {
-                                terms: vec![fil_actor_verifreg_state::[<v $version>]::ClaimTerm {
-                                    provider: 1001,
-                                    claim_id: 1,
-                                    term_max: 12345,
-                                }],
-                            },
-                        )]
+                mod [<impl_verifreg_extend_claim_terms_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::ExtendClaimTermsParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        ExtendClaimTermsParamsLotusJson {
-                            terms: self
-                                .terms
-                                .into_iter()
-                                .map(|term| ClaimTermLotusJson {
-                                    provider: term.provider,
-                                    claim_id: term.claim_id,
-                                    term_max: term.term_max,
-                                })
-                                .collect(),
+                    impl HasLotusJson for T {
+                        type LotusJson = ExtendClaimTermsParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Terms": [
+                                        {
+                                            "Provider": 1001,
+                                            "ClaimId": 1,
+                                            "TermMax": 12345,
+                                        }
+                                    ],
+                                }),
+                                Self {
+                                    terms: vec![fil_actor_verifreg_state::[<v $version>]::ClaimTerm {
+                                        provider: 1001,
+                                        claim_id: 1,
+                                        term_max: 12345,
+                                    }],
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            terms: lotus_json
-                                .terms
-                                .into_iter()
-                                .map(|term| fil_actor_verifreg_state::[<v $version>]::ClaimTerm {
-                                    provider: term.provider,
-                                    claim_id: term.claim_id,
-                                    term_max: term.term_max,
-                                })
-                                .collect(),
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ExtendClaimTermsParamsLotusJson {
+                                terms: self
+                                    .terms
+                                    .into_iter()
+                                    .map(|term| ClaimTermLotusJson {
+                                        provider: term.provider,
+                                        claim_id: term.claim_id,
+                                        term_max: term.term_max,
+                                    })
+                                    .collect(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                terms: lotus_json
+                                    .terms
+                                    .into_iter()
+                                    .map(|term| fil_actor_verifreg_state::[<v $version>]::ClaimTerm {
+                                        provider: term.provider,
+                                        claim_id: term.claim_id,
+                                        term_max: term.term_max,
+                                    })
+                                    .collect(),
+                            }
                         }
                     }
                 }
@@ -599,78 +658,87 @@ macro_rules! impl_remove_data_cap_params_v2 {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::RemoveDataCapParams {
-                    type LotusJson = RemoveDataCapParamsV2LotusJson;
+                mod [<impl_verifreg_remove_data_cap_params_v2_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::RemoveDataCapParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
 
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "VerifiedClientToRemove": "f01234",
-                                "DataCapAmountToRemove": "1000000000000000000",
-                                "VerifierRequest1": {
-                                    "Verifier": "f01235",
-                                    "Signature": {
-                                        "Type": 1,
-                                        "Data": "dGVzdA==",
-                                    }
-                                },
-                                "VerifierRequest2": {
-                                    "Verifier": "f01236",
-                                    "Signature": {
-                                        "Type": 1,
-                                        "Data": "dGVzdA==",
-                                    }
-                                },
-                            }),
-                            Self {
-                                verified_client_to_remove: Address::new_id(1234).into(),
-                                data_cap_amount_to_remove: BigInt::from(1000000000000000000u64),
-                                verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                    verifier: Address::new_id(1235).into(),
-                                    signature: fvm_shared2::crypto::signature::Signature {
-                                        sig_type: fvm_shared2::crypto::signature::SignatureType::Secp256k1,
-                                        bytes: b"test".to_vec(),
+                    impl HasLotusJson for T {
+                        type LotusJson = RemoveDataCapParamsV2LotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "VerifiedClientToRemove": "f01234",
+                                    "DataCapAmountToRemove": "1000000000000000000",
+                                    "VerifierRequest1": {
+                                        "Verifier": "f01235",
+                                        "VerifierSignature": {
+                                            "Type": 1,
+                                            "Data": "dGVzdA==",
+                                        }
                                     },
+                                    "VerifierRequest2": {
+                                        "Verifier": "f01236",
+                                        "VerifierSignature": {
+                                            "Type": 1,
+                                            "Data": "dGVzdA==",
+                                        }
+                                    },
+                                }),
+                                Self {
+                                    verified_client_to_remove: Address::new_id(1234).into(),
+                                    data_cap_amount_to_remove: BigInt::from(1000000000000000000u64),
+                                    verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                        verifier: Address::new_id(1235).into(),
+                                        signature: fvm_shared2::crypto::signature::Signature {
+                                            sig_type: fvm_shared2::crypto::signature::SignatureType::Secp256k1,
+                                            bytes: b"test".to_vec(),
+                                        },
+                                    },
+                                    verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                        verifier: Address::new_id(1236).into(),
+                                        signature: fvm_shared2::crypto::signature::Signature {
+                                            sig_type: fvm_shared2::crypto::signature::SignatureType::Secp256k1,
+                                            bytes: b"test".to_vec(),
+                                        },
+                                    },
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            RemoveDataCapParamsV2LotusJson {
+                                verified_client_to_remove: self.verified_client_to_remove.into(),
+                                data_cap_amount_to_remove: self.data_cap_amount_to_remove,
+                                verifier_request_1: RemoveDataCapRequestV2LotusJson {
+                                    verifier: self.verifier_request_1.verifier.into(),
+                                    signature: self.verifier_request_1.signature,
+                                },
+                                verifier_request_2: RemoveDataCapRequestV2LotusJson {
+                                    verifier: self.verifier_request_2.verifier.into(),
+                                    signature: self.verifier_request_2.signature,
+                                },
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                verified_client_to_remove: lotus_json.verified_client_to_remove.into(),
+                                data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
+                                verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                    verifier: lotus_json.verifier_request_1.verifier.into(),
+                                    signature: lotus_json.verifier_request_1.signature,
                                 },
                                 verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                    verifier: Address::new_id(1236).into(),
-                                    signature: fvm_shared2::crypto::signature::Signature {
-                                        sig_type: fvm_shared2::crypto::signature::SignatureType::Secp256k1,
-                                        bytes: b"test".to_vec(),
-                                    },
+                                    verifier: lotus_json.verifier_request_2.verifier.into(),
+                                    signature: lotus_json.verifier_request_2.signature,
                                 },
-                            },
-                        )]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        RemoveDataCapParamsV2LotusJson {
-                            verified_client_to_remove: self.verified_client_to_remove.into(),
-                            data_cap_amount_to_remove: self.data_cap_amount_to_remove,
-                            verifier_request_1: RemoveDataCapRequestV2LotusJson {
-                                verifier: self.verifier_request_1.verifier.into(),
-                                signature: self.verifier_request_1.signature,
-                            },
-                            verifier_request_2: RemoveDataCapRequestV2LotusJson {
-                                verifier: self.verifier_request_2.verifier.into(),
-                                signature: self.verifier_request_2.signature,
-                            },
-                        }
-                    }
-
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            verified_client_to_remove: lotus_json.verified_client_to_remove.into(),
-                            data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
-                            verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                verifier: lotus_json.verifier_request_1.verifier.into(),
-                                signature: lotus_json.verifier_request_1.signature,
-                            },
-                            verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                verifier: lotus_json.verifier_request_2.verifier.into(),
-                                signature: lotus_json.verifier_request_2.signature,
-                            },
+                            }
                         }
                     }
                 }
@@ -683,78 +751,87 @@ macro_rules! impl_remove_data_cap_params_v3 {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::RemoveDataCapParams {
-                    type LotusJson = RemoveDataCapParamsV3LotusJson;
+                mod [<impl_verifreg_remove_data_cap_params_v3_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::RemoveDataCapParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
 
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "VerifiedClientToRemove": "f01234",
-                                "DataCapAmountToRemove": "1000000000000000000",
-                                "VerifierRequest1": {
-                                    "Verifier": "f01235",
-                                    "VerifierSignature": {
-                                        "Type": 1,
-                                        "Data": "dGVzdA==",
-                                    }
-                                },
-                                "VerifierRequest2": {
-                                    "Verifier": "f01236",
-                                    "VerifierSignature": {
-                                        "Type": 1,
-                                        "Data": "dGVzdA==",
-                                    }
-                                },
-                            }),
-                            Self {
-                                verified_client_to_remove: Address::new_id(1234).into(),
-                                data_cap_amount_to_remove: BigInt::from(1000000000000000000u64),
-                                verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                    verifier: Address::new_id(1235).into(),
-                                    signature: fvm_shared3::crypto::signature::Signature {
-                                        sig_type: fvm_shared3::crypto::signature::SignatureType::Secp256k1,
-                                        bytes: b"test".to_vec(),
+                    impl HasLotusJson for T {
+                        type LotusJson = RemoveDataCapParamsV3LotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "VerifiedClientToRemove": "f01234",
+                                    "DataCapAmountToRemove": "1000000000000000000",
+                                    "VerifierRequest1": {
+                                        "Verifier": "f01235",
+                                        "VerifierSignature": {
+                                            "Type": 1,
+                                            "Data": "dGVzdA==",
+                                        }
                                     },
+                                    "VerifierRequest2": {
+                                        "Verifier": "f01236",
+                                        "VerifierSignature": {
+                                            "Type": 1,
+                                            "Data": "dGVzdA==",
+                                        }
+                                    },
+                                }),
+                                Self {
+                                    verified_client_to_remove: Address::new_id(1234).into(),
+                                    data_cap_amount_to_remove: BigInt::from(1000000000000000000u64),
+                                    verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                        verifier: Address::new_id(1235).into(),
+                                        signature: fvm_shared3::crypto::signature::Signature {
+                                            sig_type: fvm_shared3::crypto::signature::SignatureType::Secp256k1,
+                                            bytes: b"test".to_vec(),
+                                        },
+                                    },
+                                    verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                        verifier: Address::new_id(1236).into(),
+                                        signature: fvm_shared3::crypto::signature::Signature {
+                                            sig_type: fvm_shared3::crypto::signature::SignatureType::Secp256k1,
+                                            bytes: b"test".to_vec(),
+                                        },
+                                    },
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            RemoveDataCapParamsV3LotusJson {
+                                verified_client_to_remove: self.verified_client_to_remove.into(),
+                                data_cap_amount_to_remove: self.data_cap_amount_to_remove,
+                                verifier_request_1: RemoveDataCapRequestV3LotusJson {
+                                    verifier: self.verifier_request_1.verifier.into(),
+                                    signature: self.verifier_request_1.signature,
+                                },
+                                verifier_request_2: RemoveDataCapRequestV3LotusJson {
+                                    verifier: self.verifier_request_2.verifier.into(),
+                                    signature: self.verifier_request_2.signature,
+                                },
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                verified_client_to_remove: lotus_json.verified_client_to_remove.into(),
+                                data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
+                                verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                    verifier: lotus_json.verifier_request_1.verifier.into(),
+                                    signature: lotus_json.verifier_request_1.signature,
                                 },
                                 verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                    verifier: Address::new_id(1236).into(),
-                                    signature: fvm_shared3::crypto::signature::Signature {
-                                        sig_type: fvm_shared3::crypto::signature::SignatureType::Secp256k1,
-                                        bytes: b"test".to_vec(),
-                                    },
+                                    verifier: lotus_json.verifier_request_2.verifier.into(),
+                                    signature: lotus_json.verifier_request_2.signature,
                                 },
-                            },
-                        )]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        RemoveDataCapParamsV3LotusJson {
-                            verified_client_to_remove: self.verified_client_to_remove.into(),
-                            data_cap_amount_to_remove: self.data_cap_amount_to_remove,
-                            verifier_request_1: RemoveDataCapRequestV3LotusJson {
-                                verifier: self.verifier_request_1.verifier.into(),
-                                signature: self.verifier_request_1.signature,
-                            },
-                            verifier_request_2: RemoveDataCapRequestV3LotusJson {
-                                verifier: self.verifier_request_2.verifier.into(),
-                                signature: self.verifier_request_2.signature,
-                            },
-                        }
-                    }
-
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            verified_client_to_remove: lotus_json.verified_client_to_remove.into(),
-                            data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
-                            verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                verifier: lotus_json.verifier_request_1.verifier.into(),
-                                signature: lotus_json.verifier_request_1.signature,
-                            },
-                            verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                verifier: lotus_json.verifier_request_2.verifier.into(),
-                                signature: lotus_json.verifier_request_2.signature,
-                            },
+                            }
                         }
                     }
                 }
@@ -767,78 +844,87 @@ macro_rules! impl_remove_data_cap_params_v4 {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::RemoveDataCapParams {
-                    type LotusJson = RemoveDataCapParamsV4LotusJson;
+                mod [<impl_verifreg_remove_data_cap_params_v4_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::RemoveDataCapParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
 
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "VerifiedClientToRemove": "f01234",
-                                "DataCapAmountToRemove": "1000000000000000000",
-                                "VerifierRequest1": {
-                                    "Verifier": "f01235",
-                                    "VerifierSignature": {
-                                        "Type": 1,
-                                        "Data": "dGVzdA==",
-                                    }
-                                },
-                                "VerifierRequest2": {
-                                    "Verifier": "f01236",
-                                    "VerifierSignature": {
-                                        "Type": 1,
-                                        "Data": "dGVzdA==",
-                                    }
-                                },
-                            }),
-                            Self {
-                                verified_client_to_remove: Address::new_id(1234).into(),
-                                data_cap_amount_to_remove: BigInt::from(1000000000000000000u64),
-                                verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                    verifier: Address::new_id(1235).into(),
-                                    signature: fvm_shared4::crypto::signature::Signature {
-                                        sig_type: fvm_shared4::crypto::signature::SignatureType::Secp256k1,
-                                        bytes: b"test".to_vec(),
+                    impl HasLotusJson for T {
+                        type LotusJson = RemoveDataCapParamsV4LotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "VerifiedClientToRemove": "f01234",
+                                    "DataCapAmountToRemove": "1000000000000000000",
+                                    "VerifierRequest1": {
+                                        "Verifier": "f01235",
+                                        "VerifierSignature": {
+                                            "Type": 1,
+                                            "Data": "dGVzdA==",
+                                        }
                                     },
+                                    "VerifierRequest2": {
+                                        "Verifier": "f01236",
+                                        "VerifierSignature": {
+                                            "Type": 1,
+                                            "Data": "dGVzdA==",
+                                        }
+                                    },
+                                }),
+                                Self {
+                                    verified_client_to_remove: Address::new_id(1234).into(),
+                                    data_cap_amount_to_remove: BigInt::from(1000000000000000000u64),
+                                    verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                        verifier: Address::new_id(1235).into(),
+                                        signature: fvm_shared4::crypto::signature::Signature {
+                                            sig_type: fvm_shared4::crypto::signature::SignatureType::Secp256k1,
+                                            bytes: b"test".to_vec(),
+                                        },
+                                    },
+                                    verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                        verifier: Address::new_id(1236).into(),
+                                        signature: fvm_shared4::crypto::signature::Signature {
+                                            sig_type: fvm_shared4::crypto::signature::SignatureType::Secp256k1,
+                                            bytes: b"test".to_vec(),
+                                        },
+                                    },
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            RemoveDataCapParamsV4LotusJson {
+                                verified_client_to_remove: self.verified_client_to_remove.into(),
+                                data_cap_amount_to_remove: self.data_cap_amount_to_remove,
+                                verifier_request_1: RemoveDataCapRequestV4LotusJson {
+                                    verifier: self.verifier_request_1.verifier.into(),
+                                    signature: self.verifier_request_1.signature,
+                                },
+                                verifier_request_2: RemoveDataCapRequestV4LotusJson {
+                                    verifier: self.verifier_request_2.verifier.into(),
+                                    signature: self.verifier_request_2.signature,
+                                },
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                verified_client_to_remove: lotus_json.verified_client_to_remove.into(),
+                                data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
+                                verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                    verifier: lotus_json.verifier_request_1.verifier.into(),
+                                    signature: lotus_json.verifier_request_1.signature,
                                 },
                                 verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                    verifier: Address::new_id(1236).into(),
-                                    signature: fvm_shared4::crypto::signature::Signature {
-                                        sig_type: fvm_shared4::crypto::signature::SignatureType::Secp256k1,
-                                        bytes: b"test".to_vec(),
-                                    },
+                                    verifier: lotus_json.verifier_request_2.verifier.into(),
+                                    signature: lotus_json.verifier_request_2.signature,
                                 },
-                            },
-                        )]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        RemoveDataCapParamsV4LotusJson {
-                            verified_client_to_remove: self.verified_client_to_remove.into(),
-                            data_cap_amount_to_remove: self.data_cap_amount_to_remove,
-                            verifier_request_1: RemoveDataCapRequestV4LotusJson {
-                                verifier: self.verifier_request_1.verifier.into(),
-                                signature: self.verifier_request_1.signature,
-                            },
-                            verifier_request_2: RemoveDataCapRequestV4LotusJson {
-                                verifier: self.verifier_request_2.verifier.into(),
-                                signature: self.verifier_request_2.signature,
-                            },
-                        }
-                    }
-
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            verified_client_to_remove: lotus_json.verified_client_to_remove.into(),
-                            data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
-                            verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                verifier: lotus_json.verifier_request_1.verifier.into(),
-                                signature: lotus_json.verifier_request_1.signature,
-                            },
-                            verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
-                                verifier: lotus_json.verifier_request_2.verifier.into(),
-                                signature: lotus_json.verifier_request_2.signature,
-                            },
+                            }
                         }
                     }
                 }
@@ -852,95 +938,104 @@ macro_rules! impl_claim_allocations_params_v12_plus {
     ($type_suffix:path: $($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::ClaimAllocationsParams {
-                    type LotusJson = ClaimAllocationsParamsLotusJson;
+                mod [<impl_verifreg_claim_allocations_params_v12_plus_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::ClaimAllocationsParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
 
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Sectors": [
-                                    {
-                                        "Sector": 1,
-                                        "Expiry": 12345,
-                                        "Claims": [
-                                            {
-                                                "Client": 1001,
-                                                "AllocationId": 1,
-                                                "Data": {"/": "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm"},
-                                                "Size": 2048,
-                                            }
-                                        ],
-                                    }
-                                ],
-                                "AllOrNothing": true,
-                            }),
-                            Self {
-                                sectors: vec![fil_actor_verifreg_state::[<v $version>]::SectorAllocationClaims {
-                                    sector: 1,
-                                    expiry: 12345,
-                                    claims: vec![fil_actor_verifreg_state::[<v $version>]::AllocationClaim {
-                                        client: 1001,
-                                        allocation_id: 1,
-                                        data: Cid::try_from(
-                                            "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm",
-                                        )
-                                        .unwrap(),
-                                        size: $type_suffix::piece::PaddedPieceSize(2048),
+                    impl HasLotusJson for T {
+                        type LotusJson = ClaimAllocationsParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Sectors": [
+                                        {
+                                            "Sector": 1,
+                                            "SectorExpiry": 12345,
+                                            "Claims": [
+                                                {
+                                                    "Client": 1001,
+                                                    "AllocationId": 1,
+                                                    "Data": {"/": "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm"},
+                                                    "Size": 2048,
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                    "AllOrNothing": true,
+                                }),
+                                Self {
+                                    sectors: vec![fil_actor_verifreg_state::[<v $version>]::SectorAllocationClaims {
+                                        sector: 1,
+                                        expiry: 12345,
+                                        claims: vec![fil_actor_verifreg_state::[<v $version>]::AllocationClaim {
+                                            client: 1001,
+                                            allocation_id: 1,
+                                            data: Cid::try_from(
+                                                "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm",
+                                            )
+                                            .unwrap(),
+                                            size: $type_suffix::piece::PaddedPieceSize(2048),
+                                        }],
                                     }],
-                                }],
-                                all_or_nothing: true,
-                            },
-                        )]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        ClaimAllocationsParamsLotusJson {
-                            sectors: self
-                                .sectors
-                                .into_iter()
-                                .map(|sector| SectorAllocationClaimsLotusJson {
-                                    sector: sector.sector,
-                                    expiry: sector.expiry,
-                                    claims: sector
-                                        .claims
-                                        .into_iter()
-                                        .map(|claim| AllocationClaimLotusJson {
-                                            client: claim.client,
-                                            allocation_id: claim.allocation_id,
-                                            data: claim.data,
-                                            size: claim.size.0,
-                                        })
-                                        .collect(),
-                                })
-                                .collect(),
-                            all_or_nothing: self.all_or_nothing,
+                                    all_or_nothing: true,
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            sectors: lotus_json
-                                .sectors
-                                .into_iter()
-                                .map(
-                                    |sector| fil_actor_verifreg_state::[<v $version>]::SectorAllocationClaims {
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ClaimAllocationsParamsLotusJson {
+                                sectors: self
+                                    .sectors
+                                    .into_iter()
+                                    .map(|sector| SectorAllocationClaimsLotusJson {
                                         sector: sector.sector,
                                         expiry: sector.expiry,
                                         claims: sector
                                             .claims
                                             .into_iter()
-                                            .map(|claim| fil_actor_verifreg_state::[<v $version>]::AllocationClaim {
+                                            .map(|claim| AllocationClaimLotusJson {
                                                 client: claim.client,
                                                 allocation_id: claim.allocation_id,
                                                 data: claim.data,
-                                                size: $type_suffix::piece::PaddedPieceSize(claim.size),
+                                                size: claim.size.0,
                                             })
                                             .collect(),
-                                    },
-                                )
-                                .collect(),
-                            all_or_nothing: lotus_json.all_or_nothing,
+                                    })
+                                    .collect(),
+                                all_or_nothing: self.all_or_nothing,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                sectors: lotus_json
+                                    .sectors
+                                    .into_iter()
+                                    .map(
+                                        |sector| fil_actor_verifreg_state::[<v $version>]::SectorAllocationClaims {
+                                            sector: sector.sector,
+                                            expiry: sector.expiry,
+                                            claims: sector
+                                                .claims
+                                                .into_iter()
+                                                .map(|claim| fil_actor_verifreg_state::[<v $version>]::AllocationClaim {
+                                                    client: claim.client,
+                                                    allocation_id: claim.allocation_id,
+                                                    data: claim.data,
+                                                    size: $type_suffix::piece::PaddedPieceSize(claim.size),
+                                                })
+                                                .collect(),
+                                        },
+                                    )
+                                    .collect(),
+                                all_or_nothing: lotus_json.all_or_nothing,
+                            }
                         }
                     }
                 }
@@ -954,75 +1049,84 @@ macro_rules! impl_claim_allocations_params_v11 {
     ($type_suffix:path: $($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::ClaimAllocationsParams {
-                    type LotusJson = ClaimAllocationsParamsV11LotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Sectors": [
-                                    {
-                                        "Client": 1001,
-                                        "AllocationId": 1,
-                                        "Data": {"/": "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm"},
-                                        "Size": 2048,
-                                        "Sector": 1,
-                                        "SectorExpiry": 12345,
-                                    }
-                                ],
-                                "AllOrNothing": true,
-                            }),
-                            Self {
-                                sectors: vec![fil_actor_verifreg_state::[<v $version>]::SectorAllocationClaim {
-                                    client: 1001,
-                                    allocation_id: 1,
-                                    data: Cid::try_from(
-                                        "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm",
-                                    )
-                                    .unwrap(),
-                                    size: $type_suffix::piece::PaddedPieceSize(2048),
-                                    sector: 1,
-                                    sector_expiry: 12345,
-                                }],
-                                all_or_nothing: true,
-                            },
-                        )]
+                mod [<impl_verifreg_claim_allocations_params_v11_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::ClaimAllocationsParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        ClaimAllocationsParamsV11LotusJson {
-                            sectors: self
-                                .sectors
-                                .into_iter()
-                                .map(|sector| SectorAllocationClaimV11LotusJson {
-                                    client: sector.client,
-                                    allocation_id: sector.allocation_id,
-                                    data: sector.data,
-                                    size: sector.size.0,
-                                    sector: sector.sector,
-                                    sector_expiry: sector.sector_expiry,
-                                })
-                                .collect(),
-                            all_or_nothing: self.all_or_nothing,
+                    impl HasLotusJson for T {
+                        type LotusJson = ClaimAllocationsParamsV11LotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Sectors": [
+                                        {
+                                            "Client": 1001,
+                                            "AllocationId": 1,
+                                            "Data": {"/": "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm"},
+                                            "Size": 2048,
+                                            "Sector": 1,
+                                            "SectorExpiry": 12345,
+                                        }
+                                    ],
+                                    "AllOrNothing": true,
+                                }),
+                                Self {
+                                    sectors: vec![fil_actor_verifreg_state::[<v $version>]::SectorAllocationClaim {
+                                        client: 1001,
+                                        allocation_id: 1,
+                                        data: Cid::try_from(
+                                            "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm",
+                                        )
+                                        .unwrap(),
+                                        size: $type_suffix::piece::PaddedPieceSize(2048),
+                                        sector: 1,
+                                        sector_expiry: 12345,
+                                    }],
+                                    all_or_nothing: true,
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            sectors: lotus_json
-                                .sectors
-                                .into_iter()
-                                .map(|sector| fil_actor_verifreg_state::[<v $version>]::SectorAllocationClaim {
-                                    client: sector.client,
-                                    allocation_id: sector.allocation_id,
-                                    data: sector.data,
-                                    size: $type_suffix::piece::PaddedPieceSize(sector.size),
-                                    sector: sector.sector,
-                                    sector_expiry: sector.sector_expiry,
-                                })
-                                .collect(),
-                            all_or_nothing: lotus_json.all_or_nothing,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ClaimAllocationsParamsV11LotusJson {
+                                sectors: self
+                                    .sectors
+                                    .into_iter()
+                                    .map(|sector| SectorAllocationClaimV11LotusJson {
+                                        client: sector.client,
+                                        allocation_id: sector.allocation_id,
+                                        data: sector.data,
+                                        size: sector.size.0,
+                                        sector: sector.sector,
+                                        sector_expiry: sector.sector_expiry,
+                                    })
+                                    .collect(),
+                                all_or_nothing: self.all_or_nothing,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                sectors: lotus_json
+                                    .sectors
+                                    .into_iter()
+                                    .map(|sector| fil_actor_verifreg_state::[<v $version>]::SectorAllocationClaim {
+                                        client: sector.client,
+                                        allocation_id: sector.allocation_id,
+                                        data: sector.data,
+                                        size: $type_suffix::piece::PaddedPieceSize(sector.size),
+                                        sector: sector.sector,
+                                        sector_expiry: sector.sector_expiry,
+                                    })
+                                    .collect(),
+                                all_or_nothing: lotus_json.all_or_nothing,
+                            }
                         }
                     }
                 }
@@ -1036,101 +1140,110 @@ macro_rules! impl_allocation_requests {
     ($type_suffix:path: $($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::AllocationRequests {
-                    type LotusJson = AllocationRequestsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Allocations": [
-                                    {
-                                        "Provider": 1001,
-                                        "Data": {"/": "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm"},
-                                        "Size": 2048,
-                                        "TermMin": 1000,
-                                        "TermMax": 2000,
-                                        "Expiration": 12345,
-                                    }
-                                ],
-                                "Extensions": [
-                                    {
-                                        "Provider": 1002,
-                                        "Claim": 1,
-                                        "TermMax": 3000,
-                                    }
-                                ],
-                            }),
-                            Self {
-                                allocations: vec![fil_actor_verifreg_state::[<v $version>]::AllocationRequest {
-                                    provider: 1001,
-                                    data: Cid::try_from(
-                                        "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm",
-                                    )
-                                    .unwrap(),
-                                    size: $type_suffix::piece::PaddedPieceSize(2048),
-                                    term_min: 1000,
-                                    term_max: 2000,
-                                    expiration: 12345,
-                                }],
-                                extensions: vec![fil_actor_verifreg_state::[<v $version>]::ClaimExtensionRequest {
-                                    provider: 1002,
-                                    claim: 1,
-                                    term_max: 3000,
-                                }],
-                            },
-                        )]
+                mod [<impl_verifreg_allocation_requests_ $version>] {
+                    use super::*;
+                    type T = fil_actor_verifreg_state::[<v $version>]::AllocationRequests;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        AllocationRequestsLotusJson {
-                            allocations: self
-                                .allocations
-                                .into_iter()
-                                .map(|alloc| AllocationRequestLotusJson {
-                                    provider: alloc.provider,
-                                    data: alloc.data,
-                                    size: PaddedPieceSize(alloc.size.0),
-                                    term_min: alloc.term_min,
-                                    term_max: alloc.term_max,
-                                    expiration: alloc.expiration,
-                                })
-                                .collect(),
-                            extensions: self
-                                .extensions
-                                .into_iter()
-                                .map(|ext| ClaimExtensionRequestLotusJson {
-                                    provider: ext.provider,
-                                    claim: ext.claim,
-                                    term_max: ext.term_max,
-                                })
-                                .collect(),
+                    impl HasLotusJson for T {
+                        type LotusJson = AllocationRequestsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Allocations": [
+                                        {
+                                            "Provider": 1001,
+                                            "Data": {"/": "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm"},
+                                            "Size": 2048,
+                                            "TermMin": 1000,
+                                            "TermMax": 2000,
+                                            "Expiration": 12345,
+                                        }
+                                    ],
+                                    "Extensions": [
+                                        {
+                                            "Provider": 1002,
+                                            "Claim": 1,
+                                            "TermMax": 3000,
+                                        }
+                                    ],
+                                }),
+                                Self {
+                                    allocations: vec![fil_actor_verifreg_state::[<v $version>]::AllocationRequest {
+                                        provider: 1001,
+                                        data: Cid::try_from(
+                                            "bafk2bzacedbdmwqy4jrh4tgm7l77vz5fxb27jgmb2xkuprzzudbe2xj5u2nzm",
+                                        )
+                                        .unwrap(),
+                                        size: $type_suffix::piece::PaddedPieceSize(2048),
+                                        term_min: 1000,
+                                        term_max: 2000,
+                                        expiration: 12345,
+                                    }],
+                                    extensions: vec![fil_actor_verifreg_state::[<v $version>]::ClaimExtensionRequest {
+                                        provider: 1002,
+                                        claim: 1,
+                                        term_max: 3000,
+                                    }],
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            allocations: lotus_json
-                                .allocations
-                                .into_iter()
-                                .map(|alloc| fil_actor_verifreg_state::[<v $version>]::AllocationRequest {
-                                    provider: alloc.provider,
-                                    data: alloc.data,
-                                    size: $type_suffix::piece::PaddedPieceSize(alloc.size.0),
-                                    term_min: alloc.term_min,
-                                    term_max: alloc.term_max,
-                                    expiration: alloc.expiration,
-                                })
-                                .collect(),
-                            extensions: lotus_json
-                                .extensions
-                                .into_iter()
-                                .map(|ext| fil_actor_verifreg_state::[<v $version>]::ClaimExtensionRequest {
-                                    provider: ext.provider,
-                                    claim: ext.claim,
-                                    term_max: ext.term_max,
-                                })
-                                .collect(),
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            AllocationRequestsLotusJson {
+                                allocations: self
+                                    .allocations
+                                    .into_iter()
+                                    .map(|alloc| AllocationRequestLotusJson {
+                                        provider: alloc.provider,
+                                        data: alloc.data,
+                                        size: PaddedPieceSize(alloc.size.0),
+                                        term_min: alloc.term_min,
+                                        term_max: alloc.term_max,
+                                        expiration: alloc.expiration,
+                                    })
+                                    .collect(),
+                                extensions: self
+                                    .extensions
+                                    .into_iter()
+                                    .map(|ext| ClaimExtensionRequestLotusJson {
+                                        provider: ext.provider,
+                                        claim: ext.claim,
+                                        term_max: ext.term_max,
+                                    })
+                                    .collect(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                allocations: lotus_json
+                                    .allocations
+                                    .into_iter()
+                                    .map(|alloc| fil_actor_verifreg_state::[<v $version>]::AllocationRequest {
+                                        provider: alloc.provider,
+                                        data: alloc.data,
+                                        size: $type_suffix::piece::PaddedPieceSize(alloc.size.0),
+                                        term_min: alloc.term_min,
+                                        term_max: alloc.term_max,
+                                        expiration: alloc.expiration,
+                                    })
+                                    .collect(),
+                                extensions: lotus_json
+                                    .extensions
+                                    .into_iter()
+                                    .map(|ext| fil_actor_verifreg_state::[<v $version>]::ClaimExtensionRequest {
+                                        provider: ext.provider,
+                                        claim: ext.claim,
+                                        term_max: ext.term_max,
+                                    })
+                                    .collect(),
+                            }
                         }
                     }
                 }
@@ -1140,98 +1253,125 @@ macro_rules! impl_allocation_requests {
 }
 
 // v8 has unique BytesParams for UseBytes/RestoreBytes methods
-impl HasLotusJson for fil_actor_verifreg_state::v8::BytesParams {
-    type LotusJson = BytesParamsLotusJson;
-
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![(
-            json!({
-                "Address": "f01234",
-                "DealSize": "1048576", // 1MB
-            }),
-            Self {
-                address: Address::new_id(1234).into(),
-                deal_size: BigInt::from(1048576u64),
-            },
-        )]
+mod impl_verifreg_bytes_params_v8 {
+    use super::*;
+    type T = fil_actor_verifreg_state::v8::BytesParams;
+    #[test]
+    fn snapshots() {
+        crate::lotus_json::assert_all_snapshots::<T>();
     }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        BytesParamsLotusJson {
-            address: self.address.into(),
-            deal_size: self.deal_size,
+    impl HasLotusJson for T {
+        type LotusJson = BytesParamsLotusJson;
+
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![(
+                json!({
+                    "Address": "f01234",
+                    "DealSize": "1048576", // 1MB
+                }),
+                Self {
+                    address: Address::new_id(1234).into(),
+                    deal_size: BigInt::from(1048576u64),
+                },
+            )]
         }
-    }
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Self {
-            address: lotus_json.address.into(),
-            deal_size: lotus_json.deal_size,
+        fn into_lotus_json(self) -> Self::LotusJson {
+            BytesParamsLotusJson {
+                address: self.address.into(),
+                deal_size: self.deal_size,
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            Self {
+                address: lotus_json.address.into(),
+                deal_size: lotus_json.deal_size,
+            }
         }
     }
 }
 
-impl HasLotusJson for fil_actor_verifreg_state::v8::VerifierParams {
-    type LotusJson = VerifierParamsLotusJson;
-
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![(
-            json!({
-                "Address": "f01234",
-                "Allowance": "1000000000000000000",
-            }),
-            Self {
-                address: Address::new_id(1234).into(),
-                allowance: BigInt::from(1000000000000000000u64),
-            },
-        )]
+mod impl_verifreg_verifier_params_v8 {
+    use super::*;
+    type T = fil_actor_verifreg_state::v8::VerifierParams;
+    #[test]
+    fn snapshots() {
+        crate::lotus_json::assert_all_snapshots::<T>();
     }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        VerifierParamsLotusJson {
-            address: self.address.into(),
-            allowance: self.allowance,
+    impl HasLotusJson for T {
+        type LotusJson = VerifierParamsLotusJson;
+
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![(
+                json!({
+                    "Address": "f01234",
+                    "Allowance": "1000000000000000000",
+                }),
+                Self {
+                    address: Address::new_id(1234).into(),
+                    allowance: BigInt::from(1000000000000000000u64),
+                },
+            )]
         }
-    }
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Self {
-            address: lotus_json.address.into(),
-            allowance: lotus_json.allowance,
+        fn into_lotus_json(self) -> Self::LotusJson {
+            VerifierParamsLotusJson {
+                address: self.address.into(),
+                allowance: self.allowance,
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            Self {
+                address: lotus_json.address.into(),
+                allowance: lotus_json.allowance,
+            }
         }
     }
 }
 
-impl HasLotusJson for fil_actor_verifreg_state::v9::AddVerifierClientParams {
-    type LotusJson = VerifierParamsLotusJson;
-
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![(
-            json!({
-                "Address": "f01234",
-                "Allowance": "1000000000000000000",
-            }),
-            Self {
-                address: Address::new_id(1234).into(),
-                allowance: BigInt::from(1000000000000000000u64),
-            },
-        )]
+mod impl_verifreg_add_verifier_client_params_v9 {
+    use super::*;
+    type T = fil_actor_verifreg_state::v9::AddVerifierClientParams;
+    #[test]
+    fn snapshots() {
+        crate::lotus_json::assert_all_snapshots::<T>();
     }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        VerifierParamsLotusJson {
-            address: self.address.into(),
-            allowance: self.allowance,
+    impl HasLotusJson for T {
+        type LotusJson = VerifierParamsLotusJson;
+
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![(
+                json!({
+                    "Address": "f01234",
+                    "Allowance": "1000000000000000000",
+                }),
+                Self {
+                    address: Address::new_id(1234).into(),
+                    allowance: BigInt::from(1000000000000000000u64),
+                },
+            )]
         }
-    }
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Self {
-            address: lotus_json.address.into(),
-            allowance: lotus_json.allowance,
+        fn into_lotus_json(self) -> Self::LotusJson {
+            VerifierParamsLotusJson {
+                address: self.address.into(),
+                allowance: self.allowance,
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            Self {
+                address: lotus_json.address.into(),
+                allowance: lotus_json.allowance,
+            }
         }
     }
 }

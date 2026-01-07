@@ -23,36 +23,45 @@ macro_rules! impl_evm_constructor_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_evm_state::[<v $version>]::ConstructorParams {
-                    type LotusJson = EVMConstructorParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                        "Creator": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                                        "Initcode": "ESIzRFU="
-                                    }),
-                                Self {
-                                    creator: fil_actor_evm_state::evm_shared::[<v $version>]::address::EthAddress([0; 20]),
-                                    initcode: RawBytes::new(hex::decode("1122334455").unwrap()),
-                                },
-                            ),
-                        ]
+                mod [<impl_evm_constructor_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_evm_state::[<v $version>]::ConstructorParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        EVMConstructorParamsLotusJson {
-                            creator: self.creator.0,
-                            initcode: self.initcode,
+                    impl HasLotusJson for T {
+                        type LotusJson = EVMConstructorParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                            "Creator": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                                            "Initcode": "ESIzRFU="
+                                        }),
+                                    Self {
+                                        creator: fil_actor_evm_state::evm_shared::[<v $version>]::address::EthAddress([0; 20]),
+                                        initcode: RawBytes::new(hex::decode("1122334455").unwrap()),
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            creator: fil_actor_evm_state::evm_shared::[<v $version>]::address::EthAddress(lotus_json.creator),
-                            initcode: lotus_json.initcode,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            EVMConstructorParamsLotusJson {
+                                creator: self.creator.0,
+                                initcode: self.initcode,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                creator: fil_actor_evm_state::evm_shared::[<v $version>]::address::EthAddress(lotus_json.creator),
+                                initcode: lotus_json.initcode,
+                            }
                         }
                     }
                 }
@@ -79,47 +88,60 @@ pub struct EVMDelegateCallParamsLotusJson {
 }
 
 macro_rules! impl_evm_delegate_call_params_lotus_json {
-($($version:literal),+) => {
+    ($($version:literal),+) => {
         $(
             paste! {
-            impl HasLotusJson for fil_actor_evm_state::[<v $version>]::DelegateCallParams {
-                type LotusJson = EVMDelegateCallParamsLotusJson;
+                mod [<impl_evm_delegate_call_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_evm_state::[<v $version>]::DelegateCallParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
 
-                #[cfg(test)]
-                fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![(
-                        json!({
-                            "Code": "bafy2bzaceaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                            "Input": "ESIzRFU=",
-                            "Caller": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                            "Value": "0"
-                        }),
-                        Self {
-                            code: Cid::default(),
-                            input: hex::decode("1122334455").unwrap(),
-                            caller: fil_actor_evm_state::evm_shared::[<v $version>]::address::EthAddress([0; 20]),
-                            value: TokenAmount::from_atto(0).into(),
-                        },
-                    )]
-                }
+                    impl HasLotusJson for T {
+                        type LotusJson = EVMDelegateCallParamsLotusJson;
 
-                fn into_lotus_json(self) -> Self::LotusJson {
-                    EVMDelegateCallParamsLotusJson {
-                        code: self.code,
-                        input: self.input.into(),
-                        caller: self.caller.0,
-                        value: self.value.into(),
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Code": {
+                                        "/": "baeaaaaa"
+                                    },
+                                    "Input": "ESIzRFU=",
+                                    "Caller": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                                    "Value": "0"
+                                }),
+                                Self {
+                                    code: Cid::default(),
+                                    input: hex::decode("1122334455").unwrap(),
+                                    caller: fil_actor_evm_state::evm_shared::[<v $version>]::address::EthAddress([0; 20]),
+                                    value: TokenAmount::from_atto(0).into(),
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            EVMDelegateCallParamsLotusJson {
+                                code: self.code,
+                                input: self.input.into(),
+                                caller: self.caller.0,
+                                value: self.value.into(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                code: lotus_json.code,
+                                input: lotus_json.input.into(),
+                                caller: fil_actor_evm_state::evm_shared::[<v $version>]::address::EthAddress(lotus_json.caller),
+                                value: lotus_json.value.into(),
+                            }
+                        }
                     }
                 }
-                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                    Self {
-                        code: lotus_json.code,
-                        input: lotus_json.input.into(),
-                        caller: fil_actor_evm_state::evm_shared::[<v $version>]::address::EthAddress(lotus_json.caller),
-                        value: lotus_json.value.into(),
-                    }
-                }
-            }}
+            }
         )+
     };
 }
@@ -156,3 +178,4 @@ impl HasLotusJson for GetStorageAtParams {
             .expect("expected array to have 32 elements")
     }
 }
+crate::test_snapshots!(GetStorageAtParams);
