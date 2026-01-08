@@ -1,4 +1,6 @@
-## State migration guide ⏩
+---
+title: State migration guide
+---
 
 This guide is intended to help to implement new state migration in the future.
 It will be based on the current state migration implementation for NV18 and
