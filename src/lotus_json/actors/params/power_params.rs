@@ -79,48 +79,60 @@ macro_rules! impl_lotus_json_for_power_create_miner_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_power_state::[<v $version>]::CreateMinerParams {
-                    type LotusJson = CreateMinerParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "Owner": "f01234",
-                                    "Worker": "f01235",
-                                    "WindowPostProofType": 1,
-                                    "Peer": "AQ==",
-                                    "Multiaddrs": ["Ag==", "Aw=="],
-                                }),
-                                Self {
-                                    owner: Address::new_id(1234).into(),
-                                    worker: Address::new_id(1235).into(),
-                                    window_post_proof_type: RegisteredPoStProof::from(fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow2KiBV1P1).into(),
-                                    peer: vec![1],
-                                    multiaddrs: vec![],
-                                },
-                            ),
-                        ]
+                mod [<impl_power_create_miner_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_power_state::[<v $version>]::CreateMinerParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        CreateMinerParamsLotusJson {
-                            owner: self.owner.into(),
-                            worker: self.worker.into(),
-                            window_po_st_proof_type: self.window_post_proof_type.into(),
-                            peer: self.peer,
-                            multiaddrs: self.multiaddrs.into_iter().map(|addr| addr.0).collect(),
+                    impl HasLotusJson for T {
+                        type LotusJson = CreateMinerParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "Owner": "f01234",
+                                        "Worker": "f01235",
+                                        "WindowPoStProofType": 10,
+                                        "Peer": "AQ==",
+                                        "Multiaddrs": ["L2lwNC8xMjcuMC4wLjEvdGNwLzgwODA=", "L2Rucy9leGFtcGxlLmNvbQ=="],
+                                    }),
+                                    Self {
+                                        owner: Address::new_id(1234).into(),
+                                        worker: Address::new_id(1235).into(),
+                                        window_post_proof_type: RegisteredPoStProof::from(fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow2KiBV1P1).into(),
+                                        peer: vec![1],
+                                        multiaddrs: vec![
+                                            BytesDe(b"/ip4/127.0.0.1/tcp/8080".to_vec()),
+                                            BytesDe(b"/dns/example.com".to_vec()),
+                                        ],
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            owner: lotus_json.owner.into(),
-                            worker: lotus_json.worker.into(),
-                            window_post_proof_type: lotus_json.window_po_st_proof_type.into(),
-                            peer: lotus_json.peer,
-                            multiaddrs: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            CreateMinerParamsLotusJson {
+                                owner: self.owner.into(),
+                                worker: self.worker.into(),
+                                window_po_st_proof_type: self.window_post_proof_type.into(),
+                                peer: self.peer,
+                                multiaddrs: self.multiaddrs.into_iter().map(|addr| addr.0).collect(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                owner: lotus_json.owner.into(),
+                                worker: lotus_json.worker.into(),
+                                window_post_proof_type: lotus_json.window_po_st_proof_type.into(),
+                                peer: lotus_json.peer,
+                                multiaddrs: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
+                            }
                         }
                     }
                 }
@@ -134,36 +146,45 @@ macro_rules! impl_lotus_json_for_power_update_claimed_power_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_power_state::[<v $version>]::UpdateClaimedPowerParams {
-                    type LotusJson = UpdateClaimedPowerParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "RawByteDelta": "1024",
-                                    "QualityAdjustedDelta": "2048",
-                                }),
-                                Self {
-                                    raw_byte_delta: crate::shim::sector::StoragePower::from(1024u64),
-                                    quality_adjusted_delta: crate::shim::sector::StoragePower::from(2048u64),
-                                },
-                            ),
-                        ]
+                mod [<impl_power_update_claimed_power_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_power_state::[<v $version>]::UpdateClaimedPowerParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        UpdateClaimedPowerParamsLotusJson {
-                            raw_byte_delta: self.raw_byte_delta,
-                            quality_adjusted_delta: self.quality_adjusted_delta,
+                    impl HasLotusJson for T {
+                        type LotusJson = UpdateClaimedPowerParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "RawByteDelta": "1024",
+                                        "QualityAdjustedDelta": "2048",
+                                    }),
+                                    Self {
+                                        raw_byte_delta: crate::shim::sector::StoragePower::from(1024u64),
+                                        quality_adjusted_delta: crate::shim::sector::StoragePower::from(2048u64),
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            raw_byte_delta: lotus_json.raw_byte_delta,
-                            quality_adjusted_delta: lotus_json.quality_adjusted_delta,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            UpdateClaimedPowerParamsLotusJson {
+                                raw_byte_delta: self.raw_byte_delta,
+                                quality_adjusted_delta: self.quality_adjusted_delta,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                raw_byte_delta: lotus_json.raw_byte_delta,
+                                quality_adjusted_delta: lotus_json.quality_adjusted_delta,
+                            }
                         }
                     }
                 }
@@ -177,36 +198,45 @@ macro_rules! impl_lotus_json_for_power_enroll_cron_event_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_power_state::[<v $version>]::EnrollCronEventParams {
-                    type LotusJson = EnrollCronEventParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "EventEpoch": 12345,
-                                    "Payload": "ESIzRFU=",
-                                }),
-                                Self {
-                                    event_epoch: 12345,
-                                    payload: RawBytes::new(hex::decode("1122334455").unwrap()),
-                                },
-                            ),
-                        ]
+                mod [<impl_power_enroll_cron_event_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_power_state::[<v $version>]::EnrollCronEventParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        EnrollCronEventParamsLotusJson {
-                            event_epoch: self.event_epoch,
-                            payload: self.payload,
+                    impl HasLotusJson for T {
+                        type LotusJson = EnrollCronEventParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "EventEpoch": 12345,
+                                        "Payload": "ESIzRFU=",
+                                    }),
+                                    Self {
+                                        event_epoch: 12345,
+                                        payload: RawBytes::new(hex::decode("1122334455").unwrap()),
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            event_epoch: lotus_json.event_epoch,
-                            payload: lotus_json.payload,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            EnrollCronEventParamsLotusJson {
+                                event_epoch: self.event_epoch,
+                                payload: self.payload,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                event_epoch: lotus_json.event_epoch,
+                                payload: lotus_json.payload,
+                            }
                         }
                     }
                 }
@@ -220,30 +250,37 @@ macro_rules! impl_lotus_json_for_power_update_pledge_total_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_power_state::[<v $version>]::UpdatePledgeTotalParams {
-                    type LotusJson = UpdatePledgeTotalParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "PledgeDelta": "1000000000000000000",
-                                }),
-                                Self {
-                                    pledge_delta: TokenAmount::from_atto(1000000000000000000u64).into(),
-                                },
-                            ),
-                        ]
+                mod [<impl_power_update_pledge_total_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_power_state::[<v $version>]::UpdatePledgeTotalParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        UpdatePledgeTotalParamsLotusJson(self.pledge_delta.into())
-                    }
+                    impl HasLotusJson for T {
+                        type LotusJson = UpdatePledgeTotalParamsLotusJson;
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            pledge_delta: lotus_json.0.into(),
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!("1000000000000000000"),
+                                    Self {
+                                        pledge_delta: TokenAmount::from_atto(1000000000000000000u64).into(),
+                                    },
+                                ),
+                            ]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            UpdatePledgeTotalParamsLotusJson(self.pledge_delta.into())
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                pledge_delta: lotus_json.0.into(),
+                            }
                         }
                     }
                 }
@@ -257,30 +294,37 @@ macro_rules! impl_lotus_json_for_power_miner_raw_power_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_power_state::[<v $version>]::MinerRawPowerParams {
-                    type LotusJson = MinerRawPowerParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "Miner": 1001,
-                                }),
-                                Self {
-                                    miner: 1001,
-                                },
-                            ),
-                        ]
+                mod [<impl_power_miner_raw_power_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_power_state::[<v $version>]::MinerRawPowerParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        MinerRawPowerParamsLotusJson(self.miner)
-                    }
+                    impl HasLotusJson for T {
+                        type LotusJson = MinerRawPowerParamsLotusJson;
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            miner: lotus_json.0,
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!(1001),
+                                    Self {
+                                        miner: 1001,
+                                    },
+                                ),
+                            ]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            MinerRawPowerParamsLotusJson(self.miner)
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                miner: lotus_json.0,
+                            }
                         }
                     }
                 }
@@ -290,50 +334,68 @@ macro_rules! impl_lotus_json_for_power_miner_raw_power_params {
 }
 
 // Implementations for MinerPowerParams (only present in the power actor v16 and v17)
-impl HasLotusJson for fil_actor_power_state::v16::MinerPowerParams {
-    type LotusJson = MinerPowerParamsLotusJson;
-
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![(
-            json!({
-                "Miner": 1002,
-            }),
-            Self { miner: 1002 },
-        )]
+mod impl_power_miner_power_params_v16 {
+    use super::*;
+    type T = fil_actor_power_state::v16::MinerPowerParams;
+    #[test]
+    fn snapshots() {
+        crate::lotus_json::assert_all_snapshots::<T>();
     }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        MinerPowerParamsLotusJson { miner: self.miner }
-    }
+    impl HasLotusJson for T {
+        type LotusJson = MinerPowerParamsLotusJson;
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Self {
-            miner: lotus_json.miner,
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![(
+                json!({
+                    "Miner": 1002,
+                }),
+                Self { miner: 1002 },
+            )]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            MinerPowerParamsLotusJson { miner: self.miner }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            Self {
+                miner: lotus_json.miner,
+            }
         }
     }
 }
 
-impl HasLotusJson for fil_actor_power_state::v17::MinerPowerParams {
-    type LotusJson = MinerPowerParamsLotusJson;
-
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![(
-            json!({
-                "Miner": 1002,
-            }),
-            Self { miner: 1002 },
-        )]
+mod impl_power_miner_power_params_v17 {
+    use super::*;
+    type T = fil_actor_power_state::v17::MinerPowerParams;
+    #[test]
+    fn snapshots() {
+        crate::lotus_json::assert_all_snapshots::<T>();
     }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        MinerPowerParamsLotusJson { miner: self.miner }
-    }
+    impl HasLotusJson for T {
+        type LotusJson = MinerPowerParamsLotusJson;
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Self {
-            miner: lotus_json.miner,
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![(
+                json!({
+                    "Miner": 1002,
+                }),
+                Self { miner: 1002 },
+            )]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            MinerPowerParamsLotusJson { miner: self.miner }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            Self {
+                miner: lotus_json.miner,
+            }
         }
     }
 }

@@ -45,34 +45,43 @@ macro_rules! impl_reward_constructor_params {
     ($type_suffix:path: $($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_reward_state::[<v $version>]::ConstructorParams {
-                    type LotusJson = RewardConstructorParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!(null),
-                                Self {
-                                    power: None,
-                                },
-                            ),
-                            (
-                                json!("1000"),
-                                Self {
-                                    power: Some($type_suffix::bigint_ser::BigIntDe(BigInt::from(1000))),
-                                },
-                            ),
-                        ]
+                mod [<impl_reward_constructor_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::ConstructorParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        RewardConstructorParamsLotusJson(self.power.map(|p| p.0))
-                    }
+                    impl HasLotusJson for T {
+                        type LotusJson = RewardConstructorParamsLotusJson;
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            power: lotus_json.0.map(|p| $type_suffix::bigint_ser::BigIntDe(p)),
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!(null),
+                                    Self {
+                                        power: None,
+                                    },
+                                ),
+                                (
+                                    json!("1000"),
+                                    Self {
+                                        power: Some($type_suffix::bigint_ser::BigIntDe(BigInt::from(1000))),
+                                    },
+                                ),
+                            ]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            RewardConstructorParamsLotusJson(self.power.map(|p| p.0))
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                power: lotus_json.0.map(|p| $type_suffix::bigint_ser::BigIntDe(p)),
+                            }
                         }
                     }
                 }
@@ -86,44 +95,53 @@ macro_rules! impl_award_block_reward_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_reward_state::[<v $version>]::AwardBlockRewardParams {
-                    type LotusJson = AwardBlockRewardParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!({
-                                    "Miner": "f01234",
-                                    "Penalty": "0",
-                                    "GasReward": "1000",
-                                    "WinCount": 1
-                                }),
-                                Self {
-                                    miner: Address::new_id(1234).into(),
-                                    penalty: TokenAmount::from_atto(0).into(),
-                                    gas_reward: TokenAmount::from_atto(1000).into(),
-                                    win_count: 1,
-                                },
-                            ),
-                        ]
+                mod [<impl_award_block_reward_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::AwardBlockRewardParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        AwardBlockRewardParamsLotusJson {
-                            miner: self.miner.into(),
-                            penalty: self.penalty.into(),
-                            gas_reward: self.gas_reward.into(),
-                            win_count: self.win_count,
+                    impl HasLotusJson for T {
+                        type LotusJson = AwardBlockRewardParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!({
+                                        "Miner": "f01234",
+                                        "Penalty": "0",
+                                        "GasReward": "1000",
+                                        "WinCount": 1
+                                    }),
+                                    Self {
+                                        miner: Address::new_id(1234).into(),
+                                        penalty: TokenAmount::from_atto(0).into(),
+                                        gas_reward: TokenAmount::from_atto(1000).into(),
+                                        win_count: 1,
+                                    },
+                                ),
+                            ]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            miner: lotus_json.miner.into(),
-                            penalty: TokenAmount::from(lotus_json.penalty).into(),
-                            gas_reward: TokenAmount::from(lotus_json.gas_reward).into(),
-                            win_count: lotus_json.win_count,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            AwardBlockRewardParamsLotusJson {
+                                miner: self.miner.into(),
+                                penalty: self.penalty.into(),
+                                gas_reward: self.gas_reward.into(),
+                                win_count: self.win_count,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                miner: lotus_json.miner.into(),
+                                penalty: TokenAmount::from(lotus_json.penalty).into(),
+                                gas_reward: TokenAmount::from(lotus_json.gas_reward).into(),
+                                win_count: lotus_json.win_count,
+                            }
                         }
                     }
                 }
@@ -137,34 +155,43 @@ macro_rules! impl_update_network_kpi_params {
     ($type_suffix:path: $($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_reward_state::[<v $version>]::UpdateNetworkKPIParams {
-                    type LotusJson = UpdateNetworkKPIParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                json!(null),
-                                Self {
-                                    curr_realized_power: None,
-                                },
-                            ),
-                            (
-                                json!("2000"),
-                                Self {
-                                    curr_realized_power: Some($type_suffix::bigint_ser::BigIntDe(BigInt::from(2000))),
-                                },
-                            ),
-                        ]
+                mod [<impl_update_network_kpi_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::UpdateNetworkKPIParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        UpdateNetworkKPIParamsLotusJson(self.curr_realized_power.map(|p| p.0))
-                    }
+                    impl HasLotusJson for T {
+                        type LotusJson = UpdateNetworkKPIParamsLotusJson;
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            curr_realized_power: lotus_json.0.map(|p| $type_suffix::bigint_ser::BigIntDe(p)),
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![
+                                (
+                                    json!(null),
+                                    Self {
+                                        curr_realized_power: None,
+                                    },
+                                ),
+                                (
+                                    json!("2000"),
+                                    Self {
+                                        curr_realized_power: Some($type_suffix::bigint_ser::BigIntDe(BigInt::from(2000))),
+                                    },
+                                ),
+                            ]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            UpdateNetworkKPIParamsLotusJson(self.curr_realized_power.map(|p| p.0))
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                curr_realized_power: lotus_json.0.map(|p| $type_suffix::bigint_ser::BigIntDe(p)),
+                            }
                         }
                     }
                 }
