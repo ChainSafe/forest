@@ -7,7 +7,7 @@ with different layouts and database settings.
 
 Up until now, we've been okay with deleting the database and starting from a
 fresh snapshot. This was annoying but acceptable since we never had more than
-100GiB of data. Going forward, we'll be setting up nodes with ~14 TiB of data,
+100 GiB of data. Going forward, we'll be setting up nodes with ~14 TiB of data,
 and we want them to not require any maintenance when new versions of Forest are
 released.
 
@@ -59,7 +59,7 @@ and not start the daemon.
 
 If migration succeeds and the checks are passing, the database is atomically
 renamed to `<DATA_DIR>/<NETWORK>/paritydb-vX.Y.Z` and the daemon is started. If
-the checks are not passing, the migration is cancelled, and we start the daemon
+the checks are not passing, the migration is canceled, and we start the daemon
 under a new database.
 
 #### Scenario 3: DB exists and is the latest version

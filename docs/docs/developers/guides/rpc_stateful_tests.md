@@ -12,7 +12,7 @@ This includes:
 Before running the tests, perform the following setup steps:
 
 1. Run a Lotus or Forest node (calibnet recommended). Make sure `FULLNODE_API_INFO` is defined.
-2. Create an f4 address, fund it, and deploy a test smart contract (the deployed contract must emit an event with a known topic when invoked).
+2. Create a f4 address, fund it, and deploy a test smart contract (the deployed contract must emit an event with a known topic when invoked).
 3. The f4 address must hold enough FIL to invoke the contract.
 
    Run the test suite with:

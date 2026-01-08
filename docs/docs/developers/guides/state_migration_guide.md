@@ -26,7 +26,7 @@ NV19.
 
 The first step is to import the actor bundle into Forest. This is done by:
 
-- adding the bundle cid to the `HeightInfos` struct in the network definitions
+- adding the bundle CID to the `HeightInfos` struct in the network definitions
   files (e.g.,
   [calibnet](https://github.com/ChainSafe/forest/blob/main/src/networks/calibnet/mod.rs)).
 
@@ -38,7 +38,7 @@ HeightInfo {
 }
 ```
 
-- adding the bundle manifest cid and url to the `ACTOR_BUNDLES` in the
+- adding the bundle manifest CID and URL to the `ACTOR_BUNDLES` in the
   `src/networks/actors_bundle.rs`.
 
 - ensuring the bundle is mirrored in Forest's DO space under
@@ -54,12 +54,12 @@ HeightInfo {
 The next step is to implement the migration itself. In this guide, we will take
 the `translate Go code into Rust` approach. It's not the cleanest way to do it,
 but it's the easiest. Note that the Forest state migration design is not the
-same as the Lotus one (we tend to avoid code duplications), so we must be
+same as the Lotus one (we tend to avoid code duplication), so we must be
 careful when translating the code.
 
 #### Create the migration module
 
-Create the nvXX migration module in the
+Create the NVXX migration module in the
 [state migration module](https://github.com/ChainSafe/forest/tree/main/src/state_migration).
 A valid approach is just to copy-paste the previous migration module and modify
 it accordingly. The files that will most likely be present:
@@ -78,7 +78,7 @@ implementation. In other terms, if you see that the Go
 contains:
 
 - `eam.go` - Ethereum Account Manager migration,
-- `init.go` - Init actor migration,
+- `init.go` - `Init` actor migration,
 - `system.go` - System actor migration,
 
 Then our implementation will need to define those as well.
@@ -116,12 +116,12 @@ let new_manifest = Manifest::load(&store, &new_manifest, version)?;
 ⚠️ Stay vigilant! The `StateTree` versioning is independent of the network and
 actor versioning. At the time of writing, the following holds:
 
-- `StateTreeVersion0` - Actors version < v2
-- `StateTreeVersion1` - Actors version v2
-- `StateTreeVersion2` - Actors version v3
-- `StateTreeVersion3` - Actors version v4
-- `StateTreeVersion4` - Actors version v5 up to v9
-- `StateTreeVersion5` - Actors version v10 and above These are not compatible
+- `StateTreeVersion0` - Actors version less than `v2`
+- `StateTreeVersion1` - Actors version `v2`
+- `StateTreeVersion2` - Actors version `v3`
+- `StateTreeVersion3` - Actors version `v4`
+- `StateTreeVersion4` - Actors version `v5` up to `v9`
+- `StateTreeVersion5` - Actors version `v10` and above. These are not compatible
   with each other and when using a new FVM, we can only use the latest one.
 
 For actors that don't need any state migration, we can use the `nil_migrator`.
@@ -210,15 +210,15 @@ forest --chain calibnet --encrypt-keystore false --halt-after-import --height=-2
 
 ### Test first development
 
-When the Go migration code to translate from is large(e.g. nv17), it makes
+When the Go migration code to translate from is large (e.g., NV17), it makes
 development much easier to be able to attach debuggers. Follow below steps to
 create simple unit tests for both Rust and Go with real calibnet or mainnet data
 and attach debuggers when needed during development.
 
-- Get input state cid. Run
+- Get input state CID. Run
   `forest --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot <SNAPSHOT>`,
-  the input state cid will be in the failure messages `Previous state: <CID>`.
-  And the expected output state cid can be found in state mismatch error
+  the input state CID will be in the failure messages `Previous state: <CID>`.
+  And the expected output state CID can be found in state mismatch error
   messages.
 - Export input state by running
   `forest-cli state fetch <PREVIOUS_STATE_CID> <PREVIOUS_STATE_CID>.car`
@@ -227,7 +227,7 @@ and attach debuggers when needed during development.
 - Create a Rust test in `src/state_migration/tests/mod.rs`. Note: the output CID
   does not need to be correct to attach a debugger during development.
 
-  Example test for nv17 on calibnet:
+  Example test for NV17 on calibnet:
 
   ```rust
   #[tokio::test]
@@ -246,7 +246,7 @@ and attach debuggers when needed during development.
   Note: `newManifestCid` is the bundle CID, epoch is the height that migration
   happens.
 
-  Example test for nv17 on calibnet:
+  Example test for NV17 on calibnet:
 
   ```go
   func TestStateMigrationNV17(t *testing.T) {
