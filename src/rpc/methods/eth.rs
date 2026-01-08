@@ -2450,7 +2450,7 @@ async fn eth_get_transaction_count<B>(
 where
     B: Blockstore + Send + Sync + 'static,
 {
-    let (state_cid, _) = ctx.state_manager.tipset_state(&ts).await?;
+    let (state_cid, _) = ctx.state_manager.tipset_state(ts).await?;
 
     let state = StateTree::new_from_root(ctx.store_owned(), &state_cid)?;
     let actor = state.get_required_actor(&addr)?;
