@@ -138,7 +138,7 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 }
 '''
 run = '''
-cargo test --doc --profile ${usage_profile?} --workspace --no-fail-fast
+cargo test --doc --profile ${usage_profile?} --features doctest-private --no-fail-fast
 '''
 
 [tasks."test:rust"]
