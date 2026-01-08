@@ -172,6 +172,6 @@ cargo llvm-cov -p forest-filecoin --codecov --output-path lcov.info
 '''
 
 [tools]
-cargo-binstall = "latest"
-go = "latest"
-yarn = "latest"
+cargo-binstall = "1.16.6"
+go = "1.25.5"
+yarn = "4.12"
