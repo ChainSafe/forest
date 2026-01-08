@@ -1758,6 +1758,49 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Earliest),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::basic(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Pending),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetStorageAt::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),

@@ -2393,30 +2393,75 @@ impl RpcMethod<2> for EthGetTransactionCount {
         (sender, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let addr = sender.to_filecoin_address()?;
-        if let BlockNumberOrHash::PredefinedBlock(ref predefined) = block_param
-            && *predefined == Predefined::Pending
-        {
-            return Ok(EthUint64(ctx.mpool.get_sequence(&addr)?));
-        }
-        let ts = tipset_by_block_number_or_hash(
-            ctx.chain_store(),
-            block_param.clone(),
-            ResolveNullTipset::TakeOlder,
-        )?;
-
-        let (state_cid, _) = ctx.state_manager.tipset_state(&ts).await?;
-
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_cid)?;
-        let actor = state.get_required_actor(&addr)?;
-        if is_evm_actor(&actor.code) {
-            let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
-            if !evm_state.is_alive() {
-                return Ok(EthUint64(0));
+        match block_param {
+            BlockNumberOrHash::PredefinedBlock(Predefined::Pending) => {
+                Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
             }
-            Ok(EthUint64(evm_state.nonce()))
-        } else {
-            Ok(EthUint64(actor.sequence))
+            _ => {
+                let ts = tipset_by_block_number_or_hash(
+                    ctx.chain_store(),
+                    block_param,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                eth_get_transaction_count(&ctx, &ts, addr).await
+            }
         }
+    }
+}
+
+pub enum EthGetTransactionCountV2 {}
+impl RpcMethod<2> for EthGetTransactionCountV2 {
+    const NAME: &'static str = "Filecoin.EthGetTransactionCount";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionCount");
+    const PARAM_NAMES: [&'static str; 2] = ["sender", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthAddress, ExtBlockNumberOrHash);
+    type Ok = EthUint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (sender, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let addr = sender.to_filecoin_address()?;
+        match block_param {
+            ExtBlockNumberOrHash::PredefinedBlock(ExtPredefined::Pending) => {
+                Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
+            }
+            _ => {
+                let ts = tipset_by_block_number_or_hash_v2(
+                    &ctx,
+                    block_param,
+                    ResolveNullTipset::TakeOlder,
+                )
+                .await?;
+                eth_get_transaction_count(&ctx, &ts, addr).await
+            }
+        }
+    }
+}
+
+async fn eth_get_transaction_count<B>(
+    ctx: &Ctx<B>,
+    ts: &Tipset,
+    addr: FilecoinAddress,
+) -> Result<EthUint64, ServerError>
+where
+    B: Blockstore + Send + Sync + 'static,
+{
+    let (state_cid, _) = ctx.state_manager.tipset_state(ts).await?;
+
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_cid)?;
+    let actor = state.get_required_actor(&addr)?;
+    if is_evm_actor(&actor.code) {
+        let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
+        if !evm_state.is_alive() {
+            return Ok(EthUint64(0));
+        }
+        Ok(EthUint64(evm_state.nonce()))
+    } else {
+        Ok(EthUint64(actor.sequence))
     }
 }
 
