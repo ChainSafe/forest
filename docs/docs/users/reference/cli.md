@@ -1807,7 +1807,7 @@ The `lotus` node is assumed to be correct and the `forest` node will be marked a
 
 If snapshot files are provided, these files will be used to generate additional tests.
 
-Example output: ```markdown | RPC Method                        | Forest              | Lotus         | |-----------------------------------|---------------------|---------------| | Filecoin.ChainGetBlock            | Valid               | Valid         | | Filecoin.ChainGetGenesis          | Valid               | Valid         | | Filecoin.ChainGetMessage (67)     | InternalServerError | Valid         | ``` The number after a method name indicates how many times an RPC call was tested.
+Example output: ```markdown | RPC Method                        | Forest                | Lotus         | |-----------------------------------|---------------------|---------------| | Filecoin.ChainGetBlock            | Valid               | Valid         | | Filecoin.ChainGetGenesis          | Valid               | Valid         | | Filecoin.ChainGetMessage (67)     | `InternalServerError` | Valid         | ``` The number after a method name indicates how many times an RPC call was tested.
 
 Usage: forest-tool api compare [OPTIONS] [SNAPSHOT_FILES]...
 

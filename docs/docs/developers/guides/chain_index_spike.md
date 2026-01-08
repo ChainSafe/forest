@@ -83,7 +83,7 @@ on how much historical state is indexed.
 
 **Question:** What are our options for Rust in this context?
 
-1. **Rusqlite**?
+1. **[Rusqlite](https://github.com/rusqlite/rusqlite)**?
 2. **Sqlx** crate? In case of abstraction of the backend DB:
    - **PostgreSQL**
    - **SQLite**

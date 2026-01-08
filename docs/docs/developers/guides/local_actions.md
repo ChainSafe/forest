@@ -18,7 +18,7 @@ To install Act, follow the instructions specific to your OS in the
 [Act repository](https://github.com/nektos/act#installation-through-package-managers).
 
 On the first run, `act` will ask you to pick the image size. Either choose the
-biggest one (it's ~60GiB unzipped) or the medium one. The large one should have
+biggest one (it's ~60 GiB unzipped) or the medium one. The large one should have
 fewer issues with the missing software, but it will take longer to download and
 is based on an older Ubuntu base. You can always edit this later in
 `$HOME/.actrc`.
