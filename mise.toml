@@ -101,13 +101,7 @@ depends = ["lint:*"]
 
 [tasks."lint:all-rust"]
 description = "Run all Rust linting tasks."
-depends = [
-  "lint:deny",
-  "lint:spellcheck",
-  "lint:rust-fmt",
-  "lint:clippy",
-  "lint:unused-deps",
-]
+depends = ["lint:deny", "lint:spellcheck", "lint:rust-fmt", "lint:clippy", "lint:unused-deps"]
 
 [tasks."lint:yaml"]
 description = "Lint YAML files."
@@ -121,7 +115,7 @@ yarn yaml-check
 description = "Format all supported code."
 run = '''
 cargo fmt --all
-taplo fmt --write
+taplo fmt
 corepack enable && yarn && yarn install
 yarn md-fmt
 yarn yaml-fmt
@@ -144,7 +138,7 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 }
 '''
 run = '''
-cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-fail-fast
+cargo test --doc --profile ${usage_profile?} --workspace --no-fail-fast
 '''
 
 [tasks."test:rust"]
