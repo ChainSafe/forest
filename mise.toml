@@ -107,7 +107,6 @@ depends = ["lint:deny", "lint:spellcheck", "lint:rust-fmt", "lint:clippy", "lint
 description = "Lint YAML files."
 run = '''
 corepack enable && yarn && yarn install
-yarn yaml-fmt
 yarn yaml-check
 '''
 
