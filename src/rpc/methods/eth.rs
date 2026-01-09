@@ -545,6 +545,79 @@ impl Block {
             ..Default::default()
         }
     }
+
+    /// Creates a new Ethereum block from a Filecoin tipset, executing transactions if requested.
+    ///
+    /// Reference: <https://github.com/filecoin-project/lotus/blob/941455f1d23e73b9ee92a1a4ce745d8848969858/node/impl/eth/utils.go#L44>
+    pub async fn from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
+        ctx: Ctx<DB>,
+        tipset: Arc<crate::blocks::Tipset>,
+        full_tx_info: bool,
+    ) -> Result<Self> {
+        let parent_cid = tipset.parents().cid()?;
+        let parent_hash: EthHash = parent_cid.into();
+
+        let block_number = EthUint64(tipset.epoch() as u64);
+
+        let tipset_cid = tipset.key().cid()?;
+        let block_hash: EthHash = tipset_cid.into();
+
+        let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &tipset).await?;
+
+        let state_tree = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+        let mut block = Block::new(!msgs_and_receipts.is_empty(), tipset.len());
+
+        let mut gas_used: u64 = 0;
+        let mut transactions = Vec::new();
+
+        for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
+            let ti = EthUint64(i as u64);
+            gas_used = gas_used.saturating_add(receipt.gas_used());
+
+            let smsg = match msg {
+                ChainMessage::Signed(msg) => msg.clone(),
+                ChainMessage::Unsigned(msg) => {
+                    let sig = Signature::new_bls(vec![]);
+                    SignedMessage::new_unchecked(msg.clone(), sig)
+                }
+            };
+
+            let mut tx = new_eth_tx_from_signed_message(
+                &smsg,
+                &state_tree,
+                ctx.chain_config().eth_chain_id,
+            )?;
+
+            tx.block_hash = block_hash.clone();
+            tx.block_number = block_number.clone();
+            tx.transaction_index = ti;
+
+            transactions.push(tx);
+        }
+
+        block.transactions = if full_tx_info {
+            Transactions::Full(transactions)
+        } else {
+            Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
+        };
+
+        block.hash = block_hash;
+        block.number = block_number;
+        block.parent_hash = parent_hash;
+        block.timestamp = EthUint64(tipset.block_headers().first().timestamp);
+        block.base_fee_per_gas = EthBigInt(
+            tipset
+                .block_headers()
+                .first()
+                .parent_base_fee
+                .atto()
+                .clone(),
+        );
+        block.gas_used = EthUint64(gas_used);
+
+        Ok(block)
+    }
 }
 
 lotus_json_with_self!(Block);
