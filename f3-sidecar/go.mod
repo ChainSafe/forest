@@ -4,7 +4,7 @@ go 1.25.4
 
 require (
 	github.com/filecoin-project/go-f3 v0.8.10
-	github.com/filecoin-project/go-jsonrpc v0.9.0
+	github.com/filecoin-project/go-jsonrpc v0.10.0
 	github.com/filecoin-project/go-state-types v0.17.0
 	github.com/ihciah/rust2go v0.0.0-20251204052609-e81751674fa5
 	github.com/ipfs/go-cid v0.6.0
