@@ -15,6 +15,7 @@ on:
       - main
     paths:
       - ".github/workflows/go-lint.yml"
+      - "go.work"
       - "mise.toml"
       - "f3-sidecar/**"
       - "interop-tests/src/tests/**"
@@ -23,6 +24,7 @@ on:
       - main
     paths:
       - ".github/workflows/go-lint.yml"
+      - "go.work"
       - "mise.toml"
       - "f3-sidecar/**"
       - "interop-tests/src/tests/**"
