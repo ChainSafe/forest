@@ -99,8 +99,10 @@ cargo install forest-filecoin
 git clone --depth 1 https://github.com/ChainSafe/forest.git && cd forest
 ```
 
+Use [mise-en-place](https://mise.jdx.dev/) to handle the build and installation:
+
 ```shell
-make install
+mise install
 ```
 
 Both approaches will compile and install `forest` and `forest-cli` to

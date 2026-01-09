@@ -93,6 +93,7 @@ mainnet
 MDBX
 migrator
 migrators
+mise-en-place
 multiaddress
 namespace
 Neo4j

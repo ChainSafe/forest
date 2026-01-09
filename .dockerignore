@@ -14,6 +14,7 @@ CHANGELOG*
 *.md
 target/
 scripts/
+!scripts/install_mise.sh
 
 # Ignore CAR files fetched to the project directory which tends to happen during development.
 # Without it, the Docker context may bloat to hundreds of gigabytes of data.

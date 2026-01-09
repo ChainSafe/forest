@@ -39,6 +39,8 @@
 
 ### Changed
 
+- [#6368](https://github.com/ChainSafe/forest/pull/6368): Migrated build and development tooling from Makefile to `mise`. Contributors should install `mise` and use `mise run` commands instead of `make` commands.
+
 ### Removed
 
 ### Fixed
