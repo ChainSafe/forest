@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 // Automatically generated rust module for 'bitswap_pb.proto' file
 // Command: `pb-rs -s -D proto/bitswap_ob.proto`, See <https://crates.io/crates/pb-rs>

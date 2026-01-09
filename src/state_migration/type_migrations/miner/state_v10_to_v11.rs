@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::sector::convert_window_post_proof_v1_to_v1p1;
