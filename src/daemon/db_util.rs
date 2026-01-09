@@ -244,25 +244,35 @@ pub async fn import_chain_as_forest_car(
     let forest_car = ForestCar::try_from(forest_car_db_path.as_path())?;
 
     if let Some(f3_cid) = forest_car.metadata().as_ref().and_then(|m| m.f3_data) {
-        let mut f3_data = forest_car
-            .get_reader(f3_cid)?
-            .with_context(|| format!("f3 data not found, cid: {f3_cid}"))?;
-        let mut temp_f3_snap = tempfile::Builder::new()
-            .suffix(".f3snap.bin")
-            .tempfile_in(forest_car_db_dir)?;
+        if crate::f3::get_f3_sidecar_params(chain_config)
+            .initial_power_table
+            .is_none()
         {
-            let f = temp_f3_snap.as_file_mut();
-            std::io::copy(&mut f3_data, f)?;
-            f.sync_all()?;
-        }
-        if let Err(e) = crate::f3::import_f3_snapshot(
-            chain_config,
-            rpc_endpoint.to_string(),
-            f3_root.display().to_string(),
-            temp_f3_snap.path().display().to_string(),
-        ) {
-            // Do not make it a hard error if anything is wrong with F3 snapshot
-            tracing::error!("Failed to import F3 snapshot: {e}");
+            // To avoid importing old/wrong F3 data without initial power table check
+            tracing::warn!(
+                "skipped importing F3 data as the initial power table CID is not set in the current manifest"
+            );
+        } else {
+            let mut f3_data = forest_car
+                .get_reader(f3_cid)?
+                .with_context(|| format!("f3 data not found, cid: {f3_cid}"))?;
+            let mut temp_f3_snap = tempfile::Builder::new()
+                .suffix(".f3snap.bin")
+                .tempfile_in(forest_car_db_dir)?;
+            {
+                let f = temp_f3_snap.as_file_mut();
+                std::io::copy(&mut f3_data, f)?;
+                f.sync_all()?;
+            }
+            if let Err(e) = crate::f3::import_f3_snapshot(
+                chain_config,
+                rpc_endpoint.to_string(),
+                f3_root.display().to_string(),
+                temp_f3_snap.path().display().to_string(),
+            ) {
+                // Do not make it a hard error if anything is wrong with F3 snapshot
+                tracing::error!("Failed to import F3 snapshot: {e}");
+            }
         }
     }
 
