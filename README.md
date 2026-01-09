@@ -1,5 +1,5 @@
 <p align="center">
-  <img height="243" src="documentation/src/img/forest_logo.png">
+  <img height="243" src="docs/static/img/forest_logo.png">
 </p>
 
 <p align="center">

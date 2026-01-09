@@ -1,7 +1,16 @@
 .github
-.maintain
+benches
+.yarn
+docs
+monitored-stack
+node_modules
+test-snapshots
+tests
+tools
 Dockerfile
 .dockerignore
+LICENSE*
+CHANGELOG*
 *.md
 target/
 scripts/
