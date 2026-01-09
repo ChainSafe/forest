@@ -3,10 +3,10 @@
 
 # Returns 1 if there was a missing license, 0 otherwise.
 
-PAT_APA="^// Copyright 2019-2025 ChainSafe Systems// SPDX-License-Identifier: Apache-2.0, MIT$"
+PAT_APA="^// Copyright 2019-2026 ChainSafe Systems// SPDX-License-Identifier: Apache-2.0, MIT$"
 
 ret=0
-for file in $(git grep --cached -Il '' -- '*.rs' ':!*src/utils/encoding/fallback_de_ipld_dagcbor.rs' ':!*src/external/**/*.rs'); do
+for file in $(git grep --cached -Il '' -- '*.rs' ':!*src/utils/encoding/fallback_de_ipld_dagcbor.rs'); do
   header=$(head -2 "$file" | tr -d '\n')
 	if ! echo "$header" | grep -q "$PAT_APA"; then
 		echo "$file was missing header"

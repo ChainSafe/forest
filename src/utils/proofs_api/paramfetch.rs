@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! This module contains the logic for fetching the proofs parameters from the network.
 //! As a general rule, the parameters are first fetched from ChainSafe's Cloudflare R2 bucket, if
