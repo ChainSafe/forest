@@ -41,19 +41,3 @@ tokio = { workspace = true, features = ['full'] }
 
 [build-dependencies]
 rust2go = { workspace = true, features = ["build"] }
-
-# https://doc.rust-lang.org/stable/cargo/guide/build-performance.html#reduce-amount-of-generated-debug-information
-[profile.dev]
-debug = "line-tables-only"
-split-debuginfo = "unpacked"
-
-[profile.dev.package."*"]
-# Avoid generating any debug information for dependencies
-debug = false
-# Speed up debug tests and codecov tests
-opt-level = 1
-
-[profile.dev.package."forest-filecoin"]
-debug = "line-tables-only"
-split-debuginfo = "unpacked"
-opt-level = 0
