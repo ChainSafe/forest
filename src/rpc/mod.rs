@@ -41,6 +41,7 @@ pub use methods::*;
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
 
+/// Sentinel value, indicating no limit on how far back to search in the chain (all the way to genesis epoch).
 pub const LOOKBACK_NO_LIMIT: ChainEpoch = -1;
 
 /// The macro `callback` will be passed in each type that implements
