@@ -90,10 +90,10 @@ M2
 macOS
 Mainnet
 mainnet
-mise-en-place
 MDBX
 migrator
 migrators
+mise-en-place
 multiaddress
 namespace
 Neo4j
