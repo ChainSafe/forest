@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::CachingBlockHeader;
 use crate::rpc::eth::pubsub_trait::LogFilter;
 use anyhow::ensure;
 use get_size2::GetSize;
@@ -423,7 +422,7 @@ pub struct FilterID(EthHash);
 lotus_json_with_self!(FilterID);
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
-pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<CachingBlockHeader>);
+pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<Block>);
 
 lotus_json_with_self!(ApiHeaders);
 
