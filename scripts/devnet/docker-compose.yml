@@ -26,7 +26,7 @@ services:
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
       - LOTUS_TOCK_HEIGHT=${TOCK_HEIGHT}
-      - LOTUS_GOLDEN_WEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
+      - LOTUS_GOLDENWEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
     env_file:
       - lotus.env
     entrypoint: ["/bin/bash", "-c"]
@@ -51,12 +51,12 @@ services:
       lotus_init:
         condition: service_completed_successfully
     healthcheck:
-      test: >-
-        curl -s -x post -h "content-type: application/json"
-        --data '{ "jsonrpc": "2.0", "method": "filecoin.chainhead", "params": [], "id": 1 }'
-        http://lotus_node:${LOTUS_RPC_PORT}/rpc/v0 || exit 1
+      test: |
+        export FULLNODE_API_INFO="/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
+        lotus chain head || exit 1
       interval: 10s
       retries: 10
+      start_period: 60s
       timeout: 5s
     container_name: lotus
     networks:
@@ -76,7 +76,7 @@ services:
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
       - LOTUS_TOCK_HEIGHT=${TOCK_HEIGHT}
-      - LOTUS_GOLDEN_WEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
+      - LOTUS_GOLDENWEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
     ports:
       - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
@@ -120,7 +120,7 @@ services:
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
       - LOTUS_TOCK_HEIGHT=${TOCK_HEIGHT}
-      - LOTUS_GOLDEN_WEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
+      - LOTUS_GOLDENWEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
     ports:
       - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
     env_file:
@@ -159,7 +159,7 @@ services:
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
       - LOTUS_TOCK_HEIGHT=${TOCK_HEIGHT}
-      - LOTUS_GOLDEN_WEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
+      - LOTUS_GOLDENWEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
     entrypoint: ["/bin/bash", "-c"]
     env_file:
       - lotus.env
