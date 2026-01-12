@@ -1585,6 +1585,28 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     }
 }
 
+pub enum EthGetBlockByNumberV2 {}
+impl RpcMethod<2> for EthGetBlockByNumberV2 {
+    const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByNumber");
+    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ExtBlockNumberOrHash, bool);
+    type Ok = Block;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, full_tx_info): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
+        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
+        Ok(block)
+    }
+}
+
 async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     block_param: BlockNumberOrHash,
