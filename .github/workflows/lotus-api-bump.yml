@@ -14,7 +14,6 @@ jobs:
       - uses: actions/checkout@v6
       - name: Update dependencies
         run: |
-          NETWORK=calibnet
           TAG=$(curl --silent https://api.github.com/repos/filecoin-project/lotus/releases | jq -r 'first | .tag_name')
           CURRENT_TAG=$(grep -oP 'LOTUS_IMAGE=.*:\K.*' ./scripts/tests/api_compare/.env)
           # If the latest tag reported by the API is greater than the one we are currently using, update it.
@@ -22,9 +21,10 @@ jobs:
           # largest version for calibration network compatibility.
           if [[ "$(printf '%s\n' "$TAG" "$CURRENT_TAG" | sort -V | tail -n1)" != "$CURRENT_TAG" || "$CURRENT_TAG" == "$TAG"* ]]; then
             echo "Updating Lotus version to $TAG"
-            sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/api_compare/.env
-            sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/bootstrapper/.env
-            sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/snapshot_parity/.env
+            sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-calibnet/" ./scripts/tests/api_compare/.env
+            sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-calibnet/" ./scripts/tests/bootstrapper/.env
+            sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-calibnet/" ./scripts/tests/snapshot_parity/.env
+            sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-2k/" ./scripts/devnet/.env
           else
             echo "Lotus version is already up to date"
           fi
