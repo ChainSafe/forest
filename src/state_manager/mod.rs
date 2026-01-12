@@ -1106,9 +1106,10 @@ where
         let lookback_max_epoch = match look_back_limit {
             // No search: limit = 0 means search 0 epochs
             Some(0) => return Ok(None),
-            // Limited search: calculate the inclusive lower bound
-            // For ex: limit = 5 at epoch 1000: min_epoch = 996, searches [996, 1000] = 5 epochs
-            Some(limit) if limit > 0 && limit < current_epoch => current_epoch - limit + 1,
+            // Limited search: calculate the inclusive lower bound, clamped to genesis
+            // Example: limit=5 at epoch=1000 → min_epoch=996, searches [996,1000] = 5 epochs
+            // Example: limit=2000 at epoch=1000 → min_epoch=0, searches [0,1000] = 1001 epochs (all available)
+            Some(limit) if limit > 0 => (current_epoch - limit + 1).max(0),
             // Search all the way to genesis (epoch 0)
             _ => 0,
         };
