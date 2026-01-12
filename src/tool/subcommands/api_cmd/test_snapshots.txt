@@ -59,6 +59,7 @@ filecoin_ethfeehistory_1737446676883828.rpcsnap.json.zst
 filecoin_ethfeehistory_v2_1767605175056660.rpcsnap.json.zst
 filecoin_ethgasprice_1758725940980141.rpcsnap.json.zst
 filecoin_ethgetbalance_1740048634848277.rpcsnap.json.zst
+filecoin_ethgetbalance_v2_1768188109932986.rpcsnap.json.zst
 filecoin_ethgetblockbyhash_1740132537807408.rpcsnap.json.zst
 filecoin_ethgetblockbynumber_1737446676696328.rpcsnap.json.zst
 filecoin_ethgetblockbynumber_v2_1768192171057588.rpcsnap.json.zst
