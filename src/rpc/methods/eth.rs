@@ -864,6 +864,8 @@ impl RpcMethod<2> for EthGetBalance {
     const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the balance of an Ethereum address at the specified block state");
 
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthBigInt;
@@ -872,16 +874,49 @@ impl RpcMethod<2> for EthGetBalance {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let fil_addr = address.to_filecoin_address()?;
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
-        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
-        let actor = state.get_required_actor(&fil_addr)?;
-        Ok(EthBigInt(actor.balance.atto().clone()))
+        let balance = eth_get_balance(&ctx, &address, &ts)?;
+        Ok(balance)
     }
+}
+
+pub enum EthGetBalanceV2 {}
+impl RpcMethod<2> for EthGetBalanceV2 {
+    const NAME: &'static str = "Filecoin.EthGetBalance";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBalance");
+    const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the balance of an Ethereum address at the specified block state");
+
+    type Params = (EthAddress, ExtBlockNumberOrHash);
+    type Ok = EthBigInt;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
+        let balance = eth_get_balance(&ctx, &address, &ts)?;
+        Ok(balance)
+    }
+}
+
+fn eth_get_balance<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    address: &EthAddress,
+    ts: &Tipset,
+) -> Result<EthBigInt> {
+    let fil_addr = address.to_filecoin_address()?;
+    let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+    let actor = state.get_required_actor(&fil_addr)?;
+    Ok(EthBigInt(actor.balance.atto().clone()))
 }
 
 fn get_tipset_from_hash<DB: Blockstore>(
@@ -1580,6 +1615,28 @@ impl RpcMethod<2> for EthGetBlockByNumber {
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
+        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
+        Ok(block)
+    }
+}
+
+pub enum EthGetBlockByNumberV2 {}
+impl RpcMethod<2> for EthGetBlockByNumberV2 {
+    const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByNumber");
+    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ExtBlockNumberOrHash, bool);
+    type Ok = Block;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, full_tx_info): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
     }

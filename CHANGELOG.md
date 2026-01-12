@@ -37,6 +37,10 @@
 
 - [#6387](https://github.com/ChainSafe/forest/pull/6387) Implemented `Filecoin.EthGetTransactionCount` for API v2.
 
+- [#6403](https://github.com/ChainSafe/forest/pull/6403) Implemented `Filecoin.EthGetBalance` for API v2.
+
+- [#6404](https://github.com/ChainSafe/forest/pull/6404) Implemented `Filecoin.EthGetBlockByNumber` for API v2.
+
 ### Changed
 
 - [#6368](https://github.com/ChainSafe/forest/pull/6368): Migrated build and development tooling from Makefile to `mise`. Contributors should install `mise` and use `mise run` commands instead of `make` commands.
