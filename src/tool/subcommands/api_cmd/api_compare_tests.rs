@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{CreateTestsArgs, ReportMode, RunIgnored, TestCriteriaOverride};
@@ -1442,20 +1442,36 @@ fn eth_tests() -> Vec<RpcTest> {
         ];
 
         for (to, data) in cases {
+            let msg = EthCallMessage {
+                to: to.clone(),
+                data: data.clone(),
+                ..EthCallMessage::default()
+            };
+
             tests.push(RpcTest::identity(
                 EthCall::request_with_alias(
                     (
-                        EthCallMessage {
-                            to,
-                            data,
-                            ..EthCallMessage::default()
-                        },
+                        msg.clone(),
                         BlockNumberOrHash::from_predefined(Predefined::Latest),
                     ),
                     use_alias,
                 )
                 .unwrap(),
             ));
+
+            for tag in [
+                ExtPredefined::Latest,
+                ExtPredefined::Safe,
+                ExtPredefined::Finalized,
+            ] {
+                tests.push(RpcTest::identity(
+                    EthCallV2::request_with_alias(
+                        (msg.clone(), ExtBlockNumberOrHash::PredefinedBlock(tag)),
+                        use_alias,
+                    )
+                    .unwrap(),
+                ));
+            }
         }
 
         let cases = [
@@ -1530,28 +1546,38 @@ fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
         include_str!("./contracts/uninitialized_fn_err/uninitialized_fn_err.hex"),
     ];
 
-    contract_codes
-        .iter()
-        .map(|&contract_hex| {
-            let contract_code =
-                EthBytes::from_str(contract_hex).expect("Contract bytecode should be valid hex");
+    let mut tests = Vec::new();
 
-            let zero_address = EthAddress::from_str(ZERO_ADDRESS).unwrap();
-            // Setting the `EthCallMessage` `to` field to null will deploy the contract.
-            let eth_call_request = EthCall::request((
-                EthCallMessage {
-                    from: Some(zero_address),
-                    data: Some(contract_code),
-                    ..EthCallMessage::default()
-                },
-                BlockNumberOrHash::from_block_number(epoch),
-            ))
-            .unwrap();
+    for &contract_hex in &contract_codes {
+        let contract_code =
+            EthBytes::from_str(contract_hex).expect("Contract bytecode should be valid hex");
 
+        let zero_address = EthAddress::from_str(ZERO_ADDRESS).unwrap();
+        // Setting the `EthCallMessage` `to` field to null will deploy the contract.
+        let msg = EthCallMessage {
+            from: Some(zero_address),
+            data: Some(contract_code),
+            ..EthCallMessage::default()
+        };
+
+        let eth_call_request =
+            EthCall::request((msg.clone(), BlockNumberOrHash::from_block_number(epoch))).unwrap();
+
+        tests.push(
             RpcTest::identity(eth_call_request)
-                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError)
-        })
-        .collect()
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        );
+
+        let eth_call_v2_request =
+            EthCallV2::request((msg, ExtBlockNumberOrHash::from_block_number(epoch))).unwrap();
+
+        tests.push(
+            RpcTest::identity(eth_call_v2_request)
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        );
+    }
+
+    tests
 }
 
 fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {
@@ -1613,6 +1639,77 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_block_hash_object(block_hash.clone(), false),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Earliest),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::basic(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Pending),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetBalanceV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
             ))
             .unwrap(),
         ),
@@ -1732,6 +1829,49 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Earliest),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::basic(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Pending),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetTransactionCountV2::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetStorageAt::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
@@ -1818,6 +1958,63 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthFeeHistory::request((
                 10.into(),
                 BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Finalized),
+                Some(vec![10., 50., 90.]),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                None,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                Some(vec![10., 50., 90.]),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Earliest),
+                None,
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::basic(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Pending),
+                Some(vec![10., 50., 90.]),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
+                None,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),
+                None,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthFeeHistoryV2::request((
+                10.into(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
                 Some(vec![10., 50., 90.]),
             ))
             .unwrap(),
@@ -2018,16 +2215,31 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 ))
                 .unwrap(),
             )]);
-            if let Ok(eth_to_addr) = msg.to.try_into() {
+            if let Ok(eth_to_addr) = EthAddress::try_from(msg.to) {
                 tests.extend([RpcTest::identity(
                     EthEstimateGas::request((
+                        EthCallMessage {
+                            to: Some(eth_to_addr.clone()),
+                            value: Some(msg.value.clone().into()),
+                            data: Some(msg.params.clone().into()),
+                            ..Default::default()
+                        },
+                        Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
+                    ))
+                    .unwrap(),
+                )
+                .policy_on_rejected(PolicyOnRejected::Pass)]);
+                tests.extend([RpcTest::identity(
+                    EthEstimateGasV2::request((
                         EthCallMessage {
                             to: Some(eth_to_addr),
                             value: Some(msg.value.clone().into()),
                             data: Some(msg.params.clone().into()),
                             ..Default::default()
                         },
-                        Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
+                        Some(ExtBlockNumberOrHash::BlockNumber(
+                            shared_tipset.epoch().into(),
+                        )),
                     ))
                     .unwrap(),
                 )

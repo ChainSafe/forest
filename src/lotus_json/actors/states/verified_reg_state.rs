@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -6,7 +6,7 @@ use crate::shim::actors::verifreg::State;
 use crate::shim::address::Address;
 use ::cid::Cid;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "VerifiedRegistryState")]
 pub struct VerifiedRegistryStateLotusJson {
@@ -23,18 +23,30 @@ pub struct VerifiedRegistryStateLotusJson {
     pub remove_data_cap_proposal_ids: Cid,
 
     #[schemars(with = "LotusJson<Option<Cid>>")]
-    #[serde(with = "crate::lotus_json", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        with = "crate::lotus_json",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub verified_clients: Option<Cid>, // only available in verified reg state version 8
 
     #[schemars(with = "LotusJson<Option<Cid>>")]
-    #[serde(with = "crate::lotus_json", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        with = "crate::lotus_json",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub allocations: Option<Cid>, // not available in verified reg state version 8
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_allocation_id: Option<u64>, // not available in verified reg state version 8
 
     #[schemars(with = "LotusJson<Option<Cid>>")]
-    #[serde(with = "crate::lotus_json", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        with = "crate::lotus_json",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub claims: Option<Cid>, // not available in verified reg state version 8
 }
 
@@ -78,7 +90,7 @@ impl HasLotusJson for State {
                 "RemoveDataCapProposalIDs": {"/":"baeaaaaa"},
                 "Allocations": {"/":"baeaaaaa"},
                 "NextAllocationId": 0,
-                "Claims": {"/":"baeaaaaa"}
+                "Claims": {"/":"baeaaaaa"},
             }),
             State::default_latest_version(
                 Address::new_id(0).into(),
@@ -126,3 +138,4 @@ impl HasLotusJson for State {
         )
     }
 }
+crate::test_snapshots!(State);

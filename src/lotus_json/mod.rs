@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! In the Filecoin ecosystem, there are TWO different ways to present a domain object:
@@ -247,6 +247,16 @@ pub use vec::*;
 
 #[macro_export]
 macro_rules! test_snapshots {
+    ($ty:ty) => {
+        pastey::paste! {
+            #[test]
+            fn [<snapshots_ $ty:snake>]() {
+                use super::*;
+                assert_all_snapshots::<$ty>();
+            }
+        }
+    };
+
     ($module:path: $ty:ident: $($version:literal),+ $(,)?) => {
         $(
             pastey::paste! {
@@ -275,7 +285,8 @@ macro_rules! test_snapshots {
 #[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()
 where
-    T: HasLotusJson + PartialEq + std::fmt::Debug + Clone,
+    T: HasLotusJson,
+    <T as HasLotusJson>::LotusJson: PartialEq + std::fmt::Debug,
 {
     let snapshots = T::snapshots();
     assert!(!snapshots.is_empty());
@@ -287,10 +298,12 @@ where
 #[cfg(test)]
 pub fn assert_one_snapshot<T>(lotus_json: serde_json::Value, val: T)
 where
-    T: HasLotusJson + PartialEq + std::fmt::Debug + Clone,
+    T: HasLotusJson,
+    <T as HasLotusJson>::LotusJson: PartialEq + std::fmt::Debug,
 {
-    // T -> T::LotusJson -> lotus_json
-    let serialized = val.clone().into_lotus_json_value().unwrap();
+    // T -> T::LotusJson -> lotus_json (Do not clone T as some external types do not implement Clone)
+    let val_lotus_json = val.into_lotus_json();
+    let serialized = serde_json::to_value(&val_lotus_json).unwrap();
     assert_eq!(
         serialized.to_string(),
         lotus_json.to_string(),
@@ -298,16 +311,17 @@ where
         std::any::type_name::<T>()
     );
 
-    // lotus_json -> T::LotusJson -> T
+    // lotus_json -> T::LotusJson -> T -> T::LotusJson
+    //( Not comparing T because external types may not implement `Eq` and `PartialEq`)
     let deserialized = match serde_json::from_value::<T::LotusJson>(lotus_json.clone()) {
-        Ok(lotus_json) => T::from_lotus_json(lotus_json),
+        Ok(lotus_json) => T::from_lotus_json(lotus_json).into_lotus_json(),
         Err(e) => panic!(
             "couldn't deserialize a {} from {}: {e}",
             std::any::type_name::<T::LotusJson>(),
             lotus_json
         ),
     };
-    assert_eq!(deserialized, val);
+    assert_eq!(deserialized, val_lotus_json);
 }
 
 #[cfg(any(test, doc))]

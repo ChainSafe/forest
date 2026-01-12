@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::net::global_http_client;
@@ -85,7 +85,7 @@ async fn test_state_migration(
         retry(
             RetryArgs {
                 timeout: Some(timeout),
-                max_retries: Some(5),
+                max_retries: Some(15),
                 ..Default::default()
             },
             || async {

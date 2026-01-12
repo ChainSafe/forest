@@ -1,6 +1,7 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::MinerActorStateLoad as _;
 use crate::shim::actors::miner;
 use crate::shim::{
     actors::{is_account_actor, is_ethaccount_actor, is_placeholder_actor},
@@ -10,16 +11,13 @@ use crate::shim::{
     state_tree::ActorState,
     version::NetworkVersion,
 };
+use crate::state_manager::{StateManager, errors::*};
 use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
 use fil_actors_shared::filecoin_proofs_api::post;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
-
-use crate::state_manager::{StateManager, errors::*};
-
-use super::MinerActorStateLoad as _;
 
 impl<DB> StateManager<DB>
 where
@@ -178,6 +176,122 @@ fn generate_winning_post_sector_challenge(
         eligible_sector_count,
         prover_id_from_u64(prover_id),
     )
+}
+
+#[cfg(any(test, feature = "benchmark-private"))]
+pub mod state_compute {
+    use crate::{
+        blocks::Tipset,
+        chain::store::ChainStore,
+        db::{
+            MemoryDB,
+            car::{AnyCar, ManyCar},
+        },
+        genesis::read_genesis_header,
+        interpreter::VMTrace,
+        networks::{ChainConfig, NetworkChain},
+        state_manager::StateManager,
+        utils::net::{DownloadFileOption, download_file_with_cache},
+    };
+    use directories::ProjectDirs;
+    use std::{
+        path::{Path, PathBuf},
+        sync::{Arc, LazyLock},
+        time::Duration,
+    };
+    use url::Url;
+
+    static SNAPSHOT_CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+        let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest");
+        project_dir
+            .map(|d| d.cache_dir().to_path_buf())
+            .unwrap_or_else(std::env::temp_dir)
+            .join("state_compute_snapshots")
+    });
+
+    pub async fn get_state_compute_snapshot(
+        chain: &NetworkChain,
+        epoch: i64,
+    ) -> anyhow::Result<PathBuf> {
+        let url = Url::parse(&format!(
+            "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/state_compute/{chain}_{epoch}.forest.car.zst"
+        ))?;
+        Ok(crate::utils::retry(
+            crate::utils::RetryArgs {
+                timeout: Some(Duration::from_secs(30)),
+                max_retries: Some(5),
+                delay: Some(Duration::from_secs(1)),
+            },
+            || {
+                download_file_with_cache(
+                    &url,
+                    &SNAPSHOT_CACHE_DIR,
+                    DownloadFileOption::NonResumable,
+                )
+            },
+        )
+        .await?
+        .path)
+    }
+
+    pub async fn prepare_state_compute(
+        chain: &NetworkChain,
+        snapshot: &Path,
+        warmup: bool,
+    ) -> anyhow::Result<(Arc<StateManager<ManyCar>>, Tipset)> {
+        let snap_car = AnyCar::try_from(snapshot)?;
+        let ts = snap_car.heaviest_tipset()?;
+        let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(snap_car)?);
+        let chain_config = Arc::new(ChainConfig::from_chain(chain));
+        let genesis_header =
+            read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
+                .await?;
+        let chain_store = Arc::new(ChainStore::new(
+            db.clone(),
+            db.clone(),
+            db.clone(),
+            db.clone(),
+            chain_config,
+            genesis_header,
+        )?);
+        let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
+        if warmup {
+            state_compute(state_manager.clone(), ts.clone()).await;
+        }
+        Ok((state_manager, ts))
+    }
+
+    pub async fn state_compute(state_manager: Arc<StateManager<ManyCar>>, ts: Tipset) {
+        state_manager
+            .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
+            .await
+            .unwrap();
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 3111900).await.unwrap();
+            let (sm, ts) = prepare_state_compute(&chain, &snapshot, false)
+                .await
+                .unwrap();
+            state_compute(sm, ts).await;
+        }
+
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_mainnet() {
+            let chain = NetworkChain::Mainnet;
+            let snapshot = get_state_compute_snapshot(&chain, 5427431).await.unwrap();
+            let (sm, ts) = prepare_state_compute(&chain, &snapshot, false)
+                .await
+                .unwrap();
+            state_compute(sm, ts).await;
+        }
+    }
 }
 
 #[cfg(test)]

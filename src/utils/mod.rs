@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod cache;
@@ -20,13 +20,9 @@ pub mod stream;
 pub mod version;
 
 use anyhow::{Context as _, bail};
-use futures::{
-    Future, FutureExt,
-    future::{FusedFuture, pending},
-    select,
-};
+use futures::Future;
 use multiaddr::{Multiaddr, Protocol};
-use std::{pin::Pin, str::FromStr, time::Duration};
+use std::{str::FromStr, time::Duration};
 use tokio::time::sleep;
 use tracing::error;
 use url::Url;
@@ -125,29 +121,26 @@ where
     F: Future<Output = Result<T, E>>,
     E: std::fmt::Debug,
 {
-    let mut timeout: Pin<Box<dyn FusedFuture<Output = ()>>> = match args.timeout {
-        Some(duration) => Box::pin(sleep(duration).fuse()),
-        None => Box::pin(pending()),
-    };
     let max_retries = args.max_retries.unwrap_or(usize::MAX);
-    let mut task = Box::pin(
-        async {
-            for _ in 0..max_retries {
-                match make_fut().await {
-                    Ok(ok) => return Ok(ok),
-                    Err(err) => error!("retrying operation after {err:?}"),
-                }
-                if let Some(delay) = args.delay {
-                    sleep(delay).await;
-                }
+    let task = async {
+        for _ in 0..max_retries {
+            match make_fut().await {
+                Ok(ok) => return Ok(ok),
+                Err(err) => error!("retrying operation after {err:?}"),
             }
-            Err(RetryError::RetriesExceeded)
+            if let Some(delay) = args.delay {
+                sleep(delay).await;
+            }
         }
-        .fuse(),
-    );
-    select! {
-        _ = timeout => Err(RetryError::TimeoutExceeded),
-        res = task => res,
+        Err(RetryError::RetriesExceeded)
+    };
+
+    if let Some(timeout) = args.timeout {
+        tokio::time::timeout(timeout, task)
+            .await
+            .map_err(|_| RetryError::TimeoutExceeded)?
+    } else {
+        task.await
     }
 }
 
@@ -187,6 +180,7 @@ mod tests {
     mod files;
 
     use RetryError::{RetriesExceeded, TimeoutExceeded};
+    use futures::future::pending;
     use std::{future::ready, sync::atomic::AtomicUsize};
 
     use super::*;

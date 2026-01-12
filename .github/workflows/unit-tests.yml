@@ -28,36 +28,29 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
+  AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+  AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
   RUSTC_WRAPPER: "sccache"
   CC: "sccache clang"
   CXX: "sccache clang++"
+  FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
+  RUST_LOG: error
 
 jobs:
-  tests:
-    runs-on: ubuntu-24.04-arm
-    # Run the job only if the PR is not a draft.
-    # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
-    timeout-minutes: 45
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.work"
-      - name: install nextest
-        uses: taiki-e/install-action@nextest
-      - run: make test
   tests-release:
     runs-on: ubuntu-24.04-arm
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
     steps:
+      - name: Configure SCCache variables
+        run: |
+          # External PRs do not have access to 'vars' or 'secrets'.
+          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
+            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
+            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
+            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+          fi
       # find the nearest S3 space for storing cache files
       - name: Show IP
         run: curl ifconfig.me
@@ -80,10 +73,17 @@ jobs:
           go-version-file: "go.work"
       - name: install nextest
         uses: taiki-e/install-action@nextest
-      - run: make test-release
+      - name: Fetch proof params and RPC test snapshots
+        run: |
+          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-rpc-tests
+          ls -ahl $FIL_PROOFS_PARAMETER_CACHE
+      - uses: jdx/mise-action@v3
+      - run: |
+          mise test release
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+          FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
       - id: get-cache-hash
         run: |
           ls -lhR ~/.cache/forest/test/rpc-snapshots/rpc_test/*

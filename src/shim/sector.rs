@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::version::NetworkVersion;
@@ -226,7 +226,7 @@ impl quickcheck::Arbitrary for ExtendedSectorInfo {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, derive_more::Into)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Eq, PartialEq, derive_more::Into)]
 pub struct RegisteredPoStProof(RegisteredPoStProofV4);
 
 #[cfg(test)]

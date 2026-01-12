@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -11,7 +11,7 @@ use crate::shim::crypto::SignatureType;
 // and
 // https://github.com/filecoin-project/lotus/blob/7bb1f98ac6f5a6da2cc79afc26d8cd9fe323eb30/chain/types/keystore.go#L47
 
-#[derive(Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(untagged)] // try an int, then a string
 pub enum SignatureTypeLotusJson {
     Integer(#[schemars(with = "u8")] SignatureType),
@@ -67,77 +67,92 @@ pub enum SignatureTypeV4LotusJson {
     Integer(#[schemars(with = "u8")] fvm_shared4::crypto::signature::SignatureType),
 }
 
-impl HasLotusJson for fvm_shared2::crypto::signature::SignatureType {
-    type LotusJson = SignatureTypeV2LotusJson;
+mod signature2 {
+    use super::*;
+    use fvm_shared2::crypto::signature::SignatureType;
+    impl HasLotusJson for SignatureType {
+        type LotusJson = SignatureTypeV2LotusJson;
 
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![
-            (
-                json!(1),
-                fvm_shared2::crypto::signature::SignatureType::Secp256k1,
-            ),
-            (json!(2), fvm_shared2::crypto::signature::SignatureType::BLS),
-        ]
-    }
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![
+                (
+                    json!(1),
+                    Self::Secp256k1,
+                ),
+                (json!(2), Self::BLS),
+            ]
+        }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        SignatureTypeV2LotusJson::Integer(self)
-    }
+        fn into_lotus_json(self) -> Self::LotusJson {
+            SignatureTypeV2LotusJson::Integer(self)
+        }
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        match lotus_json {
-            SignatureTypeV2LotusJson::Integer(inner) => inner,
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            match lotus_json {
+                SignatureTypeV2LotusJson::Integer(inner) => inner,
+            }
         }
     }
+    crate::test_snapshots!(SignatureType);
 }
 
-impl HasLotusJson for fvm_shared3::crypto::signature::SignatureType {
-    type LotusJson = SignatureTypeV3LotusJson;
+mod signature3 {
+    use super::*;
+    use fvm_shared3::crypto::signature::SignatureType;
+    impl HasLotusJson for SignatureType {
+        type LotusJson = SignatureTypeV3LotusJson;
 
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![
-            (
-                json!(1),
-                fvm_shared3::crypto::signature::SignatureType::Secp256k1,
-            ),
-            (json!(2), fvm_shared3::crypto::signature::SignatureType::BLS),
-        ]
-    }
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![
+                (
+                    json!(1),
+                    Self::Secp256k1,
+                ),
+                (json!(2), Self::BLS),
+            ]
+        }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        SignatureTypeV3LotusJson::Integer(self)
-    }
+        fn into_lotus_json(self) -> Self::LotusJson {
+            SignatureTypeV3LotusJson::Integer(self)
+        }
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        match lotus_json {
-            SignatureTypeV3LotusJson::Integer(inner) => inner,
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            match lotus_json {
+                SignatureTypeV3LotusJson::Integer(inner) => inner,
+            }
         }
     }
+    crate::test_snapshots!(SignatureType);
 }
 
-impl HasLotusJson for fvm_shared4::crypto::signature::SignatureType {
-    type LotusJson = SignatureTypeV4LotusJson;
+mod signature4 {
+    use super::*;
+    use fvm_shared4::crypto::signature::SignatureType;
+    impl HasLotusJson for SignatureType {
+        type LotusJson = SignatureTypeV4LotusJson;
 
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![
-            (
-                json!(1),
-                fvm_shared4::crypto::signature::SignatureType::Secp256k1,
-            ),
-            (json!(2), fvm_shared4::crypto::signature::SignatureType::BLS),
-        ]
-    }
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![
+                (
+                    json!(1),
+                    Self::Secp256k1,
+                ),
+                (json!(2), Self::BLS),
+            ]
+        }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        SignatureTypeV4LotusJson::Integer(self)
-    }
+        fn into_lotus_json(self) -> Self::LotusJson {
+            SignatureTypeV4LotusJson::Integer(self)
+        }
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        match lotus_json {
-            SignatureTypeV4LotusJson::Integer(inner) => inner,
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            match lotus_json {
+                SignatureTypeV4LotusJson::Integer(inner) => inner,
+            }
         }
     }
+    crate::test_snapshots!(SignatureType);
 }

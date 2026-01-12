@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -22,7 +22,30 @@ impl HasLotusJson for MinerPower {
     type LotusJson = MinerPowerLotusJson;
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        unimplemented!("see commented-out test, below")
+        vec![(
+            json!({
+                "MinerPower": {
+                    "RawBytePower": "1",
+                    "QualityAdjPower": "2",
+                },
+                "TotalPower": {
+                    "RawBytePower": "3",
+                    "QualityAdjPower": "4",
+                },
+                "HasMinPower": true,
+            }),
+            Self {
+                miner_power: Claim {
+                    raw_byte_power: 1.into(),
+                    quality_adj_power: 2.into(),
+                },
+                total_power: Claim {
+                    raw_byte_power: 3.into(),
+                    quality_adj_power: 4.into(),
+                },
+                has_min_power: true,
+            },
+        )]
     }
     fn into_lotus_json(self) -> Self::LotusJson {
         MinerPowerLotusJson {
@@ -39,9 +62,4 @@ impl HasLotusJson for MinerPower {
         }
     }
 }
-
-// MinerPower: !Debug
-// #[test]
-// fn snapshots() {
-//     assert_all_snapshots::<MinerPower>();
-// }
+crate::test_snapshots!(MinerPower);

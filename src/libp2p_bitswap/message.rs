@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::bitswap_pb::mod_Message::{BlockPresenceType, Wantlist, mod_Wantlist::WantType};

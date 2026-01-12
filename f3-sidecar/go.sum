@@ -33,8 +33,8 @@ github.com/filecoin-project/go-clock v0.1.0 h1:SFbYIM75M8NnFm1yMHhN9Ahy3W5bEZV9g
 github.com/filecoin-project/go-clock v0.1.0/go.mod h1:4uB/O4PvOjlx1VCMdZ9MyDZXRm//gkj1ELEbxfI1AZs=
 github.com/filecoin-project/go-f3 v0.8.10 h1:Mm+daAn9EKqTTDY3ICbPTR2i3Opjb4gr6Y7bJ8oCA84=
 github.com/filecoin-project/go-f3 v0.8.10/go.mod h1:hFvb2CMxHDmlJAVzfiIL/V8zCtNMQqfSnhP5TyM6CHI=
-github.com/filecoin-project/go-jsonrpc v0.9.0 h1:G47qEF52w7GholpI21vPSTVBFvsrip6geIoqNiqyZtQ=
-github.com/filecoin-project/go-jsonrpc v0.9.0/go.mod h1:OG7kVBVh/AbDFHIwx7Kw0l9ARmKOS6gGOr0LbdBpbLc=
+github.com/filecoin-project/go-jsonrpc v0.10.0 h1:gZc1thGVD5Khg5Gp1UJibRWZrnNBEP1iFrGOTn0w5TE=
+github.com/filecoin-project/go-jsonrpc v0.10.0/go.mod h1:OG7kVBVh/AbDFHIwx7Kw0l9ARmKOS6gGOr0LbdBpbLc=
 github.com/filecoin-project/go-state-types v0.17.0 h1:HpBb6G+VSOOI6rQFSnvPVyRsnms8je94cwvU69DJ+9Y=
 github.com/filecoin-project/go-state-types v0.17.0/go.mod h1:em4yo9mglrdyHbcsxelHCSKMjLdJLddLERWQe6J8vYc=
 github.com/flynn/noise v1.1.0 h1:KjPQoQCEFdZDiP03phOvGi11+SVVhBG2wOWAorLsstg=

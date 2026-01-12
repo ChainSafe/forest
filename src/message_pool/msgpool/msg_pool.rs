@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // Contains the implementation of Message Pool component.
@@ -22,7 +22,7 @@ use crate::shim::{
     econ::TokenAmount,
     gas::{Gas, price_list_by_network_version},
 };
-use crate::state_manager::is_valid_for_sending;
+use crate::state_manager::utils::is_valid_for_sending;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};

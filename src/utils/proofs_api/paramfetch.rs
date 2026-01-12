@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! This module contains the logic for fetching the proofs parameters from the network.
 //! As a general rule, the parameters are first fetched from ChainSafe's Cloudflare R2 bucket, if
@@ -10,7 +10,7 @@
 use std::{
     io::{self, ErrorKind},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, LazyLock},
 };
 
 use crate::{
@@ -23,7 +23,10 @@ use crate::{
 use anyhow::{Context, bail};
 use backon::{ExponentialBuilder, Retryable};
 use futures::{AsyncWriteExt, TryStreamExt, stream::FuturesUnordered};
-use tokio::fs::{self};
+use tokio::{
+    fs::{self},
+    sync::Mutex,
+};
 use tracing::{debug, info, warn};
 
 use super::parameters::{
@@ -57,12 +60,24 @@ pub enum SectorSizeOpt {
 
 /// Ensures the parameter files are downloaded to cache dir
 pub async fn ensure_proof_params_downloaded() -> anyhow::Result<()> {
+    #[cfg(test)]
+    if is_env_truthy("FOREST_TEST_SKIP_PROOF_PARAM_CHECK") {
+        return Ok(());
+    }
+
     let data_dir = std::env::var(PROOFS_PARAMETER_CACHE_ENV).unwrap_or_default();
     if data_dir.is_empty() {
         anyhow::bail!("Proof parameter data dir is not set");
     }
-    get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys, false).await?;
-    Ok(())
+    static RUN_ONCE: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
+    let mut run_once = RUN_ONCE.lock().await;
+    if *run_once {
+        Ok(())
+    } else {
+        get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys, false).await?;
+        *run_once = true;
+        Ok(())
+    }
 }
 
 /// Get proofs parameters and all verification keys for a given sector size

@@ -1,11 +1,11 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::shim::{actors::account, address::Address};
+use crate::shim::{actors::account::State, address::Address};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct AccountStateLotusJson {
     #[schemars(with = "LotusJson<Address>")]
@@ -13,7 +13,7 @@ pub struct AccountStateLotusJson {
     address: Address,
 }
 
-impl HasLotusJson for account::State {
+impl HasLotusJson for State {
     type LotusJson = AccountStateLotusJson;
 
     #[cfg(test)]
@@ -38,3 +38,4 @@ impl HasLotusJson for account::State {
         Self::default_latest_version(lotus_json.address.into())
     }
 }
+crate::test_snapshots!(State);

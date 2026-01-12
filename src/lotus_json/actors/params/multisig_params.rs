@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -120,42 +120,51 @@ macro_rules! impl_multisig_constructor_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_multisig_state::[<v $version>]::ConstructorParams {
-                    type LotusJson = ConstructorParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Signers": ["f01234", "f01235"],
-                                "NumApprovalsThreshold": 2,
-                                "UnlockDuration": 100,
-                                "StartEpoch": 0,
-                            }),
-                            Self {
-                                signers: vec![Address::new_id(1234).into(), Address::new_id(1235).into()],
-                                num_approvals_threshold: 2,
-                                unlock_duration: 100,
-                                start_epoch: 0,
-                            },
-                        )]
+                mod [<impl_multisig_constructor_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_multisig_state::[<v $version>]::ConstructorParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        ConstructorParamsLotusJson {
-                            signers: self.signers.into_iter().map(|a| a.into()).collect(),
-                            num_approvals_threshold: self.num_approvals_threshold,
-                            unlock_duration: self.unlock_duration,
-                            start_epoch: self.start_epoch,
+                    impl HasLotusJson for T {
+                        type LotusJson = ConstructorParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Signers": ["f01234", "f01235"],
+                                    "NumApprovalsThreshold": 2,
+                                    "UnlockDuration": 100,
+                                    "StartEpoch": 0,
+                                }),
+                                Self {
+                                    signers: vec![Address::new_id(1234).into(), Address::new_id(1235).into()],
+                                    num_approvals_threshold: 2,
+                                    unlock_duration: 100,
+                                    start_epoch: 0,
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            signers: lotus_json.signers.into_iter().map(|a| a.into()).collect(),
-                            num_approvals_threshold: lotus_json.num_approvals_threshold,
-                            unlock_duration: lotus_json.unlock_duration,
-                            start_epoch: lotus_json.start_epoch,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ConstructorParamsLotusJson {
+                                signers: self.signers.into_iter().map(|a| a.into()).collect(),
+                                num_approvals_threshold: self.num_approvals_threshold,
+                                unlock_duration: self.unlock_duration,
+                                start_epoch: self.start_epoch,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                signers: lotus_json.signers.into_iter().map(|a| a.into()).collect(),
+                                num_approvals_threshold: lotus_json.num_approvals_threshold,
+                                unlock_duration: lotus_json.unlock_duration,
+                                start_epoch: lotus_json.start_epoch,
+                            }
                         }
                     }
                 }
@@ -169,42 +178,51 @@ macro_rules! impl_multisig_propose_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_multisig_state::[<v $version>]::ProposeParams {
-                    type LotusJson = ProposeParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "To": "f01234",
-                                "Value": "1000000000000000000",
-                                "Method": 0,
-                                "Params": "Ynl0ZSBhcnJheQ==",
-                            }),
-                            Self {
-                                to: Address::new_id(1234).into(),
-                                value: TokenAmount::from_atto(1000000000000000000u64).into(),
-                                method: 0,
-                                params: RawBytes::new(b"byte array".to_vec()),
-                            },
-                        )]
+                mod [<impl_multisig_propose_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_multisig_state::[<v $version>]::ProposeParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        ProposeParamsLotusJson {
-                            to: self.to.into(),
-                            value: self.value.into(),
-                            method: self.method,
-                            params: self.params,
+                    impl HasLotusJson for T {
+                        type LotusJson = ProposeParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "To": "f01234",
+                                    "Value": "1000000000000000000",
+                                    "Method": 0,
+                                    "Params": "Ynl0ZSBhcnJheQ==",
+                                }),
+                                Self {
+                                    to: Address::new_id(1234).into(),
+                                    value: TokenAmount::from_atto(1000000000000000000u64).into(),
+                                    method: 0,
+                                    params: RawBytes::new(b"byte array".to_vec()),
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            to: lotus_json.to.into(),
-                            value: lotus_json.value.into(),
-                            method: lotus_json.method,
-                            params: lotus_json.params,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ProposeParamsLotusJson {
+                                to: self.to.into(),
+                                value: self.value.into(),
+                                method: self.method,
+                                params: self.params,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                to: lotus_json.to.into(),
+                                value: lotus_json.value.into(),
+                                method: lotus_json.method,
+                                params: lotus_json.params,
+                            }
                         }
                     }
                 }
@@ -218,34 +236,43 @@ macro_rules! impl_multisig_txn_id_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_multisig_state::[<v $version>]::TxnIDParams {
-                    type LotusJson = TxnIDParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "ID": 1234,
-                                "ProposalHash": "YWJjZGVmZ2g=",
-                            }),
-                            Self {
-                                id: fil_actor_multisig_state::[<v $version>]::TxnID(1234),
-                                proposal_hash: b"abcdefgh".to_vec(),
-                            },
-                        )]
+                mod [<impl_multisig_txn_id_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_multisig_state::[<v $version>]::TxnIDParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        TxnIDParamsLotusJson {
-                            id: self.id.0,
-                            proposal_hash: self.proposal_hash,
+                    impl HasLotusJson for T {
+                        type LotusJson = TxnIDParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "ID": 1234,
+                                    "ProposalHash": "YWJjZGVmZ2g=",
+                                }),
+                                Self {
+                                    id: fil_actor_multisig_state::[<v $version>]::TxnID(1234),
+                                    proposal_hash: b"abcdefgh".to_vec(),
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            id: fil_actor_multisig_state::[<v $version>]::TxnID(lotus_json.id),
-                            proposal_hash: lotus_json.proposal_hash,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            TxnIDParamsLotusJson {
+                                id: self.id.0,
+                                proposal_hash: self.proposal_hash,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                id: fil_actor_multisig_state::[<v $version>]::TxnID(lotus_json.id),
+                                proposal_hash: lotus_json.proposal_hash,
+                            }
                         }
                     }
                 }
@@ -259,34 +286,43 @@ macro_rules! impl_multisig_add_signer_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_multisig_state::[<v $version>]::AddSignerParams {
-                    type LotusJson = AddSignerParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Signer": "f01234",
-                                "Increase": true,
-                            }),
-                            Self {
-                                signer: Address::new_id(1234).into(),
-                                increase: true,
-                            },
-                        )]
+                mod [<impl_multisig_add_signer_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_multisig_state::[<v $version>]::AddSignerParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        AddSignerParamsLotusJson {
-                            signer: self.signer.into(),
-                            increase: self.increase,
+                    impl HasLotusJson for T {
+                        type LotusJson = AddSignerParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Signer": "f01234",
+                                    "Increase": true,
+                                }),
+                                Self {
+                                    signer: Address::new_id(1234).into(),
+                                    increase: true,
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            signer: lotus_json.signer.into(),
-                            increase: lotus_json.increase,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            AddSignerParamsLotusJson {
+                                signer: self.signer.into(),
+                                increase: self.increase,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                signer: lotus_json.signer.into(),
+                                increase: lotus_json.increase,
+                            }
                         }
                     }
                 }
@@ -300,34 +336,43 @@ macro_rules! impl_multisig_remove_signer_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_multisig_state::[<v $version>]::RemoveSignerParams {
-                    type LotusJson = RemoveSignerParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "Signer": "f01234",
-                                "Decrease": false,
-                            }),
-                            Self {
-                                signer: Address::new_id(1234).into(),
-                                decrease: false,
-                            },
-                        )]
+                mod [<impl_multisig_remove_signer_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_multisig_state::[<v $version>]::RemoveSignerParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        RemoveSignerParamsLotusJson {
-                            signer: self.signer.into(),
-                            decrease: self.decrease,
+                    impl HasLotusJson for T {
+                        type LotusJson = RemoveSignerParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Signer": "f01234",
+                                    "Decrease": false,
+                                }),
+                                Self {
+                                    signer: Address::new_id(1234).into(),
+                                    decrease: false,
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            signer: lotus_json.signer.into(),
-                            decrease: lotus_json.decrease,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            RemoveSignerParamsLotusJson {
+                                signer: self.signer.into(),
+                                decrease: self.decrease,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                signer: lotus_json.signer.into(),
+                                decrease: lotus_json.decrease,
+                            }
                         }
                     }
                 }
@@ -341,34 +386,43 @@ macro_rules! impl_multisig_swap_signer_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_multisig_state::[<v $version>]::SwapSignerParams {
-                    type LotusJson = SwapSignerParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "From": "f01234",
-                                "To": "f01235",
-                            }),
-                            Self {
-                                from: Address::new_id(1234).into(),
-                                to: Address::new_id(1235).into(),
-                            },
-                        )]
+                mod [<impl_multisig_swap_signer_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_multisig_state::[<v $version>]::SwapSignerParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        SwapSignerParamsLotusJson {
-                            from: self.from.into(),
-                            to: self.to.into(),
+                    impl HasLotusJson for T {
+                        type LotusJson = SwapSignerParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "From": "f01234",
+                                    "To": "f01235",
+                                }),
+                                Self {
+                                    from: Address::new_id(1234).into(),
+                                    to: Address::new_id(1235).into(),
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            from: lotus_json.from.into(),
-                            to: lotus_json.to.into(),
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            SwapSignerParamsLotusJson {
+                                from: self.from.into(),
+                                to: self.to.into(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                from: lotus_json.from.into(),
+                                to: lotus_json.to.into(),
+                            }
                         }
                     }
                 }
@@ -382,28 +436,37 @@ macro_rules! impl_multisig_change_num_approvals_threshold_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_multisig_state::[<v $version>]::ChangeNumApprovalsThresholdParams {
-                    type LotusJson = ChangeNumApprovalsThresholdParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "NewThreshold": 3,
-                            }),
-                            Self { new_threshold: 3 },
-                        )]
+                mod [<impl_multisig_change_num_approvals_threshold_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_multisig_state::[<v $version>]::ChangeNumApprovalsThresholdParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        ChangeNumApprovalsThresholdParamsLotusJson {
-                            new_threshold: self.new_threshold,
+                    impl HasLotusJson for T {
+                        type LotusJson = ChangeNumApprovalsThresholdParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "NewThreshold": 3,
+                                }),
+                                Self { new_threshold: 3 },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            new_threshold: lotus_json.new_threshold,
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ChangeNumApprovalsThresholdParamsLotusJson {
+                                new_threshold: self.new_threshold,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                new_threshold: lotus_json.new_threshold,
+                            }
                         }
                     }
                 }
@@ -417,38 +480,47 @@ macro_rules! impl_multisig_lock_balance_params {
     ($($version:literal),+) => {
         $(
             paste! {
-                impl HasLotusJson for fil_actor_multisig_state::[<v $version>]::LockBalanceParams {
-                    type LotusJson = LockBalanceParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![(
-                            json!({
-                                "StartEpoch": 100,
-                                "UnlockDuration": 200,
-                                "Amount": "5000000000000000000",
-                            }),
-                            Self {
-                                start_epoch: 100,
-                                unlock_duration: 200,
-                                amount: TokenAmount::from_atto(5000000000000000000u64).into(),
-                            },
-                        )]
+                mod [<impl_multisig_lock_balance_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_multisig_state::[<v $version>]::LockBalanceParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        LockBalanceParamsLotusJson {
-                            start_epoch: self.start_epoch,
-                            unlock_duration: self.unlock_duration,
-                            amount: self.amount.into(),
+                    impl HasLotusJson for T {
+                        type LotusJson = LockBalanceParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "StartEpoch": 100,
+                                    "UnlockDuration": 200,
+                                    "Amount": "5000000000000000000",
+                                }),
+                                Self {
+                                    start_epoch: 100,
+                                    unlock_duration: 200,
+                                    amount: TokenAmount::from_atto(5000000000000000000u64).into(),
+                                },
+                            )]
                         }
-                    }
 
-                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                        Self {
-                            start_epoch: lotus_json.start_epoch,
-                            unlock_duration: lotus_json.unlock_duration,
-                            amount: lotus_json.amount.into(),
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            LockBalanceParamsLotusJson {
+                                start_epoch: self.start_epoch,
+                                unlock_duration: self.unlock_duration,
+                                amount: self.amount.into(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                start_epoch: lotus_json.start_epoch,
+                                unlock_duration: lotus_json.unlock_duration,
+                                amount: lotus_json.amount.into(),
+                            }
                         }
                     }
                 }

@@ -1,11 +1,11 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
 use crate::shim::{clock::ChainEpoch, econ::TokenAmount};
 use fil_actor_miner_state::v12::BeneficiaryTerm;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "BeneficiaryTerm")]
 pub struct BeneficiaryTermLotusJson {

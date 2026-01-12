@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
@@ -102,11 +102,15 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::FilecoinAddressToEthAddress);
         $callback!($crate::rpc::eth::EthBlockNumber);
         $callback!($crate::rpc::eth::EthCall);
+        $callback!($crate::rpc::eth::EthCallV2);
         $callback!($crate::rpc::eth::EthChainId);
         $callback!($crate::rpc::eth::EthEstimateGas);
+        $callback!($crate::rpc::eth::EthEstimateGasV2);
         $callback!($crate::rpc::eth::EthFeeHistory);
+        $callback!($crate::rpc::eth::EthFeeHistoryV2);
         $callback!($crate::rpc::eth::EthGasPrice);
         $callback!($crate::rpc::eth::EthGetBalance);
+        $callback!($crate::rpc::eth::EthGetBalanceV2);
         $callback!($crate::rpc::eth::EthGetBlockByHash);
         $callback!($crate::rpc::eth::EthGetBlockByNumber);
         $callback!($crate::rpc::eth::EthGetBlockReceipts);
@@ -122,6 +126,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetTransactionByHash);
         $callback!($crate::rpc::eth::EthGetTransactionByHashLimited);
         $callback!($crate::rpc::eth::EthGetTransactionCount);
+        $callback!($crate::rpc::eth::EthGetTransactionCountV2);
         $callback!($crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndex);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);

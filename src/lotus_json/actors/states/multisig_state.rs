@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -8,7 +8,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "MultisigState")]
 pub struct MultisigStateLotusJson {
@@ -45,7 +45,7 @@ impl HasLotusJson for State {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
-                "Signers": [],
+                "Signers": null,
                 "NumApprovalsThreshold": 0,
                 "NextTxnID": 0,
                 "InitialBalance": "0",
@@ -104,3 +104,4 @@ impl HasLotusJson for State {
         )
     }
 }
+crate::test_snapshots!(State);

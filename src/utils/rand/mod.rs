@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use rand::{CryptoRng, Rng, RngCore, SeedableRng as _};
@@ -35,6 +35,7 @@ fn forest_rng_internal(mode: ForestRngMode) -> impl Rng + CryptoRng {
     const ENV: &str = FIXED_RNG_SEED_ENV;
     if let Ok(v) = std::env::var(ENV) {
         if let Ok(seed) = v.parse() {
+            #[cfg(not(test))]
             tracing::warn!("[security] using test RNG with fixed seed {seed} set by {ENV}");
             return Either::Left(rand_chacha::ChaChaRng::seed_from_u64(seed));
         } else {

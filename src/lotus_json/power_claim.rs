@@ -1,11 +1,11 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::actors::power::Claim;
 
 use super::*;
 
-#[derive(Default, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "Claim")]
 pub struct ClaimLotusJson {

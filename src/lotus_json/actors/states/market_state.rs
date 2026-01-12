@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -7,7 +7,7 @@ use crate::shim::{clock::ChainEpoch, econ::TokenAmount};
 use ::cid::Cid;
 use fvm_shared4::deal::DealID;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "MarketState")]
 pub struct MarketStateLotusJson {
@@ -131,7 +131,7 @@ impl HasLotusJson for State {
                 "TotalClientLockedCollateral": "0",
                 "TotalProviderLockedCollateral": "0",
                 "TotalClientStorageFee": "0",
-                "PendingDealAllocationIDs": {"/":"baeaaaaa"},
+                "PendingDealAllocationIds": {"/":"baeaaaaa"},
                 "ProviderSectors": {"/":"baeaaaaa"}
             }),
             State::default_latest_version(
@@ -195,3 +195,4 @@ impl HasLotusJson for State {
         )
     }
 }
+crate::test_snapshots!(State);

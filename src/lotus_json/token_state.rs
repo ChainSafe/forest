@@ -1,11 +1,12 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::*;
 use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
 use fil_actors_shared::frc46_token::token;
+use token::state::TokenState;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "TokenState")]
 pub struct TokenStateLotusJson {
@@ -24,19 +25,19 @@ pub struct TokenStateLotusJson {
     pub hamt_bit_width: u32,
 }
 
-impl HasLotusJson for token::state::TokenState {
+impl HasLotusJson for TokenState {
     type LotusJson = TokenStateLotusJson;
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
-                "supply": "0",
-                "balances": {"/":"baeaaaaa"},
-                "allowances": {"/":"baeaaaaa"},
-                "hamt_bit_width": 0
+                "Supply": "0",
+                "Balances": {"/":"baeaaaaa"},
+                "Allowances": {"/":"baeaaaaa"},
+                "HamtBitWidth": 0
             }),
-            token::state::TokenState {
+            Self {
                 supply: TokenAmount::default().into(),
                 balances: Cid::default(),
                 allowances: Cid::default(),
@@ -63,3 +64,4 @@ impl HasLotusJson for token::state::TokenState {
         }
     }
 }
+crate::test_snapshots!(TokenState);

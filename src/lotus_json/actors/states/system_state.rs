@@ -1,11 +1,11 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
 use crate::shim::actors::system::State;
 use ::cid::Cid;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "SystemState")]
 pub struct SystemStateLotusJson {
@@ -50,3 +50,4 @@ impl HasLotusJson for State {
         State::default_latest_version(lotus_json.builtin_actors)
     }
 }
+crate::test_snapshots!(State);

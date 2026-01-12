@@ -1,11 +1,11 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
 use crate::shim::sector::{ExtendedSectorInfo, RegisteredSealProof};
 use ::cid::Cid;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "ExtendedSectorInfo")]
 pub struct ExtendedSectorInfoLotusJson {

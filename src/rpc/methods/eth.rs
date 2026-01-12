@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub(crate) mod errors;
@@ -33,6 +33,7 @@ use crate::rpc::eth::filter::{
 };
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::eth::utils::decode_revert_reason;
+use crate::rpc::methods::chain::ChainGetTipSetV2;
 use crate::rpc::state::ApiInvocResult;
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
@@ -62,7 +63,7 @@ use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
 use anyhow::{Context, Error, Result, anyhow, bail, ensure};
 use cid::Cid;
-use enumflags2::BitFlags;
+use enumflags2::{BitFlags, make_bitflags};
 use filter::{ParsedFilter, ParsedFilterTipsets};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
@@ -863,6 +864,8 @@ impl RpcMethod<2> for EthGetBalance {
     const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the balance of an Ethereum address at the specified block state");
 
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthBigInt;
@@ -871,16 +874,49 @@ impl RpcMethod<2> for EthGetBalance {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let fil_addr = address.to_filecoin_address()?;
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
-        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
-        let actor = state.get_required_actor(&fil_addr)?;
-        Ok(EthBigInt(actor.balance.atto().clone()))
+        let balance = eth_get_balance(&ctx, &address, &ts)?;
+        Ok(balance)
     }
+}
+
+pub enum EthGetBalanceV2 {}
+impl RpcMethod<2> for EthGetBalanceV2 {
+    const NAME: &'static str = "Filecoin.EthGetBalance";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBalance");
+    const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the balance of an Ethereum address at the specified block state");
+
+    type Params = (EthAddress, ExtBlockNumberOrHash);
+    type Ok = EthBigInt;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
+        let balance = eth_get_balance(&ctx, &address, &ts)?;
+        Ok(balance)
+    }
+}
+
+fn eth_get_balance<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    address: &EthAddress,
+    ts: &Tipset,
+) -> Result<EthBigInt> {
+    let fil_addr = address.to_filecoin_address()?;
+    let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+    let actor = state.get_required_actor(&fil_addr)?;
+    Ok(EthBigInt(actor.balance.atto().clone()))
 }
 
 fn get_tipset_from_hash<DB: Blockstore>(
@@ -900,6 +936,28 @@ fn resolve_predefined_tipset<DB: Blockstore>(
         Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
         Predefined::Pending => Ok(head),
         Predefined::Latest => Ok(chain.chain_index().load_required_tipset(head.parents())?),
+    }
+}
+
+async fn resolve_predefined_tipset_v2<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    head: Tipset,
+    tag: ExtPredefined,
+) -> anyhow::Result<Tipset> {
+    if let Ok(common) = Predefined::try_from(&tag) {
+        resolve_predefined_tipset(ctx.chain_store(), head, common)
+    } else {
+        match tag {
+            ExtPredefined::Safe => Ok(ChainGetTipSetV2::get_latest_safe_tipset(ctx).await?),
+            ExtPredefined::Finalized => Ok(ChainGetTipSetV2::get_latest_finalized_tipset(ctx)
+                .await?
+                .unwrap_or(ctx.chain_index().tipset_by_height(
+                    0,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?)),
+            _ => bail!("unknown block tag: {:?}", tag),
+        }
     }
 }
 
@@ -987,6 +1045,31 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             resolve_block_hash_tipset(chain, head, &block_hash, false, resolve)
         }
         BlockNumberOrHash::BlockHashObject(BlockHash {
+            block_hash,
+            require_canonical,
+        }) => resolve_block_hash_tipset(chain, head, &block_hash, require_canonical, resolve),
+    }
+}
+
+async fn tipset_by_block_number_or_hash_v2<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    block_param: ExtBlockNumberOrHash,
+    resolve: ResolveNullTipset,
+) -> anyhow::Result<Tipset> {
+    let chain = ctx.chain_store();
+    let head = chain.heaviest_tipset();
+    match block_param {
+        ExtBlockNumberOrHash::PredefinedBlock(predefined) => {
+            resolve_predefined_tipset_v2(ctx, head, predefined).await
+        }
+        ExtBlockNumberOrHash::BlockNumber(block_number)
+        | ExtBlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
+            resolve_block_number_tipset(chain, head, block_number, resolve)
+        }
+        ExtBlockNumberOrHash::BlockHash(block_hash) => {
+            resolve_block_hash_tipset(chain, head, &block_hash, false, resolve)
+        }
+        ExtBlockNumberOrHash::BlockHashObject(BlockHash {
             block_hash,
             require_canonical,
         }) => resolve_block_hash_tipset(chain, head, &block_hash, require_canonical, resolve),
@@ -1797,10 +1880,6 @@ impl RpcMethod<2> for EthEstimateGas {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let mut msg = Message::try_from(tx)?;
-        // Set the gas limit to the zero sentinel value, which makes
-        // gas estimation actually run.
-        msg.gas_limit = 0;
         let tipset = if let Some(block_param) = block_param {
             tipset_by_block_number_or_hash(
                 ctx.chain_store(),
@@ -1810,37 +1889,77 @@ impl RpcMethod<2> for EthEstimateGas {
         } else {
             ctx.chain_store().heaviest_tipset()
         };
+        eth_estimate_gas(&ctx, tx, tipset).await
+    }
+}
 
-        match gas::estimate_message_gas(&ctx, msg.clone(), None, tipset.key().clone().into()).await
-        {
-            Err(mut err) => {
-                // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
-                // it just returns an error. That means we can't get the revert reason.
-                //
-                // So we re-execute the message with EthCall (well, applyMessage which contains the
-                // guts of EthCall). This will give us an ethereum specific error with revert
-                // information.
-                msg.set_gas_limit(BLOCK_GAS_LIMIT);
-                if let Err(e) = apply_message(&ctx, Some(tipset), msg).await {
-                    // if the error is an execution reverted, return it directly
-                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
-                        matches!(eth_err, EthErrors::ExecutionReverted { .. })
-                    }) {
-                        return Err(e.into());
-                    }
+pub enum EthEstimateGasV2 {}
 
-                    err = e.into();
+impl RpcMethod<2> for EthEstimateGasV2 {
+    const NAME: &'static str = "Filecoin.EthEstimateGas";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_estimateGas");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthCallMessage, Option<ExtBlockNumberOrHash>);
+    type Ok = EthUint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = if let Some(block_param) = block_param {
+            tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+                .await?
+        } else {
+            ctx.chain_store().heaviest_tipset()
+        };
+        eth_estimate_gas(&ctx, tx, tipset).await
+    }
+}
+
+async fn eth_estimate_gas<DB>(
+    ctx: &Ctx<DB>,
+    tx: EthCallMessage,
+    tipset: Tipset,
+) -> Result<EthUint64, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let mut msg = Message::try_from(tx)?;
+    // Set the gas limit to the zero sentinel value, which makes
+    // gas estimation actually run.
+    msg.gas_limit = 0;
+
+    match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
+        Err(mut err) => {
+            // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
+            // it just returns an error. That means we can't get the revert reason.
+            //
+            // So we re-execute the message with EthCall (well, applyMessage which contains the
+            // guts of EthCall). This will give us an ethereum specific error with revert
+            // information.
+            msg.set_gas_limit(BLOCK_GAS_LIMIT);
+            if let Err(e) = apply_message(ctx, Some(tipset), msg).await {
+                // if the error is an execution reverted, return it directly
+                if e.downcast_ref::<EthErrors>()
+                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::ExecutionReverted { .. }))
+                {
+                    return Err(e.into());
                 }
 
-                Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+                err = e.into();
             }
-            Ok(gassed_msg) => {
-                log::info!("correct gassed_msg: do eth_gas_search {gassed_msg:?}");
-                let expected_gas =
-                    Self::eth_gas_search(&ctx, gassed_msg, &tipset.key().into()).await?;
-                log::info!("trying eth_gas search: {expected_gas}");
-                Ok(expected_gas.into())
-            }
+
+            Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+        }
+        Ok(gassed_msg) => {
+            log::info!("correct gassed_msg: do eth_gas_search {gassed_msg:?}");
+            let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
+            log::info!("trying eth_gas search: {expected_gas}");
+            Ok(expected_gas.into())
         }
     }
 }
@@ -1880,109 +1999,102 @@ where
     Ok(invoc_res)
 }
 
-impl EthEstimateGas {
-    pub async fn eth_gas_search<DB>(
-        data: &Ctx<DB>,
-        msg: Message,
-        tsk: &ApiTipsetKey,
-    ) -> anyhow::Result<u64>
-    where
-        DB: Blockstore + Send + Sync + 'static,
-    {
-        let (_invoc_res, apply_ret, prior_messages, ts) =
-            gas::GasEstimateGasLimit::estimate_call_with_gas(
-                data,
-                msg.clone(),
-                tsk,
-                VMTrace::Traced,
-            )
+pub async fn eth_gas_search<DB>(
+    data: &Ctx<DB>,
+    msg: Message,
+    tsk: &ApiTipsetKey,
+) -> anyhow::Result<u64>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let (_invoc_res, apply_ret, prior_messages, ts) =
+        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk, VMTrace::Traced)
             .await?;
-        if apply_ret.msg_receipt().exit_code().is_success() {
-            return Ok(msg.gas_limit());
-        }
-
-        let exec_trace = apply_ret.exec_trace();
-        let _expected_exit_code: ExitCode = fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS.into();
-        if exec_trace.iter().any(|t| {
-            matches!(
-                t,
-                &ExecutionEvent::CallReturn(CallReturn {
-                    exit_code: Some(_expected_exit_code),
-                    ..
-                })
-            )
-        }) {
-            let ret = Self::gas_search(data, &msg, &prior_messages, ts).await?;
-            Ok(((ret as f64) * data.mpool.config.gas_limit_overestimation) as u64)
-        } else {
-            anyhow::bail!(
-                "message execution failed: exit {}, reason: {}",
-                apply_ret.msg_receipt().exit_code(),
-                apply_ret.failure_info().unwrap_or_default(),
-            );
-        }
+    if apply_ret.msg_receipt().exit_code().is_success() {
+        return Ok(msg.gas_limit());
     }
 
-    /// `gas_search` does an exponential search to find a gas value to execute the
-    /// message with. It first finds a high gas limit that allows the message to execute
-    /// by doubling the previous gas limit until it succeeds then does a binary
-    /// search till it gets within a range of 1%
-    async fn gas_search<DB>(
+    let exec_trace = apply_ret.exec_trace();
+    let _expected_exit_code: ExitCode = fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS.into();
+    if exec_trace.iter().any(|t| {
+        matches!(
+            t,
+            &ExecutionEvent::CallReturn(CallReturn {
+                exit_code: Some(_expected_exit_code),
+                ..
+            })
+        )
+    }) {
+        let ret = gas_search(data, &msg, &prior_messages, ts).await?;
+        Ok(((ret as f64) * data.mpool.config.gas_limit_overestimation) as u64)
+    } else {
+        anyhow::bail!(
+            "message execution failed: exit {}, reason: {}",
+            apply_ret.msg_receipt().exit_code(),
+            apply_ret.failure_info().unwrap_or_default(),
+        );
+    }
+}
+
+/// `gas_search` does an exponential search to find a gas value to execute the
+/// message with. It first finds a high gas limit that allows the message to execute
+/// by doubling the previous gas limit until it succeeds then does a binary
+/// search till it gets within a range of 1%
+async fn gas_search<DB>(
+    data: &Ctx<DB>,
+    msg: &Message,
+    prior_messages: &[ChainMessage],
+    ts: Tipset,
+) -> anyhow::Result<u64>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let mut high = msg.gas_limit;
+    let mut low = msg.gas_limit;
+
+    async fn can_succeed<DB>(
         data: &Ctx<DB>,
-        msg: &Message,
+        mut msg: Message,
         prior_messages: &[ChainMessage],
         ts: Tipset,
-    ) -> anyhow::Result<u64>
+        limit: u64,
+    ) -> anyhow::Result<bool>
     where
         DB: Blockstore + Send + Sync + 'static,
     {
-        let mut high = msg.gas_limit;
-        let mut low = msg.gas_limit;
-
-        async fn can_succeed<DB>(
-            data: &Ctx<DB>,
-            mut msg: Message,
-            prior_messages: &[ChainMessage],
-            ts: Tipset,
-            limit: u64,
-        ) -> anyhow::Result<bool>
-        where
-            DB: Blockstore + Send + Sync + 'static,
-        {
-            msg.gas_limit = limit;
-            let (_invoc_res, apply_ret, _) = data
-                .state_manager
-                .call_with_gas(
-                    &mut msg.into(),
-                    prior_messages,
-                    Some(ts),
-                    VMTrace::NotTraced,
-                )
-                .await?;
-            Ok(apply_ret.msg_receipt().exit_code().is_success())
-        }
-
-        while high <= BLOCK_GAS_LIMIT {
-            if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
-                break;
-            }
-            low = high;
-            high = high.saturating_mul(2).min(BLOCK_GAS_LIMIT);
-        }
-
-        let mut check_threshold = high / 100;
-        while (high - low) > check_threshold {
-            let median = (high + low) / 2;
-            if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
-                high = median;
-            } else {
-                low = median;
-            }
-            check_threshold = median / 100;
-        }
-
-        Ok(high)
+        msg.gas_limit = limit;
+        let (_invoc_res, apply_ret, _) = data
+            .state_manager
+            .call_with_gas(
+                &mut msg.into(),
+                prior_messages,
+                Some(ts),
+                VMTrace::NotTraced,
+            )
+            .await?;
+        Ok(apply_ret.msg_receipt().exit_code().is_success())
     }
+
+    while high < BLOCK_GAS_LIMIT {
+        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
+            break;
+        }
+        low = high;
+        high = high.saturating_mul(2).min(BLOCK_GAS_LIMIT);
+    }
+
+    let mut check_threshold = high / 100;
+    while (high - low) > check_threshold {
+        let median = (high + low) / 2;
+        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), median).await? {
+            high = median;
+        } else {
+            low = median;
+        }
+        check_threshold = median / 100;
+    }
+
+    Ok(high)
 }
 
 pub enum EthFeeHistory {}
@@ -2002,121 +2114,159 @@ impl RpcMethod<3> for EthFeeHistory {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        if block_count > 1024 {
-            return Err(anyhow::anyhow!("block count should be smaller than 1024").into());
-        }
-
-        let reward_percentiles = reward_percentiles.unwrap_or_default();
-        Self::validate_reward_precentiles(&reward_percentiles)?;
-
         let tipset = tipset_by_ext_block_number_or_hash(
             ctx.chain_store(),
             newest_block_number.into(),
             ResolveNullTipset::TakeOlder,
         )?;
-        let mut oldest_block_height = 1;
-        // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
-        //  because the next base fee can be inferred from the messages in the newest block.
-        //  However, this is NOT the case in Filecoin due to deferred execution, so the best
-        //  we can do is duplicate the last value.
-        let mut base_fee_array = vec![EthBigInt::from(
-            &tipset.block_headers().first().parent_base_fee,
-        )];
-        let mut rewards_array = vec![];
-        let mut gas_used_ratio_array = vec![];
-        for ts in tipset
-            .chain(ctx.store())
-            .filter(|i| i.epoch() > 0)
-            .take(block_count as _)
-        {
-            let base_fee = &ts.block_headers().first().parent_base_fee;
-            let (_state_root, messages_and_receipts) = execute_tipset(&ctx, &ts).await?;
-            let mut tx_gas_rewards = Vec::with_capacity(messages_and_receipts.len());
-            for (message, receipt) in messages_and_receipts {
-                let premium = message.effective_gas_premium(base_fee);
-                tx_gas_rewards.push(GasReward {
-                    gas_used: receipt.gas_used(),
-                    premium,
-                });
-            }
-            let (rewards, total_gas_used) =
-                Self::calculate_rewards_and_gas_used(&reward_percentiles, tx_gas_rewards);
-            let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
 
-            // arrays should be reversed at the end
-            base_fee_array.push(EthBigInt::from(base_fee));
-            gas_used_ratio_array.push((total_gas_used as f64) / (max_gas as f64));
-            rewards_array.push(rewards);
-
-            oldest_block_height = ts.epoch();
-        }
-
-        // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.
-        base_fee_array.reverse();
-        gas_used_ratio_array.reverse();
-        rewards_array.reverse();
-
-        Ok(EthFeeHistoryResult {
-            oldest_block: EthUint64(oldest_block_height as _),
-            base_fee_per_gas: base_fee_array,
-            gas_used_ratio: gas_used_ratio_array,
-            reward: if reward_percentiles.is_empty() {
-                None
-            } else {
-                Some(rewards_array)
-            },
-        })
+        eth_fee_history(ctx, tipset, block_count, reward_percentiles).await
     }
 }
 
-impl EthFeeHistory {
-    fn validate_reward_precentiles(reward_percentiles: &[f64]) -> anyhow::Result<()> {
-        if reward_percentiles.len() > 100 {
-            anyhow::bail!("length of the reward percentile array cannot be greater than 100");
-        }
+pub enum EthFeeHistoryV2 {}
 
-        for (&rp, &rp_prev) in reward_percentiles
-            .iter()
-            .zip(std::iter::once(&0.).chain(reward_percentiles.iter()))
-        {
-            if !(0. ..=100.).contains(&rp) {
-                anyhow::bail!("invalid reward percentile: {rp} should be between 0 and 100");
-            }
-            if rp < rp_prev {
-                anyhow::bail!("invalid reward percentile: {rp} should be larger than {rp_prev}");
-            }
-        }
+impl RpcMethod<3> for EthFeeHistoryV2 {
+    const NAME: &'static str = "Filecoin.EthFeeHistory";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_feeHistory");
+    const N_REQUIRED_PARAMS: usize = 2;
+    const PARAM_NAMES: [&'static str; 3] = ["blockCount", "newestBlockNumber", "rewardPercentiles"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
 
-        Ok(())
+    type Params = (EthUint64, ExtBlockNumberOrHash, Option<Vec<f64>>);
+    type Ok = EthFeeHistoryResult;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = tipset_by_block_number_or_hash_v2(
+            &ctx,
+            newest_block_number,
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
+
+        eth_fee_history(ctx, tipset, block_count, reward_percentiles).await
+    }
+}
+
+async fn eth_fee_history<B: Blockstore + Send + Sync + 'static>(
+    ctx: Ctx<B>,
+    tipset: Tipset,
+    block_count: u64,
+    reward_percentiles: Option<Vec<f64>>,
+) -> Result<EthFeeHistoryResult, ServerError> {
+    if block_count > 1024 {
+        return Err(anyhow::anyhow!("block count should be smaller than 1024").into());
     }
 
-    fn calculate_rewards_and_gas_used(
-        reward_percentiles: &[f64],
-        mut tx_gas_rewards: Vec<GasReward>,
-    ) -> (Vec<EthBigInt>, u64) {
-        const MIN_GAS_PREMIUM: u64 = 100000;
+    let reward_percentiles = reward_percentiles.unwrap_or_default();
+    validate_reward_percentiles(&reward_percentiles)?;
 
-        let gas_used_total = tx_gas_rewards.iter().map(|i| i.gas_used).sum();
-        let mut rewards = reward_percentiles
-            .iter()
-            .map(|_| EthBigInt(MIN_GAS_PREMIUM.into()))
-            .collect_vec();
-        if !tx_gas_rewards.is_empty() {
-            tx_gas_rewards.sort_by_key(|i| i.premium.clone());
-            let mut idx = 0;
-            let mut sum = 0;
-            #[allow(clippy::indexing_slicing)]
-            for (i, &percentile) in reward_percentiles.iter().enumerate() {
-                let threshold = ((gas_used_total as f64) * percentile / 100.) as u64;
-                while sum < threshold && idx < tx_gas_rewards.len() - 1 {
-                    sum += tx_gas_rewards[idx].gas_used;
-                    idx += 1;
-                }
-                rewards[i] = (&tx_gas_rewards[idx].premium).into();
-            }
+    let mut oldest_block_height = 1;
+    // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
+    //  because the next base fee can be inferred from the messages in the newest block.
+    //  However, this is NOT the case in Filecoin due to deferred execution, so the best
+    //  we can do is duplicate the last value.
+    let mut base_fee_array = vec![EthBigInt::from(
+        &tipset.block_headers().first().parent_base_fee,
+    )];
+    let mut rewards_array = vec![];
+    let mut gas_used_ratio_array = vec![];
+    for ts in tipset
+        .chain(ctx.store())
+        .filter(|i| i.epoch() > 0)
+        .take(block_count as _)
+    {
+        let base_fee = &ts.block_headers().first().parent_base_fee;
+        let (_state_root, messages_and_receipts) = execute_tipset(&ctx, &ts).await?;
+        let mut tx_gas_rewards = Vec::with_capacity(messages_and_receipts.len());
+        for (message, receipt) in messages_and_receipts {
+            let premium = message.effective_gas_premium(base_fee);
+            tx_gas_rewards.push(GasReward {
+                gas_used: receipt.gas_used(),
+                premium,
+            });
         }
-        (rewards, gas_used_total)
+        let (rewards, total_gas_used) =
+            calculate_rewards_and_gas_used(&reward_percentiles, tx_gas_rewards);
+        let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
+
+        // arrays should be reversed at the end
+        base_fee_array.push(EthBigInt::from(base_fee));
+        gas_used_ratio_array.push((total_gas_used as f64) / (max_gas as f64));
+        rewards_array.push(rewards);
+
+        oldest_block_height = ts.epoch();
     }
+
+    // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.
+    base_fee_array.reverse();
+    gas_used_ratio_array.reverse();
+    rewards_array.reverse();
+
+    Ok(EthFeeHistoryResult {
+        oldest_block: EthUint64(oldest_block_height as _),
+        base_fee_per_gas: base_fee_array,
+        gas_used_ratio: gas_used_ratio_array,
+        reward: if reward_percentiles.is_empty() {
+            None
+        } else {
+            Some(rewards_array)
+        },
+    })
+}
+
+fn validate_reward_percentiles(reward_percentiles: &[f64]) -> anyhow::Result<()> {
+    if reward_percentiles.len() > 100 {
+        anyhow::bail!("length of the reward percentile array cannot be greater than 100");
+    }
+
+    for (&rp_prev, &rp) in std::iter::once(&0.0)
+        .chain(reward_percentiles.iter())
+        .tuple_windows()
+    {
+        if !(0. ..=100.).contains(&rp) {
+            anyhow::bail!("invalid reward percentile: {rp} should be between 0 and 100");
+        }
+        if rp < rp_prev {
+            anyhow::bail!(
+                "invalid reward percentile: {rp} should be larger than or equal to {rp_prev}"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn calculate_rewards_and_gas_used(
+    reward_percentiles: &[f64],
+    mut tx_gas_rewards: Vec<GasReward>,
+) -> (Vec<EthBigInt>, u64) {
+    const MIN_GAS_PREMIUM: u64 = 100000;
+
+    let gas_used_total = tx_gas_rewards.iter().map(|i| i.gas_used).sum();
+    let mut rewards = reward_percentiles
+        .iter()
+        .map(|_| EthBigInt(MIN_GAS_PREMIUM.into()))
+        .collect_vec();
+    if !tx_gas_rewards.is_empty() {
+        tx_gas_rewards.sort_by_key(|i| i.premium.clone());
+        let mut idx = 0;
+        let mut sum = 0;
+        #[allow(clippy::indexing_slicing)]
+        for (i, &percentile) in reward_percentiles.iter().enumerate() {
+            let threshold = ((gas_used_total as f64) * percentile / 100.) as u64;
+            while sum < threshold && idx < tx_gas_rewards.len() - 1 {
+                sum += tx_gas_rewards[idx].gas_used;
+                idx += 1;
+            }
+            rewards[i] = (&tx_gas_rewards[idx].premium).into();
+        }
+    }
+    (rewards, gas_used_total)
 }
 
 pub enum EthGetCode {}
@@ -2278,30 +2428,75 @@ impl RpcMethod<2> for EthGetTransactionCount {
         (sender, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let addr = sender.to_filecoin_address()?;
-        if let BlockNumberOrHash::PredefinedBlock(ref predefined) = block_param
-            && *predefined == Predefined::Pending
-        {
-            return Ok(EthUint64(ctx.mpool.get_sequence(&addr)?));
-        }
-        let ts = tipset_by_block_number_or_hash(
-            ctx.chain_store(),
-            block_param.clone(),
-            ResolveNullTipset::TakeOlder,
-        )?;
-
-        let (state_cid, _) = ctx.state_manager.tipset_state(&ts).await?;
-
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_cid)?;
-        let actor = state.get_required_actor(&addr)?;
-        if is_evm_actor(&actor.code) {
-            let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
-            if !evm_state.is_alive() {
-                return Ok(EthUint64(0));
+        match block_param {
+            BlockNumberOrHash::PredefinedBlock(Predefined::Pending) => {
+                Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
             }
-            Ok(EthUint64(evm_state.nonce()))
-        } else {
-            Ok(EthUint64(actor.sequence))
+            _ => {
+                let ts = tipset_by_block_number_or_hash(
+                    ctx.chain_store(),
+                    block_param,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                eth_get_transaction_count(&ctx, &ts, addr).await
+            }
         }
+    }
+}
+
+pub enum EthGetTransactionCountV2 {}
+impl RpcMethod<2> for EthGetTransactionCountV2 {
+    const NAME: &'static str = "Filecoin.EthGetTransactionCount";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionCount");
+    const PARAM_NAMES: [&'static str; 2] = ["sender", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthAddress, ExtBlockNumberOrHash);
+    type Ok = EthUint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (sender, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let addr = sender.to_filecoin_address()?;
+        match block_param {
+            ExtBlockNumberOrHash::PredefinedBlock(ExtPredefined::Pending) => {
+                Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
+            }
+            _ => {
+                let ts = tipset_by_block_number_or_hash_v2(
+                    &ctx,
+                    block_param,
+                    ResolveNullTipset::TakeOlder,
+                )
+                .await?;
+                eth_get_transaction_count(&ctx, &ts, addr).await
+            }
+        }
+    }
+}
+
+async fn eth_get_transaction_count<B>(
+    ctx: &Ctx<B>,
+    ts: &Tipset,
+    addr: FilecoinAddress,
+) -> Result<EthUint64, ServerError>
+where
+    B: Blockstore + Send + Sync + 'static,
+{
+    let (state_cid, _) = ctx.state_manager.tipset_state(ts).await?;
+
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_cid)?;
+    let actor = state.get_required_actor(&addr)?;
+    if is_evm_actor(&actor.code) {
+        let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
+        if !evm_state.is_alive() {
+            return Ok(EthUint64(0));
+        }
+        Ok(EthUint64(evm_state.nonce()))
+    } else {
+        Ok(EthUint64(actor.sequence))
     }
 }
 
@@ -2586,25 +2781,56 @@ impl RpcMethod<2> for EthCall {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let msg = Message::try_from(tx)?;
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
-        let invoke_result = apply_message(&ctx, Some(ts), msg.clone()).await?;
+        eth_call(&ctx, tx, ts).await
+    }
+}
 
-        if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
-            Ok(EthBytes::default())
+pub enum EthCallV2 {}
+impl RpcMethod<2> for EthCallV2 {
+    const NAME: &'static str = "Filecoin.EthCall";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_call");
+    const N_REQUIRED_PARAMS: usize = 2;
+    const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthCallMessage, ExtBlockNumberOrHash);
+    type Ok = EthBytes;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
+        eth_call(&ctx, tx, ts).await
+    }
+}
+
+async fn eth_call<DB>(
+    ctx: &Ctx<DB>,
+    tx: EthCallMessage,
+    ts: Tipset,
+) -> Result<EthBytes, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let msg = Message::try_from(tx)?;
+    let invoke_result = apply_message(ctx, Some(ts), msg.clone()).await?;
+
+    if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+        Ok(EthBytes::default())
+    } else {
+        let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
+        let return_data = msg_rct.return_data();
+        if return_data.is_empty() {
+            Ok(Default::default())
         } else {
-            let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
-            let return_data = msg_rct.return_data();
-            if return_data.is_empty() {
-                Ok(Default::default())
-            } else {
-                let bytes = decode_payload(&return_data, CBOR)?;
-                Ok(bytes)
-            }
+            let bytes = decode_payload(&return_data, CBOR)?;
+            Ok(bytes)
         }
     }
 }

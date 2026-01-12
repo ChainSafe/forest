@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::HasLotusJson;
@@ -44,7 +44,7 @@ impl State {
     }
 }
 
-#[derive(Clone, Serialize, Debug)]
+#[derive(Clone, PartialEq, Serialize, Debug)]
 #[serde(untagged)]
 pub enum Entry {
     V8(fil_actor_cron_state::v8::Entry),

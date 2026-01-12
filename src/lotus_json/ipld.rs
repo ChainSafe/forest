@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! # Differences between serializers
@@ -30,7 +30,7 @@ use ::cid::multibase;
 use ipld_core::{ipld, ipld::Ipld};
 use serde::de;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "Ipld")]
 pub struct IpldLotusJson(
     #[serde(with = "self")]

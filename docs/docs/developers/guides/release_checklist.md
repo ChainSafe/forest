@@ -1,4 +1,4 @@
-# Release checklist 🛂
+# Release checklist
 
 Forest doesn't follow a fixed schedule but releases should be expected at least
 quarterly. A _release officer_ is volunteered for each release, and they are

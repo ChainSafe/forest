@@ -3,8 +3,8 @@
 A running Lotus node can be accessed through an RPC interface. The RPC methods
 are listed here:
 
-- V0 methods: [Lotus V0 API methods (deprecated)](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md)
-- V1 methods: [Lotus V1 API methods (stable)](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md)
+- `v0` methods: [Lotus `v0` API methods (deprecated)](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md)
+- `v1` methods: [Lotus `v1` API methods (stable)](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md)
 
 The current status of compatibility can be checked by comparing a running Forest
 node with a running Lotus node:
@@ -16,26 +16,26 @@ node with a running Lotus node:
 
 The output will look like this:
 
-| RPC Method                        | Forest              | Lotus         |
-| --------------------------------- | ------------------- | ------------- |
-| Filecoin.ChainGetBlock            | Valid               | Valid         |
-| Filecoin.ChainGetGenesis          | Valid               | Valid         |
-| Filecoin.ChainGetMessage (67)     | InternalServerError | Valid         |
-| Filecoin.ChainGetMessagesInTipset | MissingMethod       | Valid         |
-| Filecoin.ChainGetTipSetByHeight   | Valid               | Valid         |
-| Filecoin.ChainHead                | Valid               | Valid         |
-| Filecoin.ChainReadObj             | InvalidResponse     | Valid         |
-| Filecoin.Discover                 | MissingMethod       | Valid         |
-| Filecoin.MpoolPending             | Valid               | Valid         |
-| Filecoin.NetAddrsListen           | Valid               | Valid         |
-| Filecoin.NetInfo                  | Valid               | MissingMethod |
-| Filecoin.NetPeers                 | Valid               | Valid         |
-| Filecoin.Session                  | MissingMethod       | Valid         |
-| Filecoin.StartTime                | Valid               | Valid         |
-| Filecoin.StateGetActor            | InternalServerError | Valid         |
-| Filecoin.StateMinerPower (76)     | MissingMethod       | Valid         |
-| Filecoin.StateNetworkName         | Valid               | Valid         |
-| Filecoin.Version                  | Valid               | Valid         |
+| RPC Method                        | Forest                | Lotus           |
+| --------------------------------- | --------------------- | --------------- |
+| Filecoin.ChainGetBlock            | Valid                 | Valid           |
+| Filecoin.ChainGetGenesis          | Valid                 | Valid           |
+| Filecoin.ChainGetMessage (67)     | `InternalServerError` | Valid           |
+| Filecoin.ChainGetMessagesInTipset | `MissingMethod`       | Valid           |
+| Filecoin.ChainGetTipSetByHeight   | Valid                 | Valid           |
+| Filecoin.ChainHead                | Valid                 | Valid           |
+| Filecoin.ChainReadObj             | `InvalidResponse`     | Valid           |
+| Filecoin.Discover                 | `MissingMethod`       | Valid           |
+| Filecoin.MpoolPending             | Valid                 | Valid           |
+| Filecoin.NetAddrsListen           | Valid                 | Valid           |
+| Filecoin.NetInfo                  | Valid                 | `MissingMethod` |
+| Filecoin.NetPeers                 | Valid                 | Valid           |
+| Filecoin.Session                  | `MissingMethod`       | Valid           |
+| Filecoin.StartTime                | Valid                 | Valid           |
+| Filecoin.StateGetActor            | `InternalServerError` | Valid           |
+| Filecoin.StateMinerPower (76)     | `MissingMethod`       | Valid           |
+| Filecoin.StateNetworkName         | Valid                 | Valid           |
+| Filecoin.Version                  | Valid                 | Valid           |
 
 If an entry for Lotus is not marked as `Valid`, this indicates that the Forest
 RPC client is buggy and incorrectly communicates with Lotus.
