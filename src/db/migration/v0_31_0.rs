@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Migration logic for databases with the v0.26.0 schema (including v0.30.0) to v0.31.0.
-//! The `Indices` column has been removed as events are now stored directly in the blockstore
-//! as AMTs (Array Mapped Tries) rather than being indexed separately.
+//! The `Indices` column has been removed as events are now stored as `AMTs` in the blockstore.
 //!
 //! This migration is used for:
-//! - `0.30.0` → `0.31.0` (the oldest supported version)
+//! - `0.30.0` to `0.31.0` (the oldest supported version)
 
 use crate::Config;
 use crate::blocks::TipsetKey;
