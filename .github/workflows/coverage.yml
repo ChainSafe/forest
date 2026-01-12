@@ -44,8 +44,9 @@ jobs:
     name: Coverage
     if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
+      - run: lscpu
       - name: Configure SCCache variables
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
