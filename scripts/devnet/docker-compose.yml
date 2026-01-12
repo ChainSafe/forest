@@ -52,7 +52,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: |
-        export FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/${LOTUS_RPC_PORT}/http"
+        export FULLNODE_API_INFO="/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
         lotus chain head || exit 1
       interval: 10s
       retries: 10
