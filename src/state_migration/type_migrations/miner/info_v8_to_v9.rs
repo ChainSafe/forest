@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fil_actor_miner_state::{v8::MinerInfo as MinerInfoV8, v9::MinerInfo as MinerInfoV9};

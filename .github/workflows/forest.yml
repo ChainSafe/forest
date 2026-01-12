@@ -82,17 +82,15 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.work"
+      - uses: jdx/mise-action@v3
       - name: Go tests
         run: |
           go test -v ./tools/prometheus_metrics_validator
-      - name: Cargo Install
+      - name: Install Forest
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-        run: make install-slim-quick
+        run: mise run install --slim
       - uses: actions/upload-artifact@v6
         with:
           name: "forest-${{ runner.os }}"
@@ -108,12 +106,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - name: Install Apt Dependencies
-        run: |
-          sudo make install-deps
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.work"
+      - uses: jdx/mise-action@v3
       - run: cargo publish --dry-run
   forest-cli-check:
     needs:
