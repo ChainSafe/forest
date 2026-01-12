@@ -864,6 +864,8 @@ impl RpcMethod<2> for EthGetBalance {
     const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the balance of an Ethereum address at the specified block state");
 
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthBigInt;
@@ -889,6 +891,8 @@ impl RpcMethod<2> for EthGetBalanceV2 {
     const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the balance of an Ethereum address at the specified block state");
 
     type Params = (EthAddress, ExtBlockNumberOrHash);
     type Ok = EthBigInt;
