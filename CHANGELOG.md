@@ -37,6 +37,10 @@
 
 - [#6387](https://github.com/ChainSafe/forest/pull/6387) Implemented `Filecoin.EthGetTransactionCount` for API v2.
 
+- [#6403](https://github.com/ChainSafe/forest/pull/6403) Implemented `Filecoin.EthGetBalance` for API v2.
+
+- [#6404](https://github.com/ChainSafe/forest/pull/6404) Implemented `Filecoin.EthGetBlockByNumber` for API v2.
+
 - [#6405](https://github.com/ChainSafe/forest/pull/6405) Enabled `Filecoin.EthGetLogs` for API v2.
 
 ### Changed
