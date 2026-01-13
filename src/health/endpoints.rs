@@ -166,6 +166,11 @@ async fn check_f3_running(state: &ForestState, acc: &mut MessageAccumulator) -> 
     } else if F3IsRunning::is_f3_running().await.unwrap_or_default() {
         acc.push_ok("f3 running");
         true
+    } else if crate::f3::get_f3_sidecar_params(&state.chain_config).bootstrap_epoch
+        > state.sync_status.read().network_head_epoch
+    {
+        acc.push_ok("f3 pending activation");
+        true
     } else {
         acc.push_err("f3 not running");
         false
