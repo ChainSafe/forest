@@ -170,6 +170,25 @@ run = '''
 cargo llvm-cov -p forest-filecoin --codecov --output-path lcov.info
 '''
 
+[tasks."docs:format-spellcheck-dictionary"]
+description = "Format and deduplicate the spellcheck dictionary."
+dir = "docs"
+run = '''
+TMPFILE=$(mktemp)
+cat dictionary.txt | sort --ignore-case | uniq > "$TMPFILE"
+mv "$TMPFILE" dictionary.txt
+'''
+
+[tasks."docs:format-spellcheck-dictionary-check"]
+description = "Check if spellcheck dictionary is properly formatted."
+dir = "docs"
+run = '''
+TMPFILE=$(mktemp)
+trap "rm -f $TMPFILE" EXIT
+cat dictionary.txt | sort --ignore-case | uniq > "$TMPFILE"
+diff dictionary.txt "$TMPFILE"
+'''
+
 [tools]
 cargo-binstall = "1.16.6"
 go = "1.25.5"
