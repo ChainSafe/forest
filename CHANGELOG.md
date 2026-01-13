@@ -44,12 +44,14 @@
 ### Changed
 
 - [#6368](https://github.com/ChainSafe/forest/pull/6368): Migrated build and development tooling from Makefile to `mise`. Contributors should install `mise` and use `mise run` commands instead of `make` commands.
+- [#6286](https://github.com/ChainSafe/forest/pull/6286) Serve `Filecoin.ChainGetEvents` API directly from the blockstore instead of computing.
 
 ### Removed
 
 ### Fixed
 
 - [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
+- [#6286](https://github.com/ChainSafe/forest/pull/6286) Fixed: `Filecoin.ChainGetEvents` API returns correct events.
 
 ## Forest v0.30.5 "Dulce de Leche"
 
