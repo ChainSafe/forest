@@ -531,6 +531,15 @@ pub struct Block {
     pub uncles: Vec<EthHash>,
 }
 
+/// Specifies the level of detail for transactions in Ethereum blocks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TxInfo {
+    /// Return only transaction hashes
+    Hash,
+    /// Return full transaction objects
+    Full,
+}
+
 impl Block {
     pub fn new(has_transactions: bool, tipset_len: usize) -> Self {
         Self {
@@ -552,7 +561,7 @@ impl Block {
     pub async fn from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         ctx: Ctx<DB>,
         tipset: Arc<crate::blocks::Tipset>,
-        full_tx_info: bool,
+        tx_info: TxInfo,
     ) -> Result<Self> {
         let parent_cid = tipset.parents().cid()?;
         let parent_hash: EthHash = parent_cid.into();
@@ -596,10 +605,11 @@ impl Block {
             transactions.push(tx);
         }
 
-        block.transactions = if full_tx_info {
-            Transactions::Full(transactions)
-        } else {
-            Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
+        block.transactions = match tx_info {
+            TxInfo::Full => Transactions::Full(transactions),
+            TxInfo::Hash => {
+                Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
+            }
         };
 
         block.hash = block_hash;
@@ -1568,7 +1578,7 @@ fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result
 pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
     tipset: Tipset,
-    full_tx_info: bool,
+    tx_info: TxInfo,
 ) -> Result<Block> {
     static ETH_BLOCK_CACHE: LazyLock<SizeTrackingLruCache<CidWrapper, Block>> =
         LazyLock::new(|| {
@@ -1635,7 +1645,9 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         b
     };
 
-    if !full_tx_info && let Transactions::Full(transactions) = &block.transactions {
+    if tx_info == TxInfo::Hash
+        && let Transactions::Full(transactions) = &block.transactions
+    {
         block.transactions =
             Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
     }
@@ -1663,7 +1675,12 @@ impl RpcMethod<2> for EthGetBlockByHash {
             BlockNumberOrHash::from_block_hash(block_hash),
             ResolveNullTipset::TakeOlder,
         )?;
-        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
+        let tx_info = if full_tx_info {
+            TxInfo::Full
+        } else {
+            TxInfo::Hash
+        };
+        let block = block_from_filecoin_tipset(ctx, ts, tx_info).await?;
         Ok(block)
     }
 }
@@ -1688,7 +1705,12 @@ impl RpcMethod<2> for EthGetBlockByNumber {
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
-        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
+        let tx_info = if full_tx_info {
+            TxInfo::Full
+        } else {
+            TxInfo::Hash
+        };
+        let block = block_from_filecoin_tipset(ctx, ts, tx_info).await?;
         Ok(block)
     }
 }
@@ -1710,7 +1732,12 @@ impl RpcMethod<2> for EthGetBlockByNumberV2 {
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
+        let tx_info = if full_tx_info {
+            TxInfo::Full
+        } else {
+            TxInfo::Hash
+        };
+        let block = block_from_filecoin_tipset(ctx, ts, tx_info).await?;
         Ok(block)
     }
 }

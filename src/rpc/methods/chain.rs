@@ -18,7 +18,9 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::eth::Block as EthBlock;
-use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
+use crate::rpc::eth::{
+    EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec,
+};
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
@@ -89,7 +91,9 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
                 HeadChange::Apply(ts) => {
                     // Convert the tipset to an Ethereum block with full transaction info
                     // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
-                    match EthBlock::from_filecoin_tipset(data.clone(), Arc::new(ts), true).await {
+                    match EthBlock::from_filecoin_tipset(data.clone(), Arc::new(ts), TxInfo::Full)
+                        .await
+                    {
                         Ok(block) => ApiHeaders(block),
                         Err(e) => {
                             tracing::error!("Failed to convert tipset to eth block: {}", e);
