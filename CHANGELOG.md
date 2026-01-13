@@ -50,6 +50,7 @@
 ### Fixed
 
 - [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
+- [#6354](https://github.com/ChainSafe/forest/pull/6354) Fixed: Correctly calculate the epoch range instead of directly using the look back limit value while searching for messages.
 
 ## Forest v0.30.5 "Dulce de Leche"
 
