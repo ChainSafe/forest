@@ -239,6 +239,8 @@ impl RpcMethod<1> for ChainGetMessage {
     }
 }
 
+/// Returns the events stored under the given event AMT root CID.
+/// Errors if the root CID cannot be found in the blockstore.
 pub enum ChainGetEvents {}
 impl RpcMethod<1> for ChainGetEvents {
     const NAME: &'static str = "Filecoin.ChainGetEvents";
