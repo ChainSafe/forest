@@ -540,6 +540,7 @@ impl Matcher for EthFilterSpec {
     }
 }
 
+// TODO(forest): https://github.com/ChainSafe/forest/issues/6411
 fn parse_block_range(
     heaviest: ChainEpoch,
     from_block: BlockNumberOrHash,
