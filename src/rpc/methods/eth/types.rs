@@ -422,7 +422,7 @@ pub struct FilterID(EthHash);
 lotus_json_with_self!(FilterID);
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
-pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<Block>);
+pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Block);
 
 lotus_json_with_self!(ApiHeaders);
 

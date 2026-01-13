@@ -90,7 +90,7 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
                     // Convert the tipset to an Ethereum block with full transaction info
                     // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
                     match EthBlock::from_filecoin_tipset(data.clone(), Arc::new(ts), true).await {
-                        Ok(block) => ApiHeaders(vec![block].into()),
+                        Ok(block) => ApiHeaders(block),
                         Err(e) => {
                             tracing::error!("Failed to convert tipset to eth block: {}", e);
                             continue;
