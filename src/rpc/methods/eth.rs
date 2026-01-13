@@ -3391,7 +3391,7 @@ impl RpcMethod<1> for EthGetLogs {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getLogs");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["ethFilter"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthFilterSpec,);
     type Ok = EthFilterResult;
