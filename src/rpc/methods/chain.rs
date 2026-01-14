@@ -10,7 +10,7 @@ use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
-use crate::chain_sync::get_full_tipset;
+use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
@@ -28,6 +28,7 @@ use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
+use crate::utils::misc::env::is_env_truthy;
 use anyhow::{Context as _, Result};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -1306,13 +1307,19 @@ async fn load_api_messages_from_tipset<DB: Blockstore + Send + Sync + 'static>(
     ctx: &crate::rpc::RPCState<DB>,
     tipset_keys: &TipsetKey,
 ) -> Result<Vec<ApiMessage>, ServerError> {
-    let full_tipset = get_full_tipset(
-        &ctx.sync_network_context,
-        ctx.chain_store(),
-        None,
-        tipset_keys,
-    )
-    .await?;
+    static SHOULD_BACKFILL: LazyLock<bool> =
+        LazyLock::new(|| is_env_truthy("FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK"));
+    let full_tipset = if *SHOULD_BACKFILL {
+        get_full_tipset(
+            &ctx.sync_network_context,
+            ctx.chain_store(),
+            None,
+            tipset_keys,
+        )
+        .await?
+    } else {
+        load_full_tipset(ctx.chain_store(), tipset_keys)?
+    };
     let blocks = full_tipset.into_blocks();
     let mut messages = vec![];
     let mut seen = CidHashSet::default();
