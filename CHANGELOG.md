@@ -43,7 +43,7 @@
 
 - [#6405](https://github.com/ChainSafe/forest/pull/6405) Enabled `Filecoin.EthGetLogs` for API v2.
 
-- [#6421](https://github.com/ChainSafe/forest/pull/6421) Add an environment variable `FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK` to enable backfilling full tipsets from network in a few RPC metheods.
+- [#6421](https://github.com/ChainSafe/forest/pull/6421) Add an environment variable `FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK` to enable backfilling full tipsets from network in a few RPC methods.
 
 ### Changed
 
