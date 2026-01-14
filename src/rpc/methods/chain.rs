@@ -43,7 +43,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::fs::File;
-use std::sync::Arc;
 use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
 use tokio::sync::{
     Mutex,
@@ -91,9 +90,7 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
                 HeadChange::Apply(ts) => {
                     // Convert the tipset to an Ethereum block with full transaction info
                     // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
-                    match EthBlock::from_filecoin_tipset(data.clone(), Arc::new(ts), TxInfo::Full)
-                        .await
-                    {
+                    match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
                         Ok(block) => ApiHeaders(block),
                         Err(e) => {
                             tracing::error!("Failed to convert tipset to eth block: {}", e);
