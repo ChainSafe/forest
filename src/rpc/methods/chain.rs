@@ -10,6 +10,7 @@ use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
+use crate::chain_sync::get_full_tipset;
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
@@ -281,7 +282,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
     type Ok = Vec<ApiMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.store();
@@ -292,7 +293,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
             Ok(vec![])
         } else {
             let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
-            load_api_messages_from_tipset(store, &parent_tipset)
+            load_api_messages_from_tipset(&ctx, parent_tipset.key()).await
         }
     }
 }
@@ -355,13 +356,13 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     type Ok = Vec<ApiMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tipset_key),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        load_api_messages_from_tipset(ctx.store(), &tipset)
+        load_api_messages_from_tipset(&ctx, tipset.key()).await
     }
 }
 
@@ -1301,13 +1302,17 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     receiver
 }
 
-fn load_api_messages_from_tipset(
-    store: &impl Blockstore,
-    tipset: &Tipset,
+async fn load_api_messages_from_tipset<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &crate::rpc::RPCState<DB>,
+    tipset_keys: &TipsetKey,
 ) -> Result<Vec<ApiMessage>, ServerError> {
-    let full_tipset = tipset
-        .fill_from_blockstore(store)
-        .context("Failed to load full tipset")?;
+    let full_tipset = get_full_tipset(
+        &ctx.sync_network_context,
+        ctx.chain_store(),
+        None,
+        tipset_keys,
+    )
+    .await?;
     let blocks = full_tipset.into_blocks();
     let mut messages = vec![];
     let mut seen = CidHashSet::default();
