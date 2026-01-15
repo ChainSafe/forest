@@ -531,6 +531,21 @@ pub struct Block {
     pub uncles: Vec<EthHash>,
 }
 
+/// Specifies the level of detail for transactions in Ethereum blocks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TxInfo {
+    /// Return only transaction hashes
+    Hash,
+    /// Return full transaction objects
+    Full,
+}
+
+impl From<bool> for TxInfo {
+    fn from(full: bool) -> Self {
+        if full { TxInfo::Full } else { TxInfo::Hash }
+    }
+}
+
 impl Block {
     pub fn new(has_transactions: bool, tipset_len: usize) -> Self {
         Self {
@@ -544,6 +559,89 @@ impl Block {
             },
             ..Default::default()
         }
+    }
+
+    /// Creates a new Ethereum block from a Filecoin tipset, executing transactions if requested.
+    ///
+    /// Reference: <https://github.com/filecoin-project/lotus/blob/941455f1d23e73b9ee92a1a4ce745d8848969858/node/impl/eth/utils.go#L44>
+    pub async fn from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
+        ctx: Ctx<DB>,
+        tipset: crate::blocks::Tipset,
+        tx_info: TxInfo,
+    ) -> Result<Self> {
+        static ETH_BLOCK_CACHE: LazyLock<SizeTrackingLruCache<CidWrapper, Block>> =
+            LazyLock::new(|| {
+                const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(500usize);
+                let cache_size = std::env::var("FOREST_ETH_BLOCK_CACHE_SIZE")
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(DEFAULT_CACHE_SIZE);
+                SizeTrackingLruCache::new_with_metrics("eth_block".into(), cache_size)
+            });
+
+        let block_cid = tipset.key().cid()?;
+        let mut block = if let Some(b) = ETH_BLOCK_CACHE.get_cloned(&block_cid.into()) {
+            b
+        } else {
+            let parent_cid = tipset.parents().cid()?;
+            let block_number = EthUint64(tipset.epoch() as u64);
+            let block_hash: EthHash = block_cid.into();
+
+            let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &tipset).await?;
+
+            let state_tree = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+            let mut full_transactions = vec![];
+            let mut gas_used = 0;
+            for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
+                let ti = EthUint64(i as u64);
+                gas_used += receipt.gas_used();
+                let smsg = match msg {
+                    ChainMessage::Signed(msg) => msg.clone(),
+                    ChainMessage::Unsigned(msg) => {
+                        let sig = Signature::new_bls(vec![]);
+                        SignedMessage::new_unchecked(msg.clone(), sig)
+                    }
+                };
+
+                let mut tx = new_eth_tx_from_signed_message(
+                    &smsg,
+                    &state_tree,
+                    ctx.chain_config().eth_chain_id,
+                )?;
+                tx.block_hash = block_hash.clone();
+                tx.block_number = block_number.clone();
+                tx.transaction_index = ti;
+                full_transactions.push(tx);
+            }
+
+            let b = Block {
+                hash: block_hash,
+                number: block_number,
+                parent_hash: parent_cid.into(),
+                timestamp: EthUint64(tipset.block_headers().first().timestamp),
+                base_fee_per_gas: tipset
+                    .block_headers()
+                    .first()
+                    .parent_base_fee
+                    .clone()
+                    .into(),
+                gas_used: EthUint64(gas_used),
+                transactions: Transactions::Full(full_transactions),
+                ..Block::new(!msgs_and_receipts.is_empty(), tipset.len())
+            };
+            ETH_BLOCK_CACHE.push(block_cid.into(), b.clone());
+            b
+        };
+
+        if tx_info == TxInfo::Hash
+            && let Transactions::Full(transactions) = &block.transactions
+        {
+            block.transactions =
+                Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
+        }
+
+        Ok(block)
     }
 }
 
@@ -1492,84 +1590,6 @@ fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result
     })
 }
 
-pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
-    data: Ctx<DB>,
-    tipset: Tipset,
-    full_tx_info: bool,
-) -> Result<Block> {
-    static ETH_BLOCK_CACHE: LazyLock<SizeTrackingLruCache<CidWrapper, Block>> =
-        LazyLock::new(|| {
-            const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(500usize);
-            let cache_size = std::env::var("FOREST_ETH_BLOCK_CACHE_SIZE")
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(DEFAULT_CACHE_SIZE);
-            SizeTrackingLruCache::new_with_metrics("eth_block".into(), cache_size)
-        });
-
-    let block_cid = tipset.key().cid()?;
-    let mut block = if let Some(b) = ETH_BLOCK_CACHE.get_cloned(&block_cid.into()) {
-        b
-    } else {
-        let parent_cid = tipset.parents().cid()?;
-        let block_number = EthUint64(tipset.epoch() as u64);
-        let block_hash: EthHash = block_cid.into();
-
-        let (state_root, msgs_and_receipts) = execute_tipset(&data, &tipset).await?;
-
-        let state_tree = StateTree::new_from_root(data.store_owned(), &state_root)?;
-
-        let mut full_transactions = vec![];
-        let mut gas_used = 0;
-        for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
-            let ti = EthUint64(i as u64);
-            gas_used += receipt.gas_used();
-            let smsg = match msg {
-                ChainMessage::Signed(msg) => msg.clone(),
-                ChainMessage::Unsigned(msg) => {
-                    let sig = Signature::new_bls(vec![]);
-                    SignedMessage::new_unchecked(msg.clone(), sig)
-                }
-            };
-
-            let mut tx = new_eth_tx_from_signed_message(
-                &smsg,
-                &state_tree,
-                data.chain_config().eth_chain_id,
-            )?;
-            tx.block_hash = block_hash.clone();
-            tx.block_number = block_number.clone();
-            tx.transaction_index = ti;
-            full_transactions.push(tx);
-        }
-
-        let b = Block {
-            hash: block_hash,
-            number: block_number,
-            parent_hash: parent_cid.into(),
-            timestamp: EthUint64(tipset.block_headers().first().timestamp),
-            base_fee_per_gas: tipset
-                .block_headers()
-                .first()
-                .parent_base_fee
-                .clone()
-                .into(),
-            gas_used: EthUint64(gas_used),
-            transactions: Transactions::Full(full_transactions),
-            ..Block::new(!msgs_and_receipts.is_empty(), tipset.len())
-        };
-        ETH_BLOCK_CACHE.push(block_cid.into(), b.clone());
-        b
-    };
-
-    if !full_tx_info && let Transactions::Full(transactions) = &block.transactions {
-        block.transactions =
-            Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
-    }
-
-    Ok(block)
-}
-
 pub enum EthGetBlockByHash {}
 impl RpcMethod<2> for EthGetBlockByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockByHash";
@@ -1590,8 +1610,9 @@ impl RpcMethod<2> for EthGetBlockByHash {
             BlockNumberOrHash::from_block_hash(block_hash),
             ResolveNullTipset::TakeOlder,
         )?;
-        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
-        Ok(block)
+        Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
+            .await
+            .map_err(ServerError::from)
     }
 }
 
@@ -1615,8 +1636,9 @@ impl RpcMethod<2> for EthGetBlockByNumber {
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
-        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
-        Ok(block)
+        Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
+            .await
+            .map_err(ServerError::from)
     }
 }
 
@@ -1637,8 +1659,9 @@ impl RpcMethod<2> for EthGetBlockByNumberV2 {
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
-        Ok(block)
+        Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
+            .await
+            .map_err(ServerError::from)
     }
 }
 

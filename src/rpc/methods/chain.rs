@@ -18,7 +18,10 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
-use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
+use crate::rpc::eth::Block as EthBlock;
+use crate::rpc::eth::{
+    EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec,
+};
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
@@ -76,8 +79,8 @@ static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
 ///
 /// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
 /// allowing manual cleanup if needed.
-pub(crate) fn new_heads<DB: Blockstore>(
-    data: &crate::rpc::RPCState<DB>,
+pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
+    data: Ctx<DB>,
 ) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
@@ -86,7 +89,17 @@ pub(crate) fn new_heads<DB: Blockstore>(
     let handle = tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
             let headers = match v {
-                HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
+                HeadChange::Apply(ts) => {
+                    // Convert the tipset to an Ethereum block with full transaction info
+                    // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
+                    match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
+                        Ok(block) => ApiHeaders(block),
+                        Err(e) => {
+                            tracing::error!("Failed to convert tipset to eth block: {}", e);
+                            continue;
+                        }
+                    }
+                }
             };
             if let Err(e) = sender.send(headers) {
                 tracing::error!("Failed to send headers: {}", e);

@@ -58,6 +58,8 @@
 - [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
 - [#6354](https://github.com/ChainSafe/forest/pull/6354) Fixed: Correctly calculate the epoch range instead of directly using the look back limit value while searching for messages.
 
+- [#6400](https://github.com/ChainSafe/forest/issues/6400) Fixed `eth_subscribe` `newHeads` to return Ethereum block format instead of Filecoin block headers array.
+
 ## Forest v0.30.5 "Dulce de Leche"
 
 Non-mandatory release supporting new API methods and addressing a critical panic issue.
