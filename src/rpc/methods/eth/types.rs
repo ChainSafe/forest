@@ -28,6 +28,7 @@ pub const METHOD_GET_STORAGE_AT: u64 = 5;
     JsonSchema,
     derive_more::From,
     derive_more::Into,
+    derive_more::Deref,
     GetSize,
 )]
 pub struct EthBytes(
@@ -56,14 +57,6 @@ impl FromStr for EthBytes {
         let deserializer: StringDeserializer<SerdeError> = String::from_str(s)?.into_deserializer();
         let bytes = crate::lotus_json::hexify_vec_bytes::deserialize(deserializer)?;
         Ok(Self(bytes))
-    }
-}
-
-impl Deref for EthBytes {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 

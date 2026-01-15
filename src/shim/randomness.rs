@@ -1,8 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::ops::{Deref, DerefMut};
-
 use super::fvm_shared_latest::randomness::Randomness as Randomness_latest;
 use fvm_shared2::randomness::Randomness as Randomness_v2;
 use fvm_shared3::randomness::Randomness as Randomness_v3;
@@ -31,26 +29,23 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(fvm3_rand, rand_shim.clone().into());
 /// assert_eq!(fvm2_rand, rand_shim.into());
 /// ```
-#[derive(PartialEq, Eq, Default, Clone, Debug, Deserialize, Serialize)]
+#[derive(
+    PartialEq,
+    Eq,
+    Default,
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    derive_more::Deref,
+    derive_more::DerefMut,
+)]
 #[serde(transparent)]
 pub struct Randomness(Randomness_latest);
 
 impl Randomness {
     pub fn new(rand: Vec<u8>) -> Self {
         Randomness(Randomness_latest(rand))
-    }
-}
-
-impl Deref for Randomness {
-    type Target = Randomness_latest;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Randomness {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

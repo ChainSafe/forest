@@ -1,11 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    fmt::Display,
-    ops::{Deref, DerefMut},
-    str::FromStr,
-};
+use std::{fmt::Display, str::FromStr};
 
 use data_encoding::Encoding;
 use data_encoding_macro::new_encoding;
@@ -113,7 +109,20 @@ mod network_guard_impl {
 /// parse both versions and discard the prefix. See also [`StrictAddress`].
 ///
 /// For more information, see: <https://spec.filecoin.io/appendix/address/>
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    derive_more::Deref,
+    derive_more::DerefMut,
+)]
 #[serde(transparent)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Address(Address_latest);
@@ -244,19 +253,6 @@ impl Display for Address {
                 )
             }
         }
-    }
-}
-
-impl Deref for Address {
-    type Target = Address_latest;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Address {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
