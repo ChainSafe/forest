@@ -30,9 +30,8 @@ env:
   CACHE_TIMEOUT_MINUTES: 5
   AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
   AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-  RUSTC_WRAPPER: sccache
-  CC: sccache clang
-  CXX: sccache clang++
+  CC: clang
+  CXX: clang++
   # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
   RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
   FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT: 1
@@ -46,20 +45,7 @@ jobs:
     runs-on: buildjet-4vcpu-ubuntu-2204
     timeout-minutes: 45
     steps:
-      - run: lscpu
-      - name: Configure SCCache variables
-        run: |
-          # External PRs do not have access to 'vars' or 'secrets'.
-          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
-          fi
       - uses: actions/checkout@v6
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
       - uses: jdx/mise-action@v3
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
