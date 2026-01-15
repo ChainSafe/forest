@@ -1307,12 +1307,16 @@ async fn load_api_messages_from_tipset<DB: Blockstore + Send + Sync + 'static>(
     ctx: &crate::rpc::RPCState<DB>,
     tipset_keys: &TipsetKey,
 ) -> Result<Vec<ApiMessage>, ServerError> {
-    static SHOULD_BACKFILL: LazyLock<bool> =
-        LazyLock::new(|| is_env_truthy("FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK"));
+    static SHOULD_BACKFILL: LazyLock<bool> = LazyLock::new(|| {
+        let enabled = is_env_truthy("FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK");
+        if enabled {
+            tracing::warn!(
+                "Full tipset backfilling from network is enabled via FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK, excessive disk and bandwidth usage is expected."
+            );
+        }
+        enabled
+    });
     let full_tipset = if *SHOULD_BACKFILL {
-        tracing::warn!(
-            "Full tipset backfilling from network is enabled via FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK, excessive disk and bandwidth usage is expected."
-        );
         get_full_tipset(
             &ctx.sync_network_context,
             ctx.chain_store(),
