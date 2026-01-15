@@ -2018,7 +2018,9 @@ async fn apply_message<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    if let Some(tipset) = tipset.clone() && tipset.epoch() > 0 {
+    if let Some(tipset) = tipset.clone()
+        && tipset.epoch() > 0
+    {
         let parent_ts = Tipset::load_required(ctx.store(), tipset.parents())
             .map_err(|e| anyhow::anyhow!("failed to load parent tipset: {e}"))?;
 
