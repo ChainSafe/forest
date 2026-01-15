@@ -56,11 +56,12 @@ use crate::state_manager::cache::{
     TipsetStateCache,
 };
 use crate::state_manager::chain_rand::draw_randomness;
+use crate::state_migration::get_expensive_migration_heights;
 use crate::state_migration::run_state_migrations;
 use crate::utils::get_size::{
     GetSize, vec_heap_size_helper, vec_with_stack_only_item_heap_size_helper,
 };
-use ahash::{HashMap, HashMapExt};
+use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::{Context as _, bail};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
@@ -167,6 +168,7 @@ pub struct StateManager<DB> {
     engine: Arc<MultiEngine>,
     /// Handler for caching/retrieving tipset events and receipts.
     receipt_event_cache_handler: Box<dyn TipsetReceiptEventCacheHandler>,
+    expensive_migration_epochs: HashSet<ChainEpoch>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -186,13 +188,20 @@ where
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(cs.chain_config().get_beacon_schedule(genesis.timestamp));
+        let chain_config = cs.chain_config();
 
         let cache_handler: Box<dyn TipsetReceiptEventCacheHandler> =
-            if cs.chain_config().enable_receipt_event_caching {
+            if chain_config.enable_receipt_event_caching {
                 Box::new(EnabledTipsetDataCache::new())
             } else {
                 Box::new(DisabledTipsetDataCache::new())
             };
+
+        let expensive_migration_epochs: HashSet<_> =
+            get_expensive_migration_heights(&chain_config.network)
+                .iter()
+                .map(|&h| chain_config.epoch(h))
+                .collect();
 
         Ok(Self {
             cs,
@@ -200,6 +209,7 @@ where
             beacon,
             engine,
             receipt_event_cache_handler: cache_handler,
+            expensive_migration_epochs,
         })
     }
 
@@ -448,6 +458,18 @@ where
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
         state.load_sectors_ext(self.blockstore(), None)
     }
+
+    // HasExpensiveForkBetween returns true where executing tipsets between the specified heights would
+    // trigger an expensive migration.
+    // Note: migrations occurring at the target height are not included, as they're executed after the target height.
+    pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
+        for epoch in parent..height {
+            if self.expensive_migration_epochs.contains(&epoch) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl<DB> StateManager<DB>
@@ -587,6 +609,15 @@ where
         tipset: &Tipset,
     ) -> Result<ApiInvocResult, Error> {
         let mut msg = msg.clone();
+
+        if tipset.epoch() > 0 {
+            let parent_ts = Tipset::load_required(self.blockstore(), tipset.parents())
+                .map_err(|e| Error::Other(format!("failed to load parent tipset: {e}")))?;
+
+            if self.has_expensive_fork_between(parent_ts.epoch(), tipset.epoch() + 1) {
+                return Err(Error::ExpensiveFork);
+            }
+        }
 
         let state_cid = state_cid.unwrap_or(*tipset.parent_state());
 

@@ -15,6 +15,8 @@ pub enum Error {
     /// Other state manager error
     #[error("{0}")]
     Other(String),
+    #[error("refusing explicit call due to expensive fork")]
+    ExpensiveFork,
 }
 
 impl Error {

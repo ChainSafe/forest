@@ -54,6 +54,7 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::state_manager::Error as StateManagerError;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -1994,6 +1995,18 @@ async fn apply_message<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
+    if let Some(tipset) = tipset.clone() {
+        if tipset.epoch() > 0 {
+            let parent_ts = Tipset::load_required(ctx.store(), tipset.parents())
+                .map_err(|e| anyhow::anyhow!("failed to load parent tipset: {e}"))?;
+
+            ensure!(
+                !ctx.state_manager
+                    .has_expensive_fork_between(parent_ts.epoch(), tipset.epoch() + 1),
+                StateManagerError::ExpensiveFork
+            );
+        }
+    }
     let invoc_res = ctx
         .state_manager
         .apply_on_state_with_gas(tipset, msg)

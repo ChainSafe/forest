@@ -8,6 +8,7 @@ use crate::db::MemoryDB;
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::{Receipt, StampedEvent};
+use crate::state_manager::get_expensive_migration_heights;
 use crate::utils::db::CborStoreExt;
 use crate::utils::multihash::MultihashCode;
 use cid::Cid;
@@ -432,4 +433,20 @@ fn test_update_receipt_and_events_cache_receipts_failure() {
 fn test_state_output_get_size() {
     let s = StateOutputValue::default();
     assert_eq!(s.get_size(), std::mem::size_of_val(&s));
+}
+
+#[test]
+fn test_has_expensive_fork_between() {
+    let TestChainSetup { state_manager, .. } = setup_chain_with_tipsets();
+    let chain_config = state_manager.chain_config();
+
+    let expensive_epoch = get_expensive_migration_heights(&chain_config.network)
+        .iter()
+        .find_map(|height| {
+            let epoch = chain_config.epoch(*height);
+            (epoch > 0).then_some(epoch)
+        })
+        .expect("expected at least one expensive migration epoch > 0");
+
+    assert!(state_manager.has_expensive_fork_between(expensive_epoch, expensive_epoch + 1));
 }
