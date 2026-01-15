@@ -201,9 +201,11 @@ impl Bloom {
     Serialize,
     Default,
     Clone,
+    Copy,
     JsonSchema,
     derive_more::From,
     derive_more::Into,
+    derive_more::Deref,
     GetSize,
 )]
 pub struct EthUint64(
@@ -237,7 +239,7 @@ impl EthUint64 {
         )))
     }
 
-    pub fn to_hex_string(&self) -> String {
+    pub fn to_hex_string(self) -> String {
         format!("0x{}", hex::encode(self.0.to_be_bytes()))
     }
 }
@@ -249,9 +251,11 @@ impl EthUint64 {
     Serialize,
     Default,
     Clone,
+    Copy,
     JsonSchema,
     derive_more::From,
     derive_more::Into,
+    derive_more::Deref,
 )]
 pub struct EthInt64(
     #[schemars(with = "String")]
@@ -610,7 +614,7 @@ impl Block {
                     ctx.chain_config().eth_chain_id,
                 )?;
                 tx.block_hash = block_hash.clone();
-                tx.block_number = block_number.clone();
+                tx.block_number = block_number;
                 tx.transaction_index = ti;
                 full_transactions.push(tx);
             }
@@ -1478,10 +1482,10 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
         transaction_hash: tx.hash.clone(),
         from: tx.from.clone(),
         to: tx.to.clone(),
-        transaction_index: tx.transaction_index.clone(),
+        transaction_index: tx.transaction_index,
         block_hash: tx.block_hash.clone(),
-        block_number: tx.block_number.clone(),
-        r#type: tx.r#type.clone(),
+        block_number: tx.block_number,
+        r#type: tx.r#type,
         status: (msg_receipt.exit_code().is_success() as u64).into(),
         gas_used: msg_receipt.gas_used().into(),
         ..EthTxReceipt::new()
@@ -1494,7 +1498,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
 
     let gas_outputs = GasOutputs::compute(
         msg_receipt.gas_used(),
-        tx.gas.clone().into(),
+        tx.gas.into(),
         &tipset.block_headers().first().parent_base_fee,
         &gas_fee_cap.0.into(),
         &gas_premium.0.into(),
@@ -3832,7 +3836,7 @@ async fn trace_filter(
     if let Some(EthUint64(0)) = filter.count {
         return Ok(results);
     }
-    let count = filter.count.clone().unwrap_or(EthUint64(0)).0;
+    let count = *filter.count.unwrap_or_default();
     ensure!(
         count <= *FOREST_TRACE_FILTER_MAX_RESULT,
         "invalid response count, requested {}, maximum supported is {}",
@@ -3853,7 +3857,7 @@ async fn trace_filter(
                 .match_filter_criteria(&filter.from_address, &filter.to_address)?
             {
                 trace_counter += 1;
-                if let Some(after) = filter.after.clone()
+                if let Some(after) = filter.after
                     && trace_counter <= after.0
                 {
                     continue;
