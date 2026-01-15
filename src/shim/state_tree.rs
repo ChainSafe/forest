@@ -1,9 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use crate::{
     networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata},
@@ -413,7 +410,9 @@ where
 /// assert_eq!(fvm3_actor_state, state_shim.clone().into());
 /// assert_eq!(fvm2_actor_state, state_shim.into());
 /// ```
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[derive(
+    PartialEq, Eq, Clone, Debug, Serialize, Deserialize, derive_more::Deref, derive_more::DerefMut,
+)]
 #[serde(transparent)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct ActorState(ActorState_latest);
@@ -440,20 +439,6 @@ impl ActorState {
             code,
             delegated_address.map(Into::into),
         ))
-    }
-}
-
-impl Deref for ActorState {
-    type Target = ActorState_latest;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for ActorState {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
