@@ -123,7 +123,7 @@ where
         accepted_sink: jsonrpsee::SubscriptionSink,
         ctx: Arc<RPCState<DB>>,
     ) {
-        let (subscriber, handle) = chain::new_heads(&ctx);
+        let (subscriber, handle) = chain::new_heads(ctx);
         tokio::spawn(async move {
             handle_subscription(subscriber, accepted_sink, handle).await;
         });
