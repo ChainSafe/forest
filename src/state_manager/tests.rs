@@ -8,7 +8,7 @@ use crate::db::MemoryDB;
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::{Receipt, StampedEvent};
-use crate::state_manager::get_expensive_migration_heights;
+use crate::state_migration::get_expensive_migration_heights;
 use crate::utils::db::CborStoreExt;
 use crate::utils::multihash::MultihashCode;
 use cid::Cid;

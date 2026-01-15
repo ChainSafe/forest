@@ -459,9 +459,8 @@ where
         state.load_sectors_ext(self.blockstore(), None)
     }
 
-    // HasExpensiveForkBetween returns true where executing tipsets between the specified heights would
-    // trigger an expensive migration.
-    // Note: migrations occurring at the target height are not included, as they're executed after the target height.
+    /// Returns true where executing tipsets between the specified heights would trigger an expensive migration.
+    /// Note: migrations occurring at the target height are not included, as they're executed after the target height.
     pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
         for epoch in parent..height {
             if self.expensive_migration_epochs.contains(&epoch) {
