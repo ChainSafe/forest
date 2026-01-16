@@ -5,11 +5,12 @@ use super::fvm_shared_latest::piece as piece_latest;
 use cid::Cid;
 use fvm_shared2::piece as piece_v2;
 use fvm_shared3::piece as piece_v3;
-use fvm_shared4::piece as piece_v4;
 use serde::{Deserialize, Serialize};
 
 /// Piece information for part or a whole file.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
+#[derive(
+    Serialize, Deserialize, PartialEq, Eq, Clone, Debug, derive_more::From, derive_more::Into,
+)]
 #[serde(transparent)]
 pub struct PieceInfo(piece_latest::PieceInfo);
 
@@ -19,18 +20,6 @@ impl PieceInfo {
             cid,
             size: size.into(),
         })
-    }
-}
-
-impl From<PieceInfo> for piece_v4::PieceInfo {
-    fn from(value: PieceInfo) -> Self {
-        value.0
-    }
-}
-
-impl From<piece_v4::PieceInfo> for PieceInfo {
-    fn from(value: piece_v4::PieceInfo) -> Self {
-        Self(value)
     }
 }
 
@@ -71,25 +60,15 @@ impl From<piece_v3::PieceInfo> for PieceInfo {
 }
 
 /// Size of a piece in bytes with padding.
-#[derive(PartialEq, Debug, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(
+    PartialEq, Debug, Eq, Clone, Copy, Serialize, Deserialize, derive_more::From, derive_more::Into,
+)]
 #[serde(transparent)]
 pub struct PaddedPieceSize(piece_latest::PaddedPieceSize);
 
 impl From<u64> for PaddedPieceSize {
     fn from(i: u64) -> Self {
         Self(piece_latest::PaddedPieceSize(i))
-    }
-}
-
-impl From<PaddedPieceSize> for piece_v4::PaddedPieceSize {
-    fn from(value: PaddedPieceSize) -> Self {
-        value.0
-    }
-}
-
-impl From<piece_v4::PaddedPieceSize> for PaddedPieceSize {
-    fn from(value: piece_v4::PaddedPieceSize) -> Self {
-        Self(value)
     }
 }
 

@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::ops::Deref;
 use std::sync::{
     OnceLock,
     atomic::{AtomicBool, Ordering},
@@ -227,8 +226,9 @@ impl GetSize for RawBlockHeader {
 
 /// A [`RawBlockHeader`] which caches calls to [`RawBlockHeader::cid`] and [`RawBlockHeader::verify_signature_against`]
 #[cfg_attr(test, derive(Default))]
-#[derive(Debug, GetSize)]
+#[derive(Debug, GetSize, derive_more::Deref)]
 pub struct CachingBlockHeader {
+    #[deref]
     uncached: RawBlockHeader,
     #[get_size(ignore)]
     cid: OnceLock<Cid>,
@@ -254,14 +254,6 @@ impl Clone for CachingBlockHeader {
                     .load(Ordering::Acquire),
             ),
         }
-    }
-}
-
-impl Deref for CachingBlockHeader {
-    type Target = RawBlockHeader;
-
-    fn deref(&self) -> &Self::Target {
-        &self.uncached
     }
 }
 

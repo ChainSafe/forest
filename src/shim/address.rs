@@ -122,6 +122,8 @@ mod network_guard_impl {
     Deserialize,
     derive_more::Deref,
     derive_more::DerefMut,
+    derive_more::From,
+    derive_more::Into,
 )]
 #[serde(transparent)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
@@ -284,6 +286,8 @@ impl GetSize for Address {
     Serialize,
     Deserialize,
     displaydoc::Display,
+    derive_more::From,
+    derive_more::Into,
 )]
 #[serde(transparent)]
 #[displaydoc("{0}")]
@@ -303,18 +307,6 @@ impl FromStr for StrictAddress {
 // identical and able to do a conversion, otherwise it is a logic error and
 // Forest should not continue so there is no point in `TryFrom`.
 
-impl From<Address> for StrictAddress {
-    fn from(other: Address) -> Self {
-        StrictAddress(other)
-    }
-}
-
-impl From<StrictAddress> for Address {
-    fn from(other: StrictAddress) -> Self {
-        other.0
-    }
-}
-
 impl From<StrictAddress> for Address_v3 {
     fn from(other: StrictAddress) -> Self {
         other.0.into()
@@ -327,21 +319,9 @@ impl From<StrictAddress> for Address_v4 {
     }
 }
 
-impl From<Address_v4> for Address {
-    fn from(other: Address_v4) -> Self {
-        Address(other)
-    }
-}
-
 impl From<&Address_v4> for Address {
     fn from(other: &Address_v4) -> Self {
         Address(*other)
-    }
-}
-
-impl From<Address> for Address_v4 {
-    fn from(addr: Address) -> Self {
-        addr.0
     }
 }
 
