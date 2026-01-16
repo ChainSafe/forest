@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use static_assertions::const_assert_eq;
 use std::{
     fmt,
-    ops::{Add, AddAssign, Deref, DerefMut, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign},
     sync::LazyLock,
 };
 
@@ -25,7 +25,19 @@ const_assert_eq!(TOTAL_FILECOIN_BASE, fvm_shared2::TOTAL_FILECOIN_BASE);
 pub static TOTAL_FILECOIN: LazyLock<TokenAmount> =
     LazyLock::new(|| TokenAmount::from_whole(TOTAL_FILECOIN_BASE));
 
-#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default)]
+#[derive(
+    Clone,
+    PartialEq,
+    Eq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Serialize,
+    Deserialize,
+    Default,
+    derive_more::Deref,
+    derive_more::DerefMut,
+)]
 #[serde(transparent)]
 pub struct TokenAmount(TokenAmount_latest);
 
@@ -96,20 +108,6 @@ impl Neg for &TokenAmount {
 
     fn neg(self) -> Self::Output {
         (&self.0).neg().into()
-    }
-}
-
-impl Deref for TokenAmount {
-    type Target = TokenAmount_latest;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for TokenAmount {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

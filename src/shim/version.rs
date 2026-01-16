@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::fmt;
-use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
 use crate::lotus_json::lotus_json_with_self;
@@ -31,7 +30,18 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(fvm_shared2::version::NetworkVersion::V0, v0.into());
 /// ```
 #[derive(
-    Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Serialize, Deserialize, JsonSchema,
+    Debug,
+    Eq,
+    PartialEq,
+    Clone,
+    Copy,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Deref,
+    derive_more::DerefMut,
 )]
 #[repr(transparent)]
 #[serde(transparent)]
@@ -57,19 +67,6 @@ define_network_versions!(
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
     26, 27, 28,
 );
-
-impl Deref for NetworkVersion {
-    type Target = NetworkVersion_latest;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for NetworkVersion {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 impl From<u32> for NetworkVersion {
     fn from(value: u32) -> Self {
