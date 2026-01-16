@@ -14,12 +14,7 @@ use serde::{Deserialize, Serialize};
     Deserialize,
     derive_more::Deref,
     derive_more::DerefMut,
+    derive_more::From,
 )]
 #[serde(transparent)]
 pub struct BigInt(#[serde(with = "bigint_ser")] num_bigint::BigInt);
-
-impl From<num_bigint::BigInt> for BigInt {
-    fn from(other: num_bigint::BigInt) -> Self {
-        BigInt(other)
-    }
-}

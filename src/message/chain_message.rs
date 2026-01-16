@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// `Enum` to encapsulate signed and unsigned messages. Useful when working with
 /// both types
-#[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq, GetSize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq, GetSize, derive_more::From)]
 #[serde(untagged)]
 pub enum ChainMessage {
     Unsigned(Message),
@@ -129,17 +129,5 @@ impl MessageTrait for ChainMessage {
             Self::Signed(t) => t.set_gas_premium(prem),
             Self::Unsigned(t) => t.set_gas_premium(prem),
         }
-    }
-}
-
-impl From<Message> for ChainMessage {
-    fn from(value: Message) -> Self {
-        Self::Unsigned(value)
-    }
-}
-
-impl From<SignedMessage> for ChainMessage {
-    fn from(value: SignedMessage) -> Self {
-        Self::Signed(value)
     }
 }
