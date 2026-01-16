@@ -6,7 +6,7 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::db::{EthMappingsStore, EthMappingsStoreExt, IndicesStore, IndicesStoreExt};
+use crate::db::{EthMappingsStore, EthMappingsStoreExt};
 use crate::interpreter::{BlockMessages, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
@@ -82,9 +82,6 @@ pub struct ChainStore<DB> {
     /// Ethereum mappings store
     eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
 
-    /// Indices store
-    indices: Arc<dyn IndicesStore + Sync + Send>,
-
     /// Needed by the Ethereum mapping.
     chain_config: Arc<ChainConfig>,
 }
@@ -121,7 +118,6 @@ where
         db: Arc<DB>,
         heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
         eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
-        indices: Arc<dyn IndicesStore + Sync + Send>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: CachingBlockHeader,
     ) -> anyhow::Result<Self> {
@@ -139,7 +135,6 @@ where
             genesis_block_header,
             validated_blocks,
             eth_mappings,
-            indices,
             chain_config,
         };
 
@@ -202,15 +197,6 @@ where
             .eth_mappings
             .read_obj::<(Cid, u64)>(hash)?
             .map(|(cid, _)| cid))
-    }
-
-    pub fn put_index<V: Serialize>(&self, key: &Cid, value: &V) -> Result<(), Error> {
-        self.indices.write_obj(key, value)?;
-        Ok(())
-    }
-
-    pub fn get_tipset_key(&self, key: &Cid) -> Result<Option<TipsetKey>, Error> {
-        Ok(self.indices.read_obj(key)?)
     }
 
     /// Expands tipset to tipset with all other headers in the same epoch using
@@ -754,15 +740,8 @@ mod tests {
             message_receipts: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
             ..Default::default()
         });
-        let cs = ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            db,
-            chain_config,
-            gen_block.clone(),
-        )
-        .unwrap();
+        let cs =
+            ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block.clone()).unwrap();
 
         assert_eq!(cs.genesis_block_header(), &gen_block);
     }
@@ -776,15 +755,7 @@ mod tests {
             ..Default::default()
         });
 
-        let cs = ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            db,
-            chain_config,
-            gen_block,
-        )
-        .unwrap();
+        let cs = ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));

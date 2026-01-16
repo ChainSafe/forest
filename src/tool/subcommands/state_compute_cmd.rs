@@ -74,7 +74,6 @@ impl ComputeCommand {
             db.clone(),
             db.clone(),
             db.clone(),
-            db.clone(),
             chain_config,
             genesis_header,
         )?);
@@ -133,7 +132,6 @@ impl ReplayComputeCommand {
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
         let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
             db.clone(),
             db.clone(),
             db.clone(),

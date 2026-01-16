@@ -923,7 +923,6 @@ mod tests {
                 db.clone(),
                 db.clone(),
                 db.clone(),
-                db.clone(),
                 Default::default(),
                 genesis_header.clone().into(),
             )
