@@ -7,6 +7,7 @@ arg "<profile>" help="Installation profile (quick, release, etc.)" default="rele
 flag "--slim" help="Install a slim version"
 flag "-v --verbose" help="Enable verbose output"
 '''
+shell="bash -c"
 run = '''
 echo "Installing Forest binaries with profile: ${usage_profile?}"
 [[ -n "${usage_verbose}" ]] && set -x
