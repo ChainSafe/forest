@@ -206,10 +206,16 @@ where
     /// Get actor state from an address. Will be resolved to ID address.
     pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
         match self {
-            StateTree::FvmV2(st) => Ok(st
-                .get_actor(&addr.into())
-                .map_err(|e| anyhow!("{e}"))?
-                .map(Into::into)),
+            StateTree::FvmV2(st) => {
+                anyhow::ensure!(
+                    addr.protocol() != crate::shim::address::Protocol::Delegated,
+                    "Delegated addresses are not supported in FVMv2 state trees"
+                );
+                Ok(st
+                    .get_actor(&addr.into())
+                    .map_err(|e| anyhow!("{e}"))?
+                    .map(Into::into))
+            }
             StateTree::FvmV3(st) => {
                 let id = st.lookup_id(&addr.into())?;
                 if let Some(id) = id {

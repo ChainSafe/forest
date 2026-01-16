@@ -60,6 +60,8 @@
 
 - [#6400](https://github.com/ChainSafe/forest/issues/6400) Fixed `eth_subscribe` `newHeads` to return Ethereum block format instead of Filecoin block headers array.
 
+- [#6430](https://github.com/ChainSafe/forest/issues/6430) Fixed a panic when syncing from genesis on the calibration network.
+
 ## Forest v0.30.5 "Dulce de Leche"
 
 Non-mandatory release supporting new API methods and addressing a critical panic issue.
