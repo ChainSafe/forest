@@ -89,6 +89,25 @@ where
     }
 }
 
+/// Returns the heights at which expensive migrations occur.
+pub fn get_expensive_migration_heights(chain: &NetworkChain) -> &'static [Height] {
+    match chain {
+        NetworkChain::Mainnet | NetworkChain::Calibnet | NetworkChain::Devnet(_) => &[
+            Height::Shark,
+            Height::Hygge,
+            Height::Lightning,
+            Height::Watermelon,
+            Height::Dragon,
+            Height::Waffle,
+            Height::TukTuk,
+            Height::Teep,
+            Height::GoldenWeek,
+        ],
+
+        NetworkChain::Butterflynet => &[Height::Teep, Height::GoldenWeek],
+    }
+}
+
 /// Run state migrations
 pub fn run_state_migrations<DB>(
     epoch: ChainEpoch,
