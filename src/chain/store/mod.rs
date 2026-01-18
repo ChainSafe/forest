@@ -6,5 +6,5 @@ mod chain_store;
 mod errors;
 pub mod index;
 mod tipset_tracker;
-
-pub use self::{base_fee::*, chain_store::*, errors::*};
+mod blockstore_fallback;
+pub use self::{base_fee::*, chain_store::*, errors::*, blockstore_fallback::*};

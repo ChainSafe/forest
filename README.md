@@ -29,6 +29,19 @@ Have questions? Feel free to post them in [Forest Q&A]!
 
 ## Run with Docker
 
+## Optional Chainstore Fallback
+
+Forest supports an experimental fallback blockstore to fetch missing blocks from the network via Bitswap when they are not available locally. This behavior is disabled by default.
+
+To  enable fallback, set the environment variable:
+
+    FOREST_ENABLE_CHAINSTORE_FALLBACK=1
+
+When enabled, Forest will attempt to retrieve missing blocks via Bitswap during chain sync. If the block is successfully retrieved, it will be stored locally and chain sync will continue. If the block cannot be fetched from the network, chain sync will return an error as usual.
+
+Note: This feature is inspired by Lotus's `LOTUS_ENABLE_CHAINSTORE_FALLBACK` and is considered experimental. Use with caution in production.
+
+
 No need to install Rust toolchain or other dependencies, you will need only
 Docker - works on Linux, macOS and Windows.
 
