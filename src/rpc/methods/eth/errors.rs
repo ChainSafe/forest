@@ -8,8 +8,8 @@ use std::fmt::Debug;
 use thiserror::Error;
 
 /// This error indicates that the execution reverted while executing the message.
-/// Code is taken from https://github.com/filecoin-project/lotus/blob/release/v1.32.1/api/api_errors.go#L27
-pub const EXECUTION_REVERTED_CODE: i32 = 11;
+/// Error code 3 was introduced in geth v1.9.15 and is now expected by most Ethereum ecosystem tooling for automatic ABI decoding of revert reasons from the error data field.
+pub const EXECUTION_REVERTED_CODE: i32 = 3;
 
 #[derive(Clone, Debug, Error, Serialize)]
 pub enum EthErrors {
