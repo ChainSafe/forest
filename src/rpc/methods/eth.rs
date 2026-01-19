@@ -3724,47 +3724,83 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             ResolveNullTipset::TakeOlder,
         )?;
 
-        let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
+        eth_trace_replay_block_transactions(&ctx, &ts).await
+    }
+}
 
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+pub enum EthTraceReplayBlockTransactionsV2 {}
+impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
+    const N_REQUIRED_PARAMS: usize = 2;
+    const NAME: &'static str = "Filecoin.EthTraceReplayBlockTransactions";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_replayBlockTransactions");
+    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "traceTypes"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (ExtBlockNumberOrHash, Vec<String>);
+    type Ok = Vec<EthReplayBlockTransactionTrace>;
 
-        let mut all_traces = vec![];
-        for ir in trace.into_iter() {
-            if ir.msg.from == system::ADDRESS.into() {
-                continue;
-            }
-
-            let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
-            let tx_hash = tx_hash
-                .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
-
-            let mut env = trace::base_environment(&state, &ir.msg.from)
-                .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
-
-            if let Some(execution_trace) = ir.execution_trace {
-                trace::build_traces(&mut env, &[], execution_trace)?;
-
-                let get_output = || -> EthBytes {
-                    env.traces
-                        .first()
-                        .map_or_else(EthBytes::default, |trace| match &trace.result {
-                            TraceResult::Call(r) => r.output.clone(),
-                            TraceResult::Create(r) => r.code.clone(),
-                        })
-                };
-
-                all_traces.push(EthReplayBlockTransactionTrace {
-                    output: get_output(),
-                    state_diff: None,
-                    trace: env.traces.clone(),
-                    transaction_hash: tx_hash.clone(),
-                    vm_trace: None,
-                });
-            };
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, trace_types): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if trace_types.as_slice() != ["trace"] {
+            return Err(anyhow::anyhow!("only trace is supported").into());
         }
 
-        Ok(all_traces)
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
+
+        eth_trace_replay_block_transactions(&ctx, &ts).await
     }
+}
+
+async fn eth_trace_replay_block_transactions<DB>(
+    ctx: &Ctx<DB>,
+    ts: &Tipset,
+) -> Result<Vec<EthReplayBlockTransactionTrace>, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let (state_root, trace) = ctx.state_manager.execution_trace(ts)?;
+
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+    let mut all_traces = vec![];
+    for ir in trace.into_iter() {
+        if ir.msg.from == system::ADDRESS.into() {
+            continue;
+        }
+
+        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+        let tx_hash = tx_hash
+            .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
+
+        let mut env = trace::base_environment(&state, &ir.msg.from)
+            .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
+
+        if let Some(execution_trace) = ir.execution_trace {
+            trace::build_traces(&mut env, &[], execution_trace)?;
+
+            let get_output = || -> EthBytes {
+                env.traces
+                    .first()
+                    .map_or_else(EthBytes::default, |trace| match &trace.result {
+                        TraceResult::Call(r) => r.output.clone(),
+                        TraceResult::Create(r) => r.code.clone(),
+                    })
+            };
+
+            all_traces.push(EthReplayBlockTransactionTrace {
+                output: get_output(),
+                state_diff: None,
+                trace: env.traces.clone(),
+                transaction_hash: tx_hash.clone(),
+                vm_trace: None,
+            });
+        };
+    }
+
+    Ok(all_traces)
 }
 
 fn get_eth_block_number_from_string<DB: Blockstore>(
