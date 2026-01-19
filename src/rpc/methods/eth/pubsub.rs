@@ -69,14 +69,9 @@ use jsonrpsee::core::{SubscriptionError, SubscriptionResult};
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, error::RecvError};
 
+#[derive(derive_more::Constructor)]
 pub struct EthPubSub<DB> {
     ctx: Arc<RPCState<DB>>,
-}
-
-impl<DB> EthPubSub<DB> {
-    pub fn new(ctx: Arc<RPCState<DB>>) -> Self {
-        Self { ctx }
-    }
 }
 
 #[async_trait::async_trait]

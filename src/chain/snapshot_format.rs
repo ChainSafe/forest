@@ -43,7 +43,7 @@ impl<'de> Deserialize<'de> for FilecoinSnapshotVersion {
 }
 
 /// Defined in <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#snapshotmetadata>
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, derive_more::Constructor)]
 #[serde(rename_all = "PascalCase")]
 pub struct FilecoinSnapshotMetadata {
     /// Snapshot version
@@ -55,18 +55,6 @@ pub struct FilecoinSnapshotMetadata {
 }
 
 impl FilecoinSnapshotMetadata {
-    pub fn new(
-        version: FilecoinSnapshotVersion,
-        head_tipset_key: NonEmpty<Cid>,
-        f3_data: Option<Cid>,
-    ) -> Self {
-        Self {
-            version,
-            head_tipset_key,
-            f3_data,
-        }
-    }
-
     pub fn new_v2(head_tipset_key: NonEmpty<Cid>, f3_data: Option<Cid>) -> Self {
         Self::new(FilecoinSnapshotVersion::V2, head_tipset_key, f3_data)
     }
