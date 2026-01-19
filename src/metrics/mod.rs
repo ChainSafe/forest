@@ -169,15 +169,9 @@ pub struct RpcMethodLabel {
     pub method: String,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet, derive_more::Constructor)]
 pub struct KindLabel {
     kind: &'static str,
-}
-
-impl KindLabel {
-    pub const fn new(kind: &'static str) -> Self {
-        Self { kind }
-    }
 }
 
 pub mod values {

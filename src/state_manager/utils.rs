@@ -272,8 +272,9 @@ pub mod state_compute {
         use super::*;
 
         #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet() {
+        async fn state_compute_calibnet_3111900() {
             let chain = NetworkChain::Calibnet;
+            // FVM@4
             let snapshot = get_state_compute_snapshot(&chain, 3111900).await.unwrap();
             let (sm, ts) = prepare_state_compute(&chain, &snapshot, false)
                 .await
@@ -282,7 +283,29 @@ pub mod state_compute {
         }
 
         #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_mainnet() {
+        async fn state_compute_calibnet_480000() {
+            let chain = NetworkChain::Calibnet;
+            // FVM@3
+            let snapshot = get_state_compute_snapshot(&chain, 480000).await.unwrap();
+            let (sm, ts) = prepare_state_compute(&chain, &snapshot, false)
+                .await
+                .unwrap();
+            state_compute(sm, ts).await;
+        }
+
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_300000() {
+            let chain = NetworkChain::Calibnet;
+            // FVM@2
+            let snapshot = get_state_compute_snapshot(&chain, 300000).await.unwrap();
+            let (sm, ts) = prepare_state_compute(&chain, &snapshot, false)
+                .await
+                .unwrap();
+            state_compute(sm, ts).await;
+        }
+
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_mainnet_5427431() {
             let chain = NetworkChain::Mainnet;
             let snapshot = get_state_compute_snapshot(&chain, 5427431).await.unwrap();
             let (sm, ts) = prepare_state_compute(&chain, &snapshot, false)

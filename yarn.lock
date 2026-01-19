@@ -5,19 +5,12 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@docusaurus/tsconfig@npm:^3.8.1":
-  version: 3.8.1
-  resolution: "@docusaurus/tsconfig@npm:3.8.1"
-  checksum: 10c0/137aad26f2f3cf7b36a80b36f25170cdb00f51d03e8aa10d4c7eaa2550770ec48d269ce016d852f13c9390176b70bbbb87af4946c4ca891d4be1f61a745a95a5
-  languageName: node
-  linkType: hard
-
-"prettier@npm:^3.6.2":
-  version: 3.6.2
-  resolution: "prettier@npm:3.6.2"
+"prettier@npm:^3.8.0":
+  version: 3.8.0
+  resolution: "prettier@npm:3.8.0"
   bin:
     prettier: bin/prettier.cjs
-  checksum: 10c0/488cb2f2b99ec13da1e50074912870217c11edaddedeadc649b1244c749d15ba94e846423d062e2c4c9ae683e2d65f754de28889ba06e697ac4f988d44f45812
+  checksum: 10c0/8926e9c9941a293b76c2d799089d038e9f6d84fb37702fc370bedd03b3c70d7fcf507e2e3c4f151f222d81820a3b74cac5e692c955cfafe34dd0d02616ce8327
   languageName: node
   linkType: hard
 
@@ -25,7 +18,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "root@workspace:."
   dependencies:
-    "@docusaurus/tsconfig": "npm:^3.8.1"
-    prettier: "npm:^3.6.2"
+    prettier: "npm:^3.8.0"
   languageName: unknown
   linkType: soft

@@ -464,7 +464,7 @@ pub struct EthTopicSpec(pub Vec<EthHashList>);
 
 /// Represents an [`EthAddress`] or a collection of thereof. This allows the caller to either use,
 /// e.g., `0x1234...` or `["0x1234...", "0x5678..."]` as the address parameter.
-#[derive(PartialEq, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(PartialEq, Serialize, Deserialize, Debug, Clone, JsonSchema, derive_more::From)]
 #[serde(untagged)]
 pub enum EthAddressList {
     List(Vec<EthAddress>),
@@ -474,18 +474,6 @@ pub enum EthAddressList {
 impl Default for EthAddressList {
     fn default() -> Self {
         EthAddressList::List(Vec::new())
-    }
-}
-
-impl From<EthAddress> for EthAddressList {
-    fn from(addr: EthAddress) -> Self {
-        EthAddressList::Single(addr)
-    }
-}
-
-impl From<Vec<EthAddress>> for EthAddressList {
-    fn from(addrs: Vec<EthAddress>) -> Self {
-        EthAddressList::List(addrs)
     }
 }
 

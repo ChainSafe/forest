@@ -57,6 +57,7 @@ pub enum FilecoinConsensusError {
     ForestEncoding(#[from] ForestEncodingError),
 }
 
+#[derive(derive_more::Constructor)]
 pub struct FilecoinConsensus {
     /// `Drand` randomness beacon
     ///
@@ -67,10 +68,6 @@ pub struct FilecoinConsensus {
 }
 
 impl FilecoinConsensus {
-    pub fn new(beacon: Arc<BeaconSchedule>) -> Self {
-        Self { beacon }
-    }
-
     pub async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         &self,
         state_manager: Arc<StateManager<DB>>,

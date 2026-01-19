@@ -65,14 +65,6 @@ const config = {
           },
         ],
       },
-      announcementBar: {
-        id: "new_docs",
-        content:
-          '🌲 Welcome to our new docs! Let us know what you think with <a target="_blank" rel="noopener noreferrer" href="https://forms.gle/zvfuJ9JF2V2qCFzHA">this form</a> 👋',
-        backgroundColor: "#000000",
-        textColor: "var(--ifm-color-primary)",
-        isCloseable: false,
-      },
       docs: {
         sidebar: {
           hideable: true,

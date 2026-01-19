@@ -1,20 +1,7 @@
 ---
 title: Running Forest With Lotus Gateway
-sidebar_position: 1
+sidebar_position: 2
 ---
-
-# Running Forest with Lotus Gateway
-
-## Introduction
-
-Directly exposing a Filecoin node's RPC interface is unsafe for production use. Some reasons include:
-
-Certain methods are very expensive and can potentially be abused. The current JWT protection mechanism has only mutability checks.
-
-- Certain methods should not be exposed to the public at all, such as `Filecoin.ChainExport`.
-- There is no rate-limiting mechanism in place. This can lead to a denial-of-service attack and crashing the node.
-
-Therefore, running a Filecoin node behind a proxy is recommended.
 
 ## Lotus Gateway
 

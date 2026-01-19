@@ -65,6 +65,8 @@
 
 - [#6286](https://github.com/ChainSafe/forest/pull/6286) Fixed: `Filecoin.ChainGetEvents` API returns correct events.
 
+- [#6430](https://github.com/ChainSafe/forest/issues/6430) Fixed a panic when syncing from genesis on the calibration network.
+
 ## Forest v0.30.5 "Dulce de Leche"
 
 Non-mandatory release supporting new API methods and addressing a critical panic issue.
