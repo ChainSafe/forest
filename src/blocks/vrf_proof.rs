@@ -6,17 +6,14 @@ use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.
-#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+#[cfg_attr(
+    test,
+    derive(derive_quickcheck_arbitrary::Arbitrary, derive_more::Constructor)
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize, Hash)]
 pub struct VRFProof(#[serde(with = "serde_byte_array")] pub Vec<u8>);
 
 impl VRFProof {
-    /// Creates a `VRFProof` from a raw vector.
-    #[cfg(test)]
-    pub fn new(output: Vec<u8>) -> Self {
-        Self(output)
-    }
-
     /// Returns reference to underlying proof bytes.
     pub fn as_bytes(&self) -> &[u8] {
         &self.0

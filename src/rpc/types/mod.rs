@@ -377,7 +377,9 @@ pub struct CirculatingSupply {
 
 lotus_json_with_self!(CirculatingSupply);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema, derive_more::Constructor,
+)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerSectors {
     live: u64,
@@ -385,16 +387,6 @@ pub struct MinerSectors {
     faulty: u64,
 }
 lotus_json_with_self!(MinerSectors);
-
-impl MinerSectors {
-    pub fn new(live: u64, active: u64, faulty: u64) -> Self {
-        Self {
-            live,
-            active,
-            faulty,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
