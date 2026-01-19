@@ -7,7 +7,7 @@ arg "<profile>" help="Installation profile (quick, release, etc.)" default="rele
 flag "--slim" help="Install a slim version"
 flag "-v --verbose" help="Enable verbose output"
 '''
-shell="bash -c"
+shell = "bash -c"
 run = '''
 echo "Installing Forest binaries with profile: ${usage_profile?}"
 [[ -n "${usage_verbose}" ]] && set -x
@@ -111,7 +111,7 @@ corepack enable && yarn && yarn install
 yarn yaml-check
 '''
 
-[tasks.fmt]
+[tasks.format]
 description = "Format all supported code."
 run = '''
 cargo fmt --all
@@ -120,6 +120,7 @@ corepack enable && yarn && yarn install
 yarn md-fmt
 yarn yaml-fmt
 '''
+alias = "fmt"
 
 [tasks.clean]
 description = "Cleanup all build artifacts and dependencies."
