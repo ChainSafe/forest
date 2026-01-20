@@ -5,6 +5,7 @@ pub mod ext;
 
 use crate::shim::actors::Policy;
 use crate::shim::actors::convert::*;
+use crate::shim::actors::power::Claim;
 use cid::Cid;
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fil_actor_miner_state::v17::VestingFunds as VestingFundsV17;
@@ -20,9 +21,9 @@ use fvm_shared2::{
 };
 use num::BigInt;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
+use spire_enum::prelude::delegated_enum;
+use std::borrow::{Borrow as _, Cow};
 
-use crate::shim::actors::power::Claim;
 /// Miner actor method.
 pub type Method = fil_actor_miner_state::v8::Method;
 
@@ -107,41 +108,41 @@ impl State {
             State::V8(st) => st.load_deadlines(&store)?.for_each(
                 &from_policy_v13_to_v9(policy),
                 &store,
-                |idx, dl| f(idx, Deadline::V8(dl)),
+                |idx, dl| f(idx, dl.into()),
             ),
             State::V9(st) => st.load_deadlines(&store)?.for_each(
                 &from_policy_v13_to_v9(policy),
                 &store,
-                |idx, dl| f(idx, Deadline::V9(dl)),
+                |idx, dl| f(idx, dl.into()),
             ),
             State::V10(st) => st.load_deadlines(&store)?.for_each(
                 &from_policy_v13_to_v10(policy),
                 &store,
-                |idx, dl| f(idx, Deadline::V10(dl)),
+                |idx, dl| f(idx, dl.into()),
             ),
             State::V11(st) => st.load_deadlines(&store)?.for_each(
                 &from_policy_v13_to_v11(policy),
                 &store,
-                |idx, dl| f(idx, Deadline::V11(dl)),
+                |idx, dl| f(idx, dl.into()),
             ),
             State::V12(st) => st
                 .load_deadlines(store)?
-                .for_each(store, |idx, dl| f(idx, Deadline::V12(dl))),
+                .for_each(store, |idx, dl| f(idx, dl.into())),
             State::V13(st) => st
                 .load_deadlines(store)?
-                .for_each(store, |idx, dl| f(idx, Deadline::V13(dl))),
+                .for_each(store, |idx, dl| f(idx, dl.into())),
             State::V14(st) => st
                 .load_deadlines(store)?
-                .for_each(store, |idx, dl| f(idx, Deadline::V14(dl))),
+                .for_each(store, |idx, dl| f(idx, dl.into())),
             State::V15(st) => st
                 .load_deadlines(store)?
-                .for_each(store, |idx, dl| f(idx, Deadline::V15(dl))),
+                .for_each(store, |idx, dl| f(idx, dl.into())),
             State::V16(st) => st
                 .load_deadlines(store)?
-                .for_each(store, |idx, dl| f(idx, Deadline::V16(dl))),
+                .for_each(store, |idx, dl| f(idx, dl.into())),
             State::V17(st) => st
                 .load_deadlines(store)?
-                .for_each(store, |idx, dl| f(idx, Deadline::V17(dl))),
+                .for_each(store, |idx, dl| f(idx, dl.into())),
         }
     }
 
@@ -156,43 +157,43 @@ impl State {
             State::V8(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(&from_policy_v13_to_v9(policy), store, idx)
-                .map(Deadline::V8)?),
+                .map(From::from)?),
             State::V9(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(&from_policy_v13_to_v9(policy), store, idx)
-                .map(Deadline::V9)?),
+                .map(From::from)?),
             State::V10(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(&from_policy_v13_to_v10(policy), store, idx)
-                .map(Deadline::V10)?),
+                .map(From::from)?),
             State::V11(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(&from_policy_v13_to_v11(policy), store, idx)
-                .map(Deadline::V11)?),
+                .map(From::from)?),
             State::V12(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
-                .map(Deadline::V12)?),
+                .map(From::from)?),
             State::V13(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
-                .map(Deadline::V13)?),
+                .map(From::from)?),
             State::V14(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
-                .map(Deadline::V14)?),
+                .map(From::from)?),
             State::V15(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
-                .map(Deadline::V15)?),
+                .map(From::from)?),
             State::V16(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
-                .map(Deadline::V16)?),
+                .map(From::from)?),
             State::V17(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
-                .map(Deadline::V17)?),
+                .map(From::from)?),
         }
     }
 
@@ -910,6 +911,7 @@ pub struct MinerPower {
 }
 
 /// Deadline holds the state for all sectors due at a specific deadline.
+#[delegated_enum(impl_conversions)]
 pub enum Deadline {
     V8(fil_actor_miner_state::v8::Deadline),
     V9(fil_actor_miner_state::v9::Deadline),
@@ -930,76 +932,24 @@ impl Deadline {
         store: &BS,
         mut f: impl FnMut(u64, Partition) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
-        match self {
-            Deadline::V8(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V8(Cow::Borrowed(part)))
-            }),
-            Deadline::V9(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V9(Cow::Borrowed(part)))
-            }),
-            Deadline::V10(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V10(Cow::Borrowed(part)))
-            }),
-            Deadline::V11(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V11(Cow::Borrowed(part)))
-            }),
-            Deadline::V12(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V12(Cow::Borrowed(part)))
-            }),
-            Deadline::V13(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V13(Cow::Borrowed(part)))
-            }),
-            Deadline::V14(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V14(Cow::Borrowed(part)))
-            }),
-            Deadline::V15(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V15(Cow::Borrowed(part)))
-            }),
-            Deadline::V16(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V16(Cow::Borrowed(part)))
-            }),
-            Deadline::V17(dl) => dl.for_each(&store, |idx, part| {
-                f(idx, Partition::V17(Cow::Borrowed(part)))
-            }),
-        }
+        delegate_deadline!(self.for_each(&store, |idx, part| f(idx, Cow::Borrowed(part).into())))
     }
 
     /// Returns number of partitions posted
     pub fn partitions_posted(&self) -> BitField {
-        match self {
-            Deadline::V8(dl) => dl.partitions_posted.clone(),
-            Deadline::V9(dl) => dl.partitions_posted.clone(),
-            Deadline::V10(dl) => dl.partitions_posted.clone(),
-            Deadline::V11(dl) => dl.partitions_posted.clone(),
-            Deadline::V12(dl) => dl.partitions_posted.clone(),
-            Deadline::V13(dl) => dl.partitions_posted.clone(),
-            Deadline::V14(dl) => dl.partitions_posted.clone(),
-            Deadline::V15(dl) => dl.partitions_posted.clone(),
-            Deadline::V16(dl) => dl.partitions_posted.clone(),
-            Deadline::V17(dl) => dl.partitions_posted.clone(),
-        }
+        delegate_deadline!(self.partitions_posted.clone())
     }
 
     /// Returns disputable proof count of the deadline
     pub fn disputable_proof_count<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<u64> {
-        match self {
-            Deadline::V8(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-            Deadline::V9(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-            Deadline::V10(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-            Deadline::V11(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-            Deadline::V12(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-            Deadline::V13(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-            Deadline::V14(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-            Deadline::V15(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-            Deadline::V16(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-            Deadline::V17(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
-        }
+        Ok(delegate_deadline!(
+            self.optimistic_proofs_snapshot_amt(store)?.count()
+        ))
     }
 }
 
-#[allow(clippy::large_enum_variant)]
+#[delegated_enum(impl_conversions)]
 pub enum Partition<'a> {
-    // V7(Cow<'a, fil_actor_miner_state::v7::Partition>),
     V8(Cow<'a, fil_actor_miner_state::v8::Partition>),
     V9(Cow<'a, fil_actor_miner_state::v9::Partition>),
     V10(Cow<'a, fil_actor_miner_state::v10::Partition>),
@@ -1014,74 +964,19 @@ pub enum Partition<'a> {
 
 impl Partition<'_> {
     pub fn all_sectors(&self) -> &BitField {
-        match self {
-            Partition::V8(dl) => &dl.sectors,
-            Partition::V9(dl) => &dl.sectors,
-            Partition::V10(dl) => &dl.sectors,
-            Partition::V11(dl) => &dl.sectors,
-            Partition::V12(dl) => &dl.sectors,
-            Partition::V13(dl) => &dl.sectors,
-            Partition::V14(dl) => &dl.sectors,
-            Partition::V15(dl) => &dl.sectors,
-            Partition::V16(dl) => &dl.sectors,
-            Partition::V17(dl) => &dl.sectors,
-        }
+        delegate_partition!(self.sectors.borrow())
     }
     pub fn faulty_sectors(&self) -> &BitField {
-        match self {
-            Partition::V8(dl) => &dl.faults,
-            Partition::V9(dl) => &dl.faults,
-            Partition::V10(dl) => &dl.faults,
-            Partition::V11(dl) => &dl.faults,
-            Partition::V12(dl) => &dl.faults,
-            Partition::V13(dl) => &dl.faults,
-            Partition::V14(dl) => &dl.faults,
-            Partition::V15(dl) => &dl.faults,
-            Partition::V16(dl) => &dl.faults,
-            Partition::V17(dl) => &dl.faults,
-        }
+        delegate_partition!(self.faults.borrow())
     }
     pub fn live_sectors(&self) -> BitField {
-        match self {
-            Partition::V8(dl) => dl.live_sectors(),
-            Partition::V9(dl) => dl.live_sectors(),
-            Partition::V10(dl) => dl.live_sectors(),
-            Partition::V11(dl) => dl.live_sectors(),
-            Partition::V12(dl) => dl.live_sectors(),
-            Partition::V13(dl) => dl.live_sectors(),
-            Partition::V14(dl) => dl.live_sectors(),
-            Partition::V15(dl) => dl.live_sectors(),
-            Partition::V16(dl) => dl.live_sectors(),
-            Partition::V17(dl) => dl.live_sectors(),
-        }
+        delegate_partition!(self.live_sectors())
     }
     pub fn active_sectors(&self) -> BitField {
-        match self {
-            Partition::V8(dl) => dl.active_sectors(),
-            Partition::V9(dl) => dl.active_sectors(),
-            Partition::V10(dl) => dl.active_sectors(),
-            Partition::V11(dl) => dl.active_sectors(),
-            Partition::V12(dl) => dl.active_sectors(),
-            Partition::V13(dl) => dl.active_sectors(),
-            Partition::V14(dl) => dl.active_sectors(),
-            Partition::V15(dl) => dl.active_sectors(),
-            Partition::V16(dl) => dl.active_sectors(),
-            Partition::V17(dl) => dl.active_sectors(),
-        }
+        delegate_partition!(self.active_sectors())
     }
     pub fn recovering_sectors(&self) -> &BitField {
-        match self {
-            Partition::V8(dl) => &dl.recoveries,
-            Partition::V9(dl) => &dl.recoveries,
-            Partition::V10(dl) => &dl.recoveries,
-            Partition::V11(dl) => &dl.recoveries,
-            Partition::V12(dl) => &dl.recoveries,
-            Partition::V13(dl) => &dl.recoveries,
-            Partition::V14(dl) => &dl.recoveries,
-            Partition::V15(dl) => &dl.recoveries,
-            Partition::V16(dl) => &dl.recoveries,
-            Partition::V17(dl) => &dl.recoveries,
-        }
+        delegate_partition!(self.recoveries.borrow())
     }
 }
 
