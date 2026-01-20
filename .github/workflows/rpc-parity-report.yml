@@ -45,6 +45,7 @@ jobs:
           df -h
       - uses: jdx/mise-action@v3
       - run: mise add_conformance_report
+      - run: mise run docs:format
       # This is needed in order to have the commits signed.
       - uses: actions/create-github-app-token@v2
         id: generate-token
