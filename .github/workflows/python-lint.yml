@@ -1,0 +1,37 @@
+name: Python lint
+
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+on:
+  merge_group:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/*.py"
+      - ".github/workflows/python-lint.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.py"
+      - ".github/workflows/python-lint.yml"
+
+jobs:
+  python-lint:
+    if: ${{ !startsWith(github.ref, 'refs/heads/gh-readonly-queue/') }}
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install black flake8
+      - name: Run Python linters
+        uses: wearerequired/lint-action@v2
+        with:
+          black: true
+          flake8: true
