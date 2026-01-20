@@ -3606,6 +3606,8 @@ impl RpcMethod<1> for EthTraceBlock {
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns traces created at given block.");
+
     type Params = (ExtBlockNumberOrHash,);
     type Ok = Vec<EthBlockTrace>;
     async fn handle(
@@ -3629,6 +3631,8 @@ impl RpcMethod<1> for EthTraceBlockV2 {
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns traces created at given block.");
+
     type Params = (ExtBlockNumberOrHash,);
     type Ok = Vec<EthBlockTrace>;
     async fn handle(
