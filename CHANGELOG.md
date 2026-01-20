@@ -49,7 +49,7 @@
 
 - [#6368](https://github.com/ChainSafe/forest/pull/6368): Migrated build and development tooling from Makefile to `mise`. Contributors should install `mise` and use `mise run` commands instead of `make` commands.
 
-- [#6286](https://github.com/ChainSafe/forest/pull/6286) Serve `Filecoin.ChainGetEvents` API directly from the blockstore instead of computing.
+- [#6286](https://github.com/ChainSafe/forest/pull/6286) `Filecoin.ChainGetEvents` now returns an error if the events are not present in the db.
 
 ### Removed
 

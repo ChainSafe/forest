@@ -43,7 +43,6 @@ impl MigrationOperation for Migration0_30_5_0_31_0 {
             old_db.display(),
             temp_db.display()
         );
-        // Rename the database directory to the temporary directory
         std::fs::rename(&old_db, &temp_db).context("failed to rename database directory")?;
 
         // Create a placeholder so the delete step succeeds
