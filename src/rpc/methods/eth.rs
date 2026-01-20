@@ -3707,6 +3707,10 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "traceTypes"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Replays all transactions in a block returning the requested traces for each transaction.",
+    );
+
     type Params = (ExtBlockNumberOrHash, Vec<String>);
     type Ok = Vec<EthReplayBlockTransactionTrace>;
 
@@ -3715,7 +3719,10 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
         (block_param, trace_types): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         if trace_types.as_slice() != ["trace"] {
-            return Err(anyhow::anyhow!("only trace is supported").into());
+            return Err(ServerError::invalid_params(
+                "only 'trace' is supported",
+                None,
+            ));
         }
 
         let ts = tipset_by_ext_block_number_or_hash(
@@ -3736,6 +3743,10 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "traceTypes"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Replays all transactions in a block returning the requested traces for each transaction.",
+    );
+
     type Params = (ExtBlockNumberOrHash, Vec<String>);
     type Ok = Vec<EthReplayBlockTransactionTrace>;
 
@@ -3744,7 +3755,10 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
         (block_param, trace_types): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         if trace_types.as_slice() != ["trace"] {
-            return Err(anyhow::anyhow!("only trace is supported").into());
+            return Err(ServerError::invalid_params(
+                "only 'trace' is supported",
+                None,
+            ));
         }
 
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
