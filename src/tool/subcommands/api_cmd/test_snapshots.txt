@@ -91,6 +91,7 @@ filecoin_ethnewfilter_1741781607617949.rpcsnap.json.zst
 filecoin_ethnewpendingtransactionfilter_1741781890872902.rpcsnap.json.zst
 filecoin_ethprotocolversion_1737446676698826.rpcsnap.json.zst
 filecoin_ethtraceblock_1737446676736475.rpcsnap.json.zst
+filecoin_ethtraceblock_1768911857430141.rpcsnap.json.zst
 filecoin_ethtracefilter_1742371405673188.rpcsnap.json.zst
 filecoin_ethtracefilter_1742983898701553.rpcsnap.json.zst
 filecoin_ethtracefilter_1746449543820062.rpcsnap.json.zst
