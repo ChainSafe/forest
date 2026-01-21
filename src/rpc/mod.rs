@@ -593,7 +593,43 @@ where
             let per_conn = per_conn.clone();
             let filter_list = filter_list.clone();
             move |req| {
-                let is_websocket = jsonrpsee::server::ws::is_upgrade_request(&req);
+                fn is_upgrade_request<B>(request: &http::Request<B>) -> bool {
+                    // Check if there is a header of the given name containing the wanted value.
+                    fn header_contains_value(
+                        headers: &http::HeaderMap,
+                        header: http::header::HeaderName,
+                        value: &[u8],
+                    ) -> bool {
+                        pub fn trim(x: &[u8]) -> &[u8] {
+                            let from = match x.iter().position(|x| !x.is_ascii_whitespace()) {
+                                Some(i) => i,
+                                None => return &[],
+                            };
+                            let to = x.iter().rposition(|x| !x.is_ascii_whitespace()).unwrap();
+                            &x[from..=to]
+                        }
+
+                        for header in headers.get_all(header) {
+                            if header
+                                .as_bytes()
+                                .split(|&c| c == b',')
+                                .any(|x| trim(x).eq_ignore_ascii_case(value))
+                            {
+                                return true;
+                            }
+                        }
+                        false
+                    }
+                    header_contains_value(request.headers(), http::header::CONNECTION, b"upgrade")
+                        && header_contains_value(
+                            request.headers(),
+                            http::header::UPGRADE,
+                            b"websocket",
+                        )
+                }
+
+                let is_websocket = is_upgrade_request(&req);
+                tracing::info!("New RPC connection: is_websocket={}", is_websocket);
                 let path = if let Ok(p) = ApiPaths::from_uri(req.uri()) {
                     p
                 } else {
