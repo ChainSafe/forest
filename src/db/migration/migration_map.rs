@@ -10,6 +10,7 @@ use std::{
 use crate::Config;
 use crate::db::migration::v0_22_1::Migration0_22_0_0_22_1;
 use crate::db::migration::v0_26_0::Migration0_25_3_0_26_0;
+use crate::db::migration::v0_31_0::Migration0_30_5_0_31_0;
 use anyhow::Context as _;
 use anyhow::bail;
 use itertools::Itertools;
@@ -155,6 +156,7 @@ pub(super) static MIGRATIONS: LazyLock<MigrationsMap> = LazyLock::new(|| {
 create_migrations!(
     "0.22.0" -> "0.22.1" @ Migration0_22_0_0_22_1,
     "0.25.3" -> "0.26.0" @ Migration0_25_3_0_26_0,
+    "0.30.5" -> "0.31.0" @ Migration0_30_5_0_31_0,
 );
 
 /// Creates a migration chain from `start` to `goal`. The chain is chosen to be the shortest
