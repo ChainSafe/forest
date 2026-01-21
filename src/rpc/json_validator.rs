@@ -7,30 +7,13 @@
 //! This means JSON like `{"/":"cid1", "/":"cid2"}` will keep only the last value, which can lead to unexpected behaviour in RPC calls. 
 
 use ahash::HashSet;
-
-#[cfg(not(test))]
-use std::sync::LazyLock;
+use justjson::Value;
 
 pub const STRICT_JSON_ENV: &str = "FOREST_STRICT_JSON";
 
 #[inline]
 pub fn is_strict_mode() -> bool {
-    #[cfg(test)]
-    {
-        std::env::var(STRICT_JSON_ENV)
-            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-            .unwrap_or(false)
-    }
-    
-    #[cfg(not(test))]
-    {
-        static STRICT_MODE: LazyLock<bool> = LazyLock::new(|| {
-            std::env::var(STRICT_JSON_ENV)
-                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                .unwrap_or(false)
-        });
-        *STRICT_MODE
-    }
+    crate::utils::misc::env::is_env_truthy(STRICT_JSON_ENV)
 }
 
 /// validates JSON for duplicate keys by parsing at the token level.
@@ -39,83 +22,38 @@ pub fn validate_json_for_duplicates(json_str: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    let mut object_stack: Vec<HashSet<String>> = Vec::new();
-    
-    let mut chars = json_str.chars();
-    let mut current_key = String::new();
-    let mut in_string = false;
-    let mut escape_next = false;
-    let mut expecting_key = false;
-    
-    while let Some(ch) = chars.next() {
-        if in_string {
-            if escape_next {
-                escape_next = false;
-                if expecting_key {
-                    current_key.push('\\');
-                    current_key.push(ch);
-                }
-                continue;
-            }
-            if ch == '\\' {
-                escape_next = true;
-                continue;
-            }
-            if ch == '"' {
-                in_string = false;
-                if expecting_key {
-                    if let Some(keys) = object_stack.last_mut() {
-                        if !keys.insert(current_key.clone()) {
-                            return Err(format!(
-                                "duplicate key '{}' in JSON object - this likely indicates malformed input. \
-                                Set {}=0 to disable this check",
-                                current_key, STRICT_JSON_ENV
-                            ));
-                        }
+    fn check_value(value: &Value) -> Result<(), String> {
+        match value {
+            Value::Object(obj) => {
+                let mut seen = HashSet::default();
+                for entry in obj.iter() {
+                    let key = entry.key.as_str().ok_or_else(|| {
+                        "Invalid JSON key".to_string()
+                    })?;
+                    
+                    if !seen.insert(key) {
+                        return Err(format!(
+                            "duplicate key '{}' in JSON object - this likely indicates malformed input. \
+                            Set {}=0 to disable this check",
+                            key, STRICT_JSON_ENV
+                        ));
                     }
-                    current_key.clear();
-                    expecting_key = false;
+                    check_value(&entry.value)?;
                 }
-                continue;
+                Ok(())
             }
-            if expecting_key {
-                current_key.push(ch);
-            }
-            continue;
-        }
-        
-        match ch {
-            '"' => {
-                in_string = true;
-            }
-            '{' => {
-                object_stack.push(HashSet::default());
-                expecting_key = true;
-            }
-            '}' => {
-                if !object_stack.is_empty() {
-                    object_stack.pop();
+            Value::Array(arr) => {
+                for item in arr.iter() {
+                    check_value(item)?;
                 }
-                expecting_key = false;
+                Ok(())
             }
-            '[' => {
-                expecting_key = false;
-            }
-            ']' => {
-                expecting_key = false;
-            }
-            ':' => {}
-            ',' => {
-                if !object_stack.is_empty() {
-                    expecting_key = true;
-                }
-            }
-            c if c.is_whitespace() => {}
-            _ => {}
+            _ => Ok(())
         }
     }
-    
-    Ok(())
+    let value = Value::from_json(json_str)
+        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    check_value(&value)
 }
 
 #[cfg(test)]

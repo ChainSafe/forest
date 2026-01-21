@@ -116,6 +116,7 @@ is-terminal = "0.4"
 itertools = "0.14"
 jsonrpsee = { version = "0.26", features = ["server", "ws-client", "http-client", "macros"] }
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
+justjson = "0.3"
 keccak-hash = "0.12"
 kubert-prometheus-process = "0.2"
 lazy-regex = "3"

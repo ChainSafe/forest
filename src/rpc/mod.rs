@@ -620,7 +620,7 @@ where
                     .layer(SetExtensionLayer { path })
                     .layer(SegregationLayer)
                     .layer(FilterLayer::new(filter_list.clone()))
-                    .layer(validation_layer::ValidationLayer)
+                    .layer(validation_layer::JsonValidationLayer)
                     .layer(AuthLayer {
                         headers,
                         keystore: keystore.clone(),
