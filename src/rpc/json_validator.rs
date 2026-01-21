@@ -4,16 +4,30 @@
 //! JSON validation utilities for detecting duplicate keys before serde_json processing.
 //!
 //! serde_json automatically deduplicates keys at parse time using a "last-write-wins" strategy
-//! This means JSON like `{"/":"cid1", "/":"cid2"}` will keep only the last value, which can lead to unexpected behaviour in RPC calls. 
+//! This means JSON like `{"/":"cid1", "/":"cid2"}` will keep only the last value, which can lead to unexpected behaviour in RPC calls.
 
 use ahash::HashSet;
 use justjson::Value;
 
 pub const STRICT_JSON_ENV: &str = "FOREST_STRICT_JSON";
 
+#[cfg(not(test))]
+use std::sync::LazyLock;
+
+#[cfg(not(test))]
+static STRICT_MODE: LazyLock<bool> =
+    LazyLock::new(|| crate::utils::misc::env::is_env_truthy(STRICT_JSON_ENV));
+
 #[inline]
 pub fn is_strict_mode() -> bool {
-    crate::utils::misc::env::is_env_truthy(STRICT_JSON_ENV)
+    #[cfg(test)]
+    {
+        crate::utils::misc::env::is_env_truthy(STRICT_JSON_ENV)
+    }
+    #[cfg(not(test))]
+    {
+        *STRICT_MODE
+    }
 }
 
 /// validates JSON for duplicate keys by parsing at the token level.
@@ -27,10 +41,11 @@ pub fn validate_json_for_duplicates(json_str: &str) -> Result<(), String> {
             Value::Object(obj) => {
                 let mut seen = HashSet::default();
                 for entry in obj.iter() {
-                    let key = entry.key.as_str().ok_or_else(|| {
-                        "Invalid JSON key".to_string()
-                    })?;
-                    
+                    let key = entry
+                        .key
+                        .as_str()
+                        .ok_or_else(|| "Invalid JSON key".to_string())?;
+
                     if !seen.insert(key) {
                         return Err(format!(
                             "duplicate key '{}' in JSON object - this likely indicates malformed input. \
@@ -48,11 +63,13 @@ pub fn validate_json_for_duplicates(json_str: &str) -> Result<(), String> {
                 }
                 Ok(())
             }
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
-    let value = Value::from_json(json_str)
-        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let value = match Value::from_json(json_str) {
+        Ok(v) => v,
+        Err(_) => return Ok(()),
+    };
     check_value(&value)
 }
 
@@ -64,13 +81,26 @@ mod tests {
     where
         F: FnOnce(),
     {
+        let original = std::env::var(STRICT_JSON_ENV).ok();
+
         if enabled {
-            unsafe { std::env::set_var(STRICT_JSON_ENV, "1"); }
+            unsafe {
+                std::env::set_var(STRICT_JSON_ENV, "1");
+            }
         } else {
-            unsafe { std::env::remove_var(STRICT_JSON_ENV); }
+            unsafe {
+                std::env::remove_var(STRICT_JSON_ENV);
+            }
         }
+
         f();
-        unsafe { std::env::remove_var(STRICT_JSON_ENV); }
+
+        unsafe {
+            match original {
+                Some(val) => std::env::set_var(STRICT_JSON_ENV, val),
+                None => std::env::remove_var(STRICT_JSON_ENV),
+            }
+        }
     }
 
     #[test]

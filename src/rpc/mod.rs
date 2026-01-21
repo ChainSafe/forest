@@ -7,12 +7,12 @@ mod channel;
 mod client;
 mod filter_layer;
 mod filter_list;
+pub mod json_validator;
 mod log_layer;
 mod metrics_layer;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
-pub mod json_validator;
 mod validation_layer;
 
 use crate::rpc::eth::types::RandomHexStringIdProvider;

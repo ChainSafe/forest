@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use futures::future::Either;
+use jsonrpsee::MethodResponse;
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::ErrorObject;
-use jsonrpsee::MethodResponse;
 use tower::Layer;
 
 use super::json_validator;
@@ -56,12 +56,10 @@ where
             return Either::Left(self.service.call(req));
         }
 
-        if let Err(e) = json_validator::validate_json_for_duplicates(req.params().as_str().unwrap_or("[]")) {
-            let err = ErrorObject::owned(
-                -32600,
-                e,
-                None::<()>,
-            );
+        if let Err(e) =
+            json_validator::validate_json_for_duplicates(req.params().as_str().unwrap_or("[]"))
+        {
+            let err = ErrorObject::owned(-32600, e, None::<()>);
             return Either::Right(async move { MethodResponse::error(req.id(), err) });
         }
 
@@ -73,7 +71,7 @@ where
         mut batch: jsonrpsee::core::middleware::Batch<'a>,
     ) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
         let service = self.service.clone();
-        
+
         async move {
             if !Self::validation_enabled() {
                 return service.batch(batch).await;
@@ -83,7 +81,7 @@ where
                 if let Ok(batch_entry) = entry {
                     let params_str = match batch_entry.params() {
                         Some(p) => p.as_ref().get(),
-                        None => "[]",
+                        None => continue,
                     };
 
                     if let Err(e) = Self::validate_params(params_str) {
@@ -96,7 +94,14 @@ where
                                 );
                                 *entry = Err(err_entry);
                             }
-                            jsonrpsee::core::middleware::BatchEntry::Notification(_) => {}
+                            jsonrpsee::core::middleware::BatchEntry::Notification(_notif) => {
+                                let err = ErrorObject::owned(-32600, e, None::<()>);
+                                let err_entry = jsonrpsee::core::middleware::BatchEntryErr::new(
+                                    jsonrpsee::types::Id::Null,
+                                    err,
+                                );
+                                *entry = Err(err_entry);
+                            }
                         }
                     }
                 }
@@ -111,7 +116,7 @@ where
         n: jsonrpsee::core::middleware::Notification<'a>,
     ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
         let service = self.service.clone();
-        
+
         async move {
             if !Self::validation_enabled() {
                 return service.notification(n).await;
@@ -119,9 +124,9 @@ where
 
             let params_str = match n.params() {
                 Some(p) => p.as_ref().get(),
-                None => "[]",
+                None => return service.notification(n).await,
             };
-            
+
             if let Err(e) = Self::validate_params(params_str) {
                 let err = ErrorObject::owned(-32600, e, None::<()>);
                 return MethodResponse::error(jsonrpsee::types::Id::Null, err);
