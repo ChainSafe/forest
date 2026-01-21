@@ -64,7 +64,7 @@ mod message;
 mod message_pool;
 mod metrics;
 mod networks;
-mod rpc;
+pub mod rpc;
 mod shim;
 mod state_manager;
 mod state_migration;

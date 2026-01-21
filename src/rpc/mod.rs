@@ -12,6 +12,8 @@ mod metrics_layer;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
+pub mod json_validator;
+mod validation_layer;
 
 use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::shim::clock::ChainEpoch;
@@ -618,6 +620,7 @@ where
                     .layer(SetExtensionLayer { path })
                     .layer(SegregationLayer)
                     .layer(FilterLayer::new(filter_list.clone()))
+                    .layer(validation_layer::ValidationLayer)
                     .layer(AuthLayer {
                         headers,
                         keystore: keystore.clone(),
