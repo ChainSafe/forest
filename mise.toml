@@ -107,7 +107,7 @@ depends = ["lint:deny", "lint:spellcheck", "lint:rust-fmt", "lint:clippy", "lint
 [tasks."lint:yaml"]
 description = "Lint YAML files."
 run = '''
-corepack enable && yarn && yarn install
+yarn && yarn install
 yarn yaml-check
 '''
 
@@ -116,11 +116,29 @@ description = "Format all supported code."
 run = '''
 cargo fmt --all
 taplo fmt
-corepack enable && yarn && yarn install
+yarn && yarn install
 yarn md-fmt
 yarn yaml-fmt
 '''
 alias = "fmt"
+
+[tasks."docs:format"]
+description = "Format documentation files."
+dir = "docs"
+run = '''
+yarn --immutable
+yarn format
+'''
+
+[tasks."docs:lint"]
+description = "Lint documentation files."
+dir = "docs"
+run = '''
+yarn --immutable
+yarn typecheck
+yarn spellcheck
+yarn format-check
+'''
 
 [tasks.clean]
 description = "Cleanup all build artifacts and dependencies."

@@ -250,7 +250,6 @@ pub mod state_compute {
             db.clone(),
             db.clone(),
             db.clone(),
-            db.clone(),
             chain_config,
             genesis_header,
         )?);

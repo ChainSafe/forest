@@ -193,47 +193,6 @@ impl<T: ?Sized + EthMappingsStore> EthMappingsStoreExt for T {
     }
 }
 
-pub trait IndicesStore {
-    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>>;
-
-    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()>;
-
-    #[allow(dead_code)]
-    fn exists(&self, key: &Cid) -> anyhow::Result<bool>;
-}
-
-impl<T: IndicesStore> IndicesStore for Arc<T> {
-    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        IndicesStore::read_bin(self.as_ref(), key)
-    }
-
-    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
-        IndicesStore::write_bin(self.as_ref(), key, value)
-    }
-
-    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
-        IndicesStore::exists(self.as_ref(), key)
-    }
-}
-
-pub trait IndicesStoreExt {
-    fn read_obj<V: DeserializeOwned>(&self, key: &Cid) -> anyhow::Result<Option<V>>;
-    fn write_obj<V: Serialize>(&self, key: &Cid, value: &V) -> anyhow::Result<()>;
-}
-
-impl<T: ?Sized + IndicesStore> IndicesStoreExt for T {
-    fn read_obj<V: DeserializeOwned>(&self, key: &Cid) -> anyhow::Result<Option<V>> {
-        match self.read_bin(key)? {
-            Some(bytes) => Ok(Some(fvm_ipld_encoding::from_slice(&bytes)?)),
-            None => Ok(None),
-        }
-    }
-
-    fn write_obj<V: Serialize>(&self, key: &Cid, value: &V) -> anyhow::Result<()> {
-        self.write_bin(key, &fvm_ipld_encoding::to_vec(value)?)
-    }
-}
-
 /// Traits for collecting DB stats
 pub trait DBStatistics {
     fn get_statistics(&self) -> Option<String> {
