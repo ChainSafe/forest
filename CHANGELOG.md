@@ -45,6 +45,8 @@
 
 - [#6421](https://github.com/ChainSafe/forest/pull/6421) Add an environment variable `FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK` to enable backfilling full tipsets from network in a few RPC methods.
 
+- [#6465](https://github.com/ChainSafe/forest/pull/6465) Implemented `Filecoin.EthGetBlockTransactionCountByNumber` for API v2.
+
 ### Changed
 
 - [#6368](https://github.com/ChainSafe/forest/pull/6368): Migrated build and development tooling from Makefile to `mise`. Contributors should install `mise` and use `mise run` commands instead of `make` commands.
