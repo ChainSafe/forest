@@ -1635,6 +1635,15 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        if matches!(
+            block_param,
+            ExtBlockNumberOrHash::BlockHash(_) | ExtBlockNumberOrHash::BlockHashObject(_)
+        ) {
+            return Err(ServerError::invalid_params(
+                "block hash is not accepted, use EthGetBlockByHash instead.",
+                None,
+            ));
+        }
         let ts = tipset_by_ext_block_number_or_hash(
             ctx.chain_store(),
             block_param,
@@ -1661,6 +1670,15 @@ impl RpcMethod<2> for EthGetBlockByNumberV2 {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        if matches!(
+            block_param,
+            ExtBlockNumberOrHash::BlockHash(_) | ExtBlockNumberOrHash::BlockHashObject(_)
+        ) {
+            return Err(ServerError::invalid_params(
+                "block hash is not accepted, use EthGetBlockByHash instead.",
+                None,
+            ));
+        }
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
         Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
