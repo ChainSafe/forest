@@ -2220,6 +2220,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthTraceReplayBlockTransactionsV2::request((
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                vec!["trace".to_string()],
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthTraceFilter::request((EthTraceFilterCriteria {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
                 to_block: Some(format!("0x{:x}", shared_tipset.epoch() - SAFE_EPOCH_DELAY)),
