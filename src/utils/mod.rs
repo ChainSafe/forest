@@ -15,6 +15,8 @@ pub mod p2p;
 pub mod proofs_api;
 pub mod rand;
 pub mod reqwest_resume;
+#[cfg(feature = "sqlite")]
+pub mod sqlite;
 pub mod stats;
 pub mod stream;
 pub mod version;
