@@ -1787,6 +1787,8 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const PARAM_NAMES: [&'static str; 1] = ["blockNumber"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the number of transactions in a block identified by its block number.");
 
     type Params = (EthInt64,);
     type Ok = EthUint64;
@@ -1803,6 +1805,41 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
         let ts = ctx
             .chain_index()
             .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
+        let count = count_messages_in_tipset(ctx.store(), &ts)?;
+        Ok(EthUint64(count as _))
+    }
+}
+
+pub enum EthGetBlockTransactionCountByNumberV2 {}
+impl RpcMethod<1> for EthGetBlockTransactionCountByNumberV2 {
+    const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByNumber");
+    const PARAM_NAMES: [&'static str; 1] = ["blockNumber"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the number of transactions in a block identified by its block number or a special tag.",
+    );
+
+    type Params = (ExtBlockNumberOrHash,);
+    type Ok = EthUint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_number,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if matches!(
+            block_number,
+            ExtBlockNumberOrHash::BlockHash(_) | ExtBlockNumberOrHash::BlockHashObject(_)
+        ) {
+            return Err(ServerError::invalid_params(
+                "block hash is not accepted, use eth_getBlockTransactionCountByHash instead.",
+                None,
+            ));
+        }
+        let ts =
+            tipset_by_block_number_or_hash_v2(&ctx, block_number, ResolveNullTipset::TakeOlder)
+                .await?;
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
         Ok(EthUint64(count as _))
     }
