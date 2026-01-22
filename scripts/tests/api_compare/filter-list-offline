@@ -26,4 +26,6 @@
 # Offline server won't provide correct results for finality-related methods
 !Filecoin.EthGetBlockByNumber
 !eth_getBlockByNumber
+!Filecoin.EthGetBlockTransactionCountByNumber
+!eth_getBlockTransactionCountByNumber
 !Filecoin.ChainSetHead
