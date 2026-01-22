@@ -583,14 +583,21 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
                 ..Default::default()
             };
 
-            let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
+            let filter_id = client
+                .call(EthNewFilter::request((filter_spec.clone(),))?)
+                .await?;
             let filter_result = as_logs(
                 client
                     .call(EthGetFilterLogs::request((filter_id.clone(),))?)
                     .await?,
             );
             let result = if let EthFilterResult::Logs(logs) = filter_result {
-                anyhow::ensure!(!logs.is_empty());
+                anyhow::ensure!(
+                    !logs.is_empty(),
+                    "Empty logs: filter_spec={:?} cid={}",
+                    filter_spec,
+                    cid
+                );
                 Ok(())
             } else {
                 Err(anyhow::anyhow!("expecting logs"))
