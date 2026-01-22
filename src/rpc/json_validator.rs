@@ -66,6 +66,7 @@ pub fn validate_json_for_duplicates(json_str: &str) -> Result<(), String> {
             _ => Ok(()),
         }
     }
+    // defer to serde_json for invalid JSON
     let value = match Value::from_json(json_str) {
         Ok(v) => v,
         Err(_) => return Ok(()),
@@ -76,6 +77,7 @@ pub fn validate_json_for_duplicates(json_str: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     fn with_strict_mode<F>(enabled: bool, f: F)
     where
@@ -104,6 +106,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_no_duplicates() {
         with_strict_mode(true, || {
             let json = r#"{"a": 1, "b": 2, "c": 3}"#;
@@ -112,6 +115,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_duplicate_keys_detected() {
         with_strict_mode(true, || {
             let json = r#"{"/":"cid1", "/":"cid2"}"#;
@@ -122,6 +126,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_strict_mode_disabled() {
         with_strict_mode(false, || { // should pass with strict mode disabled
             let json = r#"{"/":"cid1", "/":"cid2"}"#;
@@ -130,7 +135,8 @@ mod tests {
     }
 
     #[test]
-    fn test_original_issue_case() {
+    #[serial]
+    fn test_duplicate_cid_keys() {
         with_strict_mode(true, || {
             let json = r#"{
                 "jsonrpc": "2.0",

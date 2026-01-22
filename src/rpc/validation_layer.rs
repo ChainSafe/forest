@@ -4,10 +4,15 @@
 use futures::future::Either;
 use jsonrpsee::MethodResponse;
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
+use jsonrpsee::core::middleware::{Batch, BatchEntry, BatchEntryErr, Notification};
 use jsonrpsee::types::ErrorObject;
 use tower::Layer;
 
 use super::json_validator;
+
+/// JSON-RPC error code for invalid request
+/// See: https://www.jsonrpc.org/specification#error_object
+const INVALID_REQUEST: i32 = -32600;
 
 /// stateless jsonrpsee layer for validating JSON-RPC requests
 #[derive(Clone, Default)]
@@ -59,7 +64,7 @@ where
         if let Err(e) =
             json_validator::validate_json_for_duplicates(req.params().as_str().unwrap_or("[]"))
         {
-            let err = ErrorObject::owned(-32600, e, None::<()>);
+            let err = ErrorObject::owned(INVALID_REQUEST, e, None::<()>);
             return Either::Right(async move { MethodResponse::error(req.id(), err) });
         }
 
@@ -68,7 +73,7 @@ where
 
     fn batch<'a>(
         &self,
-        mut batch: jsonrpsee::core::middleware::Batch<'a>,
+        mut batch: Batch<'a>,
     ) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
         let service = self.service.clone();
 
@@ -86,17 +91,17 @@ where
 
                     if let Err(e) = Self::validate_params(params_str) {
                         match batch_entry {
-                            jsonrpsee::core::middleware::BatchEntry::Call(req) => {
-                                let err = ErrorObject::owned(-32600, e, None::<()>);
-                                let err_entry = jsonrpsee::core::middleware::BatchEntryErr::new(
+                            BatchEntry::Call(req) => {
+                                let err = ErrorObject::owned(INVALID_REQUEST, e, None::<()>);
+                                let err_entry = BatchEntryErr::new(
                                     req.id().clone(),
                                     err,
                                 );
                                 *entry = Err(err_entry);
                             }
-                            jsonrpsee::core::middleware::BatchEntry::Notification(_notif) => {
-                                let err = ErrorObject::owned(-32600, e, None::<()>);
-                                let err_entry = jsonrpsee::core::middleware::BatchEntryErr::new(
+                            BatchEntry::Notification(_notif) => {
+                                let err = ErrorObject::owned(INVALID_REQUEST, e, None::<()>);
+                                let err_entry = BatchEntryErr::new(
                                     jsonrpsee::types::Id::Null,
                                     err,
                                 );
@@ -113,7 +118,7 @@ where
 
     fn notification<'a>(
         &self,
-        n: jsonrpsee::core::middleware::Notification<'a>,
+        n: Notification<'a>,
     ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
         let service = self.service.clone();
 
@@ -128,7 +133,7 @@ where
             };
 
             if let Err(e) = Self::validate_params(params_str) {
-                let err = ErrorObject::owned(-32600, e, None::<()>);
+                let err = ErrorObject::owned(INVALID_REQUEST, e, None::<()>);
                 return MethodResponse::error(jsonrpsee::types::Id::Null, err);
             }
 
