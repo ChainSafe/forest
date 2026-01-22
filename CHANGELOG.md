@@ -77,6 +77,8 @@ This is a non-mandatory release for all node operators. It includes the support 
 
 - [#6430](https://github.com/ChainSafe/forest/issues/6430) Fixed a panic when syncing from genesis on the calibration network.
 
+- [#6456](https://github.com/ChainSafe/forest/pull/6456) Whitelisted nebula and hermes crawlers.
+
 ## Forest v0.30.5 "Dulce de Leche"
 
 Non-mandatory release supporting new API methods and addressing a critical panic issue.
