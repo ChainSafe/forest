@@ -1627,6 +1627,8 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a block by its number or a special tag.");
 
     type Params = (ExtBlockNumberOrHash, bool);
     type Ok = Block;
@@ -1662,6 +1664,8 @@ impl RpcMethod<2> for EthGetBlockByNumberV2 {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a block by its number or a special tag, ");
 
     type Params = (ExtBlockNumberOrHash, bool);
     type Ok = Block;
