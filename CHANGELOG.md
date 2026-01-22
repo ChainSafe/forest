@@ -51,6 +51,8 @@
 
 - [#6368](https://github.com/ChainSafe/forest/pull/6368): Migrated build and development tooling from Makefile to `mise`. Contributors should install `mise` and use `mise run` commands instead of `make` commands.
 
+- [#6286](https://github.com/ChainSafe/forest/pull/6286) `Filecoin.ChainGetEvents` now returns an error if the events are not present in the db.
+
 ### Removed
 
 ### Fixed
@@ -58,11 +60,16 @@
 - [#6409](https://github.com/ChainSafe/forest/pull/6409) Fixed backfill issue when null tipsets are present.
 
 - [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
+
 - [#6354](https://github.com/ChainSafe/forest/pull/6354) Fixed: Correctly calculate the epoch range instead of directly using the look back limit value while searching for messages.
 
 - [#6400](https://github.com/ChainSafe/forest/issues/6400) Fixed `eth_subscribe` `newHeads` to return Ethereum block format instead of Filecoin block headers array.
 
+- [#6286](https://github.com/ChainSafe/forest/pull/6286) Fixed: `Filecoin.ChainGetEvents` API returns correct events.
+
 - [#6430](https://github.com/ChainSafe/forest/issues/6430) Fixed a panic when syncing from genesis on the calibration network.
+
+- [#6456](https://github.com/ChainSafe/forest/pull/6456) Whitelisted nebula and hermes crawlers.
 
 ## Forest v0.30.5 "Dulce de Leche"
 
