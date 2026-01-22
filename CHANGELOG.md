@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#6392](https://github.com/ChainSafe/forest/pull/6392): Changed execution reverted error code from 11 to 3.
+
 ### Added
 
 - [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
