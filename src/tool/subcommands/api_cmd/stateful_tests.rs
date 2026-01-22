@@ -306,7 +306,7 @@ async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow:
         if pending.0.iter().any(|msg| msg.cid() == message_cid) {
             client
                 .call(
-                    StateWaitMsg::request((message_cid, 0, tipset.epoch(), false))?
+                    StateWaitMsg::request((message_cid, 1, tipset.epoch(), true))?
                         .with_timeout(Duration::from_secs(300)),
                 )
                 .await?;
@@ -570,7 +570,7 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
             let cid = invoke_contract(&client, &tx).await?;
             let lookup = client
                 .call(
-                    StateWaitMsg::request((cid, 0, tipset.epoch(), false))?
+                    StateWaitMsg::request((cid, 1, tipset.epoch(), true))?
                         .with_timeout(Duration::from_secs(300)),
                 )
                 .await?;
