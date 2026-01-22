@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.30.5
+forest-filecoin 0.31.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.30.5
+forest-filecoin 0.31.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.30.5
+forest-filecoin 0.31.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1022,7 +1022,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.30.5
+forest-filecoin 0.31.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 

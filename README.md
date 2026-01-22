@@ -90,7 +90,7 @@ git clone --recursive https://github.com/chainsafe/forest
 cd forest
 
 # Install binary to $HOME/.cargo/bin
-mise install
+mise run install
 
 # Run the node on mainnet
 forest

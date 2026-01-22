@@ -37,7 +37,7 @@ use crate::rpc::reflect::Ctx;
 use crate::rpc::types::{Event, EventEntry};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::executor::Entry;
+use crate::shim::executor::{Entry, StampedEvent};
 use crate::state_manager::StateEvents;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
@@ -45,7 +45,6 @@ use anyhow::{Context, Error, anyhow, bail, ensure};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
-use itertools::Itertools;
 use serde::*;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
@@ -281,12 +280,13 @@ impl EthEventHandler {
 
         let messages = ctx.chain_store().messages_for_tipset(tipset)?;
 
-        let StateEvents { events, .. } =
-            ctx.state_manager.tipset_state_events(tipset, None).await?;
+        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
 
         ensure!(
             messages.len() == events.len(),
-            "Length of messages and events do not match"
+            "Length of messages ({}) and events ({}) do not match",
+            messages.len(),
+            events.len(),
         );
 
         let mut event_count = 0;
@@ -365,32 +365,20 @@ impl EthEventHandler {
         Ok(())
     }
 
-    pub async fn collect_chain_events<DB: Blockstore + Send + Sync + 'static>(
+    /// Gets events by event root.
+    pub fn get_events_by_event_root<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
-        tipset: &Tipset,
         events_root: &Cid,
     ) -> anyhow::Result<Vec<Event>> {
-        let state_events = ctx
-            .state_manager
-            .tipset_state_events(tipset, Some(events_root))
-            .await?;
+        let state_events =
+            match StampedEvent::get_events(ctx.chain_store().blockstore(), events_root) {
+                Ok(e) => e,
+                Err(e) => {
+                    return Err(anyhow::anyhow!("load events amt: {}", e));
+                }
+            };
 
-        ensure!(state_events.roots.len() == state_events.events.len());
-
-        let filtered_events = state_events
-            .roots
-            .into_iter()
-            .zip(state_events.events)
-            .filter(|(cid, _)| cid.as_ref() == Some(events_root))
-            .map(|(_, v)| v);
-
-        let chain_events = filtered_events
-            .into_iter()
-            .flat_map(|events| events.into_iter())
-            .map(Into::into)
-            .unique()
-            .collect();
-
+        let chain_events: Vec<Event> = state_events.into_iter().map(Into::into).collect();
         Ok(chain_events)
     }
 

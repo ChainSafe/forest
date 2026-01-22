@@ -11,8 +11,8 @@
 use super::{AnyCar, ZstdFrameCache};
 use crate::blocks::TipsetKey;
 use crate::db::{
-    BlockstoreWriteOpsSubscribable, EthMappingsStore, IndicesStore, MemoryDB, PersistentStore,
-    SettingsStore, SettingsStoreExt,
+    BlockstoreWriteOpsSubscribable, EthMappingsStore, MemoryDB, PersistentStore, SettingsStore,
+    SettingsStoreExt,
 };
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::rpc::eth::types::EthHash;
@@ -248,20 +248,6 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         EthMappingsStore::delete(self.writer(), keys)
-    }
-}
-
-impl<WriterT: IndicesStore> IndicesStore for ManyCar<WriterT> {
-    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        IndicesStore::read_bin(self.writer(), key)
-    }
-
-    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
-        IndicesStore::write_bin(self.writer(), key, value)
-    }
-
-    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
-        IndicesStore::exists(self.writer(), key)
     }
 }
 

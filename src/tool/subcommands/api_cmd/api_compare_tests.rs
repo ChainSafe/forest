@@ -2660,7 +2660,6 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
         db.clone(),
         db.clone(),
         db.clone(),
-        db.clone(),
         chain_config,
         genesis_header.clone(),
     )?);
