@@ -69,6 +69,8 @@
 
 - [#6456](https://github.com/ChainSafe/forest/pull/6456) Whitelisted nebula and hermes crawlers.
 
+- [#6467](https://github.com/ChainSafe/forest/pull/6467) Fixed: `Filecoin.EthGetBlockByNumber` now only supports retrieving a block by its block number or a special tag.
+
 ## Forest v0.30.5 "Dulce de Leche"
 
 Non-mandatory release supporting new API methods and addressing a critical panic issue.
