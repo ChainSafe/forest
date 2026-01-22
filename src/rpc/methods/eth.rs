@@ -1821,25 +1821,19 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumberV2 {
         "Returns the number of transactions in a block identified by its block number or a special tag.",
     );
 
-    type Params = (ExtBlockNumberOrHash,);
+    type Params = (BlockNumberOrPredefined,);
     type Ok = EthUint64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_number,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        if matches!(
-            block_number,
-            ExtBlockNumberOrHash::BlockHash(_) | ExtBlockNumberOrHash::BlockHashObject(_)
-        ) {
-            return Err(ServerError::invalid_params(
-                "block hash is not accepted, use eth_getBlockTransactionCountByHash instead.",
-                None,
-            ));
-        }
-        let ts =
-            tipset_by_block_number_or_hash_v2(&ctx, block_number, ResolveNullTipset::TakeOlder)
-                .await?;
+        let ts = tipset_by_block_number_or_hash_v2(
+            &ctx,
+            block_number.into(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
         Ok(EthUint64(count as _))
     }
