@@ -42,8 +42,11 @@ where
         &self,
         mut req: jsonrpsee::types::Request<'a>,
     ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
+        tracing::debug!("Setting extension for path: {:?}", self.path);
         req.extensions_mut().insert(self.path);
-        self.service.call(req)
+        let resp = self.service.call(req);
+        tracing::debug!("Extension set for path: {:?}", self.path);
+        resp
     }
 
     fn batch<'a>(

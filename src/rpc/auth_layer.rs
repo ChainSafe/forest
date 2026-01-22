@@ -78,6 +78,7 @@ pub struct Auth<S> {
 
 impl<S> Auth<S> {
     fn authorize<'a>(&self, method_name: &str) -> Result<(), ErrorObject<'a>> {
+        tracing::debug!("Authorizing method: {}", method_name);
         match check_permissions(&self.keystore, self.headers.get(AUTHORIZATION), method_name) {
             Ok(true) => Ok(()),
             Ok(false) => Err(ErrorObject::borrowed(

@@ -96,10 +96,14 @@ where
         &self,
         req: jsonrpsee::types::Request<'a>,
     ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
-        match self.check(req.extensions().get::<ApiPaths>(), req.method_name()) {
+        tracing::debug!("Segregation layer checking method: {}", req.method_name());
+        let resp = match self.check(req.extensions().get::<ApiPaths>(), req.method_name()) {
             Ok(()) => Either::Left(self.service.call(req)),
             Err(e) => Either::Right(async move { MethodResponse::error(req.id(), e) }),
-        }
+        };
+
+        tracing::debug!("Segregation layer finished checking method");
+        resp
     }
 
     fn batch<'a>(&self, batch: Batch<'a>) -> impl Future<Output = Self::BatchResponse> + Send + 'a {

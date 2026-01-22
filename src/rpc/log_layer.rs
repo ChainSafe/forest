@@ -46,6 +46,7 @@ impl<S> Logging<S> {
     where
         F: Future<Output = MethodResponse>,
     {
+        tracing::debug!("Preparing to log RPC call: {}", method_name);
         // Avoid performance overhead if DEBUG level is not enabled.
         if !tracing::enabled!(tracing::Level::DEBUG) {
             return future.await;
@@ -63,6 +64,7 @@ impl<S> Logging<S> {
             "RPC#{id} {result}: {method_name}. Took {}",
             humantime::format_duration(elapsed)
         );
+        tracing::debug!("finished logging RPC call: {}", method_name);
         resp
     }
 }
