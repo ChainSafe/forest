@@ -306,7 +306,7 @@ async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow:
         if pending.0.iter().any(|msg| msg.cid() == message_cid) {
             client
                 .call(
-                    StateWaitMsg::request((message_cid, 0, tipset.epoch(), false))?
+                    StateWaitMsg::request((message_cid, 1, tipset.epoch(), true))?
                         .with_timeout(Duration::from_secs(300)),
                 )
                 .await?;
@@ -570,7 +570,7 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
             let cid = invoke_contract(&client, &tx).await?;
             let lookup = client
                 .call(
-                    StateWaitMsg::request((cid, 0, tipset.epoch(), false))?
+                    StateWaitMsg::request((cid, 1, tipset.epoch(), true))?
                         .with_timeout(Duration::from_secs(300)),
                 )
                 .await?;
@@ -583,14 +583,21 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
                 ..Default::default()
             };
 
-            let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
+            let filter_id = client
+                .call(EthNewFilter::request((filter_spec.clone(),))?)
+                .await?;
             let filter_result = as_logs(
                 client
                     .call(EthGetFilterLogs::request((filter_id.clone(),))?)
                     .await?,
             );
             let result = if let EthFilterResult::Logs(logs) = filter_result {
-                anyhow::ensure!(!logs.is_empty());
+                anyhow::ensure!(
+                    !logs.is_empty(),
+                    "Empty logs: filter_spec={:?} cid={}",
+                    filter_spec,
+                    cid
+                );
                 Ok(())
             } else {
                 Err(anyhow::anyhow!("expecting logs"))
