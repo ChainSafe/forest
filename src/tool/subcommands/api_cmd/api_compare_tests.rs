@@ -1851,19 +1851,19 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumberV2::request((
-                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                BlockNumberOrPredefined::BlockNumber(EthInt64(shared_tipset.epoch())),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumberV2::request((
-                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Safe),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumberV2::request((
-                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Finalized),
             ))
             .unwrap(),
         ),
