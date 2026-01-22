@@ -2653,7 +2653,7 @@ fn eth_tx_by_block_num_and_idx<B>(
 where
     B: Blockstore + Send + Sync + 'static,
 {
-    let messages = ctx.chain_store().messages_for_tipset(&ts)?;
+    let messages = ctx.chain_store().messages_for_tipset(ts)?;
 
     let EthUint64(index) = tx_index;
     let msg = messages.get(index as usize).with_context(|| {
@@ -2667,14 +2667,7 @@ where
 
     let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
 
-    let tx = new_eth_tx(
-        &ctx,
-        &state,
-        ts.epoch(),
-        &ts.key().cid()?,
-        &msg.cid(),
-        index,
-    )?;
+    let tx = new_eth_tx(ctx, &state, ts.epoch(), &ts.key().cid()?, &msg.cid(), index)?;
 
     Ok(Some(tx))
 }
