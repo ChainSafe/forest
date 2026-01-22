@@ -29,6 +29,18 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.31.1 "Quadrantids"
+
+This is a non-mandatory release for all node operators. It includes the support for more V2 API's and a few critical API fixes.
+
+### Added
+
 - [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
 
 - [#6364](https://github.com/ChainSafe/forest/pull/6364) Implemented `Filecoin.EthEstimateGas` for API v2.
@@ -50,8 +62,6 @@
 - [#6368](https://github.com/ChainSafe/forest/pull/6368): Migrated build and development tooling from Makefile to `mise`. Contributors should install `mise` and use `mise run` commands instead of `make` commands.
 
 - [#6286](https://github.com/ChainSafe/forest/pull/6286) `Filecoin.ChainGetEvents` now returns an error if the events are not present in the db.
-
-### Removed
 
 ### Fixed
 
