@@ -1850,9 +1850,9 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBlockTransactionCountByNumberV2::request((
-                BlockNumberOrPredefined::BlockNumber(EthInt64(shared_tipset.epoch())),
-            ))
+            EthGetBlockTransactionCountByNumberV2::request((BlockNumberOrPredefined::BlockNumber(
+                EthInt64(shared_tipset.epoch()),
+            ),))
             .unwrap(),
         ),
         RpcTest::identity(
