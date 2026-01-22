@@ -80,13 +80,22 @@ impl<S> Auth<S> {
     fn authorize<'a>(&self, method_name: &str) -> Result<(), ErrorObject<'a>> {
         tracing::debug!("Authorizing method: {}", method_name);
         match check_permissions(&self.keystore, self.headers.get(AUTHORIZATION), method_name) {
-            Ok(true) => Ok(()),
-            Ok(false) => Err(ErrorObject::borrowed(
-                http::StatusCode::UNAUTHORIZED.as_u16() as _,
-                "Unauthorized",
-                None,
-            )),
-            Err(code) => Err(ErrorObject::from(code)),
+            Ok(true) => {
+                tracing::debug!("Authorized method: {}", method_name);
+                Ok(())
+            }
+            Ok(false) => {
+                tracing::warn!("Unauthorized method: {}", method_name);
+                Err(ErrorObject::borrowed(
+                    http::StatusCode::UNAUTHORIZED.as_u16() as _,
+                    "Unauthorized",
+                    None,
+                ))
+            }
+            Err(code) => {
+                tracing::warn!("Authorization error for method {}: {:?}", method_name, code);
+                Err(ErrorObject::from(code))
+            }
         }
     }
 }
