@@ -385,7 +385,7 @@ where
                 }
 
                 let account_state = account::State::load(store, actor.code, actor.state)?;
-                Ok(account_state.pubkey_address().into())
+                Ok(account_state.pubkey_address())
             }
         }
     }
