@@ -386,12 +386,12 @@ impl TryFrom<EthCallMessage> for Message {
     Default,
     Clone,
     JsonSchema,
-    displaydoc::Display,
+    derive_more::Display,
     derive_more::From,
     derive_more::Into,
     derive_more::FromStr,
 )]
-#[displaydoc("{0:#x}")]
+#[display("{_0:#x}")]
 pub struct EthHash(#[schemars(with = "String")] pub ethereum_types::H256);
 lotus_json_with_self!(EthHash);
 

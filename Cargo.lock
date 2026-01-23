@@ -3255,7 +3255,6 @@ dependencies = [
  "dialoguer",
  "digest 0.10.7",
  "directories",
- "displaydoc",
  "educe",
  "enumflags2",
  "ethereum-types",

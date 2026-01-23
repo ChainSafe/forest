@@ -285,12 +285,11 @@ impl GetSize for Address {
     Ord,
     Serialize,
     Deserialize,
-    displaydoc::Display,
+    derive_more::Display,
     derive_more::From,
     derive_more::Into,
 )]
 #[serde(transparent)]
-#[displaydoc("{0}")]
 pub struct StrictAddress(pub Address);
 
 impl FromStr for StrictAddress {
