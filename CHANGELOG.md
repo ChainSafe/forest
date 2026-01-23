@@ -29,6 +29,18 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.31.1 "Quadrantids"
+
+This is a non-mandatory release for all node operators. It includes the support for more V2 API's and a few critical API fixes.
+
+### Added
+
 - [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
 
 - [#6364](https://github.com/ChainSafe/forest/pull/6364) Implemented `Filecoin.EthEstimateGas` for API v2.
@@ -54,8 +66,6 @@
 - [#6286](https://github.com/ChainSafe/forest/pull/6286) `Filecoin.ChainGetEvents` now returns an error if the events are not present in the db.
 
 - [#6444](https://github.com/ChainSafe/forest/pull/6444) `EthReplayBlockTransactionTrace` responses now always include `stateDiff` and `vmTrace` fields (set to `null` when not available) for Lotus compatibility.
-
-### Removed
 
 ### Fixed
 
