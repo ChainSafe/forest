@@ -8,7 +8,7 @@ pub mod consensus;
 pub mod metrics;
 pub mod network_context;
 mod sync_status;
-mod tipset_syncer;
+pub(crate) mod tipset_syncer;
 mod validation;
 
 pub use self::{
