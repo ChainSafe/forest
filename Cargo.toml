@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.31.0"
+version = "0.31.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -226,6 +226,7 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
@@ -308,11 +309,12 @@ lto = "fat"
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
+default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome", "sqlite"]
 slim = ["rustalloc"]
-doctest-private = []                                                      # see lib.rs::doctest_private
-benchmark-private = ["dep:criterion"]                                     # see lib.rs::benchmark_private
-interop-tests-private = []                                                # see lib.rs::interop_tests_private
+doctest-private = []                                                                # see lib.rs::doctest_private
+benchmark-private = ["dep:criterion"]                                               # see lib.rs::benchmark_private
+interop-tests-private = []                                                          # see lib.rs::interop_tests_private
+sqlite = ["dep:sqlx"]
 
 # Allocator. Use at most one of these.
 rustalloc = []

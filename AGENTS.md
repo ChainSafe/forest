@@ -12,15 +12,15 @@ Forest is a Rust implementation of a Filecoin node that can transfer FIL, host a
 
 ```bash
 # Install Forest binaries with release profile (recommended)
-mise install
+mise run install
 
 # Install with different profiles
-mise install quick          # Faster build, less optimization
-mise install release-lto-fat # Maximum optimization (slower build)
-mise install dev            # Debug build
+mise run install quick          # Faster build, less optimization
+mise run install release-lto-fat # Maximum optimization (slower build)
+mise run install dev            # Debug build
 
 # Install slim version (minimal features)
-mise install --slim
+mise run install --slim
 
 # Build without installing
 cargo build --release

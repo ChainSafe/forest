@@ -667,11 +667,9 @@ lotus_json_with_self!(EthBlockTrace);
 #[serde(rename_all = "camelCase")]
 pub struct EthReplayBlockTransactionTrace {
     pub output: EthBytes,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub state_diff: Option<String>,
     pub trace: Vec<EthTrace>,
     pub transaction_hash: EthHash,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub vm_trace: Option<String>,
 }
 lotus_json_with_self!(EthReplayBlockTransactionTrace);
