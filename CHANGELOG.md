@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6466](https://github.com/ChainSafe/forest/pull/6466) Enabled `Filecoin.EthGetBlockTransactionCountByHash` for API v2.
+
 - [#6469](https://github.com/ChainSafe/forest/pull/6469) Implemented `Filecoin.EthGetTransactionByBlockNumberAndIndex` for API v2.
 
 ### Changed

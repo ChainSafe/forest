@@ -1767,7 +1767,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByHash");
     const PARAM_NAMES: [&'static str; 1] = ["blockHash"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash,);
