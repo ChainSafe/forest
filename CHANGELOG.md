@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6466](https://github.com/ChainSafe/forest/pull/6466) Enabled `Filecoin.EthGetBlockTransactionCountByHash` for API v2.
+
 ### Changed
 
 ### Removed
@@ -58,8 +60,6 @@ This is a non-mandatory release for all node operators. It includes the support 
 - [#6421](https://github.com/ChainSafe/forest/pull/6421) Add an environment variable `FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK` to enable backfilling full tipsets from network in a few RPC methods.
 
 - [#6444](https://github.com/ChainSafe/forest/pull/6444) Implemented `Filecoin.EthTraceReplayBlockTransactions` for API v2.
-
-- [#6466](https://github.com/ChainSafe/forest/pull/6466) Enabled `Filecoin.EthGetBlockTransactionCountByHash` for API v2.
 
 ### Changed
 
