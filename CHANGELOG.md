@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#6475](https://github.com/ChainSafe/forest/pull/6475): Increased default JWT (generated via `Filecoin.AuthNew`) expiration time from 24 hours to 100 years to match Lotus behavior and ensure compatibility with clients like Curio.
+
 ### Added
 
 - [#6466](https://github.com/ChainSafe/forest/pull/6466) Enabled `Filecoin.EthGetBlockTransactionCountByHash` for API v2.
