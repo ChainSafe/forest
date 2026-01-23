@@ -7,14 +7,16 @@ use crate::list_miners_for_state;
 use crate::shim::{
     actors::{FilterEstimate, Policy, convert::*},
     address::Address,
+    econ::TokenAmount,
+    sector::StoragePower,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared2::{econ::TokenAmount, sector::StoragePower};
 use serde::{Deserialize, Serialize};
+use spire_enum::prelude::delegated_enum;
 
 /// Power actor address.
 // TODO(forest): https://github.com/ChainSafe/forest/issues/5011
-pub const ADDRESS: fvm_shared2::address::Address = fvm_shared2::address::Address::new_id(4);
+pub const ADDRESS: Address = Address::new_id(4);
 
 /// Power actor method.
 // TODO(forest): https://github.com/ChainSafe/forest/issues/5011
@@ -23,6 +25,7 @@ pub type Method = fil_actor_power_state::v8::Method;
 /// Power actor state.
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
+#[delegated_enum(impl_conversions)]
 pub enum State {
     V8(fil_actor_power_state::v8::State),
     V9(fil_actor_power_state::v9::State),
@@ -80,18 +83,7 @@ impl State {
 
     /// Consume state to return just total quality adj power
     pub fn into_total_quality_adj_power(self) -> StoragePower {
-        match self {
-            State::V8(st) => st.total_quality_adj_power,
-            State::V9(st) => st.total_quality_adj_power,
-            State::V10(st) => st.total_quality_adj_power,
-            State::V11(st) => st.total_quality_adj_power,
-            State::V12(st) => st.total_quality_adj_power,
-            State::V13(st) => st.total_quality_adj_power,
-            State::V14(st) => st.total_quality_adj_power,
-            State::V15(st) => st.total_quality_adj_power,
-            State::V16(st) => st.total_quality_adj_power,
-            State::V17(st) => st.total_quality_adj_power,
-        }
+        delegate_state!(self.total_quality_adj_power)
     }
 
     /// Returns the addresses of every miner that has claimed power in the power actor
@@ -160,63 +152,25 @@ impl State {
 
     /// Returns the total power claim.
     pub fn total_power(&self) -> Claim {
-        match self {
-            State::V8(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-            State::V9(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-            State::V10(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-            State::V11(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-            State::V12(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-            State::V13(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-            State::V14(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-            State::V15(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-            State::V16(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-            State::V17(st) => Claim {
-                raw_byte_power: st.total_raw_byte_power.clone(),
-                quality_adj_power: st.total_quality_adj_power.clone(),
-            },
-        }
+        delegate_state!(self => |st| Claim {
+            raw_byte_power: st.total_raw_byte_power.clone(),
+            quality_adj_power: st.total_quality_adj_power.clone(),
+        })
     }
 
     /// Consume state to return total locked funds
     pub fn into_total_locked(self) -> TokenAmount {
         match self {
-            State::V8(st) => st.into_total_locked(),
-            State::V9(st) => st.into_total_locked(),
-            State::V10(st) => from_token_v3_to_v2(&st.into_total_locked()),
-            State::V11(st) => from_token_v3_to_v2(&st.into_total_locked()),
-            State::V12(st) => from_token_v4_to_v2(&st.into_total_locked()),
-            State::V13(st) => from_token_v4_to_v2(&st.into_total_locked()),
-            State::V14(st) => from_token_v4_to_v2(&st.into_total_locked()),
-            State::V15(st) => from_token_v4_to_v2(&st.into_total_locked()),
-            State::V16(st) => from_token_v4_to_v2(&st.into_total_locked()),
-            State::V17(st) => from_token_v4_to_v2(&st.into_total_locked()),
+            State::V8(st) => st.into_total_locked().into(),
+            State::V9(st) => st.into_total_locked().into(),
+            State::V10(st) => st.into_total_locked().into(),
+            State::V11(st) => st.into_total_locked().into(),
+            State::V12(st) => st.into_total_locked().into(),
+            State::V13(st) => st.into_total_locked().into(),
+            State::V14(st) => st.into_total_locked().into(),
+            State::V15(st) => st.into_total_locked().into(),
+            State::V16(st) => st.into_total_locked().into(),
+            State::V17(st) => st.into_total_locked().into(),
         }
     }
 
@@ -226,18 +180,7 @@ impl State {
         s: &BS,
         miner: &Address,
     ) -> anyhow::Result<Option<Claim>> {
-        match self {
-            State::V8(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
-            State::V9(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
-            State::V10(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
-            State::V11(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
-            State::V12(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
-            State::V13(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
-            State::V14(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
-            State::V15(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
-            State::V16(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
-            State::V17(st) => Ok(st.miner_power(&s, miner.into())?.map(From::from)),
-        }
+        delegate_state!(self => |st| Ok(st.miner_power(&s, &miner.into())?.map(From::from)))
     }
 
     /// Checks power actor state for if miner meets minimum consensus power.
@@ -360,16 +303,16 @@ impl State {
     /// Returns total locked funds
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.total_pledge_collateral.clone(),
-            State::V9(st) => st.total_pledge_collateral.clone(),
-            State::V10(st) => from_token_v3_to_v2(&st.total_pledge_collateral),
-            State::V11(st) => from_token_v3_to_v2(&st.total_pledge_collateral),
-            State::V12(st) => from_token_v4_to_v2(&st.total_pledge_collateral.clone()),
-            State::V13(st) => from_token_v4_to_v2(&st.total_pledge_collateral.clone()),
-            State::V14(st) => from_token_v4_to_v2(&st.total_pledge_collateral.clone()),
-            State::V15(st) => from_token_v4_to_v2(&st.total_pledge_collateral.clone()),
-            State::V16(st) => from_token_v4_to_v2(&st.total_pledge_collateral.clone()),
-            State::V17(st) => from_token_v4_to_v2(&st.total_pledge_collateral.clone()),
+            State::V8(st) => st.total_pledge_collateral.clone().into(),
+            State::V9(st) => st.total_pledge_collateral.clone().into(),
+            State::V10(st) => st.total_pledge_collateral.clone().into(),
+            State::V11(st) => st.total_pledge_collateral.clone().into(),
+            State::V12(st) => st.total_pledge_collateral.clone().into(),
+            State::V13(st) => st.total_pledge_collateral.clone().into(),
+            State::V14(st) => st.total_pledge_collateral.clone().into(),
+            State::V15(st) => st.total_pledge_collateral.clone().into(),
+            State::V16(st) => st.total_pledge_collateral.clone().into(),
+            State::V17(st) => st.total_pledge_collateral.clone().into(),
         }
     }
 }

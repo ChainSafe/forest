@@ -98,7 +98,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
 
         let state = StateTree::new_from_root(Arc::clone(self.chain_index.db()), &self.root)?;
 
-        let addr = resolve_to_key_addr(&state, &tbs, &worker.into())?;
+        let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
 
         let network_version = self.chain_config.network_version(self.epoch);
         let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), network_version)?;

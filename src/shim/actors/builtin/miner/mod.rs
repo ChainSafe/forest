@@ -3,9 +3,14 @@
 
 pub mod ext;
 
-use crate::shim::actors::Policy;
-use crate::shim::actors::convert::*;
-use crate::shim::actors::power::Claim;
+use crate::shim::{
+    actors::{Policy, convert::*, power::Claim},
+    address::Address,
+    clock::ChainEpoch,
+    deal::DealID,
+    econ::TokenAmount,
+    sector::SectorSize,
+};
 use cid::Cid;
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fil_actor_miner_state::v17::VestingFunds as VestingFundsV17;
@@ -13,11 +18,8 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, serde_bytes};
 use fvm_shared2::{
-    address::Address,
-    clock::{ChainEpoch, QuantSpec},
-    deal::DealID,
-    econ::TokenAmount,
-    sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize},
+    clock::QuantSpec,
+    sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber},
 };
 use num::BigInt;
 use serde::{Deserialize, Serialize};
@@ -30,6 +32,7 @@ pub type Method = fil_actor_miner_state::v8::Method;
 /// Miner actor state.
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
+#[delegated_enum(impl_conversions)]
 pub enum State {
     // V7(fil_actor_miner_v7::State),
     V8(fil_actor_miner_state::v8::State),
@@ -83,18 +86,7 @@ impl State {
     }
 
     pub fn info<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
-        match self {
-            State::V8(st) => Ok(st.get_info(store)?.into()),
-            State::V9(st) => Ok(st.get_info(store)?.into()),
-            State::V10(st) => Ok(st.get_info(store)?.into()),
-            State::V11(st) => Ok(st.get_info(store)?.into()),
-            State::V12(st) => Ok(st.get_info(store)?.into()),
-            State::V13(st) => Ok(st.get_info(store)?.into()),
-            State::V14(st) => Ok(st.get_info(store)?.into()),
-            State::V15(st) => Ok(st.get_info(store)?.into()),
-            State::V16(st) => Ok(st.get_info(store)?.into()),
-            State::V17(st) => Ok(st.get_info(store)?.into()),
-        }
+        delegate_state!(self => |st| Ok(st.get_info(store)?.into()))
     }
 
     /// Loads deadlines for a miner's state
@@ -401,37 +393,15 @@ impl State {
 
     /// Gets fee debt of miner state
     pub fn fee_debt(&self) -> TokenAmount {
-        match self {
-            State::V8(st) => st.fee_debt.clone(),
-            State::V9(st) => st.fee_debt.clone(),
-            State::V10(st) => from_token_v3_to_v2(&st.fee_debt),
-            State::V11(st) => from_token_v3_to_v2(&st.fee_debt),
-            State::V12(st) => from_token_v4_to_v2(&st.fee_debt),
-            State::V13(st) => from_token_v4_to_v2(&st.fee_debt),
-            State::V14(st) => from_token_v4_to_v2(&st.fee_debt),
-            State::V15(st) => from_token_v4_to_v2(&st.fee_debt),
-            State::V16(st) => from_token_v4_to_v2(&st.fee_debt),
-            State::V17(st) => from_token_v4_to_v2(&st.fee_debt),
-        }
+        delegate_state!(self.fee_debt.clone().into())
     }
 
     /// Unclaimed funds. Actor balance - (locked funds, precommit deposit, ip requirement) Can go negative if the miner is in IP debt.
     pub fn available_balance(&self, balance: &BigInt) -> anyhow::Result<TokenAmount> {
         let balance: TokenAmount = TokenAmount::from_atto(balance.clone());
-        let balance_v3 = from_token_v2_to_v3(&balance);
-        let balance_v4 = from_token_v2_to_v4(&balance);
-        match self {
-            State::V8(st) => st.get_available_balance(&balance),
-            State::V9(st) => st.get_available_balance(&balance),
-            State::V10(st) => Ok(from_token_v3_to_v2(&st.get_available_balance(&balance_v3)?)),
-            State::V11(st) => Ok(from_token_v3_to_v2(&st.get_available_balance(&balance_v3)?)),
-            State::V12(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
-            State::V13(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
-            State::V14(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
-            State::V15(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
-            State::V16(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
-            State::V17(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
-        }
+        Ok(delegate_state!(
+            self.get_available_balance(&balance.into())?.into()
+        ))
     }
 
     /// Returns deadline calculations for the current (according to state) proving period.
@@ -494,10 +464,13 @@ pub struct MinerInfo {
 impl From<fil_actor_miner_state::v8::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v8::MinerInfo) -> Self {
         MinerInfo {
-            owner: info.owner,
-            worker: info.worker,
-            control_addresses: info.control_addresses.into_iter().collect(),
-            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
+            new_worker: info
+                .pending_worker_key
+                .as_ref()
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -505,11 +478,11 @@ impl From<fil_actor_miner_state::v8::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: info.window_post_proof_type,
-            sector_size: info.sector_size,
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address,
-            beneficiary: info.owner,
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.owner.into(),
             beneficiary_term: BeneficiaryTerm::default(),
             pending_beneficiary_term: None,
         }
@@ -519,10 +492,13 @@ impl From<fil_actor_miner_state::v8::MinerInfo> for MinerInfo {
 impl From<fil_actor_miner_state::v9::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v9::MinerInfo) -> Self {
         MinerInfo {
-            owner: info.owner,
-            worker: info.worker,
-            control_addresses: info.control_addresses.into_iter().collect(),
-            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
+            new_worker: info
+                .pending_worker_key
+                .as_ref()
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -530,11 +506,11 @@ impl From<fil_actor_miner_state::v9::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: info.window_post_proof_type,
-            sector_size: info.sector_size,
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address,
-            beneficiary: info.beneficiary,
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
             beneficiary_term: BeneficiaryTerm {
                 expiration: info.beneficiary_term.expiration,
                 quota: from_token_v2_to_v4(&info.beneficiary_term.quota),
@@ -556,17 +532,13 @@ impl From<fil_actor_miner_state::v9::MinerInfo> for MinerInfo {
 impl From<fil_actor_miner_state::v10::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v10::MinerInfo) -> Self {
         MinerInfo {
-            owner: from_address_v3_to_v2(info.owner),
-            worker: from_address_v3_to_v2(info.worker),
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(from_address_v3_to_v2)
-                .collect(),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
             new_worker: info
                 .pending_worker_key
                 .as_ref()
-                .map(|k| from_address_v3_to_v2(k.new_worker)),
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -574,11 +546,11 @@ impl From<fil_actor_miner_state::v10::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: from_reg_post_proof_v3_to_v2(info.window_post_proof_type),
-            sector_size: from_sector_size_v3_to_v2(info.sector_size),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address.map(from_address_v3_to_v2),
-            beneficiary: from_address_v3_to_v2(info.beneficiary),
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
             beneficiary_term: BeneficiaryTerm {
                 quota: from_token_v3_to_v4(&info.beneficiary_term.quota),
                 used_quota: from_token_v3_to_v4(&info.beneficiary_term.used_quota),
@@ -600,17 +572,13 @@ impl From<fil_actor_miner_state::v10::MinerInfo> for MinerInfo {
 impl From<fil_actor_miner_state::v11::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v11::MinerInfo) -> Self {
         MinerInfo {
-            owner: from_address_v3_to_v2(info.owner),
-            worker: from_address_v3_to_v2(info.worker),
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(from_address_v3_to_v2)
-                .collect(),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
             new_worker: info
                 .pending_worker_key
                 .as_ref()
-                .map(|k| from_address_v3_to_v2(k.new_worker)),
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -618,11 +586,11 @@ impl From<fil_actor_miner_state::v11::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: from_reg_post_proof_v3_to_v2(info.window_post_proof_type),
-            sector_size: from_sector_size_v3_to_v2(info.sector_size),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address.map(from_address_v3_to_v2),
-            beneficiary: from_address_v3_to_v2(info.beneficiary),
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
             beneficiary_term: BeneficiaryTerm {
                 quota: from_token_v3_to_v4(&info.beneficiary_term.quota),
                 used_quota: from_token_v3_to_v4(&info.beneficiary_term.used_quota),
@@ -644,17 +612,13 @@ impl From<fil_actor_miner_state::v11::MinerInfo> for MinerInfo {
 impl From<fil_actor_miner_state::v12::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v12::MinerInfo) -> Self {
         MinerInfo {
-            owner: from_address_v4_to_v2(info.owner),
-            worker: from_address_v4_to_v2(info.worker),
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(from_address_v4_to_v2)
-                .collect(),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
             new_worker: info
                 .pending_worker_key
                 .as_ref()
-                .map(|k| from_address_v4_to_v2(k.new_worker)),
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -662,11 +626,11 @@ impl From<fil_actor_miner_state::v12::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: from_reg_post_proof_v4_to_v2(info.window_post_proof_type),
-            sector_size: from_sector_size_v4_to_v2(info.sector_size),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address.map(from_address_v4_to_v2),
-            beneficiary: from_address_v4_to_v2(info.beneficiary),
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
             beneficiary_term: info.beneficiary_term,
             pending_beneficiary_term: info.pending_beneficiary_term,
         }
@@ -676,17 +640,13 @@ impl From<fil_actor_miner_state::v12::MinerInfo> for MinerInfo {
 impl From<fil_actor_miner_state::v13::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v13::MinerInfo) -> Self {
         MinerInfo {
-            owner: from_address_v4_to_v2(info.owner),
-            worker: from_address_v4_to_v2(info.worker),
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(from_address_v4_to_v2)
-                .collect(),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
             new_worker: info
                 .pending_worker_key
                 .as_ref()
-                .map(|k| from_address_v4_to_v2(k.new_worker)),
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -694,11 +654,11 @@ impl From<fil_actor_miner_state::v13::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: from_reg_post_proof_v4_to_v2(info.window_post_proof_type),
-            sector_size: from_sector_size_v4_to_v2(info.sector_size),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address.map(from_address_v4_to_v2),
-            beneficiary: from_address_v4_to_v2(info.beneficiary),
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
             beneficiary_term: BeneficiaryTerm {
                 quota: info.beneficiary_term.quota,
                 used_quota: info.beneficiary_term.used_quota,
@@ -720,17 +680,13 @@ impl From<fil_actor_miner_state::v13::MinerInfo> for MinerInfo {
 impl From<fil_actor_miner_state::v14::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v14::MinerInfo) -> Self {
         MinerInfo {
-            owner: from_address_v4_to_v2(info.owner),
-            worker: from_address_v4_to_v2(info.worker),
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(from_address_v4_to_v2)
-                .collect(),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
             new_worker: info
                 .pending_worker_key
                 .as_ref()
-                .map(|k| from_address_v4_to_v2(k.new_worker)),
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -738,11 +694,11 @@ impl From<fil_actor_miner_state::v14::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: from_reg_post_proof_v4_to_v2(info.window_post_proof_type),
-            sector_size: from_sector_size_v4_to_v2(info.sector_size),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address.map(from_address_v4_to_v2),
-            beneficiary: from_address_v4_to_v2(info.beneficiary),
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
             beneficiary_term: BeneficiaryTerm {
                 quota: info.beneficiary_term.quota,
                 used_quota: info.beneficiary_term.used_quota,
@@ -764,17 +720,13 @@ impl From<fil_actor_miner_state::v14::MinerInfo> for MinerInfo {
 impl From<fil_actor_miner_state::v15::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v15::MinerInfo) -> Self {
         MinerInfo {
-            owner: from_address_v4_to_v2(info.owner),
-            worker: from_address_v4_to_v2(info.worker),
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(from_address_v4_to_v2)
-                .collect(),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
             new_worker: info
                 .pending_worker_key
                 .as_ref()
-                .map(|k| from_address_v4_to_v2(k.new_worker)),
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -782,11 +734,11 @@ impl From<fil_actor_miner_state::v15::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: from_reg_post_proof_v4_to_v2(info.window_post_proof_type),
-            sector_size: from_sector_size_v4_to_v2(info.sector_size),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address.map(from_address_v4_to_v2),
-            beneficiary: from_address_v4_to_v2(info.beneficiary),
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
             beneficiary_term: BeneficiaryTerm {
                 quota: info.beneficiary_term.quota,
                 used_quota: info.beneficiary_term.used_quota,
@@ -808,17 +760,13 @@ impl From<fil_actor_miner_state::v15::MinerInfo> for MinerInfo {
 impl From<fil_actor_miner_state::v16::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v16::MinerInfo) -> Self {
         MinerInfo {
-            owner: from_address_v4_to_v2(info.owner),
-            worker: from_address_v4_to_v2(info.worker),
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(from_address_v4_to_v2)
-                .collect(),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
             new_worker: info
                 .pending_worker_key
                 .as_ref()
-                .map(|k| from_address_v4_to_v2(k.new_worker)),
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -826,11 +774,11 @@ impl From<fil_actor_miner_state::v16::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: from_reg_post_proof_v4_to_v2(info.window_post_proof_type),
-            sector_size: from_sector_size_v4_to_v2(info.sector_size),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address.map(from_address_v4_to_v2),
-            beneficiary: from_address_v4_to_v2(info.beneficiary),
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
             beneficiary_term: BeneficiaryTerm {
                 quota: info.beneficiary_term.quota,
                 used_quota: info.beneficiary_term.used_quota,
@@ -852,17 +800,13 @@ impl From<fil_actor_miner_state::v16::MinerInfo> for MinerInfo {
 impl From<fil_actor_miner_state::v17::MinerInfo> for MinerInfo {
     fn from(info: fil_actor_miner_state::v17::MinerInfo) -> Self {
         MinerInfo {
-            owner: from_address_v4_to_v2(info.owner),
-            worker: from_address_v4_to_v2(info.worker),
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(from_address_v4_to_v2)
-                .collect(),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
             new_worker: info
                 .pending_worker_key
                 .as_ref()
-                .map(|k| from_address_v4_to_v2(k.new_worker)),
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -870,11 +814,11 @@ impl From<fil_actor_miner_state::v17::MinerInfo> for MinerInfo {
             peer_id: info.peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: from_reg_post_proof_v4_to_v2(info.window_post_proof_type),
-            sector_size: from_sector_size_v4_to_v2(info.sector_size),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
-            pending_owner_address: info.pending_owner_address.map(from_address_v4_to_v2),
-            beneficiary: from_address_v4_to_v2(info.beneficiary),
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
             beneficiary_term: BeneficiaryTerm {
                 quota: info.beneficiary_term.quota,
                 used_quota: info.beneficiary_term.used_quota,
@@ -1026,9 +970,9 @@ impl From<fil_actor_miner_state::v8::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
             replaced_sector_age: ChainEpoch::default(),
             replaced_day_reward: TokenAmount::default(),
             sector_key_cid: info.sector_key_cid,
@@ -1048,11 +992,11 @@ impl From<fil_actor_miner_state::v9::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
             replaced_sector_age: info.replaced_sector_age,
-            replaced_day_reward: info.replaced_day_reward,
+            replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: info.simple_qa_power,
         }
@@ -1070,11 +1014,11 @@ impl From<fil_actor_miner_state::v10::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: from_token_v3_to_v2(&info.initial_pledge),
-            expected_day_reward: from_token_v3_to_v2(&info.expected_day_reward),
-            expected_storage_pledge: from_token_v3_to_v2(&info.expected_storage_pledge),
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
             replaced_sector_age: info.replaced_sector_age,
-            replaced_day_reward: from_token_v3_to_v2(&info.replaced_day_reward),
+            replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: info.simple_qa_power,
         }
@@ -1092,11 +1036,11 @@ impl From<fil_actor_miner_state::v11::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: from_token_v3_to_v2(&info.initial_pledge),
-            expected_day_reward: from_token_v3_to_v2(&info.expected_day_reward),
-            expected_storage_pledge: from_token_v3_to_v2(&info.expected_storage_pledge),
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
             replaced_sector_age: info.replaced_sector_age,
-            replaced_day_reward: from_token_v3_to_v2(&info.replaced_day_reward),
+            replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: info.simple_qa_power,
         }
@@ -1114,11 +1058,11 @@ impl From<fil_actor_miner_state::v12::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: from_token_v4_to_v2(&info.initial_pledge),
-            expected_day_reward: from_token_v4_to_v2(&info.expected_day_reward),
-            expected_storage_pledge: from_token_v4_to_v2(&info.expected_storage_pledge),
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
             replaced_sector_age: ChainEpoch::default(),
-            replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
+            replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
         }
@@ -1136,11 +1080,11 @@ impl From<fil_actor_miner_state::v13::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: from_token_v4_to_v2(&info.initial_pledge),
-            expected_day_reward: from_token_v4_to_v2(&info.expected_day_reward),
-            expected_storage_pledge: from_token_v4_to_v2(&info.expected_storage_pledge),
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
             replaced_sector_age: ChainEpoch::default(),
-            replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
+            replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
         }
@@ -1158,11 +1102,11 @@ impl From<fil_actor_miner_state::v14::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: from_token_v4_to_v2(&info.initial_pledge),
-            expected_day_reward: from_token_v4_to_v2(&info.expected_day_reward),
-            expected_storage_pledge: from_token_v4_to_v2(&info.expected_storage_pledge),
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
             replaced_sector_age: ChainEpoch::default(),
-            replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
+            replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
         }
@@ -1180,11 +1124,11 @@ impl From<fil_actor_miner_state::v15::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: from_token_v4_to_v2(&info.initial_pledge),
-            expected_day_reward: from_token_v4_to_v2(&info.expected_day_reward),
-            expected_storage_pledge: from_token_v4_to_v2(&info.expected_storage_pledge),
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
             replaced_sector_age: ChainEpoch::default(),
-            replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
+            replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
         }
@@ -1202,11 +1146,14 @@ impl From<fil_actor_miner_state::v16::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: from_token_v4_to_v2(&info.initial_pledge),
-            expected_day_reward: from_opt_token_v4_to_v2(&info.expected_day_reward),
-            expected_storage_pledge: from_opt_token_v4_to_v2(&info.expected_storage_pledge),
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.map(From::from).unwrap_or_default(),
+            expected_storage_pledge: info
+                .expected_storage_pledge
+                .map(From::from)
+                .unwrap_or_default(),
             replaced_sector_age: ChainEpoch::default(),
-            replaced_day_reward: from_opt_token_v4_to_v2(&info.replaced_day_reward),
+            replaced_day_reward: info.replaced_day_reward.map(From::from).unwrap_or_default(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
         }
@@ -1224,11 +1171,14 @@ impl From<fil_actor_miner_state::v17::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: from_token_v4_to_v2(&info.initial_pledge),
-            expected_day_reward: from_opt_token_v4_to_v2(&info.expected_day_reward),
-            expected_storage_pledge: from_opt_token_v4_to_v2(&info.expected_storage_pledge),
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.map(From::from).unwrap_or_default(),
+            expected_storage_pledge: info
+                .expected_storage_pledge
+                .map(From::from)
+                .unwrap_or_default(),
             replaced_sector_age: ChainEpoch::default(),
-            replaced_day_reward: from_opt_token_v4_to_v2(&info.replaced_day_reward),
+            replaced_day_reward: info.replaced_day_reward.map(From::from).unwrap_or_default(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
         }

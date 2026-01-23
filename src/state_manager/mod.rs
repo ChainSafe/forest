@@ -400,7 +400,7 @@ where
             StateTree::new_from_root(self.blockstore_owned(), &state_cid).map_err(Error::other)?;
         let ms: miner::State = state.get_actor_state_from_address(addr)?;
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
-        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker().into())?;
+        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
         Ok(addr)
     }
 
@@ -1329,14 +1329,12 @@ where
             escrow: {
                 market_state
                     .escrow_table(self.blockstore())?
-                    .get(&new_addr.into())?
-                    .into()
+                    .get(&new_addr)?
             },
             locked: {
                 market_state
                     .locked_table(self.blockstore())?
-                    .get(&new_addr.into())?
-                    .into()
+                    .get(&new_addr)?
             },
         };
 
@@ -1508,7 +1506,7 @@ where
         let info = miner_state.info(self.blockstore())?;
 
         let worker_key = self
-            .resolve_to_deterministic_address(info.worker.into(), &tipset)
+            .resolve_to_deterministic_address(info.worker, &tipset)
             .await?;
         let eligible = self.eligible_to_mine(&addr, &tipset, &lb_tipset)?;
 
