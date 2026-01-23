@@ -283,14 +283,6 @@ impl EthHash {
     }
 }
 
-impl FromStr for EthHash {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(EthHash(ethereum_types::H256::from_str(s)?))
-    }
-}
-
 impl From<Cid> for EthHash {
     fn from(cid: Cid) -> Self {
         let (_, digest, _) = cid.hash().into_inner();
@@ -3722,7 +3714,7 @@ impl RpcMethod<1> for EthTraceTransaction {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let eth_hash = EthHash::from_str(&tx_hash)?;
+        let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
         let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
             .await?
             .ok_or(ServerError::internal_error("transaction not found", None))?;
