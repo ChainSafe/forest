@@ -28,4 +28,6 @@
 !eth_getBlockByNumber
 !Filecoin.EthGetBlockTransactionCountByNumber
 !eth_getBlockTransactionCountByNumber
+!Filecoin.EthGetTransactionByBlockNumberAndIndex
+!eth_getTransactionByBlockNumberAndIndex
 !Filecoin.ChainSetHead
