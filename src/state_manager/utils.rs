@@ -213,8 +213,16 @@ pub mod state_compute {
         chain: &NetworkChain,
         epoch: i64,
     ) -> anyhow::Result<PathBuf> {
+        get_state_snapshot(chain, "state_compute", epoch).await
+    }
+
+    pub async fn get_state_snapshot(
+        chain: &NetworkChain,
+        bucket: &str,
+        epoch: i64,
+    ) -> anyhow::Result<PathBuf> {
         let url = Url::parse(&format!(
-            "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/state_compute/{chain}_{epoch}.forest.car.zst"
+            "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/{bucket}/{chain}_{epoch}.forest.car.zst"
         ))?;
         Ok(crate::utils::retry(
             crate::utils::RetryArgs {
@@ -270,6 +278,26 @@ pub mod state_compute {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use crate::{
+            blocks::FullTipset,
+            chain_sync::{load_full_tipset, tipset_syncer::validate_tipset},
+        };
+
+        pub async fn get_state_validate_snapshot(
+            chain: &NetworkChain,
+            epoch: i64,
+        ) -> anyhow::Result<PathBuf> {
+            get_state_snapshot(chain, "state_validate", epoch).await
+        }
+
+        pub async fn prepare_state_validate(
+            chain: &NetworkChain,
+            snapshot: &Path,
+        ) -> anyhow::Result<(Arc<StateManager<ManyCar>>, FullTipset)> {
+            let (sm, ts) = prepare_state_compute(chain, snapshot, false).await?;
+            let fts = load_full_tipset(sm.chain_store(), ts.key())?;
+            Ok((sm, fts))
+        }
 
         #[tokio::test(flavor = "multi_thread")]
         async fn state_compute_calibnet_3111900() {
@@ -305,13 +333,21 @@ pub mod state_compute {
         }
 
         #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_mainnet_5427431() {
+        async fn state_compute_mainnet_5688000() {
             let chain = NetworkChain::Mainnet;
-            let snapshot = get_state_compute_snapshot(&chain, 5427431).await.unwrap();
+            let snapshot = get_state_compute_snapshot(&chain, 5688000).await.unwrap();
             let (sm, ts) = prepare_state_compute(&chain, &snapshot, false)
                 .await
                 .unwrap();
             state_compute(sm, ts).await;
+        }
+
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_validate_mainnet_5688000() {
+            let chain = NetworkChain::Mainnet;
+            let snapshot = get_state_validate_snapshot(&chain, 5688000).await.unwrap();
+            let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
+            validate_tipset(&sm, fts, None).await.unwrap();
         }
     }
 }

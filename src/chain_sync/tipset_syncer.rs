@@ -99,12 +99,13 @@ impl TipsetSyncerError {
 /// validation.
 pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     state_manager: &Arc<StateManager<DB>>,
-    chainstore: &ChainStore<DB>,
     full_tipset: FullTipset,
-    genesis: &Tipset,
     bad_block_cache: Option<Arc<BadBlockCache>>,
 ) -> Result<(), TipsetSyncerError> {
-    if full_tipset.key().eq(genesis.key()) {
+    if full_tipset
+        .key()
+        .eq(state_manager.chain_store().genesis_tipset().key())
+    {
         trace!("Skipping genesis tipset validation");
         return Ok(());
     }
@@ -123,7 +124,9 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     while let Some(result) = validations.join_next().await {
         match result? {
             Ok(block) => {
-                chainstore.add_to_tipset_tracker(block.header());
+                state_manager
+                    .chain_store()
+                    .add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {
                 warn!("Validating block [CID = {cid}] in EPOCH = {epoch} failed: {why}");
