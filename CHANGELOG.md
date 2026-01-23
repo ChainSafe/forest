@@ -31,11 +31,15 @@
 
 - [#6466](https://github.com/ChainSafe/forest/pull/6466) Enabled `Filecoin.EthGetBlockTransactionCountByHash` for API v2.
 
+- [#6469](https://github.com/ChainSafe/forest/pull/6469) Implemented `Filecoin.EthGetTransactionByBlockNumberAndIndex` for API v2.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#6467](https://github.com/ChainSafe/forest/pull/6467) Fixed: `Filecoin.EthGetBlockByNumber` now only supports retrieving a block by its block number or a special tag.
 
 ## Forest v0.31.1 "Quadrantids"
 
