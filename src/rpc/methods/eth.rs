@@ -1627,8 +1627,10 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a block by its number or a special tag.");
 
-    type Params = (ExtBlockNumberOrHash, bool);
+    type Params = (BlockNumberOrPredefined, bool);
     type Ok = Block;
 
     async fn handle(
@@ -1637,7 +1639,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_ext_block_number_or_hash(
             ctx.chain_store(),
-            block_param,
+            block_param.into(),
             ResolveNullTipset::TakeOlder,
         )?;
         Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
@@ -1653,16 +1655,22 @@ impl RpcMethod<2> for EthGetBlockByNumberV2 {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a block by its number or a special tag.");
 
-    type Params = (ExtBlockNumberOrHash, bool);
+    type Params = (BlockNumberOrPredefined, bool);
     type Ok = Block;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
-            .await?;
+        let ts = tipset_by_block_number_or_hash_v2(
+            &ctx,
+            block_param.into(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
         Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
             .await
             .map_err(ServerError::from)
