@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#6467](https://github.com/ChainSafe/forest/pull/6467) Fixed: `Filecoin.EthGetBlockByNumber` now only supports retrieving a block by its block number or a special tag.
+
 ## Forest v0.31.1 "Quadrantids"
 
 This is a non-mandatory release for all node operators. It includes the support for more V2 API's and a few critical API fixes.
@@ -82,8 +84,6 @@ This is a non-mandatory release for all node operators. It includes the support 
 - [#6430](https://github.com/ChainSafe/forest/issues/6430) Fixed a panic when syncing from genesis on the calibration network.
 
 - [#6456](https://github.com/ChainSafe/forest/pull/6456) Whitelisted nebula and hermes crawlers.
-
-- [#6467](https://github.com/ChainSafe/forest/pull/6467) Fixed: `Filecoin.EthGetBlockByNumber` now only supports retrieving a block by its block number or a special tag.
 
 ## Forest v0.30.5 "Dulce de Leche"
 
