@@ -2127,6 +2127,46 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         )
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(
+            EthGetTransactionByBlockNumberAndIndex::request((
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Pending),
+                0.into(),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(
+            EthGetTransactionByBlockNumberAndIndex::request((
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Latest),
+                0.into(),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(
+            EthGetTransactionByBlockNumberAndIndexV2::request((
+                BlockNumberOrPredefined::BlockNumber(shared_tipset.epoch().into()),
+                0.into(),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(
+            EthGetTransactionByBlockNumberAndIndexV2::request((
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Safe),
+                0.into(),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(
+            EthGetTransactionByBlockNumberAndIndexV2::request((
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Finalized),
+                0.into(),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(
             EthGetTransactionByBlockHashAndIndex::request((block_hash.clone(), 0.into())).unwrap(),
         )
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),

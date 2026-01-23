@@ -2599,6 +2599,8 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "txIndex"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a transaction by its block number and index.");
 
     type Params = (BlockNumberOrPredefined, EthUint64);
     type Ok = Option<ApiEthTx>;
@@ -2612,11 +2614,49 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
             block_param.into(),
             ResolveNullTipset::TakeOlder,
         )?;
+        eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
+    }
+}
 
-        let messages = ctx.chain_store().messages_for_tipset(&ts)?;
+pub enum EthGetTransactionByBlockNumberAndIndexV2 {}
+impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndexV2 {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByBlockNumberAndIndex";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockNumberAndIndex");
+    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "txIndex"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a transaction by its block number and index.");
 
-        let EthUint64(index) = tx_index;
-        let msg = messages.get(index as usize).with_context(|| {
+    type Params = (BlockNumberOrPredefined, EthUint64);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, tx_index): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(
+            &ctx,
+            block_param.into(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
+        eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
+    }
+}
+
+fn eth_tx_by_block_num_and_idx<B>(
+    ctx: &Ctx<B>,
+    ts: &Tipset,
+    tx_index: EthUint64,
+) -> Result<Option<ApiEthTx>, ServerError>
+where
+    B: Blockstore + Send + Sync + 'static,
+{
+    let messages = ctx.chain_store().messages_for_tipset(ts)?;
+
+    let EthUint64(index) = tx_index;
+    let msg = messages.get(index as usize).with_context(|| {
             format!(
                 "failed to get transaction at index {}: index {} out of range: tipset contains {} messages",
                 index,
@@ -2625,19 +2665,11 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
             )
         })?;
 
-        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+    let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
 
-        let tx = new_eth_tx(
-            &ctx,
-            &state,
-            ts.epoch(),
-            &ts.key().cid()?,
-            &msg.cid(),
-            index,
-        )?;
+    let tx = new_eth_tx(ctx, &state, ts.epoch(), &ts.key().cid()?, &msg.cid(), index)?;
 
-        Ok(Some(tx))
-    }
+    Ok(Some(tx))
 }
 
 pub enum EthGetTransactionByBlockHashAndIndex {}
