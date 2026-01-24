@@ -4,7 +4,7 @@
 //! JSON validation utilities for detecting duplicate keys before serde_json processing.
 //!
 //! serde_json automatically deduplicates keys at parse time using a "last-write-wins" strategy
-//! This means JSON like `{"/":"cid1", "/":"cid2"}` will keep only the last value, which can lead to unexpected behaviour in RPC calls.
+//! This means JSON like `{"/":"cid1", "/":"cid2"}` will keep only the last value, which can lead to unexpected behavior in RPC calls.
 
 use ahash::HashSet;
 use justjson::Value;
@@ -128,7 +128,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_strict_mode_disabled() {
-        with_strict_mode(false, || { // should pass with strict mode disabled
+        with_strict_mode(false, || {
+            // should pass with strict mode disabled
             let json = r#"{"/":"cid1", "/":"cid2"}"#;
             assert!(validate_json_for_duplicates(json).is_ok());
         });
@@ -148,7 +149,7 @@ mod tests {
                     "/":"bafy2bzaceav6j67epppz5ib55v5ty26dhkq4jinbsizq2olb3azbzxvfmc73o"
                 }]]
             }"#;
-            
+
             let result = validate_json_for_duplicates(json);
             assert!(result.is_err());
             assert!(result.unwrap_err().contains("duplicate key '/'"));
