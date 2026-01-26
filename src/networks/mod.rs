@@ -64,15 +64,12 @@ static INITIAL_FIL_RESERVED: LazyLock<TokenAmount> =
 )]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
+#[display(rename_all = "lowercase")]
 pub enum NetworkChain {
-    /// mainnet
     #[default]
     Mainnet,
-    /// calibnet
     Calibnet,
-    /// butterflynet
     Butterflynet,
-    /// devnet
     Devnet(String),
 }
 
