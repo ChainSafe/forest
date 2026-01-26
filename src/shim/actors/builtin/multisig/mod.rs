@@ -175,6 +175,7 @@ impl State {
         }
     }
 
+    /// Returns the vesting schedule for this multisig state.
     pub fn get_vesting_schedule(&self) -> anyhow::Result<MsigVesting> {
         Ok(delegate_state!(self => |st| MsigVesting {
             initial_balance: st.initial_balance.atto().clone(),

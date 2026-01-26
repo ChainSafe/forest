@@ -272,6 +272,7 @@ impl State {
         }
     }
 
+    /// Returns the root key address for this verifreg state.
     pub fn root_key(&self) -> Address {
         delegate_state!(self.root_key.into())
     }

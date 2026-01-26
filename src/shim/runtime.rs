@@ -11,6 +11,7 @@ use fil_actors_shared::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Shim wrapper around the latest policy version with cross-version conversions.
 #[derive(
     Debug,
     Clone,
