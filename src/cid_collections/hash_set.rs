@@ -73,31 +73,3 @@ impl FromIterator<Cid> for CidHashSet {
         this
     }
 }
-
-pub struct IntoIter {
-    inner: hash_map::IntoIter<()>,
-}
-
-impl Iterator for IntoIter {
-    type Item = Cid;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|(it, ())| it)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
-    }
-}
-
-impl IntoIterator for CidHashSet {
-    type Item = Cid;
-
-    type IntoIter = IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        IntoIter {
-            inner: self.inner.into_iter(),
-        }
-    }
-}
