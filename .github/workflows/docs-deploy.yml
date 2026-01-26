@@ -24,6 +24,8 @@ jobs:
   docs-deploy:
     name: Deploy to Cloudflare Pages
     runs-on: ubuntu-24.04-arm
+    # Cloudflare secrect does not work for fork PRs
+    if: github.event.pull_request.head.repo.full_name == github.repository
     defaults:
       run:
         working-directory: ./docs
