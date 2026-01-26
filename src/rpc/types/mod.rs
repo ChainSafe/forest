@@ -19,19 +19,19 @@ mod tests;
 use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
-use crate::shim::actors::market::AllocationID;
-use crate::shim::actors::market::{DealProposal, DealState};
-use crate::shim::actors::miner::DeadlineInfo;
-use crate::shim::executor::StampedEvent;
 use crate::shim::{
+    actors::{
+        market::{AllocationID, DealProposal, DealState},
+        miner::DeadlineInfo,
+    },
     address::Address,
     clock::ChainEpoch,
     deal::DealID,
     econ::TokenAmount,
-    executor::Receipt,
+    executor::{Receipt, StampedEvent},
     fvm_shared_latest::MethodNum,
     message::Message,
-    sector::{ExtendedSectorInfo, RegisteredSealProof, SectorNumber, StoragePower},
+    sector::{ExtendedSectorInfo, RegisteredSealProof, SectorNumber, SectorSize, StoragePower},
 };
 use chrono::Utc;
 use cid::Cid;
@@ -514,7 +514,7 @@ pub struct MiningBaseInfo {
     #[schemars(with = "LotusJson<Address>")]
     pub worker_key: Address,
     #[schemars(with = "u64")]
-    pub sector_size: fvm_shared2::sector::SectorSize,
+    pub sector_size: SectorSize,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<BeaconEntry>")]
     pub prev_beacon_entry: BeaconEntry,

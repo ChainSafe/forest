@@ -98,7 +98,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
 
         let ms = miner::State::load(&tbs, actor.code, actor.state)?;
 
-        let worker = ms.info(&tbs)?.worker.into();
+        let worker = ms.info(&tbs)?.worker;
 
         let state = StateTree::new_from_root(Arc::clone(self.chain_index.db()), &self.root)?;
 

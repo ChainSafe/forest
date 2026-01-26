@@ -256,7 +256,7 @@ impl GetPowerTable {
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
                     }
-                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    id_power_worker_mappings.push((id, power, miner_info.worker));
                     Ok(())
                 })?;
             }
@@ -299,7 +299,7 @@ impl GetPowerTable {
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
                     }
-                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    id_power_worker_mappings.push((id, power, miner_info.worker));
                     Ok(())
                 })?;
             }
@@ -342,7 +342,7 @@ impl GetPowerTable {
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
                     }
-                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    id_power_worker_mappings.push((id, power, miner_info.worker));
                     Ok(())
                 })?;
             }
@@ -385,7 +385,7 @@ impl GetPowerTable {
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
                     }
-                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    id_power_worker_mappings.push((id, power, miner_info.worker));
                     Ok(())
                 })?;
             }
