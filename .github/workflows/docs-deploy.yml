@@ -24,6 +24,8 @@ jobs:
   docs-deploy:
     name: Deploy to Cloudflare Pages
     runs-on: ubuntu-24.04-arm
+    # Enable workflow for non-PRs but disable workflow for fork PRs as Cloudflare secret does not work for fork PRs
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     defaults:
       run:
         working-directory: ./docs
