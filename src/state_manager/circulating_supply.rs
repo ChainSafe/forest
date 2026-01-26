@@ -180,7 +180,7 @@ impl GenesisInfo {
                     _ if is_multisig_actor(&actor.code) => {
                         let ms = multisig::State::load(&db, actor.code, actor.state)?;
 
-                        let locked_balance: TokenAmount = ms.locked_balance(height)?.into();
+                        let locked_balance = ms.locked_balance(height)?;
                         let avail_balance = actor_balance.clone() - &locked_balance;
                         circ += avail_balance.max(TokenAmount::zero());
                         un_circ += actor_balance.min(locked_balance);
