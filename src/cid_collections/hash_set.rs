@@ -10,7 +10,7 @@ use std::collections::HashSet;
 /// A hash set implemented as a `HashMap` where the value is `()`.
 ///
 /// See also [`HashSet`].
-#[derive(Default, Clone, Debug, PartialEq, Eq, derive_more::IntoIterator)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct CidHashSet {
     inner: CidHashMap<()>,
 }
