@@ -4,8 +4,6 @@
 use crate::blocks::TipsetKey;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::Message as _;
-use crate::rpc::eth::types::{EthAddress, EthBytes};
-use crate::rpc::eth::{EthBigInt, EthUint64};
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::Address,
@@ -237,42 +235,6 @@ impl PartialEq for GasTrace {
             && self.compute_gas == other.compute_gas
             && self.storage_gas == other.storage_gas
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct Action {
-    pub call_type: String, // E.g., "call", "delegatecall", "create"
-    pub from: EthAddress,
-    pub to: EthAddress,
-    pub gas: EthUint64,
-    pub input: EthBytes,
-    pub value: EthBigInt,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ResultData {
-    pub gas_used: EthUint64,
-    pub output: EthBytes,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct TraceEntry {
-    /// Call parameters
-    pub action: Action,
-    /// Call result or `None` for reverts
-    pub result: Option<ResultData>,
-    /// How many subtraces this trace has.
-    pub subtraces: usize,
-    /// The identifier of this transaction trace in the set.
-    ///
-    /// This gives the exact location in the call trace.
-    pub trace_address: Vec<usize>,
-    /// Call type, e.g., "call", "delegatecall", "create"
-    #[serde(rename = "type")]
-    pub type_: String,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
