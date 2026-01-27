@@ -79,7 +79,6 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
-use tracing::log;
 use utils::{decode_payload, lookup_eth_address};
 
 use nunny::Vec as NonEmpty;
@@ -2132,9 +2131,7 @@ where
             Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
         }
         Ok(gassed_msg) => {
-            log::info!("correct gassed_msg: do eth_gas_search {gassed_msg:?}");
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
-            log::info!("trying eth_gas search: {expected_gas}");
             Ok(expected_gas.into())
         }
     }
