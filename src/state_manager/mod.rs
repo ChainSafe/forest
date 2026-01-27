@@ -458,12 +458,7 @@ where
     /// Returns the pair of (state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
-    pub async fn tipset_state(self: &Arc<Self>, tipset: &Tipset) -> anyhow::Result<CidPair> {
-        self.tipset_state_internal(tipset, StateLookupPolicy::Enabled)
-            .await
-    }
-
-    pub(crate) async fn tipset_state_internal(
+    pub async fn tipset_state(
         self: &Arc<Self>,
         tipset: &Tipset,
         state_lookup: StateLookupPolicy,
@@ -688,6 +683,7 @@ where
         self: &Arc<Self>,
         tipset: Option<Tipset>,
         msg: Message,
+        state_lookup: StateLookupPolicy,
     ) -> anyhow::Result<ApiInvocResult> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
@@ -711,7 +707,7 @@ where
         };
 
         let (_invoc_res, apply_ret, duration) = self
-            .call_with_gas(&mut chain_msg, &[], Some(ts), VMTrace::Traced)
+            .call_with_gas(&mut chain_msg, &[], Some(ts), VMTrace::Traced, state_lookup)
             .await?;
         Ok(ApiInvocResult {
             msg_cid: msg.cid(),
@@ -732,10 +728,11 @@ where
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
         trace_config: VMTrace,
+        state_lookup: StateLookupPolicy,
     ) -> Result<(InvocResult, ApplyRet, Duration), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let (st, _) = self
-            .tipset_state(&ts)
+            .tipset_state(&ts, state_lookup)
             .await
             .map_err(|e| Error::Other(format!("Could not load tipset state: {e}")))?;
         let chain_rand = self.chain_rand(ts.clone());
@@ -1444,7 +1441,7 @@ where
         }
 
         // If that fails, compute the tip-set and try again.
-        let (st, _) = self.tipset_state(ts).await?;
+        let (st, _) = self.tipset_state(ts, StateLookupPolicy::Enabled).await?;
         let state = StateTree::new_from_root(self.blockstore_owned(), &st)?;
 
         resolve_to_key_addr(&state, self.blockstore(), addr)
@@ -1702,7 +1699,7 @@ where
                 }
 
                 // If that fails, compute the tip-set and try again.
-                let (state_root, _) = self.tipset_state(ts).await?;
+                let (state_root, _) = self.tipset_state(ts, StateLookupPolicy::Enabled).await?;
                 let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }

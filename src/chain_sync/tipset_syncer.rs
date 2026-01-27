@@ -103,21 +103,6 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     full_tipset: FullTipset,
     bad_block_cache: Option<Arc<BadBlockCache>>,
 ) -> Result<(), TipsetSyncerError> {
-    validate_tipset_internal(
-        state_manager,
-        full_tipset,
-        bad_block_cache,
-        StateLookupPolicy::Enabled,
-    )
-    .await
-}
-
-pub(crate) async fn validate_tipset_internal<DB: Blockstore + Send + Sync + 'static>(
-    state_manager: &Arc<StateManager<DB>>,
-    full_tipset: FullTipset,
-    bad_block_cache: Option<Arc<BadBlockCache>>,
-    state_lookup: StateLookupPolicy,
-) -> Result<(), TipsetSyncerError> {
     if full_tipset
         .key()
         .eq(state_manager.chain_store().genesis_tipset().key())
@@ -134,11 +119,7 @@ pub(crate) async fn validate_tipset_internal<DB: Blockstore + Send + Sync + 'sta
     let blocks = full_tipset.into_blocks();
     let mut validations = JoinSet::new();
     for b in blocks {
-        validations.spawn(validate_block(
-            state_manager.clone(),
-            Arc::new(b),
-            state_lookup,
-        ));
+        validations.spawn(validate_block(state_manager.clone(), Arc::new(b)));
     }
 
     while let Some(result) = validations.join_next().await {
@@ -191,7 +172,6 @@ pub(crate) async fn validate_tipset_internal<DB: Blockstore + Send + Sync + 'sta
 async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
-    state_lookup: StateLookupPolicy,
 ) -> Result<Arc<Block>, (Cid, TipsetSyncerError)> {
     let consensus = FilecoinConsensus::new(state_manager.beacon_schedule().clone());
     trace!(
@@ -251,7 +231,6 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         state_manager.clone(),
         block.clone(),
         base_tipset.clone(),
-        state_lookup,
     ));
 
     // Base fee check
@@ -300,7 +279,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         async move {
             let header = block.header();
             let (state_root, receipt_root) = state_manager
-                .tipset_state_internal(&base_tipset, state_lookup)
+                .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
                 .await
                 .map_err(|e| {
                     TipsetSyncerError::Calculation(format!("Failed to calculate state: {e}"))
@@ -378,7 +357,6 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
     base_tipset: Tipset,
-    state_lookup: StateLookupPolicy,
 ) -> Result<(), TipsetSyncerError> {
     let network_version = state_manager
         .chain_config()
@@ -462,7 +440,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
 
     let mut account_sequences: HashMap<Address, u64> = HashMap::default();
     let (state_root, _) = state_manager
-        .tipset_state_internal(&base_tipset, state_lookup)
+        .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
         .await
         .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e}")))?;
     let tree =

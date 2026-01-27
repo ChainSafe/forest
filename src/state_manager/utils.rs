@@ -282,8 +282,7 @@ pub mod state_compute {
         use super::*;
         use crate::{
             blocks::FullTipset,
-            chain_sync::{load_full_tipset, tipset_syncer::validate_tipset_internal},
-            state_manager::StateLookupPolicy,
+            chain_sync::{load_full_tipset, tipset_syncer::validate_tipset},
         };
 
         async fn get_state_validate_snapshot(
@@ -350,9 +349,7 @@ pub mod state_compute {
             let chain = NetworkChain::Mainnet;
             let snapshot = get_state_validate_snapshot(&chain, 5688000).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
-            validate_tipset_internal(&sm, fts, None, StateLookupPolicy::Disabled)
-                .await
-                .unwrap();
+            validate_tipset(&sm, fts, None).await.unwrap();
         }
 
         // Shark state migration
@@ -361,9 +358,7 @@ pub mod state_compute {
             let chain = NetworkChain::Calibnet;
             let snapshot = get_state_validate_snapshot(&chain, 16802).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
-            validate_tipset_internal(&sm, fts, None, StateLookupPolicy::Disabled)
-                .await
-                .unwrap();
+            validate_tipset(&sm, fts, None).await.unwrap();
         }
 
         // Hygge state migration
@@ -372,9 +367,7 @@ pub mod state_compute {
             let chain = NetworkChain::Calibnet;
             let snapshot = get_state_validate_snapshot(&chain, 322356).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
-            validate_tipset_internal(&sm, fts, None, StateLookupPolicy::Disabled)
-                .await
-                .unwrap();
+            validate_tipset(&sm, fts, None).await.unwrap();
         }
 
         // Lightning state migration
@@ -383,9 +376,7 @@ pub mod state_compute {
             let chain = NetworkChain::Calibnet;
             let snapshot = get_state_validate_snapshot(&chain, 489096).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
-            validate_tipset_internal(&sm, fts, None, StateLookupPolicy::Disabled)
-                .await
-                .unwrap();
+            validate_tipset(&sm, fts, None).await.unwrap();
         }
     }
 }

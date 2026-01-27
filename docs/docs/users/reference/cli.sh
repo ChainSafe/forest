@@ -157,7 +157,7 @@ generate_markdown_section "forest-tool" "index backfill"
 
 generate_markdown_section "forest-dev" ""
 
-generate_markdown_section "forest-dev" "fetch-rpc-tests"
+generate_markdown_section "forest-dev" "fetch-test-snapshots"
 
 generate_markdown_section "forest-dev" "state"
 generate_markdown_section "forest-dev" "state compute"

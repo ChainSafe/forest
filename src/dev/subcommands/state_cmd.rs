@@ -4,7 +4,7 @@
 use crate::{
     blocks::Tipset,
     chain::{ChainStore, index::ResolveNullTipset},
-    chain_sync::{load_full_tipset, tipset_syncer::validate_tipset_internal},
+    chain_sync::{load_full_tipset, tipset_syncer::validate_tipset},
     cli_shared::{chain_path, read_config},
     db::{
         MemoryDB, SettingsStoreExt,
@@ -15,7 +15,7 @@ use crate::{
     interpreter::VMTrace,
     networks::{ChainConfig, NetworkChain},
     shim::clock::ChainEpoch,
-    state_manager::{StateLookupPolicy, StateManager, StateOutput},
+    state_manager::{StateManager, StateOutput},
     tool::subcommands::api_cmd::generate_test_snapshot,
 };
 use nonzero_ext::nonzero;
@@ -236,7 +236,7 @@ impl ValidateCommand {
         let epoch = ts.epoch();
         let fts = load_full_tipset(&chain_store, ts.key())?;
         let state_manager = Arc::new(StateManager::new(chain_store)?);
-        validate_tipset_internal(&state_manager, fts, None, StateLookupPolicy::Disabled).await?;
+        validate_tipset(&state_manager, fts, None).await?;
         let mut db_snapshot = vec![];
         db.export_forest_car(&mut db_snapshot).await?;
         println!(
@@ -287,8 +287,7 @@ impl ReplayValidateCommand {
         for _ in 0..n.get() {
             let fts = fts.clone();
             let start = Instant::now();
-            validate_tipset_internal(&state_manager, fts, None, StateLookupPolicy::Disabled)
-                .await?;
+            validate_tipset(&state_manager, fts, None).await?;
             println!(
                 "epoch: {epoch}, took {}.",
                 humantime::format_duration(start.elapsed())
