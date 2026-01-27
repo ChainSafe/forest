@@ -255,19 +255,4 @@ impl VerifiedRegistryStateExt for State {
         };
         Ok(result)
     }
-
-    fn root_key(&self) -> Address {
-        match self {
-            State::V8(s) => s.root_key.into(),
-            State::V9(s) => s.root_key.into(),
-            State::V10(s) => s.root_key.into(),
-            State::V11(s) => s.root_key.into(),
-            State::V12(s) => s.root_key.into(),
-            State::V13(s) => s.root_key.into(),
-            State::V14(s) => s.root_key.into(),
-            State::V15(s) => s.root_key.into(),
-            State::V16(s) => s.root_key.into(),
-            State::V17(s) => s.root_key.into(),
-        }
-    }
 }

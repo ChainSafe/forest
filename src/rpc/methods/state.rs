@@ -28,8 +28,7 @@ use crate::shim::actors::{
     power, reward, verifreg,
 };
 use crate::shim::actors::{
-    market::ext::BalanceTableExt as _,
-    miner::ext::{MinerStateExt as _, PartitionExt as _},
+    market::ext::BalanceTableExt as _, miner::ext::MinerStateExt as _,
     power::ext::PowerStateExt as _,
 };
 use crate::shim::address::Payload;
@@ -274,7 +273,7 @@ impl RpcMethod<2> for StateVerifierStatus {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let aid = ctx.state_manager.lookup_required_id(&address, &ts)?;
         let verifreg_state: verifreg::State = ctx.state_manager.get_actor_state(&ts)?;
-        Ok(verifreg_state.verifier_data_cap(ctx.store(), aid.into())?)
+        Ok(verifreg_state.verifier_data_cap(ctx.store(), aid)?)
     }
 }
 
