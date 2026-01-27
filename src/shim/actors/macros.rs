@@ -7,7 +7,6 @@
 /// Parameters:
 /// - `$res`: A mutable reference to a collection where the parsed transactions will be stored.
 /// - `$txns`: A collection of transaction data to be parsed.
-#[macro_export]
 macro_rules! parse_pending_transactions {
     ($res:ident, $txns:expr) => {
         $txns.for_each(|tx_key, txn| {
@@ -15,11 +14,11 @@ macro_rules! parse_pending_transactions {
                 Some((tx_id, _)) => {
                     $res.push(Transaction {
                         id: tx_id,
-                        to: txn.to,
-                        value: txn.value.clone(),
+                        to: txn.to.into(),
+                        value: txn.value.clone().into(),
                         method: txn.method,
                         params: txn.params.clone(),
-                        approved: txn.approved.clone(),
+                        approved: txn.approved.clone().into_iter().map(From::from).collect(),
                     });
                 }
                 None => anyhow::bail!("Error decoding varint"),
@@ -29,13 +28,11 @@ macro_rules! parse_pending_transactions {
     };
 }
 
-/// This macro iterates over each transaction, decodes the transaction key, and constructs a Transaction object
-/// with additional processing for address and token formats using `from_address_v3_to_v2` and `from_token_v3_to_v2`.
+/// This macro iterates over each transaction, decodes the transaction key, and constructs a Transaction object.
 ///
 /// Parameters:
 /// - `$res`: A mutable reference to a collection where the parsed transactions will be stored.
 /// - `$txns`: A collection of transaction data to be parsed.
-#[macro_export]
 macro_rules! parse_pending_transactions_v3 {
     ($res:ident, $txns:expr) => {
         $txns.for_each(|tx_key, txn| {
@@ -43,15 +40,11 @@ macro_rules! parse_pending_transactions_v3 {
                 Some((tx_id, _)) => {
                     $res.push(Transaction {
                         id: tx_id,
-                        to: from_address_v3_to_v2(txn.to),
-                        value: from_token_v3_to_v2(&txn.value),
+                        to: txn.to.into(),
+                        value: txn.value.clone().into(),
                         method: txn.method,
                         params: txn.params.clone(),
-                        approved: txn
-                            .approved
-                            .iter()
-                            .map(|&addr| from_address_v3_to_v2(addr))
-                            .collect(),
+                        approved: txn.approved.clone().into_iter().map(From::from).collect(),
                     });
                 }
                 None => anyhow::bail!("Error decoding varint"),
@@ -62,29 +55,26 @@ macro_rules! parse_pending_transactions_v3 {
 }
 
 /// This macro iterates over each transaction, assumes that transaction id's are directly available and not encoded.
-/// It constructs Transaction objects with transformations for address and token data from version 4 to version 2
-/// using `from_address_v4_to_v2` and `from_token_v4_to_v2`.
 ///
 /// Parameters:
 /// - `$res`: A mutable reference to a collection where the parsed transactions will be stored.
 /// - `$txns`: A collection of transaction data to be parsed.
-#[macro_export]
 macro_rules! parse_pending_transactions_v4 {
     ($res:ident, $txns:expr) => {
         $txns.for_each(|tx_id, txn| {
             $res.push(Transaction {
                 id: tx_id.0,
-                to: from_address_v4_to_v2(txn.to),
-                value: from_token_v4_to_v2(&txn.value),
+                to: txn.to.into(),
+                value: txn.value.clone().into(),
                 method: txn.method,
                 params: txn.params.clone(),
-                approved: txn
-                    .approved
-                    .iter()
-                    .map(|&addr| from_address_v4_to_v2(addr))
-                    .collect(),
+                approved: txn.approved.clone().into_iter().map(From::from).collect(),
             });
             Ok(())
         })?;
     };
 }
+
+pub(crate) use parse_pending_transactions;
+pub(crate) use parse_pending_transactions_v3;
+pub(crate) use parse_pending_transactions_v4;

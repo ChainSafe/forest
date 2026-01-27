@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::super::convert::{from_address_v3_to_v2, from_address_v4_to_v2};
 use crate::shim::{self, address::Address};
 use serde::Serialize;
 use spire_enum::prelude::delegated_enum;
