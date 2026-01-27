@@ -73,4 +73,130 @@ contract Tracer {
     function doRevert() external pure {
         revert("from some fiasco");
     }
+
+    // ========== DEEP TRACE FUNCTIONS ==========
+
+    // 11. Deep recursive CALL trace
+    // Creates trace depth of `depth` levels
+    function deepTrace(uint256 depth) external returns (uint256) {
+        if (depth == 0) {
+            x = x + 1; // Storage write at deepest level
+            return x;
+        }
+        (bool ok, bytes memory result) = address(this).call(
+            abi.encodeWithSelector(this.deepTrace.selector, depth - 1)
+        );
+        require(ok, "deep call failed");
+        return abi.decode(result, (uint256));
+    }
+
+    // 12. Mixed call types trace
+    // Alternates between CALL, DELEGATECALL, and STATICCALL
+    function mixedTrace(uint256 depth) external returns (uint256) {
+        if (depth == 0) {
+            return x;
+        }
+        
+        uint256 callType = depth % 3;
+        
+        if (callType == 0) {
+            // Regular CALL
+            (bool ok, bytes memory result) = address(this).call(
+                abi.encodeWithSelector(this.mixedTrace.selector, depth - 1)
+            );
+            require(ok, "call failed");
+            return abi.decode(result, (uint256));
+        } else if (callType == 1) {
+            // DELEGATECALL
+            (bool ok, bytes memory result) = address(this).delegatecall(
+                abi.encodeWithSelector(this.mixedTrace.selector, depth - 1)
+            );
+            require(ok, "delegatecall failed");
+            return abi.decode(result, (uint256));
+        } else {
+            // STATICCALL (read-only)
+            (bool ok, bytes memory result) = address(this).staticcall(
+                abi.encodeWithSelector(this.mixedTrace.selector, depth - 1)
+            );
+            require(ok, "staticcall failed");
+            return abi.decode(result, (uint256));
+        }
+    }
+
+    // 13. Wide trace - multiple sibling calls at same level
+    // Creates `width` parallel calls, each going `depth` levels deep
+    // Example: wideTrace(3, 2) creates 3 siblings, each 2 levels deep
+    function wideTrace(uint256 width, uint256 depth) external returns (uint256 sum) {
+        if (depth == 0) {
+            return 1;
+        }
+        
+        for (uint256 i = 0; i < width; i++) {
+            (bool ok, bytes memory result) = address(this).call(
+                abi.encodeWithSelector(this.wideTrace.selector, width, depth - 1)
+            );
+            require(ok, "wide call failed");
+            sum += abi.decode(result, (uint256));
+        }
+        return sum;
+    }
+
+    // 14. Complex trace - combines everything
+    // Level 0: CALL to setX
+    // Level 1: DELEGATECALL to inner
+    // Level 2: Multiple CALLs
+    // Level 3: STATICCALL
+    function complexTrace() external returns (uint256) {
+        // First: regular call to setX
+        (bool ok1, ) = address(this).call(
+            abi.encodeWithSelector(this.setX.selector, 100)
+        );
+        require(ok1, "setX failed");
+        
+        // Second: delegatecall that does more calls
+        (bool ok2, bytes memory result) = address(this).delegatecall(
+            abi.encodeWithSelector(this.innerComplex.selector)
+        );
+        require(ok2, "innerComplex failed");
+        
+        return abi.decode(result, (uint256));
+    }
+
+    // Helper for complexTrace
+    function innerComplex() external returns (uint256) {
+        // Multiple sibling calls
+        (bool ok1, ) = address(this).call(
+            abi.encodeWithSelector(this.setX.selector, 200)
+        );
+        require(ok1, "inner call 1 failed");
+        
+        (bool ok2, ) = address(this).call(
+            abi.encodeWithSelector(this.setX.selector, 300)
+        );
+        require(ok2, "inner call 2 failed");
+        
+        // Staticcall to read
+        (bool ok3, bytes memory result) = address(this).staticcall(
+            abi.encodeWithSelector(this.staticRead.selector)
+        );
+        require(ok3, "staticcall failed");
+        
+        return abi.decode(result, (uint256));
+    }
+
+    // 15. Failing nested trace - revert at depth
+    // Useful for testing partial trace on failure
+    function failAtDepth(uint256 depth, uint256 failAt) external returns (uint256) {
+        if (depth == failAt) {
+            revert("intentional failure at depth");
+        }
+        if (depth == 0) {
+            return x;
+        }
+        (bool ok, bytes memory result) = address(this).call(
+            abi.encodeWithSelector(this.failAtDepth.selector, depth - 1, failAt)
+        );
+        require(ok, "nested call failed");
+        return abi.decode(result, (uint256));
+    }
 }
