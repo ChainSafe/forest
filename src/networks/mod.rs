@@ -60,20 +60,16 @@ static INITIAL_FIL_RESERVED: LazyLock<TokenAmount> =
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
 #[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Hash, displaydoc::Display,
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Hash, derive_more::Display,
 )]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
+#[display(rename_all = "lowercase")]
 pub enum NetworkChain {
-    /// mainnet
     #[default]
     Mainnet,
-    /// calibnet
     Calibnet,
-    /// butterflynet
     Butterflynet,
-    /// devnet
-    #[displaydoc("{0}")]
     Devnet(String),
 }
 

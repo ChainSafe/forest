@@ -7,15 +7,19 @@ use crate::lotus_json::lotus_json_with_self;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(
+    Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema, derive_more::Display,
+)]
 #[serde(rename_all = "PascalCase")]
 pub enum SnapshotProgressState {
     #[default]
+    #[display("🔄 Initializing (Checking if snapshot is needed)")]
     Initializing,
-    InProgress {
-        message: String,
-    },
+    #[display("🌳 In Progress: {message}")]
+    InProgress { message: String },
+    #[display("✅ Recently Completed! Chain will start syncing shortly")]
     Completed,
+    #[display("⏳ Not Required (Snapshot is not needed)")]
     NotRequired,
 }
 
@@ -38,25 +42,6 @@ impl SnapshotProgressState {
 
     pub fn is_not_required(&self) -> bool {
         matches!(self, Self::NotRequired)
-    }
-}
-
-impl std::fmt::Display for SnapshotProgressState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Initializing => {
-                write!(f, "🔄 Initializing (Checking if snapshot is needed)")
-            }
-            Self::InProgress { message } => {
-                write!(f, "🌳 In Progress: {message}")
-            }
-            Self::Completed => {
-                write!(f, "✅ Recently Completed! Chain will start syncing shortly")
-            }
-            Self::NotRequired => {
-                write!(f, "⏳ Not Required (Snapshot is not needed)")
-            }
-        }
     }
 }
 

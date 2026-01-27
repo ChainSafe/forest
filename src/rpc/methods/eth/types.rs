@@ -111,6 +111,7 @@ impl GetStorageAtParams {
     JsonSchema,
     derive_more::From,
     derive_more::Into,
+    derive_more::FromStr,
 )]
 pub struct EthAddress(
     #[schemars(with = "String")]
@@ -208,16 +209,6 @@ impl EthAddress {
         let hash = keccak_hash::keccak(pubkey.get(1..).context("failed to get pubkey data")?);
         let addr: &[u8] = &hash[12..32];
         EthAddress::try_from(addr)
-    }
-}
-
-impl FromStr for EthAddress {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(EthAddress(
-            ethereum_types::Address::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))?,
-        ))
     }
 }
 
@@ -395,11 +386,12 @@ impl TryFrom<EthCallMessage> for Message {
     Default,
     Clone,
     JsonSchema,
-    displaydoc::Display,
+    derive_more::Display,
     derive_more::From,
     derive_more::Into,
+    derive_more::FromStr,
 )]
-#[displaydoc("{0:#x}")]
+#[display("{_0:#x}")]
 pub struct EthHash(#[schemars(with = "String")] pub ethereum_types::H256);
 lotus_json_with_self!(EthHash);
 
@@ -667,11 +659,9 @@ lotus_json_with_self!(EthBlockTrace);
 #[serde(rename_all = "camelCase")]
 pub struct EthReplayBlockTransactionTrace {
     pub output: EthBytes,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub state_diff: Option<String>,
     pub trace: Vec<EthTrace>,
     pub transaction_hash: EthHash,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub vm_trace: Option<String>,
 }
 lotus_json_with_self!(EthReplayBlockTransactionTrace);

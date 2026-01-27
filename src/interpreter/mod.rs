@@ -46,5 +46,5 @@ where
 
     let acc_st = account::State::load(store, act.code, act.state)?;
 
-    Ok(acc_st.pubkey_address().into())
+    Ok(acc_st.pubkey_address())
 }

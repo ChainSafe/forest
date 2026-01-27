@@ -53,6 +53,7 @@ use fvm4::{
     },
 };
 use num::Zero;
+use spire_enum::prelude::delegated_enum;
 use std::time::{Duration, Instant};
 
 pub(in crate::interpreter) type ForestMachineV2<DB> =
@@ -139,6 +140,7 @@ impl BlockMessages {
 
 /// Interpreter which handles execution of state transitioning messages and
 /// returns receipts from the VM execution.
+#[delegated_enum(impl_conversions)]
 pub enum VM<DB: Blockstore + Send + Sync + 'static> {
     VM2(ForestExecutorV2<DB>),
     VM3(ForestExecutorV3<DB>),
@@ -272,11 +274,7 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        match self {
-            VM::VM2(fvm_executor) => Ok(fvm_executor.flush()?),
-            VM::VM3(fvm_executor) => Ok(fvm_executor.flush()?),
-            VM::VM4(fvm_executor) => Ok(fvm_executor.flush()?),
-        }
+        Ok(delegate_vm!(self.flush()?))
     }
 
     /// Get actor state from an address. Will be resolved to ID address.

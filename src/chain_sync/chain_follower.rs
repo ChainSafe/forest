@@ -828,7 +828,6 @@ impl SyncTask {
         bad_block_cache: Option<Arc<BadBlockCache>>,
     ) -> Option<SyncEvent> {
         tracing::trace!("SyncTask::execute {self}");
-        let cs = state_manager.chain_store();
         match self {
             SyncTask::ValidateTipset {
                 tipset,
@@ -840,29 +839,19 @@ impl SyncTask {
             SyncTask::ValidateTipset {
                 tipset,
                 is_proposed_head,
-            } => {
-                let genesis = cs.genesis_tipset();
-                match validate_tipset(
-                    &state_manager,
-                    cs,
-                    tipset.clone(),
-                    &genesis,
-                    bad_block_cache,
-                )
-                .await
-                {
-                    Ok(()) => Some(SyncEvent::ValidatedTipset {
-                        tipset,
-                        is_proposed_head,
-                    }),
-                    Err(e) => {
-                        warn!("Error validating tipset: {}", e);
-                        Some(SyncEvent::BadTipset(tipset))
-                    }
+            } => match validate_tipset(&state_manager, tipset.clone(), bad_block_cache).await {
+                Ok(()) => Some(SyncEvent::ValidatedTipset {
+                    tipset,
+                    is_proposed_head,
+                }),
+                Err(e) => {
+                    warn!("Error validating tipset: {e}");
+                    Some(SyncEvent::BadTipset(tipset))
                 }
-            }
+            },
             SyncTask::FetchTipset(key, epoch) => {
-                match get_full_tipset_batch(&network, cs, None, &key).await {
+                match get_full_tipset_batch(&network, state_manager.chain_store(), None, &key).await
+                {
                     Ok(parents) => Some(SyncEvent::NewFullTipsets(parents)),
                     Err(e) => {
                         tracing::warn!(%key, %epoch, "failed to fetch tipset: {e}");

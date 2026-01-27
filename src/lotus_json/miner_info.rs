@@ -82,8 +82,8 @@ impl HasLotusJson for MinerInfo {
                 "WorkerChangeEpoch": 0
             }),
             Self {
-                owner: Address::default().into(),
-                worker: Address::default().into(),
+                owner: Address::default(),
+                worker: Address::default(),
                 new_worker: Default::default(),
                 control_addresses: Default::default(),
                 worker_change_epoch: Default::default(),
@@ -91,11 +91,11 @@ impl HasLotusJson for MinerInfo {
                 multiaddrs: Default::default(),
                 window_post_proof_type:
                     fvm_shared2::sector::RegisteredPoStProof::StackedDRGWinning2KiBV1,
-                sector_size: crate::shim::sector::SectorSize::_2KiB.into(),
+                sector_size: crate::shim::sector::SectorSize::_2KiB,
                 window_post_partition_sectors: Default::default(),
                 consensus_fault_elapsed: Default::default(),
                 pending_owner_address: Default::default(),
-                beneficiary: Address::default().into(),
+                beneficiary: Address::default(),
                 beneficiary_term: Default::default(),
                 pending_beneficiary_term: Default::default(),
             },
@@ -103,50 +103,42 @@ impl HasLotusJson for MinerInfo {
     }
     fn into_lotus_json(self) -> Self::LotusJson {
         MinerInfoLotusJson {
-            owner: self.owner.into(),
-            worker: self.worker.into(),
-            new_worker: AddressOrEmpty(self.new_worker.map(|addr| addr.into())),
-            control_addresses: self
-                .control_addresses
-                .into_iter()
-                .map(|a| a.into())
-                .collect(),
+            owner: self.owner,
+            worker: self.worker,
+            new_worker: AddressOrEmpty(self.new_worker),
+            control_addresses: self.control_addresses,
             worker_change_epoch: self.worker_change_epoch,
             peer_id: PeerId::try_from(self.peer_id).map(|id| id.to_base58()).ok(),
             multiaddrs: self.multiaddrs.into_iter().map(|addr| addr.0).collect(),
             window_po_st_proof_type: self.window_post_proof_type,
-            sector_size: self.sector_size.into(),
+            sector_size: self.sector_size,
             window_po_st_partition_sectors: self.window_post_partition_sectors,
             consensus_fault_elapsed: self.consensus_fault_elapsed,
             // NOTE: In Lotus this field is never set for any of the versions, so we have to ignore
             // it too.
             // See: <https://github.com/filecoin-project/lotus/blob/b6a77dfafcf0110e95840fca15a775ed663836d8/chain/actors/builtin/miner/v12.go#L370>.
             pending_owner_address: None,
-            beneficiary: self.beneficiary.into(),
+            beneficiary: self.beneficiary,
             beneficiary_term: self.beneficiary_term,
             pending_beneficiary_term: self.pending_beneficiary_term,
         }
     }
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         MinerInfo {
-            owner: lotus_json.owner.into(),
-            worker: lotus_json.worker.into(),
-            new_worker: lotus_json.new_worker.0.map(|addr| addr.into()),
-            control_addresses: lotus_json
-                .control_addresses
-                .into_iter()
-                .map(|a| a.into())
-                .collect(),
+            owner: lotus_json.owner,
+            worker: lotus_json.worker,
+            new_worker: lotus_json.new_worker.0,
+            control_addresses: lotus_json.control_addresses,
             worker_change_epoch: lotus_json.worker_change_epoch,
             peer_id: lotus_json.peer_id.map_or_else(Vec::new, |s| s.into_bytes()),
             multiaddrs: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
             window_post_proof_type: lotus_json.window_po_st_proof_type,
-            sector_size: lotus_json.sector_size.into(),
+            sector_size: lotus_json.sector_size,
             window_post_partition_sectors: lotus_json.window_po_st_partition_sectors,
             consensus_fault_elapsed: lotus_json.consensus_fault_elapsed,
             // Ignore this field as it is never set on Lotus side.
             pending_owner_address: None,
-            beneficiary: lotus_json.beneficiary.into(),
+            beneficiary: lotus_json.beneficiary,
             beneficiary_term: lotus_json.beneficiary_term,
             pending_beneficiary_term: lotus_json.pending_beneficiary_term,
         }
