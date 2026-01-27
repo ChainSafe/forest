@@ -459,17 +459,27 @@ where
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Tipset) -> anyhow::Result<CidPair> {
+        self.tipset_state_internal(tipset, StateLookupPolicy::Enabled)
+            .await
+    }
+
+    pub(crate) async fn tipset_state_internal(
+        self: &Arc<Self>,
+        tipset: &Tipset,
+        state_lookup: StateLookupPolicy,
+    ) -> anyhow::Result<CidPair> {
         let StateOutput {
             state_root,
             receipt_root,
             ..
-        } = self.tipset_state_output(tipset).await?;
+        } = self.tipset_state_output(tipset, state_lookup).await?;
         Ok((state_root, receipt_root))
     }
 
     pub async fn tipset_state_output(
         self: &Arc<Self>,
         tipset: &Tipset,
+        state_lookup: StateLookupPolicy,
     ) -> anyhow::Result<StateOutput> {
         let key = tipset.key();
         self.cache
@@ -483,7 +493,9 @@ where
 
                 // First, try to look up the state and receipt if not found in the blockstore
                 // compute it
-                if let Some(state_from_child) = self.try_lookup_state_from_next_tipset(tipset) {
+                if matches!(state_lookup, StateLookupPolicy::Enabled)
+                    && let Some(state_from_child) = self.try_lookup_state_from_next_tipset(tipset)
+                {
                     return Ok(state_from_child);
                 }
 
@@ -2074,4 +2086,12 @@ where
     )?;
 
     Ok(output)
+}
+
+/// Whether or not to lookup the state output from the next tipset before computing a state
+#[derive(Debug, Copy, Clone, Default)]
+pub enum StateLookupPolicy {
+    #[default]
+    Enabled,
+    Disabled,
 }

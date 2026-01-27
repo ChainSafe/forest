@@ -183,6 +183,7 @@ pub mod state_compute {
     use crate::{
         blocks::Tipset,
         chain::store::ChainStore,
+        daemon::bundle::load_actor_bundles,
         db::{
             MemoryDB,
             car::{AnyCar, ManyCar},
@@ -262,6 +263,7 @@ pub mod state_compute {
             genesis_header,
         )?);
         let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
+        load_actor_bundles(&db, chain).await?;
         if warmup {
             state_compute(state_manager.clone(), ts.clone()).await;
         }
@@ -280,17 +282,18 @@ pub mod state_compute {
         use super::*;
         use crate::{
             blocks::FullTipset,
-            chain_sync::{load_full_tipset, tipset_syncer::validate_tipset},
+            chain_sync::{load_full_tipset, tipset_syncer::validate_tipset_internal},
+            state_manager::StateLookupPolicy,
         };
 
-        pub async fn get_state_validate_snapshot(
+        async fn get_state_validate_snapshot(
             chain: &NetworkChain,
             epoch: i64,
         ) -> anyhow::Result<PathBuf> {
             get_state_snapshot(chain, "state_validate", epoch).await
         }
 
-        pub async fn prepare_state_validate(
+        async fn prepare_state_validate(
             chain: &NetworkChain,
             snapshot: &Path,
         ) -> anyhow::Result<(Arc<StateManager<ManyCar>>, FullTipset)> {
@@ -347,7 +350,42 @@ pub mod state_compute {
             let chain = NetworkChain::Mainnet;
             let snapshot = get_state_validate_snapshot(&chain, 5688000).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
-            validate_tipset(&sm, fts, None).await.unwrap();
+            validate_tipset_internal(&sm, fts, None, StateLookupPolicy::Disabled)
+                .await
+                .unwrap();
+        }
+
+        // Shark state migration
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_validate_calibnet_16802() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_validate_snapshot(&chain, 16802).await.unwrap();
+            let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
+            validate_tipset_internal(&sm, fts, None, StateLookupPolicy::Disabled)
+                .await
+                .unwrap();
+        }
+
+        // Hygge state migration
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_validate_calibnet_322356() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_validate_snapshot(&chain, 322356).await.unwrap();
+            let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
+            validate_tipset_internal(&sm, fts, None, StateLookupPolicy::Disabled)
+                .await
+                .unwrap();
+        }
+
+        // Lightning state migration
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_validate_calibnet_489096() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_validate_snapshot(&chain, 489096).await.unwrap();
+            let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
+            validate_tipset_internal(&sm, fts, None, StateLookupPolicy::Disabled)
+                .await
+                .unwrap();
         }
     }
 }
