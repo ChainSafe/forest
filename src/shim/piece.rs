@@ -5,6 +5,7 @@ use super::fvm_shared_latest::piece as piece_latest;
 use cid::Cid;
 use fvm_shared2::piece as piece_v2;
 use fvm_shared3::piece as piece_v3;
+use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
 /// Piece information for part or a whole file.
@@ -65,6 +66,18 @@ impl From<piece_v3::PieceInfo> for PieceInfo {
 )]
 #[serde(transparent)]
 pub struct PaddedPieceSize(piece_latest::PaddedPieceSize);
+
+impl From<PaddedPieceSize> for u64 {
+    fn from(i: PaddedPieceSize) -> Self {
+        i.0.0
+    }
+}
+
+impl From<PaddedPieceSize> for BigInt {
+    fn from(i: PaddedPieceSize) -> Self {
+        i.0.0.into()
+    }
+}
 
 impl From<u64> for PaddedPieceSize {
     fn from(i: u64) -> Self {

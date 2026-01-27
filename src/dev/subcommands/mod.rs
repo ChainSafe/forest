@@ -1,6 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod state_cmd;
+
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::rpc::Client;
 use crate::utils::net::{DownloadFileOption, download_file_with_cache};
@@ -30,12 +32,15 @@ pub struct Cli {
 pub enum Subcommand {
     /// Fetch RPC test snapshots to the local cache
     FetchRpcTests,
+    #[command(subcommand)]
+    State(state_cmd::StateCommand),
 }
 
 impl Subcommand {
     pub async fn run(self, _client: Client) -> anyhow::Result<()> {
         match self {
             Self::FetchRpcTests => fetch_rpc_tests().await,
+            Self::State(cmd) => cmd.run().await,
         }
     }
 }
