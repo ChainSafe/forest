@@ -3,17 +3,7 @@
 
 pub mod ext;
 
-use crate::shim::{
-    actors::convert::{
-        from_address_v2_to_v3, from_address_v2_to_v4, from_address_v3_to_v2, from_address_v4_to_v2,
-        from_padded_piece_size_v3_to_v2, from_padded_piece_size_v4_to_v2, from_token_v3_to_v2,
-        from_token_v4_to_v2,
-    },
-    address::Address,
-    clock::ChainEpoch,
-    econ::TokenAmount,
-    piece::PaddedPieceSize,
-};
+use crate::shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
 use cid::Cid;
 use fil_actor_market_state::v8::balance_table::BalanceTable as V8BalanceTable;
 use fil_actor_market_state::v9::DealArray as V9DealArray;
@@ -185,10 +175,8 @@ impl State {
         BS: Blockstore,
     {
         match self {
-            // `get_proposal_array` does not exist for V8
-            State::V8(_st) => anyhow::bail!("unimplemented"),
-            // `get_proposal_array` does not exist for V9
-            State::V9(_st) => anyhow::bail!("unimplemented"),
+            // `get_proposal_array` does not exist for V8 and V9
+            State::V8(_) | State::V9(_) => anyhow::bail!("unimplemented"),
             State::V10(st) => Ok(DealProposals::V10(st.get_proposal_array(store)?)),
             State::V11(st) => Ok(DealProposals::V11(st.get_proposal_array(store)?)),
             State::V12(st) => Ok(DealProposals::V12(st.get_proposal_array(store)?)),

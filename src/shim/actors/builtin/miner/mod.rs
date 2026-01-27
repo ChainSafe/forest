@@ -3,13 +3,18 @@
 
 pub mod ext;
 
-use crate::shim::{
-    actors::{Policy, convert::*, power::Claim},
-    address::Address,
-    clock::ChainEpoch,
-    deal::DealID,
-    econ::TokenAmount,
-    sector::SectorSize,
+use crate::{
+    rpc::types::SectorPreCommitOnChainInfo,
+    shim::{
+        actors::{convert::*, power::Claim},
+        address::Address,
+        clock::ChainEpoch,
+        deal::DealID,
+        econ::TokenAmount,
+        runtime::Policy,
+        sector::SectorSize,
+    },
+    utils::db::CborStoreExt as _,
 };
 use cid::Cid;
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
@@ -97,26 +102,22 @@ impl State {
         mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
-            State::V8(st) => st.load_deadlines(&store)?.for_each(
-                &from_policy_v13_to_v9(policy),
-                &store,
-                |idx, dl| f(idx, dl.into()),
-            ),
-            State::V9(st) => st.load_deadlines(&store)?.for_each(
-                &from_policy_v13_to_v9(policy),
-                &store,
-                |idx, dl| f(idx, dl.into()),
-            ),
-            State::V10(st) => st.load_deadlines(&store)?.for_each(
-                &from_policy_v13_to_v10(policy),
-                &store,
-                |idx, dl| f(idx, dl.into()),
-            ),
-            State::V11(st) => st.load_deadlines(&store)?.for_each(
-                &from_policy_v13_to_v11(policy),
-                &store,
-                |idx, dl| f(idx, dl.into()),
-            ),
+            State::V8(st) => {
+                st.load_deadlines(&store)?
+                    .for_each(&policy.into(), &store, |idx, dl| f(idx, dl.into()))
+            }
+            State::V9(st) => {
+                st.load_deadlines(&store)?
+                    .for_each(&policy.into(), &store, |idx, dl| f(idx, dl.into()))
+            }
+            State::V10(st) => {
+                st.load_deadlines(&store)?
+                    .for_each(&policy.into(), &store, |idx, dl| f(idx, dl.into()))
+            }
+            State::V11(st) => {
+                st.load_deadlines(&store)?
+                    .for_each(&policy.into(), &store, |idx, dl| f(idx, dl.into()))
+            }
             State::V12(st) => st
                 .load_deadlines(store)?
                 .for_each(store, |idx, dl| f(idx, dl.into())),
@@ -148,19 +149,19 @@ impl State {
         match self {
             State::V8(st) => Ok(st
                 .load_deadlines(store)?
-                .load_deadline(&from_policy_v13_to_v9(policy), store, idx)
+                .load_deadline(&policy.into(), store, idx)
                 .map(From::from)?),
             State::V9(st) => Ok(st
                 .load_deadlines(store)?
-                .load_deadline(&from_policy_v13_to_v9(policy), store, idx)
+                .load_deadline(&policy.into(), store, idx)
                 .map(From::from)?),
             State::V10(st) => Ok(st
                 .load_deadlines(store)?
-                .load_deadline(&from_policy_v13_to_v10(policy), store, idx)
+                .load_deadline(&policy.into(), store, idx)
                 .map(From::from)?),
             State::V11(st) => Ok(st
                 .load_deadlines(store)?
-                .load_deadline(&from_policy_v13_to_v11(policy), store, idx)
+                .load_deadline(&policy.into(), store, idx)
                 .map(From::from)?),
             State::V12(st) => Ok(st
                 .load_deadlines(store)?
@@ -378,10 +379,10 @@ impl State {
         policy: &Policy,
     ) -> anyhow::Result<(u64, u64)> {
         match self {
-            State::V8(st) => st.find_sector(&from_policy_v13_to_v9(policy), store, sector_number),
-            State::V9(st) => st.find_sector(&from_policy_v13_to_v9(policy), store, sector_number),
-            State::V10(st) => st.find_sector(&from_policy_v13_to_v10(policy), store, sector_number),
-            State::V11(st) => st.find_sector(&from_policy_v13_to_v11(policy), store, sector_number),
+            State::V8(st) => st.find_sector(&policy.into(), store, sector_number),
+            State::V9(st) => st.find_sector(&policy.into(), store, sector_number),
+            State::V10(st) => st.find_sector(&policy.into(), store, sector_number),
+            State::V11(st) => st.find_sector(&policy.into(), store, sector_number),
             State::V12(st) => st.find_sector(store, sector_number),
             State::V13(st) => st.find_sector(store, sector_number),
             State::V14(st) => st.find_sector(store, sector_number),
@@ -406,36 +407,44 @@ impl State {
 
     /// Returns deadline calculations for the current (according to state) proving period.
     pub fn deadline_info(&self, policy: &Policy, current_epoch: ChainEpoch) -> DeadlineInfo {
-        match self {
-            State::V8(st) => st
-                .deadline_info(&from_policy_v13_to_v9(policy), current_epoch)
-                .into(),
-            State::V9(st) => st
-                .deadline_info(&from_policy_v13_to_v9(policy), current_epoch)
-                .into(),
-            State::V10(st) => st
-                .deadline_info(&from_policy_v13_to_v10(policy), current_epoch)
-                .into(),
-            State::V11(st) => st
-                .deadline_info(&from_policy_v13_to_v11(policy), current_epoch)
-                .into(),
-            State::V12(st) => st
-                .deadline_info(&from_policy_v13_to_v12(policy), current_epoch)
-                .into(),
-            State::V13(st) => st.deadline_info(policy, current_epoch).into(),
-            State::V14(st) => st
-                .deadline_info(&from_policy_v13_to_v14(policy), current_epoch)
-                .into(),
-            State::V15(st) => st
-                .deadline_info(&from_policy_v13_to_v15(policy), current_epoch)
-                .into(),
-            State::V16(st) => st
-                .deadline_info(&from_policy_v13_to_v16(policy), current_epoch)
-                .into(),
-            State::V17(st) => st
-                .deadline_info(&from_policy_v13_to_v17(policy), current_epoch)
-                .into(),
-        }
+        delegate_state!(self.deadline_info(&policy.into(), current_epoch).into())
+    }
+
+    pub fn allocated_sectors(&self) -> Cid {
+        delegate_state!(self.allocated_sectors)
+    }
+
+    /// Loads the allocated sector numbers
+    pub fn load_allocated_sector_numbers<BS: Blockstore>(
+        &self,
+        store: &BS,
+    ) -> anyhow::Result<BitField> {
+        store.get_cbor_required(&self.allocated_sectors())
+    }
+
+    /// Loads the precommit-on-chain info
+    pub fn load_precommit_on_chain_info<BS: Blockstore>(
+        &self,
+        store: &BS,
+        sector_number: u64,
+    ) -> anyhow::Result<Option<SectorPreCommitOnChainInfo>> {
+        Ok(delegate_state!(
+            self.get_precommitted_sector(store, sector_number)?
+                .map(From::from)
+        ))
+    }
+
+    /// Returns deadline calculations for the state recorded proving period and deadline.
+    /// This is out of date if the a miner does not have an active miner cron
+    pub fn recorded_deadline_info(
+        &self,
+        policy: &Policy,
+        current_epoch: ChainEpoch,
+    ) -> DeadlineInfo {
+        delegate_state!(
+            self.recorded_deadline_info(&policy.into(), current_epoch)
+                .into()
+        )
     }
 }
 
@@ -921,6 +930,18 @@ impl Partition<'_> {
     }
     pub fn recovering_sectors(&self) -> &BitField {
         delegate_partition!(self.recoveries.borrow())
+    }
+
+    /// Terminated sectors
+    pub fn terminated(&self) -> &BitField {
+        delegate_partition!(self.terminated.borrow())
+    }
+
+    // Maps epochs sectors that expire in or before that epoch.
+    // An expiration may be an "on-time" scheduled expiration, or early "faulty" expiration.
+    // Keys are quantized to last-in-deadline epochs.
+    pub fn expirations_epochs(&self) -> Cid {
+        delegate_partition!(self.expirations_epochs)
     }
 }
 

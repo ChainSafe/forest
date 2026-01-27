@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod ext;
+use crate::shim::address::{Address, Protocol};
 use anyhow::anyhow;
 use cid::Cid;
 use fil_actor_verifreg_state::v13::ClaimID;
@@ -16,7 +17,6 @@ use fil_actors_shared::v8::{HAMT_BIT_WIDTH, make_map_with_root_and_bitwidth};
 use fil_actors_shared::v9::Keyer;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
-use fvm_shared2::address::{Address, Protocol};
 use fvm_shared4::ActorID;
 use fvm_shared4::bigint::bigint_ser::BigIntDe;
 use fvm_shared4::clock::ChainEpoch;
@@ -24,11 +24,13 @@ use fvm_shared4::piece::PaddedPieceSize;
 use fvm_shared4::sector::SectorNumber;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
+use spire_enum::prelude::delegated_enum;
 
 /// verifreg actor address.
 pub const ADDRESS: Address = Address::new_id(6);
 
 /// Verifreg actor state.
+#[delegated_enum(impl_conversions)]
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum State {
@@ -82,7 +84,9 @@ impl State {
                     store,
                     HAMT_BIT_WIDTH,
                 )?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
+                Ok(vh
+                    .get(&fvm_shared2::address::Address::from(addr).key())?
+                    .map(|int: &BigIntDe| int.0.to_owned()))
             }
             _ => Err(anyhow!("not supported in actors > v8")),
         }
@@ -96,48 +100,11 @@ impl State {
             return Err(anyhow!("can only look up ID addresses"));
         }
 
-        match self {
-            State::V8(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-            State::V9(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-            State::V10(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-            State::V11(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-            State::V12(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-            State::V13(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-            State::V14(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-            State::V15(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-            State::V16(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-            State::V17(state) => {
-                let vh = make_map_with_root_and_bitwidth(&state.verifiers, store, HAMT_BIT_WIDTH)?;
-                Ok(vh.get(&addr.key())?.map(|int: &BigIntDe| int.0.to_owned()))
-            }
-        }
+        let key = fvm_shared2::address::Address::from(addr).key();
+        delegate_state!(self => |st| {
+            let vh = make_map_with_root_and_bitwidth(&st.verifiers, store, HAMT_BIT_WIDTH)?;
+            Ok(vh.get(&key)?.map(|int: &BigIntDe| int.0.to_owned()))
+        })
     }
 
     pub fn get_allocation<BS>(
@@ -303,6 +270,11 @@ impl State {
                 )
             }
         }
+    }
+
+    /// Returns the root key address for this verifreg state.
+    pub fn root_key(&self) -> Address {
+        delegate_state!(self.root_key.into())
     }
 }
 
