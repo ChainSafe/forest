@@ -28,14 +28,12 @@ use crate::shim::actors::{
     power, reward, verifreg,
 };
 use crate::shim::actors::{
-    market::ext::BalanceTableExt as _,
-    miner::ext::{MinerStateExt as _, PartitionExt as _},
+    market::ext::BalanceTableExt as _, miner::ext::MinerStateExt as _,
     power::ext::PowerStateExt as _,
 };
 use crate::shim::address::Payload;
 use crate::shim::machine::BuiltinActorManifest;
 use crate::shim::message::{Message, MethodNum};
-use crate::shim::piece::PaddedPieceSize;
 use crate::shim::sector::{SectorNumber, SectorSize};
 use crate::shim::state_tree::{ActorID, StateTree};
 use crate::shim::{
@@ -275,7 +273,7 @@ impl RpcMethod<2> for StateVerifierStatus {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let aid = ctx.state_manager.lookup_required_id(&address, &ts)?;
         let verifreg_state: verifreg::State = ctx.state_manager.get_actor_state(&ts)?;
-        Ok(verifreg_state.verifier_data_cap(ctx.store(), aid.into())?)
+        Ok(verifreg_state.verifier_data_cap(ctx.store(), aid)?)
     }
 }
 
@@ -1033,7 +1031,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
         let (w, vw) = market_state.verify_deals_for_activation(
             ctx.store(),
-            address.into(),
+            address,
             pci.deal_ids,
             ts.epoch(),
             pci.expiration,
@@ -1053,16 +1051,14 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             &Arc::new(ctx.store()),
             ts.parent_state(),
         )?;
-        let initial_pledge: TokenAmount = reward_state
-            .initial_pledge_for_power(
-                &sector_weight,
-                pledge_collateral,
-                power_smoothed,
-                &circ_supply.fil_circulating.into(),
-                power_state.ramp_start_epoch(),
-                power_state.ramp_duration_epochs(),
-            )?
-            .into();
+        let initial_pledge = reward_state.initial_pledge_for_power(
+            &sector_weight,
+            pledge_collateral,
+            power_smoothed,
+            &circ_supply.fil_circulating,
+            power_state.ramp_start_epoch(),
+            power_state.ramp_duration_epochs(),
+        )?;
 
         let (q, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(q)
@@ -1096,7 +1092,7 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
         let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
         let (w, vw) = market_state.verify_deals_for_activation(
             ctx.store(),
-            address.into(),
+            address,
             pci.deal_ids,
             ts.epoch(),
             pci.expiration,
@@ -1114,9 +1110,8 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
         let power_smoothed = power_state.total_power_smoothed();
 
         let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
-        let deposit: TokenAmount = reward_state
-            .pre_commit_deposit_for_power(power_smoothed, sector_weight)?
-            .into();
+        let deposit: TokenAmount =
+            reward_state.pre_commit_deposit_for_power(power_smoothed, sector_weight)?;
         let (value, _) = (deposit * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(value)
     }
@@ -1966,12 +1961,12 @@ impl RpcMethod<1> for StateMarketParticipants {
         let locked_table = market_state.locked_table(ctx.store())?;
         let mut result = HashMap::new();
         escrow_table.for_each(|address, escrow| {
-            let locked = locked_table.get(&address.into())?;
+            let locked = locked_table.get(address)?;
             result.insert(
                 address.to_string(),
                 MarketBalance {
                     escrow: escrow.clone(),
-                    locked: locked.into(),
+                    locked,
                 },
             );
             Ok(())
@@ -2025,10 +2020,10 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
 
         let (min, max) = reward_state.deal_provider_collateral_bounds(
             policy,
-            PaddedPieceSize::from(size).into(),
+            size.into(),
             &power_claim.raw_byte_power,
             baseline_power,
-            &supply.into(),
+            &supply,
         );
 
         let min = min
@@ -2037,7 +2032,7 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
             .div_euclid(&deal_provider_collateral_denom);
 
         Ok(DealCollateralBounds {
-            max: max.into(),
+            max,
             min: TokenAmount::from_atto(min),
         })
     }
@@ -3177,16 +3172,14 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
 
         let (epochs_since_start, duration) = get_pledge_ramp_params(&ctx, ts.epoch(), &ts)?;
 
-        let initial_pledge: TokenAmount = reward_state
-            .initial_pledge_for_power(
-                &sector_weight,
-                pledge_collateral,
-                power_smoothed,
-                &circ_supply.fil_circulating.into(),
-                epochs_since_start,
-                duration,
-            )?
-            .into();
+        let initial_pledge = reward_state.initial_pledge_for_power(
+            &sector_weight,
+            pledge_collateral,
+            power_smoothed,
+            &circ_supply.fil_circulating,
+            epochs_since_start,
+            duration,
+        )?;
 
         let (value, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(value)

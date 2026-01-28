@@ -283,14 +283,6 @@ impl EthHash {
     }
 }
 
-impl FromStr for EthHash {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(EthHash(ethereum_types::H256::from_str(s)?))
-    }
-}
-
 impl From<Cid> for EthHash {
     fn from(cid: Cid) -> Self {
         let (_, digest, _) = cid.hash().into_inner();
@@ -1627,8 +1619,10 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a block by its number or a special tag.");
 
-    type Params = (ExtBlockNumberOrHash, bool);
+    type Params = (BlockNumberOrPredefined, bool);
     type Ok = Block;
 
     async fn handle(
@@ -1637,7 +1631,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_ext_block_number_or_hash(
             ctx.chain_store(),
-            block_param,
+            block_param.into(),
             ResolveNullTipset::TakeOlder,
         )?;
         Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
@@ -1653,16 +1647,22 @@ impl RpcMethod<2> for EthGetBlockByNumberV2 {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a block by its number or a special tag.");
 
-    type Params = (ExtBlockNumberOrHash, bool);
+    type Params = (BlockNumberOrPredefined, bool);
     type Ok = Block;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
-            .await?;
+        let ts = tipset_by_block_number_or_hash_v2(
+            &ctx,
+            block_param.into(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
         Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
             .await
             .map_err(ServerError::from)
@@ -1759,7 +1759,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByHash");
     const PARAM_NAMES: [&'static str; 1] = ["blockHash"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash,);
@@ -1787,6 +1787,8 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const PARAM_NAMES: [&'static str; 1] = ["blockNumber"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the number of transactions in a block identified by its block number.");
 
     type Params = (EthInt64,);
     type Ok = EthUint64;
@@ -1803,6 +1805,35 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
         let ts = ctx
             .chain_index()
             .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
+        let count = count_messages_in_tipset(ctx.store(), &ts)?;
+        Ok(EthUint64(count as _))
+    }
+}
+
+pub enum EthGetBlockTransactionCountByNumberV2 {}
+impl RpcMethod<1> for EthGetBlockTransactionCountByNumberV2 {
+    const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByNumber");
+    const PARAM_NAMES: [&'static str; 1] = ["blockNumber"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the number of transactions in a block identified by its block number or a special tag.",
+    );
+
+    type Params = (BlockNumberOrPredefined,);
+    type Ok = EthUint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_number,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(
+            &ctx,
+            block_number.into(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
         Ok(EthUint64(count as _))
     }
@@ -2599,6 +2630,8 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "txIndex"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a transaction by its block number and index.");
 
     type Params = (BlockNumberOrPredefined, EthUint64);
     type Ok = Option<ApiEthTx>;
@@ -2612,11 +2645,49 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
             block_param.into(),
             ResolveNullTipset::TakeOlder,
         )?;
+        eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
+    }
+}
 
-        let messages = ctx.chain_store().messages_for_tipset(&ts)?;
+pub enum EthGetTransactionByBlockNumberAndIndexV2 {}
+impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndexV2 {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByBlockNumberAndIndex";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockNumberAndIndex");
+    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "txIndex"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a transaction by its block number and index.");
 
-        let EthUint64(index) = tx_index;
-        let msg = messages.get(index as usize).with_context(|| {
+    type Params = (BlockNumberOrPredefined, EthUint64);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, tx_index): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(
+            &ctx,
+            block_param.into(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
+        eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
+    }
+}
+
+fn eth_tx_by_block_num_and_idx<B>(
+    ctx: &Ctx<B>,
+    ts: &Tipset,
+    tx_index: EthUint64,
+) -> Result<Option<ApiEthTx>, ServerError>
+where
+    B: Blockstore + Send + Sync + 'static,
+{
+    let messages = ctx.chain_store().messages_for_tipset(ts)?;
+
+    let EthUint64(index) = tx_index;
+    let msg = messages.get(index as usize).with_context(|| {
             format!(
                 "failed to get transaction at index {}: index {} out of range: tipset contains {} messages",
                 index,
@@ -2625,19 +2696,11 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
             )
         })?;
 
-        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+    let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
 
-        let tx = new_eth_tx(
-            &ctx,
-            &state,
-            ts.epoch(),
-            &ts.key().cid()?,
-            &msg.cid(),
-            index,
-        )?;
+    let tx = new_eth_tx(ctx, &state, ts.epoch(), &ts.key().cid()?, &msg.cid(), index)?;
 
-        Ok(Some(tx))
-    }
+    Ok(Some(tx))
 }
 
 pub enum EthGetTransactionByBlockHashAndIndex {}
@@ -3682,7 +3745,7 @@ impl RpcMethod<1> for EthTraceTransaction {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let eth_hash = EthHash::from_str(&tx_hash)?;
+        let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
         let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
             .await?
             .ok_or(ServerError::internal_error("transaction not found", None))?;
@@ -3707,6 +3770,10 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "traceTypes"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Replays all transactions in a block returning the requested traces for each transaction.",
+    );
+
     type Params = (ExtBlockNumberOrHash, Vec<String>);
     type Ok = Vec<EthReplayBlockTransactionTrace>;
 
@@ -3715,7 +3782,10 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
         (block_param, trace_types): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         if trace_types.as_slice() != ["trace"] {
-            return Err(anyhow::anyhow!("only trace is supported").into());
+            return Err(ServerError::invalid_params(
+                "only 'trace' is supported",
+                None,
+            ));
         }
 
         let ts = tipset_by_ext_block_number_or_hash(
@@ -3724,47 +3794,90 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             ResolveNullTipset::TakeOlder,
         )?;
 
-        let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
+        eth_trace_replay_block_transactions(&ctx, &ts).await
+    }
+}
 
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+pub enum EthTraceReplayBlockTransactionsV2 {}
+impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
+    const N_REQUIRED_PARAMS: usize = 2;
+    const NAME: &'static str = "Filecoin.EthTraceReplayBlockTransactions";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_replayBlockTransactions");
+    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "traceTypes"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Replays all transactions in a block returning the requested traces for each transaction.",
+    );
 
-        let mut all_traces = vec![];
-        for ir in trace.into_iter() {
-            if ir.msg.from == system::ADDRESS.into() {
-                continue;
-            }
+    type Params = (ExtBlockNumberOrHash, Vec<String>);
+    type Ok = Vec<EthReplayBlockTransactionTrace>;
 
-            let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
-            let tx_hash = tx_hash
-                .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
-
-            let mut env = trace::base_environment(&state, &ir.msg.from)
-                .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
-
-            if let Some(execution_trace) = ir.execution_trace {
-                trace::build_traces(&mut env, &[], execution_trace)?;
-
-                let get_output = || -> EthBytes {
-                    env.traces
-                        .first()
-                        .map_or_else(EthBytes::default, |trace| match &trace.result {
-                            TraceResult::Call(r) => r.output.clone(),
-                            TraceResult::Create(r) => r.code.clone(),
-                        })
-                };
-
-                all_traces.push(EthReplayBlockTransactionTrace {
-                    output: get_output(),
-                    state_diff: None,
-                    trace: env.traces.clone(),
-                    transaction_hash: tx_hash.clone(),
-                    vm_trace: None,
-                });
-            };
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, trace_types): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if trace_types.as_slice() != ["trace"] {
+            return Err(ServerError::invalid_params(
+                "only 'trace' is supported",
+                None,
+            ));
         }
 
-        Ok(all_traces)
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
+
+        eth_trace_replay_block_transactions(&ctx, &ts).await
     }
+}
+
+async fn eth_trace_replay_block_transactions<DB>(
+    ctx: &Ctx<DB>,
+    ts: &Tipset,
+) -> Result<Vec<EthReplayBlockTransactionTrace>, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let (state_root, trace) = ctx.state_manager.execution_trace(ts)?;
+
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+    let mut all_traces = vec![];
+    for ir in trace.into_iter() {
+        if ir.msg.from == system::ADDRESS.into() {
+            continue;
+        }
+
+        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+        let tx_hash = tx_hash
+            .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
+
+        let mut env = trace::base_environment(&state, &ir.msg.from)
+            .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
+
+        if let Some(execution_trace) = ir.execution_trace {
+            trace::build_traces(&mut env, &[], execution_trace)?;
+
+            let get_output = || -> EthBytes {
+                env.traces
+                    .first()
+                    .map_or_else(EthBytes::default, |trace| match &trace.result {
+                        TraceResult::Call(r) => r.output.clone(),
+                        TraceResult::Create(r) => r.code.clone(),
+                    })
+            };
+
+            all_traces.push(EthReplayBlockTransactionTrace {
+                output: get_output(),
+                state_diff: None,
+                trace: env.traces.clone(),
+                transaction_hash: tx_hash.clone(),
+                vm_trace: None,
+            });
+        };
+    }
+
+    Ok(all_traces)
 }
 
 fn get_eth_block_number_from_string<DB: Blockstore>(

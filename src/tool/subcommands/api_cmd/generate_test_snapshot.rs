@@ -10,8 +10,8 @@ use crate::{
     chain_sync::network_context::SyncNetworkContext,
     daemon::db_util::load_all_forest_cars,
     db::{
-        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, IndicesStore, MemoryDB,
-        SettingsStore, SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
+        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
+        SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -26,6 +26,7 @@ use fvm_shared4::address::Network;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use rpc::{RPCState, RpcMethod as _, eth::filter::EthEventHandler};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{sync::mpsc, task::JoinSet};
 
 pub async fn run_test_with_dump(
@@ -89,13 +90,6 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
             .get_or_insert_with(ahash::HashMap::default)
             .insert(k.to_string(), Payload(v.clone()));
     }
-    let reader = db.tracker.indices_db.read();
-    for (k, v) in reader.iter() {
-        index
-            .indices
-            .get_or_insert_with(ahash::HashMap::default)
-            .insert(k.to_string(), Payload(v.clone()));
-    }
     if index == Index::default() {
         None
     } else {
@@ -121,7 +115,6 @@ async fn ctx(
             db.clone(),
             db.clone(),
             db.clone(),
-            db,
             chain_config,
             genesis_header,
         )
@@ -162,6 +155,21 @@ async fn ctx(
 pub struct ReadOpsTrackingStore<T> {
     inner: T,
     pub tracker: Arc<MemoryDB>,
+    tracking: AtomicBool,
+}
+
+impl<T> ReadOpsTrackingStore<T> {
+    pub fn resume_tracking(&self) {
+        self.tracking.store(true, Ordering::Relaxed);
+    }
+
+    pub fn pause_tracking(&self) {
+        self.tracking.store(false, Ordering::Relaxed);
+    }
+
+    fn tracking(&self) -> bool {
+        self.tracking.load(Ordering::Relaxed)
+    }
 }
 
 impl<T> ReadOpsTrackingStore<T>
@@ -193,6 +201,7 @@ where
         Self {
             inner,
             tracker: Arc::new(Default::default()),
+            tracking: AtomicBool::new(true),
         }
     }
 
@@ -217,7 +226,9 @@ impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for ReadOpsTracking
 impl<T: Blockstore> Blockstore for ReadOpsTrackingStore<T> {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let result = self.inner.get(k)?;
-        if let Some(v) = &result {
+        if self.tracking()
+            && let Some(v) = &result
+        {
             self.tracker.put_keyed(k, v.as_slice())?;
         }
         Ok(result)
@@ -231,7 +242,9 @@ impl<T: Blockstore> Blockstore for ReadOpsTrackingStore<T> {
 impl<T: SettingsStore> SettingsStore for ReadOpsTrackingStore<T> {
     fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
         let result = self.inner.read_bin(key)?;
-        if let Some(v) = &result {
+        if self.tracking()
+            && let Some(v) = &result
+        {
             SettingsStore::write_bin(&self.tracker, key, v.as_slice())?;
         }
         Ok(result)
@@ -243,7 +256,9 @@ impl<T: SettingsStore> SettingsStore for ReadOpsTrackingStore<T> {
 
     fn exists(&self, key: &str) -> anyhow::Result<bool> {
         let result = self.inner.read_bin(key)?;
-        if let Some(v) = &result {
+        if self.tracking()
+            && let Some(v) = &result
+        {
             SettingsStore::write_bin(&self.tracker, key, v.as_slice())?;
         }
         Ok(result.is_some())
@@ -257,7 +272,9 @@ impl<T: SettingsStore> SettingsStore for ReadOpsTrackingStore<T> {
 impl<T: BitswapStoreRead> BitswapStoreRead for ReadOpsTrackingStore<T> {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         let result = self.inner.get(cid)?;
-        if let Some(v) = &result {
+        if self.tracking()
+            && let Some(v) = &result
+        {
             Blockstore::put_keyed(&self.tracker, cid, v.as_slice())?;
         }
         Ok(result.is_some())
@@ -265,7 +282,9 @@ impl<T: BitswapStoreRead> BitswapStoreRead for ReadOpsTrackingStore<T> {
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let result = self.inner.get(cid)?;
-        if let Some(v) = &result {
+        if self.tracking()
+            && let Some(v) = &result
+        {
             Blockstore::put_keyed(&self.tracker, cid, v.as_slice())?;
         }
         Ok(result)
@@ -283,10 +302,12 @@ impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for ReadOpsTrackingStore<T>
 impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
     fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
         let result = self.inner.read_bin(key)?;
-        if let Some(v) = &result {
+        if self.tracking()
+            && let Some(v) = &result
+        {
             EthMappingsStore::write_bin(&self.tracker, key, v.as_slice())?;
         }
-        self.inner.read_bin(key)
+        Ok(result)
     }
 
     fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()> {
@@ -303,23 +324,5 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         self.inner.delete(keys)
-    }
-}
-
-impl<T: IndicesStore> IndicesStore for ReadOpsTrackingStore<T> {
-    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let result = self.inner.read_bin(key)?;
-        if let Some(v) = &result {
-            IndicesStore::write_bin(&self.tracker, key, v.as_slice())?;
-        }
-        self.inner.read_bin(key)
-    }
-
-    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
-        self.inner.write_bin(key, value)
-    }
-
-    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
-        self.inner.exists(key)
     }
 }

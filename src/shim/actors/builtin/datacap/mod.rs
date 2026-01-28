@@ -1,15 +1,16 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::shim::address::{Address, Payload};
 use anyhow::anyhow;
 use fil_actor_datacap_state::v12::DATACAP_GRANULARITY;
 use fil_actors_shared::ext::TokenStateExt;
 use fil_actors_shared::frc46_token::token::state::TokenState;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared2::address::{Address, Payload};
 use num::BigInt;
 use num::traits::Euclid;
 use serde::Serialize;
+use spire_enum::prelude::delegated_enum;
 
 /// Datacap actor method.
 pub type Method = fil_actor_datacap_state::v10::Method;
@@ -18,6 +19,7 @@ pub type Method = fil_actor_datacap_state::v10::Method;
 pub const ADDRESS: Address = Address::new_id(7);
 
 /// Datacap actor state.
+#[delegated_enum(impl_conversions)]
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum State {
@@ -53,18 +55,7 @@ impl State {
             Payload::ID(id) => Ok(*id),
             _ => Err(anyhow!("can only look up ID addresses")),
         }?;
-
-        let int = match self {
-            State::V9(state) => state.token.get_balance_opt(store, id),
-            State::V11(state) => state.token.get_balance_opt(store, id),
-            State::V12(state) => state.token.get_balance_opt(store, id),
-            State::V13(state) => state.token.get_balance_opt(store, id),
-            State::V14(state) => state.token.get_balance_opt(store, id),
-            State::V15(state) => state.token.get_balance_opt(store, id),
-            State::V16(state) => state.token.get_balance_opt(store, id),
-            State::V17(state) => state.token.get_balance_opt(store, id),
-            _ => return Err(anyhow!("not supported in actors > v8")),
-        }?;
+        let int = delegate_state!(self.token.get_balance_opt(store, id)?);
         Ok(int
             .map(|amount| amount.atto().to_owned())
             .map(|opt| opt.div_euclid(&BigInt::from(DATACAP_GRANULARITY))))

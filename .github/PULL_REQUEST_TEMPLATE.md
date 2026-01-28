@@ -28,6 +28,11 @@ Closes
 - [ ] I have added tests that prove my fix is effective or that my feature works (if possible),
 - [ ] I have made sure the [CHANGELOG][1] is up-to-date. All user-facing changes should be reflected in this document.
 
+### Outside contributions
+
+- [ ] I have read and agree to the [CONTRIBUTING](../CONTRIBUTING.md) document.
+- [ ] I have read and agree to the [AI Policy](../AI_POLICY.md) document. I understand that failure to comply with the guidelines will lead to rejection of the pull request.
+
 <!-- Thank you 🔥 -->
 
 [1]: https://github.com/ChainSafe/forest/blob/main/CHANGELOG.md

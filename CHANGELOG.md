@@ -27,6 +27,30 @@
 
 ### Breaking
 
+- [#6475](https://github.com/ChainSafe/forest/pull/6475): Increased default JWT (generated via `Filecoin.AuthNew`) expiration time from 24 hours to 100 years to match Lotus behavior and ensure compatibility with clients like Curio.
+
+### Added
+
+- [#6465](https://github.com/ChainSafe/forest/pull/6465): Implemented `Filecoin.EthGetBlockTransactionCountByNumber` for API v2.
+
+- [#6466](https://github.com/ChainSafe/forest/pull/6466): Enabled `Filecoin.EthGetBlockTransactionCountByHash` for API v2.
+
+- [#6469](https://github.com/ChainSafe/forest/pull/6469): Implemented `Filecoin.EthGetTransactionByBlockNumberAndIndex` for API v2.
+
+### Changed
+
+- [#6471](https://github.com/ChainSafe/forest/pull/6471): Moved `forest-tool state` subcommand to `forest-dev`.
+
+### Removed
+
+### Fixed
+
+- [#6467](https://github.com/ChainSafe/forest/pull/6467): `Filecoin.EthGetBlockByNumber` now only supports retrieving a block by its block number or a special tag.
+
+## Forest v0.31.1 "Quadrantids"
+
+This is a non-mandatory release for all node operators. It includes the support for more V2 API's and a few critical API fixes.
+
 ### Added
 
 - [#6339](https://github.com/ChainSafe/forest/pull/6339) Implemented `Filecoin.EthCall` for API v2.
@@ -45,22 +69,31 @@
 
 - [#6421](https://github.com/ChainSafe/forest/pull/6421) Add an environment variable `FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK` to enable backfilling full tipsets from network in a few RPC methods.
 
+- [#6444](https://github.com/ChainSafe/forest/pull/6444) Implemented `Filecoin.EthTraceReplayBlockTransactions` for API v2.
+
 ### Changed
 
 - [#6368](https://github.com/ChainSafe/forest/pull/6368): Migrated build and development tooling from Makefile to `mise`. Contributors should install `mise` and use `mise run` commands instead of `make` commands.
 
-### Removed
+- [#6286](https://github.com/ChainSafe/forest/pull/6286) `Filecoin.ChainGetEvents` now returns an error if the events are not present in the db.
+
+- [#6444](https://github.com/ChainSafe/forest/pull/6444) `EthReplayBlockTransactionTrace` responses now always include `stateDiff` and `vmTrace` fields (set to `null` when not available) for Lotus compatibility.
 
 ### Fixed
 
 - [#6409](https://github.com/ChainSafe/forest/pull/6409) Fixed backfill issue when null tipsets are present.
 
 - [#6327](https://github.com/ChainSafe/forest/pull/6327) Fixed: Forest returns 404 for all invalid api paths.
+
 - [#6354](https://github.com/ChainSafe/forest/pull/6354) Fixed: Correctly calculate the epoch range instead of directly using the look back limit value while searching for messages.
 
 - [#6400](https://github.com/ChainSafe/forest/issues/6400) Fixed `eth_subscribe` `newHeads` to return Ethereum block format instead of Filecoin block headers array.
 
+- [#6286](https://github.com/ChainSafe/forest/pull/6286) Fixed: `Filecoin.ChainGetEvents` API returns correct events.
+
 - [#6430](https://github.com/ChainSafe/forest/issues/6430) Fixed a panic when syncing from genesis on the calibration network.
+
+- [#6456](https://github.com/ChainSafe/forest/pull/6456) Whitelisted nebula and hermes crawlers.
 
 ## Forest v0.30.5 "Dulce de Leche"
 

@@ -3,11 +3,7 @@
 
 pub mod ext;
 
-use crate::shim::actors::convert::{from_address_v2_to_v3, from_address_v2_to_v4};
-use crate::shim::actors::convert::{
-    from_address_v3_to_v2, from_address_v4_to_v2, from_padded_piece_size_v3_to_v2,
-    from_padded_piece_size_v4_to_v2, from_token_v3_to_v2, from_token_v4_to_v2,
-};
+use crate::shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
 use cid::Cid;
 use fil_actor_market_state::v8::balance_table::BalanceTable as V8BalanceTable;
 use fil_actor_market_state::v9::DealArray as V9DealArray;
@@ -48,10 +44,10 @@ use fil_actors_shared::v16::AsActorError as V16AsActorError;
 use fil_actors_shared::v17::AsActorError as V17AsActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared2::error::ExitCode as FVMExitCode;
-use fvm_shared2::{address::Address, clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
 use fvm_shared3::error::ExitCode as FVM3ExitCode;
 use fvm_shared4::error::ExitCode as FVM4ExitCode;
 use serde::{Deserialize, Serialize};
+use spire_enum::prelude::delegated_enum;
 
 /// Market actor address.
 pub const ADDRESS: Address = Address::new_id(5);
@@ -179,10 +175,8 @@ impl State {
         BS: Blockstore,
     {
         match self {
-            // `get_proposal_array` does not exist for V8
-            State::V8(_st) => anyhow::bail!("unimplemented"),
-            // `get_proposal_array` does not exist for V9
-            State::V9(_st) => anyhow::bail!("unimplemented"),
+            // `get_proposal_array` does not exist for V8 and V9
+            State::V8(_) | State::V9(_) => anyhow::bail!("unimplemented"),
             State::V10(st) => Ok(DealProposals::V10(st.get_proposal_array(store)?)),
             State::V11(st) => Ok(DealProposals::V11(st.get_proposal_array(store)?)),
             State::V12(st) => Ok(DealProposals::V12(st.get_proposal_array(store)?)),
@@ -253,16 +247,16 @@ impl State {
     /// Consume state to return just total funds locked
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.total_locked(),
-            State::V9(st) => st.total_locked(),
-            State::V10(st) => from_token_v3_to_v2(&st.get_total_locked()),
-            State::V11(st) => from_token_v3_to_v2(&st.get_total_locked()),
-            State::V12(st) => from_token_v4_to_v2(&st.get_total_locked()),
-            State::V13(st) => from_token_v4_to_v2(&st.get_total_locked()),
-            State::V14(st) => from_token_v4_to_v2(&st.get_total_locked()),
-            State::V15(st) => from_token_v4_to_v2(&st.get_total_locked()),
-            State::V16(st) => from_token_v4_to_v2(&st.get_total_locked()),
-            State::V17(st) => from_token_v4_to_v2(&st.get_total_locked()),
+            State::V8(st) => st.total_locked().into(),
+            State::V9(st) => st.total_locked().into(),
+            State::V10(st) => st.get_total_locked().into(),
+            State::V11(st) => st.get_total_locked().into(),
+            State::V12(st) => st.get_total_locked().into(),
+            State::V13(st) => st.get_total_locked().into(),
+            State::V14(st) => st.get_total_locked().into(),
+            State::V15(st) => st.get_total_locked().into(),
+            State::V16(st) => st.get_total_locked().into(),
+            State::V17(st) => st.get_total_locked().into(),
         }
     }
 
@@ -282,56 +276,56 @@ impl State {
             State::V9(_st) => anyhow::bail!("unimplemented"),
             State::V10(st) => Ok(st.verify_deals_for_activation(
                 store,
-                &from_address_v2_to_v3(addr),
+                &addr.into(),
                 deal_ids,
                 curr_epoch,
                 sector_exp,
             )?),
             State::V11(st) => Ok(st.verify_deals_for_activation(
                 store,
-                &from_address_v2_to_v3(addr),
+                &addr.into(),
                 deal_ids,
                 curr_epoch,
                 sector_exp,
             )?),
             State::V12(st) => Ok(st.verify_deals_for_activation(
                 store,
-                &from_address_v2_to_v4(addr),
+                &addr.into(),
                 deal_ids,
                 curr_epoch,
                 sector_exp,
             )?),
             State::V13(st) => Ok(st.verify_deals_for_activation(
                 store,
-                &from_address_v2_to_v4(addr),
+                &addr.into(),
                 deal_ids,
                 curr_epoch,
                 sector_exp,
             )?),
             State::V14(st) => Ok(st.verify_deals_for_activation(
                 store,
-                &from_address_v2_to_v4(addr),
+                &addr.into(),
                 deal_ids,
                 curr_epoch,
                 sector_exp,
             )?),
             State::V15(st) => Ok(st.verify_deals_for_activation(
                 store,
-                &from_address_v2_to_v4(addr),
+                &addr.into(),
                 deal_ids,
                 curr_epoch,
                 sector_exp,
             )?),
             State::V16(st) => Ok(st.verify_deals_for_activation(
                 store,
-                &from_address_v2_to_v4(addr),
+                &addr.into(),
                 deal_ids,
                 curr_epoch,
                 sector_exp,
             )?),
             State::V17(st) => Ok(st.verify_deals_for_activation(
                 store,
-                &from_address_v2_to_v4(addr),
+                &addr.into(),
                 deal_ids,
                 curr_epoch,
                 sector_exp,
@@ -340,6 +334,7 @@ impl State {
     }
 }
 
+#[delegated_enum(impl_conversions)]
 pub enum BalanceTable<'bs, BS: Blockstore> {
     V8(V8BalanceTable<'bs, BS>),
     V9(V9BalanceTable<'bs, BS>),
@@ -353,65 +348,7 @@ pub enum BalanceTable<'bs, BS: Blockstore> {
     V17(V17BalanceTable<&'bs BS>),
 }
 
-impl<'bs, BS: Blockstore> From<V8BalanceTable<'bs, BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V8BalanceTable<'bs, BS>) -> Self {
-        Self::V8(value)
-    }
-}
-
-impl<'bs, BS: Blockstore> From<V9BalanceTable<'bs, BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V9BalanceTable<'bs, BS>) -> Self {
-        Self::V9(value)
-    }
-}
-
-impl<'bs, BS: Blockstore> From<V10BalanceTable<'bs, BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V10BalanceTable<'bs, BS>) -> Self {
-        Self::V10(value)
-    }
-}
-
-impl<'bs, BS: Blockstore> From<V11BalanceTable<'bs, BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V11BalanceTable<'bs, BS>) -> Self {
-        Self::V11(value)
-    }
-}
-
-impl<'bs, BS: Blockstore> From<V12BalanceTable<&'bs BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V12BalanceTable<&'bs BS>) -> Self {
-        Self::V12(value)
-    }
-}
-
-impl<'bs, BS: Blockstore> From<V13BalanceTable<&'bs BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V13BalanceTable<&'bs BS>) -> Self {
-        Self::V13(value)
-    }
-}
-
-impl<'bs, BS: Blockstore> From<V14BalanceTable<&'bs BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V14BalanceTable<&'bs BS>) -> Self {
-        Self::V14(value)
-    }
-}
-
-impl<'bs, BS: Blockstore> From<V15BalanceTable<&'bs BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V15BalanceTable<&'bs BS>) -> Self {
-        Self::V15(value)
-    }
-}
-
-impl<'bs, BS: Blockstore> From<V16BalanceTable<&'bs BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V16BalanceTable<&'bs BS>) -> Self {
-        Self::V16(value)
-    }
-}
-impl<'bs, BS: Blockstore> From<V17BalanceTable<&'bs BS>> for BalanceTable<'bs, BS> {
-    fn from(value: V17BalanceTable<&'bs BS>) -> Self {
-        Self::V17(value)
-    }
-}
-
+#[delegated_enum(impl_conversions)]
 pub enum DealProposals<'bs, BS> {
     V9(V9DealArray<'bs, BS>),
     V10(V10DealArray<'bs, BS>),
@@ -432,41 +369,12 @@ where
         &self,
         mut f: impl FnMut(u64, Result<DealProposal, anyhow::Error>) -> anyhow::Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
-        match self {
-            DealProposals::V9(deal_array) => Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
-            DealProposals::V10(deal_array) => Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
-            DealProposals::V11(deal_array) => Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
-            DealProposals::V12(deal_array) => Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
-            DealProposals::V13(deal_array) => Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
-            DealProposals::V14(deal_array) => Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
-            DealProposals::V15(deal_array) => Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
-            DealProposals::V16(deal_array) => Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
-            DealProposals::V17(deal_array) => Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
-        }
+        delegate_deal_proposals!(self => |deal_array| Ok(deal_array
+                .for_each(|key, deal_proposal| f(key, deal_proposal.try_into()))?))
     }
 
     pub fn get(&self, key: u64) -> anyhow::Result<Option<DealProposal>> {
-        match self {
-            DealProposals::V9(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
-            DealProposals::V10(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
-            DealProposals::V11(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
-            DealProposals::V12(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
-            DealProposals::V13(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
-            DealProposals::V14(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
-            DealProposals::V15(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
-            DealProposals::V16(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
-            DealProposals::V17(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
-        }
-        .transpose()
+        delegate_deal_proposals!(self.get(key)?.map(TryFrom::try_from).transpose())
     }
 }
 
@@ -496,10 +404,10 @@ impl TryFrom<&fil_actor_market_state::v9::DealProposal> for DealProposal {
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             piece_cid: deal_proposal.piece_cid,
-            piece_size: deal_proposal.piece_size,
+            piece_size: deal_proposal.piece_size.into(),
             verified_deal: deal_proposal.verified_deal,
-            client: deal_proposal.client,
-            provider: deal_proposal.provider,
+            client: deal_proposal.client.into(),
+            provider: deal_proposal.provider.into(),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v9::Label::String(s) => s.clone(),
                 fil_actor_market_state::v9::Label::Bytes(b) if b.is_empty() => Default::default(),
@@ -509,9 +417,9 @@ impl TryFrom<&fil_actor_market_state::v9::DealProposal> for DealProposal {
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
-            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone(),
-            provider_collateral: deal_proposal.provider_collateral.clone(),
-            client_collateral: deal_proposal.client_collateral.clone(),
+            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone().into(),
+            provider_collateral: deal_proposal.provider_collateral.clone().into(),
+            client_collateral: deal_proposal.client_collateral.clone().into(),
         })
     }
 }
@@ -524,10 +432,10 @@ impl TryFrom<&fil_actor_market_state::v10::DealProposal> for DealProposal {
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             piece_cid: deal_proposal.piece_cid,
-            piece_size: from_padded_piece_size_v3_to_v2(deal_proposal.piece_size),
+            piece_size: deal_proposal.piece_size.into(),
             verified_deal: deal_proposal.verified_deal,
-            client: from_address_v3_to_v2(deal_proposal.client),
-            provider: from_address_v3_to_v2(deal_proposal.provider),
+            client: deal_proposal.client.into(),
+            provider: deal_proposal.provider.into(),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v10::Label::String(s) => s.clone(),
                 fil_actor_market_state::v10::Label::Bytes(b) if b.is_empty() => Default::default(),
@@ -537,9 +445,9 @@ impl TryFrom<&fil_actor_market_state::v10::DealProposal> for DealProposal {
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
-            storage_price_per_epoch: from_token_v3_to_v2(&deal_proposal.storage_price_per_epoch),
-            provider_collateral: from_token_v3_to_v2(&deal_proposal.provider_collateral),
-            client_collateral: from_token_v3_to_v2(&deal_proposal.client_collateral),
+            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone().into(),
+            provider_collateral: deal_proposal.provider_collateral.clone().into(),
+            client_collateral: deal_proposal.client_collateral.clone().into(),
         })
     }
 }
@@ -552,10 +460,10 @@ impl TryFrom<&fil_actor_market_state::v11::DealProposal> for DealProposal {
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             piece_cid: deal_proposal.piece_cid,
-            piece_size: from_padded_piece_size_v3_to_v2(deal_proposal.piece_size),
+            piece_size: deal_proposal.piece_size.into(),
             verified_deal: deal_proposal.verified_deal,
-            client: from_address_v3_to_v2(deal_proposal.client),
-            provider: from_address_v3_to_v2(deal_proposal.provider),
+            client: deal_proposal.client.into(),
+            provider: deal_proposal.provider.into(),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v11::Label::String(s) => s.clone(),
                 fil_actor_market_state::v11::Label::Bytes(b) if b.is_empty() => Default::default(),
@@ -565,9 +473,9 @@ impl TryFrom<&fil_actor_market_state::v11::DealProposal> for DealProposal {
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
-            storage_price_per_epoch: from_token_v3_to_v2(&deal_proposal.storage_price_per_epoch),
-            provider_collateral: from_token_v3_to_v2(&deal_proposal.provider_collateral),
-            client_collateral: from_token_v3_to_v2(&deal_proposal.client_collateral),
+            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone().into(),
+            provider_collateral: deal_proposal.provider_collateral.clone().into(),
+            client_collateral: deal_proposal.client_collateral.clone().into(),
         })
     }
 }
@@ -580,10 +488,10 @@ impl TryFrom<&fil_actor_market_state::v12::DealProposal> for DealProposal {
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             piece_cid: deal_proposal.piece_cid,
-            piece_size: from_padded_piece_size_v4_to_v2(deal_proposal.piece_size),
+            piece_size: deal_proposal.piece_size.into(),
             verified_deal: deal_proposal.verified_deal,
-            client: from_address_v4_to_v2(deal_proposal.client),
-            provider: from_address_v4_to_v2(deal_proposal.provider),
+            client: deal_proposal.client.into(),
+            provider: deal_proposal.provider.into(),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v12::Label::String(s) => s.clone(),
                 fil_actor_market_state::v12::Label::Bytes(b) if b.is_empty() => Default::default(),
@@ -593,9 +501,9 @@ impl TryFrom<&fil_actor_market_state::v12::DealProposal> for DealProposal {
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
-            storage_price_per_epoch: from_token_v4_to_v2(&deal_proposal.storage_price_per_epoch),
-            provider_collateral: from_token_v4_to_v2(&deal_proposal.provider_collateral),
-            client_collateral: from_token_v4_to_v2(&deal_proposal.client_collateral),
+            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone().into(),
+            provider_collateral: deal_proposal.provider_collateral.clone().into(),
+            client_collateral: deal_proposal.client_collateral.clone().into(),
         })
     }
 }
@@ -608,10 +516,10 @@ impl TryFrom<&fil_actor_market_state::v13::DealProposal> for DealProposal {
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             piece_cid: deal_proposal.piece_cid,
-            piece_size: from_padded_piece_size_v4_to_v2(deal_proposal.piece_size),
+            piece_size: deal_proposal.piece_size.into(),
             verified_deal: deal_proposal.verified_deal,
-            client: from_address_v4_to_v2(deal_proposal.client),
-            provider: from_address_v4_to_v2(deal_proposal.provider),
+            client: deal_proposal.client.into(),
+            provider: deal_proposal.provider.into(),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v13::Label::String(s) => s.clone(),
                 fil_actor_market_state::v13::Label::Bytes(b) if b.is_empty() => Default::default(),
@@ -621,9 +529,9 @@ impl TryFrom<&fil_actor_market_state::v13::DealProposal> for DealProposal {
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
-            storage_price_per_epoch: from_token_v4_to_v2(&deal_proposal.storage_price_per_epoch),
-            provider_collateral: from_token_v4_to_v2(&deal_proposal.provider_collateral),
-            client_collateral: from_token_v4_to_v2(&deal_proposal.client_collateral),
+            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone().into(),
+            provider_collateral: deal_proposal.provider_collateral.clone().into(),
+            client_collateral: deal_proposal.client_collateral.clone().into(),
         })
     }
 }
@@ -636,10 +544,10 @@ impl TryFrom<&fil_actor_market_state::v14::DealProposal> for DealProposal {
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             piece_cid: deal_proposal.piece_cid,
-            piece_size: from_padded_piece_size_v4_to_v2(deal_proposal.piece_size),
+            piece_size: deal_proposal.piece_size.into(),
             verified_deal: deal_proposal.verified_deal,
-            client: from_address_v4_to_v2(deal_proposal.client),
-            provider: from_address_v4_to_v2(deal_proposal.provider),
+            client: deal_proposal.client.into(),
+            provider: deal_proposal.provider.into(),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v14::Label::String(s) => s.clone(),
                 fil_actor_market_state::v14::Label::Bytes(b) if b.is_empty() => Default::default(),
@@ -649,9 +557,9 @@ impl TryFrom<&fil_actor_market_state::v14::DealProposal> for DealProposal {
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
-            storage_price_per_epoch: from_token_v4_to_v2(&deal_proposal.storage_price_per_epoch),
-            provider_collateral: from_token_v4_to_v2(&deal_proposal.provider_collateral),
-            client_collateral: from_token_v4_to_v2(&deal_proposal.client_collateral),
+            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone().into(),
+            provider_collateral: deal_proposal.provider_collateral.clone().into(),
+            client_collateral: deal_proposal.client_collateral.clone().into(),
         })
     }
 }
@@ -664,10 +572,10 @@ impl TryFrom<&fil_actor_market_state::v15::DealProposal> for DealProposal {
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             piece_cid: deal_proposal.piece_cid,
-            piece_size: from_padded_piece_size_v4_to_v2(deal_proposal.piece_size),
+            piece_size: deal_proposal.piece_size.into(),
             verified_deal: deal_proposal.verified_deal,
-            client: from_address_v4_to_v2(deal_proposal.client),
-            provider: from_address_v4_to_v2(deal_proposal.provider),
+            client: deal_proposal.client.into(),
+            provider: deal_proposal.provider.into(),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v15::Label::String(s) => s.clone(),
                 fil_actor_market_state::v15::Label::Bytes(b) if b.is_empty() => Default::default(),
@@ -677,9 +585,9 @@ impl TryFrom<&fil_actor_market_state::v15::DealProposal> for DealProposal {
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
-            storage_price_per_epoch: from_token_v4_to_v2(&deal_proposal.storage_price_per_epoch),
-            provider_collateral: from_token_v4_to_v2(&deal_proposal.provider_collateral),
-            client_collateral: from_token_v4_to_v2(&deal_proposal.client_collateral),
+            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone().into(),
+            provider_collateral: deal_proposal.provider_collateral.clone().into(),
+            client_collateral: deal_proposal.client_collateral.clone().into(),
         })
     }
 }
@@ -692,10 +600,10 @@ impl TryFrom<&fil_actor_market_state::v16::DealProposal> for DealProposal {
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             piece_cid: deal_proposal.piece_cid,
-            piece_size: from_padded_piece_size_v4_to_v2(deal_proposal.piece_size),
+            piece_size: deal_proposal.piece_size.into(),
             verified_deal: deal_proposal.verified_deal,
-            client: from_address_v4_to_v2(deal_proposal.client),
-            provider: from_address_v4_to_v2(deal_proposal.provider),
+            client: deal_proposal.client.into(),
+            provider: deal_proposal.provider.into(),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v16::Label::String(s) => s.clone(),
                 fil_actor_market_state::v16::Label::Bytes(b) if b.is_empty() => Default::default(),
@@ -705,9 +613,9 @@ impl TryFrom<&fil_actor_market_state::v16::DealProposal> for DealProposal {
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
-            storage_price_per_epoch: from_token_v4_to_v2(&deal_proposal.storage_price_per_epoch),
-            provider_collateral: from_token_v4_to_v2(&deal_proposal.provider_collateral),
-            client_collateral: from_token_v4_to_v2(&deal_proposal.client_collateral),
+            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone().into(),
+            provider_collateral: deal_proposal.provider_collateral.clone().into(),
+            client_collateral: deal_proposal.client_collateral.clone().into(),
         })
     }
 }
@@ -720,10 +628,10 @@ impl TryFrom<&fil_actor_market_state::v17::DealProposal> for DealProposal {
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             piece_cid: deal_proposal.piece_cid,
-            piece_size: from_padded_piece_size_v4_to_v2(deal_proposal.piece_size),
+            piece_size: deal_proposal.piece_size.into(),
             verified_deal: deal_proposal.verified_deal,
-            client: from_address_v4_to_v2(deal_proposal.client),
-            provider: from_address_v4_to_v2(deal_proposal.provider),
+            client: deal_proposal.client.into(),
+            provider: deal_proposal.provider.into(),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v17::Label::String(s) => s.clone(),
                 fil_actor_market_state::v17::Label::Bytes(b) if b.is_empty() => Default::default(),
@@ -733,9 +641,9 @@ impl TryFrom<&fil_actor_market_state::v17::DealProposal> for DealProposal {
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
-            storage_price_per_epoch: from_token_v4_to_v2(&deal_proposal.storage_price_per_epoch),
-            provider_collateral: from_token_v4_to_v2(&deal_proposal.provider_collateral),
-            client_collateral: from_token_v4_to_v2(&deal_proposal.client_collateral),
+            storage_price_per_epoch: deal_proposal.storage_price_per_epoch.clone().into(),
+            provider_collateral: deal_proposal.provider_collateral.clone().into(),
+            client_collateral: deal_proposal.client_collateral.clone().into(),
         })
     }
 }
@@ -861,17 +769,6 @@ where
     BS: Blockstore,
 {
     pub fn get(&self, key: &Address) -> anyhow::Result<TokenAmount> {
-        Ok(match self {
-            Self::V8(t) => t.get(key)?,
-            Self::V9(t) => t.get(key)?,
-            Self::V10(t) => from_token_v3_to_v2(&t.get(&from_address_v2_to_v3(*key))?),
-            Self::V11(t) => from_token_v3_to_v2(&t.get(&from_address_v2_to_v3(*key))?),
-            Self::V12(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
-            Self::V13(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
-            Self::V14(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
-            Self::V15(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
-            Self::V16(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
-            Self::V17(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
-        })
+        Ok(delegate_balance_table!(self.get(&key.into())?.into()))
     }
 }

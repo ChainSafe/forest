@@ -121,6 +121,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetBlockReceiptsLimited);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumber);
+        $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumberV2);
         $callback!($crate::rpc::eth::EthGetCode);
         $callback!($crate::rpc::eth::EthGetLogs);
         $callback!($crate::rpc::eth::EthGetFilterLogs);
@@ -133,6 +134,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetTransactionCountV2);
         $callback!($crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndex);
+        $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndexV2);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);
         $callback!($crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!($crate::rpc::eth::EthProtocolVersion);
@@ -149,6 +151,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthTraceFilter);
         $callback!($crate::rpc::eth::EthTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
+        $callback!($crate::rpc::eth::EthTraceReplayBlockTransactionsV2);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
 

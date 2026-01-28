@@ -15,14 +15,7 @@ pub use self::types::{
 };
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
-use crate::shim::actors::{
-    convert::{
-        from_policy_v13_to_v9, from_policy_v13_to_v10, from_policy_v13_to_v11,
-        from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15,
-        from_policy_v13_to_v16, from_policy_v13_to_v17,
-    },
-    miner, power,
-};
+use crate::shim::actors::{miner, power};
 use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
@@ -216,6 +209,7 @@ impl GetPowerTable {
 
         let state: power::State = ctx.state_manager.get_actor_state(ts)?;
         let mut id_power_worker_mappings = vec![];
+        let policy = &ctx.chain_config().policy;
         match &state {
             power::State::V8(s) => {
                 fn map_err<E: Display>(e: E) -> fil_actors_shared::v8::ActorError {
@@ -234,7 +228,7 @@ impl GetPowerTable {
 
                     let id = miner.id().map_err(map_err)?;
                     let ok = s.miner_nominal_power_meets_consensus_minimum(
-                        &from_policy_v13_to_v9(&ctx.chain_config().policy),
+                        &policy.into(),
                         &db,
                         &miner.into(),
                     )?;
@@ -256,7 +250,7 @@ impl GetPowerTable {
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
                     }
-                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    id_power_worker_mappings.push((id, power, miner_info.worker));
                     Ok(())
                 })?;
             }
@@ -277,7 +271,7 @@ impl GetPowerTable {
 
                     let id = miner.id().map_err(map_err)?;
                     let ok = s.miner_nominal_power_meets_consensus_minimum(
-                        &from_policy_v13_to_v9(&ctx.chain_config().policy),
+                        &policy.into(),
                         &db,
                         &miner.into(),
                     )?;
@@ -299,7 +293,7 @@ impl GetPowerTable {
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
                     }
-                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    id_power_worker_mappings.push((id, power, miner_info.worker));
                     Ok(())
                 })?;
             }
@@ -319,11 +313,8 @@ impl GetPowerTable {
                     }
 
                     let id = miner.id().map_err(map_err)?;
-                    let (_, ok) = s.miner_nominal_power_meets_consensus_minimum(
-                        &from_policy_v13_to_v10(&ctx.chain_config().policy),
-                        &db,
-                        id,
-                    )?;
+                    let (_, ok) =
+                        s.miner_nominal_power_meets_consensus_minimum(&policy.into(), &db, id)?;
                     if !ok {
                         return Ok(());
                     }
@@ -342,7 +333,7 @@ impl GetPowerTable {
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
                     }
-                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    id_power_worker_mappings.push((id, power, miner_info.worker));
                     Ok(())
                 })?;
             }
@@ -362,11 +353,8 @@ impl GetPowerTable {
                     }
 
                     let id = miner.id().map_err(map_err)?;
-                    let (_, ok) = s.miner_nominal_power_meets_consensus_minimum(
-                        &from_policy_v13_to_v11(&ctx.chain_config().policy),
-                        &db,
-                        id,
-                    )?;
+                    let (_, ok) =
+                        s.miner_nominal_power_meets_consensus_minimum(&policy.into(), &db, id)?;
                     if !ok {
                         return Ok(());
                     }
@@ -385,63 +373,27 @@ impl GetPowerTable {
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
                     }
-                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    id_power_worker_mappings.push((id, power, miner_info.worker));
                     Ok(())
                 })?;
             }
             power::State::V12(s) => {
-                handle_miner_state_v12_on!(
-                    v12,
-                    id_power_worker_mappings,
-                    &ts,
-                    s,
-                    &from_policy_v13_to_v12(&ctx.chain_config().policy)
-                );
+                handle_miner_state_v12_on!(v12, id_power_worker_mappings, &ts, s, &policy.into());
             }
             power::State::V13(s) => {
-                handle_miner_state_v12_on!(
-                    v13,
-                    id_power_worker_mappings,
-                    &ts,
-                    s,
-                    &ctx.chain_config().policy
-                );
+                handle_miner_state_v12_on!(v13, id_power_worker_mappings, &ts, s, &policy.into());
             }
             power::State::V14(s) => {
-                handle_miner_state_v12_on!(
-                    v14,
-                    id_power_worker_mappings,
-                    &ts,
-                    s,
-                    &from_policy_v13_to_v14(&ctx.chain_config().policy)
-                );
+                handle_miner_state_v12_on!(v14, id_power_worker_mappings, &ts, s, &policy.into());
             }
             power::State::V15(s) => {
-                handle_miner_state_v12_on!(
-                    v15,
-                    id_power_worker_mappings,
-                    &ts,
-                    s,
-                    &from_policy_v13_to_v15(&ctx.chain_config().policy)
-                );
+                handle_miner_state_v12_on!(v15, id_power_worker_mappings, &ts, s, &policy.into());
             }
             power::State::V16(s) => {
-                handle_miner_state_v12_on!(
-                    v16,
-                    id_power_worker_mappings,
-                    &ts,
-                    s,
-                    &from_policy_v13_to_v16(&ctx.chain_config().policy)
-                );
+                handle_miner_state_v12_on!(v16, id_power_worker_mappings, &ts, s, &policy.into());
             }
             power::State::V17(s) => {
-                handle_miner_state_v12_on!(
-                    v17,
-                    id_power_worker_mappings,
-                    &ts,
-                    s,
-                    &from_policy_v13_to_v17(&ctx.chain_config().policy)
-                );
+                handle_miner_state_v12_on!(v17, id_power_worker_mappings, &ts, s, &policy.into());
             }
         }
         let mut power_entries = vec![];

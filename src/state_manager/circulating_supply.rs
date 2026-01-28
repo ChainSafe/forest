@@ -153,7 +153,7 @@ impl GenesisInfo {
                             circ += actor_balance;
                         } else {
                             let ms = market::State::load(db, actor.code, actor.state)?;
-                            let locked_balance: TokenAmount = ms.total_locked().into();
+                            let locked_balance = ms.total_locked();
                             circ += actor_balance - &locked_balance;
                             un_circ += locked_balance;
                         }
@@ -169,7 +169,6 @@ impl GenesisInfo {
                         let ms = miner::State::load(&db, actor.code, actor.state)?;
 
                         if let Ok(avail_balance) = ms.available_balance(actor.balance.atto()) {
-                            let avail_balance = TokenAmount::from(avail_balance);
                             circ += avail_balance.clone();
                             un_circ += actor_balance.clone() - &avail_balance;
                         } else {
@@ -181,7 +180,7 @@ impl GenesisInfo {
                     _ if is_multisig_actor(&actor.code) => {
                         let ms = multisig::State::load(&db, actor.code, actor.state)?;
 
-                        let locked_balance: TokenAmount = ms.locked_balance(height)?.into();
+                        let locked_balance = ms.locked_balance(height)?;
                         let avail_balance = actor_balance.clone() - &locked_balance;
                         circ += avail_balance.max(TokenAmount::zero());
                         un_circ += actor_balance.min(locked_balance);
@@ -268,7 +267,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 
 fn get_fil_mined<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let state: reward::State = state_tree.get_actor_state()?;
-    Ok(state.into_total_storage_power_reward().into())
+    Ok(state.into_total_storage_power_reward())
 }
 
 fn get_fil_market_locked<DB: Blockstore>(
@@ -279,7 +278,7 @@ fn get_fil_market_locked<DB: Blockstore>(
         .ok_or_else(|| Error::state("Market actor address could not be resolved"))?;
     let state = market::State::load(state_tree.store(), actor.code, actor.state)?;
 
-    Ok(state.total_locked().into())
+    Ok(state.total_locked())
 }
 
 fn get_fil_power_locked<DB: Blockstore>(
@@ -289,8 +288,7 @@ fn get_fil_power_locked<DB: Blockstore>(
         .get_actor(&Address::POWER_ACTOR)?
         .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
     let state = power::State::load(state_tree.store(), actor.code, actor.state)?;
-
-    Ok(state.into_total_locked().into())
+    Ok(state.into_total_locked())
 }
 
 fn get_fil_reserve_disbursed<DB: Blockstore>(

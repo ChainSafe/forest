@@ -30,9 +30,21 @@ use thiserror::Error;
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
 /// are *not* maintained in the same order as the canonical iteration order of
 /// blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, GetSize)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    PartialOrd,
+    Ord,
+    GetSize,
+    derive_more::IntoIterator,
+)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-pub struct TipsetKey(SmallCidNonEmptyVec);
+pub struct TipsetKey(#[into_iterator(owned, ref)] SmallCidNonEmptyVec);
 
 impl TipsetKey {
     // Special encoding to match Lotus.
@@ -118,26 +130,6 @@ impl fmt::Display for TipsetKey {
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "[{s}]")
-    }
-}
-
-impl<'a> IntoIterator for &'a TipsetKey {
-    type Item = <&'a SmallCidNonEmptyVec as IntoIterator>::Item;
-
-    type IntoIter = <&'a SmallCidNonEmptyVec as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        (&self.0).into_iter()
-    }
-}
-
-impl IntoIterator for TipsetKey {
-    type Item = <SmallCidNonEmptyVec as IntoIterator>::Item;
-
-    type IntoIter = <SmallCidNonEmptyVec as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
     }
 }
 

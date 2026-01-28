@@ -1,11 +1,11 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::fmt::{Debug, Display};
-
 pub use super::fvm_latest::gas::{
     Gas as Gas_latest, GasCharge as GasCharge_latest, GasDuration as GasDuration_latest,
     GasOutputs as GasOutputs_latest,
 };
+use crate::shim::econ::TokenAmount;
+use crate::shim::version::NetworkVersion;
 use fvm2::gas::{
     Gas as GasV2, GasCharge as GasChargeV2, PriceList as PriceListV2,
     price_list_by_network_version as price_list_by_network_version_v2,
@@ -19,9 +19,8 @@ use fvm4::gas::price_list_by_network_version as price_list_by_network_version_v4
 pub use fvm4::gas::{
     Gas as GasV4, GasCharge as GasChargeV4, GasOutputs as GasOutputsV4, PriceList as PriceListV4,
 };
-
-use crate::shim::econ::TokenAmount;
-use crate::shim::version::NetworkVersion;
+use spire_enum::prelude::delegated_enum;
+use std::fmt::{Debug, Display};
 
 #[derive(Hash, Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Default, derive_more::From)]
 pub struct Gas(Gas_latest);
@@ -193,6 +192,7 @@ impl GasOutputs {
     }
 }
 
+#[delegated_enum(impl_conversions)]
 pub enum PriceList {
     V2(&'static PriceListV2),
     V3(&'static PriceListV3),
@@ -201,11 +201,7 @@ pub enum PriceList {
 
 impl PriceList {
     pub fn on_block_open_base(&self) -> GasCharge {
-        match self {
-            PriceList::V2(list) => list.on_block_open_base().into(),
-            PriceList::V3(list) => list.on_block_open_base().into(),
-            PriceList::V4(list) => list.on_block_open_base().into(),
-        }
+        delegate_price_list!(self.on_block_open_base().into())
     }
 
     pub fn on_block_link(&self, data_size: usize) -> GasCharge {
@@ -221,29 +217,7 @@ impl PriceList {
     }
 
     pub fn on_chain_message(&self, msg_size: usize) -> GasCharge {
-        match self {
-            PriceList::V2(list) => list.on_chain_message(msg_size).into(),
-            PriceList::V3(list) => list.on_chain_message(msg_size).into(),
-            PriceList::V4(list) => list.on_chain_message(msg_size).into(),
-        }
-    }
-}
-
-impl From<&'static PriceListV2> for PriceList {
-    fn from(value: &'static PriceListV2) -> Self {
-        PriceList::V2(value)
-    }
-}
-
-impl From<&'static PriceListV3> for PriceList {
-    fn from(value: &'static PriceListV3) -> Self {
-        PriceList::V3(value)
-    }
-}
-
-impl From<&'static PriceListV4> for PriceList {
-    fn from(value: &'static PriceListV4) -> Self {
-        PriceList::V4(value)
+        delegate_price_list!(self.on_chain_message(msg_size).into())
     }
 }
 
