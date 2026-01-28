@@ -11,6 +11,7 @@ use crate::shim::{
     address::Address, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
+use crate::state_manager::StateLookupPolicy;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
@@ -278,7 +279,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         async move {
             let header = block.header();
             let (state_root, receipt_root) = state_manager
-                .tipset_state(&base_tipset)
+                .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
                 .await
                 .map_err(|e| {
                     TipsetSyncerError::Calculation(format!("Failed to calculate state: {e}"))
@@ -439,7 +440,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
 
     let mut account_sequences: HashMap<Address, u64> = HashMap::default();
     let (state_root, _) = state_manager
-        .tipset_state(&base_tipset)
+        .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
         .await
         .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e}")))?;
     let tree =

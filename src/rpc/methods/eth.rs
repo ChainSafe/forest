@@ -54,6 +54,7 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::state_manager::StateLookupPolicy;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -1200,7 +1201,10 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
 ) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
     let msgs = data.chain_store().messages_for_tipset(tipset)?;
 
-    let (state_root, _) = data.state_manager.tipset_state(tipset).await?;
+    let (state_root, _) = data
+        .state_manager
+        .tipset_state(tipset, StateLookupPolicy::Enabled)
+        .await?;
     let receipts = data.state_manager.tipset_message_receipts(tipset).await?;
 
     if msgs.len() != receipts.len() {
@@ -2054,7 +2058,7 @@ where
 {
     let invoc_res = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg)
+        .apply_on_state_with_gas(tipset, msg, StateLookupPolicy::Enabled)
         .await
         .map_err(|e| anyhow::anyhow!("failed to apply on state with gas: {e}"))?;
 
@@ -2150,6 +2154,7 @@ where
                 prior_messages,
                 Some(ts),
                 VMTrace::NotTraced,
+                StateLookupPolicy::Enabled,
             )
             .await?;
         Ok(apply_ret.msg_receipt().exit_code().is_success())
@@ -2387,7 +2392,10 @@ impl RpcMethod<2> for EthGetCode {
             ..Default::default()
         };
 
-        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
+        let (state, _) = ctx
+            .state_manager
+            .tipset_state(&ts, StateLookupPolicy::Enabled)
+            .await?;
         let api_invoc_result = 'invoc: {
             for ts in ts.chain(ctx.store()) {
                 match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
@@ -2439,7 +2447,10 @@ impl RpcMethod<3> for EthGetStorageAt {
             ResolveNullTipset::TakeOlder,
         )?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
-        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
+        let (state, _) = ctx
+            .state_manager
+            .tipset_state(&ts, StateLookupPolicy::Enabled)
+            .await?;
         let Some(actor) = ctx.state_manager.get_actor(&to_address, state)? else {
             return Ok(make_empty_result());
         };
@@ -2565,7 +2576,10 @@ async fn eth_get_transaction_count<B>(
 where
     B: Blockstore + Send + Sync + 'static,
 {
-    let (state_cid, _) = ctx.state_manager.tipset_state(ts).await?;
+    let (state_cid, _) = ctx
+        .state_manager
+        .tipset_state(ts, StateLookupPolicy::Enabled)
+        .await?;
 
     let state = StateTree::new_from_root(ctx.store_owned(), &state_cid)?;
     let actor = state.get_required_actor(&addr)?;
