@@ -118,6 +118,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetBlockByNumber);
         $callback!($crate::rpc::eth::EthGetBlockByNumberV2);
         $callback!($crate::rpc::eth::EthGetBlockReceipts);
+        $callback!($crate::rpc::eth::EthGetBlockReceiptsV2);
         $callback!($crate::rpc::eth::EthGetBlockReceiptsLimited);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumber);
@@ -148,6 +149,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthSubscribe);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
+        $callback!($crate::rpc::eth::EthTraceBlockV2);
         $callback!($crate::rpc::eth::EthTraceFilter);
         $callback!($crate::rpc::eth::EthTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);

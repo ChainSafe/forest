@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::chain_sync::SyncStatusReport;
+use crate::daemon::bundle::load_actor_bundles;
 use crate::{
     KeyStore, KeyStoreConfig,
     blocks::TipsetKey,
@@ -73,11 +74,17 @@ pub async fn run_test_with_dump(
     Ok(())
 }
 
-pub fn load_db(db_root: &Path) -> anyhow::Result<Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>> {
+pub async fn load_db(
+    db_root: &Path,
+    chain: Option<&NetworkChain>,
+) -> anyhow::Result<Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>> {
     let db_writer = open_db(db_root.into(), &Default::default())?;
     let db = ManyCar::new(db_writer);
     let forest_car_db_dir = db_root.join(CAR_DB_DIR_NAME);
     load_all_forest_cars(&db, &forest_car_db_dir)?;
+    if let Some(chain) = chain {
+        load_actor_bundles(&db, chain).await?;
+    }
     Ok(Arc::new(ReadOpsTrackingStore::new(db)))
 }
 

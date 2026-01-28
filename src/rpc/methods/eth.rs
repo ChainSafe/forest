@@ -54,6 +54,7 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::state_manager::StateLookupPolicy;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -1200,7 +1201,10 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
 ) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
     let msgs = data.chain_store().messages_for_tipset(tipset)?;
 
-    let (state_root, _) = data.state_manager.tipset_state(tipset).await?;
+    let (state_root, _) = data
+        .state_manager
+        .tipset_state(tipset, StateLookupPolicy::Enabled)
+        .await?;
     let receipts = data.state_manager.tipset_message_receipts(tipset).await?;
 
     if msgs.len() != receipts.len() {
@@ -1671,14 +1675,9 @@ impl RpcMethod<2> for EthGetBlockByNumberV2 {
 
 async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    block_param: BlockNumberOrHash,
+    ts: Tipset,
     limit: Option<ChainEpoch>,
 ) -> Result<Vec<EthTxReceipt>> {
-    let ts = tipset_by_block_number_or_hash(
-        ctx.chain_store(),
-        block_param,
-        ResolveNullTipset::TakeOlder,
-    )?;
     if let Some(limit) = limit
         && limit > LOOKBACK_NO_LIMIT
         && ts.epoch() < ctx.chain_store().heaviest_tipset().epoch() - limit
@@ -1721,6 +1720,10 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves all transaction receipts for a block by its number, hash or a special tag.",
+    );
+
     type Params = (BlockNumberOrHash,);
     type Ok = Vec<EthTxReceipt>;
 
@@ -1728,7 +1731,38 @@ impl RpcMethod<1> for EthGetBlockReceipts {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_param, None)
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            block_param,
+            ResolveNullTipset::TakeOlder,
+        )?;
+        get_block_receipts(&ctx, ts, None)
+            .await
+            .map_err(ServerError::from)
+    }
+}
+
+pub enum EthGetBlockReceiptsV2 {}
+impl RpcMethod<1> for EthGetBlockReceiptsV2 {
+    const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceipts");
+    const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves all transaction receipts for a block by its number, hash or a special tag.",
+    );
+
+    type Params = (ExtBlockNumberOrHash,);
+    type Ok = Vec<EthTxReceipt>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
+        get_block_receipts(&ctx, ts, None)
             .await
             .map_err(ServerError::from)
     }
@@ -1748,7 +1782,12 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_param, Some(limit))
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            block_param,
+            ResolveNullTipset::TakeOlder,
+        )?;
+        get_block_receipts(&ctx, ts, Some(limit))
             .await
             .map_err(ServerError::from)
     }
@@ -2054,7 +2093,7 @@ where
 {
     let invoc_res = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg)
+        .apply_on_state_with_gas(tipset, msg, StateLookupPolicy::Enabled)
         .await
         .map_err(|e| anyhow::anyhow!("failed to apply on state with gas: {e}"))?;
 
@@ -2150,6 +2189,7 @@ where
                 prior_messages,
                 Some(ts),
                 VMTrace::NotTraced,
+                StateLookupPolicy::Enabled,
             )
             .await?;
         Ok(apply_ret.msg_receipt().exit_code().is_success())
@@ -2387,7 +2427,10 @@ impl RpcMethod<2> for EthGetCode {
             ..Default::default()
         };
 
-        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
+        let (state, _) = ctx
+            .state_manager
+            .tipset_state(&ts, StateLookupPolicy::Enabled)
+            .await?;
         let api_invoc_result = 'invoc: {
             for ts in ts.chain(ctx.store()) {
                 match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
@@ -2439,7 +2482,10 @@ impl RpcMethod<3> for EthGetStorageAt {
             ResolveNullTipset::TakeOlder,
         )?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
-        let (state, _) = ctx.state_manager.tipset_state(&ts).await?;
+        let (state, _) = ctx
+            .state_manager
+            .tipset_state(&ts, StateLookupPolicy::Enabled)
+            .await?;
         let Some(actor) = ctx.state_manager.get_actor(&to_address, state)? else {
             return Ok(make_empty_result());
         };
@@ -2565,7 +2611,10 @@ async fn eth_get_transaction_count<B>(
 where
     B: Blockstore + Send + Sync + 'static,
 {
-    let (state_cid, _) = ctx.state_manager.tipset_state(ts).await?;
+    let (state_cid, _) = ctx
+        .state_manager
+        .tipset_state(ts, StateLookupPolicy::Enabled)
+        .await?;
 
     let state = StateTree::new_from_root(ctx.store_owned(), &state_cid)?;
     let actor = state.get_required_actor(&addr)?;
@@ -3669,26 +3718,50 @@ impl RpcMethod<1> for EthTraceBlock {
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns traces created at given block.");
+
     type Params = (ExtBlockNumberOrHash,);
     type Ok = Vec<EthBlockTrace>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        trace_block(ctx, block_param).await
+        let ts = tipset_by_ext_block_number_or_hash(
+            ctx.chain_store(),
+            block_param,
+            ResolveNullTipset::TakeOlder,
+        )?;
+        eth_trace_block(&ctx, &ts).await
     }
 }
 
-async fn trace_block<B: Blockstore + Send + Sync + 'static>(
-    ctx: Ctx<B>,
-    block_param: ExtBlockNumberOrHash,
-) -> Result<Vec<EthBlockTrace>, ServerError> {
-    let ts = tipset_by_ext_block_number_or_hash(
-        ctx.chain_store(),
-        block_param,
-        ResolveNullTipset::TakeOlder,
-    )?;
-    let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
+pub enum EthTraceBlockV2 {}
+impl RpcMethod<1> for EthTraceBlockV2 {
+    const NAME: &'static str = "Filecoin.EthTraceBlock";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_block");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns traces created at given block.");
+
+    type Params = (ExtBlockNumberOrHash,);
+    type Ok = Vec<EthBlockTrace>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
+        eth_trace_block(&ctx, &ts).await
+    }
+}
+
+async fn eth_trace_block<DB>(ctx: &Ctx<DB>, ts: &Tipset) -> Result<Vec<EthBlockTrace>, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let (state_root, trace) = ctx.state_manager.execution_trace(ts)?;
     let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
     let cid = ts.key().cid()?;
     let block_hash: EthHash = cid.into();
@@ -3750,14 +3823,17 @@ impl RpcMethod<1> for EthTraceTransaction {
             .await?
             .ok_or(ServerError::internal_error("transaction not found", None))?;
 
-        let traces = trace_block(
-            ctx,
+        let ts = tipset_by_ext_block_number_or_hash(
+            ctx.chain_store(),
             ExtBlockNumberOrHash::from_block_number(eth_txn.block_number.0 as i64),
-        )
-        .await?
-        .into_iter()
-        .filter(|trace| trace.transaction_hash == eth_hash)
-        .collect();
+            ResolveNullTipset::TakeOlder,
+        )?;
+
+        let traces = eth_trace_block(&ctx, &ts)
+            .await?
+            .into_iter()
+            .filter(|trace| trace.transaction_hash == eth_hash)
+            .collect();
         Ok(traces)
     }
 }
