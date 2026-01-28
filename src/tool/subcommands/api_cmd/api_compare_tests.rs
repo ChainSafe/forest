@@ -1828,6 +1828,25 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBlockReceiptsV2::request((ExtBlockNumberOrHash::from_block_hash_object(
+                block_hash.clone(),
+                true,
+            ),))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetBlockReceiptsV2::request((ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Safe,
+            ),))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetBlockReceiptsV2::request((ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Finalized,
+            ),))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
         RpcTest::identity(
