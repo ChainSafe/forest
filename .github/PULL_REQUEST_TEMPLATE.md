@@ -30,8 +30,8 @@ Closes
 
 ### Outside contributions
 
-- [ ] I have read and agree to the [CONTRIBUTING](../CONTRIBUTING.md) document.
-- [ ] I have read and agree to the [AI Policy](../AI_POLICY.md) document. I understand that failure to comply with the guidelines will lead to rejection of the pull request.
+- [ ] I have read and agree to the [CONTRIBUTING](CONTRIBUTING.md) document.
+- [ ] I have read and agree to the [AI Policy](AI_POLICY.md) document. I understand that failure to comply with the guidelines will lead to rejection of the pull request.
 
 <!-- Thank you 🔥 -->
 
