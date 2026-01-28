@@ -115,9 +115,11 @@ where
         ki.private_key(),
         token_exp,
     )?;
-    info!("Admin token: {token}");
     if let Some(path) = save_jwt_token {
         std::fs::write(path, token)?;
+        info!("Admin token is saved to {}", path.display());
+    } else {
+        info!("Admin token generated. Use --save-token to persist it.");
     }
 
     let peer_manager = Arc::new(PeerManager::default());
