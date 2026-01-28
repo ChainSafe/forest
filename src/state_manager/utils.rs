@@ -183,7 +183,6 @@ pub mod state_compute {
     use crate::{
         blocks::Tipset,
         chain::store::ChainStore,
-        daemon::bundle::load_actor_bundles,
         db::{
             MemoryDB,
             car::{AnyCar, ManyCar},
@@ -263,7 +262,6 @@ pub mod state_compute {
             genesis_header,
         )?);
         let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
-        load_actor_bundles(&db, chain).await?;
         if warmup {
             state_compute(state_manager.clone(), ts.clone()).await;
         }

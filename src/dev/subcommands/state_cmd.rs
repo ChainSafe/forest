@@ -73,7 +73,7 @@ impl ComputeCommand {
             let (_, config) = read_config(None, Some(chain.clone()))?;
             db_root(&chain_path(&config))?
         };
-        let db = generate_test_snapshot::load_db(&db_root_path)?;
+        let db = generate_test_snapshot::load_db(&db_root_path, Some(&chain)).await?;
         let chain_config = Arc::new(ChainConfig::from_chain(&chain));
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
@@ -208,7 +208,7 @@ impl ValidateCommand {
             let (_, config) = read_config(None, Some(chain.clone()))?;
             db_root(&chain_path(&config))?
         };
-        let db = generate_test_snapshot::load_db(&db_root_path)?;
+        let db = generate_test_snapshot::load_db(&db_root_path, Some(&chain)).await?;
         let chain_config = Arc::new(ChainConfig::from_chain(&chain));
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
