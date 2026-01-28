@@ -78,13 +78,17 @@ where
     let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
+
+    let mut services = JoinSet::new();
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        &mut JoinSet::new(),
+        &mut services,
     )?;
+    tokio::spawn(async move { while services.join_next().await.is_some() {} });
+
     let (shutdown, shutdown_recv) = mpsc::channel(1);
 
     let mut keystore = KeyStore::new(KeyStoreConfig::Memory)?;

@@ -122,13 +122,16 @@ async fn ctx(
     );
 
     let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
+
+    let mut services = JoinSet::new();
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        &mut JoinSet::new(),
+        &mut services,
     )?;
+    tokio::spawn(async move { while services.join_next().await.is_some() {} });
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
