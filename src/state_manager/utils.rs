@@ -309,6 +309,10 @@ pub mod state_compute {
 
     #[cfg(test)]
     mod tests {
+        //!
+        //! Test snapshots are generate by `forest-dev state` tool
+        //!
+
         use super::*;
         use crate::chain_sync::tipset_syncer::validate_tipset;
 
@@ -378,6 +382,15 @@ pub mod state_compute {
         async fn state_compute_calibnet_1427975() {
             let chain = NetworkChain::Calibnet;
             let snapshot = get_state_compute_snapshot(&chain, 1427975).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // Waffle state migration with FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_1779095() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 1779095).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();
         }
