@@ -37,7 +37,7 @@
 
 - [#6469](https://github.com/ChainSafe/forest/pull/6469): Implemented `Filecoin.EthGetTransactionByBlockNumberAndIndex` for API v2.
 
-- [#6451](https://github.com/ChainSafe/forest/pull/6451) Implemented `Filecoin.EthTraceBlock` for API v2.
+- [#6451](https://github.com/ChainSafe/forest/pull/6451): Implemented `Filecoin.EthTraceBlock` for API v2.
 
 ### Changed
 
