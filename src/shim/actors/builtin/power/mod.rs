@@ -5,9 +5,10 @@ pub mod ext;
 
 use crate::list_miners_for_state;
 use crate::shim::{
-    actors::{FilterEstimate, Policy, convert::*},
+    actors::{FilterEstimate, convert::*},
     address::Address,
     econ::TokenAmount,
+    runtime::Policy,
     sector::StoragePower,
 };
 use fvm_ipld_blockstore::Blockstore;
@@ -160,18 +161,7 @@ impl State {
 
     /// Consume state to return total locked funds
     pub fn into_total_locked(self) -> TokenAmount {
-        match self {
-            State::V8(st) => st.into_total_locked().into(),
-            State::V9(st) => st.into_total_locked().into(),
-            State::V10(st) => st.into_total_locked().into(),
-            State::V11(st) => st.into_total_locked().into(),
-            State::V12(st) => st.into_total_locked().into(),
-            State::V13(st) => st.into_total_locked().into(),
-            State::V14(st) => st.into_total_locked().into(),
-            State::V15(st) => st.into_total_locked().into(),
-            State::V16(st) => st.into_total_locked().into(),
-            State::V17(st) => st.into_total_locked().into(),
-        }
+        delegate_state!(self.into_total_locked().into())
     }
 
     /// Loads power for a given miner, if exists.
@@ -191,74 +181,42 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<bool> {
         match self {
-            State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(
-                &from_policy_v13_to_v9(policy),
-                &s,
-                &miner.into(),
-            ),
-            State::V9(st) => st.miner_nominal_power_meets_consensus_minimum(
-                &from_policy_v13_to_v9(policy),
-                &s,
-                &miner.into(),
-            ),
+            State::V8(st) => {
+                st.miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, &miner.into())
+            }
+            State::V9(st) => {
+                st.miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, &miner.into())
+            }
             State::V10(st) => st
-                .miner_nominal_power_meets_consensus_minimum(
-                    &from_policy_v13_to_v10(policy),
-                    &s,
-                    miner.id()?,
-                )
+                .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{}", e)),
             State::V11(st) => st
-                .miner_nominal_power_meets_consensus_minimum(
-                    &from_policy_v13_to_v11(policy),
-                    &s,
-                    miner.id()?,
-                )
+                .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{}", e)),
             State::V12(st) => st
-                .miner_nominal_power_meets_consensus_minimum(
-                    &from_policy_v13_to_v12(policy),
-                    &s,
-                    miner.id()?,
-                )
+                .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{}", e)),
             State::V13(st) => st
-                .miner_nominal_power_meets_consensus_minimum(policy, &s, miner.id()?)
+                .miner_nominal_power_meets_consensus_minimum(&policy.0, &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{}", e)),
             State::V14(st) => st
-                .miner_nominal_power_meets_consensus_minimum(
-                    &from_policy_v13_to_v14(policy),
-                    &s,
-                    miner.id()?,
-                )
+                .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{}", e)),
             State::V15(st) => st
-                .miner_nominal_power_meets_consensus_minimum(
-                    &from_policy_v13_to_v15(policy),
-                    &s,
-                    miner.id()?,
-                )
+                .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{}", e)),
             State::V16(st) => st
-                .miner_nominal_power_meets_consensus_minimum(
-                    &from_policy_v13_to_v16(policy),
-                    &s,
-                    miner.id()?,
-                )
+                .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{}", e)),
             State::V17(st) => st
-                .miner_nominal_power_meets_consensus_minimum(
-                    &from_policy_v13_to_v17(policy),
-                    &s,
-                    miner.id()?,
-                )
+                .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{}", e)),
         }
@@ -302,18 +260,7 @@ impl State {
 
     /// Returns total locked funds
     pub fn total_locked(&self) -> TokenAmount {
-        match self {
-            State::V8(st) => st.total_pledge_collateral.clone().into(),
-            State::V9(st) => st.total_pledge_collateral.clone().into(),
-            State::V10(st) => st.total_pledge_collateral.clone().into(),
-            State::V11(st) => st.total_pledge_collateral.clone().into(),
-            State::V12(st) => st.total_pledge_collateral.clone().into(),
-            State::V13(st) => st.total_pledge_collateral.clone().into(),
-            State::V14(st) => st.total_pledge_collateral.clone().into(),
-            State::V15(st) => st.total_pledge_collateral.clone().into(),
-            State::V16(st) => st.total_pledge_collateral.clone().into(),
-            State::V17(st) => st.total_pledge_collateral.clone().into(),
-        }
+        delegate_state!(self.total_pledge_collateral.clone().into())
     }
 }
 

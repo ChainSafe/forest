@@ -1,7 +1,11 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::sync::Arc;
-
+use super::actors::LoadActorStateFromBlockstore;
+pub use super::fvm_shared_latest::{ActorID, state::StateRoot};
+use crate::{
+    blocks::Tipset,
+    shim::{actors::AccountActorStateLoad as _, address::Address, econ::TokenAmount},
+};
 use crate::{
     networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata},
     shim::actors::account,
@@ -24,13 +28,8 @@ pub use fvm4::state_tree::{
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
-
-use super::actors::LoadActorStateFromBlockstore;
-pub use super::fvm_shared_latest::{ActorID, state::StateRoot};
-use crate::{
-    blocks::Tipset,
-    shim::{actors::AccountActorStateLoad as _, address::Address, econ::TokenAmount},
-};
+use spire_enum::prelude::delegated_enum;
+use std::sync::Arc;
 
 #[derive(
     Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr, FromPrimitive,
@@ -134,6 +133,7 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV4 {
 ///
 /// Not all the inner methods are implemented, only those that are needed. Feel
 /// free to add those when necessary.
+#[delegated_enum(impl_conversions)]
 pub enum StateTree<S> {
     // Version 0 is used to parse the genesis block.
     V0(super::state_tree_v0::StateTreeV0<Arc<S>>),
@@ -275,12 +275,7 @@ where
 
     /// Retrieve store reference to modify db.
     pub fn store(&self) -> &S {
-        match self {
-            StateTree::FvmV2(st) => st.store(),
-            StateTree::FvmV3(st) => st.store(),
-            StateTree::FvmV4(st) => st.store(),
-            StateTree::V0(st) => st.store(),
-        }
+        delegate_state_tree!(self.store())
     }
 
     /// Get an ID address from any Address
@@ -305,22 +300,13 @@ where
     {
         match self {
             StateTree::FvmV2(st) => {
-                let inner = |address: fvm_shared2::address::Address, actor_state: &ActorStateV2| {
-                    f(address.into(), &actor_state.into())
-                };
-                st.for_each(inner)
+                st.for_each(|address, actor_state| f(address.into(), &actor_state.into()))
             }
             StateTree::FvmV3(st) => {
-                let inner = |address: fvm_shared3::address::Address, actor_state: &ActorStateV3| {
-                    f(address.into(), &actor_state.into())
-                };
-                st.for_each(inner)
+                st.for_each(|address, actor_state| f(address.into(), &actor_state.into()))
             }
             StateTree::FvmV4(st) => {
-                let inner = |address: fvm_shared4::address::Address, actor_state: &ActorStateV4| {
-                    f(address.into(), &actor_state.into())
-                };
-                st.for_each(inner)
+                st.for_each(|address, actor_state| f(address.into(), &actor_state.into()))
             }
             StateTree::V0(_) => bail!("StateTree::for_each not supported on old state trees"),
         }

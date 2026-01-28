@@ -48,6 +48,7 @@ use crate::shim::{
     machine::{GLOBAL_MULTI_ENGINE, MultiEngine},
     message::Message,
     randomness::Randomness,
+    runtime::Policy,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
@@ -71,7 +72,6 @@ use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
-use fil_actors_shared::v13::runtime::Policy;
 use futures::{FutureExt, channel::oneshot, select};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
@@ -1617,7 +1617,7 @@ where
     ) -> anyhow::Result<Option<Claim>> {
         let id_address = self.lookup_required_id(addr, ts)?;
         let state = self.get_verified_registry_actor_state(ts)?;
-        state.get_claim(self.blockstore(), id_address.into(), claim_id)
+        state.get_claim(self.blockstore(), id_address, claim_id)
     }
 
     pub fn get_all_claims(&self, ts: &Tipset) -> anyhow::Result<HashMap<ClaimID, Claim>> {
@@ -1657,7 +1657,7 @@ where
         // Original: https://github.com/filecoin-project/lotus/blob/5e76b05b17771da6939c7b0bf65127c3dc70ee23/node/impl/full/state.go#L1627-L1664.
         if (u32::from(network_version.0)) < 17 {
             let state = self.get_verified_registry_actor_state(ts)?;
-            return state.verified_client_data_cap(self.blockstore(), id.into());
+            return state.verified_client_data_cap(self.blockstore(), id);
         }
 
         let act = self
@@ -1667,7 +1667,7 @@ where
 
         let state = datacap::State::load(self.blockstore(), act.code, act.state)?;
 
-        state.verified_client_data_cap(self.blockstore(), id.into())
+        state.verified_client_data_cap(self.blockstore(), id)
     }
 
     pub async fn resolve_to_deterministic_address(

@@ -710,7 +710,7 @@ mod tests {
             &mut tree,
             reward_state_cid,
             reward_cid,
-            &reward::ADDRESS.into(),
+            &reward::ADDRESS,
             TokenAmount::from_whole(1_100_000_000),
         );
 
