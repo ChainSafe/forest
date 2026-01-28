@@ -382,7 +382,10 @@ impl RpcMethod<2> for StateLookupRobustAddress {
             let init_state: init::State = state_tree.get_actor_state()?;
             let mut robust_addr = Address::default();
             match init_state {
-                init::State::V0(_) => unimplemented!(),
+                init::State::V0(_) => Err(ServerError::internal_error(
+                    "StateLookupRobustAddress is not implemented for init state v0",
+                    None,
+                )),
                 init::State::V8(state) => get_robust_address!(
                     store,
                     id_addr_decoded,
@@ -2765,7 +2768,9 @@ impl StateGetAllocations {
         if addresses.is_empty() {
             let init_state: init::State = state_tree.get_actor_state()?;
             match init_state {
-                init::State::V0(_) => unimplemented!(),
+                init::State::V0(_) => {
+                    anyhow::bail!("StateGetAllocations is not implemented for init state v0");
+                }
                 init::State::V8(s) => {
                     let map =
                         fil_actors_shared::v8::make_map_with_root::<_, u64>(&s.address_map, store)?;
