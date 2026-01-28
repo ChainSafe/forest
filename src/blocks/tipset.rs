@@ -317,6 +317,10 @@ impl Tipset {
     pub fn parent_state(&self) -> &Cid {
         &self.min_ticket_block().state_root
     }
+    /// Returns the state root for the tipset parent.
+    pub fn parent_message_receipts(&self) -> &Cid {
+        &self.min_ticket_block().message_receipts
+    }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigInt {
         &self.min_ticket_block().weight

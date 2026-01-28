@@ -6,11 +6,7 @@ use crate::{
     chain::{ChainStore, index::ResolveNullTipset},
     chain_sync::{load_full_tipset, tipset_syncer::validate_tipset},
     cli_shared::{chain_path, read_config},
-    db::{
-        MemoryDB, SettingsStoreExt,
-        car::{AnyCar, ManyCar},
-        db_engine::db_root,
-    },
+    db::{SettingsStoreExt, db_engine::db_root},
     genesis::read_genesis_header,
     interpreter::VMTrace,
     networks::{ChainConfig, NetworkChain},
@@ -85,7 +81,7 @@ impl ComputeCommand {
             chain_config,
             genesis_header,
         )?);
-        let ts = {
+        let (ts, ts_next) = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
             let ts = chain_store.chain_index().tipset_by_height(
@@ -93,10 +89,22 @@ impl ComputeCommand {
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,
             )?;
+            let ts_next = chain_store.chain_index().tipset_by_height(
+                epoch + 1,
+                chain_store.heaviest_tipset(),
+                ResolveNullTipset::TakeNewer,
+            )?;
             db.resume_tracking();
-            SettingsStoreExt::write_obj(&db.tracker, crate::db::setting_keys::HEAD_KEY, ts.key())?;
-            // Only track the desired tipset
-            Tipset::load_required(&db, ts.key())?
+            SettingsStoreExt::write_obj(
+                &db.tracker,
+                crate::db::setting_keys::HEAD_KEY,
+                ts_next.key(),
+            )?;
+            // Only track the desired tipsets
+            (
+                Tipset::load_required(&db, ts.key())?,
+                Tipset::load_required(&db, ts_next.key())?,
+            )
         };
         let epoch = ts.epoch();
         let state_manager = Arc::new(StateManager::new(chain_store)?);
@@ -113,6 +121,16 @@ impl ComputeCommand {
         println!(
             "epoch: {epoch}, state_root: {state_root}, receipt_root: {receipt_root}, db_snapshot_size: {}",
             human_bytes::human_bytes(db_snapshot.len() as f64)
+        );
+        let expected_state_root = *ts_next.parent_state();
+        let expected_receipt_root = *ts_next.parent_message_receipts();
+        anyhow::ensure!(
+            state_root == expected_state_root,
+            "state root mismatch, state_root: {state_root}, expected_state_root: {expected_state_root}"
+        );
+        anyhow::ensure!(
+            receipt_root == expected_receipt_root,
+            "state root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
         );
         if let Some(export_db_to) = export_db_to {
             std::fs::write(export_db_to, db_snapshot)?;
@@ -138,39 +156,12 @@ pub struct ReplayComputeCommand {
 impl ReplayComputeCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let Self { snapshot, chain, n } = self;
-        let snap_car = AnyCar::try_from(&snapshot)?;
-        let ts = snap_car.heaviest_tipset()?;
-        let epoch = ts.epoch();
-        let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(snap_car)?);
-        let chain_config = Arc::new(ChainConfig::from_chain(&chain));
-        let genesis_header =
-            read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
+        let (sm, ts, ts_next) =
+            crate::state_manager::utils::state_compute::prepare_state_compute(&chain, &snapshot)
                 .await?;
-        let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )?);
-        let state_manager = Arc::new(StateManager::new(chain_store)?);
         for _ in 0..n.get() {
-            let start = Instant::now();
-            let StateOutput {
-                state_root,
-                receipt_root,
-                ..
-            } = state_manager
-                .compute_tipset_state(
-                    ts.clone(),
-                    crate::state_manager::NO_CALLBACK,
-                    VMTrace::NotTraced,
-                )
+            crate::state_manager::utils::state_compute::state_compute(&sm, ts.clone(), &ts_next)
                 .await?;
-            println!(
-                "epoch: {epoch}, state_root: {state_root}, receipt_root: {receipt_root}, took {}.",
-                humantime::format_duration(start.elapsed())
-            );
         }
         Ok(())
     }
@@ -267,27 +258,14 @@ pub struct ReplayValidateCommand {
 impl ReplayValidateCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let Self { snapshot, chain, n } = self;
-        let snap_car = AnyCar::try_from(&snapshot)?;
-        let ts = snap_car.heaviest_tipset()?;
-        let epoch = ts.epoch();
-        let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(snap_car)?);
-        let chain_config = Arc::new(ChainConfig::from_chain(&chain));
-        let genesis_header =
-            read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
+        let (sm, fts) =
+            crate::state_manager::utils::state_compute::prepare_state_validate(&chain, &snapshot)
                 .await?;
-        let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )?);
-        let state_manager = Arc::new(StateManager::new(chain_store)?);
-        let fts = load_full_tipset(state_manager.chain_store(), ts.key())?;
+        let epoch = fts.epoch();
         for _ in 0..n.get() {
             let fts = fts.clone();
             let start = Instant::now();
-            validate_tipset(&state_manager, fts, None).await?;
+            validate_tipset(&sm, fts, None).await?;
             println!(
                 "epoch: {epoch}, took {}.",
                 humantime::format_duration(start.elapsed())
