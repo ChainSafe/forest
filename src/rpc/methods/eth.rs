@@ -1671,14 +1671,9 @@ impl RpcMethod<2> for EthGetBlockByNumberV2 {
 
 async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    block_param: BlockNumberOrHash,
+    ts: Tipset,
     limit: Option<ChainEpoch>,
 ) -> Result<Vec<EthTxReceipt>> {
-    let ts = tipset_by_block_number_or_hash(
-        ctx.chain_store(),
-        block_param,
-        ResolveNullTipset::TakeOlder,
-    )?;
     if let Some(limit) = limit
         && limit > LOOKBACK_NO_LIMIT
         && ts.epoch() < ctx.chain_store().heaviest_tipset().epoch() - limit
@@ -1721,6 +1716,10 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves all transaction receipts for a block by its number, hash or a special tag.",
+    );
+
     type Params = (BlockNumberOrHash,);
     type Ok = Vec<EthTxReceipt>;
 
@@ -1728,7 +1727,38 @@ impl RpcMethod<1> for EthGetBlockReceipts {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_param, None)
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            block_param,
+            ResolveNullTipset::TakeOlder,
+        )?;
+        get_block_receipts(&ctx, ts, None)
+            .await
+            .map_err(ServerError::from)
+    }
+}
+
+pub enum EthGetBlockReceiptsV2 {}
+impl RpcMethod<1> for EthGetBlockReceiptsV2 {
+    const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceipts");
+    const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves all transaction receipts for a block by its number, hash or a special tag.",
+    );
+
+    type Params = (ExtBlockNumberOrHash,);
+    type Ok = Vec<EthTxReceipt>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
+        get_block_receipts(&ctx, ts, None)
             .await
             .map_err(ServerError::from)
     }
@@ -1748,7 +1778,12 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_param, Some(limit))
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            block_param,
+            ResolveNullTipset::TakeOlder,
+        )?;
+        get_block_receipts(&ctx, ts, Some(limit))
             .await
             .map_err(ServerError::from)
     }
