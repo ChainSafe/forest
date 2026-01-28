@@ -87,7 +87,19 @@ where
         state_manager.chain_config().clone(),
         &mut services,
     )?;
-    tokio::spawn(async move { while services.join_next().await.is_some() {} });
+    tokio::spawn(async move {
+        while let Some(s) = services.join_next().await {
+            match s {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    tracing::warn!("{e}")
+                }
+                Err(e) => {
+                    tracing::warn!("{e}")
+                }
+            }
+        }
+    });
 
     let (shutdown, shutdown_recv) = mpsc::channel(1);
 
@@ -224,7 +236,7 @@ where
     let mut terminate = signal(SignalKind::terminate())?;
     let (stop_handle, server_handle) = stop_channel();
     let result = tokio::select! {
-        _ = start_rpc(state, rpc_listener,stop_handle, None) => Ok(()),
+        ret = start_rpc(state, rpc_listener,stop_handle, None) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())

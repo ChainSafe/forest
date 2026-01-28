@@ -148,7 +148,19 @@ async fn ctx(
         state_manager.chain_config().clone(),
         &mut services,
     )?;
-    tokio::spawn(async move { while services.join_next().await.is_some() {} });
+    tokio::spawn(async move {
+        while let Some(s) = services.join_next().await {
+            match s {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    tracing::warn!("{e}")
+                }
+                Err(e) => {
+                    tracing::warn!("{e}")
+                }
+            }
+        }
+    });
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
