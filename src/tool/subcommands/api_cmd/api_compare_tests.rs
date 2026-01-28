@@ -2293,6 +2293,34 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthTraceBlockV2::request((ExtBlockNumberOrHash::from_block_number(
+                shared_tipset.epoch(),
+            ),))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthTraceBlockV2::request((ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Pending,
+            ),))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthTraceBlockV2::request((ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Latest,
+            ),))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthTraceBlockV2::request((ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),))
+                .unwrap(),
+        ),
+        RpcTest::basic(
+            EthTraceBlockV2::request((ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Finalized,
+            ),))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthTraceReplayBlockTransactions::request((
                 ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
                 vec!["trace".to_string()],
