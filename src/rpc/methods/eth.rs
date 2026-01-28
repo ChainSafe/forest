@@ -2484,8 +2484,13 @@ where
     let Some(msg_rct) = api_invoc_result.msg_rct else {
         return Err(anyhow::anyhow!("no message receipt").into());
     };
-    if !api_invoc_result.error.is_empty() {
-        return Err(anyhow::anyhow!("GetBytecode failed: {}", api_invoc_result.error).into());
+    if !msg_rct.exit_code().is_success() || !api_invoc_result.error.is_empty() {
+        return Err(anyhow::anyhow!(
+            "GetBytecode failed: exit={} error={}",
+            msg_rct.exit_code(),
+            api_invoc_result.error
+        )
+        .into());
     }
 
     let get_bytecode_return: GetBytecodeReturn =
