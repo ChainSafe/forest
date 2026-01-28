@@ -574,10 +574,6 @@ pub(super) async fn start(
                     tracing::warn!("failed to stop RPC server: {e}");
                 }
                 snap_gc.cleanup_before_reboot().await;
-                // gracefully shutdown RPC server
-                if let Err(e) = rpc_server_handle.stop() {
-                    tracing::warn!("failed to stop RPC server: {e}");
-                }
             }
             result = start_services(start_time, &opts, config.clone(), shutdown_send.clone(), rpc_stop_handle, |ctx, sync_status| {
                 snap_gc.set_db(ctx.db.clone());
