@@ -44,6 +44,8 @@ use tokio::{
 };
 use tracing::{info, warn};
 
+/// Builds offline RPC state and returns it with a shutdown receiver.
+/// The receiver is notified when RPC shutdown is requested.
 pub async fn offline_rpc_state<DB>(
     chain: NetworkChain,
     db: Arc<DB>,
@@ -116,7 +118,7 @@ where
         token_exp,
     )?;
     if let Some(path) = save_jwt_token {
-        std::fs::write(path, token)?;
+        crate::utils::io::write_new_sensitive_file(token.as_bytes(), path)?;
         info!("Admin token is saved to {}", path.display());
     } else {
         info!("Admin token generated. Use --save-token to persist it.");
