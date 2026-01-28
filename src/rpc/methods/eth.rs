@@ -2433,7 +2433,7 @@ where
 
     let (state, _) = ctx
         .state_manager
-        .tipset_state(&ts, StateLookupPolicy::Enabled)
+        .tipset_state(ts, StateLookupPolicy::Enabled)
         .await?;
     let api_invoc_result = 'invoc: {
         for ts in ts.clone().chain(ctx.store()) {
