@@ -382,6 +382,33 @@ pub mod state_compute {
             state_compute(&sm, ts, &ts_next).await.unwrap();
         }
 
+        // TukTuk state migration with FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_2078795() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 2078795).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // Teep state migration with FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_2523455() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 2523455).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // GoldenWeek state migration with FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_3007295() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 3007295).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
         #[tokio::test(flavor = "multi_thread")]
         async fn state_validate_mainnet_5688000() {
             let chain = NetworkChain::Mainnet;
