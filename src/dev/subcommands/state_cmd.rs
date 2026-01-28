@@ -130,7 +130,7 @@ impl ComputeCommand {
         );
         anyhow::ensure!(
             receipt_root == expected_receipt_root,
-            "state root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
+            "receipt root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
         );
         if let Some(export_db_to) = export_db_to {
             std::fs::write(export_db_to, db_snapshot)?;

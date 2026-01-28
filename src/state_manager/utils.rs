@@ -302,7 +302,7 @@ pub mod state_compute {
         );
         anyhow::ensure!(
             receipt_root == expected_receipt_root,
-            "state root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
+            "receipt root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
         );
         Ok(())
     }
@@ -331,7 +331,7 @@ pub mod state_compute {
         // FVM@4
         #[tokio::test(flavor = "multi_thread")]
         async fn state_compute_calibnet_3408952() {
-            let chain = NetworkChain::Calibnet;            
+            let chain = NetworkChain::Calibnet;
             let snapshot = get_state_compute_snapshot(&chain, 3408952).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();
@@ -340,7 +340,7 @@ pub mod state_compute {
         // Shark state migration with FVM@2
         #[tokio::test(flavor = "multi_thread")]
         async fn state_compute_calibnet_16801() {
-            let chain = NetworkChain::Calibnet;            
+            let chain = NetworkChain::Calibnet;
             let snapshot = get_state_compute_snapshot(&chain, 16801).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();
@@ -349,7 +349,7 @@ pub mod state_compute {
         // Hygge state migration with FVM@2
         #[tokio::test(flavor = "multi_thread")]
         async fn state_compute_calibnet_322355() {
-            let chain = NetworkChain::Calibnet;            
+            let chain = NetworkChain::Calibnet;
             let snapshot = get_state_compute_snapshot(&chain, 322355).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();
@@ -358,7 +358,7 @@ pub mod state_compute {
         // Lightning state migration with FVM@3
         #[tokio::test(flavor = "multi_thread")]
         async fn state_compute_calibnet_489095() {
-            let chain = NetworkChain::Calibnet;            
+            let chain = NetworkChain::Calibnet;
             let snapshot = get_state_compute_snapshot(&chain, 489095).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();
@@ -367,7 +367,7 @@ pub mod state_compute {
         // Watermelon state migration with FVM@3
         #[tokio::test(flavor = "multi_thread")]
         async fn state_compute_calibnet_1013135() {
-            let chain = NetworkChain::Calibnet;            
+            let chain = NetworkChain::Calibnet;
             let snapshot = get_state_compute_snapshot(&chain, 1013135).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();
@@ -376,7 +376,7 @@ pub mod state_compute {
         // Dragon state migration with FVM@4
         #[tokio::test(flavor = "multi_thread")]
         async fn state_compute_calibnet_1427975() {
-            let chain = NetworkChain::Calibnet;            
+            let chain = NetworkChain::Calibnet;
             let snapshot = get_state_compute_snapshot(&chain, 1427975).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();
