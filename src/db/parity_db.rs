@@ -537,14 +537,7 @@ mod test {
     #[test]
     fn subscription_tests() {
         let db = TempParityDB::new();
-        assert!(
-            db.db
-                .as_ref()
-                .unwrap()
-                .write_ops_broadcast_tx
-                .read()
-                .is_none()
-        );
+        assert!(db.write_ops_broadcast_tx.read().is_none());
         let data = [
             b"h'nglui mglw'nafh".to_vec(),
             b"Cthulhu".to_vec(),
@@ -557,17 +550,11 @@ mod test {
             Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
         ];
 
-        let mut rx1 = db.db.as_ref().unwrap().subscribe_write_ops();
-        let mut rx2 = db.db.as_ref().unwrap().subscribe_write_ops();
+        let mut rx1 = db.subscribe_write_ops();
+        let mut rx2 = db.subscribe_write_ops();
 
         assert!(has_subscribers(
-            db.db
-                .as_ref()
-                .unwrap()
-                .write_ops_broadcast_tx
-                .read()
-                .as_ref()
-                .unwrap()
+            db.write_ops_broadcast_tx.read().as_ref().unwrap()
         ));
 
         for (idx, cid) in cids.iter().enumerate() {
@@ -581,24 +568,11 @@ mod test {
         drop(rx2);
 
         assert!(!has_subscribers(
-            db.db
-                .as_ref()
-                .unwrap()
-                .write_ops_broadcast_tx
-                .read()
-                .as_ref()
-                .unwrap()
+            db.write_ops_broadcast_tx.read().as_ref().unwrap()
         ));
 
-        db.db.as_ref().unwrap().unsubscribe_write_ops();
+        db.unsubscribe_write_ops();
 
-        assert!(
-            db.db
-                .as_ref()
-                .unwrap()
-                .write_ops_broadcast_tx
-                .read()
-                .is_none()
-        );
+        assert!(db.write_ops_broadcast_tx.read().is_none());
     }
 }

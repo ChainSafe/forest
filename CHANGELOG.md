@@ -39,6 +39,8 @@
 
 - [#6451](https://github.com/ChainSafe/forest/pull/6451): Implemented `Filecoin.EthTraceBlock` for API v2.
 
+- [#6489](https://github.com/ChainSafe/forest/pull/6489): Implemented `Filecoin.EthGetBlockReceipts` for API v2.
+
 - [#6492](https://github.com/ChainSafe/forest/pull/6492): Implemented `Filecoin.EthGetStorageAt` for API v2.
 
 ### Changed
