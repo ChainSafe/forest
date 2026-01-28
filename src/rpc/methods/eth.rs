@@ -78,8 +78,9 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
-use tracing::log;
 use utils::{decode_payload, lookup_eth_address};
+
+use nunny::Vec as NonEmpty;
 
 static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
     LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
@@ -467,6 +468,31 @@ impl ExtBlockNumberOrHash {
         }
     }
 }
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum EthTraceType {
+    /// Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
+    /// with details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`.
+    Trace,
+    /// Requests a state difference object, detailing changes to account states (e.g., `balance`, `nonce`, `storage`, `code`)
+    /// caused by the simulated transaction.
+    ///
+    /// It shows `"from"` and `"to"` values for modified fields, using `"+"`, `"-"`, or `"="` for code changes.
+    StateDiff,
+}
+
+lotus_json_with_self!(EthTraceType);
+
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthTraceResults {
+    output: Option<EthBytes>,
+    state_diff: Option<String>,
+    trace: Vec<EthTrace>,
+}
+
+lotus_json_with_self!(EthTraceResults);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
@@ -2036,9 +2062,7 @@ where
             Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
         }
         Ok(gassed_msg) => {
-            log::info!("correct gassed_msg: do eth_gas_search {gassed_msg:?}");
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
-            log::info!("trying eth_gas search: {expected_gas}");
             Ok(expected_gas.into())
         }
     }
@@ -3726,6 +3750,81 @@ async fn trace_block<B: Blockstore + Send + Sync + 'static>(
         }
     }
     Ok(all_traces)
+}
+
+pub enum EthTraceCall {}
+impl RpcMethod<3> for EthTraceCall {
+    const NAME: &'static str = "Forest.EthTraceCall";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_call");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 3] = ["tx", "traceTypes", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthCallMessage, NonEmpty<EthTraceType>, BlockNumberOrHash);
+    type Ok = EthTraceResults;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, trace_types, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // Note: tx.to should not be null, it should always be set to something
+        // (contract address or EOA)
+        // trace_call has to be rate limited as it is a debug method or it could be permissioned, not sure right now.
+
+        let msg = Message::try_from(tx)?;
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            block_param,
+            ResolveNullTipset::TakeOlder,
+        )?;
+
+        let invoke_result = ctx
+            .state_manager
+            .apply_on_state_with_gas(Some(ts.clone()), msg.clone())
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;
+
+        // Get state tree for building proper traces
+        let (state_root, _) = ctx
+            .state_manager
+            .tipset_state(&ts)
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to get tipset state: {e}"))?;
+        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+        let mut trace_results = EthTraceResults::default();
+
+        // Get output from the execution result
+        trace_results.output = get_trace_output(&msg, &invoke_result);
+
+        // Build traces if requested
+        if trace_types.contains(&EthTraceType::Trace) {
+            if let Some(exec_trace) = invoke_result.execution_trace {
+                let mut env = trace::base_environment(&state, &msg.from())
+                    .map_err(|e| anyhow::anyhow!("failed to create trace environment: {e}"))?;
+                trace::build_traces(&mut env, &[], exec_trace)?;
+                trace_results.trace = env.traces;
+            }
+        }
+
+        Ok(trace_results)
+    }
+}
+
+/// Get output bytes from trace execution result.
+fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Option<EthBytes> {
+    if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+        return Some(EthBytes::default());
+    }
+
+    let msg_rct = invoke_result.msg_rct.as_ref()?;
+    let return_data = msg_rct.return_data();
+
+    if return_data.is_empty() {
+        return Some(EthBytes::default());
+    }
+
+    decode_payload(&return_data, CBOR).ok()
 }
 
 pub enum EthTraceTransaction {}
