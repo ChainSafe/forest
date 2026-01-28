@@ -37,6 +37,8 @@
 
 - [#6469](https://github.com/ChainSafe/forest/pull/6469): Implemented `Filecoin.EthGetTransactionByBlockNumberAndIndex` for API v2.
 
+- [#6490](https://github.com/ChainSafe/forest/pull/6490): Implemented `Filecoin.EthGetCode` for API v2.
+
 ### Changed
 
 - [#6471](https://github.com/ChainSafe/forest/pull/6471): Moved `forest-tool state` subcommand to `forest-dev`.
