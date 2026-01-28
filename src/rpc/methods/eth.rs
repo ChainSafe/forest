@@ -2449,9 +2449,11 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let to_address = FilecoinAddress::try_from(eth_address)?;
-    let actor = ctx
+    let (state, _) = ctx
         .state_manager
-        .get_required_actor(&to_address, *ts.parent_state())?;
+        .tipset_state(ts, StateLookupPolicy::Enabled)
+        .await?;
+    let actor = ctx.state_manager.get_required_actor(&to_address, state)?;
     // Not a contract. We could try to distinguish between accounts and "native" contracts here,
     // but it's not worth it.
     if !is_evm_actor(&actor.code) {
@@ -2466,10 +2468,6 @@ where
         ..Default::default()
     };
 
-    let (state, _) = ctx
-        .state_manager
-        .tipset_state(ts, StateLookupPolicy::Enabled)
-        .await?;
     let api_invoc_result = 'invoc: {
         for ts in ts.clone().chain(ctx.store()) {
             match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
