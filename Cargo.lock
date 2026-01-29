@@ -3312,6 +3312,7 @@ dependencies = [
  "itertools 0.14.0",
  "jsonrpsee",
  "jsonwebtoken",
+ "justjson",
  "keccak-hash",
  "kubert-prometheus-process",
  "lazy-regex",
@@ -5225,6 +5226,12 @@ dependencies = [
  "signature",
  "simple_asn1",
 ]
+
+[[package]]
+name = "justjson"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7e253b574775d0ebd7975c471fc18f72f0775a4d42b563b5fbc3c4068aa1075"
 
 [[package]]
 name = "k256"

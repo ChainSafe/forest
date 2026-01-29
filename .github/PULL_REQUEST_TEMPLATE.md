@@ -30,9 +30,11 @@ Closes
 
 ### Outside contributions
 
-- [ ] I have read and agree to the [CONTRIBUTING](../CONTRIBUTING.md) document.
-- [ ] I have read and agree to the [AI Policy](../AI_POLICY.md) document. I understand that failure to comply with the guidelines will lead to rejection of the pull request.
+- [ ] I have read and agree to the [CONTRIBUTING][2] document.
+- [ ] I have read and agree to the [AI Policy][3] document. I understand that failure to comply with the guidelines will lead to rejection of the pull request.
 
 <!-- Thank you 🔥 -->
 
 [1]: https://github.com/ChainSafe/forest/blob/main/CHANGELOG.md
+[2]: https://github.com/ChainSafe/forest/blob/main/CONTRIBUTING.md
+[3]: https://github.com/ChainSafe/forest/blob/main/AI_POLICY.md
