@@ -11,6 +11,7 @@ use jsonrpsee::types::SubscriptionId;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use rand::Rng;
 use serde::de::{IntoDeserializer, value::StringDeserializer};
+use std::collections::BTreeMap;
 use std::{hash::Hash, ops::Deref};
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
@@ -103,11 +104,14 @@ impl GetStorageAtParams {
     Eq,
     Hash,
     PartialEq,
+    PartialOrd,
+    Ord,
     Debug,
     Deserialize,
     Serialize,
     Default,
     Clone,
+    Copy,
     JsonSchema,
     derive_more::From,
     derive_more::Into,
@@ -379,12 +383,15 @@ impl TryFrom<EthCallMessage> for Message {
 #[derive(
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Hash,
     Debug,
     Deserialize,
     Serialize,
     Default,
     Clone,
+    Copy,
     JsonSchema,
     derive_more::Display,
     derive_more::From,
@@ -747,6 +754,107 @@ impl EthTrace {
         Ok(true)
     }
 }
+
+/// Represents a changed value with before and after states.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ChangedType<T> {
+    /// Value before the change
+    pub from: T,
+    /// Value after the change
+    pub to: T,
+}
+
+/// Represents how a value changed during transaction execution.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/parity.rs#L84
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum Delta<T> {
+    /// Existing value didn't change.
+    #[serde(rename = "=")]
+    Unchanged,
+    /// A new value was added (account/storage created).
+    #[serde(rename = "+")]
+    Added(T),
+    /// The existing value was removed (account/storage deleted).
+    #[serde(rename = "-")]
+    Removed(T),
+    /// The existing value changed from one value to another.
+    #[serde(rename = "*")]
+    Changed(ChangedType<T>),
+}
+
+impl<T> Default for Delta<T> {
+    fn default() -> Self {
+        Delta::Unchanged
+    }
+}
+
+impl<T: PartialEq> Delta<T> {
+    pub fn from_comparison(old: Option<T>, new: Option<T>) -> Self {
+        match (old, new) {
+            (None, None) => Delta::Unchanged,
+            (None, Some(new_val)) => Delta::Added(new_val),
+            (Some(old_val), None) => Delta::Removed(old_val),
+            (Some(old_val), Some(new_val)) => {
+                if old_val == new_val {
+                    Delta::Unchanged
+                } else {
+                    Delta::Changed(ChangedType {
+                        from: old_val,
+                        to: new_val,
+                    })
+                }
+            }
+        }
+    }
+
+    pub fn is_unchanged(&self) -> bool {
+        matches!(self, Delta::Unchanged)
+    }
+}
+
+/// Account state diff after transaction execution.
+/// Tracks changes to balance, nonce, code, and storage.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/parity.rs#L156
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AccountDiff {
+    pub balance: Delta<EthBigInt>,
+    pub code: Delta<EthBytes>,
+    pub nonce: Delta<EthUint64>,
+    /// All touched/changed storage values (key -> delta)
+    pub storage: BTreeMap<EthHash, Delta<EthHash>>,
+}
+
+impl AccountDiff {
+    pub fn is_unchanged(&self) -> bool {
+        self.balance.is_unchanged()
+            && self.code.is_unchanged()
+            && self.nonce.is_unchanged()
+            && self.storage.is_empty()
+    }
+}
+
+/// State diff containing all account changes from a transaction.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(transparent)]
+pub struct StateDiff(pub BTreeMap<EthAddress, AccountDiff>);
+
+impl StateDiff {
+    pub fn new() -> Self {
+        Self(BTreeMap::new())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn insert_if_changed(&mut self, addr: EthAddress, diff: AccountDiff) {
+        if !diff.is_unchanged() {
+            self.0.insert(addr, diff);
+        }
+    }
+}
+
+lotus_json_with_self!(StateDiff);
 
 #[cfg(test)]
 mod tests {
