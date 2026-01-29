@@ -77,6 +77,9 @@ filecoin_ethgetblocktransactioncountbynumber_v2_1769099953141937.rpcsnap.json.zs
 filecoin_ethgetcode_1765803672602510.rpcsnap.json.zst # latest
 filecoin_ethgetcode_1765803672604518.rpcsnap.json.zst # concrete
 filecoin_ethgetcode_1765803672655291.rpcsnap.json.zst # pending
+filecoin_ethgetcode_v2_1769605928230413.rpcsnap.json.zst
+filecoin_ethgetcode_v2_finalized_1769605928335700.rpcsnap.json.zst
+filecoin_ethgetcode_v2_safe_1769605928230488.rpcsnap.json.zst
 filecoin_ethgetlogs_1759922913569082.rpcsnap.json.zst
 filecoin_ethgetmessagecidbytransactionhash_1737446676697418.rpcsnap.json.zst
 filecoin_ethgetstorageat_1765803742043605.rpcsnap.json.zst # latest
