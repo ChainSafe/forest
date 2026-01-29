@@ -27,7 +27,33 @@
 
 ### Breaking
 
+- [#6475](https://github.com/ChainSafe/forest/pull/6475): Increased default JWT (generated via `Filecoin.AuthNew`) expiration time from 24 hours to 100 years to match Lotus behavior and ensure compatibility with clients like Curio.
+
 - [#6392](https://github.com/ChainSafe/forest/pull/6392): Changed execution reverted error code from 11 to 3.
+
+### Added
+
+- [#6465](https://github.com/ChainSafe/forest/pull/6465): Implemented `Filecoin.EthGetBlockTransactionCountByNumber` for API v2.
+
+- [#6466](https://github.com/ChainSafe/forest/pull/6466): Enabled `Filecoin.EthGetBlockTransactionCountByHash` for API v2.
+
+- [#6469](https://github.com/ChainSafe/forest/pull/6469): Implemented `Filecoin.EthGetTransactionByBlockNumberAndIndex` for API v2.
+
+- [#6451](https://github.com/ChainSafe/forest/pull/6451): Implemented `Filecoin.EthTraceBlock` for API v2.
+
+### Changed
+
+- [#6471](https://github.com/ChainSafe/forest/pull/6471): Moved `forest-tool state` subcommand to `forest-dev`.
+
+### Removed
+
+### Fixed
+
+- [#6467](https://github.com/ChainSafe/forest/pull/6467): `Filecoin.EthGetBlockByNumber` now only supports retrieving a block by its block number or a special tag.
+
+## Forest v0.31.1 "Quadrantids"
+
+This is a non-mandatory release for all node operators. It includes the support for more V2 API's and a few critical API fixes.
 
 ### Added
 
