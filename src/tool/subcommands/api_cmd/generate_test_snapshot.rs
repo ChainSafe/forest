@@ -42,8 +42,7 @@ pub async fn run_test_with_dump(
     }
     let mut run = false;
     let chain_config = Arc::new(ChainConfig::from_chain(chain));
-    let mut services = JoinSet::new();
-    let (ctx, _, _) = ctx(db, chain_config, &mut services).await?;
+    let (ctx, _, _) = ctx(db, chain_config).await?;
     let params_raw = Some(serde_json::to_string(&test_dump.request.params)?);
     macro_rules! run_test {
         ($ty:ty) => {
@@ -108,7 +107,6 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
 async fn ctx(
     db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>,
     chain_config: Arc<ChainConfig>,
-    services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<(
     Arc<RPCState<ReadOpsTrackingStore<ManyCar<ParityDb>>>>,
     flume::Receiver<NetworkMessage>,
@@ -136,7 +134,7 @@ async fn ctx(
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        services,
+        &mut JoinSet::new(),
     )?;
 
     let peer_manager = Arc::new(PeerManager::default());

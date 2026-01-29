@@ -88,8 +88,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     // backfill db with index data
     backfill_eth_mappings(db.writer(), index)?;
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
-    let mut services = JoinSet::new();
-    let (ctx, _, _) = ctx(db, chain_config, &mut services).await?;
+    let (ctx, _, _) = ctx(db, chain_config).await?;
     let params_raw = match serde_json::to_string(&params)? {
         s if s.is_empty() => None,
         s => Some(s),
@@ -123,7 +122,6 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
 async fn ctx(
     db: Arc<ManyCar<MemoryDB>>,
     chain_config: Arc<ChainConfig>,
-    services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<(
     Arc<RPCState<ManyCar<MemoryDB>>>,
     flume::Receiver<NetworkMessage>,
@@ -146,7 +144,7 @@ async fn ctx(
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        services,
+        &mut JoinSet::new(),
     )?;
 
     let peer_manager = Arc::new(PeerManager::default());
