@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
@@ -187,15 +187,7 @@ mod tests {
         });
 
         let cs_arc = Arc::new(
-            ChainStore::new(
-                db.clone(),
-                db.clone(),
-                db.clone(),
-                db,
-                chain_config,
-                genesis_header,
-            )
-            .unwrap(),
+            ChainStore::new(db.clone(), db.clone(), db, chain_config, genesis_header).unwrap(),
         );
 
         let state_manager = Arc::new(StateManager::new(cs_arc.clone()).unwrap());

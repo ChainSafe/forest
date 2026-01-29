@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use prometheus_client::{
@@ -45,14 +45,8 @@ pub static INVALID_TIPSET_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
     metric
 });
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, derive_more::Constructor)]
 pub struct Libp2pMessageKindLabel(&'static str);
-
-impl Libp2pMessageKindLabel {
-    pub const fn new(kind: &'static str) -> Self {
-        Self(kind)
-    }
-}
 
 impl EncodeLabelSet for Libp2pMessageKindLabel {
     fn encode(&self, mut encoder: LabelSetEncoder) -> Result<(), std::fmt::Error> {

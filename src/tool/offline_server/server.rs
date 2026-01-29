@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::auth::generate_priv_key;
@@ -91,7 +91,6 @@ pub async fn start_offline_server(
     .await?;
     let head_ts = db.heaviest_tipset()?;
     let chain_store = Arc::new(ChainStore::new(
-        db.clone(),
         db.clone(),
         db.clone(),
         db.clone(),

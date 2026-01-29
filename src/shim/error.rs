@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use fvm_shared2::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
@@ -24,7 +24,18 @@ use std::fmt;
 /// assert_eq!(shim_from_v2, fvm2_success.into());
 /// assert_eq!(shim_from_v3, fvm3_success.into());
 /// ```
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    PartialEq,
+    Eq,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct ExitCode(#[schemars(with = "u32")] ExitCodeV4);
 
 impl PartialOrd for ExitCode {
@@ -115,12 +126,6 @@ impl From<u32> for ExitCode {
     }
 }
 
-impl From<ExitCodeV4> for ExitCode {
-    fn from(value: ExitCodeV4) -> Self {
-        Self(value)
-    }
-}
-
 impl From<ExitCodeV3> for ExitCode {
     fn from(value: ExitCodeV3) -> Self {
         value.value().into()
@@ -142,11 +147,5 @@ impl From<ExitCode> for ExitCodeV2 {
 impl From<ExitCode> for ExitCodeV3 {
     fn from(value: ExitCode) -> Self {
         Self::new(value.0.value())
-    }
-}
-
-impl From<ExitCode> for ExitCodeV4 {
-    fn from(value: ExitCode) -> Self {
-        value.0
     }
 }

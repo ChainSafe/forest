@@ -13,6 +13,7 @@ on:
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
+      - "**/*.md"
   merge_group:
   pull_request:
     # This needs to be declared explicitly so that the job is actually
@@ -21,6 +22,7 @@ on:
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
+      - "**/*.md"
 
 env:
   CI: 1
@@ -59,14 +61,12 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.work"
+      - uses: jdx/mise-action@v3
       - name: Cargo Install
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-        run: make install
+        run: mise run install release
       - uses: actions/upload-artifact@v6
         with:
           name: "forest-linux-amd64"
@@ -104,13 +104,11 @@ jobs:
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v6
+      - uses: jdx/mise-action@v3
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-        with:
-          go-version-file: "go.work"
       - name: Cargo Install
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-        run: make install
+        run: mise run install release
       - uses: actions/upload-artifact@v6
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         with:

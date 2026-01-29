@@ -1,0 +1,67 @@
+name: RPC parity conformance report
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Forest Docker image to test against"
+        required: false
+        default: "ghcr.io/chainsafe/forest:edge-fat"
+  schedule:
+    - cron: "0 0 1 * *" # Monthly, on the first day of the month at midnight
+jobs:
+  rpc-parity:
+    name: RPC parity report
+    runs-on: buildjet-8vcpu-ubuntu-2204
+    steps:
+      - name: Relocate docker volumes folder
+        run: |
+          # move docker volumes folder to under `/mnt` which has 60GB+ free space
+          sudo ls /var/lib/docker/volumes
+          sudo mv /var/lib/docker/volumes /mnt/docker-volumes
+          sudo ln -sf /mnt/docker-volumes /var/lib/docker/volumes
+          sudo ls /var/lib/docker/volumes
+          df -h
+      - uses: actions/checkout@v6
+      - name: Run api compare tests on calibnet
+        shell: bash
+        run: |
+          IMAGE=${{ github.event.inputs.image }}
+          if [ -z "$IMAGE" ]; then
+            IMAGE="ghcr.io/chainsafe/forest:edge-fat"
+          fi
+          echo "FROM $IMAGE" > Dockerfile-RPC
+          trap 'rm -f Dockerfile-RPC' EXIT
+          export FOREST_DOCKERFILE_OVERRIDE=Dockerfile-RPC
+          ./scripts/tests/api_compare/setup.sh
+        timeout-minutes: 30
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+      - name: Dump Docker usage
+        if: always()
+        run: |
+          sudo ls /var/lib/docker/volumes
+          docker system df
+          docker system df --verbose
+          df -h
+      - uses: jdx/mise-action@v3
+      - run: mise add_conformance_report
+      - run: mise run docs:format
+      # This is needed in order to have the commits signed.
+      - uses: actions/create-github-app-token@v2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.LESHY_APP_ID }}
+          private-key: ${{ secrets.LESHY_APP_PRIVATE_KEY }}
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          base: main
+          branch: leshy/scheduled-rpc-parity-report
+          token: ${{ steps.generate-token.outputs.token }}
+          commit-message: Add monthly RPC parity conformance report
+          sign-commits: true
+          title: "[automated] Add monthly RPC parity conformance report"
+          body: |
+            ### Changes
+            - Adds the monthly RPC parity conformance report to the docs.

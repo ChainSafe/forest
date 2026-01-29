@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -39,16 +39,16 @@ impl From<DealProposal> for ApiDealProposal {
         } = p;
         Self {
             piece_cid,
-            piece_size: piece_size.0,
+            piece_size: piece_size.into(),
             verified_deal,
-            client: client.into(),
-            provider: provider.into(),
+            client,
+            provider,
             label,
             start_epoch,
             end_epoch,
-            storage_price_per_epoch: storage_price_per_epoch.into(),
-            provider_collateral: provider_collateral.into(),
-            client_collateral: client_collateral.into(),
+            storage_price_per_epoch,
+            provider_collateral,
+            client_collateral,
         }
     }
 }

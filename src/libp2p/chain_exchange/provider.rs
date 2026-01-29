@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{Tipset, TipsetKey};
@@ -176,7 +176,6 @@ mod tests {
 
         let response = make_chain_exchange_response(
             &ChainStore::new(
-                db.clone(),
                 db.clone(),
                 db.clone(),
                 db,

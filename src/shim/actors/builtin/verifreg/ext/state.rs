@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -254,20 +254,5 @@ impl VerifiedRegistryStateExt for State {
             State::V17(state) => list_all_inner!(state, store, v17, load_claims, result),
         };
         Ok(result)
-    }
-
-    fn root_key(&self) -> Address {
-        match self {
-            State::V8(s) => s.root_key.into(),
-            State::V9(s) => s.root_key.into(),
-            State::V10(s) => s.root_key.into(),
-            State::V11(s) => s.root_key.into(),
-            State::V12(s) => s.root_key.into(),
-            State::V13(s) => s.root_key.into(),
-            State::V14(s) => s.root_key.into(),
-            State::V15(s) => s.root_key.into(),
-            State::V16(s) => s.root_key.into(),
-            State::V17(s) => s.root_key.into(),
-        }
     }
 }

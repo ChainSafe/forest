@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::ffi::OsString;
@@ -32,7 +32,6 @@ where
         Subcommand::Api(cmd) => cmd.run().await,
         Subcommand::Net(cmd) => cmd.run().await,
         Subcommand::Shed(cmd) => cmd.run(client).await,
-        Subcommand::State(cmd) => cmd.run().await,
         Subcommand::Completion(cmd) => cmd.run(&mut std::io::stdout()),
     }
 }

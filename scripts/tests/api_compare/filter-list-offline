@@ -26,7 +26,8 @@
 # Offline server won't provide correct results for finality-related methods
 !Filecoin.EthGetBlockByNumber
 !eth_getBlockByNumber
+!Filecoin.EthGetBlockTransactionCountByNumber
+!eth_getBlockTransactionCountByNumber
+!Filecoin.EthGetTransactionByBlockNumberAndIndex
+!eth_getTransactionByBlockNumberAndIndex
 !Filecoin.ChainSetHead
-# Ignoring ChainGetEvents for now, as we are not sure if we should get duplicated events or not.
-# TODO(forest): https://github.com/ChainSafe/forest/issues/6271.
-!Filecoin.ChainGetEvents

@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
@@ -72,6 +72,7 @@ impl BlockstoreReadCacheStats for DefaultBlockstoreReadCacheStats {
     }
 }
 
+#[derive(derive_more::Constructor)]
 pub struct BlockstoreWithReadCache<
     DB: Blockstore,
     CACHE: BlockstoreReadCache,
@@ -85,14 +86,6 @@ pub struct BlockstoreWithReadCache<
 impl<DB: Blockstore, CACHE: BlockstoreReadCache, STATS: BlockstoreReadCacheStats>
     BlockstoreWithReadCache<DB, CACHE, STATS>
 {
-    pub fn new(db: DB, cache: CACHE, stats: Option<STATS>) -> Self {
-        Self {
-            inner: db,
-            cache,
-            stats,
-        }
-    }
-
     pub fn stats(&self) -> Option<&STATS> {
         self.stats.as_ref()
     }

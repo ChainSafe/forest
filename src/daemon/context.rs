@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::auth::{ADMIN, create_token, generate_priv_key};
@@ -246,7 +246,6 @@ async fn create_state_manager(
         Arc::clone(db),
         Arc::new(db.clone()),
         eth_mappings,
-        db.writer().clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);

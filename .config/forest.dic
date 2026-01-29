@@ -39,6 +39,7 @@ daemonize
 Datacap
 devnet
 DB/S
+deduplicates
 deserialize/D
 destructuring
 DNS
@@ -70,6 +71,8 @@ IPFS
 ip
 IPLD
 JSON
+jsonrpc
+jsonrpsee
 JWT
 Kademlia
 Kubernetes
@@ -110,6 +113,7 @@ SECP256k1
 seekable
 serializable
 serializer/SM
+serde_json
 skippable
 statediff
 stateful

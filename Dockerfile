@@ -23,11 +23,14 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 WORKDIR /forest
 COPY . .
 
+RUN ./scripts/install_mise.sh
+
 # Install Forest. Move it out of the cache for the prod image.
 RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/root/.rustup \
     --mount=type=cache,sharing=private,target=/forest/target \
-    make install && \
+    mise trust && \
+    mise run install && \
     mkdir /forest_out && \
     cp /root/.cargo/bin/forest* /forest_out
 

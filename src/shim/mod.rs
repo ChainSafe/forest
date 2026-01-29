@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod actors;
@@ -18,6 +18,7 @@ pub mod message;
 pub mod piece;
 pub mod policy;
 pub mod randomness;
+pub mod runtime;
 pub mod sector;
 pub mod state_tree;
 pub mod state_tree_v0;
@@ -34,3 +35,5 @@ pub mod fvm_shared_latest {
 pub mod fvm_latest {
     pub use fvm4::*;
 }
+
+pub type MethodNum = fvm_shared_latest::MethodNum;

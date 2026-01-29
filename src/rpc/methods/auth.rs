@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::auth::*;
@@ -29,12 +29,13 @@ impl RpcMethod<2> for AuthNew {
     ) -> Result<Self::Ok, ServerError> {
         let ks = ctx.keystore.read();
         let ki = ks.get(JWT_IDENTIFIER)?;
-        let token = create_token(
-            permissions,
-            ki.private_key(),
-            // default to 24h
-            chrono::Duration::seconds(expiration_secs.unwrap_or(60 * 60 * 24)),
-        )?;
+        // Lotus admin tokens do not expire but Forest requires all JWT tokens to
+        // have an expiration date. So we set the expiration date to 100 years in
+        // the future to match user-visible behavior of Lotus.
+        let token_exp = expiration_secs
+            .map(chrono::Duration::seconds)
+            .unwrap_or_else(|| chrono::Duration::days(365 * 100));
+        let token = create_token(permissions, ki.private_key(), token_exp)?;
         Ok(token.as_bytes().to_vec())
     }
 }

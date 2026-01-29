@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod db;
@@ -169,15 +169,9 @@ pub struct RpcMethodLabel {
     pub method: String,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet, derive_more::Constructor)]
 pub struct KindLabel {
     kind: &'static str,
-}
-
-impl KindLabel {
-    pub const fn new(kind: &'static str) -> Self {
-        Self { kind }
-    }
 }
 
 pub mod values {

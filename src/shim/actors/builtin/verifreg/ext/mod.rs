@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod state;
@@ -29,6 +29,4 @@ pub trait VerifiedRegistryStateExt {
 
     fn get_all_claims<BS: Blockstore>(&self, store: &BS)
     -> anyhow::Result<HashMap<ClaimID, Claim>>;
-
-    fn root_key(&self) -> Address;
 }

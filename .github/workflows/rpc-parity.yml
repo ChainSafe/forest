@@ -1,6 +1,11 @@
 name: RPC parity tests
 on:
   workflow_dispatch:
+    inputs:
+      image:
+        description: "Forest Docker image to test against"
+        required: false
+        default: "ghcr.io/chainsafe/forest:edge-fat"
   schedule:
     - cron: "0 0 * * *"
 jobs:

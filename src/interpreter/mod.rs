@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod errors;
@@ -46,5 +46,5 @@ where
 
     let acc_st = account::State::load(store, act.code, act.state)?;
 
-    Ok(acc_st.pubkey_address().into())
+    Ok(acc_st.pubkey_address())
 }

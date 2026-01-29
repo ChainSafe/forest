@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Forest wishes to provide [OpenRPC](http://open-rpc.org) definitions for
@@ -95,7 +95,7 @@ pub trait RpcMethod<const ARITY: usize> {
     PartialOrd,
     Ord,
     Hash,
-    displaydoc::Display,
+    derive_more::Display,
     Serialize,
     Deserialize,
 )]

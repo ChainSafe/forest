@@ -1,5 +1,5 @@
 <p align="center">
-  <img height="243" src="documentation/src/img/forest_logo.png">
+  <img height="243" src="docs/static/img/forest_logo.png">
 </p>
 
 <p align="center">
@@ -67,28 +67,19 @@ Install [Go](https://go.dev/doc/install)
 - OS Base-Devel/Build-Essential
 - Clang compiler
 
+The project also uses [mise-en-place](https://mise.jdx.dev/) to handle builds and
+installations.
+
 ### Ubuntu (20.04)
 
 ```
 sudo apt install build-essential clang
 ```
 
-### Archlinux
-
-```
-sudo pacman -S base-devel clang
-```
-
 ### Fedora (36)
 
 ```
 sudo dnf install -y clang-devel
-```
-
-### Alpine
-
-```
-apk add git curl make gcc clang clang-dev musl-dev
 ```
 
 ## Installation
@@ -99,23 +90,10 @@ git clone --recursive https://github.com/chainsafe/forest
 cd forest
 
 # Install binary to $HOME/.cargo/bin
-make install
+mise run install
 
 # Run the node on mainnet
 forest
-```
-
-To create release binaries, checkout the latest tag and compile with the release
-feature.
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge)](https://github.com/ChainSafe/forest/releases/latest)
-
-```shell
-git checkout $TAG
-make build # make debug build of forest daemon and cli
-# or
-make release # make release build of forest daemon and cli
-# or
-make install # install forest daemon and cli
 ```
 
 ### Config
@@ -187,11 +165,10 @@ cargo install cargo-nextest --locked
 ```
 
 ```bash
-# To run base tests
-cargo nextest run # use `make test-release` for longer compilation but faster execution
-
-# To run all tests and all features enabled
-make test-all
+# To run all tests
+mise test
+# Or, with a different profile
+mise test release
 ```
 
 Chain synchronization checks are run after every merge to `main`. This code is
@@ -204,26 +181,8 @@ secure in an automated fashion. While the CI will have them installed, if you
 want to run them yourself before submitting a PR (recommended), you should
 install a few of them.
 
-```bash
-# You can install those linters also with other package managers or by manually grabbing the binaries from the projects' repositories.
-
-# Rust code linter
-rustup component add clippy
-
-# Rust code formatter
-rustup component add rustfmt
-
-# TOML linter
-cargo install taplo-cli --locked
-
-# Scanning dependencies for security vulnerabilities
-cargo install cargo-audit
-
-# Spellcheck
-cargo install cargo-spellcheck
-```
-
-After everything is installed, you can run `make lint-all`.
+You can install required linters with `mise install-lint-tools`.
+After everything is installed, you can run `mise lint`.
 
 ### Joining the testnet
 
@@ -271,11 +230,12 @@ forest-cli --token <ADMIN_TOKEN>
 The binaries in the Forest repository are organized into the following
 categories:
 
-| Binary        | Role                                                     | Command example                                    |
-| ------------- | -------------------------------------------------------- | -------------------------------------------------- |
-| `forest`      | Forest daemon, used to connect to the Filecoin network   | `forest --chain calibnet --encrypt-keystore false` |
-| `forest-cli`  | Human-friendly wrappers around the Filecoin JSON-RPC API | `forest-cli info show`                             |
-| `forest-tool` | Handle tasks not involving the Forest daemon             | `forest-tool snapshot fetch`                       |
+| Binary                                                                          | Role                                                     | Command example                                    |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| [`forest`](https://docs.forest.chainsafe.io/reference/cli#forest)               | Forest daemon, used to connect to the Filecoin network   | `forest --chain calibnet --encrypt-keystore false` |
+| [`forest-wallet`](https://docs.forest.chainsafe.io/reference/cli#forest-wallet) | Manage Filecoin wallets and interact with accounts       | `forest-wallet new secp256k1`                      |
+| [`forest-cli`](https://docs.forest.chainsafe.io/reference/cli#forest-cli)       | Human-friendly wrappers around the Filecoin JSON-RPC API | `forest-cli info show`                             |
+| [`forest-tool`](https://docs.forest.chainsafe.io/reference/cli#forest-tool)     | Handle tasks not involving the Forest daemon             | `forest-tool snapshot fetch`                       |
 
 ### Detaching Forest process
 

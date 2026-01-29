@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -71,33 +71,5 @@ impl FromIterator<Cid> for CidHashSet {
         let mut this = Self::new();
         this.extend(iter);
         this
-    }
-}
-
-pub struct IntoIter {
-    inner: hash_map::IntoIter<()>,
-}
-
-impl Iterator for IntoIter {
-    type Item = Cid;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|(it, ())| it)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
-    }
-}
-
-impl IntoIterator for CidHashSet {
-    type Item = Cid;
-
-    type IntoIter = IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        IntoIter {
-            inner: self.inner.into_iter(),
-        }
     }
 }

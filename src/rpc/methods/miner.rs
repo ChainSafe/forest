@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::beacon::BeaconEntry;
@@ -21,6 +21,7 @@ use crate::rpc::{ApiPaths, Ctx, RpcMethod, ServerError};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::crypto::{Signature, SignatureType};
+use crate::state_manager::StateLookupPolicy;
 use enumflags2::BitFlags;
 
 use crate::shim::sector::PoStProof;
@@ -140,7 +141,10 @@ impl RpcMethod<1> for MinerCreateBlock {
                 .context("Missing Smoke height")?
                 .epoch,
         )?;
-        let (state, receipts) = ctx.state_manager.tipset_state(&parent_tipset).await?;
+        let (state, receipts) = ctx
+            .state_manager
+            .tipset_state(&parent_tipset, StateLookupPolicy::Disabled)
+            .await?;
 
         let network_version = ctx.state_manager.get_network_version(block_template.epoch);
 

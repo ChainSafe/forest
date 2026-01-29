@@ -187,7 +187,7 @@ You will also need to install Go - the toolchain version is specified in the
 the [Go website](https://golang.org/doc/install).
 
 We also use linters and tools to work with the code - you can install them by
-running `make install-lint-tools`.
+running `mise install-lint-tools`.
 
 #### 👥Fork and clone the repository
 
@@ -198,7 +198,7 @@ your local machine. You can read more in the
 #### ✅Check that everything works
 
 Before you start making changes, you should make sure that everything works. You
-can do this by running the tests with `make test`. Note that you need to have
+can do this by running the tests with `mise test`. Note that you need to have
 [cargo nextest](https://nexte.st/) installed to run the tests.
 
 #### 💻Make your changes
@@ -241,7 +241,7 @@ public functions and structs. Please refer to the Forest team's
 Formatting is standardised via various formatting tools for different
 technologies. Please make sure to run the appropriate formatter before
 submitting your code, otherwise it will not pass the CI checks. You can format
-the code, including markdown files, with `make fmt`.
+the code, including markdown files, with `mise fmt`.
 
 ### 💬 Commit Messages
 

@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{path::PathBuf, sync::Arc};
@@ -84,7 +84,6 @@ impl IndexCommands {
                     db.clone(),
                     db.clone(),
                     db.clone(),
-                    db.writer().clone(),
                     chain_config,
                     genesis_header.clone(),
                 )?);
@@ -99,8 +98,11 @@ impl IndexCommands {
                 println!("Head epoch:    {}", head_ts.epoch());
 
                 let from_ts = if let Some(from) = from {
+                    // ensure from epoch is not greater than head epoch. This can happen if the
+                    // assumed head is actually a null tipset.
+                    let from = std::cmp::min(*from, head_ts.epoch());
                     chain_store.chain_index().tipset_by_height(
-                        *from,
+                        from,
                         head_ts,
                         ResolveNullTipset::TakeOlder,
                     )?

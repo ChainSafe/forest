@@ -1,4 +1,4 @@
-// Copyright 2019-2025 ChainSafe Systems
+// Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
@@ -7,11 +7,13 @@ mod channel;
 mod client;
 mod filter_layer;
 mod filter_list;
+pub mod json_validator;
 mod log_layer;
 mod metrics_layer;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
+mod validation_layer;
 
 use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::shim::clock::ChainEpoch;
@@ -41,7 +43,8 @@ pub use methods::*;
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
 
-const LOOKBACK_NO_LIMIT: ChainEpoch = -1;
+/// Sentinel value, indicating no limit on how far back to search in the chain (all the way to genesis epoch).
+pub const LOOKBACK_NO_LIMIT: ChainEpoch = -1;
 
 /// The macro `callback` will be passed in each type that implements
 /// [`RpcMethod`].
@@ -110,13 +113,18 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthFeeHistoryV2);
         $callback!($crate::rpc::eth::EthGasPrice);
         $callback!($crate::rpc::eth::EthGetBalance);
+        $callback!($crate::rpc::eth::EthGetBalanceV2);
         $callback!($crate::rpc::eth::EthGetBlockByHash);
         $callback!($crate::rpc::eth::EthGetBlockByNumber);
+        $callback!($crate::rpc::eth::EthGetBlockByNumberV2);
         $callback!($crate::rpc::eth::EthGetBlockReceipts);
+        $callback!($crate::rpc::eth::EthGetBlockReceiptsV2);
         $callback!($crate::rpc::eth::EthGetBlockReceiptsLimited);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumber);
+        $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumberV2);
         $callback!($crate::rpc::eth::EthGetCode);
+        $callback!($crate::rpc::eth::EthGetCodeV2);
         $callback!($crate::rpc::eth::EthGetLogs);
         $callback!($crate::rpc::eth::EthGetFilterLogs);
         $callback!($crate::rpc::eth::EthGetFilterChanges);
@@ -128,6 +136,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetTransactionCountV2);
         $callback!($crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndex);
+        $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndexV2);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);
         $callback!($crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!($crate::rpc::eth::EthProtocolVersion);
@@ -141,9 +150,11 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthSubscribe);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
+        $callback!($crate::rpc::eth::EthTraceBlockV2);
         $callback!($crate::rpc::eth::EthTraceFilter);
         $callback!($crate::rpc::eth::EthTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
+        $callback!($crate::rpc::eth::EthTraceReplayBlockTransactionsV2);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
 
@@ -615,6 +626,7 @@ where
                     .layer(SetExtensionLayer { path })
                     .layer(SegregationLayer)
                     .layer(FilterLayer::new(filter_list.clone()))
+                    .layer(validation_layer::JsonValidationLayer)
                     .layer(AuthLayer {
                         headers,
                         keystore: keystore.clone(),
