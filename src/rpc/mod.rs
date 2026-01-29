@@ -790,6 +790,7 @@ mod tests {
     };
     use jsonrpsee::server::stop_channel;
     use std::net::{Ipv4Addr, SocketAddr};
+    use tokio::task::JoinSet;
 
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
@@ -813,7 +814,10 @@ mod tests {
     async fn test_rpc_server() {
         let chain = NetworkChain::Calibnet;
         let db = Arc::new(MemoryDB::default());
-        let (state, mut shutdown_recv) = offline_rpc_state(chain, db, None, None).await.unwrap();
+        let mut services = JoinSet::new();
+        let (state, mut shutdown_recv) = offline_rpc_state(chain, db, None, None, &mut services)
+            .await
+            .unwrap();
         let block_delay_secs = state.chain_config().block_delay_secs;
         let shutdown_send = state.shutdown.clone();
         let jwt_read_permissions = vec!["read".to_owned()];
