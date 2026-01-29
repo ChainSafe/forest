@@ -51,6 +51,7 @@ pub async fn offline_rpc_state<DB>(
     db: Arc<DB>,
     genesis_fp: Option<&Path>,
     save_jwt_token: Option<&Path>,
+    services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<(RPCState<DB>, mpsc::Receiver<()>)>
 where
     DB: Blockstore
@@ -81,27 +82,13 @@ where
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
 
-    let mut services = JoinSet::new();
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        &mut services,
+        services,
     )?;
-    tokio::spawn(async move {
-        while let Some(s) = services.join_next().await {
-            match s {
-                Ok(Ok(())) => {}
-                Ok(Err(e)) => {
-                    tracing::warn!("{e}")
-                }
-                Err(e) => {
-                    tracing::warn!("{e}")
-                }
-            }
-        }
-    });
 
     let (shutdown, shutdown_recv) = mpsc::channel(1);
 
@@ -192,8 +179,15 @@ pub async fn start_offline_server(
     } else {
         inferred_chain
     };
-    let (rpc_state, shutdown_recv) =
-        offline_rpc_state(chain, db, genesis.as_deref(), save_jwt_token.as_deref()).await?;
+    let mut services = JoinSet::new();
+    let (rpc_state, shutdown_recv) = offline_rpc_state(
+        chain,
+        db,
+        genesis.as_deref(),
+        save_jwt_token.as_deref(),
+        &mut services,
+    )
+    .await?;
 
     let state_manager = &rpc_state.state_manager;
     let head_ts = state_manager.heaviest_tipset();

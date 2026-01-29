@@ -88,7 +88,8 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     // backfill db with index data
     backfill_eth_mappings(db.writer(), index)?;
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
-    let (ctx, _, _) = ctx(db, chain_config).await?;
+    let mut services = JoinSet::new();
+    let (ctx, _, _) = ctx(db, chain_config, &mut services).await?;
     let params_raw = match serde_json::to_string(&params)? {
         s if s.is_empty() => None,
         s => Some(s),
@@ -122,6 +123,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
 async fn ctx(
     db: Arc<ManyCar<MemoryDB>>,
     chain_config: Arc<ChainConfig>,
+    services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<(
     Arc<RPCState<ManyCar<MemoryDB>>>,
     flume::Receiver<NetworkMessage>,
@@ -139,28 +141,13 @@ async fn ctx(
         genesis_header.clone(),
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
-
-    let mut services = JoinSet::new();
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        &mut services,
+        services,
     )?;
-    tokio::spawn(async move {
-        while let Some(s) = services.join_next().await {
-            match s {
-                Ok(Ok(())) => {}
-                Ok(Err(e)) => {
-                    tracing::warn!("{e}")
-                }
-                Err(e) => {
-                    tracing::warn!("{e}")
-                }
-            }
-        }
-    });
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
