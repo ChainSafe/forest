@@ -1775,6 +1775,10 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "limit"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves all transaction receipts for a block identified by its number, hash or a special tag along with an optional limit on the chain epoch for state resolution.",
+    );
+
     type Params = (BlockNumberOrHash, ChainEpoch);
     type Ok = Vec<EthTxReceipt>;
 
@@ -1787,6 +1791,32 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
+        get_block_receipts(&ctx, ts, Some(limit))
+            .await
+            .map_err(ServerError::from)
+    }
+}
+
+pub enum EthGetBlockReceiptsLimitedV2 {}
+impl RpcMethod<2> for EthGetBlockReceiptsLimitedV2 {
+    const NAME: &'static str = "Filecoin.EthGetBlockReceiptsLimited";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceiptsLimited");
+    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "limit"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves all transaction receipts for a block identified by its number, hash or a special tag along with an optional limit on the chain epoch for state resolution.",
+    );
+
+    type Params = (ExtBlockNumberOrHash, ChainEpoch);
+    type Ok = Vec<EthTxReceipt>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, limit): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
+            .await?;
         get_block_receipts(&ctx, ts, Some(limit))
             .await
             .map_err(ServerError::from)
