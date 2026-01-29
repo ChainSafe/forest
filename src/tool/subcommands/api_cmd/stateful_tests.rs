@@ -521,19 +521,25 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                     .await?;
 
                 if let EthFilterResult::Hashes(hashes) = filter_result {
-                    anyhow::ensure!(prev_hashes != hashes);
+                    anyhow::ensure!(
+                        prev_hashes != hashes,
+                        "prev_hashes={prev_hashes:?} hashes={hashes:?}"
+                    );
 
                     let mut cids = vec![];
-                    for hash in hashes {
+                    for hash in &hashes {
                         if let Some(cid) = client
-                            .call(EthGetMessageCidByTransactionHash::request((hash,))?)
+                            .call(EthGetMessageCidByTransactionHash::request((hash.clone(),))?)
                             .await?
                         {
                             cids.push(cid);
                         }
                     }
 
-                    anyhow::ensure!(cids.contains(&cid));
+                    anyhow::ensure!(
+                        cids.contains(&cid),
+                        "CID missing from filter results: cid={cid:?} cids={cids:?} hashes={hashes:?}"
+                    );
 
                     Ok(())
                 } else {
@@ -594,9 +600,7 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
             let result = if let EthFilterResult::Logs(logs) = filter_result {
                 anyhow::ensure!(
                     !logs.is_empty(),
-                    "Empty logs: filter_spec={:?} cid={}",
-                    filter_spec,
-                    cid
+                    "Empty logs: filter_spec={filter_spec:?} cid={cid:?}",
                 );
                 Ok(())
             } else {
