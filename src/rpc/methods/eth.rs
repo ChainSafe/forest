@@ -2396,6 +2396,9 @@ impl RpcMethod<2> for EthGetCode {
     const PARAM_NAMES: [&'static str; 2] = ["ethAddress", "blockNumberOrHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves the contract code at a specific address and block state, identified by its number, hash, or a special tag.",
+    );
 
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthBytes;
@@ -2409,53 +2412,91 @@ impl RpcMethod<2> for EthGetCode {
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
-        let to_address = FilecoinAddress::try_from(&eth_address)?;
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&to_address, *ts.parent_state())?;
-        // Not a contract. We could try to distinguish between accounts and "native" contracts here,
-        // but it's not worth it.
-        if !is_evm_actor(&actor.code) {
-            return Ok(Default::default());
-        }
+        eth_get_code(&ctx, &ts, &eth_address).await
+    }
+}
 
-        let message = Message {
-            from: FilecoinAddress::SYSTEM_ACTOR,
-            to: to_address,
-            method_num: METHOD_GET_BYTE_CODE,
-            gas_limit: BLOCK_GAS_LIMIT,
-            ..Default::default()
-        };
+pub enum EthGetCodeV2 {}
+impl RpcMethod<2> for EthGetCodeV2 {
+    const NAME: &'static str = "Filecoin.EthGetCode";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getCode");
+    const PARAM_NAMES: [&'static str; 2] = ["ethAddress", "blockNumberOrHash"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves the contract code at a specific address and block state, identified by its number, hash, or a special tag.",
+    );
 
-        let (state, _) = ctx
-            .state_manager
-            .tipset_state(&ts, StateLookupPolicy::Enabled)
+    type Params = (EthAddress, ExtBlockNumberOrHash);
+    type Ok = EthBytes;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (eth_address, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        let api_invoc_result = 'invoc: {
-            for ts in ts.chain(ctx.store()) {
-                match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
-                    Ok(res) => {
-                        break 'invoc res;
-                    }
-                    Err(e) => tracing::warn!(%e),
-                }
-            }
-            return Err(anyhow::anyhow!("Call failed").into());
-        };
-        let Some(msg_rct) = api_invoc_result.msg_rct else {
-            return Err(anyhow::anyhow!("no message receipt").into());
-        };
-        if !api_invoc_result.error.is_empty() {
-            return Err(anyhow::anyhow!("GetBytecode failed: {}", api_invoc_result.error).into());
-        }
+        eth_get_code(&ctx, &ts, &eth_address).await
+    }
+}
 
-        let get_bytecode_return: GetBytecodeReturn =
-            fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
-        if let Some(cid) = get_bytecode_return.0 {
-            Ok(EthBytes(ctx.store().get_required(&cid)?))
-        } else {
-            Ok(Default::default())
+async fn eth_get_code<DB>(
+    ctx: &Ctx<DB>,
+    ts: &Tipset,
+    eth_address: &EthAddress,
+) -> Result<EthBytes, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let to_address = FilecoinAddress::try_from(eth_address)?;
+    let (state, _) = ctx
+        .state_manager
+        .tipset_state(ts, StateLookupPolicy::Enabled)
+        .await?;
+    let actor = ctx.state_manager.get_required_actor(&to_address, state)?;
+    // Not a contract. We could try to distinguish between accounts and "native" contracts here,
+    // but it's not worth it.
+    if !is_evm_actor(&actor.code) {
+        return Ok(Default::default());
+    }
+
+    let message = Message {
+        from: FilecoinAddress::SYSTEM_ACTOR,
+        to: to_address,
+        method_num: METHOD_GET_BYTE_CODE,
+        gas_limit: BLOCK_GAS_LIMIT,
+        ..Default::default()
+    };
+
+    let api_invoc_result = 'invoc: {
+        for ts in ts.clone().chain(ctx.store()) {
+            match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
+                Ok(res) => {
+                    break 'invoc res;
+                }
+                Err(e) => tracing::warn!(%e),
+            }
         }
+        return Err(anyhow::anyhow!("Call failed").into());
+    };
+    let Some(msg_rct) = api_invoc_result.msg_rct else {
+        return Err(anyhow::anyhow!("no message receipt").into());
+    };
+    if !msg_rct.exit_code().is_success() || !api_invoc_result.error.is_empty() {
+        return Err(anyhow::anyhow!(
+            "GetBytecode failed: exit={} error={}",
+            msg_rct.exit_code(),
+            api_invoc_result.error
+        )
+        .into());
+    }
+
+    let get_bytecode_return: GetBytecodeReturn =
+        fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
+    if let Some(cid) = get_bytecode_return.0 {
+        Ok(EthBytes(ctx.store().get_required(&cid)?))
+    } else {
+        Ok(Default::default())
     }
 }
 
