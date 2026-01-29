@@ -254,7 +254,7 @@ impl GasEstimateGasLimit {
             _ => ChainMessage::Unsigned(msg),
         };
 
-        let (invoc_res, apply_ret, _) = data
+        let (invoc_res, apply_ret, _, _) = data
             .state_manager
             .call_with_gas(
                 &mut chain_msg,

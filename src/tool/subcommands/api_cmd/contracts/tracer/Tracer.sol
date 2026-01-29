@@ -10,14 +10,31 @@ contract Tracer {
         x = 42;
     }
 
+    // Allow contract to receive ETH
+    receive() external payable {}
+
     // 1. Simple storage write
     function setX(uint256 _x) external {
         x = _x;
     }
 
-    // 2. Balance update (SSTORE)
+    // 2. Balance update (SSTORE) - Contract receives ETH
     function deposit() external payable {
         balances[msg.sender] = msg.value;
+    }
+
+    // 2b. Send ETH to address - Tests balance decrease/increase
+    function sendEth(address payable to) external payable {
+        to.transfer(msg.value);
+    }
+
+    // 2c. Withdraw ETH - Contract sends ETH to caller
+    function withdraw(uint256 amount) external {
+        require(
+            address(this).balance >= amount,
+            "insufficient contract balance"
+        );
+        payable(msg.sender).transfer(amount);
     }
 
     // 3. Transfer between two accounts (SSTORE x2)
@@ -96,9 +113,9 @@ contract Tracer {
         if (depth == 0) {
             return x;
         }
-        
+
         uint256 callType = depth % 3;
-        
+
         if (callType == 0) {
             // Regular CALL
             (bool ok, bytes memory result) = address(this).call(
@@ -126,14 +143,21 @@ contract Tracer {
     // 13. Wide trace - multiple sibling calls at same level
     // Creates `width` parallel calls, each going `depth` levels deep
     // Example: wideTrace(3, 2) creates 3 siblings, each 2 levels deep
-    function wideTrace(uint256 width, uint256 depth) external returns (uint256 sum) {
+    function wideTrace(
+        uint256 width,
+        uint256 depth
+    ) external returns (uint256 sum) {
         if (depth == 0) {
             return 1;
         }
-        
+
         for (uint256 i = 0; i < width; i++) {
             (bool ok, bytes memory result) = address(this).call(
-                abi.encodeWithSelector(this.wideTrace.selector, width, depth - 1)
+                abi.encodeWithSelector(
+                    this.wideTrace.selector,
+                    width,
+                    depth - 1
+                )
             );
             require(ok, "wide call failed");
             sum += abi.decode(result, (uint256));
@@ -152,13 +176,13 @@ contract Tracer {
             abi.encodeWithSelector(this.setX.selector, 100)
         );
         require(ok1, "setX failed");
-        
+
         // Second: delegatecall that does more calls
         (bool ok2, bytes memory result) = address(this).delegatecall(
             abi.encodeWithSelector(this.innerComplex.selector)
         );
         require(ok2, "innerComplex failed");
-        
+
         return abi.decode(result, (uint256));
     }
 
@@ -169,24 +193,27 @@ contract Tracer {
             abi.encodeWithSelector(this.setX.selector, 200)
         );
         require(ok1, "inner call 1 failed");
-        
+
         (bool ok2, ) = address(this).call(
             abi.encodeWithSelector(this.setX.selector, 300)
         );
         require(ok2, "inner call 2 failed");
-        
+
         // Staticcall to read
         (bool ok3, bytes memory result) = address(this).staticcall(
             abi.encodeWithSelector(this.staticRead.selector)
         );
         require(ok3, "staticcall failed");
-        
+
         return abi.decode(result, (uint256));
     }
 
     // 15. Failing nested trace - revert at depth
     // Useful for testing partial trace on failure
-    function failAtDepth(uint256 depth, uint256 failAt) external returns (uint256) {
+    function failAtDepth(
+        uint256 depth,
+        uint256 failAt
+    ) external returns (uint256) {
         if (depth == failAt) {
             revert("intentional failure at depth");
         }

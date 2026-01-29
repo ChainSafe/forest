@@ -52,6 +52,14 @@ impl State {
     pub fn is_alive(&self) -> bool {
         delegate_state!(self.tombstone.is_none())
     }
+
+    pub fn bytecode(&self) -> Cid {
+        delegate_state!(self.bytecode)
+    }
+
+    pub fn bytecode_hash(&self) -> [u8; 32] {
+        delegate_state!(self.bytecode_hash.into())
+    }
 }
 
 #[delegated_enum(impl_conversions)]

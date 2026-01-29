@@ -488,9 +488,13 @@ lotus_json_with_self!(EthTraceType);
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTraceResults {
-    output: Option<EthBytes>,
-    state_diff: Option<String>,
-    trace: Vec<EthTrace>,
+    /// Output bytes from the transaction execution
+    pub output: Option<EthBytes>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// State diff showing all account changes (only when StateDiff trace type requested)
+    pub state_diff: Option<StateDiff>,
+    /// Call trace hierarchy (only when Trace trace type requested)
+    pub trace: Vec<EthTrace>,
 }
 
 lotus_json_with_self!(EthTraceResults);
@@ -2145,7 +2149,7 @@ async fn apply_message<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let invoc_res = ctx
+    let (invoc_res, _) = ctx
         .state_manager
         .apply_on_state_with_gas(tipset, msg, StateLookupPolicy::Enabled)
         .await
@@ -2236,7 +2240,7 @@ where
         DB: Blockstore + Send + Sync + 'static,
     {
         msg.gas_limit = limit;
-        let (_invoc_res, apply_ret, _) = data
+        let (_invoc_res, apply_ret, _, _) = data
             .state_manager
             .call_with_gas(
                 &mut msg.into(),
@@ -3943,6 +3947,7 @@ impl RpcMethod<3> for EthTraceCall {
     const PARAM_NAMES: [&'static str; 3] = ["tx", "traceTypes", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns traces created by the transaction.");
 
     type Params = (EthCallMessage, NonEmpty<EthTraceType>, BlockNumberOrHash);
     type Ok = EthTraceResults;
@@ -3950,10 +3955,6 @@ impl RpcMethod<3> for EthTraceCall {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, trace_types, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        // Note: tx.to should not be null, it should always be set to something
-        // (contract address or EOA)
-        // trace_call has to be rate limited as it is a debug method or it could be permissioned, not sure right now.
-
         let msg = Message::try_from(tx)?;
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
@@ -3961,33 +3962,55 @@ impl RpcMethod<3> for EthTraceCall {
             ResolveNullTipset::TakeOlder,
         )?;
 
-        let invoke_result = ctx
+        let (pre_state_root, _) = ctx
             .state_manager
-            .apply_on_state_with_gas(Some(ts.clone()), msg.clone())
-            .await
-            .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;
-
-        // Get state tree for building proper traces
-        let (state_root, _) = ctx
-            .state_manager
-            .tipset_state(&ts)
+            .tipset_state(&ts, StateLookupPolicy::Enabled)
             .await
             .map_err(|e| anyhow::anyhow!("failed to get tipset state: {e}"))?;
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+        let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_state_root)?;
+
+        let (invoke_result, post_state_root) = ctx
+            .state_manager
+            .apply_on_state_with_gas(Some(ts.clone()), msg.clone(), StateLookupPolicy::Enabled)
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;
+        let post_state = StateTree::new_from_root(ctx.store_owned(), &post_state_root)?;
 
         let mut trace_results = EthTraceResults::default();
 
-        // Get output from the execution result
         trace_results.output = get_trace_output(&msg, &invoke_result);
 
-        // Build traces if requested
+        // Extract touched addresses for state diff (do this before consuming exec_trace)
+        let touched_addresses = invoke_result
+            .execution_trace
+            .as_ref()
+            .map(extract_touched_eth_addresses)
+            .unwrap_or_default();
+
+        // Build call traces if requested
         if trace_types.contains(&EthTraceType::Trace) {
             if let Some(exec_trace) = invoke_result.execution_trace {
-                let mut env = trace::base_environment(&state, &msg.from())
+                let mut env = trace::base_environment(&post_state, &msg.from())
                     .map_err(|e| anyhow::anyhow!("failed to create trace environment: {e}"))?;
                 trace::build_traces(&mut env, &[], exec_trace)?;
                 trace_results.trace = env.traces;
             }
+        }
+
+        // Build state diff if requested
+        if trace_types.contains(&EthTraceType::StateDiff) {
+            // Add the caller address to touched addresses
+            let mut all_touched = touched_addresses;
+            if let Ok(caller_eth) = EthAddress::from_filecoin_address(&msg.from()) {
+                all_touched.insert(caller_eth);
+            }
+            if let Ok(to_eth) = EthAddress::from_filecoin_address(&msg.to()) {
+                all_touched.insert(to_eth);
+            }
+
+            let state_diff =
+                trace::build_state_diff(ctx.store(), &pre_state, &post_state, &all_touched)?;
+            trace_results.state_diff = Some(state_diff);
         }
 
         Ok(trace_results)
@@ -4008,6 +4031,33 @@ fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Option<Eth
     }
 
     decode_payload(&return_data, CBOR).ok()
+}
+
+/// Maximum number of addresses to track in state diff (safety limit)
+static MAX_STATE_DIFF_ADDRESSES: LazyLock<usize> =
+    LazyLock::new(|| env_or_default("FOREST_TRACE_STATE_DIFF_MAX_ADDRESSES", 1000));
+
+/// Extract all unique Ethereum addresses touched during execution from the trace.
+fn extract_touched_eth_addresses(trace: &crate::rpc::state::ExecutionTrace) -> HashSet<EthAddress> {
+    let mut addresses = HashSet::default();
+    extract_addresses_recursive(trace, &mut addresses);
+    addresses
+}
+
+fn extract_addresses_recursive(
+    trace: &crate::rpc::state::ExecutionTrace,
+    addresses: &mut HashSet<EthAddress>,
+) {
+    if let Ok(eth_addr) = EthAddress::from_filecoin_address(&trace.msg.from) {
+        addresses.insert(eth_addr);
+    }
+    if let Ok(eth_addr) = EthAddress::from_filecoin_address(&trace.msg.to) {
+        addresses.insert(eth_addr);
+    }
+
+    for subcall in &trace.subcalls {
+        extract_addresses_recursive(subcall, addresses);
+    }
 }
 
 pub enum EthTraceTransaction {}
