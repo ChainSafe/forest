@@ -80,7 +80,6 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
     let start_time = chrono::Utc::now();
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
-
     let result = tokio::select! {
         ret = start(start_time, opts, config, shutdown_send) => ret,
         _ = ctrl_c() => {
@@ -375,6 +374,7 @@ fn maybe_start_rpc_service(
     chain_follower: &ChainFollower<DbType>,
     start_time: chrono::DateTime<chrono::Utc>,
     shutdown: mpsc::Sender<()>,
+    rpc_stop_handle: jsonrpsee::server::StopHandle,
     ctx: &AppContext,
 ) -> anyhow::Result<()> {
     if config.client.enable_rpc {
@@ -402,6 +402,12 @@ fn maybe_start_rpc_service(
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
             let msgs_in_tipset = Arc::new(crate::chain::MsgsInTipsetCache::default());
             async move {
+                let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
+                    .await
+                    .map_err(|e| {
+                        anyhow::anyhow!("Unable to listen on RPC endpoint {rpc_address}: {e}")
+                    })
+                    .unwrap();
                 start_rpc(
                     RPCState {
                         state_manager,
@@ -417,7 +423,8 @@ fn maybe_start_rpc_service(
                         tipset_send,
                         snapshot_progress_tracker,
                     },
-                    rpc_address,
+                    rpc_listener,
+                    rpc_stop_handle,
                     filter_list,
                 )
                 .await
@@ -559,11 +566,16 @@ pub(super) async fn start(
         });
     }
     loop {
+        let (rpc_stop_handle, rpc_server_handle) = jsonrpsee::server::stop_channel();
         tokio::select! {
             _ = snap_gc_reboot_rx.recv_async() => {
+                // gracefully shutdown RPC server
+                if let Err(e) = rpc_server_handle.stop() {
+                    tracing::warn!("failed to stop RPC server: {e}");
+                }
                 snap_gc.cleanup_before_reboot().await;
             }
-            result = start_services(start_time, &opts, config.clone(), shutdown_send.clone(), |ctx, sync_status| {
+            result = start_services(start_time, &opts, config.clone(), shutdown_send.clone(), rpc_stop_handle, |ctx, sync_status| {
                 snap_gc.set_db(ctx.db.clone());
                 snap_gc.set_sync_status(sync_status);
                 snap_gc.set_car_db_head_epoch(ctx.db.heaviest_tipset().map(|ts|ts.epoch()).unwrap_or_default());
@@ -579,6 +591,7 @@ pub(super) async fn start_services(
     opts: &CliOpts,
     mut config: Config,
     shutdown_send: mpsc::Sender<()>,
+    rpc_stop_handle: jsonrpsee::server::StopHandle,
     on_app_context_and_db_initialized: impl FnOnce(&AppContext, SyncStatus),
 ) -> anyhow::Result<()> {
     // Cleanup the collector prometheus metrics registry on start
@@ -608,6 +621,7 @@ pub(super) async fn start_services(
         &chain_follower,
         start_time,
         shutdown_send.clone(),
+        rpc_stop_handle,
         &ctx,
     )?;
 
