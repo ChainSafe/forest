@@ -7,11 +7,13 @@ mod channel;
 mod client;
 mod filter_layer;
 mod filter_list;
+pub mod json_validator;
 mod log_layer;
 mod metrics_layer;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
+mod validation_layer;
 
 use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::shim::clock::ChainEpoch;
@@ -116,6 +118,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetBlockByNumber);
         $callback!($crate::rpc::eth::EthGetBlockByNumberV2);
         $callback!($crate::rpc::eth::EthGetBlockReceipts);
+        $callback!($crate::rpc::eth::EthGetBlockReceiptsV2);
         $callback!($crate::rpc::eth::EthGetBlockReceiptsLimited);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumber);
@@ -622,6 +625,7 @@ where
                     .layer(SetExtensionLayer { path })
                     .layer(SegregationLayer)
                     .layer(FilterLayer::new(filter_list.clone()))
+                    .layer(validation_layer::JsonValidationLayer)
                     .layer(AuthLayer {
                         headers,
                         keystore: keystore.clone(),
