@@ -2537,6 +2537,10 @@ impl RpcMethod<3> for EthGetStorageAt {
     const PARAM_NAMES: [&'static str; 3] = ["ethAddress", "position", "blockNumberOrHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves the storage value at a specific position for a contract
+        at a given block state, identified by its number, hash, or a special tag.",
+    );
 
     type Params = (EthAddress, EthBytes, BlockNumberOrHash);
     type Ok = EthBytes;
@@ -2545,67 +2549,102 @@ impl RpcMethod<3> for EthGetStorageAt {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, position, block_number_or_hash): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
-
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
             block_number_or_hash,
             ResolveNullTipset::TakeOlder,
         )?;
-        let to_address = FilecoinAddress::try_from(&eth_address)?;
-        let (state, _) = ctx
-            .state_manager
-            .tipset_state(&ts, StateLookupPolicy::Enabled)
-            .await?;
-        let Some(actor) = ctx.state_manager.get_actor(&to_address, state)? else {
-            return Ok(make_empty_result());
-        };
+        get_storage_at(&ctx, ts, eth_address, position).await
+    }
+}
 
-        if !is_evm_actor(&actor.code) {
-            return Ok(make_empty_result());
-        }
+pub enum EthGetStorageAtV2 {}
+impl RpcMethod<3> for EthGetStorageAtV2 {
+    const NAME: &'static str = "Filecoin.EthGetStorageAt";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getStorageAt");
+    const PARAM_NAMES: [&'static str; 3] = ["ethAddress", "position", "blockNumberOrHash"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves the storage value at a specific position for a contract
+        at a given block state, identified by its number, hash, or a special tag.",
+    );
 
-        let params = RawBytes::new(GetStorageAtParams::new(position.0)?.serialize_params()?);
-        let message = Message {
-            from: FilecoinAddress::SYSTEM_ACTOR,
-            to: to_address,
-            method_num: METHOD_GET_STORAGE_AT,
-            gas_limit: BLOCK_GAS_LIMIT,
-            params,
-            ..Default::default()
-        };
-        let api_invoc_result = 'invoc: {
-            for ts in ts.chain(ctx.store()) {
-                match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
-                    Ok(res) => {
-                        break 'invoc res;
-                    }
-                    Err(e) => tracing::warn!(%e),
+    type Params = (EthAddress, EthBytes, ExtBlockNumberOrHash);
+    type Ok = EthBytes;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (eth_address, position, block_number_or_hash): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash_v2(
+            &ctx,
+            block_number_or_hash,
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
+        get_storage_at(&ctx, ts, eth_address, position).await
+    }
+}
+
+async fn get_storage_at<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    ts: Tipset,
+    eth_address: EthAddress,
+    position: EthBytes,
+) -> Result<EthBytes, ServerError> {
+    let to_address = FilecoinAddress::try_from(&eth_address)?;
+    let (state, _) = ctx
+        .state_manager
+        .tipset_state(&ts, StateLookupPolicy::Enabled)
+        .await?;
+    let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
+    let Some(actor) = ctx.state_manager.get_actor(&to_address, state)? else {
+        return Ok(make_empty_result());
+    };
+
+    if !is_evm_actor(&actor.code) {
+        return Ok(make_empty_result());
+    }
+
+    let params = RawBytes::new(GetStorageAtParams::new(position.0)?.serialize_params()?);
+    let message = Message {
+        from: FilecoinAddress::SYSTEM_ACTOR,
+        to: to_address,
+        method_num: METHOD_GET_STORAGE_AT,
+        gas_limit: BLOCK_GAS_LIMIT,
+        params,
+        ..Default::default()
+    };
+    let api_invoc_result = 'invoc: {
+        for ts in ts.chain(ctx.store()) {
+            match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
+                Ok(res) => {
+                    break 'invoc res;
                 }
+                Err(e) => tracing::warn!(%e),
             }
-            return Err(anyhow::anyhow!("Call failed").into());
-        };
-        let Some(msg_rct) = api_invoc_result.msg_rct else {
-            return Err(anyhow::anyhow!("no message receipt").into());
-        };
-        if !msg_rct.exit_code().is_success() || !api_invoc_result.error.is_empty() {
-            return Err(anyhow::anyhow!(
-                "failed to lookup storage slot: {}",
-                api_invoc_result.error
-            )
-            .into());
         }
+        return Err(anyhow::anyhow!("Call failed").into());
+    };
+    let Some(msg_rct) = api_invoc_result.msg_rct else {
+        return Err(anyhow::anyhow!("no message receipt").into());
+    };
+    if !msg_rct.exit_code().is_success() || !api_invoc_result.error.is_empty() {
+        return Err(
+            anyhow::anyhow!("failed to lookup storage slot: {}", api_invoc_result.error).into(),
+        );
+    }
 
-        let mut ret = fvm_ipld_encoding::from_slice::<RawBytes>(msg_rct.return_data().as_slice())?
-            .bytes()
-            .to_vec();
-        if ret.len() < EVM_WORD_LENGTH {
-            let mut with_padding = vec![0; EVM_WORD_LENGTH.saturating_sub(ret.len())];
-            with_padding.append(&mut ret);
-            Ok(EthBytes(with_padding))
-        } else {
-            Ok(EthBytes(ret))
-        }
+    let mut ret = fvm_ipld_encoding::from_slice::<RawBytes>(msg_rct.return_data().as_slice())?
+        .bytes()
+        .to_vec();
+    if ret.len() < EVM_WORD_LENGTH {
+        let mut with_padding = vec![0; EVM_WORD_LENGTH.saturating_sub(ret.len())];
+        with_padding.append(&mut ret);
+        Ok(EthBytes(with_padding))
+    } else {
+        Ok(EthBytes(ret))
     }
 }
 

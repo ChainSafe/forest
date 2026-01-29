@@ -2008,6 +2008,30 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetStorageAtV2::request((
+                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
+                EthBytes(vec![0xa]),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetStorageAtV2::request((
+                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
+                EthBytes(vec![0xa]),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthGetStorageAtV2::request((
+                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
+                EthBytes(vec![0xa]),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthFeeHistory::request((
                 10.into(),
                 BlockNumberOrPredefined::BlockNumber(shared_tipset.epoch().into()),
