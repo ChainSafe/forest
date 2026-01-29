@@ -2118,24 +2118,25 @@ USAGE:
   forest-dev <COMMAND>
 
 SUBCOMMANDS:
-  fetch-rpc-tests  Fetch RPC test snapshots to the local cache
-  state            Interact with Filecoin chain state
-  help             Print this message or the help of the given subcommand(s)
+  fetch-test-snapshots  Fetch test snapshots to the local cache
+  state                 Interact with Filecoin chain state
+  help                  Print this message or the help of the given subcommand(s)
 
 OPTIONS:
   -h, --help     Print help
   -V, --version  Print version
 ```
 
-### `forest-dev fetch-rpc-tests`
+### `forest-dev fetch-test-snapshots`
 
 ```
-Fetch RPC test snapshots to the local cache
+Fetch test snapshots to the local cache
 
-Usage: forest-dev fetch-rpc-tests
+Usage: forest-dev fetch-test-snapshots [OPTIONS]
 
 Options:
-  -h, --help  Print help
+      --actor-bundle <ACTOR_BUNDLE>
+  -h, --help                         Print help
 ```
 
 ### `forest-dev state`
