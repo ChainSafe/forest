@@ -194,6 +194,7 @@ pub mod state_compute {
         utils::net::{DownloadFileOption, download_file_with_cache},
     };
     use directories::ProjectDirs;
+    use sonic_rs::JsonValueTrait;
     use std::{
         path::{Path, PathBuf},
         sync::{Arc, LazyLock},
@@ -328,26 +329,23 @@ pub mod state_compute {
             .await?
             .read_to_string(&mut json_str)
             .await?;
-        if let justjson::Value::Object(obj) = justjson::Value::from_json(&json_str)? {
-            let files = obj
-                .iter()
-                .filter_map(|i| {
-                    if i.key.as_str() == Some("Contents")
-                        && let justjson::Value::Array(arr) = &i.value
-                        && let Some(justjson::Value::String(s)) = arr.first()
-                        && let Some(file) = s.as_str()
-                        && file.ends_with(".car.zst")
-                    {
-                        Some(file.to_string())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            Ok(files)
-        } else {
-            Ok(vec![])
-        }
+        let obj: sonic_rs::Object = sonic_rs::from_str(&json_str)?;
+        let files = obj
+            .iter()
+            .filter_map(|(k, v)| {
+                if k == "Contents"
+                    && let sonic_rs::ValueRef::Array(arr) = v.as_ref()
+                    && let Some(first) = arr.first()
+                    && let Some(file) = first.as_str()
+                    && file.ends_with(".car.zst")
+                {
+                    Some(file.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Ok(files)
     }
 
     #[cfg(test)]
@@ -363,7 +361,7 @@ pub mod state_compute {
         async fn test_list_state_snapshot_files() {
             let files = list_state_snapshot_files().await.unwrap();
             println!("{files:?}");
-            assert!(!files.is_empty());
+            assert!(files.len() > 1);
             get_state_snapshot_file(&files[0]).await.unwrap();
         }
 
