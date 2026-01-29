@@ -7,7 +7,6 @@
 //! This means JSON like `{"/":"cid1", "/":"cid2"}` will keep only the last value, which can lead to unexpected behavior in RPC calls.
 
 use ahash::HashSet;
-use justjson::Value;
 
 pub const STRICT_JSON_ENV: &str = "FOREST_STRICT_JSON";
 
@@ -36,28 +35,22 @@ pub fn validate_json_for_duplicates(json_str: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    fn check_value(value: &Value) -> Result<(), String> {
-        match value {
-            Value::Object(obj) => {
+    fn check_value(value: &sonic_rs::Value) -> Result<(), String> {
+        match value.as_ref() {
+            sonic_rs::ValueRef::Object(obj) => {
                 let mut seen = HashSet::default();
-                for entry in obj.iter() {
-                    let key = entry
-                        .key
-                        .as_str()
-                        .ok_or_else(|| "Invalid JSON key".to_string())?;
-
+                for (key, value) in obj.iter() {
                     if !seen.insert(key) {
                         return Err(format!(
-                            "duplicate key '{}' in JSON object - this likely indicates malformed input. \
-                            Set {}=0 to disable this check",
-                            key, STRICT_JSON_ENV
+                            "duplicate key '{key}' in JSON object - this likely indicates malformed input. \
+                            Set {STRICT_JSON_ENV}=0 to disable this check"
                         ));
                     }
-                    check_value(&entry.value)?;
+                    check_value(value)?;
                 }
                 Ok(())
             }
-            Value::Array(arr) => {
+            sonic_rs::ValueRef::Array(arr) => {
                 for item in arr.iter() {
                     check_value(item)?;
                 }
@@ -67,7 +60,7 @@ pub fn validate_json_for_duplicates(json_str: &str) -> Result<(), String> {
         }
     }
     // defer to serde_json for invalid JSON
-    let value = match Value::from_json(json_str) {
+    let value: sonic_rs::Value = match sonic_rs::from_str(json_str) {
         Ok(v) => v,
         Err(_) => return Ok(()),
     };

@@ -194,12 +194,16 @@ pub mod state_compute {
         utils::net::{DownloadFileOption, download_file_with_cache},
     };
     use directories::ProjectDirs;
+    use sonic_rs::JsonValueTrait;
     use std::{
         path::{Path, PathBuf},
         sync::{Arc, LazyLock},
         time::{Duration, Instant},
     };
+    use tokio::io::AsyncReadExt;
     use url::Url;
+
+    const DO_SPACE_ROOT: &str = "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/";
 
     #[allow(dead_code)]
     pub async fn get_state_compute_snapshot(
@@ -210,11 +214,24 @@ pub mod state_compute {
     }
 
     #[allow(dead_code)]
+    async fn get_state_validate_snapshot(
+        chain: &NetworkChain,
+        epoch: i64,
+    ) -> anyhow::Result<PathBuf> {
+        get_state_snapshot(chain, "state_validate", epoch).await
+    }
+
+    #[allow(dead_code)]
     pub async fn get_state_snapshot(
         chain: &NetworkChain,
         bucket: &str,
         epoch: i64,
     ) -> anyhow::Result<PathBuf> {
+        let file = format!("{bucket}/{chain}_{epoch}.forest.car.zst");
+        get_state_snapshot_file(&file).await
+    }
+
+    pub async fn get_state_snapshot_file(file: &str) -> anyhow::Result<PathBuf> {
         static SNAPSHOT_CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
             let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest");
             project_dir
@@ -223,9 +240,7 @@ pub mod state_compute {
                 .join("state_compute_snapshots")
         });
 
-        let url = Url::parse(&format!(
-            "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/{bucket}/{chain}_{epoch}.forest.car.zst"
-        ))?;
+        let url = Url::parse(&format!("{DO_SPACE_ROOT}{file}"))?;
         Ok(crate::utils::retry(
             crate::utils::RetryArgs {
                 timeout: Some(Duration::from_secs(30)),
@@ -307,6 +322,32 @@ pub mod state_compute {
         Ok(())
     }
 
+    pub async fn list_state_snapshot_files() -> anyhow::Result<Vec<String>> {
+        let url = Url::parse(&format!("{DO_SPACE_ROOT}?format=json&prefix=state_"))?;
+        let mut json_str = String::new();
+        crate::utils::net::reader(url.as_str(), DownloadFileOption::NonResumable, None)
+            .await?
+            .read_to_string(&mut json_str)
+            .await?;
+        let obj: sonic_rs::Object = sonic_rs::from_str(&json_str)?;
+        let files = obj
+            .iter()
+            .filter_map(|(k, v)| {
+                if k == "Contents"
+                    && let sonic_rs::ValueRef::Array(arr) = v.as_ref()
+                    && let Some(first) = arr.first()
+                    && let Some(file) = first.as_str()
+                    && file.ends_with(".car.zst")
+                {
+                    Some(file.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Ok(files)
+    }
+
     #[cfg(test)]
     mod tests {
         //!
@@ -316,11 +357,12 @@ pub mod state_compute {
         use super::*;
         use crate::chain_sync::tipset_syncer::validate_tipset;
 
-        async fn get_state_validate_snapshot(
-            chain: &NetworkChain,
-            epoch: i64,
-        ) -> anyhow::Result<PathBuf> {
-            get_state_snapshot(chain, "state_validate", epoch).await
+        #[tokio::test(flavor = "multi_thread")]
+        async fn test_list_state_snapshot_files() {
+            let files = list_state_snapshot_files().await.unwrap();
+            println!("{files:?}");
+            assert!(files.len() > 1);
+            get_state_snapshot_file(&files[0]).await.unwrap();
         }
 
         // FVM@4
