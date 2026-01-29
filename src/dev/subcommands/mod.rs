@@ -6,6 +6,9 @@ mod state_cmd;
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::networks::generate_actor_bundle;
 use crate::rpc::Client;
+use crate::state_manager::utils::state_compute::{
+    get_state_snapshot_file, list_state_snapshot_files,
+};
 use crate::utils::net::{DownloadFileOption, download_file_with_cache};
 use crate::utils::proofs_api::ensure_proof_params_downloaded;
 use crate::utils::version::FOREST_VERSION_STRING;
@@ -63,8 +66,27 @@ async fn fetch_test_snapshots(actor_bundle: Option<PathBuf>) -> anyhow::Result<(
         println!("Wrote the actors bundle to {}", actor_bundle.display());
     }
 
+    // Prepare state computation and validation snapshots
+    fetch_state_tests().await?;
+
     // Prepare RPC test snapshots
-    fetch_rpc_tests().await
+    fetch_rpc_tests().await?;
+
+    Ok(())
+}
+
+pub async fn fetch_state_tests() -> anyhow::Result<()> {
+    let files = list_state_snapshot_files().await?;
+    let mut joinset = JoinSet::new();
+    for file in files {
+        joinset.spawn(async move { get_state_snapshot_file(&file).await });
+    }
+    for result in joinset.join_all().await {
+        if let Err(e) = result {
+            tracing::warn!("{e}");
+        }
+    }
+    Ok(())
 }
 
 async fn fetch_rpc_tests() -> anyhow::Result<()> {

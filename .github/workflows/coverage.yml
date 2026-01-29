@@ -51,7 +51,6 @@ jobs:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
       - uses: taiki-e/install-action@cargo-llvm-cov
-      - uses: taiki-e/install-action@nextest
       - name: Fetch proof params and RPC test snapshots
         run: |
           cargo run --bin forest-dev --no-default-features --profile quick -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
