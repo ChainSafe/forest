@@ -43,6 +43,8 @@
 
 - [#6490](https://github.com/ChainSafe/forest/pull/6490): Implemented `Filecoin.EthGetCode` for API v2.
 
+- [#6498](https://github.com/ChainSafe/forest/pull/6498): Implemented `Filecoin.EthGetBlockReceiptsLimited` for API v2.
+
 ### Changed
 
 - [#6471](https://github.com/ChainSafe/forest/pull/6471): Moved `forest-tool state` subcommand to `forest-dev`.
