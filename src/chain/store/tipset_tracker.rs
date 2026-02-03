@@ -115,6 +115,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
 #[cfg(test)]
 mod test {
     use crate::db::MemoryDB;
+    use itertools::Itertools as _;
 
     use super::*;
 
@@ -140,12 +141,7 @@ mod test {
 
         tipset_tracker.prune_entries(head_epoch);
 
-        let keys = tipset_tracker
-            .entries
-            .lock()
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>();
+        let keys = tipset_tracker.entries.lock().keys().cloned().collect_vec();
 
         assert_eq!(
             keys,

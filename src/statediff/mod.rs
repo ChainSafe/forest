@@ -28,6 +28,7 @@ use cid::Cid;
 use colored::*;
 use fvm_ipld_blockstore::Blockstore;
 use ipld_core::ipld::Ipld;
+use itertools::Itertools as _;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
 use similar::{ChangeTag, TextDiff};
@@ -97,11 +98,11 @@ fn try_print_actor_states<BS: Blockstore>(
                 let expected = expected_pp
                     .split(COMMA)
                     .map(|s| s.trim_start_matches('\n'))
-                    .collect::<Vec<&str>>();
+                    .collect_vec();
                 let calculated = calc_pp
                     .split(COMMA)
                     .map(|s| s.trim_start_matches('\n'))
-                    .collect::<Vec<&str>>();
+                    .collect_vec();
                 let diffs = TextDiff::from_slices(&expected, &calculated);
                 let stdout = stdout();
                 let mut handle = stdout.lock();

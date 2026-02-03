@@ -427,7 +427,7 @@ where
     /// Loads local messages to the message pool to be applied.
     pub fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write();
-        for k in local_msgs.iter().cloned().collect::<Vec<SignedMessage>>() {
+        for k in local_msgs.iter().cloned().collect_vec() {
             self.add(k.clone()).unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
