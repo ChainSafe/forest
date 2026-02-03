@@ -241,7 +241,7 @@ test_storage_multiple() {
         local f_slot_data=$(echo "$f_resp" | jq -r --arg a "$f_contract_lower" --arg s "$slot" '.result.stateDiff[$a].storage[$s] // null')
         local f_to_val=$(echo "$f_slot_data" | jq -r '.["*"].to // .["+"] // empty')
         local a_post_val=$(echo "$a_resp" | jq -r --arg a "$a_contract_lower" --arg s "$slot" '.result.post[$a].storage[$s] // empty')
-        
+
         local slot_short="${slot: -4}"
         assert_eq "Slot$slot_short" "$f_to_val" "$a_post_val"
     done

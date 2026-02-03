@@ -269,6 +269,7 @@ lotus_json_with_self!(EthInt64);
 
 impl EthHash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_cid(&self) -> cid::Cid {
         let mh = MultihashCode::Blake2b256
             .wrap(self.0.as_bytes())
@@ -636,7 +637,7 @@ impl Block {
                     &state_tree,
                     ctx.chain_config().eth_chain_id,
                 )?;
-                tx.block_hash = block_hash.clone();
+                tx.block_hash = block_hash;
                 tx.block_number = block_number;
                 tx.transaction_index = ti;
                 full_transactions.push(tx);
@@ -1505,11 +1506,11 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     msg_receipt: &Receipt,
 ) -> anyhow::Result<EthTxReceipt> {
     let mut tx_receipt = EthTxReceipt {
-        transaction_hash: tx.hash.clone(),
-        from: tx.from.clone(),
-        to: tx.to.clone(),
+        transaction_hash: tx.hash,
+        from: tx.from,
+        to: tx.to,
         transaction_index: tx.transaction_index,
-        block_hash: tx.block_hash.clone(),
+        block_hash: tx.block_hash,
         block_number: tx.block_number,
         r#type: tx.r#type,
         status: (msg_receipt.exit_code().is_success() as u64).into(),
@@ -1572,7 +1573,7 @@ pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + '
     tx_hash: &EthHash,
 ) -> anyhow::Result<Vec<EthLog>> {
     let spec = EthFilterSpec {
-        block_hash: Some(block_hash.clone()),
+        block_hash: Some(*block_hash),
         ..Default::default()
     };
 
@@ -3928,9 +3929,9 @@ where
                         result: trace.result,
                         error: trace.error,
                     },
-                    block_hash: block_hash.clone(),
+                    block_hash,
                     block_number: ts.epoch(),
-                    transaction_hash: tx_hash.clone(),
+                    transaction_hash: tx_hash,
                     transaction_position: msg_idx as i64,
                 });
             }
@@ -3976,9 +3977,10 @@ impl RpcMethod<3> for EthTraceCall {
             .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;
         let post_state = StateTree::new_from_root(ctx.store_owned(), &post_state_root)?;
 
-        let mut trace_results = EthTraceResults::default();
-
-        trace_results.output = get_trace_output(&msg, &invoke_result);
+        let mut trace_results = EthTraceResults {
+            output: get_trace_output(&msg, &invoke_result),
+            ..Default::default()
+        };
 
         // Extract touched addresses for state diff (do this before consuming exec_trace)
         let touched_addresses = invoke_result
@@ -3988,13 +3990,13 @@ impl RpcMethod<3> for EthTraceCall {
             .unwrap_or_default();
 
         // Build call traces if requested
-        if trace_types.contains(&EthTraceType::Trace) {
-            if let Some(exec_trace) = invoke_result.execution_trace {
-                let mut env = trace::base_environment(&post_state, &msg.from())
-                    .map_err(|e| anyhow::anyhow!("failed to create trace environment: {e}"))?;
-                trace::build_traces(&mut env, &[], exec_trace)?;
-                trace_results.trace = env.traces;
-            }
+        if trace_types.contains(&EthTraceType::Trace)
+            && let Some(exec_trace) = invoke_result.execution_trace
+        {
+            let mut env = trace::base_environment(&post_state, &msg.from())
+                .map_err(|e| anyhow::anyhow!("failed to create trace environment: {e}"))?;
+            trace::build_traces(&mut env, &[], exec_trace)?;
+            trace_results.trace = env.traces;
         }
 
         // Build state diff if requested
@@ -4032,10 +4034,6 @@ fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Option<Eth
 
     decode_payload(&return_data, CBOR).ok()
 }
-
-/// Maximum number of addresses to track in state diff (safety limit)
-static MAX_STATE_DIFF_ADDRESSES: LazyLock<usize> =
-    LazyLock::new(|| env_or_default("FOREST_TRACE_STATE_DIFF_MAX_ADDRESSES", 1000));
 
 /// Extract all unique Ethereum addresses touched during execution from the trace.
 fn extract_touched_eth_addresses(trace: &crate::rpc::state::ExecutionTrace) -> HashSet<EthAddress> {
@@ -4206,7 +4204,7 @@ where
                 output: get_output(),
                 state_diff: None,
                 trace: env.traces.clone(),
-                transaction_hash: tx_hash.clone(),
+                transaction_hash: tx_hash,
                 vm_trace: None,
             });
         };

@@ -11,7 +11,7 @@ use super::{
 };
 use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::eth::types::{AccountDiff, Delta, StateDiff};
-use crate::rpc::eth::{EthBigInt, EthUint64, MAX_STATE_DIFF_ADDRESSES};
+use crate::rpc::eth::{EthBigInt, EthUint64};
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::ExecutionTrace;
 use crate::rpc::state::ActorTrace;
@@ -302,7 +302,7 @@ fn trace_call(
             r#type: "call".into(),
             action: TraceAction::Call(EthCallTraceAction {
                 call_type,
-                from: env.caller.clone(),
+                from: env.caller,
                 to: Some(to),
                 gas: trace.msg.gas_limit.unwrap_or_default().into(),
                 value: trace.msg.value.clone().into(),
@@ -434,7 +434,7 @@ fn trace_native_create(
         Some(EthTrace {
             r#type: "create".into(),
             action: TraceAction::Create(EthCreateTraceAction {
-                from: env.caller.clone(),
+                from: env.caller,
                 gas: trace.msg.gas_limit.unwrap_or_default().into(),
                 value: trace.msg.value.clone().into(),
                 // If we get here, this isn't a native EVM create. Those always go through
@@ -544,7 +544,7 @@ fn trace_eth_create(
         Some(EthTrace {
             r#type: "create".into(),
             action: TraceAction::Create(EthCreateTraceAction {
-                from: env.caller.clone(),
+                from: env.caller,
                 gas: trace.msg.gas_limit.unwrap_or_default().into(),
                 value: trace.msg.value.clone().into(),
                 init: init_code.into(),
@@ -634,8 +634,8 @@ fn trace_evm_private(
                     r#type: "call".into(),
                     action: TraceAction::Call(EthCallTraceAction {
                         call_type: "delegatecall".into(),
-                        from: env.caller.clone(),
-                        to: env.last_byte_code.clone(),
+                        from: env.caller,
+                        to: env.last_byte_code,
                         gas: trace.msg.gas_limit.unwrap_or_default().into(),
                         value: trace.msg.value.clone().into(),
                         input: dp.input.into(),
@@ -668,13 +668,7 @@ pub(crate) fn build_state_diff<S: Blockstore, T: Blockstore>(
 ) -> anyhow::Result<StateDiff> {
     let mut state_diff = StateDiff::new();
 
-    // Limit the number of addresses for safety
-    let addresses: Vec<_> = touched_addresses
-        .iter()
-        .take(*MAX_STATE_DIFF_ADDRESSES)
-        .collect();
-
-    for eth_addr in addresses {
+    for eth_addr in touched_addresses {
         let fil_addr = eth_addr.to_filecoin_address()?;
 
         // Get actor state before and after
@@ -913,10 +907,10 @@ mod tests {
 
     fn get_evm_actor_code_cid() -> Option<Cid> {
         for bundle in ACTOR_BUNDLES_METADATA.values() {
-            if bundle.actor_major_version().ok() == Some(17) {
-                if let Ok(cid) = bundle.manifest.get(BuiltinActor::EVM) {
-                    return Some(cid);
-                }
+            if bundle.actor_major_version().ok() == Some(17)
+                && let Ok(cid) = bundle.manifest.get(BuiltinActor::EVM)
+            {
+                return Some(cid);
             }
         }
         None

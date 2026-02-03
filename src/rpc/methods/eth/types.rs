@@ -131,6 +131,7 @@ impl GetSize for EthAddress {
 }
 
 impl EthAddress {
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_filecoin_address(&self) -> anyhow::Result<FilecoinAddress> {
         if self.is_masked_id() {
             const PREFIX_LEN: usize = MASKED_ID_PREFIX.len();
@@ -722,16 +723,15 @@ impl EthTrace {
         to_decoded_addresses: &Option<EthAddressList>,
     ) -> Result<bool> {
         let (trace_to, trace_from) = match &self.action {
-            TraceAction::Call(action) => (action.to.clone(), action.from.clone()),
+            TraceAction::Call(action) => (action.to, action.from),
             TraceAction::Create(action) => {
                 let address = match &self.result {
                     TraceResult::Create(result) => result
                         .address
-                        .clone()
                         .ok_or_else(|| anyhow::anyhow!("address is nil in create trace result"))?,
                     _ => bail!("invalid create trace result"),
                 };
-                (Some(address), action.from.clone())
+                (Some(address), action.from)
             }
         };
 
@@ -766,10 +766,11 @@ pub struct ChangedType<T> {
 
 /// Represents how a value changed during transaction execution.
 // Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/parity.rs#L84
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum Delta<T> {
     /// Existing value didn't change.
     #[serde(rename = "=")]
+    #[default]
     Unchanged,
     /// A new value was added (account/storage created).
     #[serde(rename = "+")]
@@ -780,12 +781,6 @@ pub enum Delta<T> {
     /// The existing value changed from one value to another.
     #[serde(rename = "*")]
     Changed(ChangedType<T>),
-}
-
-impl<T> Default for Delta<T> {
-    fn default() -> Self {
-        Delta::Unchanged
-    }
 }
 
 impl<T: PartialEq> Delta<T> {
