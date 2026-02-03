@@ -168,13 +168,15 @@ impl PeerManager {
     /// duration.
     pub fn log_failure(&self, peer: &PeerId, dur: Duration) {
         trace!("logging failure for {peer}");
-        let mut peers = self.peers.write();
-        if !peers.bad_peers.contains(peer) {
-            metrics::PEER_FAILURE_TOTAL.inc();
-            let peer_stats = peers.full_peers.entry(*peer).or_default();
-            peer_stats.failures += 1;
-            log_time(peer_stats, dur);
+        if self.peers.read().bad_peers.contains(peer) {
+            return;
         }
+
+        metrics::PEER_FAILURE_TOTAL.inc();
+        let mut peers = self.peers.write();
+        let peer_stats = peers.full_peers.entry(*peer).or_default();
+        peer_stats.failures += 1;
+        log_time(peer_stats, dur);
     }
 
     /// Removes a peer from the set and returns true if the value was present

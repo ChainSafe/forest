@@ -234,12 +234,14 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
 
                 // Update the sync states
                 {
-                    let mut status_report_guard = sync_status.write();
-                    status_report_guard.update(
+                    let old_status_report = sync_status.read().clone();
+                    let new_status_report = old_status_report.update(
                         &state_manager,
                         current_active_forks,
                         stateless_mode,
                     );
+
+                    sync_status.write().clone_from(&new_status_report);
                 }
 
                 for task in task_vec {

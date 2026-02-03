@@ -13,6 +13,11 @@ use crate::rpc::f3::F3IsRunning;
 /// Query parameter for verbose responses
 const VERBOSE_PARAM: &str = "verbose";
 
+/// Maximum duration to wait for a request to complete. This value is kind of arbitrary, we need
+/// the health probes to be snappy and unless running on a very slow machine, 2 seconds should be
+/// plenty of time for a localhost check.
+const MAX_REQ_DURATION_SECS: u64 = 2;
+
 /// Liveness probes determine whether or not an application running in a container is in a healthy state. The idea behind a liveness probe is that it fails for prolonged period of time, then the application should be restarted.
 /// In our case, we require:
 /// - The node is not in an error state (i.e., boot-looping)
@@ -136,9 +141,12 @@ async fn check_rpc_server_running(state: &ForestState, acc: &mut MessageAccumula
     if !state.config.client.enable_rpc {
         acc.push_ok("rpc server disabled");
         true
-    } else if tokio::net::TcpStream::connect(state.config.client.rpc_address)
-        .await
-        .is_ok()
+    } else if tokio::time::timeout(
+        std::time::Duration::from_secs(MAX_REQ_DURATION_SECS),
+        tokio::net::TcpStream::connect(state.config.client.rpc_address),
+    )
+    .await
+    .is_ok_and(|connected| connected.is_ok())
     {
         acc.push_ok("rpc server running");
         true
@@ -163,7 +171,13 @@ async fn check_f3_running(state: &ForestState, acc: &mut MessageAccumulator) -> 
     if !crate::f3::is_sidecar_ffi_enabled(&state.chain_config) {
         acc.push_ok("f3 disabled");
         true
-    } else if F3IsRunning::is_f3_running().await.unwrap_or_default() {
+    } else if tokio::time::timeout(
+        std::time::Duration::from_secs(MAX_REQ_DURATION_SECS),
+        F3IsRunning::is_f3_running(),
+    )
+    .await
+    .is_ok_and(|is_running| is_running.unwrap_or_default())
+    {
         acc.push_ok("f3 running");
         true
     } else if crate::f3::get_f3_sidecar_params(&state.chain_config).bootstrap_epoch
