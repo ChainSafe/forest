@@ -11,7 +11,6 @@ use crate::shim::{address::Address, econ::TokenAmount};
 
 use ahash::{HashMap, HashSet};
 use clap::Subcommand;
-use itertools::Itertools as _;
 use num::BigInt;
 
 #[derive(Debug, Subcommand)]
@@ -286,6 +285,7 @@ mod tests {
     use crate::message::{Message, SignedMessage};
     use crate::message_pool::tests::create_smsg;
     use crate::shim::crypto::SignatureType;
+    use itertools::Itertools as _;
     use std::borrow::BorrowMut;
 
     #[test]

@@ -9,7 +9,6 @@ use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools as _;
 use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use tracing::{debug, warn};
@@ -116,6 +115,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
 #[cfg(test)]
 mod test {
     use crate::db::MemoryDB;
+    use itertools::Itertools as _;
 
     use super::*;
 

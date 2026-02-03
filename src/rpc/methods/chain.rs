@@ -38,7 +38,6 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use ipld_core::ipld::Ipld;
-use itertools::Itertools as _;
 use jsonrpsee::types::Params;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use num::BigInt;
@@ -1562,6 +1561,7 @@ mod tests {
         networks::{self, ChainConfig},
     };
     use PathChange::{Apply, Revert};
+    use itertools::Itertools as _;
     use std::sync::Arc;
 
     #[test]

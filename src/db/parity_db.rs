@@ -12,7 +12,6 @@ use cid::Cid;
 use futures::FutureExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
-use itertools::Itertools as _;
 use parity_db::{CompressionType, Db, Operation, Options};
 use parking_lot::RwLock;
 use std::path::PathBuf;
@@ -398,6 +397,7 @@ mod test {
     use super::*;
     use crate::db::{BlockstoreWriteOpsSubscribable, tests::db_utils::parity::TempParityDB};
     use fvm_ipld_encoding::IPLD_RAW;
+    use itertools::Itertools as _;
     use nom::AsBytes;
     use std::ops::Deref;
 
