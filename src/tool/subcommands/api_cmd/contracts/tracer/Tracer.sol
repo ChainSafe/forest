@@ -2,8 +2,15 @@
 pragma solidity ^0.8.30;
 
 contract Tracer {
-    uint256 public x;
-    mapping(address => uint256) public balances;
+    uint256 public x; // slot 0 - initialized to 42
+    mapping(address => uint256) public balances; // slot 1 - mapping base
+
+    // Storage slots for stateDiff testing (uninitialized = start empty)
+    uint256 public storageTestA; // slot 2 - for add/change/delete tests
+    uint256 public storageTestB; // slot 3 - for multiple slot tests
+    uint256 public storageTestC; // slot 4 - for multiple slot tests
+    uint256[] public dynamicArray; // slot 5 - for array storage tests
+
     event Transfer(address indexed from, address indexed to, uint256 value);
 
     constructor() payable {
@@ -225,5 +232,84 @@ contract Tracer {
         );
         require(ok, "nested call failed");
         return abi.decode(result, (uint256));
+    }
+
+    // ========== STORAGE DIFF TEST FUNCTIONS ==========
+    // These functions test stateDiff storage tracking:
+    // - Added (+): Write non-zero to empty slot (slot was 0)
+    // - Changed (*): Change non-zero to different non-zero
+    // - Removed (-): Set non-zero slot to 0
+
+    // 16. Storage Add - Write to empty slot
+    // First call creates "Added" (+) entry in stateDiff.storage
+    function storageAdd(uint256 value) external {
+        require(value != 0, "use non-zero for add test");
+        storageTestA = value;
+    }
+
+    // 17. Storage Change - Modify existing slot
+    // Creates "Changed" (*) entry in stateDiff.storage
+    function storageChange(uint256 newValue) external {
+        require(storageTestA != 0, "slot must have value first");
+        require(
+            newValue != 0 && newValue != storageTestA,
+            "use different non-zero"
+        );
+        storageTestA = newValue;
+    }
+
+    // 18. Storage Delete - Set slot to zero
+    // Creates "Removed" (-) entry in stateDiff.storage
+    function storageDelete() external {
+        require(storageTestA != 0, "slot must have value first");
+        storageTestA = 0;
+    }
+
+    // 19. Storage Multiple - Change multiple slots in one call
+    // Useful for testing multiple storage entries in stateDiff
+    function storageMultiple(uint256 a, uint256 b, uint256 c) external {
+        storageTestA = a;
+        storageTestB = b;
+        storageTestC = c;
+    }
+
+    // 20. Storage Mixed - Add, Change, and Delete in one call
+    // Requires: storageTestA has value, storageTestB is empty
+    function storageMixed(uint256 newA, uint256 newC) external {
+        // Change existing (storageTestA should have value)
+        storageTestA = newA;
+        // Delete (set to 0)
+        storageTestB = 0;
+        // Add new value
+        storageTestC = newC;
+    }
+
+    // 21. Array Push - Adds new storage slot
+    // Dynamic arrays use keccak256(slot) + index for element storage
+    function arrayPush(uint256 value) external {
+        dynamicArray.push(value);
+    }
+
+    // 22. Array Pop - Removes storage slot (sets to 0)
+    function arrayPop() external {
+        require(dynamicArray.length > 0, "array is empty");
+        dynamicArray.pop();
+    }
+
+    // 23. Reset storage test slots to initial state (all zeros)
+    function storageReset() external {
+        storageTestA = 0;
+        storageTestB = 0;
+        storageTestC = 0;
+        delete dynamicArray;
+    }
+
+    // 24. Get storage test values (for verification)
+    function getStorageTestValues()
+        external
+        view
+        returns (uint256, uint256, uint256, uint256)
+    {
+        return (storageTestA, storageTestB, storageTestC, dynamicArray.length);
     }
 }

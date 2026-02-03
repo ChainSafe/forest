@@ -1,32 +1,66 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::types::{EthAddress, EthBytes, EthCallTraceAction, EthTrace, TraceAction, TraceResult};
+use super::types::{
+    EthAddress, EthBytes, EthCallTraceAction, EthHash, EthTrace, TraceAction, TraceResult,
+};
 use super::utils::{decode_params, decode_return};
 use super::{
     EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult, decode_payload,
     encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
 };
 use crate::eth::{EAMMethod, EVMMethod};
+use crate::rpc::eth::types::{AccountDiff, Delta, StateDiff};
+use crate::rpc::eth::{EthBigInt, EthUint64, MAX_STATE_DIFF_ADDRESSES};
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::ExecutionTrace;
 use crate::rpc::state::ActorTrace;
+use crate::shim::actors::{EVMActorStateLoad, evm};
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
+use crate::shim::state_tree::ActorState;
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
-use ahash::HashSet;
+use ahash::{HashMap, HashSet};
+use anyhow::{Context, bail};
 use fil_actor_eam_state::v12 as eam12;
+use fil_actor_evm_state::evm_shared::v17::uints::U256;
 use fil_actor_evm_state::v15 as evm12;
 use fil_actor_init_state::v12::ExecReturn;
 use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
-
-use crate::rpc::eth::types::{AccountDiff, Delta, StateDiff};
-use crate::rpc::eth::{EthBigInt, EthUint64, MAX_STATE_DIFF_ADDRESSES};
-use crate::shim::actors::{EVMActorStateLoad, evm};
-use crate::shim::state_tree::ActorState;
-use anyhow::{Context, bail};
+use fvm_ipld_kamt::{AsHashedKey, Config as KamtConfig, HashedKey, Kamt};
 use num::FromPrimitive;
+use std::borrow::Cow;
+use std::collections::BTreeMap;
 use tracing::debug;
+
+/// KAMT configuration matching the EVM actor in builtin-actors.
+// Code is taken from: https://github.com/filecoin-project/builtin-actors/blob/v17.0.0/actors/evm/src/interpreter/system.rs#L47
+fn evm_kamt_config() -> KamtConfig {
+    KamtConfig {
+        bit_width: 5,       // 32 children per node (2^5)
+        min_data_depth: 0,  // Data can be stored at root level
+        max_array_width: 1, // Max 1 key-value pair per bucket
+    }
+}
+
+/// Hash algorithm for EVM storage KAMT.
+// Code taken from: https://github.com/filecoin-project/builtin-actors/blob/v17.0.0/actors/evm/src/interpreter/system.rs#L49.
+pub struct EvmStateHashAlgorithm;
+
+impl AsHashedKey<U256, 32> for EvmStateHashAlgorithm {
+    fn as_hashed_key(key: &U256) -> Cow<'_, HashedKey<32>> {
+        Cow::Owned(key.to_big_endian())
+    }
+}
+
+/// Type alias for EVM storage KAMT with configuration.
+type EvmStorageKamt<BS> = Kamt<BS, U256, U256, EvmStateHashAlgorithm>;
+
+fn u256_to_eth_hash(value: &U256) -> EthHash {
+    EthHash(ethereum_types::H256(value.to_big_endian()))
+}
+
+const ZERO_HASH: EthHash = EthHash(ethereum_types::H256([0u8; 32]));
 
 #[derive(Default)]
 pub struct Environment {
@@ -687,15 +721,13 @@ fn build_account_diff<DB: Blockstore>(
         }
     };
 
-    // Helper to get bytecode from EVM actor
+    // Helper to get bytecode from an EVM actor
     let get_bytecode = |actor: &ActorState| -> Option<EthBytes> {
         if !is_evm_actor(&actor.code) {
             return None;
         }
 
-        // Load EVM state and get bytecode CID
         let evm_state = evm::State::load(store, actor.code, actor.state).ok()?;
-        // Load actual bytecode from blockstore
         store
             .get(&evm_state.bytecode())
             .ok()
@@ -713,9 +745,144 @@ fn build_account_diff<DB: Blockstore>(
     let post_code = post_actor.and_then(get_bytecode);
     diff.code = Delta::from_comparison(pre_code, post_code);
 
-    // TODO: implement EVM storage slot comparison
+    // Compare storage slots for EVM actors
+    diff.storage = diff_evm_storage_for_actors(store, pre_actor, post_actor)?;
 
     Ok(diff)
+}
+
+/// Compute storage diff between pre and post actor states.
+///
+/// Uses different Delta types based on the scenario:
+/// - Account created (None → EVM): storage slots are `Delta::Added`
+/// - Account deleted (EVM → None): storage slots are `Delta::Removed`
+/// - Account modified (EVM → EVM): storage slots are `Delta::Changed`
+/// - Actor type changed (EVM ↔ non-EVM): treated as deletion + creation
+fn diff_evm_storage_for_actors<DB: Blockstore>(
+    store: &DB,
+    pre_actor: Option<&ActorState>,
+    post_actor: Option<&ActorState>,
+) -> anyhow::Result<BTreeMap<EthHash, Delta<EthHash>>> {
+    let pre_is_evm = pre_actor.is_some_and(|a| is_evm_actor(&a.code));
+    let post_is_evm = post_actor.is_some_and(|a| is_evm_actor(&a.code));
+
+    // Extract storage entries from EVM actors (empty map for non-EVM or missing actors)
+    let pre_entries = extract_evm_storage_entries(store, pre_actor);
+    let post_entries = extract_evm_storage_entries(store, post_actor);
+
+    // If both are empty, no storage diff
+    if pre_entries.is_empty() && post_entries.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let mut diff = BTreeMap::new();
+
+    match (pre_is_evm, post_is_evm) {
+        (false, true) => {
+            for (key_bytes, value) in &post_entries {
+                let key_hash = EthHash(ethereum_types::H256(*key_bytes));
+                diff.insert(key_hash, Delta::Added(u256_to_eth_hash(value)));
+            }
+        }
+        (true, false) => {
+            for (key_bytes, value) in &pre_entries {
+                let key_hash = EthHash(ethereum_types::H256(*key_bytes));
+                diff.insert(key_hash, Delta::Removed(u256_to_eth_hash(value)));
+            }
+        }
+        (true, true) => {
+            for (key_bytes, pre_value) in &pre_entries {
+                let key_hash = EthHash(ethereum_types::H256(*key_bytes));
+                let pre_hash = u256_to_eth_hash(pre_value);
+
+                match post_entries.get(key_bytes) {
+                    Some(post_value) if pre_value != post_value => {
+                        // Value changed
+                        diff.insert(
+                            key_hash,
+                            Delta::Changed(super::types::ChangedType {
+                                from: pre_hash,
+                                to: u256_to_eth_hash(post_value),
+                            }),
+                        );
+                    }
+                    Some(_) => {
+                        // Value unchanged, skip
+                    }
+                    None => {
+                        // Slot cleared (value → zero)
+                        diff.insert(
+                            key_hash,
+                            Delta::Changed(super::types::ChangedType {
+                                from: pre_hash,
+                                to: ZERO_HASH,
+                            }),
+                        );
+                    }
+                }
+            }
+
+            // Check for newly written entries (zero → value)
+            for (key_bytes, post_value) in &post_entries {
+                if !pre_entries.contains_key(key_bytes) {
+                    let key_hash = EthHash(ethereum_types::H256(*key_bytes));
+                    diff.insert(
+                        key_hash,
+                        Delta::Changed(super::types::ChangedType {
+                            from: ZERO_HASH,
+                            to: u256_to_eth_hash(post_value),
+                        }),
+                    );
+                }
+            }
+        }
+        // Neither EVM: no storage diff
+        (false, false) => {}
+    }
+
+    Ok(diff)
+}
+
+/// Extract all storage entries from an EVM actor's KAMT.
+/// Returns empty map if actor is None, not an EVM actor, or state cannot be loaded.
+fn extract_evm_storage_entries<DB: Blockstore>(
+    store: &DB,
+    actor: Option<&ActorState>,
+) -> HashMap<[u8; 32], U256> {
+    let actor = match actor {
+        Some(a) if is_evm_actor(&a.code) => a,
+        _ => return HashMap::default(),
+    };
+
+    let evm_state = match evm::State::load(store, actor.code, actor.state) {
+        Ok(state) => state,
+        Err(e) => {
+            debug!("failed to load EVM state for storage extraction: {e}");
+            return HashMap::default();
+        }
+    };
+
+    let storage_cid = evm_state.contract_state();
+    let config = evm_kamt_config();
+
+    let kamt: EvmStorageKamt<&DB> = match Kamt::load_with_config(&storage_cid, store, config) {
+        Ok(k) => k,
+        Err(e) => {
+            debug!("failed to load storage KAMT: {e}");
+            return HashMap::default();
+        }
+    };
+
+    let mut entries = HashMap::default();
+    if let Err(e) = kamt.for_each(|key, value| {
+        entries.insert(key.to_big_endian(), *value);
+        Ok(())
+    }) {
+        debug!("failed to iterate storage KAMT: {e}");
+        return HashMap::default();
+    }
+
+    entries
 }
 
 #[cfg(test)]

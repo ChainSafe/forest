@@ -843,10 +843,6 @@ impl StateDiff {
         Self(BTreeMap::new())
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
     pub fn insert_if_changed(&mut self, addr: EthAddress, diff: AccountDiff) {
         if !diff.is_unchanged() {
             self.0.insert(addr, diff);
