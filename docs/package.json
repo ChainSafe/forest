@@ -24,7 +24,7 @@
     "@docusaurus/core": "^3.9.2",
     "@docusaurus/preset-classic": "^3.9.2",
     "@docusaurus/theme-mermaid": "^3.9.2",
-    "@easyops-cn/docusaurus-search-local": "^0.52.2",
+    "@easyops-cn/docusaurus-search-local": "^0.52.3",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.12.2",
     "prettier": "^3.8.0",
