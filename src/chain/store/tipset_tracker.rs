@@ -9,6 +9,7 @@ use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools as _;
 use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use tracing::{debug, warn};
@@ -140,12 +141,7 @@ mod test {
 
         tipset_tracker.prune_entries(head_epoch);
 
-        let keys = tipset_tracker
-            .entries
-            .lock()
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>();
+        let keys = tipset_tracker.entries.lock().keys().cloned().collect_vec();
 
         assert_eq!(
             keys,

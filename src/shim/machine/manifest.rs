@@ -41,7 +41,7 @@ impl Serialize for BuiltinActorManifest {
             .builtin2cid
             .iter()
             .map(|(&k, v)| (k.name(), k as i32, v.to_string()))
-            .collect::<Vec<_>>();
+            .collect_vec();
         let actor_list_cid = self.actor_list_cid.to_string();
         let mut map = serializer.serialize_map(Some(2))?;
         map.serialize_entry("actors", &builtin2cid)?;

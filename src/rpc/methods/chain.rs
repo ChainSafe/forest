@@ -38,6 +38,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use ipld_core::ipld::Ipld;
+use itertools::Itertools as _;
 use jsonrpsee::types::Params;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use num::BigInt;
@@ -1758,7 +1759,7 @@ mod tests {
                 PathChange::Revert(it) => PathChange::Revert(it.make_tipset()),
                 PathChange::Apply(it) => PathChange::Apply(it.make_tipset()),
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         if expected != actual {
             println!("SUMMARY");
             println!("=======");

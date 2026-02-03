@@ -12,6 +12,7 @@ use cid::Cid;
 use futures::FutureExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
+use itertools::Itertools as _;
 use parity_db::{CompressionType, Db, Operation, Options};
 use parking_lot::RwLock;
 use std::path::PathBuf;
@@ -502,7 +503,7 @@ mod test {
                 entry.push(255);
                 entry
             })
-            .collect::<Vec<Vec<u8>>>();
+            .collect_vec();
 
         let cids = [
             Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data[0])),

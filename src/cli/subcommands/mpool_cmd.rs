@@ -11,6 +11,7 @@ use crate::shim::{address::Address, econ::TokenAmount};
 
 use ahash::{HashMap, HashSet};
 use clap::Subcommand;
+use itertools::Itertools as _;
 use num::BigInt;
 
 #[derive(Debug, Subcommand)]
@@ -300,7 +301,7 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        let smsg_json_vec = smsg_vec.clone().into_iter().collect::<Vec<_>>();
+        let smsg_json_vec = smsg_vec.clone().into_iter().collect_vec();
 
         // No filtering is set up
         let smsg_filtered: Vec<SignedMessage> = filter_messages(smsg_json_vec, None, &None, &None)
