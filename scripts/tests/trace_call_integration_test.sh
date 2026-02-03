@@ -2,12 +2,10 @@
 set -e
 
 DEPLOY_CONTRACT=false
-VERBOSE=false
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --deploy)  DEPLOY_CONTRACT=true; shift ;;
-        --verbose) VERBOSE=true; shift ;;
-        *) echo "Usage: $0 [--deploy] [--verbose]"; exit 1 ;;
+        --deploy) DEPLOY_CONTRACT=true; shift ;;
+        *) echo "Usage: $0 [--deploy]"; exit 1 ;;
     esac
 done
 
@@ -18,6 +16,7 @@ FOREST_ACCOUNT="${FOREST_ACCOUNT:-0xb7aa1e9c847cda5f60f1ae6f65c3eae44848d41f}"
 FOREST_CONTRACT="${FOREST_CONTRACT:-0x73a43475aa2ccb14246613708b399f4b2ba546c7}"
 ANVIL_ACCOUNT="${ANVIL_ACCOUNT:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}"
 ANVIL_CONTRACT="${ANVIL_CONTRACT:-0x5FbDB2315678afecb367f032d93F642f64180aa3}"
+# -- This private key is of anvil dev node --
 ANVIL_PRIVATE_KEY="${ANVIL_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
 
 GREEN='\033[0;32m' RED='\033[0;31m' BLUE='\033[0;34m' YELLOW='\033[0;33m' NC='\033[0m'
@@ -114,8 +113,6 @@ test_trace() {
     local a_params="[{\"from\":\"$ANVIL_ACCOUNT\",\"to\":\"$ANVIL_CONTRACT\",\"data\":\"$data\"},\"latest\",{\"tracer\":\"callTracer\"}]"
     local a_resp=$(call_rpc "$ANVIL_RPC_URL" "debug_traceCall" "$a_params")
 
-    [[ "$VERBOSE" = true ]] && echo -e "${YELLOW}Forest:${NC} $f_resp\n${YELLOW}Anvil:${NC} $a_resp"
-
     local f_input=$(echo "$f_resp" | jq -r '.result.trace[0].action.input')
     local a_input=$(echo "$a_resp" | jq -r '.result.input')
     assert_eq "Input" "$f_input" "$a_input"
@@ -153,8 +150,6 @@ test_balance_diff() {
     local a_params="[{\"from\":\"$ANVIL_ACCOUNT\",\"to\":\"$ANVIL_CONTRACT\",\"data\":\"$data\",\"value\":\"$value\"},\"latest\",{\"tracer\":\"prestateTracer\",\"tracerConfig\":{\"diffMode\":true}}]"
     local a_resp=$(call_rpc "$ANVIL_RPC_URL" "debug_traceCall" "$a_params")
 
-    [[ "$VERBOSE" = true ]] && echo -e "${YELLOW}Forest:${NC} $f_resp\n${YELLOW}Anvil:${NC} $a_resp"
-
     local f_contract_lower=$(echo "$FOREST_CONTRACT" | tr '[:upper:]' '[:lower:]')
     local a_contract_lower=$(echo "$ANVIL_CONTRACT" | tr '[:upper:]' '[:lower:]')
 
@@ -180,8 +175,6 @@ test_storage_diff() {
 
     local a_params="[{\"from\":\"$ANVIL_ACCOUNT\",\"to\":\"$ANVIL_CONTRACT\",\"data\":\"$data\"},\"latest\",{\"tracer\":\"prestateTracer\",\"tracerConfig\":{\"diffMode\":true}}]"
     local a_resp=$(call_rpc "$ANVIL_RPC_URL" "debug_traceCall" "$a_params")
-
-    [[ "$VERBOSE" = true ]] && echo -e "${YELLOW}Forest:${NC} $f_resp\n${YELLOW}Anvil:${NC} $a_resp"
 
     local f_contract_lower=$(echo "$FOREST_CONTRACT" | tr '[:upper:]' '[:lower:]')
     local a_contract_lower=$(echo "$ANVIL_CONTRACT" | tr '[:upper:]' '[:lower:]')
@@ -227,8 +220,6 @@ test_storage_multiple() {
 
     local a_params="[{\"from\":\"$ANVIL_ACCOUNT\",\"to\":\"$ANVIL_CONTRACT\",\"data\":\"$data\"},\"latest\",{\"tracer\":\"prestateTracer\",\"tracerConfig\":{\"diffMode\":true}}]"
     local a_resp=$(call_rpc "$ANVIL_RPC_URL" "debug_traceCall" "$a_params")
-
-    [[ "$VERBOSE" = true ]] && echo -e "${YELLOW}Forest:${NC} $f_resp\n${YELLOW}Anvil:${NC} $a_resp"
 
     local f_contract_lower=$(echo "$FOREST_CONTRACT" | tr '[:upper:]' '[:lower:]')
     local a_contract_lower=$(echo "$ANVIL_CONTRACT" | tr '[:upper:]' '[:lower:]')
