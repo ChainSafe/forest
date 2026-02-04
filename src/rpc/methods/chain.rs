@@ -1561,6 +1561,7 @@ mod tests {
         networks::{self, ChainConfig},
     };
     use PathChange::{Apply, Revert};
+    use itertools::Itertools as _;
     use std::sync::Arc;
 
     #[test]
@@ -1758,7 +1759,7 @@ mod tests {
                 PathChange::Revert(it) => PathChange::Revert(it.make_tipset()),
                 PathChange::Apply(it) => PathChange::Apply(it.make_tipset()),
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         if expected != actual {
             println!("SUMMARY");
             println!("=======");

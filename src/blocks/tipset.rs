@@ -102,7 +102,7 @@ impl TipsetKey {
         self.to_cids()
             .into_iter()
             .map(terse_cid)
-            .collect::<Vec<_>>()
+            .collect_vec()
             .join(", ")
     }
 
@@ -127,7 +127,7 @@ impl fmt::Display for TipsetKey {
             .to_cids()
             .into_iter()
             .map(|cid| cid.to_string())
-            .collect::<Vec<_>>()
+            .collect_vec()
             .join(", ");
         write!(f, "[{s}]")
     }

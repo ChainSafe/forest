@@ -397,6 +397,7 @@ mod test {
     use super::*;
     use crate::db::{BlockstoreWriteOpsSubscribable, tests::db_utils::parity::TempParityDB};
     use fvm_ipld_encoding::IPLD_RAW;
+    use itertools::Itertools as _;
     use nom::AsBytes;
     use std::ops::Deref;
 
@@ -502,7 +503,7 @@ mod test {
                 entry.push(255);
                 entry
             })
-            .collect::<Vec<Vec<u8>>>();
+            .collect_vec();
 
         let cids = [
             Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data[0])),
