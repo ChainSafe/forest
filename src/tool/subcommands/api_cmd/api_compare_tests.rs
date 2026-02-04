@@ -2404,6 +2404,18 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         // requests with After and Count"
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(
+            EthTraceFilterV2::request((EthTraceFilterCriteria {
+                from_block: Some(format!(
+                    "0x{:x}",
+                    shared_tipset.epoch() - (SAFE_EPOCH_DELAY + 1)
+                )),
+                to_block: Some(format!("0x{:x}", shared_tipset.epoch() - SAFE_EPOCH_DELAY)),
+                ..Default::default()
+            },))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(
             EthGetTransactionReceipt::request((
                 // A transaction that should not exist, to test the `null` response in case
                 // of missing transaction.

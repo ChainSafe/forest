@@ -4080,6 +4080,22 @@ fn get_eth_block_number_from_string<DB: Blockstore>(
     ))
 }
 
+async fn get_eth_block_number_from_string_v2<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    block: Option<&str>,
+    resolve: ResolveNullTipset,
+) -> Result<EthUint64> {
+    let block_param = match block {
+        Some(block_str) => ExtBlockNumberOrHash::from_str(block_str)?,
+        None => bail!("cannot parse fromBlock"),
+    };
+    Ok(EthUint64(
+        tipset_by_block_number_or_hash_v2(ctx, block_param, resolve)
+            .await?
+            .epoch() as u64,
+    ))
+}
+
 pub enum EthTraceFilter {}
 impl RpcMethod<1> for EthTraceFilter {
     const N_REQUIRED_PARAMS: usize = 1;
@@ -4109,6 +4125,53 @@ impl RpcMethod<1> for EthTraceFilter {
             filter.to_block.as_deref(),
             ResolveNullTipset::TakeOlder,
         )
+        .context("cannot parse toBlock")?;
+
+        Ok(trace_filter(ctx, filter, from_block, to_block)
+            .await?
+            .into_iter()
+            .sorted_by_key(|trace| {
+                (
+                    trace.block_number,
+                    trace.transaction_position,
+                    trace.trace.trace_address.clone(),
+                )
+            })
+            .collect::<Vec<_>>())
+    }
+}
+
+pub enum EthTraceFilterV2 {}
+impl RpcMethod<1> for EthTraceFilterV2 {
+    const N_REQUIRED_PARAMS: usize = 1;
+    const NAME: &'static str = "Filecoin.EthTraceFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_filter");
+    const PARAM_NAMES: [&'static str; 1] = ["filter"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the traces for transactions matching the filter criteria.");
+    type Params = (EthTraceFilterCriteria,);
+    type Ok = Vec<EthBlockTrace>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let from_block = get_eth_block_number_from_string_v2(
+            &ctx,
+            filter.from_block.as_deref(),
+            ResolveNullTipset::TakeNewer,
+        )
+        .await
+        .context("cannot parse fromBlock")?;
+
+        let to_block = get_eth_block_number_from_string_v2(
+            &ctx,
+            filter.to_block.as_deref(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await
         .context("cannot parse toBlock")?;
 
         Ok(trace_filter(ctx, filter, from_block, to_block)
