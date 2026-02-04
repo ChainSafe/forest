@@ -138,36 +138,36 @@ impl SyncStatusReport {
         }
     }
 
+    /// Updates the sync status report based on the current state of the node and network.
+    /// This does not modify the existing report but returns a new one with updated information.
     pub(crate) fn update<DB: Blockstore + Sync + Send + 'static>(
-        &mut self,
+        &self,
         state_manager: &StateManager<DB>,
-        current_active_forks: Vec<ForkSyncInfo>,
+        active_forks: Vec<ForkSyncInfo>,
         stateless_mode: bool,
-    ) {
+    ) -> Self {
         let heaviest = state_manager.chain_store().heaviest_tipset();
-        let current_chain_head_epoch = heaviest.epoch();
-        self.current_head_key = Some(heaviest.key().clone());
-        self.current_head_epoch = current_chain_head_epoch;
+        let current_head_epoch = heaviest.epoch();
+        let current_head_key = Some(heaviest.key().clone());
 
-        let now = Utc::now();
-        let now_ts = now.timestamp() as u64;
+        let last_updated = Utc::now();
+        let last_updated_ts = last_updated.timestamp() as u64;
         let seconds_per_epoch = state_manager.chain_config().block_delay_secs;
         let network_head_epoch = calculate_expected_epoch(
-            now_ts,
+            last_updated_ts,
             state_manager.chain_store().genesis_block_header().timestamp,
             seconds_per_epoch,
         );
 
-        self.network_head_epoch = network_head_epoch;
-        self.epochs_behind = network_head_epoch.saturating_sub(current_chain_head_epoch);
+        let epochs_behind = network_head_epoch.saturating_sub(current_head_epoch);
         log::trace!(
             "Sync status report: current head epoch: {}, network head epoch: {}, epochs behind: {}",
-            current_chain_head_epoch,
+            current_head_epoch,
             network_head_epoch,
-            self.epochs_behind
+            epochs_behind
         );
 
-        let time_diff = now_ts.saturating_sub(heaviest.min_timestamp());
+        let time_diff = last_updated_ts.saturating_sub(heaviest.min_timestamp());
         let status = match stateless_mode {
             true => NodeSyncStatus::Offline,
             false => {
@@ -179,9 +179,16 @@ impl SyncStatusReport {
             }
         };
 
-        self.status = status;
-        self.active_forks = current_active_forks;
-        self.last_updated = now;
+        Self {
+            node_start_time: self.node_start_time,
+            current_head_epoch,
+            current_head_key,
+            network_head_epoch,
+            epochs_behind,
+            status,
+            active_forks,
+            last_updated,
+        }
     }
 
     pub(crate) fn is_synced(&self) -> bool {
