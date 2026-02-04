@@ -89,7 +89,6 @@ impl MsgSet {
     /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
     /// message has a sequence greater than any existing message sequence.
     /// Use this method when pushing a message coming from untrusted sources.
-    #[allow(dead_code)]
     pub fn add_untrusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
     where
         T: Provider,
@@ -216,11 +215,11 @@ where
 
     /// Push a signed message to the `MessagePool`. Additionally performs basic
     /// checks on the validity of a message.
-    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
+    pub async fn push_internal(&self, msg: SignedMessage, untrusted: bool) -> Result<Cid, Error> {
         self.check_message(&msg)?;
         let cid = msg.cid();
         let cur_ts = self.current_tipset();
-        let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
+        let publish = self.add_tipset(msg.clone(), &cur_ts, true, untrusted)?;
         let msg_ser = to_vec(&msg)?;
         let network_name = self.chain_config.network.genesis_name();
         self.add_local(msg)?;
@@ -234,6 +233,16 @@ where
                 .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
         }
         Ok(cid)
+    }
+
+    /// Push a signed message to the `MessagePool` from an trusted source.
+    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
+        self.push_internal(msg, false).await
+    }
+
+    /// Push a signed message to the `MessagePool` from an untrusted source.
+    pub async fn push_untrusted(&self, msg: SignedMessage) -> Result<Cid, Error> {
+        self.push_internal(msg, true).await
     }
 
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
@@ -255,7 +264,7 @@ where
     pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg)?;
         let ts = self.current_tipset();
-        self.add_tipset(msg, &ts, false)?;
+        self.add_tipset(msg, &ts, false, false)?;
         Ok(())
     }
 
@@ -280,7 +289,13 @@ where
     /// Verify the `state_sequence` and balance for the sender of the message
     /// given then call `add_locked` to finish adding the `signed_message`
     /// to pending.
-    fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
+    fn add_tipset(
+        &self,
+        msg: SignedMessage,
+        cur_ts: &Tipset,
+        local: bool,
+        untrusted: bool,
+    ) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
 
         if sequence > msg.message().sequence {
@@ -313,7 +328,7 @@ where
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
-        self.add_helper(msg)?;
+        self.add_helper(msg, untrusted)?;
         Ok(publish)
     }
 
@@ -321,7 +336,7 @@ where
     /// hash-map. If an entry in the hash-map does not yet exist, create a
     /// new `mset` that will correspond to the from message and push it to
     /// the pending hash-map.
-    fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
+    fn add_helper(&self, msg: SignedMessage, untrusted: bool) -> Result<(), Error> {
         let from = msg.from();
         let cur_ts = self.current_tipset();
         add_helper(
@@ -330,6 +345,7 @@ where
             self.pending.as_ref(),
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
+            untrusted,
         )
     }
 
@@ -595,6 +611,7 @@ pub(in crate::message_pool) fn add_helper<T>(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
     sequence: u64,
+    untrusted: bool,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -607,15 +624,12 @@ where
     api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
     let mut pending = pending.write();
-    let msett = pending.get_mut(&msg.from());
-    match msett {
-        Some(mset) => mset.add_trusted(api, msg)?,
-        None => {
-            let mut mset = MsgSet::new(sequence);
-            let from = msg.from();
-            mset.add_trusted(api, msg)?;
-            pending.insert(from, mset);
-        }
+    let from = msg.from();
+    let mset = pending.entry(from).or_insert_with(|| MsgSet::new(sequence));
+    if untrusted {
+        mset.add_untrusted(api, msg)?;
+    } else {
+        mset.add_trusted(api, msg)?;
     }
 
     Ok(())
@@ -697,7 +711,7 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
         let sequence = msg.message().sequence;
-        let res = add_helper(&api, &bls_sig_cache, &pending, msg, sequence);
+        let res = add_helper(&api, &bls_sig_cache, &pending, msg, sequence, false);
         assert!(res.is_ok());
     }
 }

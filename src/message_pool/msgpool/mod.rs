@@ -277,7 +277,7 @@ where
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
             let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.read().clone())?;
-            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
+            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence, false) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
         }
