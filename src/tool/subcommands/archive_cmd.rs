@@ -1148,14 +1148,14 @@ mod tests {
     fn steps_in_range_1() {
         let range = 30_000..60_001;
         let lite = steps_in_range(&range, 30_000, 800);
-        assert_eq!(lite.collect::<Vec<_>>(), vec![60_000]);
+        assert_eq!(lite.collect_vec(), vec![60_000]);
     }
 
     #[test]
     fn steps_in_range_2() {
         let range = (30_000 - 800)..60_001;
         let lite = steps_in_range(&range, 30_000, 800);
-        assert_eq!(lite.collect::<Vec<_>>(), vec![30_000, 60_000]);
+        assert_eq!(lite.collect_vec(), vec![30_000, 60_000]);
     }
 
     #[tokio::test]
