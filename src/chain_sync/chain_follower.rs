@@ -1037,9 +1037,9 @@ mod tests {
             .map(|v| {
                 v.into_iter()
                     .map(|ts| ts.weight().to_i64().unwrap_or(0))
-                    .collect()
+                    .collect_vec()
             })
-            .collect::<Vec<Vec<_>>>();
+            .collect_vec();
 
         // Both chains should start at the same tipset
         assert_eq!(chains, vec![vec![1, 3], vec![1, 2]]);

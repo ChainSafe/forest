@@ -67,7 +67,13 @@ pub fn decode_payload(payload: &RawBytes, codec: u64) -> Result<EthBytes> {
             let mut reader = cbor4ii::core::utils::SliceReader::new(payload.bytes());
             match Value::decode(&mut reader) {
                 Ok(Value::Bytes(bytes)) => Ok(EthBytes(bytes)),
-                _ => bail!("failed to decode params byte array"),
+                other => {
+                    tracing::debug!(
+                        "failed to decode params byte array: {other:?}, codec: {codec}, payload: {}",
+                        hex::encode(payload.bytes())
+                    );
+                    bail!("failed to decode params byte array");
+                }
             }
         }
         IPLD_RAW => Ok(EthBytes(payload.to_vec())),
