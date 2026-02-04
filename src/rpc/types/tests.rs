@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::lotus_json::HasLotusJson as _;
+use itertools::Itertools as _;
 use quickcheck_macros::quickcheck;
 
 #[quickcheck]
@@ -33,7 +34,7 @@ fn test_api_tipset_key_inner(cids: Vec<Cid>) {
     let api_ts = api_ts_lotus_json.into_inner();
     let cids_from_api_ts = api_ts
         .0
-        .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
+        .map(|ts| ts.into_cids().into_iter().collect_vec())
         .unwrap_or_default();
     assert_eq!(cids_from_api_ts, cids);
 }

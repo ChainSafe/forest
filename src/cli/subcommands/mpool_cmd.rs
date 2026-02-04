@@ -285,6 +285,7 @@ mod tests {
     use crate::message::{Message, SignedMessage};
     use crate::message_pool::tests::create_smsg;
     use crate::shim::crypto::SignatureType;
+    use itertools::Itertools as _;
     use std::borrow::BorrowMut;
 
     #[test]
@@ -300,7 +301,7 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        let smsg_json_vec = smsg_vec.clone().into_iter().collect::<Vec<_>>();
+        let smsg_json_vec = smsg_vec.clone().into_iter().collect_vec();
 
         // No filtering is set up
         let smsg_filtered: Vec<SignedMessage> = filter_messages(smsg_json_vec, None, &None, &None)

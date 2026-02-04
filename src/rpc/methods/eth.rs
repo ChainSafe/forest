@@ -4137,7 +4137,7 @@ impl RpcMethod<1> for EthTraceFilter {
                     trace.trace.trace_address.clone(),
                 )
             })
-            .collect::<Vec<_>>())
+            .collect_vec())
     }
 }
 

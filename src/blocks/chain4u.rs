@@ -237,7 +237,7 @@ impl Chain4UInner {
             })
             .unique()
             .map(|it| &self.ident2header[it])
-            .collect::<Vec<_>>();
+            .collect_vec();
 
         let parent_tipset =
             match Tipset::new(parents.iter().map(|it| &self.ident2header[*it]).cloned()) {
@@ -315,10 +315,7 @@ impl Chain4UInner {
 
         // Miner
         ////////
-        let sibling_miner_addresses = siblings
-            .iter()
-            .map(|it| it.miner_address)
-            .collect::<Vec<_>>();
+        let sibling_miner_addresses = siblings.iter().map(|it| it.miner_address).collect_vec();
         assert!(sibling_miner_addresses.iter().all_unique());
         match header.miner_address.inner {
             None => {

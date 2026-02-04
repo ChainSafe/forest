@@ -107,6 +107,7 @@ mod parse {
     use crate::shim::econ::TokenAmount;
     use anyhow::{anyhow, bail};
     use bigdecimal::{BigDecimal, ParseBigDecimalError};
+    use itertools::Itertools as _;
     use nom::{
         IResult, Parser,
         bytes::complete::tag,
@@ -207,7 +208,7 @@ mod parse {
                     .chain(scale.units)
                     .map(move |prefix| (*prefix, scale))
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         scales.sort_by_key(|(prefix, _)| std::cmp::Reverse(*prefix));
 
         for (prefix, scale) in scales {
