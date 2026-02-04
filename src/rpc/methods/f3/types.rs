@@ -39,8 +39,7 @@ lotus_json_with_self!(F3TipSetKey);
 
 impl From<&TipsetKey> for F3TipSetKey {
     fn from(tsk: &TipsetKey) -> Self {
-        let bytes = tsk.iter().flat_map(|cid| cid.to_bytes()).collect();
-        Self(bytes)
+        Self(tsk.bytes().into())
     }
 }
 
