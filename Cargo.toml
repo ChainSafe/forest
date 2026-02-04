@@ -178,7 +178,7 @@ reqwest = { version = "0.13", default-features = false, features = [
   "rustls",
   "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
-rlimit = "0.10"
+rlimit = "0.11"
 rlp = "0.6"
 rs-car-ipfs = "0.4"
 rust2go = { workspace = true }
@@ -256,7 +256,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.317"
+ra_ap_syntax = "0.0.318"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
