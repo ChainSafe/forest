@@ -341,7 +341,7 @@ impl ChainConfig {
             // FIP-0100: 300M -> 1.2B FIL
             upgrade_teep_initial_fil_reserved: Some(TokenAmount::from_whole(1_200_000_000)),
             // Enable after `f3_initial_power_table` is determined and set to avoid GC hell
-            // (state tree of epoch 3_385_534 - 900 has to be present in the database if `f3_initial_power_table` is not set)
+            // (state tree of epoch 3_451_774 - 900 has to be present in the database if `f3_initial_power_table` is not set)
             f3_enabled: true,
             f3_consensus: true,
             // 2026-02-12T07:00:00Z
