@@ -1,4 +1,4 @@
 # This list contains potentially broken methods (or tests) that are ignored.
 # They should be considered bugged, and not used until the root cause is resolved.
-# F3 is to be revived around 12.02.2026
+# F3 is to be revived around 2026-02-12
 !Filecoin.F3
