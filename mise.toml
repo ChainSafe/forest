@@ -157,7 +157,7 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 }
 '''
 run = '''
-cargo test --doc --profile ${usage_profile?} --features doctest-private --no-fail-fast
+cargo test --doc --profile ${usage_profile?} --no-default-features --features doctest-private --no-fail-fast
 '''
 
 [tasks."test:nextest"]
@@ -169,7 +169,7 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 '''
 run = '''
 echo "Running tests with profile: ${usage_profile?}" 
-cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-fail-fast
+cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-default-features --no-fail-fast
 '''
 
 [tasks."test:rust"]
@@ -192,7 +192,8 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 }
 '''
 run = '''
-mise task run test:rust ${usage_profile?}
+mise task run test:nextest ${usage_profile?}
+mise task run test:docs ${usage_profile?}
 '''
 
 [tasks.codecov]
