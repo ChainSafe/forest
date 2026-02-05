@@ -43,7 +43,7 @@ env:
 jobs:
   codecov:
     name: Coverage
-    # if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
+    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
     runs-on: buildjet-4vcpu-ubuntu-2204
     timeout-minutes: 45
     steps:
