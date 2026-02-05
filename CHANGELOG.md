@@ -61,6 +61,8 @@
 
 - [#6467](https://github.com/ChainSafe/forest/pull/6467): `Filecoin.EthGetBlockByNumber` now only supports retrieving a block by its block number or a special tag.
 
+- [#6531](https://github.com/ChainSafe/forest/issues/6531): `Filecoin.EthGetBlockByHash` now works with `lotus-gateway`.
+
 - [#6535](https://github.com/ChainSafe/forest/pull/6535): Fixed incorrect replace by fee behavior when at limits of pending messages in mempool.
 
 ## Forest v0.31.1 "Quadrantids"
