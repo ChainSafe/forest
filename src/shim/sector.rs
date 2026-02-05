@@ -23,7 +23,6 @@ use get_size2::GetSize;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-use std::ops::Deref;
 
 pub type SectorNumber = fvm_shared4::sector::SectorNumber;
 
@@ -48,7 +47,9 @@ pub type SectorNumber = fvm_shared4::sector::SectorNumber;
 /// assert_eq!(fvm3_proof, proof_shim.into());
 /// assert_eq!(fvm2_proof, proof_shim.into());
 /// ```
-#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(
+    serde::Serialize, serde::Deserialize, Clone, Copy, Eq, PartialEq, Debug, derive_more::Deref,
+)]
 pub struct RegisteredSealProof(RegisteredSealProofV4);
 
 impl RegisteredSealProof {
@@ -94,13 +95,6 @@ impl RegisteredSealProof {
                 self
             ),
         }
-    }
-}
-
-impl Deref for RegisteredSealProof {
-    type Target = RegisteredSealProofV4;
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -151,7 +145,15 @@ impl quickcheck::Arbitrary for RegisteredSealProof {
 /// Represents a shim over `SectorInfo` from `fvm_shared` with convenience
 /// methods to convert to an older version of the type
 #[derive(
-    Eq, PartialEq, Debug, Clone, derive_more::From, derive_more::Into, Serialize, Deserialize,
+    Eq,
+    PartialEq,
+    Debug,
+    Clone,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Deref,
+    Serialize,
+    Deserialize,
 )]
 pub struct SectorInfo(SectorInfoV4);
 
@@ -177,13 +179,6 @@ impl SectorInfo {
             sector_number,
             sealed_cid,
         })
-    }
-}
-
-impl Deref for SectorInfo {
-    type Target = SectorInfoV4;
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -226,20 +221,22 @@ impl quickcheck::Arbitrary for ExtendedSectorInfo {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Eq, PartialEq, derive_more::Into)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    derive_more::Into,
+    derive_more::Deref,
+)]
 pub struct RegisteredPoStProof(RegisteredPoStProofV4);
 
 #[cfg(test)]
 impl quickcheck::Arbitrary for RegisteredPoStProof {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         Self(RegisteredPoStProofV4::from(i64::arbitrary(g)))
-    }
-}
-
-impl Deref for RegisteredPoStProof {
-    type Target = RegisteredPoStProofV4;
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -342,6 +339,7 @@ sector_size_conversion!(SectorSizeV2, SectorSizeV3, SectorSizeV4);
     PartialEq,
     derive_more::From,
     derive_more::Into,
+    derive_more::Deref,
     Eq,
 )]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
@@ -364,14 +362,6 @@ impl PoStProof {
             post_proof: *reg_post_proof,
             proof_bytes,
         })
-    }
-}
-
-impl Deref for PoStProof {
-    type Target = PoStProofV4;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 

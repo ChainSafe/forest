@@ -21,9 +21,11 @@ use std::io::{Error, ErrorKind, Read, Result};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+#[derive(derive_more::From)]
 pub enum AnyCar<ReaderT> {
     Plain(super::PlainCar<ReaderT>),
     Forest(super::ForestCar<ReaderT>),
+    #[from(skip)]
     Memory(super::PlainCar<Vec<u8>>),
 }
 
@@ -163,18 +165,6 @@ where
             AnyCar::Plain(plain) => plain.put_keyed(k, block),
             AnyCar::Memory(mem) => mem.put_keyed(k, block),
         }
-    }
-}
-
-impl<ReaderT> From<super::ForestCar<ReaderT>> for AnyCar<ReaderT> {
-    fn from(car: super::ForestCar<ReaderT>) -> Self {
-        Self::Forest(car)
-    }
-}
-
-impl<ReaderT> From<super::PlainCar<ReaderT>> for AnyCar<ReaderT> {
-    fn from(car: super::PlainCar<ReaderT>) -> Self {
-        Self::Plain(car)
     }
 }
 

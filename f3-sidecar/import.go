@@ -51,5 +51,5 @@ func importSnap(ctx context.Context, rpcEndpoint string, f3Root string, snapshot
 			err = errors.Join(err, closeErr)
 		}
 	}()
-	return certstore.ImportSnapshotToDatastore(ctx, bufio.NewReader(f), dsWrapper)
+	return certstore.ImportSnapshotToDatastore(ctx, bufio.NewReader(f), dsWrapper, m)
 }

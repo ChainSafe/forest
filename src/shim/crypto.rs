@@ -23,7 +23,7 @@ use schemars::JsonSchema;
 use std::borrow::Cow;
 
 /// A cryptographic signature, represented in bytes, of any key protocol.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, GetSize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, GetSize, derive_more::Constructor)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Signature {
     pub sig_type: SignatureType,
@@ -70,10 +70,6 @@ impl<'de> de::Deserialize<'de> for Signature {
 }
 
 impl Signature {
-    pub fn new(sig_type: SignatureType, bytes: Vec<u8>) -> Self {
-        Signature { sig_type, bytes }
-    }
-
     /// Creates a BLS Signature given the raw bytes.
     pub fn new_bls(bytes: Vec<u8>) -> Self {
         Self {

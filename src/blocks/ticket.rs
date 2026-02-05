@@ -8,6 +8,7 @@ use get_size2::GetSize;
 /// A Ticket is a marker of a tick of the blockchain's clock.  It is the source
 /// of randomness for proofs of storage and leader election.  It is generated
 /// by the miner of a block using a `VRF` and a `VDF`.
+#[cfg_attr(test, derive(derive_more::Constructor))]
 #[derive(
     Clone,
     Debug,
@@ -25,14 +26,6 @@ pub struct Ticket {
     /// A proof output by running a `VRF` on the `VDFResult` of the parent
     /// ticket
     pub vrfproof: VRFProof,
-}
-
-impl Ticket {
-    #[cfg(test)]
-    /// Ticket constructor
-    pub fn new(vrfproof: VRFProof) -> Self {
-        Self { vrfproof }
-    }
 }
 
 #[cfg(test)]

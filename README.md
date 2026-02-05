@@ -90,7 +90,7 @@ git clone --recursive https://github.com/chainsafe/forest
 cd forest
 
 # Install binary to $HOME/.cargo/bin
-mise install
+mise run install
 
 # Run the node on mainnet
 forest
@@ -230,11 +230,12 @@ forest-cli --token <ADMIN_TOKEN>
 The binaries in the Forest repository are organized into the following
 categories:
 
-| Binary        | Role                                                     | Command example                                    |
-| ------------- | -------------------------------------------------------- | -------------------------------------------------- |
-| `forest`      | Forest daemon, used to connect to the Filecoin network   | `forest --chain calibnet --encrypt-keystore false` |
-| `forest-cli`  | Human-friendly wrappers around the Filecoin JSON-RPC API | `forest-cli info show`                             |
-| `forest-tool` | Handle tasks not involving the Forest daemon             | `forest-tool snapshot fetch`                       |
+| Binary                                                                          | Role                                                     | Command example                                    |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| [`forest`](https://docs.forest.chainsafe.io/reference/cli#forest)               | Forest daemon, used to connect to the Filecoin network   | `forest --chain calibnet --encrypt-keystore false` |
+| [`forest-wallet`](https://docs.forest.chainsafe.io/reference/cli#forest-wallet) | Manage Filecoin wallets and interact with accounts       | `forest-wallet new secp256k1`                      |
+| [`forest-cli`](https://docs.forest.chainsafe.io/reference/cli#forest-cli)       | Human-friendly wrappers around the Filecoin JSON-RPC API | `forest-cli info show`                             |
+| [`forest-tool`](https://docs.forest.chainsafe.io/reference/cli#forest-tool)     | Handle tasks not involving the Forest daemon             | `forest-tool snapshot fetch`                       |
 
 ### Detaching Forest process
 

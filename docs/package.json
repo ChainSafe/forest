@@ -24,13 +24,13 @@
     "@docusaurus/core": "^3.9.2",
     "@docusaurus/preset-classic": "^3.9.2",
     "@docusaurus/theme-mermaid": "^3.9.2",
-    "@easyops-cn/docusaurus-search-local": "^0.52.2",
+    "@easyops-cn/docusaurus-search-local": "^0.52.3",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.12.2",
-    "prettier": "^3.7.4",
+    "prettier": "^3.8.0",
     "prism-react-renderer": "^2.4.1",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.9.2",
@@ -51,7 +51,7 @@
     ]
   },
   "resolutions": {
-    "dompurify": "3.2.6"
+    "dompurify": "3.3.1"
   },
-  "packageManager": "yarn@4.9.2"
+  "packageManager": "yarn@4.12.0"
 }

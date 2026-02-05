@@ -10,6 +10,7 @@ use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
+use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
@@ -17,7 +18,10 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
-use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
+use crate::rpc::eth::Block as EthBlock;
+use crate::rpc::eth::{
+    EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec,
+};
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
@@ -27,6 +31,7 @@ use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
+use crate::utils::misc::env::is_env_truthy;
 use anyhow::{Context as _, Result};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -74,8 +79,8 @@ static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
 ///
 /// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
 /// allowing manual cleanup if needed.
-pub(crate) fn new_heads<DB: Blockstore>(
-    data: &crate::rpc::RPCState<DB>,
+pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
+    data: Ctx<DB>,
 ) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
@@ -84,7 +89,17 @@ pub(crate) fn new_heads<DB: Blockstore>(
     let handle = tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
             let headers = match v {
-                HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
+                HeadChange::Apply(ts) => {
+                    // Convert the tipset to an Ethereum block with full transaction info
+                    // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
+                    match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
+                        Ok(block) => ApiHeaders(block),
+                        Err(e) => {
+                            tracing::error!("Failed to convert tipset to eth block: {}", e);
+                            continue;
+                        }
+                    }
+                }
             };
             if let Err(e) = sender.send(headers) {
                 tracing::error!("Failed to send headers: {}", e);
@@ -239,6 +254,8 @@ impl RpcMethod<1> for ChainGetMessage {
     }
 }
 
+/// Returns the events stored under the given event AMT root CID.
+/// Errors if the root CID cannot be found in the blockstore.
 pub enum ChainGetEvents {}
 impl RpcMethod<1> for ChainGetEvents {
     const NAME: &'static str = "Filecoin.ChainGetEvents";
@@ -254,16 +271,7 @@ impl RpcMethod<1> for ChainGetEvents {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (root_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tsk = ctx
-            .state_manager
-            .chain_store()
-            .get_tipset_key(&root_cid)?
-            .with_context(|| format!("can't find events with cid {root_cid}"))?;
-
-        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-
-        let events = EthEventHandler::collect_chain_events(&ctx, &ts, &root_cid).await?;
-
+        let events = EthEventHandler::get_events_by_event_root(&ctx, &root_cid)?;
         Ok(events)
     }
 }
@@ -281,7 +289,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
     type Ok = Vec<ApiMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.store();
@@ -292,7 +300,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
             Ok(vec![])
         } else {
             let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
-            load_api_messages_from_tipset(store, &parent_tipset)
+            load_api_messages_from_tipset(&ctx, parent_tipset.key()).await
         }
     }
 }
@@ -355,13 +363,13 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     type Ok = Vec<ApiMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tipset_key),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        load_api_messages_from_tipset(ctx.store(), &tipset)
+        load_api_messages_from_tipset(&ctx, tipset.key()).await
     }
 }
 
@@ -1301,13 +1309,30 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     receiver
 }
 
-fn load_api_messages_from_tipset(
-    store: &impl Blockstore,
-    tipset: &Tipset,
+async fn load_api_messages_from_tipset<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &crate::rpc::RPCState<DB>,
+    tipset_keys: &TipsetKey,
 ) -> Result<Vec<ApiMessage>, ServerError> {
-    let full_tipset = tipset
-        .fill_from_blockstore(store)
-        .context("Failed to load full tipset")?;
+    static SHOULD_BACKFILL: LazyLock<bool> = LazyLock::new(|| {
+        let enabled = is_env_truthy("FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK");
+        if enabled {
+            tracing::warn!(
+                "Full tipset backfilling from network is enabled via FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK, excessive disk and bandwidth usage is expected."
+            );
+        }
+        enabled
+    });
+    let full_tipset = if *SHOULD_BACKFILL {
+        get_full_tipset(
+            &ctx.sync_network_context,
+            ctx.chain_store(),
+            None,
+            tipset_keys,
+        )
+        .await?
+    } else {
+        load_full_tipset(ctx.chain_store(), tipset_keys)?
+    };
     let blocks = full_tipset.into_blocks();
     let mut messages = vec![];
     let mut seen = CidHashSet::default();
@@ -1536,6 +1561,7 @@ mod tests {
         networks::{self, ChainConfig},
     };
     use PathChange::{Apply, Revert};
+    use itertools::Itertools as _;
     use std::sync::Arc;
 
     #[test]
@@ -1658,7 +1684,6 @@ mod tests {
                 db,
                 Arc::new(MemoryDB::default()),
                 Arc::new(MemoryDB::default()),
-                Arc::new(MemoryDB::default()),
                 Arc::new(ChainConfig::calibnet()),
                 genesis_block_header,
             )
@@ -1734,7 +1759,7 @@ mod tests {
                 PathChange::Revert(it) => PathChange::Revert(it.make_tipset()),
                 PathChange::Apply(it) => PathChange::Apply(it.make_tipset()),
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
         if expected != actual {
             println!("SUMMARY");
             println!("=======");

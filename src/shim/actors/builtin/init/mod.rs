@@ -3,6 +3,7 @@
 
 use fvm_shared2::address::Address;
 use serde::Serialize;
+use spire_enum::prelude::delegated_enum;
 
 /// Init actor address.
 pub const ADDRESS: Address = Address::new_id(1);
@@ -11,6 +12,7 @@ pub const ADDRESS: Address = Address::new_id(1);
 pub type Method = fil_actor_init_state::v8::Method;
 
 /// Init actor state.
+#[delegated_enum(impl_conversions)]
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum State {
@@ -41,18 +43,6 @@ impl State {
     }
 
     pub fn into_network_name(self) -> String {
-        match self {
-            State::V0(st) => st.network_name,
-            State::V8(st) => st.network_name,
-            State::V9(st) => st.network_name,
-            State::V10(st) => st.network_name,
-            State::V11(st) => st.network_name,
-            State::V12(st) => st.network_name,
-            State::V13(st) => st.network_name,
-            State::V14(st) => st.network_name,
-            State::V15(st) => st.network_name,
-            State::V16(st) => st.network_name,
-            State::V17(st) => st.network_name,
-        }
+        delegate_state!(self.network_name)
     }
 }

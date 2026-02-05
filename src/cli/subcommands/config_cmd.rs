@@ -6,7 +6,7 @@ use std::io::Write;
 use anyhow::Context as _;
 use clap::Subcommand;
 
-use crate::cli::subcommands::Config;
+use crate::{cli::subcommands::Config, rpc};
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigCommands {
@@ -15,7 +15,11 @@ pub enum ConfigCommands {
 }
 
 impl ConfigCommands {
-    pub fn run<W: Write + Unpin>(self, sink: &mut W) -> anyhow::Result<()> {
+    pub async fn run(self, _: rpc::Client) -> anyhow::Result<()> {
+        self.run_internal(&mut std::io::stdout())
+    }
+
+    fn run_internal<W: Write + Unpin>(self, sink: &mut W) -> anyhow::Result<()> {
         match self {
             Self::Dump => writeln!(
                 sink,
@@ -37,7 +41,7 @@ mod tests {
         let expected_config = Config::default();
         let mut sink = std::io::BufWriter::new(Vec::new());
 
-        ConfigCommands::Dump.run(&mut sink).unwrap();
+        ConfigCommands::Dump.run_internal(&mut sink).unwrap();
 
         let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer()).unwrap())
             .expect("Invalid configuration!");

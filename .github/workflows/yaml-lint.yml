@@ -1,0 +1,31 @@
+name: YAML lint
+
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+on:
+  merge_group:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/*.yml"
+      - "**/*.yaml"
+      - ".github/workflows/yaml-lint.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.yml"
+      - "**/*.yaml"
+      - ".github/workflows/yaml-lint.yml"
+
+jobs:
+  yaml-lint:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: mise lint:yaml

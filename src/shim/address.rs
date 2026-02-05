@@ -1,11 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    fmt::Display,
-    ops::{Deref, DerefMut},
-    str::FromStr,
-};
+use std::{fmt::Display, str::FromStr};
 
 use data_encoding::Encoding;
 use data_encoding_macro::new_encoding;
@@ -113,7 +109,22 @@ mod network_guard_impl {
 /// parse both versions and discard the prefix. See also [`StrictAddress`].
 ///
 /// For more information, see: <https://spec.filecoin.io/appendix/address/>
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    derive_more::Deref,
+    derive_more::DerefMut,
+    derive_more::From,
+    derive_more::Into,
+)]
 #[serde(transparent)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Address(Address_latest);
@@ -247,19 +258,6 @@ impl Display for Address {
     }
 }
 
-impl Deref for Address {
-    type Target = Address_latest;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Address {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl GetSize for Address {
     fn get_heap_size(&self) -> usize {
         0 // all variants of the internal payload are stack-allocated
@@ -287,10 +285,11 @@ impl GetSize for Address {
     Ord,
     Serialize,
     Deserialize,
-    displaydoc::Display,
+    derive_more::Display,
+    derive_more::From,
+    derive_more::Into,
 )]
 #[serde(transparent)]
-#[displaydoc("{0}")]
 pub struct StrictAddress(pub Address);
 
 impl FromStr for StrictAddress {
@@ -307,18 +306,6 @@ impl FromStr for StrictAddress {
 // identical and able to do a conversion, otherwise it is a logic error and
 // Forest should not continue so there is no point in `TryFrom`.
 
-impl From<Address> for StrictAddress {
-    fn from(other: Address) -> Self {
-        StrictAddress(other)
-    }
-}
-
-impl From<StrictAddress> for Address {
-    fn from(other: StrictAddress) -> Self {
-        other.0
-    }
-}
-
 impl From<StrictAddress> for Address_v3 {
     fn from(other: StrictAddress) -> Self {
         other.0.into()
@@ -331,21 +318,9 @@ impl From<StrictAddress> for Address_v4 {
     }
 }
 
-impl From<Address_v4> for Address {
-    fn from(other: Address_v4) -> Self {
-        Address(other)
-    }
-}
-
 impl From<&Address_v4> for Address {
     fn from(other: &Address_v4) -> Self {
         Address(*other)
-    }
-}
-
-impl From<Address> for Address_v4 {
-    fn from(addr: Address) -> Self {
-        addr.0
     }
 }
 

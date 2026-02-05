@@ -7,7 +7,7 @@ use crate::shim::{
 };
 use crate::utils::get_size::{GetSize, vec_heap_size_with_fn_helper};
 use cid::Cid;
-use fil_actors_shared::fvm_ipld_amt::Amtv0;
+use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
@@ -23,96 +23,48 @@ use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 use fvm4::executor::ApplyRet as ApplyRet_v4;
 use serde::Serialize;
+use spire_enum::prelude::delegated_enum;
+use std::borrow::Borrow as _;
 
+#[delegated_enum(impl_conversions)]
 #[derive(Clone, Debug)]
 pub enum ApplyRet {
-    V2(Box<ApplyRet_v2>),
-    V3(Box<ApplyRet_v3>),
-    V4(Box<ApplyRet_v4>),
-}
-
-impl From<ApplyRet_v2> for ApplyRet {
-    fn from(other: ApplyRet_v2) -> Self {
-        ApplyRet::V2(Box::new(other))
-    }
-}
-
-impl From<ApplyRet_v3> for ApplyRet {
-    fn from(other: ApplyRet_v3) -> Self {
-        ApplyRet::V3(Box::new(other))
-    }
-}
-
-impl From<ApplyRet_v4> for ApplyRet {
-    fn from(other: ApplyRet_v4) -> Self {
-        ApplyRet::V4(Box::new(other))
-    }
+    V2(ApplyRet_v2),
+    V3(ApplyRet_v3),
+    V4(ApplyRet_v4),
 }
 
 impl ApplyRet {
     pub fn failure_info(&self) -> Option<String> {
-        match self {
-            ApplyRet::V2(v2) => v2.failure_info.as_ref().map(|failure| failure.to_string()),
-            ApplyRet::V3(v3) => v3.failure_info.as_ref().map(|failure| failure.to_string()),
-            ApplyRet::V4(v4) => v4.failure_info.as_ref().map(|failure| failure.to_string()),
-        }
-        .map(|e| format!("{} (RetCode={})", e, self.msg_receipt().exit_code()))
+        delegate_apply_ret!(self => |r| r.failure_info.as_ref().map(|failure| format!("{failure} (RetCode={})", self.msg_receipt().exit_code())))
     }
 
     pub fn miner_tip(&self) -> TokenAmount {
-        match self {
-            ApplyRet::V2(v2) => (&v2.miner_tip).into(),
-            ApplyRet::V3(v3) => (&v3.miner_tip).into(),
-            ApplyRet::V4(v4) => (&v4.miner_tip).into(),
-        }
+        delegate_apply_ret!(self.miner_tip.borrow().into())
     }
 
     pub fn penalty(&self) -> TokenAmount {
-        match self {
-            ApplyRet::V2(v2) => (&v2.penalty).into(),
-            ApplyRet::V3(v3) => (&v3.penalty).into(),
-            ApplyRet::V4(v4) => (&v4.penalty).into(),
-        }
+        delegate_apply_ret!(self.penalty.borrow().into())
     }
 
     pub fn msg_receipt(&self) -> Receipt {
-        match self {
-            ApplyRet::V2(v2) => Receipt::V2(v2.msg_receipt.clone()),
-            ApplyRet::V3(v3) => Receipt::V3(v3.msg_receipt.clone()),
-            ApplyRet::V4(v4) => Receipt::V4(v4.msg_receipt.clone()),
-        }
+        delegate_apply_ret!(self.msg_receipt.clone().into())
     }
 
     pub fn refund(&self) -> TokenAmount {
-        match self {
-            ApplyRet::V2(v2) => (&v2.refund).into(),
-            ApplyRet::V3(v3) => (&v3.refund).into(),
-            ApplyRet::V4(v4) => (&v4.refund).into(),
-        }
+        delegate_apply_ret!(self.refund.borrow().into())
     }
 
     pub fn base_fee_burn(&self) -> TokenAmount {
-        match self {
-            ApplyRet::V2(v2) => (&v2.base_fee_burn).into(),
-            ApplyRet::V3(v3) => (&v3.base_fee_burn).into(),
-            ApplyRet::V4(v4) => (&v4.base_fee_burn).into(),
-        }
+        delegate_apply_ret!(self.base_fee_burn.borrow().into())
     }
 
     pub fn over_estimation_burn(&self) -> TokenAmount {
-        match self {
-            ApplyRet::V2(v2) => (&v2.over_estimation_burn).into(),
-            ApplyRet::V3(v3) => (&v3.over_estimation_burn).into(),
-            ApplyRet::V4(v4) => (&v4.over_estimation_burn).into(),
-        }
+        delegate_apply_ret!(self.over_estimation_burn.borrow().into())
     }
 
     pub fn exec_trace(&self) -> Vec<ExecutionEvent> {
-        match self {
-            ApplyRet::V2(v2) => v2.exec_trace.iter().cloned().map(Into::into).collect(),
-            ApplyRet::V3(v3) => v3.exec_trace.iter().cloned().map(Into::into).collect(),
-            ApplyRet::V4(v4) => v4.exec_trace.iter().cloned().map(Into::into).collect(),
-        }
+        delegate_apply_ret!(self => |r| r.exec_trace.iter().cloned().map(Into::into).collect())
     }
 
     pub fn events(&self) -> Vec<StampedEvent> {
@@ -126,6 +78,7 @@ impl ApplyRet {
 
 // Note: it's impossible to properly derive Deserialize.
 // To deserialize into `Receipt`, refer to `fn get_parent_receipt`
+#[delegated_enum(impl_conversions)]
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub enum Receipt {
@@ -136,11 +89,7 @@ pub enum Receipt {
 
 impl GetSize for Receipt {
     fn get_heap_size(&self) -> usize {
-        match self {
-            Self::V2(r) => r.return_data.bytes().get_heap_size(),
-            Self::V3(r) => r.return_data.bytes().get_heap_size(),
-            Self::V4(r) => r.return_data.bytes().get_heap_size(),
-        }
+        delegate_receipt!(self.return_data.bytes().get_heap_size())
     }
 }
 
@@ -163,11 +112,7 @@ impl Receipt {
     }
 
     pub fn return_data(&self) -> RawBytes {
-        match self {
-            Receipt::V2(v2) => v2.return_data.clone(),
-            Receipt::V3(v3) => v3.return_data.clone(),
-            Receipt::V4(v4) => v4.return_data.clone(),
-        }
+        delegate_receipt!(self.return_data.clone())
     }
 
     pub fn gas_used(&self) -> u64 {
@@ -225,28 +170,11 @@ impl Receipt {
     }
 }
 
-impl From<Receipt_v3> for Receipt {
-    fn from(other: Receipt_v3) -> Self {
-        Receipt::V3(other)
-    }
-}
-
+#[delegated_enum(impl_conversions)]
 #[derive(Clone, Debug)]
 pub enum Entry {
     V3(Entry_v3),
     V4(Entry_v4),
-}
-
-impl From<Entry_v3> for Entry {
-    fn from(other: Entry_v3) -> Self {
-        Self::V3(other)
-    }
-}
-
-impl From<Entry_v4> for Entry {
-    fn from(other: Entry_v4) -> Self {
-        Self::V4(other)
-    }
 }
 
 impl Entry {
@@ -266,79 +194,39 @@ impl Entry {
     }
 
     pub fn into_parts(self) -> (u64, String, u64, Vec<u8>) {
-        match self {
-            Self::V3(v3) => {
-                let Entry_v3 {
-                    flags,
-                    key,
-                    codec,
-                    value,
-                } = v3;
-                (flags.bits(), key, codec, value)
-            }
-            Self::V4(v4) => {
-                let Entry_v4 {
-                    flags,
-                    key,
-                    codec,
-                    value,
-                } = v4;
-                (flags.bits(), key, codec, value)
-            }
-        }
+        delegate_entry!(self => |e| (e.flags.bits(), e.key, e.codec, e.value))
     }
 
     pub fn value(&self) -> &Vec<u8> {
-        match self {
-            Self::V3(v3) => &v3.value,
-            Self::V4(v4) => &v4.value,
-        }
+        delegate_entry!(self.value.borrow())
     }
 
     pub fn codec(&self) -> u64 {
-        match self {
-            Self::V3(v3) => v3.codec,
-            Self::V4(v4) => v4.codec,
-        }
+        delegate_entry!(self.codec)
     }
 
     pub fn key(&self) -> &String {
-        match self {
-            Self::V3(v3) => &v3.key,
-            Self::V4(v4) => &v4.key,
-        }
+        delegate_entry!(self.key.borrow())
     }
 }
 
+#[delegated_enum(impl_conversions)]
 #[derive(Clone, Debug)]
 pub enum ActorEvent {
     V3(ActorEvent_v3),
     V4(ActorEvent_v4),
 }
 
-impl From<ActorEvent_v3> for ActorEvent {
-    fn from(other: ActorEvent_v3) -> Self {
-        ActorEvent::V3(other)
-    }
-}
-
-impl From<ActorEvent_v4> for ActorEvent {
-    fn from(other: ActorEvent_v4) -> Self {
-        ActorEvent::V4(other)
-    }
-}
-
 impl ActorEvent {
     pub fn entries(&self) -> Vec<Entry> {
-        match self {
-            Self::V3(v3) => v3.entries.clone().into_iter().map(Into::into).collect(),
-            Self::V4(v4) => v4.entries.clone().into_iter().map(Into::into).collect(),
-        }
+        delegate_actor_event!(self => |e| e.entries.clone().into_iter().map(Into::into).collect())
     }
 }
 
 /// Event with extra information stamped by the FVM.
+#[delegated_enum(impl_conversions)]
 #[derive(Clone, Debug, Serialize)]
+#[serde(untagged)]
 pub enum StampedEvent {
     V3(StampedEvent_v3),
     V4(StampedEvent_v4),
@@ -346,44 +234,47 @@ pub enum StampedEvent {
 
 impl GetSize for StampedEvent {
     fn get_heap_size(&self) -> usize {
-        match self {
-            Self::V3(e) => vec_heap_size_with_fn_helper(&e.event.entries, |e| {
-                e.key.get_heap_size() + e.value.get_heap_size()
-            }),
-            Self::V4(e) => vec_heap_size_with_fn_helper(&e.event.entries, |e| {
-                e.key.get_heap_size() + e.value.get_heap_size()
-            }),
-        }
-    }
-}
-
-impl From<StampedEvent_v3> for StampedEvent {
-    fn from(other: StampedEvent_v3) -> Self {
-        StampedEvent::V3(other)
-    }
-}
-
-impl From<StampedEvent_v4> for StampedEvent {
-    fn from(other: StampedEvent_v4) -> Self {
-        StampedEvent::V4(other)
+        delegate_stamped_event!(self => |e| vec_heap_size_with_fn_helper(&e.event.entries, |e| {
+            e.key.get_heap_size() + e.value.get_heap_size()
+        }))
     }
 }
 
 impl StampedEvent {
     /// Returns the ID of the actor that emitted this event.
     pub fn emitter(&self) -> ActorID {
-        match self {
-            Self::V3(v3) => v3.emitter,
-            Self::V4(v4) => v4.emitter,
-        }
+        delegate_stamped_event!(self.emitter)
     }
 
     /// Returns the event as emitted by the actor.
     pub fn event(&self) -> ActorEvent {
-        match self {
-            Self::V3(v3) => v3.event.clone().into(),
-            Self::V4(v4) => v4.event.clone().into(),
+        delegate_stamped_event!(self.event.clone().into())
+    }
+
+    /// Loads events directly from the events AMT root CID.
+    /// Returns events in the exact order they are stored in the AMT.
+    pub fn get_events<DB: Blockstore>(
+        db: &DB,
+        events_root: &Cid,
+    ) -> anyhow::Result<Vec<StampedEvent>> {
+        let mut events = Vec::new();
+
+        // Try StampedEvent_v4 first (StampedEvent_v4 and StampedEvent_v3 are identical, use v4 here)
+        if let Ok(amt) = Amt::<StampedEvent_v4, _>::load(events_root, db) {
+            amt.for_each_cacheless(|_, event| {
+                events.push(StampedEvent::V4(event.clone()));
+                Ok(())
+            })?;
+        } else {
+            // Fallback to StampedEvent_v3
+            let amt = Amt::<StampedEvent_v3, _>::load(events_root, db)?;
+            amt.for_each_cacheless(|_, event| {
+                events.push(StampedEvent::V3(event.clone()));
+                Ok(())
+            })?;
         }
+
+        Ok(events)
     }
 }
 

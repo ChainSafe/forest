@@ -7,11 +7,13 @@ mod channel;
 mod client;
 mod filter_layer;
 mod filter_list;
+pub mod json_validator;
 mod log_layer;
 mod metrics_layer;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
+mod validation_layer;
 
 use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::shim::clock::ChainEpoch;
@@ -41,7 +43,8 @@ pub use methods::*;
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
 
-const LOOKBACK_NO_LIMIT: ChainEpoch = -1;
+/// Sentinel value, indicating no limit on how far back to search in the chain (all the way to genesis epoch).
+pub const LOOKBACK_NO_LIMIT: ChainEpoch = -1;
 
 /// The macro `callback` will be passed in each type that implements
 /// [`RpcMethod`].
@@ -115,21 +118,27 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetBlockByNumber);
         $callback!($crate::rpc::eth::EthGetBlockByNumberV2);
         $callback!($crate::rpc::eth::EthGetBlockReceipts);
+        $callback!($crate::rpc::eth::EthGetBlockReceiptsV2);
         $callback!($crate::rpc::eth::EthGetBlockReceiptsLimited);
+        $callback!($crate::rpc::eth::EthGetBlockReceiptsLimitedV2);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumber);
+        $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumberV2);
         $callback!($crate::rpc::eth::EthGetCode);
+        $callback!($crate::rpc::eth::EthGetCodeV2);
         $callback!($crate::rpc::eth::EthGetLogs);
         $callback!($crate::rpc::eth::EthGetFilterLogs);
         $callback!($crate::rpc::eth::EthGetFilterChanges);
         $callback!($crate::rpc::eth::EthGetMessageCidByTransactionHash);
         $callback!($crate::rpc::eth::EthGetStorageAt);
+        $callback!($crate::rpc::eth::EthGetStorageAtV2);
         $callback!($crate::rpc::eth::EthGetTransactionByHash);
         $callback!($crate::rpc::eth::EthGetTransactionByHashLimited);
         $callback!($crate::rpc::eth::EthGetTransactionCount);
         $callback!($crate::rpc::eth::EthGetTransactionCountV2);
         $callback!($crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndex);
+        $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndexV2);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);
         $callback!($crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!($crate::rpc::eth::EthProtocolVersion);
@@ -143,9 +152,11 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthSubscribe);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
+        $callback!($crate::rpc::eth::EthTraceBlockV2);
         $callback!($crate::rpc::eth::EthTraceFilter);
         $callback!($crate::rpc::eth::EthTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
+        $callback!($crate::rpc::eth::EthTraceReplayBlockTransactionsV2);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
 
@@ -433,11 +444,10 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{
     Methods,
     core::middleware::RpcServiceBuilder,
-    server::{RpcModule, Server, StopHandle, TowerServiceBuilder, stop_channel},
+    server::{RpcModule, Server, StopHandle, TowerServiceBuilder},
 };
 use parking_lot::RwLock;
 use std::env;
-use std::net::SocketAddr;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -454,6 +464,15 @@ static DEFAULT_REQUEST_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
         .ok()
         .and_then(|it| Duration::from_secs(it.parse().ok()?).into())
         .unwrap_or(Duration::from_secs(60))
+});
+
+/// Default maximum connections for the RPC server. This needs to be high enough to
+/// accommodate the regular usage for RPC providers.
+static DEFAULT_MAX_CONNECTIONS: LazyLock<u32> = LazyLock::new(|| {
+    env::var("FOREST_RPC_MAX_CONNECTIONS")
+        .ok()
+        .and_then(|it| it.parse().ok())
+        .unwrap_or(1000)
 });
 
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
@@ -519,7 +538,8 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
 
 pub async fn start_rpc<DB>(
     state: RPCState<DB>,
-    rpc_endpoint: SocketAddr,
+    rpc_listener: tokio::net::TcpListener,
+    stop_handle: StopHandle,
     filter_list: Option<FilterList>,
 ) -> anyhow::Result<()>
 where
@@ -546,8 +566,6 @@ where
     let methods: Arc<HashMap<ApiPaths, Methods>> =
         Arc::new(modules.into_iter().map(|(k, v)| (k, v.into())).collect());
 
-    let (stop_handle, _server_handle) = stop_channel();
-
     let per_conn = PerConnection {
         stop_handle: stop_handle.clone(),
         svc_builder: Server::builder()
@@ -556,6 +574,7 @@ where
                     // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
                     .max_request_body_size(MAX_REQUEST_BODY_SIZE)
                     .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+                    .max_connections(*DEFAULT_MAX_CONNECTIONS)
                     .set_id_provider(RandomHexStringIdProvider::new())
                     .build(),
             )
@@ -570,12 +589,10 @@ where
             .to_service_builder(),
         keystore,
     };
-
-    let listener = tokio::net::TcpListener::bind(rpc_endpoint).await.unwrap();
     tracing::info!("Ready for RPC connections");
     loop {
         let sock = tokio::select! {
-        res = listener.accept() => {
+        res = rpc_listener.accept() => {
             match res {
               Ok((stream, _remote_addr)) => stream,
               Err(e) => {
@@ -617,6 +634,7 @@ where
                     .layer(SetExtensionLayer { path })
                     .layer(SegregationLayer)
                     .layer(FilterLayer::new(filter_list.clone()))
+                    .layer(validation_layer::JsonValidationLayer)
                     .layer(AuthLayer {
                         headers,
                         keystore: keystore.clone(),
@@ -777,7 +795,14 @@ pub fn openrpc(path: ApiPaths, include: Option<&[&str]>) -> openrpc_types::OpenR
 
 #[cfg(test)]
 mod tests {
-    use crate::rpc::ApiPaths;
+    use super::*;
+    use crate::{
+        db::MemoryDB, networks::NetworkChain, rpc::common::ShiftingVersion,
+        tool::offline_server::server::offline_rpc_state,
+    };
+    use jsonrpsee::server::stop_channel;
+    use std::net::{Ipv4Addr, SocketAddr};
+    use tokio::task::JoinSet;
 
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
@@ -795,5 +820,63 @@ mod tests {
             //               violating other invariants)
             insta::assert_yaml_snapshot!(_spec);
         }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_rpc_server() {
+        let chain = NetworkChain::Calibnet;
+        let db = Arc::new(MemoryDB::default());
+        let mut services = JoinSet::new();
+        let (state, mut shutdown_recv) = offline_rpc_state(chain, db, None, None, &mut services)
+            .await
+            .unwrap();
+        let block_delay_secs = state.chain_config().block_delay_secs;
+        let shutdown_send = state.shutdown.clone();
+        let jwt_read_permissions = vec!["read".to_owned()];
+        let jwt_read = super::methods::auth::AuthNew::create_token(
+            &state.keystore.read(),
+            chrono::Duration::hours(1),
+            jwt_read_permissions.clone(),
+        )
+        .unwrap();
+        let rpc_listener =
+            tokio::net::TcpListener::bind(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 0))
+                .await
+                .unwrap();
+        let rpc_address = rpc_listener.local_addr().unwrap();
+        let (stop_handle, server_handle) = stop_channel();
+
+        // Start an RPC server
+
+        let handle = tokio::spawn(start_rpc(state, rpc_listener, stop_handle, None));
+
+        // Send a few requests
+
+        let client = Client::from_url(
+            format!("http://{}:{}/", rpc_address.ip(), rpc_address.port())
+                .parse()
+                .unwrap(),
+        );
+
+        let response = super::methods::common::Version::call(&client, ())
+            .await
+            .unwrap();
+        assert_eq!(
+            &response.version,
+            &*crate::utils::version::FOREST_VERSION_STRING
+        );
+        assert_eq!(response.block_delay, block_delay_secs);
+        assert_eq!(response.api_version, ShiftingVersion::new(2, 3, 0));
+
+        let response = super::methods::auth::AuthVerify::call(&client, (jwt_read,))
+            .await
+            .unwrap();
+        assert_eq!(response, jwt_read_permissions);
+
+        // Gracefully shutdown the RPC server
+        shutdown_send.send(()).await.unwrap();
+        shutdown_recv.recv().await;
+        server_handle.stop().unwrap();
+        handle.await.unwrap().unwrap();
     }
 }

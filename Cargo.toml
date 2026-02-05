@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.30.5"
+version = "0.31.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -62,7 +62,6 @@ derive_more = { version = "2", features = ["from", "into"] }
 dialoguer = "0.12"
 digest = "0.10"
 directories = "6"
-displaydoc = "0.2"
 educe = { version = "0.6", features = ["Debug"], default-features = false }
 enumflags2 = "0.7"
 ethereum-types = { version = "0.16", features = ["ethbloom"] }
@@ -179,7 +178,7 @@ reqwest = { version = "0.13", default-features = false, features = [
   "rustls",
   "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
-rlimit = "0.10"
+rlimit = "0.11"
 rlp = "0.6"
 rs-car-ipfs = "0.4"
 rust2go = { workspace = true }
@@ -196,6 +195,8 @@ similar = "2"
 slotmap = "1"
 smallvec = "1"
 smart-default = "0.7"
+sonic-rs = "0.5"
+spire_enum = "1"
 stacker = "0.1"
 static_assertions = "1"
 statrs = "0.18"
@@ -225,6 +226,7 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
@@ -254,7 +256,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.315"
+ra_ap_syntax = "0.0.318"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
@@ -307,11 +309,12 @@ lto = "fat"
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
+default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome", "sqlite"]
 slim = ["rustalloc"]
-doctest-private = []                                                      # see lib.rs::doctest_private
-benchmark-private = ["dep:criterion"]                                     # see lib.rs::benchmark_private
-interop-tests-private = []                                                # see lib.rs::interop_tests_private
+doctest-private = []                                                                # see lib.rs::doctest_private
+benchmark-private = ["dep:criterion"]                                               # see lib.rs::benchmark_private
+interop-tests-private = []                                                          # see lib.rs::interop_tests_private
+sqlite = ["dep:sqlx"]
 
 # Allocator. Use at most one of these.
 rustalloc = []

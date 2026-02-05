@@ -14,6 +14,7 @@ use fil_actors_shared::v16::reward::FilterEstimate;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
 use fvm_shared4::deal::DealID;
 use fvm_shared4::sector::RegisteredUpdateProof;
+use itertools::Itertools as _;
 use num::BigInt;
 use pastey::paste;
 use schemars::JsonSchema;
@@ -2401,7 +2402,7 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sectors3_params {
                                             p.notify
                                                 .into_iter()
                                                 .map(|n| n.into_lotus_json())
-                                                .collect::<Vec<_>>()
+                                                .collect_vec()
                                         ),
                                     }).collect(),
                                 }).collect(),
@@ -2527,7 +2528,7 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates3_params {
                                             p.notify
                                                 .into_iter()
                                                 .map(|n| n.into_lotus_json())
-                                                .collect::<Vec<_>>()
+                                                .collect_vec()
                                         ),
                                     }).collect(),
                                 }).collect(),
@@ -3156,7 +3157,7 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
                                 self.notify
                                     .into_iter()
                                     .map(|n| n.into_lotus_json())
-                                    .collect::<Vec<_>>()
+                                    .collect_vec()
                             ),
                         }
                     }

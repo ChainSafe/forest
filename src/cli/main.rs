@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::subcommands::Subcommand;
 use crate::cli::subcommands::Cli;
 use crate::cli_shared::logger;
 use crate::networks::NetworkChain;
@@ -31,20 +30,5 @@ where
 
     let (_bg_tasks, _guards) = logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
 
-    // Run command
-    match cmd {
-        Subcommand::Chain(cmd) => cmd.run(client).await,
-        Subcommand::Auth(cmd) => cmd.run(client).await,
-        Subcommand::Net(cmd) => cmd.run(client).await,
-        Subcommand::Sync(cmd) => cmd.run(client).await,
-        Subcommand::Mpool(cmd) => cmd.run(client).await,
-        Subcommand::State(cmd) => cmd.run(client).await,
-        Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
-        Subcommand::Info(cmd) => cmd.run(client).await,
-        Subcommand::Snapshot(cmd) => cmd.run(client).await,
-        Subcommand::Shutdown(cmd) => cmd.run(client).await,
-        Subcommand::Healthcheck(cmd) => cmd.run(client).await,
-        Subcommand::F3(cmd) => cmd.run(client).await,
-        Subcommand::WaitApi(cmd) => cmd.run(client).await,
-    }
+    cmd.run(client).await
 }

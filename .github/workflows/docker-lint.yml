@@ -1,0 +1,51 @@
+name: Docker lint
+
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+on:
+  merge_group:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/Dockerfile*"
+      - "**/*.dockerfile"
+      - "monitored-stack/docker-compose.yml"
+      - "monitored-stack/.env.example"
+      - ".github/workflows/docker-lint.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "**/Dockerfile*"
+      - "**/*.dockerfile"
+      - "monitored-stack/docker-compose.yml"
+      - "monitored-stack/.env.example"
+      - ".github/workflows/docker-lint.yml"
+
+jobs:
+  docker-lint:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - name: validate compose file
+        run: |
+          cp monitored-stack/.env.example monitored-stack/.env
+          docker compose -f monitored-stack/docker-compose.yml config
+      - uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: "Dockerfile*"
+          recursive: true
+          # https://github.com/hadolint/hadolint/wiki/DL3008
+          # https://github.com/hadolint/hadolint/wiki/DL3018
+          ignore: DL3008,DL3018
+      - uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: "*.dockerfile"
+          recursive: true
+          # https://github.com/hadolint/hadolint/wiki/DL3008
+          # https://github.com/hadolint/hadolint/wiki/DL3018
+          ignore: DL3008,DL3018

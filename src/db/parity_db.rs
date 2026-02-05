@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EthMappingsStore, IndicesStore, PersistentStore, SettingsStore};
+use super::{EthMappingsStore, PersistentStore, SettingsStore};
 use crate::blocks::TipsetKey;
 use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -39,8 +39,6 @@ pub enum DbColumn {
     /// Anything stored in this column can be considered permanent, unless manually
     /// deleted.
     PersistentGraph,
-    /// Column for storing indexed values.
-    Indices,
 }
 
 impl DbColumn {
@@ -72,12 +70,6 @@ impl DbColumn {
                         ..Default::default()
                     },
                     DbColumn::EthMappings => parity_db::ColumnOptions {
-                        preimage: false,
-                        btree_index: false,
-                        compression,
-                        ..Default::default()
-                    },
-                    DbColumn::Indices => parity_db::ColumnOptions {
                         preimage: false,
                         btree_index: false,
                         compression,
@@ -226,23 +218,6 @@ impl EthMappingsStore for ParityDb {
             let bytes = key.0.as_bytes().to_vec();
             (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
         }))?)
-    }
-}
-
-impl IndicesStore for ParityDb {
-    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.read_from_column(key.to_bytes(), DbColumn::Indices)
-    }
-
-    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
-        self.write_to_column(key.to_bytes(), value, DbColumn::Indices)
-    }
-
-    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
-        self.db
-            .get_size(DbColumn::Indices as u8, &key.to_bytes())
-            .map(|size| size.is_some())
-            .context("error checking if key exists")
     }
 }
 
@@ -422,6 +397,7 @@ mod test {
     use super::*;
     use crate::db::{BlockstoreWriteOpsSubscribable, tests::db_utils::parity::TempParityDB};
     use fvm_ipld_encoding::IPLD_RAW;
+    use itertools::Itertools as _;
     use nom::AsBytes;
     use std::ops::Deref;
 
@@ -463,7 +439,6 @@ mod test {
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
                 DbColumn::EthMappings => panic!("invalid column for IPLD data"),
                 DbColumn::PersistentGraph => panic!("invalid column for GC enabled IPLD data"),
-                DbColumn::Indices => panic!("invalid indices column for IPLD data"),
             };
             let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();
             assert!(actual.is_none());
@@ -528,7 +503,7 @@ mod test {
                 entry.push(255);
                 entry
             })
-            .collect::<Vec<Vec<u8>>>();
+            .collect_vec();
 
         let cids = [
             Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data[0])),
@@ -563,14 +538,7 @@ mod test {
     #[test]
     fn subscription_tests() {
         let db = TempParityDB::new();
-        assert!(
-            db.db
-                .as_ref()
-                .unwrap()
-                .write_ops_broadcast_tx
-                .read()
-                .is_none()
-        );
+        assert!(db.write_ops_broadcast_tx.read().is_none());
         let data = [
             b"h'nglui mglw'nafh".to_vec(),
             b"Cthulhu".to_vec(),
@@ -583,17 +551,11 @@ mod test {
             Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
         ];
 
-        let mut rx1 = db.db.as_ref().unwrap().subscribe_write_ops();
-        let mut rx2 = db.db.as_ref().unwrap().subscribe_write_ops();
+        let mut rx1 = db.subscribe_write_ops();
+        let mut rx2 = db.subscribe_write_ops();
 
         assert!(has_subscribers(
-            db.db
-                .as_ref()
-                .unwrap()
-                .write_ops_broadcast_tx
-                .read()
-                .as_ref()
-                .unwrap()
+            db.write_ops_broadcast_tx.read().as_ref().unwrap()
         ));
 
         for (idx, cid) in cids.iter().enumerate() {
@@ -607,24 +569,11 @@ mod test {
         drop(rx2);
 
         assert!(!has_subscribers(
-            db.db
-                .as_ref()
-                .unwrap()
-                .write_ops_broadcast_tx
-                .read()
-                .as_ref()
-                .unwrap()
+            db.write_ops_broadcast_tx.read().as_ref().unwrap()
         ));
 
-        db.db.as_ref().unwrap().unsubscribe_write_ops();
+        db.unsubscribe_write_ops();
 
-        assert!(
-            db.db
-                .as_ref()
-                .unwrap()
-                .write_ops_broadcast_tx
-                .read()
-                .is_none()
-        );
+        assert!(db.write_ops_broadcast_tx.read().is_none());
     }
 }

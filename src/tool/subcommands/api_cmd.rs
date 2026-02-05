@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod api_compare_tests;
-pub(super) mod generate_test_snapshot;
+pub(crate) mod generate_test_snapshot;
 mod report;
 mod state_decode_params_tests;
 mod stateful_tests;
@@ -335,7 +335,7 @@ impl ApiCommands {
                     let (_, config) = read_config(None, Some(chain.clone()))?;
                     db_root(&chain_path(&config))?
                 };
-                let tracking_db = generate_test_snapshot::load_db(&db)?;
+                let tracking_db = generate_test_snapshot::load_db(&db, None).await?;
                 for test_dump_file in test_dump_files {
                     let out_path = out_dir
                         .join(test_dump_file.file_name().context("Infallible")?)

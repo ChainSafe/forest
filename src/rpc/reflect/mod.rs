@@ -95,7 +95,7 @@ pub trait RpcMethod<const ARITY: usize> {
     PartialOrd,
     Ord,
     Hash,
-    displaydoc::Display,
+    derive_more::Display,
     Serialize,
     Deserialize,
 )]

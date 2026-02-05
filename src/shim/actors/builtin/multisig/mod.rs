@@ -1,20 +1,23 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod ext;
-
-use crate::shim::actors::convert::{
-    from_address_v3_to_v2, from_address_v4_to_v2, from_token_v3_to_v2, from_token_v4_to_v2,
+use super::super::macros::{
+    parse_pending_transactions, parse_pending_transactions_v3, parse_pending_transactions_v4,
+};
+use crate::{
+    rpc::types::MsigVesting,
+    shim::{MethodNum, address::Address, clock::ChainEpoch, econ::TokenAmount},
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared2::{MethodNum, address::Address, clock::ChainEpoch, econ::TokenAmount};
 use serde::{Deserialize, Serialize};
+use spire_enum::prelude::delegated_enum;
 
 /// Multisig actor method.
 pub type Method = fil_actor_multisig_state::v8::Method;
 
 /// Multisig actor state.
+#[delegated_enum(impl_conversions)]
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum State {
@@ -64,18 +67,7 @@ impl State {
 
     /// Returns amount locked in multisig contract
     pub fn locked_balance(&self, height: ChainEpoch) -> anyhow::Result<TokenAmount> {
-        Ok(match self {
-            State::V8(st) => st.amount_locked(height - st.start_epoch),
-            State::V9(st) => st.amount_locked(height - st.start_epoch),
-            State::V10(st) => from_token_v3_to_v2(&st.amount_locked(height - st.start_epoch)),
-            State::V11(st) => from_token_v3_to_v2(&st.amount_locked(height - st.start_epoch)),
-            State::V12(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
-            State::V13(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
-            State::V14(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
-            State::V15(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
-            State::V16(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
-            State::V17(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
-        })
+        Ok(delegate_state!(self => |st| st.amount_locked(height - st.start_epoch).into()))
     }
 
     /// Returns pending transactions for the given multisig wallet
@@ -87,7 +79,7 @@ impl State {
                     BS,
                     fil_actor_multisig_state::v8::Transaction,
                 >(&st.pending_txs, store)?;
-                crate::parse_pending_transactions!(res, txns);
+                parse_pending_transactions!(res, txns);
                 Ok(res)
             }
             State::V9(st) => {
@@ -95,7 +87,7 @@ impl State {
                     BS,
                     fil_actor_multisig_state::v9::Transaction,
                 >(&st.pending_txs, store)?;
-                crate::parse_pending_transactions!(res, txns);
+                parse_pending_transactions!(res, txns);
                 Ok(res)
             }
             State::V10(st) => {
@@ -103,7 +95,7 @@ impl State {
                     BS,
                     fil_actor_multisig_state::v10::Transaction,
                 >(&st.pending_txs, store)?;
-                crate::parse_pending_transactions_v3!(res, txns);
+                parse_pending_transactions_v3!(res, txns);
                 Ok(res)
             }
             State::V11(st) => {
@@ -111,7 +103,7 @@ impl State {
                     BS,
                     fil_actor_multisig_state::v11::Transaction,
                 >(&st.pending_txs, store)?;
-                crate::parse_pending_transactions_v3!(res, txns);
+                parse_pending_transactions_v3!(res, txns);
                 Ok(res)
             }
             State::V12(st) => {
@@ -122,7 +114,7 @@ impl State {
                     "pending txns",
                 )
                 .expect("Could not load pending transactions");
-                crate::parse_pending_transactions_v4!(res, txns);
+                parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
             State::V13(st) => {
@@ -133,7 +125,7 @@ impl State {
                     "pending txns",
                 )
                 .expect("Could not load pending transactions");
-                crate::parse_pending_transactions_v4!(res, txns);
+                parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
             State::V14(st) => {
@@ -144,7 +136,7 @@ impl State {
                     "pending txns",
                 )
                 .expect("Could not load pending transactions");
-                crate::parse_pending_transactions_v4!(res, txns);
+                parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
             State::V15(st) => {
@@ -155,7 +147,7 @@ impl State {
                     "pending txns",
                 )
                 .expect("Could not load pending transactions");
-                crate::parse_pending_transactions_v4!(res, txns);
+                parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
             State::V16(st) => {
@@ -166,7 +158,7 @@ impl State {
                     "pending txns",
                 )
                 .expect("Could not load pending transactions");
-                crate::parse_pending_transactions_v4!(res, txns);
+                parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
             State::V17(st) => {
@@ -177,9 +169,18 @@ impl State {
                     "pending txns",
                 )
                 .expect("Could not load pending transactions");
-                crate::parse_pending_transactions_v4!(res, txns);
+                parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
         }
+    }
+
+    /// Returns the vesting schedule for this multisig state.
+    pub fn get_vesting_schedule(&self) -> anyhow::Result<MsigVesting> {
+        Ok(delegate_state!(self => |st| MsigVesting {
+            initial_balance: st.initial_balance.atto().clone(),
+            start_epoch: st.start_epoch,
+            unlock_duration: st.unlock_duration,
+        }))
     }
 }

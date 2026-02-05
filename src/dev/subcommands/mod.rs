@@ -1,8 +1,14 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod state_cmd;
+
 use crate::cli_shared::cli::HELP_MESSAGE;
+use crate::networks::generate_actor_bundle;
 use crate::rpc::Client;
+use crate::state_manager::utils::state_compute::{
+    get_state_snapshot_file, list_state_snapshot_files,
+};
 use crate::utils::net::{DownloadFileOption, download_file_with_cache};
 use crate::utils::proofs_api::ensure_proof_params_downloaded;
 use crate::utils::version::FOREST_VERSION_STRING;
@@ -28,23 +34,62 @@ pub struct Cli {
 /// forest-dev sub-commands
 #[derive(clap::Subcommand)]
 pub enum Subcommand {
-    /// Fetch RPC test snapshots to the local cache
-    FetchRpcTests,
+    /// Fetch test snapshots to the local cache
+    FetchTestSnapshots {
+        // Save actor bundle to
+        #[arg(long)]
+        actor_bundle: Option<PathBuf>,
+    },
+    #[command(subcommand)]
+    State(state_cmd::StateCommand),
 }
 
 impl Subcommand {
     pub async fn run(self, _client: Client) -> anyhow::Result<()> {
         match self {
-            Self::FetchRpcTests => fetch_rpc_tests().await,
+            Self::FetchTestSnapshots { actor_bundle } => fetch_test_snapshots(actor_bundle).await,
+            Self::State(cmd) => cmd.run().await,
         }
     }
 }
 
-async fn fetch_rpc_tests() -> anyhow::Result<()> {
+async fn fetch_test_snapshots(actor_bundle: Option<PathBuf>) -> anyhow::Result<()> {
+    // Prepare proof parameter files
     crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
         &crate::Config::default().client.data_dir,
     );
     ensure_proof_params_downloaded().await?;
+
+    // Prepare actor bundles
+    if let Some(actor_bundle) = actor_bundle {
+        generate_actor_bundle(&actor_bundle).await?;
+        println!("Wrote the actors bundle to {}", actor_bundle.display());
+    }
+
+    // Prepare state computation and validation snapshots
+    fetch_state_tests().await?;
+
+    // Prepare RPC test snapshots
+    fetch_rpc_tests().await?;
+
+    Ok(())
+}
+
+pub async fn fetch_state_tests() -> anyhow::Result<()> {
+    let files = list_state_snapshot_files().await?;
+    let mut joinset = JoinSet::new();
+    for file in files {
+        joinset.spawn(async move { get_state_snapshot_file(&file).await });
+    }
+    for result in joinset.join_all().await {
+        if let Err(e) = result {
+            tracing::warn!("{e}");
+        }
+    }
+    Ok(())
+}
+
+async fn fetch_rpc_tests() -> anyhow::Result<()> {
     let tests = include_str!("../../tool/subcommands/api_cmd/test_snapshots.txt")
         .lines()
         .map(|i| {

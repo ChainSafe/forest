@@ -41,7 +41,7 @@ type SaltByteArray = [u8; RECOMMENDED_SALT_LEN];
 /// `KeyInfo` structure, this contains the type of key (stored as a string) and
 /// the private key. Note how the private key is stored as a byte vector
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize, derive_more::Constructor)]
 pub struct KeyInfo {
     key_type: SignatureType,
     // Vec<u8> is used because The private keys for BLS and SECP256K1 are not of the same type
@@ -55,14 +55,6 @@ pub struct PersistentKeyInfo {
 }
 
 impl KeyInfo {
-    /// Return a new `KeyInfo` given the key type and private key
-    pub fn new(key_type: SignatureType, private_key: Vec<u8>) -> Self {
-        KeyInfo {
-            key_type,
-            private_key,
-        }
-    }
-
     /// Return a reference to the key's signature type
     pub fn key_type(&self) -> &SignatureType {
         &self.key_type

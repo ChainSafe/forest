@@ -16,12 +16,14 @@ on:
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
+      - "**/*.md"
   push:
     branches:
       - main
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
+      - "**/*.md"
 
 env:
   CI: 1
@@ -90,7 +92,7 @@ jobs:
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-        run: mise run install --slim
+        run: mise run install --slim quick
       - uses: actions/upload-artifact@v6
         with:
           name: "forest-${{ runner.os }}"
@@ -399,6 +401,8 @@ jobs:
       - run: ./scripts/tests/calibnet_eth_mapping_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-api-test-stateful:
+    concurrency:
+      group: calibnet-api-test-stateful
     needs:
       - build-ubuntu
     name: Calibnet api test-stateful check

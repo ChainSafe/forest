@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::CachingBlockHeader;
 use crate::rpc::eth::pubsub_trait::LogFilter;
 use anyhow::ensure;
 use get_size2::GetSize;
@@ -29,6 +28,7 @@ pub const METHOD_GET_STORAGE_AT: u64 = 5;
     JsonSchema,
     derive_more::From,
     derive_more::Into,
+    derive_more::Deref,
     GetSize,
 )]
 pub struct EthBytes(
@@ -57,14 +57,6 @@ impl FromStr for EthBytes {
         let deserializer: StringDeserializer<SerdeError> = String::from_str(s)?.into_deserializer();
         let bytes = crate::lotus_json::hexify_vec_bytes::deserialize(deserializer)?;
         Ok(Self(bytes))
-    }
-}
-
-impl Deref for EthBytes {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -119,6 +111,7 @@ impl GetStorageAtParams {
     JsonSchema,
     derive_more::From,
     derive_more::Into,
+    derive_more::FromStr,
 )]
 pub struct EthAddress(
     #[schemars(with = "String")]
@@ -216,16 +209,6 @@ impl EthAddress {
         let hash = keccak_hash::keccak(pubkey.get(1..).context("failed to get pubkey data")?);
         let addr: &[u8] = &hash[12..32];
         EthAddress::try_from(addr)
-    }
-}
-
-impl FromStr for EthAddress {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(EthAddress(
-            ethereum_types::Address::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))?,
-        ))
     }
 }
 
@@ -403,11 +386,12 @@ impl TryFrom<EthCallMessage> for Message {
     Default,
     Clone,
     JsonSchema,
-    displaydoc::Display,
+    derive_more::Display,
     derive_more::From,
     derive_more::Into,
+    derive_more::FromStr,
 )]
-#[displaydoc("{0:#x}")]
+#[display("{_0:#x}")]
 pub struct EthHash(#[schemars(with = "String")] pub ethereum_types::H256);
 lotus_json_with_self!(EthHash);
 
@@ -423,7 +407,7 @@ pub struct FilterID(EthHash);
 lotus_json_with_self!(FilterID);
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
-pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<CachingBlockHeader>);
+pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Block);
 
 lotus_json_with_self!(ApiHeaders);
 
@@ -472,7 +456,7 @@ pub struct EthTopicSpec(pub Vec<EthHashList>);
 
 /// Represents an [`EthAddress`] or a collection of thereof. This allows the caller to either use,
 /// e.g., `0x1234...` or `["0x1234...", "0x5678..."]` as the address parameter.
-#[derive(PartialEq, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(PartialEq, Serialize, Deserialize, Debug, Clone, JsonSchema, derive_more::From)]
 #[serde(untagged)]
 pub enum EthAddressList {
     List(Vec<EthAddress>),
@@ -482,18 +466,6 @@ pub enum EthAddressList {
 impl Default for EthAddressList {
     fn default() -> Self {
         EthAddressList::List(Vec::new())
-    }
-}
-
-impl From<EthAddress> for EthAddressList {
-    fn from(addr: EthAddress) -> Self {
-        EthAddressList::Single(addr)
-    }
-}
-
-impl From<Vec<EthAddress>> for EthAddressList {
-    fn from(addrs: Vec<EthAddress>) -> Self {
-        EthAddressList::List(addrs)
     }
 }
 
@@ -687,11 +659,9 @@ lotus_json_with_self!(EthBlockTrace);
 #[serde(rename_all = "camelCase")]
 pub struct EthReplayBlockTransactionTrace {
     pub output: EthBytes,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub state_diff: Option<String>,
     pub trace: Vec<EthTrace>,
     pub transaction_hash: EthHash,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub vm_trace: Option<String>,
 }
 lotus_json_with_self!(EthReplayBlockTransactionTrace);

@@ -17,6 +17,7 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use clap::Subcommand;
 use clap::ValueEnum;
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
+use itertools::Itertools as _;
 use openrpc_types::ReferenceOr;
 use std::path::PathBuf;
 
@@ -97,7 +98,7 @@ impl ShedCommands {
                         )
                         .map_ok(|tipset| {
                             let cids = tipset.block_headers().iter().map(|it| *it.cid());
-                            (tipset.epoch(), cids.collect::<Vec<_>>())
+                            (tipset.epoch(), cids.collect_vec())
                         })
                     }))
                     .buffered(12);
@@ -140,7 +141,7 @@ impl ShedCommands {
                 path,
                 omit,
             } => {
-                let include = include.iter().map(String::as_str).collect::<Vec<_>>();
+                let include = include.iter().map(String::as_str).collect_vec();
 
                 let mut openrpc_doc = crate::rpc::openrpc(
                     path,

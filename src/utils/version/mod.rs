@@ -21,15 +21,9 @@ pub static FOREST_VERSION_STRING: LazyLock<String> =
 pub static FOREST_VERSION: LazyLock<semver::Version> =
     LazyLock::new(|| semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid version"));
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet, derive_more::Constructor)]
 pub struct VersionLabel {
     version: &'static str,
-}
-
-impl VersionLabel {
-    pub const fn new(version: &'static str) -> Self {
-        Self { version }
-    }
 }
 
 #[derive(Debug)]

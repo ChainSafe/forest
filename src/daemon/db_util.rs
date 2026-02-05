@@ -339,14 +339,9 @@ where
     let epoch = ts.epoch();
     let tsk = ts.key().clone();
 
-    let state_output = state_manager
+    state_manager
         .compute_tipset_state(ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
         .await?;
-    for events_root in state_output.events_roots.iter().flatten() {
-        tracing::trace!("Indexing events root @{epoch}: {events_root}");
-
-        state_manager.chain_store().put_index(events_root, &tsk)?;
-    }
 
     delegated_messages.append(
         &mut state_manager

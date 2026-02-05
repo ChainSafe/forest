@@ -1,9 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::super::convert::{from_address_v3_to_v2, from_address_v4_to_v2};
-use crate::shim;
+use crate::shim::{self, address::Address};
 use serde::Serialize;
+use spire_enum::prelude::delegated_enum;
 
 /// Account actor method.
 pub type Method = fil_actor_account_state::v8::Method;
@@ -11,6 +11,7 @@ pub type Method = fil_actor_account_state::v8::Method;
 /// Account actor state.
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
+#[delegated_enum(impl_conversions)]
 pub enum State {
     V8(fil_actor_account_state::v8::State),
     V9(fil_actor_account_state::v9::State),
@@ -25,19 +26,8 @@ pub enum State {
 }
 
 impl State {
-    pub fn pubkey_address(&self) -> fvm_shared2::address::Address {
-        match self {
-            State::V8(st) => st.address,
-            State::V9(st) => st.address,
-            State::V10(st) => from_address_v3_to_v2(st.address),
-            State::V11(st) => from_address_v3_to_v2(st.address),
-            State::V12(st) => from_address_v4_to_v2(st.address),
-            State::V13(st) => from_address_v4_to_v2(st.address),
-            State::V14(st) => from_address_v4_to_v2(st.address),
-            State::V15(st) => from_address_v4_to_v2(st.address),
-            State::V16(st) => from_address_v4_to_v2(st.address),
-            State::V17(st) => from_address_v4_to_v2(st.address),
-        }
+    pub fn pubkey_address(&self) -> Address {
+        delegate_state!(self.address.into())
     }
 
     pub fn default_latest_version(address: fvm_shared4::address::Address) -> Self {

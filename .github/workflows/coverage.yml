@@ -17,12 +17,14 @@ on:
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
+      - "**/*.md"
   push:
     branches:
       - main
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
+      - "**/*.md"
 
 env:
   CI: 1
@@ -30,14 +32,14 @@ env:
   CACHE_TIMEOUT_MINUTES: 5
   AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
   AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-  RUSTC_WRAPPER: sccache
-  CC: sccache clang
-  CXX: sccache clang++
+  CC: clang
+  CXX: clang++
   # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
   RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
   FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT: 1
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   RUST_LOG: error
+  FOREST_ACTOR_BUNDLE_PATH: /var/tmp/forest_actor_bundle.car.zst
 
 jobs:
   codecov:
@@ -46,26 +48,12 @@ jobs:
     runs-on: buildjet-4vcpu-ubuntu-2204
     timeout-minutes: 45
     steps:
-      - run: lscpu
-      - name: Configure SCCache variables
-        run: |
-          # External PRs do not have access to 'vars' or 'secrets'.
-          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
-          fi
       - uses: actions/checkout@v6
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
       - uses: jdx/mise-action@v3
       - uses: taiki-e/install-action@cargo-llvm-cov
-      - uses: taiki-e/install-action@nextest
       - name: Fetch proof params and RPC test snapshots
         run: |
-          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-rpc-tests
+          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - name: Generate code coverage
         run: mise codecov

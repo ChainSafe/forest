@@ -11,6 +11,7 @@ use crate::shim::{
     address::Address, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
+use crate::state_manager::StateLookupPolicy;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
@@ -83,11 +84,7 @@ impl TipsetSyncerError {
     /// Concatenate all validation error messages into one comma separated
     /// version.
     fn concat(errs: NonEmpty<TipsetSyncerError>) -> Self {
-        let msg = errs
-            .iter()
-            .map(|e| e.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
+        let msg = errs.iter().map(|e| e.to_string()).collect_vec().join(", ");
 
         TipsetSyncerError::Validation(msg)
     }
@@ -99,12 +96,13 @@ impl TipsetSyncerError {
 /// validation.
 pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     state_manager: &Arc<StateManager<DB>>,
-    chainstore: &ChainStore<DB>,
     full_tipset: FullTipset,
-    genesis: &Tipset,
     bad_block_cache: Option<Arc<BadBlockCache>>,
 ) -> Result<(), TipsetSyncerError> {
-    if full_tipset.key().eq(genesis.key()) {
+    if full_tipset
+        .key()
+        .eq(state_manager.chain_store().genesis_tipset().key())
+    {
         trace!("Skipping genesis tipset validation");
         return Ok(());
     }
@@ -123,7 +121,9 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     while let Some(result) = validations.join_next().await {
         match result? {
             Ok(block) => {
-                chainstore.add_to_tipset_tracker(block.header());
+                state_manager
+                    .chain_store()
+                    .add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {
                 warn!("Validating block [CID = {cid}] in EPOCH = {epoch} failed: {why}");
@@ -275,7 +275,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         async move {
             let header = block.header();
             let (state_root, receipt_root) = state_manager
-                .tipset_state(&base_tipset)
+                .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
                 .await
                 .map_err(|e| {
                     TipsetSyncerError::Calculation(format!("Failed to calculate state: {e}"))
@@ -436,7 +436,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
 
     let mut account_sequences: HashMap<Address, u64> = HashMap::default();
     let (state_root, _) = state_manager
-        .tipset_state(&base_tipset)
+        .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
         .await
         .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e}")))?;
     let tree =

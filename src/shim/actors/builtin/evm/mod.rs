@@ -6,11 +6,13 @@ use ::cid::Cid;
 use fil_actor_evm_state::v17::{BytecodeHash, Tombstone, TransientData};
 use fvm_shared2::address::Address;
 use serde::Serialize;
+use spire_enum::prelude::delegated_enum;
 
 /// EVM actor method.
 pub type Method = fil_actor_evm_state::v10::Method;
 
 /// EVM actor state.
+#[delegated_enum(impl_conversions)]
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum State {
@@ -44,32 +46,15 @@ impl State {
     }
 
     pub fn nonce(&self) -> u64 {
-        match self {
-            State::V10(st) => st.nonce,
-            State::V11(st) => st.nonce,
-            State::V12(st) => st.nonce,
-            State::V13(st) => st.nonce,
-            State::V14(st) => st.nonce,
-            State::V15(st) => st.nonce,
-            State::V16(st) => st.nonce,
-            State::V17(st) => st.nonce,
-        }
+        delegate_state!(self.nonce)
     }
 
     pub fn is_alive(&self) -> bool {
-        match self {
-            State::V10(st) => st.tombstone.is_none(),
-            State::V11(st) => st.tombstone.is_none(),
-            State::V12(st) => st.tombstone.is_none(),
-            State::V13(st) => st.tombstone.is_none(),
-            State::V14(st) => st.tombstone.is_none(),
-            State::V15(st) => st.tombstone.is_none(),
-            State::V16(st) => st.tombstone.is_none(),
-            State::V17(st) => st.tombstone.is_none(),
-        }
+        delegate_state!(self.tombstone.is_none())
     }
 }
 
+#[delegated_enum(impl_conversions)]
 #[derive(Serialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum TombstoneState {

@@ -406,10 +406,7 @@ mod tests {
         let base_worker_addr = Address::new_id(base_addr_id + 100);
 
         // create 3 deal proposals
-        let mut market_actor_old = state_tree_old
-            .get_actor(&market::ADDRESS.into())
-            .unwrap()
-            .unwrap();
+        let mut market_actor_old = state_tree_old.get_actor(&market::ADDRESS).unwrap().unwrap();
         let mut market_state_old: fil_actor_market_state::v8::State =
             store.get_cbor_required(&market_actor_old.state).unwrap();
         let mut proposals = fil_actors_shared::v8::Array::<
@@ -482,7 +479,7 @@ mod tests {
         let market_state_cid_old = store.put_cbor_default(&market_state_old).unwrap();
         market_actor_old.state = market_state_cid_old;
         state_tree_old
-            .set_actor(&market::ADDRESS.into(), market_actor_old)
+            .set_actor(&market::ADDRESS, market_actor_old)
             .unwrap();
 
         // base stuff to create miners
@@ -713,7 +710,7 @@ mod tests {
             &mut tree,
             reward_state_cid,
             reward_cid,
-            &reward::ADDRESS.into(),
+            &reward::ADDRESS,
             TokenAmount::from_whole(1_100_000_000),
         );
 
@@ -722,11 +719,11 @@ mod tests {
         let cron_state = fil_actor_cron_state::v8::State {
             entries: vec![
                 fil_actor_cron_state::v8::Entry {
-                    receiver: crate::shim::actors::power::ADDRESS,
+                    receiver: crate::shim::actors::power::ADDRESS.into(),
                     method_num: crate::shim::actors::power::Method::OnEpochTickEnd as u64,
                 },
                 fil_actor_cron_state::v8::Entry {
-                    receiver: crate::shim::actors::market::ADDRESS,
+                    receiver: crate::shim::actors::market::ADDRESS.into(),
                     method_num: crate::shim::actors::market::Method::CronTick as u64,
                 },
             ],
@@ -759,7 +756,7 @@ mod tests {
             &mut tree,
             power_state_cid,
             power_cid,
-            &power::ADDRESS.into(),
+            &power::ADDRESS,
             Zero::zero(),
         );
 
@@ -778,7 +775,7 @@ mod tests {
             &mut tree,
             market_state_cid,
             market_cid,
-            &market::ADDRESS.into(),
+            &market::ADDRESS,
             Zero::zero(),
         );
 

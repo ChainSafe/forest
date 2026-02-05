@@ -1,7 +1,5 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::fmt;
-use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
 use crate::lotus_json::lotus_json_with_self;
@@ -31,8 +29,24 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(fvm_shared2::version::NetworkVersion::V0, v0.into());
 /// ```
 #[derive(
-    Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Serialize, Deserialize, JsonSchema,
+    Debug,
+    Eq,
+    PartialEq,
+    Clone,
+    Copy,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    derive_more::Deref,
+    derive_more::DerefMut,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Display,
 )]
+#[from(u32, NetworkVersion_v4)]
+#[into(u32, NetworkVersion_v4)]
 #[repr(transparent)]
 #[serde(transparent)]
 pub struct NetworkVersion(#[schemars(with = "u32")] pub NetworkVersion_latest);
@@ -58,31 +72,6 @@ define_network_versions!(
     26, 27, 28,
 );
 
-impl Deref for NetworkVersion {
-    type Target = NetworkVersion_latest;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for NetworkVersion {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl From<u32> for NetworkVersion {
-    fn from(value: u32) -> Self {
-        NetworkVersion(NetworkVersion_latest::new(value))
-    }
-}
-
-impl From<NetworkVersion> for u32 {
-    fn from(value: NetworkVersion) -> Self {
-        value.0.into()
-    }
-}
-
 impl From<NetworkVersion_v2> for NetworkVersion {
     fn from(value: NetworkVersion_v2) -> Self {
         NetworkVersion((value as u32).into())
@@ -92,12 +81,6 @@ impl From<NetworkVersion_v2> for NetworkVersion {
 impl From<NetworkVersion_v3> for NetworkVersion {
     fn from(value: NetworkVersion_v3) -> Self {
         NetworkVersion(u32::from(value).into())
-    }
-}
-
-impl From<NetworkVersion_v4> for NetworkVersion {
-    fn from(value: NetworkVersion_v4) -> Self {
-        NetworkVersion(value)
     }
 }
 
@@ -113,24 +96,12 @@ impl From<NetworkVersion> for NetworkVersion_v3 {
     }
 }
 
-impl From<NetworkVersion> for NetworkVersion_v4 {
-    fn from(other: NetworkVersion) -> Self {
-        other.0
-    }
-}
-
 impl FromStr for NetworkVersion {
     type Err = <u32 as FromStr>::Err;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let v: u32 = s.parse()?;
         Ok(v.into())
-    }
-}
-
-impl fmt::Display for NetworkVersion {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
     }
 }
 

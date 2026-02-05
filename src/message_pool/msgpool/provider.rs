@@ -62,18 +62,10 @@ pub trait Provider {
 
 /// This is the default Provider implementation that will be used for the
 /// `mpool` RPC.
+#[derive(derive_more::Constructor)]
 pub struct MpoolRpcProvider<DB> {
     subscriber: Publisher<HeadChange>,
     sm: Arc<StateManager<DB>>,
-}
-
-impl<DB> MpoolRpcProvider<DB>
-where
-    DB: Blockstore,
-{
-    pub fn new(subscriber: Publisher<HeadChange>, sm: Arc<StateManager<DB>>) -> Self {
-        MpoolRpcProvider { subscriber, sm }
-    }
 }
 
 #[async_trait]

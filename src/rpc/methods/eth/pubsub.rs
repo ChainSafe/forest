@@ -69,14 +69,9 @@ use jsonrpsee::core::{SubscriptionError, SubscriptionResult};
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, error::RecvError};
 
+#[derive(derive_more::Constructor)]
 pub struct EthPubSub<DB> {
     ctx: Arc<RPCState<DB>>,
-}
-
-impl<DB> EthPubSub<DB> {
-    pub fn new(ctx: Arc<RPCState<DB>>) -> Self {
-        Self { ctx }
-    }
 }
 
 #[async_trait::async_trait]
@@ -123,7 +118,7 @@ where
         accepted_sink: jsonrpsee::SubscriptionSink,
         ctx: Arc<RPCState<DB>>,
     ) {
-        let (subscriber, handle) = chain::new_heads(&ctx);
+        let (subscriber, handle) = chain::new_heads(ctx);
         tokio::spawn(async move {
             handle_subscription(subscriber, accepted_sink, handle).await;
         });

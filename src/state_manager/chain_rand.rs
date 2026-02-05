@@ -16,6 +16,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use fvm_ipld_blockstore::Blockstore;
 
 /// Allows for deriving the randomness from a particular tipset.
+#[derive(derive_more::Constructor)]
 pub struct ChainRand<DB> {
     chain_config: Arc<ChainConfig>,
     tipset: Tipset,
@@ -38,20 +39,6 @@ impl<DB> ChainRand<DB>
 where
     DB: Blockstore,
 {
-    pub fn new(
-        chain_config: Arc<ChainConfig>,
-        tipset: Tipset,
-        chain_index: Arc<ChainIndex<Arc<DB>>>,
-        beacon: Arc<BeaconSchedule>,
-    ) -> Self {
-        Self {
-            chain_config,
-            tipset,
-            chain_index,
-            beacon,
-        }
-    }
-
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
     /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
     pub fn get_chain_randomness(

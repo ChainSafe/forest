@@ -7,6 +7,7 @@ arg "<profile>" help="Installation profile (quick, release, etc.)" default="rele
 flag "--slim" help="Install a slim version"
 flag "-v --verbose" help="Enable verbose output"
 '''
+shell = "bash -c"
 run = '''
 echo "Installing Forest binaries with profile: ${usage_profile?}"
 [[ -n "${usage_verbose}" ]] && set -x
@@ -106,18 +107,37 @@ depends = ["lint:deny", "lint:spellcheck", "lint:rust-fmt", "lint:clippy", "lint
 [tasks."lint:yaml"]
 description = "Lint YAML files."
 run = '''
-corepack enable && yarn && yarn install
+yarn && yarn install
 yarn yaml-check
 '''
 
-[tasks.fmt]
+[tasks.format]
 description = "Format all supported code."
 run = '''
 cargo fmt --all
 taplo fmt
-corepack enable && yarn && yarn install
+yarn && yarn install
 yarn md-fmt
 yarn yaml-fmt
+'''
+alias = "fmt"
+
+[tasks."docs:format"]
+description = "Format documentation files."
+dir = "docs"
+run = '''
+yarn --immutable
+yarn format
+'''
+
+[tasks."docs:lint"]
+description = "Lint documentation files."
+dir = "docs"
+run = '''
+yarn --immutable
+yarn typecheck
+yarn spellcheck
+yarn format-check
 '''
 
 [tasks.clean]
@@ -168,6 +188,25 @@ mise task run test:docs ${usage_profile?}
 description = "Generate codecov report"
 run = '''
 cargo llvm-cov -p forest-filecoin --codecov --output-path lcov.info
+'''
+
+[tasks."docs:format-spellcheck-dictionary"]
+description = "Format and deduplicate the spellcheck dictionary."
+dir = "docs"
+run = '''
+TMPFILE=$(mktemp)
+cat dictionary.txt | sort --ignore-case | uniq > "$TMPFILE"
+mv "$TMPFILE" dictionary.txt
+'''
+
+[tasks."docs:format-spellcheck-dictionary-check"]
+description = "Check if spellcheck dictionary is properly formatted."
+dir = "docs"
+run = '''
+TMPFILE=$(mktemp)
+trap "rm -f $TMPFILE" EXIT
+cat dictionary.txt | sort --ignore-case | uniq > "$TMPFILE"
+diff dictionary.txt "$TMPFILE"
 '''
 
 [tools]

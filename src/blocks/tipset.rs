@@ -30,9 +30,21 @@ use thiserror::Error;
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
 /// are *not* maintained in the same order as the canonical iteration order of
 /// blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, GetSize)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    PartialOrd,
+    Ord,
+    GetSize,
+    derive_more::IntoIterator,
+)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-pub struct TipsetKey(SmallCidNonEmptyVec);
+pub struct TipsetKey(#[into_iterator(owned, ref)] SmallCidNonEmptyVec);
 
 impl TipsetKey {
     // Special encoding to match Lotus.
@@ -90,7 +102,7 @@ impl TipsetKey {
         self.to_cids()
             .into_iter()
             .map(terse_cid)
-            .collect::<Vec<_>>()
+            .collect_vec()
             .join(", ")
     }
 
@@ -115,29 +127,9 @@ impl fmt::Display for TipsetKey {
             .to_cids()
             .into_iter()
             .map(|cid| cid.to_string())
-            .collect::<Vec<_>>()
+            .collect_vec()
             .join(", ");
         write!(f, "[{s}]")
-    }
-}
-
-impl<'a> IntoIterator for &'a TipsetKey {
-    type Item = <&'a SmallCidNonEmptyVec as IntoIterator>::Item;
-
-    type IntoIter = <&'a SmallCidNonEmptyVec as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        (&self.0).into_iter()
-    }
-}
-
-impl IntoIterator for TipsetKey {
-    type Item = <SmallCidNonEmptyVec as IntoIterator>::Item;
-
-    type IntoIter = <SmallCidNonEmptyVec as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
     }
 }
 
@@ -281,31 +273,6 @@ impl Tipset {
         Tipset::load(store, tsk)?.context("Required tipset missing from database")
     }
 
-    /// Constructs and returns a full tipset if messages from storage exists
-    pub fn fill_from_blockstore(&self, store: &impl Blockstore) -> Option<FullTipset> {
-        // Find tipset messages. If any are missing, return `None`.
-        let blocks = self
-            .block_headers()
-            .iter()
-            .cloned()
-            .map(|header| {
-                let (bls_messages, secp_messages) =
-                    crate::chain::store::block_messages(store, &header).ok()?;
-                Some(Block {
-                    header,
-                    bls_messages,
-                    secp_messages,
-                })
-            })
-            .collect::<Option<Vec<_>>>()?;
-
-        // the given tipset has already been verified, so this cannot fail
-        Some(
-            FullTipset::new(blocks)
-                .expect("block headers have already been verified so this check cannot fail"),
-        )
-    }
-
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {
         self.min_ticket_block().epoch
@@ -349,6 +316,10 @@ impl Tipset {
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
         &self.min_ticket_block().state_root
+    }
+    /// Returns the message receipt root for the tipset parent.
+    pub fn parent_message_receipts(&self) -> &Cid {
+        &self.min_ticket_block().message_receipts
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigInt {

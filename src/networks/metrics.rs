@@ -13,7 +13,7 @@ use prometheus_client::{
 use super::calculate_expected_epoch;
 use crate::{networks::ChainConfig, shim::clock::ChainEpoch};
 
-#[derive(Educe)]
+#[derive(Educe, derive_more::Constructor)]
 #[educe(Debug)]
 pub struct NetworkHeightCollector<F>
 where
@@ -23,23 +23,6 @@ where
     genesis_timestamp: u64,
     #[educe(Debug(ignore))]
     get_chain_head_height: Arc<F>,
-}
-
-impl<F> NetworkHeightCollector<F>
-where
-    F: Fn() -> ChainEpoch,
-{
-    pub fn new(
-        block_delay_secs: u32,
-        genesis_timestamp: u64,
-        get_chain_head_height: Arc<F>,
-    ) -> Self {
-        Self {
-            block_delay_secs,
-            genesis_timestamp,
-            get_chain_head_height,
-        }
-    }
 }
 
 impl<F> Collector for NetworkHeightCollector<F>
@@ -82,7 +65,7 @@ where
     }
 }
 
-#[derive(Educe)]
+#[derive(Educe, derive_more::Constructor)]
 #[educe(Debug)]
 pub struct NetworkVersionCollector<F1, F2>
 where
@@ -94,24 +77,6 @@ where
     get_chain_head_height: Arc<F1>,
     #[educe(Debug(ignore))]
     get_chain_head_actor_version: Arc<F2>,
-}
-
-impl<F1, F2> NetworkVersionCollector<F1, F2>
-where
-    F1: Fn() -> ChainEpoch,
-    F2: Fn() -> u64,
-{
-    pub fn new(
-        chain_config: Arc<ChainConfig>,
-        get_chain_head_height: Arc<F1>,
-        get_chain_head_actor_version: Arc<F2>,
-    ) -> Self {
-        Self {
-            chain_config,
-            get_chain_head_height,
-            get_chain_head_actor_version,
-        }
-    }
 }
 
 impl<F1, F2> Collector for NetworkVersionCollector<F1, F2>

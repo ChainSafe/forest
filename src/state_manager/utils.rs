@@ -73,7 +73,7 @@ where
         }
 
         let info = mas.info(store)?;
-        let spt = RegisteredSealProof::from_sector_size(info.sector_size().into(), nv);
+        let spt = RegisteredSealProof::from_sector_size(info.sector_size(), nv);
 
         let wpt = spt.registered_winning_post_proof()?;
 
@@ -178,11 +178,11 @@ fn generate_winning_post_sector_challenge(
     )
 }
 
-#[cfg(any(test, feature = "benchmark-private"))]
 pub mod state_compute {
     use crate::{
-        blocks::Tipset,
+        blocks::{FullTipset, Tipset},
         chain::store::ChainStore,
+        chain_sync::load_full_tipset,
         db::{
             MemoryDB,
             car::{AnyCar, ManyCar},
@@ -190,32 +190,57 @@ pub mod state_compute {
         genesis::read_genesis_header,
         interpreter::VMTrace,
         networks::{ChainConfig, NetworkChain},
-        state_manager::StateManager,
+        state_manager::{StateManager, StateOutput},
         utils::net::{DownloadFileOption, download_file_with_cache},
     };
     use directories::ProjectDirs;
+    use sonic_rs::JsonValueTrait;
     use std::{
         path::{Path, PathBuf},
         sync::{Arc, LazyLock},
-        time::Duration,
+        time::{Duration, Instant},
     };
+    use tokio::io::AsyncReadExt;
     use url::Url;
 
-    static SNAPSHOT_CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
-        let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest");
-        project_dir
-            .map(|d| d.cache_dir().to_path_buf())
-            .unwrap_or_else(std::env::temp_dir)
-            .join("state_compute_snapshots")
-    });
+    const DO_SPACE_ROOT: &str = "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/";
 
+    #[allow(dead_code)]
     pub async fn get_state_compute_snapshot(
         chain: &NetworkChain,
         epoch: i64,
     ) -> anyhow::Result<PathBuf> {
-        let url = Url::parse(&format!(
-            "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/state_compute/{chain}_{epoch}.forest.car.zst"
-        ))?;
+        get_state_snapshot(chain, "state_compute", epoch).await
+    }
+
+    #[allow(dead_code)]
+    async fn get_state_validate_snapshot(
+        chain: &NetworkChain,
+        epoch: i64,
+    ) -> anyhow::Result<PathBuf> {
+        get_state_snapshot(chain, "state_validate", epoch).await
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_state_snapshot(
+        chain: &NetworkChain,
+        bucket: &str,
+        epoch: i64,
+    ) -> anyhow::Result<PathBuf> {
+        let file = format!("{bucket}/{chain}_{epoch}.forest.car.zst");
+        get_state_snapshot_file(&file).await
+    }
+
+    pub async fn get_state_snapshot_file(file: &str) -> anyhow::Result<PathBuf> {
+        static SNAPSHOT_CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+            let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest");
+            project_dir
+                .map(|d| d.cache_dir().to_path_buf())
+                .unwrap_or_else(std::env::temp_dir)
+                .join("state_compute_snapshots")
+        });
+
+        let url = Url::parse(&format!("{DO_SPACE_ROOT}{file}"))?;
         Ok(crate::utils::retry(
             crate::utils::RetryArgs {
                 timeout: Some(Duration::from_secs(30)),
@@ -237,11 +262,11 @@ pub mod state_compute {
     pub async fn prepare_state_compute(
         chain: &NetworkChain,
         snapshot: &Path,
-        warmup: bool,
-    ) -> anyhow::Result<(Arc<StateManager<ManyCar>>, Tipset)> {
+    ) -> anyhow::Result<(Arc<StateManager<ManyCar>>, Tipset, Tipset)> {
         let snap_car = AnyCar::try_from(snapshot)?;
-        let ts = snap_car.heaviest_tipset()?;
+        let ts_next = snap_car.heaviest_tipset()?;
         let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(snap_car)?);
+        let ts = Tipset::load_required(&db, ts_next.parents())?;
         let chain_config = Arc::new(ChainConfig::from_chain(chain));
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
@@ -250,46 +275,219 @@ pub mod state_compute {
             db.clone(),
             db.clone(),
             db.clone(),
-            db.clone(),
             chain_config,
             genesis_header,
         )?);
         let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
-        if warmup {
-            state_compute(state_manager.clone(), ts.clone()).await;
-        }
-        Ok((state_manager, ts))
+        Ok((state_manager, ts, ts_next))
     }
 
-    pub async fn state_compute(state_manager: Arc<StateManager<ManyCar>>, ts: Tipset) {
-        state_manager
+    pub async fn prepare_state_validate(
+        chain: &NetworkChain,
+        snapshot: &Path,
+    ) -> anyhow::Result<(Arc<StateManager<ManyCar>>, FullTipset)> {
+        let (sm, _, ts) = prepare_state_compute(chain, snapshot).await?;
+        let fts = load_full_tipset(sm.chain_store(), ts.key())?;
+        Ok((sm, fts))
+    }
+
+    pub async fn state_compute(
+        state_manager: &Arc<StateManager<ManyCar>>,
+        ts: Tipset,
+        ts_next: &Tipset,
+    ) -> anyhow::Result<()> {
+        let epoch = ts.epoch();
+        let expected_state_root = *ts_next.parent_state();
+        let expected_receipt_root = *ts_next.parent_message_receipts();
+        let start = Instant::now();
+        let StateOutput {
+            state_root,
+            receipt_root,
+            ..
+        } = state_manager
             .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
-            .await
-            .unwrap();
+            .await?;
+        println!(
+            "epoch: {epoch}, state_root: {state_root}, receipt_root: {receipt_root}, took {}.",
+            humantime::format_duration(start.elapsed())
+        );
+        anyhow::ensure!(
+            state_root == expected_state_root,
+            "state root mismatch, state_root: {state_root}, expected_state_root: {expected_state_root}"
+        );
+        anyhow::ensure!(
+            receipt_root == expected_receipt_root,
+            "receipt root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
+        );
+        Ok(())
+    }
+
+    pub async fn list_state_snapshot_files() -> anyhow::Result<Vec<String>> {
+        let url = Url::parse(&format!("{DO_SPACE_ROOT}?format=json&prefix=state_"))?;
+        let mut json_str = String::new();
+        crate::utils::net::reader(url.as_str(), DownloadFileOption::NonResumable, None)
+            .await?
+            .read_to_string(&mut json_str)
+            .await?;
+        let obj: sonic_rs::Object = sonic_rs::from_str(&json_str)?;
+        let files = obj
+            .iter()
+            .filter_map(|(k, v)| {
+                if k == "Contents"
+                    && let sonic_rs::ValueRef::Array(arr) = v.as_ref()
+                    && let Some(first) = arr.first()
+                    && let Some(file) = first.as_str()
+                    && file.ends_with(".car.zst")
+                {
+                    Some(file.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Ok(files)
     }
 
     #[cfg(test)]
     mod tests {
+        //!
+        //! Test snapshots are generate by `forest-dev state` tool
+        //!
+
         use super::*;
+        use crate::chain_sync::tipset_syncer::validate_tipset;
 
         #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet() {
+        async fn test_list_state_snapshot_files() {
+            let files = list_state_snapshot_files().await.unwrap();
+            println!("{files:?}");
+            assert!(files.len() > 1);
+            get_state_snapshot_file(&files[0]).await.unwrap();
+        }
+
+        // FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_mainnet_5709604() {
+            let chain = NetworkChain::Mainnet;
+            let snapshot = get_state_compute_snapshot(&chain, 5709604).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_3408952() {
             let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 3111900).await.unwrap();
-            let (sm, ts) = prepare_state_compute(&chain, &snapshot, false)
-                .await
-                .unwrap();
-            state_compute(sm, ts).await;
+            let snapshot = get_state_compute_snapshot(&chain, 3408952).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // Shark state migration with FVM@2
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_16801() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 16801).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // Hygge state migration with FVM@2
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_322355() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 322355).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // Lightning state migration with FVM@3
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_489095() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 489095).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // Watermelon state migration with FVM@3
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_1013135() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 1013135).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // Dragon state migration with FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_1427975() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 1427975).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // Waffle state migration with FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_1779095() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 1779095).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // TukTuk state migration with FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_2078795() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 2078795).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // Teep state migration with FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_2523455() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 2523455).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
+        }
+
+        // GoldenWeek state migration with FVM@4
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_compute_calibnet_3007295() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 3007295).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            state_compute(&sm, ts, &ts_next).await.unwrap();
         }
 
         #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_mainnet() {
+        async fn state_validate_mainnet_5688000() {
             let chain = NetworkChain::Mainnet;
-            let snapshot = get_state_compute_snapshot(&chain, 5427431).await.unwrap();
-            let (sm, ts) = prepare_state_compute(&chain, &snapshot, false)
-                .await
-                .unwrap();
-            state_compute(sm, ts).await;
+            let snapshot = get_state_validate_snapshot(&chain, 5688000).await.unwrap();
+            let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
+            validate_tipset(&sm, fts, None).await.unwrap();
+        }
+
+        // Shark state migration
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_validate_calibnet_16802() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_validate_snapshot(&chain, 16802).await.unwrap();
+            let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
+            validate_tipset(&sm, fts, None).await.unwrap();
+        }
+
+        // Hygge state migration
+        #[tokio::test(flavor = "multi_thread")]
+        async fn state_validate_calibnet_322356() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_validate_snapshot(&chain, 322356).await.unwrap();
+            let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
+            validate_tipset(&sm, fts, None).await.unwrap();
         }
     }
 }

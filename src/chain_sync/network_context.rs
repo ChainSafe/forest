@@ -47,6 +47,7 @@ const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
 /// Context used in chain sync to handle network requests.
 /// This contains the peer manager, P2P service interface, and [`Blockstore`]
 /// required to make network requests.
+#[derive(derive_more::Constructor)]
 pub struct SyncNetworkContext<DB> {
     /// Channel to send network messages through P2P service
     network_send: flume::Sender<NetworkMessage>,
@@ -118,18 +119,6 @@ impl<DB> SyncNetworkContext<DB>
 where
     DB: Blockstore,
 {
-    pub fn new(
-        network_send: flume::Sender<NetworkMessage>,
-        peer_manager: Arc<PeerManager>,
-        db: Arc<DB>,
-    ) -> Self {
-        Self {
-            network_send,
-            peer_manager,
-            db,
-        }
-    }
-
     /// Returns a reference to the peer manager of the network context.
     pub fn peer_manager(&self) -> &PeerManager {
         self.peer_manager.as_ref()

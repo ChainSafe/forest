@@ -246,7 +246,6 @@ async fn create_state_manager(
         Arc::clone(db),
         Arc::new(db.clone()),
         eth_mappings,
-        db.writer().clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
@@ -335,12 +334,13 @@ fn handle_admin_token(
         ki.private_key(),
         token_exp,
     )?;
-    info!("Admin token: {token}");
     let default_token_path = config.client.default_rpc_token_path();
     if let Err(e) =
         crate::utils::io::write_new_sensitive_file(token.as_bytes(), &default_token_path)
     {
         tracing::warn!("Failed to save the default admin token file: {e}");
+    } else {
+        info!("Admin token is saved to {}", default_token_path.display());
     }
     if let Some(path) = opts.save_token.as_ref() {
         if let Some(dir) = path.parent()
@@ -355,6 +355,7 @@ fn handle_admin_token(
         }
         std::fs::write(path, &token)
             .with_context(|| format!("Failed to save admin token to {}", path.display()))?;
+        info!("Admin token is saved to {}", path.display());
     }
 
     Ok(token)

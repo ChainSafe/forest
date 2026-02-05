@@ -48,6 +48,7 @@ use crate::shim::{
     machine::{GLOBAL_MULTI_ENGINE, MultiEngine},
     message::Message,
     randomness::Randomness,
+    runtime::Policy,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
@@ -61,17 +62,16 @@ use crate::utils::get_size::{
     GetSize, vec_heap_size_helper, vec_with_stack_only_item_heap_size_helper,
 };
 use ahash::{HashMap, HashMapExt};
-use anyhow::{Context as _, bail};
+use anyhow::{Context as _, bail, ensure};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
 pub use circulating_supply::GenesisInfo;
 use fil_actor_verifreg_state::v12::DataCap;
 use fil_actor_verifreg_state::v13::ClaimID;
-use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
-use fil_actors_shared::v13::runtime::Policy;
 use futures::{FutureExt, channel::oneshot, select};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
@@ -90,6 +90,7 @@ use tokio::sync::{RwLock, broadcast::error::RecvError};
 use tracing::{error, info, instrument, trace, warn};
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
+pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
@@ -399,7 +400,7 @@ where
             StateTree::new_from_root(self.blockstore_owned(), &state_cid).map_err(Error::other)?;
         let ms: miner::State = state.get_actor_state_from_address(addr)?;
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
-        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker().into())?;
+        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
         Ok(addr)
     }
 
@@ -457,18 +458,23 @@ where
     /// Returns the pair of (state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
-    pub async fn tipset_state(self: &Arc<Self>, tipset: &Tipset) -> anyhow::Result<CidPair> {
+    pub async fn tipset_state(
+        self: &Arc<Self>,
+        tipset: &Tipset,
+        state_lookup: StateLookupPolicy,
+    ) -> anyhow::Result<CidPair> {
         let StateOutput {
             state_root,
             receipt_root,
             ..
-        } = self.tipset_state_output(tipset).await?;
+        } = self.tipset_state_output(tipset, state_lookup).await?;
         Ok((state_root, receipt_root))
     }
 
     pub async fn tipset_state_output(
         self: &Arc<Self>,
         tipset: &Tipset,
+        state_lookup: StateLookupPolicy,
     ) -> anyhow::Result<StateOutput> {
         let key = tipset.key();
         self.cache
@@ -482,7 +488,9 @@ where
 
                 // First, try to look up the state and receipt if not found in the blockstore
                 // compute it
-                if let Some(state_from_child) = self.try_lookup_state_from_next_tipset(tipset) {
+                if matches!(state_lookup, StateLookupPolicy::Enabled)
+                    && let Some(state_from_child) = self.try_lookup_state_from_next_tipset(tipset)
+                {
                     return Ok(state_from_child);
                 }
 
@@ -490,15 +498,10 @@ where
                 let state_output = self
                     .compute_tipset_state(tipset.clone(), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
-                for events_root in state_output.events_roots.iter().flatten() {
-                    trace!("Indexing events root @{}: {}", tipset.epoch(), events_root);
-                    self.chain_store().put_index(events_root, key)?;
-                }
 
                 self.update_cache_with_state_output(key, &state_output);
 
                 let ts_state = state_output.into();
-                trace!("Completed tipset state calculation {:?}", tipset.cids());
 
                 Ok(ts_state)
             })
@@ -553,7 +556,6 @@ where
     pub async fn tipset_state_events(
         self: &Arc<Self>,
         tipset: &Tipset,
-        events_root: Option<&Cid>,
     ) -> anyhow::Result<StateEvents> {
         let key = tipset.key();
         let ts = tipset.clone();
@@ -564,6 +566,7 @@ where
                 key,
                 Box::new(move || {
                     Box::pin(async move {
+                        // Fallback: compute the tipset state if events not found in the blockstore
                         let state_out = this
                             .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
                             .await?;
@@ -680,6 +683,7 @@ where
         self: &Arc<Self>,
         tipset: Option<Tipset>,
         msg: Message,
+        state_lookup: StateLookupPolicy,
     ) -> anyhow::Result<ApiInvocResult> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
@@ -703,7 +707,7 @@ where
         };
 
         let (_invoc_res, apply_ret, duration) = self
-            .call_with_gas(&mut chain_msg, &[], Some(ts), VMTrace::Traced)
+            .call_with_gas(&mut chain_msg, &[], Some(ts), VMTrace::Traced, state_lookup)
             .await?;
         Ok(ApiInvocResult {
             msg_cid: msg.cid(),
@@ -724,10 +728,11 @@ where
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
         trace_config: VMTrace,
+        state_lookup: StateLookupPolicy,
     ) -> Result<(InvocResult, ApplyRet, Duration), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let (st, _) = self
-            .tipset_state(&ts)
+            .tipset_state(&ts, state_lookup)
             .await
             .map_err(|e| Error::Other(format!("Could not load tipset state: {e}")))?;
         let chain_rand = self.chain_rand(ts.clone());
@@ -1046,17 +1051,17 @@ where
         &self,
         mut current: Tipset,
         message: &ChainMessage,
-        look_back_limit: Option<i64>,
-        allow_replaced: Option<bool>,
+        lookback_max_epoch: ChainEpoch,
+        allow_replaced: bool,
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
-        let allow_replaced = allow_replaced.unwrap_or(true);
         let message_from_address = message.from();
         let message_sequence = message.sequence();
         let mut current_actor_state = self
             .get_required_actor(&message_from_address, *current.parent_state())
             .map_err(Error::state)?;
         let message_from_id = self.lookup_required_id(&message_from_address, &current)?;
-        while current.epoch() > look_back_limit.unwrap_or_default() {
+
+        while current.epoch() >= lookback_max_epoch {
             let parent_tipset = self
                 .chain_index()
                 .load_required_tipset(current.parents())
@@ -1091,6 +1096,7 @@ where
         Ok(None)
     }
 
+    /// Searches backwards through the chain for a message receipt.
     fn search_back_for_message(
         &self,
         current: Tipset,
@@ -1098,7 +1104,22 @@ where
         look_back_limit: Option<i64>,
         allow_replaced: Option<bool>,
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
-        self.check_search(current, message, look_back_limit, allow_replaced)
+        let current_epoch = current.epoch();
+        let allow_replaced = allow_replaced.unwrap_or(true);
+
+        // Calculate the max lookback epoch (inclusive lower bound) for the search.
+        let lookback_max_epoch = match look_back_limit {
+            // No search: limit = 0 means search 0 epochs
+            Some(0) => return Ok(None),
+            // Limited search: calculate the inclusive lower bound, clamped to genesis
+            // Example: limit=5 at epoch=1000 → min_epoch=996, searches [996,1000] = 5 epochs
+            // Example: limit=2000 at epoch=1000 → min_epoch=0, searches [0,1000] = 1001 epochs (all available)
+            Some(limit) if limit > 0 => (current_epoch - limit + 1).max(0),
+            // Search all the way to genesis (epoch 0)
+            _ => 0,
+        };
+
+        self.check_search(current, message, lookback_max_epoch, allow_replaced)
     }
 
     /// Returns a message receipt from a given tipset and message CID.
@@ -1317,14 +1338,12 @@ where
             escrow: {
                 market_state
                     .escrow_table(self.blockstore())?
-                    .get(&new_addr.into())?
-                    .into()
+                    .get(&new_addr)?
             },
             locked: {
                 market_state
                     .locked_table(self.blockstore())?
-                    .get(&new_addr.into())?
-                    .into()
+                    .get(&new_addr)?
             },
         };
 
@@ -1422,7 +1441,7 @@ where
         }
 
         // If that fails, compute the tip-set and try again.
-        let (st, _) = self.tipset_state(ts).await?;
+        let (st, _) = self.tipset_state(ts, StateLookupPolicy::Enabled).await?;
         let state = StateTree::new_from_root(self.blockstore_owned(), &st)?;
 
         resolve_to_key_addr(&state, self.blockstore(), addr)
@@ -1496,7 +1515,7 @@ where
         let info = miner_state.info(self.blockstore())?;
 
         let worker_key = self
-            .resolve_to_deterministic_address(info.worker.into(), &tipset)
+            .resolve_to_deterministic_address(info.worker, &tipset)
             .await?;
         let eligible = self.eligible_to_mine(&addr, &tipset, &lb_tipset)?;
 
@@ -1607,7 +1626,7 @@ where
     ) -> anyhow::Result<Option<Claim>> {
         let id_address = self.lookup_required_id(addr, ts)?;
         let state = self.get_verified_registry_actor_state(ts)?;
-        state.get_claim(self.blockstore(), id_address.into(), claim_id)
+        state.get_claim(self.blockstore(), id_address, claim_id)
     }
 
     pub fn get_all_claims(&self, ts: &Tipset) -> anyhow::Result<HashMap<ClaimID, Claim>> {
@@ -1647,7 +1666,7 @@ where
         // Original: https://github.com/filecoin-project/lotus/blob/5e76b05b17771da6939c7b0bf65127c3dc70ee23/node/impl/full/state.go#L1627-L1664.
         if (u32::from(network_version.0)) < 17 {
             let state = self.get_verified_registry_actor_state(ts)?;
-            return state.verified_client_data_cap(self.blockstore(), id.into());
+            return state.verified_client_data_cap(self.blockstore(), id);
         }
 
         let act = self
@@ -1657,7 +1676,7 @@ where
 
         let state = datacap::State::load(self.blockstore(), act.code, act.state)?;
 
-        state.verified_client_data_cap(self.blockstore(), id.into())
+        state.verified_client_data_cap(self.blockstore(), id)
     }
 
     pub async fn resolve_to_deterministic_address(
@@ -1680,7 +1699,7 @@ where
                 }
 
                 // If that fails, compute the tip-set and try again.
-                let (state_root, _) = self.tipset_state(ts).await?;
+                let (state_root, _) = self.tipset_state(ts, StateLookupPolicy::Enabled).await?;
                 let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
@@ -1999,8 +2018,28 @@ where
         let (receipts, events, events_roots) =
             vm.apply_block_messages(&block_messages, epoch, callback)?;
 
-        // step 5: construct receipt root from receipts and flush the state-tree
-        let receipt_root = Amt::new_from_iter(chain_index.db(), receipts)?;
+        // step 5: construct receipt root from receipts
+        let receipt_root = Amtv0::new_from_iter(chain_index.db(), receipts)?;
+
+        // step 6: store events AMTs in the blockstore
+        for (msg_events, events_root) in events.iter().zip(events_roots.iter()) {
+            if let Some(event_root) = events_root {
+                // Store the events AMT - the root CID should match the one computed by FVM
+                let derived_event_root = Amt::new_from_iter_with_bit_width(
+                    chain_index.db(),
+                    EVENTS_AMT_BITWIDTH,
+                    msg_events.iter(),
+                )
+                .map_err(|e| Error::Other(format!("failed to store events AMT: {e}")))?;
+
+                // Verify the stored root matches the FVM-computed root
+                ensure!(
+                    derived_event_root.eq(event_root),
+                    "Events AMT root mismatch: derived={derived_event_root}, actual={event_root}."
+                );
+            }
+        }
+
         let state_root = vm.flush()?;
 
         Ok(StateOutput {
@@ -2044,4 +2083,12 @@ where
     )?;
 
     Ok(output)
+}
+
+/// Whether or not to lookup the state output from the next tipset before computing a state
+#[derive(Debug, Copy, Clone, Default)]
+pub enum StateLookupPolicy {
+    #[default]
+    Enabled,
+    Disabled,
 }

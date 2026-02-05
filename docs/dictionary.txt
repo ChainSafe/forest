@@ -1,6 +1,7 @@
 2k
 APIs
 backend
+backfill
 backport
 benchmarking
 blockstore
@@ -155,5 +156,6 @@ Verifier
 verifier
 virtualized
 VPS
+WebSocket
 WIP
 zstd

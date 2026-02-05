@@ -168,13 +168,15 @@ impl PeerManager {
     /// duration.
     pub fn log_failure(&self, peer: &PeerId, dur: Duration) {
         trace!("logging failure for {peer}");
-        let mut peers = self.peers.write();
-        if !peers.bad_peers.contains(peer) {
-            metrics::PEER_FAILURE_TOTAL.inc();
-            let peer_stats = peers.full_peers.entry(*peer).or_default();
-            peer_stats.failures += 1;
-            log_time(peer_stats, dur);
+        if self.peers.read().bad_peers.contains(peer) {
+            return;
         }
+
+        metrics::PEER_FAILURE_TOTAL.inc();
+        let mut peers = self.peers.write();
+        let peer_stats = peers.full_peers.entry(*peer).or_default();
+        peer_stats.failures += 1;
+        log_time(peer_stats, dur);
     }
 
     /// Removes a peer from the set and returns true if the value was present
@@ -220,9 +222,18 @@ impl PeerManager {
         if self.is_peer_protected(&peer) {
             return;
         }
+
+        let user_agent = get_user_agent(&peer);
+        // Whitelist crawlers
+        if let Some(ua) = &user_agent
+            && is_crawler(ua)
+        {
+            tracing::debug!("whitelisted crawler peer {peer} with user agent {ua}");
+            return;
+        }
+
         let mut locked = self.peer_ban_list.write().await;
         locked.insert(peer, duration.and_then(|d| Instant::now().checked_add(d)));
-        let user_agent = get_user_agent(&peer);
         if let Err(e) = self
             .peer_ops_tx
             .send_async(PeerOperation::Ban {
@@ -332,4 +343,26 @@ pub enum PeerOperation {
         reason: String,
     },
     Unban(PeerId),
+}
+
+fn is_crawler(user_agent: impl AsRef<str>) -> bool {
+    let ua = user_agent.as_ref();
+    ua.starts_with("nebula/") || ua.starts_with("hermes")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_crawler() {
+        assert!(is_crawler("nebula/"));
+        assert!(is_crawler("nebula/1.0"));
+        assert!(is_crawler("hermes"));
+        assert!(is_crawler("hermes/1.0"));
+
+        assert!(!is_crawler("forest"));
+        assert!(!is_crawler("lotus"));
+        assert!(!is_crawler("venus"));
+    }
 }

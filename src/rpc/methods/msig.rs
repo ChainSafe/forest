@@ -7,7 +7,6 @@ use crate::rpc::types::*;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::MultisigActorStateLoad as _;
 use crate::shim::actors::multisig;
-use crate::shim::actors::multisig::ext::MultisigExt;
 use crate::shim::{address::Address, econ::TokenAmount};
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
@@ -35,7 +34,7 @@ impl RpcMethod<2> for MsigGetAvailableBalance {
             .get_required_actor(&address, *ts.parent_state())?;
         let actor_balance = TokenAmount::from(&actor.balance);
         let ms = multisig::State::load(ctx.store(), actor.code, actor.state)?;
-        let locked_balance: TokenAmount = ms.locked_balance(height)?.into();
+        let locked_balance = ms.locked_balance(height)?;
         let avail_balance = &actor_balance - locked_balance;
         Ok(avail_balance)
     }
@@ -62,14 +61,14 @@ impl RpcMethod<2> for MsigGetPending {
             .get_actor_state_from_address(&ts, &address)?;
         let txns = ms
             .get_pending_txn(ctx.store())?
-            .iter()
+            .into_iter()
             .map(|txn| Transaction {
                 id: txn.id,
-                to: txn.to.into(),
-                value: txn.value.clone().into(),
+                to: txn.to,
+                value: txn.value,
                 method: txn.method,
-                params: txn.params.clone(),
-                approved: txn.approved.iter().map(|item| item.into()).collect(),
+                params: txn.params,
+                approved: txn.approved,
             })
             .collect();
         Ok(txns)
@@ -107,8 +106,8 @@ impl RpcMethod<3> for MsigGetVested {
                 let ms: multisig::State = ctx
                     .state_manager
                     .get_actor_state_from_address(&end_ts, &addr)?;
-                let start_lb: TokenAmount = ms.locked_balance(start_ts.epoch())?.into();
-                let end_lb: TokenAmount = ms.locked_balance(end_ts.epoch())?.into();
+                let start_lb = ms.locked_balance(start_ts.epoch())?;
+                let end_lb = ms.locked_balance(end_ts.epoch())?;
                 Ok(start_lb.atto() - end_lb.atto())
             }
         }

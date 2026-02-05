@@ -105,10 +105,6 @@ generate_markdown_section "forest-tool" "benchmark graph-traversal"
 generate_markdown_section "forest-tool" "benchmark forest-encoding"
 generate_markdown_section "forest-tool" "benchmark export"
 
-generate_markdown_section "forest-tool" "state"
-generate_markdown_section "forest-tool" "state compute"
-generate_markdown_section "forest-tool" "state replay-compute"
-
 generate_markdown_section "forest-tool" "state-migration"
 generate_markdown_section "forest-tool" "state-migration actor-bundle"
 
@@ -158,3 +154,13 @@ generate_markdown_section "forest-tool" "shed openrpc"
 
 generate_markdown_section "forest-tool" "index"
 generate_markdown_section "forest-tool" "index backfill"
+
+generate_markdown_section "forest-dev" ""
+
+generate_markdown_section "forest-dev" "fetch-test-snapshots"
+
+generate_markdown_section "forest-dev" "state"
+generate_markdown_section "forest-dev" "state compute"
+generate_markdown_section "forest-dev" "state replay-compute"
+generate_markdown_section "forest-dev" "state validate"
+generate_markdown_section "forest-dev" "state replay-validate"

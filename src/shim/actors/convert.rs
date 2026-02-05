@@ -39,25 +39,9 @@ use fvm_shared4::sector::SectorSize as SectorSizeV4;
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
 
-pub fn from_padded_piece_size_v4_to_v2(size: PaddedPieceSizeV4) -> PaddedPieceSizeV2 {
-    PaddedPieceSizeV2(size.0)
-}
-
-pub fn from_padded_piece_size_v3_to_v2(size: PaddedPieceSizeV3) -> PaddedPieceSizeV2 {
-    PaddedPieceSizeV2(size.0)
-}
-
 pub fn from_reg_seal_proof_v3_to_v2(proof: RegisteredSealProofV3) -> RegisteredSealProofV2 {
     let num_id: i64 = proof.into();
     RegisteredSealProofV2::from(num_id)
-}
-
-pub fn from_padded_piece_size_v2_to_v3(size: PaddedPieceSizeV2) -> PaddedPieceSizeV3 {
-    PaddedPieceSizeV3(size.0)
-}
-
-pub fn from_padded_piece_size_v2_to_v4(size: PaddedPieceSizeV2) -> PaddedPieceSizeV4 {
-    PaddedPieceSizeV4(size.0)
 }
 
 pub fn from_reg_seal_proof_v4_to_v2(proof: RegisteredSealProofV4) -> RegisteredSealProofV2 {

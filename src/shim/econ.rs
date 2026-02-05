@@ -13,8 +13,7 @@ use num_traits::{One, Signed, Zero};
 use serde::{Deserialize, Serialize};
 use static_assertions::const_assert_eq;
 use std::{
-    fmt,
-    ops::{Add, AddAssign, Deref, DerefMut, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign},
     sync::LazyLock,
 };
 
@@ -25,15 +24,25 @@ const_assert_eq!(TOTAL_FILECOIN_BASE, fvm_shared2::TOTAL_FILECOIN_BASE);
 pub static TOTAL_FILECOIN: LazyLock<TokenAmount> =
     LazyLock::new(|| TokenAmount::from_whole(TOTAL_FILECOIN_BASE));
 
-#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default)]
+#[derive(
+    Clone,
+    PartialEq,
+    Eq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Serialize,
+    Deserialize,
+    Default,
+    derive_more::Deref,
+    derive_more::DerefMut,
+    derive_more::Debug,
+    derive_more::Display,
+    derive_more::From,
+    derive_more::Into,
+)]
 #[serde(transparent)]
 pub struct TokenAmount(TokenAmount_latest);
-
-impl fmt::Debug for TokenAmount {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.0, f)
-    }
-}
 
 impl GetSize for TokenAmount {
     fn get_heap_size(&self) -> usize {
@@ -96,27 +105,6 @@ impl Neg for &TokenAmount {
 
     fn neg(self) -> Self::Output {
         (&self.0).neg().into()
-    }
-}
-
-impl Deref for TokenAmount {
-    type Target = TokenAmount_latest;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for TokenAmount {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl std::fmt::Display for TokenAmount {
-    // This trait requires `fmt` with this exact signature.
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.fmt(f)
     }
 }
 
@@ -220,12 +208,6 @@ impl From<TokenAmount_v3> for TokenAmount {
     }
 }
 
-impl From<TokenAmount_v4> for TokenAmount {
-    fn from(other: TokenAmount_v4) -> Self {
-        TokenAmount(other)
-    }
-}
-
 impl From<&TokenAmount_v4> for TokenAmount {
     fn from(other: &TokenAmount_v4) -> Self {
         other.clone().into()
@@ -253,12 +235,6 @@ impl From<TokenAmount> for TokenAmount_v3 {
 impl From<&TokenAmount> for TokenAmount_v3 {
     fn from(other: &TokenAmount) -> Self {
         Self::from_atto(other.atto().clone())
-    }
-}
-
-impl From<TokenAmount> for TokenAmount_v4 {
-    fn from(other: TokenAmount) -> Self {
-        other.0
     }
 }
 

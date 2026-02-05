@@ -29,7 +29,7 @@ impl HasLotusJson for State {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         AccountStateLotusJson {
-            address: self.pubkey_address().into(),
+            address: self.pubkey_address(),
         }
     }
 

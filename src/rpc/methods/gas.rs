@@ -15,9 +15,11 @@ use crate::shim::{
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
+use crate::state_manager::StateLookupPolicy;
 use anyhow::{Context, Result};
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools as _;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
@@ -232,7 +234,7 @@ impl GasEstimateGasLimit {
 
         let pending = data.mpool.pending_for(&from_a);
         let prior_messages: Vec<ChainMessage> = pending
-            .map(|s| s.into_iter().map(ChainMessage::Signed).collect::<Vec<_>>())
+            .map(|s| s.into_iter().map(ChainMessage::Signed).collect_vec())
             .unwrap_or_default();
 
         let ts = data.mpool.current_tipset();
@@ -260,6 +262,7 @@ impl GasEstimateGasLimit {
                 &prior_messages,
                 Some(ts.clone()),
                 trace_config,
+                StateLookupPolicy::Enabled,
             )
             .await?;
         Ok((invoc_res, apply_ret, prior_messages, ts))

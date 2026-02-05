@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::lotus_json::HasLotusJson;
+use itertools::Itertools as _;
 
 impl From<TipsetKey> for ApiTipsetKey {
     fn from(value: TipsetKey) -> Self {
@@ -28,7 +29,7 @@ impl HasLotusJson for ApiTipsetKey {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         self.0
-            .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
+            .map(|ts| ts.into_cids().into_iter().collect_vec())
             .unwrap_or_default()
             .into_lotus_json()
     }

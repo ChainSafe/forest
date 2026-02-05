@@ -234,12 +234,14 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
 
                 // Update the sync states
                 {
-                    let mut status_report_guard = sync_status.write();
-                    status_report_guard.update(
+                    let old_status_report = sync_status.read().clone();
+                    let new_status_report = old_status_report.update(
                         &state_manager,
                         current_active_forks,
                         stateless_mode,
                     );
+
+                    sync_status.write().clone_from(&new_status_report);
                 }
 
                 for task in task_vec {
@@ -828,7 +830,6 @@ impl SyncTask {
         bad_block_cache: Option<Arc<BadBlockCache>>,
     ) -> Option<SyncEvent> {
         tracing::trace!("SyncTask::execute {self}");
-        let cs = state_manager.chain_store();
         match self {
             SyncTask::ValidateTipset {
                 tipset,
@@ -840,29 +841,19 @@ impl SyncTask {
             SyncTask::ValidateTipset {
                 tipset,
                 is_proposed_head,
-            } => {
-                let genesis = cs.genesis_tipset();
-                match validate_tipset(
-                    &state_manager,
-                    cs,
-                    tipset.clone(),
-                    &genesis,
-                    bad_block_cache,
-                )
-                .await
-                {
-                    Ok(()) => Some(SyncEvent::ValidatedTipset {
-                        tipset,
-                        is_proposed_head,
-                    }),
-                    Err(e) => {
-                        warn!("Error validating tipset: {}", e);
-                        Some(SyncEvent::BadTipset(tipset))
-                    }
+            } => match validate_tipset(&state_manager, tipset.clone(), bad_block_cache).await {
+                Ok(()) => Some(SyncEvent::ValidatedTipset {
+                    tipset,
+                    is_proposed_head,
+                }),
+                Err(e) => {
+                    warn!("Error validating tipset: {e}");
+                    Some(SyncEvent::BadTipset(tipset))
                 }
-            }
+            },
             SyncTask::FetchTipset(key, epoch) => {
-                match get_full_tipset_batch(&network, cs, None, &key).await {
+                match get_full_tipset_batch(&network, state_manager.chain_store(), None, &key).await
+                {
                     Ok(parents) => Some(SyncEvent::NewFullTipsets(parents)),
                     Err(e) => {
                         tracing::warn!(%key, %epoch, "failed to fetch tipset: {e}");
@@ -920,7 +911,6 @@ mod tests {
 
         let cs = Arc::new(
             ChainStore::new(
-                db.clone(),
                 db.clone(),
                 db.clone(),
                 db.clone(),
@@ -1049,9 +1039,9 @@ mod tests {
             .map(|v| {
                 v.into_iter()
                     .map(|ts| ts.weight().to_i64().unwrap_or(0))
-                    .collect()
+                    .collect_vec()
             })
-            .collect::<Vec<Vec<_>>>();
+            .collect_vec();
 
         // Both chains should start at the same tipset
         assert_eq!(chains, vec![vec![1, 3], vec![1, 2]]);

@@ -20,13 +20,6 @@ mod state_cmd;
 mod sync_cmd;
 mod wait_api_cmd;
 
-pub(crate) use crate::cli_shared::cli::Config;
-use crate::cli_shared::cli::HELP_MESSAGE;
-use crate::lotus_json::HasLotusJson;
-use crate::utils::version::FOREST_VERSION_STRING;
-use clap::Parser;
-use tracing::error;
-
 pub(super) use self::{
     auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
     f3_cmd::F3Commands, healthcheck_cmd::HealthcheckCommand, mpool_cmd::MpoolCommands,
@@ -34,6 +27,13 @@ pub(super) use self::{
     state_cmd::StateCommands, sync_cmd::SyncCommands, wait_api_cmd::WaitApiCommand,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
+pub(crate) use crate::cli_shared::cli::Config;
+use crate::cli_shared::cli::HELP_MESSAGE;
+use crate::lotus_json::HasLotusJson;
+use crate::utils::version::FOREST_VERSION_STRING;
+use clap::Parser;
+use spire_enum::prelude::delegated_enum;
+use tracing::error;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
@@ -49,6 +49,7 @@ pub struct Cli {
 }
 
 /// Forest binary sub-commands available.
+#[delegated_enum]
 #[derive(clap::Subcommand, Debug)]
 pub enum Subcommand {
     /// Interact with Filecoin blockchain
@@ -100,6 +101,12 @@ pub enum Subcommand {
 
     /// Wait for lotus API to come online
     WaitApi(WaitApiCommand),
+}
+
+impl Subcommand {
+    pub async fn run(self, client: crate::rpc::Client) -> anyhow::Result<()> {
+        delegate_subcommand!(self.run(client).await)
+    }
 }
 
 /// Print an error message and exit the program with an error code

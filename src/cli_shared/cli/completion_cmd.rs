@@ -7,6 +7,7 @@ use crate::wallet::subcommands::Cli as ForestWalletCli;
 use ahash::HashMap;
 use clap::{Command, CommandFactory};
 use clap_complete::aot::{Shell, generate};
+use itertools::Itertools as _;
 
 /// Completion Command for generating shell completions for the CLI
 #[derive(Debug, clap::Args)]
@@ -29,7 +30,7 @@ impl CompletionCommand {
             ("forest-tool".to_string(), ForestToolCli::command()),
         ]);
 
-        let valid_binaries = bin_cmd_map.keys().cloned().collect::<Vec<_>>();
+        let valid_binaries = bin_cmd_map.keys().cloned().collect_vec();
         let binaries = self.binaries.unwrap_or_else(|| valid_binaries.clone());
 
         for b in binaries {

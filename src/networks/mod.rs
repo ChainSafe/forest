@@ -6,7 +6,6 @@ use std::sync::LazyLock;
 
 use ahash::HashMap;
 use cid::Cid;
-use fil_actors_shared::v13::runtime::Policy;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::Multiaddr;
@@ -20,11 +19,14 @@ use tracing::warn;
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
 use crate::eth::EthChainId;
-use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
-use crate::shim::econ::TokenAmount;
-use crate::shim::machine::BuiltinActorManifest;
-use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
-use crate::shim::version::NetworkVersion;
+use crate::shim::{
+    clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY},
+    econ::TokenAmount,
+    machine::BuiltinActorManifest,
+    runtime::Policy,
+    sector::{RegisteredPoStProofV3, RegisteredSealProofV3},
+    version::NetworkVersion,
+};
 use crate::utils::misc::env::env_or_default;
 use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 
@@ -60,20 +62,16 @@ static INITIAL_FIL_RESERVED: LazyLock<TokenAmount> =
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
 #[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Hash, displaydoc::Display,
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Hash, derive_more::Display,
 )]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
+#[display(rename_all = "lowercase")]
 pub enum NetworkChain {
-    /// mainnet
     #[default]
     Mainnet,
-    /// calibnet
     Calibnet,
-    /// butterflynet
     Butterflynet,
-    /// devnet
-    #[displaydoc("{0}")]
     Devnet(String),
 }
 
@@ -301,7 +299,7 @@ impl ChainConfig {
             propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 10),
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy: make_mainnet_policy!(v13),
+            policy: make_mainnet_policy!(v13).into(),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 1 year on mainnet
@@ -335,7 +333,7 @@ impl ChainConfig {
             propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 10),
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy: make_calibnet_policy!(v13),
+            policy: make_calibnet_policy!(v13).into(),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 3 days on calibnet
@@ -365,7 +363,7 @@ impl ChainConfig {
             propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 1),
             genesis_network: *GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy: make_devnet_policy!(v13),
+            policy: make_devnet_policy!(v13).into(),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // Devnet ramp is 200 epochs in Lotus (subject to change).
@@ -395,7 +393,7 @@ impl ChainConfig {
             propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 6),
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy: make_butterfly_policy!(v13),
+            policy: make_butterfly_policy!(v13).into(),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // Butterflynet ramp is current set to 365 days in Lotus but this may change.

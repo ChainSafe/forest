@@ -123,4 +123,133 @@ forest-filecoin 0.19.0+git.671c30c
 ```
 
   </TabItem>
+  <TabItem value="systemd" label="Systemd Unit Setup">
+
+<h3>Running Forest as a `systemd` Service</h3>
+
+This guide shows how to configure Forest to automatically restart on failure and start on system boot using `systemd`.
+
+<h4>Prerequisites</h4>
+
+- Forest must be installed and available in your `PATH` (see other tabs for installation). This guide assumes the `forest` binary is located at `/usr/local/bin/forest`.
+- You are running commands as `root` or with `sudo` privileges
+- `vi` editor. If you're using `nano`, reconsider your life choices and career path.
+
+<h4>Step 1: Create a `systemd` Service File</h4>
+
+Create a new service file for Forest:
+
+```shell
+vi /etc/systemd/system/forest.service
+```
+
+Add the following content (adjust paths and options as needed):
+
+```ini
+[Unit]
+Description=Forest Filecoin Node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=forest
+Group=forest
+# Adjust the forest binary path if needed (check with: which forest)
+# You might want to encrypt the keystore in production with `--encrypt-keystore true` and using, e.g., `systemd-creds`
+ExecStart=/usr/local/bin/forest --chain calibnet --auto-download-snapshot --encrypt-keystore false --rpc-address=127.0.0.1:1234
+# Or for mainnet:
+# ExecStart=/usr/local/bin/forest --encrypt-keystore false
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+
+Environment=FOREST_CHAIN_INDEXER_ENABLED=1
+# Optional, if F3 is not working properly.
+# Environment=FOREST_F3_SIDECAR_FFI_ENABLED=0
+
+[Install]
+WantedBy=multi-user.target
+```
+
+:::tip
+For production mainnet nodes, consider creating a dedicated `forest` user for better security isolation. For development/testing, you can use your own user.
+:::
+
+<h4>Step 2: Create a Dedicated User (Optional but Recommended)</h4>
+
+If you specified `User=forest` in the service file, create the user:
+
+```shell
+adduser forest
+```
+
+Make sure the binary is accessible by this user.
+
+<h4>Step 3: Enable and Start the Service</h4>
+
+Reload `systemd` to recognize the new service:
+
+```shell
+systemctl daemon-reload
+```
+
+Enable the service to start on boot:
+
+```shell
+systemctl enable forest
+```
+
+Start the service immediately:
+
+```shell
+systemctl start forest
+```
+
+<h4>Step 4: Verify the Service is Running</h4>
+
+Check the service status:
+
+```shell
+systemctl status forest
+```
+
+Sample output:
+
+```console
+● forest.service - Forest Filecoin Node
+     Loaded: loaded (/etc/systemd/system/forest.service; enabled; vendor preset: enabled)
+     Active: active (running) since Wed 2026-01-28 10:30:15 UTC; 2min ago
+   Main PID: 12345 (forest)
+```
+
+<h4>Step 5: View Logs</h4>
+
+View real-time logs:
+
+```shell
+journalctl -u forest -f
+```
+
+View recent logs:
+
+```shell
+journalctl -u forest -n 100
+```
+
+<h4>Troubleshooting</h4>
+
+If the service fails to start:
+
+1. Check logs with `journalctl -u forest -n 50`
+2. Verify the `forest` binary path with `which forest`
+3. Ensure the user has appropriate permissions
+4. Check that required directories exist and are writable
+
+:::note
+The `Restart=on-failure` option ensures Forest automatically restarts if it crashes. The `RestartSec=10s` adds a 10-second delay between restart attempts to prevent rapid restart loops.
+:::
+
+  </TabItem>
 </Tabs>

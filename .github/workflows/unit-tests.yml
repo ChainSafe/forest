@@ -17,12 +17,14 @@ on:
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
+      - "**/*.md"
   push:
     branches:
       - main
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
+      - "**/*.md"
 
 env:
   CI: 1
@@ -35,6 +37,7 @@ env:
   CXX: "sccache clang++"
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   RUST_LOG: error
+  FOREST_ACTOR_BUNDLE_PATH: /var/tmp/forest_actor_bundle.car.zst
 
 jobs:
   tests-release:
@@ -57,13 +60,6 @@ jobs:
         continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/cache/restore@v5
-        with:
-          path: |
-            /home/runner/.cache/forest/test/rpc-snapshots/rpc_test
-          # Broad key + prefix-based restore so the latest rpcsnap-<hash> is picked up.
-          key: rpcsnap-
-          enableCrossOsArchive: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -75,23 +71,12 @@ jobs:
         uses: taiki-e/install-action@nextest
       - name: Fetch proof params and RPC test snapshots
         run: |
-          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-rpc-tests
+          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - uses: jdx/mise-action@v3
       - run: |
-          mise test release
+          mise test quick
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
           FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
-      - id: get-cache-hash
-        run: |
-          ls -lhR ~/.cache/forest/test/rpc-snapshots/rpc_test/*
-          echo "hash=$(openssl md5 ~/.cache/forest/test/rpc-snapshots/rpc_test/* | sort | openssl md5 | cut -d ' ' -f 2)" >> $GITHUB_OUTPUT
-        shell: bash
-      - uses: actions/cache/save@v5
-        with:
-          path: |
-            /home/runner/.cache/forest/test/rpc-snapshots/rpc_test
-          key: rpcsnap-${{ steps.get-cache-hash.outputs.hash }}
-          enableCrossOsArchive: true
