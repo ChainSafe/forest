@@ -28,7 +28,6 @@ on:
 
 env:
   CI: 1
-  CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
   AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
   AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
@@ -44,7 +43,7 @@ env:
 jobs:
   codecov:
     name: Coverage
-    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
+    # if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
     runs-on: buildjet-4vcpu-ubuntu-2204
     timeout-minutes: 45
     steps:

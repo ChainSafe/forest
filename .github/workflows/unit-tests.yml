@@ -28,7 +28,6 @@ on:
 
 env:
   CI: 1
-  CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
   AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
   AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
@@ -46,7 +45,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
+    # if: github.event.pull_request.draft == false
     steps:
       - name: Configure SCCache variables
         run: |
