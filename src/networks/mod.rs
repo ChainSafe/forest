@@ -346,8 +346,8 @@ impl ChainConfig {
             // (state tree of epoch 3_385_534 - 900 has to be present in the database if `f3_initial_power_table` is not set)
             f3_enabled: true,
             f3_consensus: true,
-            // 2026-01-19T07:00:00Z
-            f3_bootstrap_epoch: 3_385_534,
+            // 2026-02-12T07:00:00Z
+            f3_bootstrap_epoch: 3_451_774,
             f3_initial_power_table: None,
             enable_indexer: false,
             enable_receipt_event_caching: true,
