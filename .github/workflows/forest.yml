@@ -401,6 +401,7 @@ jobs:
       - run: ./scripts/tests/calibnet_eth_mapping_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-api-test-stateful:
+    if: github.event.pull_request.draft == false
     concurrency:
       group: calibnet-api-test-stateful
       cancel-in-progress: false
