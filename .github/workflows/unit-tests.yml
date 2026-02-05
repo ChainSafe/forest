@@ -40,8 +40,6 @@ env:
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   RUST_LOG: error
   FOREST_ACTOR_BUNDLE_PATH: /var/tmp/forest_actor_bundle.car.zst
-  # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
-  RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
 
 jobs:
   tests-release:
