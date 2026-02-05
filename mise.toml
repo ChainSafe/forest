@@ -147,6 +147,19 @@ cargo clean
 rm -rf node_modules
 '''
 
+[tasks."test:docs"]
+# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
+# We need to run them separately.
+description = "Run doctests."
+usage = '''
+arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
+   choices "quick" "release" "dev"
+}
+'''
+run = '''
+cargo test --doc --profile ${usage_profile?} --no-default-features --features "test doctest-private" --no-fail-fast
+'''
+
 [tasks."test:nextest"]
 description = "Run Rust unit and integration tests except `cargo-test` group with nextest."
 usage = '''
@@ -168,7 +181,7 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 '''
 run = '''
 echo "Running tests with profile: ${usage_profile?}" 
-cargo test --profile ${usage_profile?} --workspace --no-default-features --features "test cargo-test doctest-private" --no-fail-fast -- --test "cargo_test_"
+cargo test --lib --profile ${usage_profile?} --workspace --no-default-features --features "test cargo-test" --no-fail-fast -- --test "cargo_test_"
 '''
 
 [tasks.test]
@@ -179,8 +192,9 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 }
 '''
 run = '''
-mise task run test:cargo ${usage_profile?}
 mise task run test:nextest ${usage_profile?}
+mise task run test:cargo ${usage_profile?}
+mise task run test:docs ${usage_profile?}
 '''
 
 [tasks.codecov]
