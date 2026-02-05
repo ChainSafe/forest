@@ -403,6 +403,7 @@ jobs:
   calibnet-api-test-stateful:
     concurrency:
       group: calibnet-api-test-stateful
+      cancel-in-progress: false
     needs:
       - build-ubuntu
     name: Calibnet api test-stateful check
