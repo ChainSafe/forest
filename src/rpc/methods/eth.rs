@@ -1445,7 +1445,7 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
 
     let smsg = get_signed_message(ctx, message_lookup.message)?;
 
-    let state = ctx.state_manager.get_state_tree(&ts.parent_state())?;
+    let state = ctx.state_manager.get_state_tree(ts.parent_state())?;
 
     Ok(ApiEthTx {
         block_hash: parent_ts_cid.into(),
