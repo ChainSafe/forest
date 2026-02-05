@@ -289,10 +289,10 @@ Each network has its own genesis, bootstrap peers, actor bundles, and upgrade ep
 
 ```bash
 # Mainnet (requires snapshot download)
-forest --encrypt-keystore false
+forest
 
 # Calibnet (testnet, auto-download snapshot)
-forest --chain calibnet --auto-download-snapshot --encrypt-keystore false
+forest --chain calibnet --auto-download-snapshot
 
 # Using Docker
 docker run --init -it --rm ghcr.io/chainsafe/forest:latest --chain calibnet --auto-download-snapshot
@@ -326,7 +326,7 @@ forest-tool snapshot fetch --chain calibnet
 forest-tool snapshot export --output snapshot.car
 
 # Import snapshot
-forest --import-snapshot snapshot.car --encrypt-keystore false
+forest --import-snapshot snapshot.car
 ```
 
 ### Debugging
