@@ -35,6 +35,8 @@ env:
   RUSTC_WRAPPER: "sccache"
   CC: "sccache clang"
   CXX: "sccache clang++"
+  # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
+  RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   RUST_LOG: error
   FOREST_ACTOR_BUNDLE_PATH: /var/tmp/forest_actor_bundle.car.zst
@@ -77,6 +79,6 @@ jobs:
       - run: |
           mise test quick
         env:
-          # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
-          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
           FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
+          # https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
+          CARGO_BUILD_JOBS: 2
