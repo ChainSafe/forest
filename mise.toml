@@ -157,11 +157,11 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 }
 '''
 run = '''
-cargo test --doc --profile ${usage_profile?} --features doctest-private --no-fail-fast
+cargo test --doc --profile ${usage_profile?} --no-default-features --features "test doctest-private" --no-fail-fast
 '''
 
-[tasks."test:rust"]
-description = "Run Rust unit and integration tests."
+[tasks."test:nextest"]
+description = "Run Rust unit and integration tests except `cargo-test` group with nextest."
 usage = '''
 arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
    choices "quick" "release" "dev"
@@ -169,7 +169,19 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 '''
 run = '''
 echo "Running tests with profile: ${usage_profile?}" 
-cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-fail-fast
+cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-default-features --features "test" --no-fail-fast
+'''
+
+[tasks."test:cargo"]
+description = "Run Rust unit, integration and doc tests of `cargo-test` group with cargo test."
+usage = '''
+arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
+   choices "quick" "release" "dev"
+}
+'''
+run = '''
+echo "Running tests with profile: ${usage_profile?}" 
+cargo test --lib --profile ${usage_profile?} --workspace --no-default-features --features "test cargo-test" --no-fail-fast -- --test "cargo_test_"
 '''
 
 [tasks.test]
@@ -180,14 +192,15 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 }
 '''
 run = '''
-mise task run test:rust ${usage_profile?}
+mise task run test:nextest ${usage_profile?}
+mise task run test:cargo ${usage_profile?}
 mise task run test:docs ${usage_profile?}
 '''
 
 [tasks.codecov]
 description = "Generate codecov report"
 run = '''
-cargo llvm-cov -p forest-filecoin --codecov --output-path lcov.info
+cargo llvm-cov -p forest-filecoin --codecov --no-default-features --features "test cargo-test" --output-path lcov.info
 '''
 
 [tasks."docs:format-spellcheck-dictionary"]
