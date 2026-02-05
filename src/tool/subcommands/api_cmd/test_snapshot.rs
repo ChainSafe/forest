@@ -179,6 +179,7 @@ mod tests {
     // To run a single test: cargo test --lib filecoin_multisig_statedecodeparams_1754230255631789 -- --nocapture
     include!(concat!(env!("OUT_DIR"), "/__rpc_regression_tests_gen.rs"));
 
+    #[allow(dead_code)]
     async fn rpc_regression_test_run(name: &str) {
         // Set proof parameter data dir and make sure the proofs are available
         {
