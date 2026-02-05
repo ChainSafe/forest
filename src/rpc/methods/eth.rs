@@ -974,7 +974,7 @@ impl RpcMethod<2> for EthGetBalance {
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
-        let balance = eth_get_balance(&ctx, &address, &ts)?;
+        let balance = eth_get_balance(&ctx, &address, &ts).await?;
         Ok(balance)
     }
 }
@@ -998,20 +998,26 @@ impl RpcMethod<2> for EthGetBalanceV2 {
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        let balance = eth_get_balance(&ctx, &address, &ts)?;
+        let balance = eth_get_balance(&ctx, &address, &ts).await?;
         Ok(balance)
     }
 }
 
-fn eth_get_balance<DB: Blockstore>(
+async fn eth_get_balance<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     address: &EthAddress,
     ts: &Tipset,
 ) -> Result<EthBigInt> {
     let fil_addr = address.to_filecoin_address()?;
-    let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
-    let actor = state.get_required_actor(&fil_addr)?;
-    Ok(EthBigInt(actor.balance.atto().clone()))
+    let (state_cid, _) = ctx
+        .state_manager
+        .tipset_state(ts, StateLookupPolicy::Enabled)
+        .await?;
+    let state = ctx.state_manager.get_state_tree(&state_cid)?;
+    match state.get_actor(&fil_addr)? {
+        Some(actor) => Ok(EthBigInt(actor.balance.atto().clone())),
+        None => Ok(EthBigInt::default()),
+    }
 }
 
 fn get_tipset_from_hash<DB: Blockstore>(
@@ -2483,7 +2489,14 @@ where
         .state_manager
         .tipset_state(ts, StateLookupPolicy::Enabled)
         .await?;
-    let actor = ctx.state_manager.get_required_actor(&to_address, state)?;
+    let state_tree = ctx.state_manager.get_state_tree(&state)?;
+    let Some(actor) = state_tree
+        .get_actor(&to_address)
+        .with_context(|| format!("failed to lookup contract {}", eth_address.0))?
+    else {
+        return Ok(Default::default());
+    };
+
     // Not a contract. We could try to distinguish between accounts and "native" contracts here,
     // but it's not worth it.
     if !is_evm_actor(&actor.code) {
@@ -2599,7 +2612,11 @@ async fn get_storage_at<DB: Blockstore + Send + Sync + 'static>(
         .tipset_state(&ts, StateLookupPolicy::Enabled)
         .await?;
     let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
-    let Some(actor) = ctx.state_manager.get_actor(&to_address, state)? else {
+    let Some(actor) = ctx
+        .state_manager
+        .get_actor(&to_address, state)
+        .with_context(|| format!("failed to lookup contract {}", eth_address.0))?
+    else {
         return Ok(make_empty_result());
     };
 
@@ -2726,8 +2743,12 @@ where
         .tipset_state(ts, StateLookupPolicy::Enabled)
         .await?;
 
-    let state = StateTree::new_from_root(ctx.store_owned(), &state_cid)?;
-    let actor = state.get_required_actor(&addr)?;
+    let state = ctx.state_manager.get_state_tree(&state_cid)?;
+    let actor = match state.get_actor(&addr)? {
+        Some(actor) => actor,
+        None => return Ok(EthUint64(0)),
+    };
+
     if is_evm_actor(&actor.code) {
         let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
         if !evm_state.is_alive() {
