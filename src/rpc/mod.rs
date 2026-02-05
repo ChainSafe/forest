@@ -466,6 +466,15 @@ static DEFAULT_REQUEST_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
         .unwrap_or(Duration::from_secs(60))
 });
 
+/// Default maximum connections for the RPC server. This needs to be high enough to
+/// accommodate the regular usage for RPC providers.
+static DEFAULT_MAX_CONNECTIONS: LazyLock<u32> = LazyLock::new(|| {
+    env::var("FOREST_RPC_MAX_CONNECTIONS")
+        .ok()
+        .and_then(|it| it.parse().ok())
+        .unwrap_or(1000)
+});
+
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
 const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 
@@ -565,6 +574,7 @@ where
                     // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
                     .max_request_body_size(MAX_REQUEST_BODY_SIZE)
                     .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+                    .max_connections(*DEFAULT_MAX_CONNECTIONS)
                     .set_id_provider(RandomHexStringIdProvider::new())
                     .build(),
             )
