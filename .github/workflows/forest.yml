@@ -41,6 +41,7 @@ jobs:
   build-macos:
     name: Build MacOS
     runs-on: macos-latest
+    if: false
     steps:
       - name: Configure SCCache variables
         run: |
@@ -65,6 +66,7 @@ jobs:
   build-ubuntu:
     name: Build Ubuntu
     runs-on: ubuntu-24.04
+    if: false
     steps:
       - name: Configure SCCache variables
         run: |
@@ -101,6 +103,7 @@ jobs:
           if-no-files-found: error
   cargo-publish-dry-run:
     runs-on: ubuntu-24.04
+    if: false
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v6

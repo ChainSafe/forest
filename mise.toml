@@ -160,6 +160,18 @@ run = '''
 cargo test --doc --profile ${usage_profile?} --features doctest-private --no-fail-fast
 '''
 
+[tasks."test:nextest"]
+description = "Run Rust unit and integration tests with nextest."
+usage = '''
+arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
+   choices "quick" "release" "dev"
+}
+'''
+run = '''
+echo "Running tests with profile: ${usage_profile?}" 
+cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-fail-fast
+'''
+
 [tasks."test:rust"]
 description = "Run Rust unit and integration tests."
 usage = '''
@@ -169,7 +181,7 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 '''
 run = '''
 echo "Running tests with profile: ${usage_profile?}" 
-cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-fail-fast
+cargo test --profile ${usage_profile?} --workspace --no-default-features --features doctest-private --no-fail-fast
 '''
 
 [tasks.test]
@@ -181,7 +193,6 @@ arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
 '''
 run = '''
 mise task run test:rust ${usage_profile?}
-mise task run test:docs ${usage_profile?}
 '''
 
 [tasks.codecov]

@@ -38,13 +38,15 @@ env:
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   RUST_LOG: error
   FOREST_ACTOR_BUNDLE_PATH: /var/tmp/forest_actor_bundle.car.zst
+  # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
+  RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
 
 jobs:
   tests-release:
     runs-on: ubuntu-24.04-arm
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
+    # if: github.event.pull_request.draft == false
     steps:
       - name: Configure SCCache variables
         run: |
@@ -77,6 +79,4 @@ jobs:
       - run: |
           mise test quick
         env:
-          # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
-          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
           FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
