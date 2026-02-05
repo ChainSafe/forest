@@ -200,7 +200,7 @@ mise task run test:docs ${usage_profile?}
 [tasks.codecov]
 description = "Generate codecov report"
 run = '''
-cargo llvm-cov -p forest-filecoin --codecov --no-default-features --features cargo-test --output-path lcov.info
+cargo llvm-cov -p forest-filecoin --codecov --no-default-features --features "test cargo-test" --output-path lcov.info
 '''
 
 [tasks."docs:format-spellcheck-dictionary"]
