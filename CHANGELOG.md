@@ -55,6 +55,8 @@
 
 - [#6471](https://github.com/ChainSafe/forest/pull/6471): Moved `forest-tool state` subcommand to `forest-dev`.
 
+- [#6527](https://github.com/ChainSafe/forest/issues/6527): Increased the maximum number of allowed connections to the RPC server to 1000. This can be further configured via the `FOREST_RPC_MAX_CONNECTIONS` environment variable.
+
 ### Removed
 
 ### Fixed
