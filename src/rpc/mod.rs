@@ -807,18 +807,10 @@ mod tests {
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[test]
-    #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
     fn openrpc() {
-        for path in [ApiPaths::V0, ApiPaths::V1] {
-            let _spec = super::openrpc(path, None);
-            // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
-            //               this is disabled because it causes lots of merge
-            //               conflicts.
-            //               We should consider re-enabling it when our RPC is
-            //               more stable.
-            //               (We still run this test to make sure we're not
-            //               violating other invariants)
-            insta::assert_yaml_snapshot!(_spec);
+        for path in [ApiPaths::V0, ApiPaths::V1, ApiPaths::V2] {
+            let spec = super::openrpc(path, None);
+            insta::assert_yaml_snapshot!(path.path(), spec);
         }
     }
 
