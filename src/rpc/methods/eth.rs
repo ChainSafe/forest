@@ -586,7 +586,7 @@ impl Block {
 
             let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &tipset).await?;
 
-            let state_tree = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+            let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
             let mut full_transactions = vec![];
             let mut gas_used = 0;
@@ -1013,10 +1013,10 @@ async fn eth_get_balance<DB: Blockstore + Send + Sync + 'static>(
         .state_manager
         .tipset_state(ts, StateLookupPolicy::Enabled)
         .await?;
-    let state = ctx.state_manager.get_state_tree(&state_cid)?;
-    match state.get_actor(&fil_addr)? {
+    let state_tree = ctx.state_manager.get_state_tree(&state_cid)?;
+    match state_tree.get_actor(&fil_addr)? {
         Some(actor) => Ok(EthBigInt(actor.balance.atto().clone())),
-        None => Ok(EthBigInt::default()),
+        None => Ok(EthBigInt::default()), // Balance is 0 if the actor doesn't exist
     }
 }
 
@@ -1445,7 +1445,7 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
 
     let smsg = get_signed_message(ctx, message_lookup.message)?;
 
-    let state = StateTree::new_from_root(ctx.store().into(), ts.parent_state())?;
+    let state = ctx.state_manager.get_state_tree(&ts.parent_state())?;
 
     Ok(ApiEthTx {
         block_hash: parent_ts_cid.into(),
@@ -1700,7 +1700,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     let (state_root, msgs_and_receipts) = execute_tipset(ctx, &ts_ref).await?;
 
     // Load the state tree
-    let state_tree = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
     let mut eth_receipts = Vec::with_capacity(msgs_and_receipts.len());
     for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
@@ -2743,8 +2743,8 @@ where
         .tipset_state(ts, StateLookupPolicy::Enabled)
         .await?;
 
-    let state = ctx.state_manager.get_state_tree(&state_cid)?;
-    let actor = match state.get_actor(&addr)? {
+    let state_tree = ctx.state_manager.get_state_tree(&state_cid)?;
+    let actor = match state_tree.get_actor(&addr)? {
         Some(actor) => actor,
         None => return Ok(EthUint64(0)),
     };
@@ -2876,7 +2876,7 @@ where
             )
         })?;
 
-    let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+    let state = ctx.state_manager.get_state_tree(ts.parent_state())?;
 
     let tx = new_eth_tx(ctx, &state, ts.epoch(), &ts.key().cid()?, &msg.cid(), index)?;
 
@@ -2911,7 +2911,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
             )
         })?;
 
-        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+        let state = ctx.state_manager.get_state_tree(ts.parent_state())?;
 
         let tx = new_eth_tx(
             &ctx,
@@ -3893,7 +3893,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let (state_root, trace) = ctx.state_manager.execution_trace(ts)?;
-    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+    let state = ctx.state_manager.get_state_tree(&state_root)?;
     let cid = ts.key().cid()?;
     let block_hash: EthHash = cid.into();
     let mut all_traces = vec![];
@@ -4047,7 +4047,7 @@ where
 {
     let (state_root, trace) = ctx.state_manager.execution_trace(ts)?;
 
-    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+    let state = ctx.state_manager.get_state_tree(&state_root)?;
 
     let mut all_traces = vec![];
     for ir in trace.into_iter() {
