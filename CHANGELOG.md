@@ -63,7 +63,7 @@
 
 - [#6531](https://github.com/ChainSafe/forest/issues/6531): `Filecoin.EthGetBlockByHash` now works with `lotus-gateway`.
 
-- [#6553](https://github.com/ChainSafe/forest/issues/6553): `Filecoin.ChainGetTipset` now works with `lotus-gateway`.
+- [#6552](https://github.com/ChainSafe/forest/issues/6552): `Filecoin.ChainGetTipset` now works with `lotus-gateway`.
 
 - [#6535](https://github.com/ChainSafe/forest/pull/6535): Fixed incorrect replace by fee behavior when at limits of pending messages in mempool.
 
