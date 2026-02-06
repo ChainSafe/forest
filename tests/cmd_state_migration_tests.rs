@@ -11,24 +11,6 @@ use std::path::PathBuf;
 #[test]
 #[fickle]
 #[serial]
-fn state_migration_actor_bundle() {
-    let temp_dir = tempfile::tempdir().unwrap();
-    let bundle = temp_dir.path().join("bundle.car");
-
-    tool()
-        .arg("state-migration")
-        .arg("actor-bundle")
-        .arg(&bundle)
-        .assert()
-        .success();
-
-    assert!(bundle.exists());
-    assert!(zstd::decode_all(std::fs::File::open(&bundle).unwrap()).is_ok());
-}
-
-#[test]
-#[fickle]
-#[serial]
 fn state_migration_generate_actors_metadata() {
     let json = tool()
         .arg("state-migration")

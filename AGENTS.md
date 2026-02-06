@@ -358,6 +358,7 @@ lldb target/debugging/forest
 ## Cargo Features
 
 - **`default`** - `jemalloc`, `tokio-console`, `tracing-loki`, `tracing-chrome`
+- **`test`** - Default feature set for unit tests
 - **`slim`** - Minimal feature set (uses rustalloc)
 - **`jemalloc`** - Use jemalloc allocator (production default)
 - **`rustalloc`** - Use Rust standard allocator
@@ -366,6 +367,7 @@ lldb target/debugging/forest
 - **`tracing-loki`** - Send telemetry to Loki
 - **`tracing-chrome`** - Chrome tracing support
 - **`no-f3-sidecar`** - Disable F3 sidecar build
+- **`cargo-test`** - Group of tests that is recommended to run with `cargo test` instead of `nextest`
 - **`doctest-private`** - Enable doctests for private items
 - **`benchmark-private`** - Enable benchmark suite
 - **`interop-tests-private`** - Enable interop tests
