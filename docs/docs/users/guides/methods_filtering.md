@@ -33,7 +33,7 @@ In this example, will disallow the `Filecoin.ChainExport` method which is used t
 2. Run `forest` with the `--rpc-filter-list` argument:
 
 ```shell
-forest --chain calibnet --encrypt-keystore false --rpc-filter-list filter-list.txt
+forest --chain calibnet --rpc-filter-list filter-list.txt
 ```
 
 3. Try to export the snapshot using the `forest-cli`:
