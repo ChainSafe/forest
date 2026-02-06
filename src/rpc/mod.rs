@@ -842,7 +842,7 @@ mod tests {
 
         let handle = tokio::spawn(start_rpc(state, rpc_listener, stop_handle, None));
 
-        // Send a few requests
+        // Send a few http requests
 
         let client = Client::from_url(
             format!("http://{}:{}/", rpc_address.ip(), rpc_address.port())
@@ -859,6 +859,19 @@ mod tests {
         );
         assert_eq!(response.block_delay, block_delay_secs);
         assert_eq!(response.api_version, ShiftingVersion::new(2, 3, 0));
+
+        let response = super::methods::auth::AuthVerify::call(&client, (jwt_read.clone(),))
+            .await
+            .unwrap();
+        assert_eq!(response, jwt_read_permissions);
+
+        // Send a few websocket requests
+
+        let client = Client::from_url(
+            format!("ws://{}:{}/", rpc_address.ip(), rpc_address.port())
+                .parse()
+                .unwrap(),
+        );
 
         let response = super::methods::auth::AuthVerify::call(&client, (jwt_read,))
             .await
