@@ -241,7 +241,7 @@ pub mod state_compute {
         });
 
         let url = Url::parse(&format!("{DO_SPACE_ROOT}{file}"))?;
-        Ok(crate::utils::retry(
+        let path = crate::utils::retry(
             crate::utils::RetryArgs {
                 timeout: Some(Duration::from_secs(30)),
                 max_retries: Some(5),
@@ -256,7 +256,17 @@ pub mod state_compute {
             },
         )
         .await?
-        .path)
+        .path;
+        #[cfg(test)]
+        {
+            // To determine whether a test failure is caused by data corruption
+            use digest::Digest as _;
+            println!(
+                "snapshot: {file}, sha256sum: {}",
+                hex::encode(sha2::Sha256::digest(std::fs::read(&path)?))
+            );
+        }
+        Ok(path)
     }
 
     pub async fn prepare_state_compute(
