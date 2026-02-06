@@ -288,6 +288,8 @@ split-debuginfo = "off"
 inherits = "release"
 opt-level = 1
 lto = "off"
+incremental = true
+codegen-units = 256
 
 [profile.profiling]
 inherits = "dev"
