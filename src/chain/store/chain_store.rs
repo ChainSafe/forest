@@ -170,7 +170,9 @@ where
 
     /// Writes the `TipsetKey` to the blockstore for `EthAPI` queries.
     pub fn put_tipset_key(&self, tsk: &TipsetKey) -> Result<(), Error> {
-        let hash = tsk.cid()?.into();
+        let tsk_bytes = tsk.bytes();
+        let tsk_cid = self.blockstore().put_cbor_default(&tsk_bytes)?;
+        let hash = tsk_cid.into();
         self.eth_mappings.write_obj(&hash, tsk)?;
         Ok(())
     }
