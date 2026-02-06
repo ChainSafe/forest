@@ -110,7 +110,7 @@ impl MsgSet {
             self.next_sequence = m.sequence() + 1;
         }
 
-        if let Some(exms) = self.msgs.get(&m.sequence()) {
+        let has_existing = if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid() != exms.cid() {
                 let premium = &exms.message().gas_premium;
                 let min_price = premium.clone()
@@ -122,9 +122,13 @@ impl MsgSet {
             } else {
                 return Err(Error::DuplicateSequence);
             }
-        }
+            true
+        } else {
+            false
+        };
 
-        if self.msgs.len() as u64 >= max_actor_pending_messages {
+        // Only check the limit when adding a new message, not when replacing an existing one (RBF)
+        if !has_existing && self.msgs.len() as u64 >= max_actor_pending_messages {
             return Err(Error::TooManyPendingMessages(
                 m.message.from().to_string(),
                 trusted,
@@ -713,5 +717,52 @@ mod tests {
         let sequence = msg.message().sequence;
         let res = add_helper(&api, &bls_sig_cache, &pending, msg, sequence, false);
         assert!(res.is_ok());
+    }
+
+    // Test that RBF (Replace By Fee) is allowed even when at max_actor_pending_messages capacity
+    // This matches Lotus behavior where the check is: https://github.com/filecoin-project/lotus/blob/5f32d00550ddd2f2d0f9abe97dbae07615f18547/chain/messagepool/messagepool.go#L296-L299
+    #[test]
+    fn test_rbf_at_capacity() {
+        use crate::shim::econ::TokenAmount;
+
+        let api = TestApi::with_max_actor_pending_messages(10);
+        let mut mset = MsgSet::new(0);
+
+        // Fill up to capacity (10 messages)
+        for i in 0..10 {
+            let message = ShimMessage {
+                sequence: i,
+                gas_premium: TokenAmount::from_atto(100u64),
+                ..ShimMessage::default()
+            };
+            let msg = SignedMessage::mock_bls_signed_message(message);
+            let res = mset.add_trusted(&api, msg);
+            assert!(res.is_ok(), "Failed to add message {}: {:?}", i, res);
+        }
+
+        // Should reject adding a NEW message (sequence 10) when at capacity
+        let message_new = ShimMessage {
+            sequence: 10,
+            gas_premium: TokenAmount::from_atto(100u64),
+            ..ShimMessage::default()
+        };
+        let msg_new = SignedMessage::mock_bls_signed_message(message_new);
+        let res_new = mset.add_trusted(&api, msg_new);
+        assert!(matches!(res_new, Err(Error::TooManyPendingMessages(_, _))));
+
+        // Should ALLOW replacing an existing message (RBF) even when at capacity
+        // Replace message with sequence 5 with higher gas premium
+        let message_rbf = ShimMessage {
+            sequence: 5,
+            gas_premium: TokenAmount::from_atto(200u64),
+            ..ShimMessage::default()
+        };
+        let msg_rbf = SignedMessage::mock_bls_signed_message(message_rbf);
+        let res_rbf = mset.add_trusted(&api, msg_rbf);
+        assert!(
+            res_rbf.is_ok(),
+            "RBF should be allowed at capacity: {:?}",
+            res_rbf
+        );
     }
 }
