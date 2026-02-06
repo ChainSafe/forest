@@ -25,7 +25,7 @@ Technically, tokens have an expiration date, the default is 100 years, so there'
 :::
 
 :::danger
-**Keep your tokens safe!** Anyone with access to the admin token can control your node if the RPC API is exposed to the internet. The private key is stored in an optionally encrypted file in the node's data directory. The default location on Linux is `$HOME/.local/share/forest/keystore` or `$HOME/.local/share/forest/keystore.json` if encryption is disabled.
+**Keep your tokens safe!** Anyone with access to the admin token can control your node if the RPC API is exposed to the internet. The private key is stored in an optionally encrypted file in the node's data directory. The default location on Linux is `$HOME/.local/share/forest/keystore` or `$HOME/.local/share/forest/keystore.json` if encryption is disabled. You should **not** disable keystore encryption in production environments.
 :::
 
 ```shell
