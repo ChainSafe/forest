@@ -170,8 +170,8 @@ impl TestSummary {
             rpc::ClientError::Call(it) => match it.code().into() {
                 ErrorCode::MethodNotFound => Self::MissingMethod,
                 _ => {
-                    // `lotus-gateway` adds `RPC error (-32603):` prefix to the error message that breaks this test,
-                    // normalize the reasons first
+                    // `lotus-gateway` adds `RPC error (-32603):` prefix to the error message that breaks tests,
+                    // normalize the error message first
                     let message = normalized_error_message(it.message());
                     Self::Rejected(message.to_string())
                 }
