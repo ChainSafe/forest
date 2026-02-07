@@ -67,6 +67,8 @@
 
 - [#6535](https://github.com/ChainSafe/forest/pull/6535): Fixed incorrect replace by fee behavior when at limits of pending messages in mempool.
 
+- [#6541](https://github.com/ChainSafe/forest/pull/6541): Fixed "actor not found" errors when running Foundry (forge) scripts. The `eth_getBalance`, `eth_getTransactionCount`, and `eth_getCode` methods now return default values (0 balance, 0 nonce, empty code) for non-existent addresses, matching Lotus and standard Ethereum behavior.
+
 ## Forest v0.31.1 "Quadrantids"
 
 This is a non-mandatory release for all node operators. It includes the support for more V2 API's and a few critical API fixes.

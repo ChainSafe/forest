@@ -38,6 +38,8 @@ impl MemoryDB {
             blockchain_db
                 .iter()
                 .chain(blockchain_persistent_db.iter())
+                // Sort to make the result CAR deterministic
+                .sorted_by_key(|&(&cid, _)| cid)
                 .map(|(&cid, data)| {
                     anyhow::Ok(CarBlock {
                         cid,
