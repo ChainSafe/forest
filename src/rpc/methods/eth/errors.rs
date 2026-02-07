@@ -14,10 +14,7 @@ pub const EXECUTION_REVERTED_CODE: i32 = 3;
 #[derive(Clone, Debug, Error, Serialize)]
 pub enum EthErrors {
     #[error("{message}")]
-    ExecutionReverted {
-        message: String,
-        data: Option<String>,
-    },
+    ExecutionReverted { message: String, data: String },
 }
 
 impl EthErrors {
@@ -33,7 +30,7 @@ impl EthErrors {
             message: format!(
                 "message execution failed (exit=[{exit_code}]{revert_reason}, vm error=[{error}])"
             ),
-            data: (!data.is_empty()).then(|| format!("0x{}", hex::encode(data))),
+            data: format!("0x{}", hex::encode(data)),
         }
     }
 }
@@ -54,7 +51,7 @@ impl RpcErrorData for EthErrors {
     fn error_data(&self) -> Option<serde_json::Value> {
         match self {
             EthErrors::ExecutionReverted { data, .. } => {
-                data.clone().map(serde_json::Value::String)
+                Some(serde_json::Value::String(data.clone()))
             }
         }
     }
