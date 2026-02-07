@@ -1088,6 +1088,40 @@ methods:
         items:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
+  - name: Filecoin.EthTraceFilter
+    description: Returns the traces for transactions matching the filter criteria.
+    params:
+      - name: filter
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthTraceFilterCriteria"
+    result:
+      name: Filecoin.EthTraceFilter.Result
+      required: false
+      schema:
+        type:
+          - array
+          - "null"
+        items:
+          $ref: "#/components/schemas/EthBlockTrace"
+    paramStructure: by-position
+  - name: trace_filter
+    description: Returns the traces for transactions matching the filter criteria.
+    params:
+      - name: filter
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthTraceFilterCriteria"
+    result:
+      name: trace_filter.Result
+      required: false
+      schema:
+        type:
+          - array
+          - "null"
+        items:
+          $ref: "#/components/schemas/EthBlockTrace"
+    paramStructure: by-position
   - name: Filecoin.EthTraceTransaction
     description: Returns the traces for a specific transaction.
     params:
@@ -1884,6 +1918,39 @@ components:
         - traceAddress
         - action
         - result
+    EthTraceFilterCriteria:
+      type: object
+      properties:
+        after:
+          description: "After specifies the offset for pagination of trace results. The number of traces to skip before returning results.\nOptional, default: None."
+          anyOf:
+            - $ref: "#/components/schemas/EthUint64"
+            - type: "null"
+        count:
+          description: "Limits the number of traces returned.\nOptional, default: all traces."
+          anyOf:
+            - $ref: "#/components/schemas/EthUint64"
+            - type: "null"
+        fromAddress:
+          description: "Actor address or a list of addresses from which transactions that generate traces should originate.\nOptional, default: None.\nThe JSON decoding must treat a string as equivalent to an array with one value, for example\n\"0x8888f1f195afa192cfee86069858\" must be decoded as [ \"0x8888f1f195afa192cfee86069858\" ]"
+          anyOf:
+            - $ref: "#/components/schemas/EthAddressList"
+            - type: "null"
+        fromBlock:
+          description: "Interpreted as an epoch (in hex) or one of \"latest\" for last mined block, \"pending\" for not yet committed messages.\nOptional, default: \"latest\".\nNote: \"earliest\" is not a permitted value."
+          type:
+            - string
+            - "null"
+        toAddress:
+          description: "Actor address or a list of addresses to which transactions that generate traces are sent.\nOptional, default: None.\nThe JSON decoding must treat a string as equivalent to an array with one value, for example\n\"0x8888f1f195afa192cfee86069858\" must be decoded as [ \"0x8888f1f195afa192cfee86069858\" ]"
+          anyOf:
+            - $ref: "#/components/schemas/EthAddressList"
+            - type: "null"
+        toBlock:
+          description: "Interpreted as an epoch (in hex) or one of \"latest\" for last mined block, \"pending\" for not yet committed messages.\nOptional, default: \"latest\".\nNote: \"earliest\" is not a permitted value."
+          type:
+            - string
+            - "null"
     EthTxReceipt:
       type: object
       properties:
