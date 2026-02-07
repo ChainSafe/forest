@@ -232,7 +232,7 @@ categories:
 
 | Binary                                                                          | Role                                                     | Command example                                    |
 | ------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------- |
-| [`forest`](https://docs.forest.chainsafe.io/reference/cli#forest)               | Forest daemon, used to connect to the Filecoin network   | `forest --chain calibnet --encrypt-keystore false` |
+| [`forest`](https://docs.forest.chainsafe.io/reference/cli#forest)               | Forest daemon, used to connect to the Filecoin network   | `forest --chain calibnet --auto-download-snapshot` |
 | [`forest-wallet`](https://docs.forest.chainsafe.io/reference/cli#forest-wallet) | Manage Filecoin wallets and interact with accounts       | `forest-wallet new secp256k1`                      |
 | [`forest-cli`](https://docs.forest.chainsafe.io/reference/cli#forest-cli)       | Human-friendly wrappers around the Filecoin JSON-RPC API | `forest-cli info show`                             |
 | [`forest-tool`](https://docs.forest.chainsafe.io/reference/cli#forest-tool)     | Handle tasks not involving the Forest daemon             | `forest-tool snapshot fetch`                       |

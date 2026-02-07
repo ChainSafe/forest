@@ -52,6 +52,7 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
+use libsecp256k1::{PublicKey, SecretKey};
 use num_traits::Signed;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -122,6 +123,13 @@ static KNOWN_CALIBNET_F4_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
         .unwrap()
         .into()
 });
+
+fn generate_eth_random_address() -> anyhow::Result<EthAddress> {
+    let rng = &mut crate::utils::rand::forest_os_rng();
+    let secret_key = SecretKey::random(rng);
+    let public_key = PublicKey::from_secret_key(&secret_key);
+    EthAddress::eth_address_from_pub_key(&public_key.serialize())
+}
 
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
@@ -1643,6 +1651,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBalance::request((
+                generate_eth_random_address().unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBalanceV2::request((
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
                 ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
@@ -1710,6 +1725,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetBalanceV2::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalanceV2::request((
+                generate_eth_random_address().unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
             ))
             .unwrap(),
         ),
@@ -1931,6 +1953,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetTransactionCount::request((
+                generate_eth_random_address().unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetTransactionCountV2::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 ExtBlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
@@ -1974,6 +2003,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetTransactionCountV2::request((
+                generate_eth_random_address().unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetStorageAt::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
@@ -2008,6 +2044,14 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetStorageAt::request((
+                generate_eth_random_address().unwrap(),
+                EthBytes(vec![0x0]),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetStorageAtV2::request((
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
@@ -2028,6 +2072,14 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
                 ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetStorageAtV2::request((
+                generate_eth_random_address().unwrap(),
+                EthBytes(vec![0x0]),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
             ))
             .unwrap(),
         ),
@@ -2187,6 +2239,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetCode::request((
+                generate_eth_random_address().unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetCodeV2::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
@@ -2205,6 +2264,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetCodeV2::request((
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetCodeV2::request((
+                generate_eth_random_address().unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
             ))
             .unwrap(),
         ),
@@ -2561,9 +2627,9 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             tests.push(RpcTest::identity(EthGetTransactionByHashLimited::request(
                 (tx.hash.clone(), shared_tipset.epoch()),
             )?));
-            tests.push(RpcTest::identity(
-                EthTraceTransaction::request((tx.hash.to_string(),)).unwrap(),
-            ));
+            tests.push(RpcTest::identity(EthTraceTransaction::request((tx
+                .hash
+                .to_string(),))?));
             if smsg.message.from.protocol() == Protocol::Delegated
                 && smsg.message.to.protocol() == Protocol::Delegated
             {
