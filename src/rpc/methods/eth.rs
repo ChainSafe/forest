@@ -3132,7 +3132,7 @@ impl RpcMethod<1> for EthNewFilter {
     const NAME: &'static str = "Filecoin.EthNewFilter";
     const NAME_ALIAS: Option<&'static str> = Some("eth_newFilter");
     const PARAM_NAMES: [&'static str; 1] = ["filterSpec"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthFilterSpec,);

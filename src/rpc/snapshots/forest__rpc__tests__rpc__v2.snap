@@ -950,6 +950,30 @@ methods:
           - $ref: "#/components/schemas/EthTxReceipt"
           - type: "null"
     paramStructure: by-position
+  - name: Filecoin.EthNewFilter
+    params:
+      - name: filterSpec
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthFilterSpec"
+    result:
+      name: Filecoin.EthNewFilter.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/FilterID"
+    paramStructure: by-position
+  - name: eth_newFilter
+    params:
+      - name: filterSpec
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthFilterSpec"
+    result:
+      name: eth_newFilter.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/FilterID"
+    paramStructure: by-position
   - name: Filecoin.EthNewPendingTransactionFilter
     params: []
     result:
