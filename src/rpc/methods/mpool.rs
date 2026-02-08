@@ -200,7 +200,8 @@ impl RpcMethod<1> for MpoolPushUntrusted {
         // Lotus implements a few extra sanity checks that we skip. We skip them
         // because those checks aren't used for messages received from peers and
         // therefore aren't safety critical.
-        MpoolPush::handle(ctx, (message,)).await
+        let cid = ctx.mpool.as_ref().push_untrusted(message).await?;
+        Ok(cid)
     }
 }
 

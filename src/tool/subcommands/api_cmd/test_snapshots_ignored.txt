@@ -19,6 +19,7 @@ Filecoin.EthEstimateGas
 Filecoin.EthGetFilterChanges
 Filecoin.EthGetFilterLogs
 Filecoin.EthSendRawTransaction
+Filecoin.EthSendRawTransactionUntrusted
 Filecoin.EthSubscribe
 Filecoin.EthSyncing
 Filecoin.EthUnsubscribe
