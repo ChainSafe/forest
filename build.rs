@@ -83,6 +83,7 @@ fn rpc_regression_tests_gen() {
             r#"
                 #[cfg(feature = "cargo-test")]
                 #[tokio::test(flavor = "multi_thread")]
+                #[fickle::fickle]
                 async fn cargo_test_rpc_snapshot_test_{ident}() {{
                     rpc_regression_test_run("{test}").await
                 }}
