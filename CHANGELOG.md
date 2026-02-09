@@ -63,11 +63,15 @@
 
 - [#6531](https://github.com/ChainSafe/forest/issues/6531): `Filecoin.EthGetBlockByHash` now works with `lotus-gateway`.
 
+- [#6552](https://github.com/ChainSafe/forest/issues/6552): `Filecoin.ChainGetTipset` now works with `lotus-gateway`.
+
 - [#6535](https://github.com/ChainSafe/forest/pull/6535): Fixed incorrect replace by fee behavior when at limits of pending messages in mempool.
 
 - [#6541](https://github.com/ChainSafe/forest/pull/6541): Fixed "actor not found" errors when running Foundry (forge) scripts. The `eth_getBalance`, `eth_getTransactionCount`, and `eth_getCode` methods now return default values (0 balance, 0 nonce, empty code) for non-existent addresses, matching Lotus and standard Ethereum behavior.
 
 - [#6551](https://github.com/ChainSafe/forest/pull/6551): Fixed `ErrExecutionReverted` JSONRPCError conversion error with Lotus Gateway.
+
+- [#6555](https://github.com/ChainSafe/forest/pull/6555): Fixed listing of wallets belonging to different networks in `forest-wallet list` command (and the `Filecoin.WalletList` RPC method). This incorrectly showed, e.g., calibnet wallets when running a mainnet node. Under the hood they're actually the same, but this could cause confusion and issues with some clients. It also resulted in errors trying to export a wallet that belongs to a different network.
 
 ## Forest v0.31.1 "Quadrantids"
 
