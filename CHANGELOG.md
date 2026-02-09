@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.31.2 "Ember"
+
+This is a non-mandatory patch release for all node operators. It resets F3 on calibnet, also includes new V2 RPC methods and a few bug fixes, including `lotus-gateway` compatibility fixes.
+
+### Breaking
+
 - [#6475](https://github.com/ChainSafe/forest/pull/6475): Increased default JWT (generated via `Filecoin.AuthNew`) expiration time from 24 hours to 100 years to match Lotus behavior and ensure compatibility with clients like Curio.
 
 - [#6392](https://github.com/ChainSafe/forest/pull/6392): Changed execution reverted error code from 11 to 3.
