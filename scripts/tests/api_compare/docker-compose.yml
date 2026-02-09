@@ -229,8 +229,9 @@ services:
     command:
       - |
         set -uxo pipefail
-        LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
-        FOREST_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
+        # Test against websocket endpoint for online server
+        LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/ws"
+        FOREST_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/ws"
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest $$FOREST_API_INFO \
           --lotus $$LOTUS_API_INFO \
@@ -273,6 +274,7 @@ services:
     command:
       - |
         set -uxo pipefail
+        # Test against http endpoint for offline server
         LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
         FOREST_API_INFO="$(cat /data/forest-token-offline):/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http"
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
