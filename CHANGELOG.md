@@ -35,7 +35,7 @@
 
 ### Fixed
 
-## Forest v0.31.2 "Ember"
+## Forest v0.32.0 "Ember"
 
 This is a non-mandatory release for all node operators. It resets F3 on calibnet, also includes new V2 RPC methods, a few bug fixes and `lotus-gateway` compatibility fixes.
 
