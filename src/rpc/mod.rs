@@ -804,14 +804,28 @@ mod tests {
     use std::net::{Ipv4Addr, SocketAddr};
     use tokio::task::JoinSet;
 
-    // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
+    // To update RPC specs:
+    // `cargo test --lib -- rpc::tests::openrpc`
     // `cargo insta review`
+
     #[test]
-    fn openrpc() {
-        for path in [ApiPaths::V0, ApiPaths::V1, ApiPaths::V2] {
-            let spec = super::openrpc(path, None);
-            insta::assert_yaml_snapshot!(path.path(), spec);
-        }
+    fn openrpc_v0() {
+        openrpc(ApiPaths::V0);
+    }
+
+    #[test]
+    fn openrpc_v1() {
+        openrpc(ApiPaths::V1);
+    }
+
+    #[test]
+    fn openrpc_v2() {
+        openrpc(ApiPaths::V2);
+    }
+
+    fn openrpc(path: ApiPaths) {
+        let spec = super::openrpc(path, None);
+        insta::assert_yaml_snapshot!(path.path(), spec);
     }
 
     #[tokio::test(flavor = "multi_thread")]
