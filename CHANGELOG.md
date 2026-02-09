@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6524](https://github.com/ChainSafe/forest/pull/6524): Implemented `Filecoin.EthSendRawTransactionUntrusted` for API v2.
+
 ### Changed
 
 ### Removed
@@ -62,8 +64,6 @@ This is a non-mandatory release for all node operators. It resets F3 on calibnet
 - [#6492](https://github.com/ChainSafe/forest/pull/6492): Implemented `Filecoin.EthGetStorageAt` for API v2.
 
 - [#6498](https://github.com/ChainSafe/forest/pull/6498): Implemented `Filecoin.EthGetBlockReceiptsLimited` for API v2.
-
-- [#6524](https://github.com/ChainSafe/forest/pull/6524): Implemented `Filecoin.EthSendRawTransactionUntrusted` for API v2.
 
 ### Changed
 
