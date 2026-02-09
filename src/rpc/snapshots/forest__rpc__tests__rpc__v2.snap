@@ -2107,8 +2107,6 @@ components:
           anyOf:
             - $ref: "#/components/schemas/TipsetTag"
             - type: "null"
-      required:
-        - key
     TipsetHeight:
       type: object
       properties:

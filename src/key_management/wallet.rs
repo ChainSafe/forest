@@ -180,9 +180,9 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     let mut out = Vec::new();
     for i in all {
         if let Some(addr_str) = i.strip_prefix("wallet-")
-            && let Ok(addr) = Address::from_str(addr_str)
+            && let Ok(addr) = crate::shim::address::StrictAddress::from_str(addr_str)
         {
-            out.push(addr);
+            out.push(addr.into());
         }
     }
     Ok(out)

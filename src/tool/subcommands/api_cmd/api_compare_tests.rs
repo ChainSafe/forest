@@ -58,6 +58,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use similar::{ChangeTag, TextDiff};
+use std::borrow::Cow;
 use std::path::Path;
 use std::time::Instant;
 use std::{
@@ -168,7 +169,12 @@ impl TestSummary {
         match err {
             rpc::ClientError::Call(it) => match it.code().into() {
                 ErrorCode::MethodNotFound => Self::MissingMethod,
-                _ => Self::Rejected(it.message().to_string()),
+                _ => {
+                    // `lotus-gateway` adds `RPC error (-32603):` prefix to the error message that breaks tests,
+                    // normalize the error message first
+                    let message = normalized_error_message(it.message());
+                    Self::Rejected(message.to_string())
+                }
             },
             rpc::ClientError::ParseError(_) => Self::NotJsonRPC,
             rpc::ClientError::RequestTimeout => Self::Timeout,
@@ -3075,6 +3081,12 @@ fn evaluate_test_success(
     }
 }
 
+fn normalized_error_message(s: &str) -> Cow<'_, str> {
+    // remove `RPC error (-32603):` prefix added by `lotus-gateway`
+    let lotus_gateway_error_prefix = lazy_regex::regex!(r#"^RPC\serror\s\(-?\d+\):\s*"#);
+    lotus_gateway_error_prefix.replace(s, "")
+}
+
 /// Dump test data to the specified directory
 fn dump_test_data(dump_dir: &Path, success: bool, test_dump: &TestDump) -> anyhow::Result<()> {
     let dir = dump_dir.join(if success { "valid" } else { "invalid" });
@@ -3119,4 +3131,29 @@ fn validate_tagged_tipset_v2(req: rpc::Request<Option<Tipset>>, offline: bool) -
         }
         _ => false,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalized_error_message_1() {
+        let s = "RPC error (-32603): exactly one tipset selection criteria must be specified";
+        let r = normalized_error_message(s);
+        assert_eq!(
+            r.as_ref(),
+            "exactly one tipset selection criteria must be specified"
+        );
+    }
+
+    #[test]
+    fn test_normalized_error_message_2() {
+        let s = "exactly one tipset selection criteria must be specified";
+        let r = normalized_error_message(s);
+        assert_eq!(
+            r.as_ref(),
+            "exactly one tipset selection criteria must be specified"
+        );
+    }
 }
