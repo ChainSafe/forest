@@ -45,8 +45,6 @@ use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use futures::stream::FuturesUnordered;
-use futures::stream::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
 use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
@@ -68,6 +66,7 @@ use std::{
     time::Duration,
 };
 use tokio::sync::Semaphore;
+use tokio::task::JoinSet;
 use tracing::debug;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
@@ -2937,7 +2936,7 @@ pub(super) async fn run_tests(
     let forest = Into::<Arc<rpc::Client>>::into(forest);
     let lotus = Into::<Arc<rpc::Client>>::into(lotus);
     let semaphore = Arc::new(Semaphore::new(max_concurrent_requests));
-    let mut futures = FuturesUnordered::new();
+    let mut tasks = JoinSet::new();
 
     let filter_list = if let Some(filter_file) = &filter_file {
         FilterList::new_from_file(filter_file)?
@@ -2993,7 +2992,7 @@ pub(super) async fn run_tests(
         let forest = forest.clone();
         let lotus = lotus.clone();
         let test_criteria_overrides = test_criteria_overrides.to_vec();
-        let future = tokio::spawn(async move {
+        tasks.spawn(async move {
             let mut n_retries_left = n_retries;
             let mut backoff_secs = 2;
             loop {
@@ -3009,32 +3008,35 @@ pub(super) async fn run_tests(
                 backoff_secs = backoff_secs.saturating_mul(2);
             }
         });
-
-        futures.push(future);
     }
 
     // If no tests to run after filtering, return early without saving/printing
-    if futures.is_empty() {
+    if tasks.is_empty() {
         return Ok(());
     }
 
-    while let Some(Ok((success, test, test_result))) = futures.next().await {
-        let method_name = test.request.method_name.clone();
+    while let Some(result) = tasks.join_next().await {
+        match result {
+            Ok((success, test, test_result)) => {
+                let method_name = test.request.method_name.clone();
 
-        report_builder.track_test_result(
-            method_name.as_ref(),
-            success,
-            &test_result,
-            &test.request.params,
-        );
+                report_builder.track_test_result(
+                    method_name.as_ref(),
+                    success,
+                    &test_result,
+                    &test.request.params,
+                );
 
-        // Dump test data if configured
-        if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
-            dump_test_data(dump_dir, success, test_dump)?;
-        }
+                // Dump test data if configured
+                if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
+                    dump_test_data(dump_dir, success, test_dump)?;
+                }
 
-        if !success && fail_fast {
-            break;
+                if !success && fail_fast {
+                    break;
+                }
+            }
+            Err(e) => tracing::warn!("{e}"),
         }
     }
 
