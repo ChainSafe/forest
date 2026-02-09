@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6522](https://github.com/ChainSafe/forest/pull/6522): Implemented `Filecoin.EthTraceFilter` for API v2.
+
 ### Changed
 
 ### Removed
@@ -62,8 +64,6 @@ This is a non-mandatory release for all node operators. It resets F3 on calibnet
 - [#6492](https://github.com/ChainSafe/forest/pull/6492): Implemented `Filecoin.EthGetStorageAt` for API v2.
 
 - [#6498](https://github.com/ChainSafe/forest/pull/6498): Implemented `Filecoin.EthGetBlockReceiptsLimited` for API v2.
-
-- [#6522](https://github.com/ChainSafe/forest/pull/6522): Implemented `Filecoin.EthTraceFilter` for API v2.
 
 ### Changed
 
