@@ -2932,6 +2932,7 @@ pub(super) async fn run_tests(
     test_criteria_overrides: &[TestCriteriaOverride],
     report_dir: Option<PathBuf>,
     report_mode: ReportMode,
+    n_retries: usize,
 ) -> anyhow::Result<()> {
     let forest = Into::<Arc<rpc::Client>>::into(forest);
     let lotus = Into::<Arc<rpc::Client>>::into(lotus);
@@ -2991,10 +2992,22 @@ pub(super) async fn run_tests(
         let permit = semaphore.clone().acquire_owned().await?;
         let forest = forest.clone();
         let lotus = lotus.clone();
+        let test_criteria_overrides = test_criteria_overrides.to_vec();
         let future = tokio::spawn(async move {
-            let test_result = test.run(&forest, &lotus).await;
-            drop(permit); // Release the permit after test execution
-            (test, test_result)
+            let mut n_retries_left = n_retries;
+            let mut backoff_secs = 2;
+            loop {
+                let test_result = test.run(&forest, &lotus).await;
+                let success = evaluate_test_success(&test_result, &test, &test_criteria_overrides);
+                if success || n_retries_left == 0 {
+                    drop(permit); // Release the permit after test execution
+                    return (success, test, test_result);
+                }
+                // Sleep before each retry
+                tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                n_retries_left = n_retries_left.saturating_sub(1);
+                backoff_secs = backoff_secs.saturating_mul(2);
+            }
         });
 
         futures.push(future);
@@ -3005,9 +3018,8 @@ pub(super) async fn run_tests(
         return Ok(());
     }
 
-    while let Some(Ok((test, test_result))) = futures.next().await {
+    while let Some(Ok((success, test, test_result))) = futures.next().await {
         let method_name = test.request.method_name.clone();
-        let success = evaluate_test_success(&test_result, &test, test_criteria_overrides);
 
         report_builder.track_test_result(
             method_name.as_ref(),

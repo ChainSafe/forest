@@ -152,6 +152,10 @@ pub enum ApiCommands {
         /// Report detail level: full (default), failure-only, or summary
         #[arg(long, value_enum, default_value = "full")]
         report_mode: ReportMode,
+
+        /// Number of retries for each test
+        #[arg(long, default_value = "2")]
+        n_retries: usize,
     },
     /// Generates RPC test snapshots from test dump files and a Forest database.
     ///
@@ -295,6 +299,7 @@ impl ApiCommands {
                 test_criteria_overrides,
                 report_dir,
                 report_mode,
+                n_retries,
             } => {
                 let forest = Arc::new(rpc::Client::from_url(forest));
                 let lotus = Arc::new(rpc::Client::from_url(lotus));
@@ -314,6 +319,7 @@ impl ApiCommands {
                     &test_criteria_overrides,
                     report_dir,
                     report_mode,
+                    n_retries,
                 )
                 .await?;
             }
