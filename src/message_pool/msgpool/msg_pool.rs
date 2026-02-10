@@ -726,7 +726,14 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
         let sequence = msg.message().sequence;
-        let res = add_helper(&api, &bls_sig_cache, &pending, msg, sequence, TrustPolicy::Trusted);
+        let res = add_helper(
+            &api,
+            &bls_sig_cache,
+            &pending,
+            msg,
+            sequence,
+            TrustPolicy::Trusted,
+        );
         assert!(res.is_ok());
     }
 
