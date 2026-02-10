@@ -1,0 +1,25 @@
+tests:
+  mainnet:
+    # FVM@4
+    - 5709604
+  calibnet:
+    # FVM@4
+    - 3408952
+    # Shark state migration with FVM@2
+    - 16801
+    # Hygge state migration with FVM@2
+    - 322355
+    # Lightning state migration with FVM@3
+    - 489095
+    # Watermelon state migration with FVM@3
+    - 1013135
+    # Dragon state migration with FVM@4
+    - 1427975
+    # Waffle state migration with FVM@4
+    - 1779095
+    # TukTuk state migration with FVM@4
+    - 2078795
+    # Teep state migration with FVM@4
+    - 2523455
+    # GoldenWeek state migration with FVM@4
+    - 3007295

@@ -31,11 +31,15 @@
 
 - [#6524](https://github.com/ChainSafe/forest/pull/6524): Implemented `Filecoin.EthSendRawTransactionUntrusted` for API v2.
 
+- [#6513](https://github.com/ChainSafe/forest/pull/6513): Enabled `Filecoin.EthNewFilter` for API v2.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#6551](https://github.com/ChainSafe/forest/pull/6551): Fixed `ErrExecutionReverted` JSONRPCError conversion error with Lotus Gateway.
 
 ## Forest v0.32.0 "Ember"
 
