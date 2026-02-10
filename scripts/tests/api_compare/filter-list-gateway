@@ -55,6 +55,7 @@
 !Filecoin.WalletVerify
 
 # broken
+!Filecoin.EthCall
 !Filecoin.EthGetBalance
 !Filecoin.EthGetBlockReceipts
 !Filecoin.EthGetBlockReceiptsLimited
@@ -63,3 +64,4 @@
 !Filecoin.EthGetTransactionReceipt
 !Filecoin.StateSearchMsg
 !Filecoin.StateWaitMsg
+!Filecoin.EthSyncing
