@@ -37,6 +37,8 @@
 
 ### Fixed
 
+- [#6551](https://github.com/ChainSafe/forest/pull/6551): Fixed `ErrExecutionReverted` JSONRPCError conversion error with Lotus Gateway.
+
 ## Forest v0.32.0 "Ember"
 
 This is a non-mandatory release for all node operators. It resets F3 on calibnet, also includes new V2 RPC methods, a few bug fixes and `lotus-gateway` compatibility fixes.
