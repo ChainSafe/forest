@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6513](https://github.com/ChainSafe/forest/pull/6513): Enabled `Filecoin.EthNewFilter` for API v2.
+
 ### Changed
 
 ### Removed
