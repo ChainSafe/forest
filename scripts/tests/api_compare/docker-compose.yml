@@ -221,10 +221,6 @@ services:
         lotus sync wait
         # After the sync is done, import the wallet for signing blocks. It might be already there, which will return an error. We ignore it.
         echo $MINER_WORKER_KEY | lotus wallet import || true
-        # Wait until F3 certificate instance 100 is available
-        until lotus f3 c get 100; do
-            sleep 5s;
-        done
   api-compare:
     depends_on:
       lotus-sync-wait:
