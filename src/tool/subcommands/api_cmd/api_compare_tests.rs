@@ -2995,13 +2995,17 @@ pub(super) async fn run_tests(
         tasks.spawn(async move {
             let mut n_retries_left = n_retries;
             let mut backoff_secs = 2;
-            // Ignore the error since 'An acquire operation can only fail if the semaphore has been closed'
-            let _permit = semaphore.acquire_owned().await;
             loop {
-                let test_result = test.run(&forest, &lotus).await;
-                let success = evaluate_test_success(&test_result, &test, &test_criteria_overrides);
-                if success || n_retries_left == 0 {
-                    return (success, test, test_result);
+                {
+                    // Ignore the error since 'An acquire operation can only fail if the semaphore has been closed'
+                    let _permit = semaphore.acquire().await;
+                    let test_result = test.run(&forest, &lotus).await;
+                    let success =
+                        evaluate_test_success(&test_result, &test, &test_criteria_overrides);
+                    if success || n_retries_left == 0 {
+                        return (success, test, test_result);
+                    }
+                    // Release the semaphore before sleeping
                 }
                 // Sleep before each retry
                 tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
