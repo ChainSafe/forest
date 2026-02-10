@@ -12,6 +12,7 @@ exclude = [".config", ".github", ".maintain", "documentation", "scripts", "inter
 name = "forest"
 
 [workspace.dependencies]
+ahash = "0.8"
 anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.12"
@@ -22,10 +23,12 @@ libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.4"
+serde = { version = "1", default-features = false, features = ["derive"] }
+serde_yaml = "0.9"
 tokio = "1"
 
 [dependencies]
-ahash = "0.8"
+ahash = { workspace = true }
 anes = "0.2"
 anyhow = { workspace = true }
 argon2 = "0.5"
@@ -185,11 +188,11 @@ rust2go = { workspace = true }
 schemars = { version = "1", features = ["chrono04", "uuid1"] }
 scopeguard = "1"
 semver = "1"
-serde = { version = "1", default-features = false, features = ["derive"] }
+serde = { workspace = true }
 serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1", features = ["raw_value"] }
 serde_with = { version = "3", features = ["chrono_0_4"] }
-serde_yaml = "0.9"
+serde_yaml = { workspace = true }
 sha2 = { version = "0.10", default-features = false }
 similar = "2"
 slotmap = "1"
@@ -263,7 +266,10 @@ syn = { version = "2", default-features = false, features = ["full", "parsing", 
 tokio-test = "0.4"
 
 [build-dependencies]
+ahash = { workspace = true }
 rust2go = { workspace = true, features = ["build"] }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
 
 # https://doc.rust-lang.org/stable/cargo/guide/build-performance.html#reduce-amount-of-generated-debug-information
 [profile.dev]
