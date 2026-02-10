@@ -107,8 +107,8 @@ depends = ["lint:deny", "lint:spellcheck", "lint:rust-fmt", "lint:clippy", "lint
 [tasks."lint:yaml"]
 description = "Lint YAML files."
 run = '''
-yarn && yarn install
-yarn yaml-check
+pnpm i --frozen-lockfile
+pnpm yaml-check
 '''
 
 [tasks.format]
@@ -116,9 +116,9 @@ description = "Format all supported code."
 run = '''
 cargo fmt --all
 taplo fmt
-yarn && yarn install
-yarn md-fmt
-yarn yaml-fmt
+pnpm i --frozen-lockfile
+pnpm md-fmt
+pnpm yaml-fmt
 '''
 alias = "fmt"
 
@@ -126,18 +126,18 @@ alias = "fmt"
 description = "Format documentation files."
 dir = "docs"
 run = '''
-yarn --immutable
-yarn format
+pnpm i --frozen-lockfile
+pnpm format
 '''
 
 [tasks."docs:lint"]
 description = "Lint documentation files."
 dir = "docs"
 run = '''
-yarn --immutable
-yarn typecheck
-yarn spellcheck
-yarn format-check
+pnpm i --frozen-lockfile
+pnpm typecheck
+pnpm spellcheck
+pnpm format-check
 '''
 
 [tasks.clean]
@@ -225,4 +225,5 @@ diff dictionary.txt "$TMPFILE"
 [tools]
 cargo-binstall = "1.16.6"
 go = "1.25.5"
-yarn = "4.12"
+node = "20"
+pnpm = "10"
