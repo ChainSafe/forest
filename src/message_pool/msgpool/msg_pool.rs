@@ -58,6 +58,14 @@ pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
 /// large messages from being added to the message pool.
 const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 
+/// Trust policy for whether a message is from a trusted or untrusted source.
+/// Untrusted sources are subject to stricter limits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrustPolicy {
+    Trusted,
+    Untrusted,
+}
+
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
 #[derive(Clone, Default, Debug)]
@@ -89,7 +97,6 @@ impl MsgSet {
     /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
     /// message has a sequence greater than any existing message sequence.
     /// Use this method when pushing a message coming from untrusted sources.
-    #[allow(dead_code)]
     pub fn add_untrusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
     where
         T: Provider,
@@ -220,11 +227,15 @@ where
 
     /// Push a signed message to the `MessagePool`. Additionally performs basic
     /// checks on the validity of a message.
-    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
+    pub async fn push_internal(
+        &self,
+        msg: SignedMessage,
+        trust_policy: TrustPolicy,
+    ) -> Result<Cid, Error> {
         self.check_message(&msg)?;
         let cid = msg.cid();
         let cur_ts = self.current_tipset();
-        let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
+        let publish = self.add_tipset(msg.clone(), &cur_ts, true, trust_policy)?;
         let msg_ser = to_vec(&msg)?;
         let network_name = self.chain_config.network.genesis_name();
         self.add_local(msg)?;
@@ -238,6 +249,16 @@ where
                 .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
         }
         Ok(cid)
+    }
+
+    /// Push a signed message to the `MessagePool` from an trusted source.
+    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
+        self.push_internal(msg, TrustPolicy::Trusted).await
+    }
+
+    /// Push a signed message to the `MessagePool` from an untrusted source.
+    pub async fn push_untrusted(&self, msg: SignedMessage) -> Result<Cid, Error> {
+        self.push_internal(msg, TrustPolicy::Untrusted).await
     }
 
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
@@ -259,7 +280,7 @@ where
     pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg)?;
         let ts = self.current_tipset();
-        self.add_tipset(msg, &ts, false)?;
+        self.add_tipset(msg, &ts, false, TrustPolicy::Trusted)?;
         Ok(())
     }
 
@@ -284,7 +305,13 @@ where
     /// Verify the `state_sequence` and balance for the sender of the message
     /// given then call `add_locked` to finish adding the `signed_message`
     /// to pending.
-    fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
+    fn add_tipset(
+        &self,
+        msg: SignedMessage,
+        cur_ts: &Tipset,
+        local: bool,
+        trust_policy: TrustPolicy,
+    ) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
 
         if sequence > msg.message().sequence {
@@ -317,7 +344,7 @@ where
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
-        self.add_helper(msg)?;
+        self.add_helper(msg, trust_policy)?;
         Ok(publish)
     }
 
@@ -325,7 +352,7 @@ where
     /// hash-map. If an entry in the hash-map does not yet exist, create a
     /// new `mset` that will correspond to the from message and push it to
     /// the pending hash-map.
-    fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
+    fn add_helper(&self, msg: SignedMessage, trust_policy: TrustPolicy) -> Result<(), Error> {
         let from = msg.from();
         let cur_ts = self.current_tipset();
         add_helper(
@@ -334,6 +361,7 @@ where
             self.pending.as_ref(),
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
+            trust_policy,
         )
     }
 
@@ -599,6 +627,7 @@ pub(in crate::message_pool) fn add_helper<T>(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
     sequence: u64,
+    trust_policy: TrustPolicy,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -611,15 +640,11 @@ where
     api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
     let mut pending = pending.write();
-    let msett = pending.get_mut(&msg.from());
-    match msett {
-        Some(mset) => mset.add_trusted(api, msg)?,
-        None => {
-            let mut mset = MsgSet::new(sequence);
-            let from = msg.from();
-            mset.add_trusted(api, msg)?;
-            pending.insert(from, mset);
-        }
+    let from = msg.from();
+    let mset = pending.entry(from).or_insert_with(|| MsgSet::new(sequence));
+    match trust_policy {
+        TrustPolicy::Untrusted => mset.add_untrusted(api, msg)?,
+        TrustPolicy::Trusted => mset.add_trusted(api, msg)?,
     }
 
     Ok(())
@@ -701,7 +726,14 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
         let sequence = msg.message().sequence;
-        let res = add_helper(&api, &bls_sig_cache, &pending, msg, sequence);
+        let res = add_helper(
+            &api,
+            &bls_sig_cache,
+            &pending,
+            msg,
+            sequence,
+            TrustPolicy::Trusted,
+        );
         assert!(res.is_ok());
     }
 

@@ -1236,6 +1236,30 @@ methods:
       schema:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
+  - name: Filecoin.EthSendRawTransactionUntrusted
+    params:
+      - name: rawTx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthBytes"
+    result:
+      name: Filecoin.EthSendRawTransactionUntrusted.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthHash"
+    paramStructure: by-position
+  - name: eth_sendRawTransactionUntrusted
+    params:
+      - name: rawTx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthBytes"
+    result:
+      name: eth_sendRawTransactionUntrusted.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthHash"
+    paramStructure: by-position
   - name: Filecoin.NetListening
     params: []
     result:
