@@ -1514,9 +1514,9 @@ components:
           $ref: "#/components/schemas/EthHash"
         requireCanonical:
           type: boolean
+          default: false
       required:
         - blockHash
-        - requireCanonical
     BlockHeader:
       type: object
       properties:
