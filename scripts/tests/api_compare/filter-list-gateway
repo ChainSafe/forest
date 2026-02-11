@@ -57,6 +57,5 @@
 
 # broken
 !Filecoin.EthCall
-!Filecoin.EthGetBalance
 !Filecoin.EthGetFilterLogs
 !Filecoin.EthSyncing
