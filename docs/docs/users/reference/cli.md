@@ -1852,6 +1852,11 @@ Options:
 
           [default: full]
 
+      --n-retries <N_RETRIES>
+          Number of retries for each test
+
+          [default: 2]
+
   -h, --help
           Print help (see a summary with '-h')
 ````
