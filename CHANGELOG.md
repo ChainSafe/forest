@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6522](https://github.com/ChainSafe/forest/pull/6522): Implemented `Filecoin.EthTraceFilter` for API v2.
+
 - [#6513](https://github.com/ChainSafe/forest/pull/6513): Enabled `Filecoin.EthNewFilter` for API v2.
 
 ### Changed
