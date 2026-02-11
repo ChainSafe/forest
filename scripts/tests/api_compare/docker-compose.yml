@@ -154,7 +154,7 @@ services:
       - |
         set -euxo pipefail
         export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
-        lotus-gateway run --api-max-lookback 72000h --listen 0.0.0.0:${FOREST_VIA_GATEWAY_RPC_PORT}
+        lotus-gateway run --api-max-lookback 72000h --api-wait-lookback-limit 2000 --listen 0.0.0.0:${FOREST_VIA_GATEWAY_RPC_PORT}
     healthcheck:
       test: |
         export FULLNODE_API_INFO="/dns/forest-via-gateway/tcp/${FOREST_VIA_GATEWAY_RPC_PORT}/http"
