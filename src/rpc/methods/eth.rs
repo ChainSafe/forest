@@ -339,6 +339,7 @@ pub struct BlockNumber {
 #[serde(rename_all = "camelCase")]
 pub struct BlockHash {
     block_hash: EthHash,
+    #[serde(default)]
     require_canonical: bool,
 }
 

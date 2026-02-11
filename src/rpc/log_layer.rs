@@ -47,7 +47,7 @@ impl<S> Logging<S> {
         F: Future<Output = MethodResponse>,
     {
         // Avoid performance overhead if DEBUG level is not enabled.
-        if !tracing::enabled!(tracing::Level::DEBUG) {
+        if !Self::log_enabled() {
             return future.await;
         }
 

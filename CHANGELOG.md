@@ -39,6 +39,8 @@
 
 ### Fixed
 
+- [#6577](https://github.com/ChainSafe/forest/issues/6577): Fixed `Filecoin.EthGetBalance` compatibility issue with Lotus Gateway.
+
 - [#6551](https://github.com/ChainSafe/forest/pull/6551): Fixed `ErrExecutionReverted` JSONRPCError conversion error with Lotus Gateway.
 
 ## Forest v0.32.0 "Ember"
