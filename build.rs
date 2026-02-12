@@ -1,7 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::io::Write;
+use ahash::HashMap;
+use serde::{Deserialize, Serialize};
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    path::PathBuf,
+};
 
 fn main() {
     // Only needed when profiling Forest with `gperftools`. This might not work on all platforms.
@@ -39,6 +45,7 @@ fn main() {
     }
 
     rpc_regression_tests_gen();
+    state_compute_tests_gen();
 }
 
 // See <https://docs.rs/about/builds#detecting-docsrs>
@@ -54,10 +61,7 @@ fn is_env_truthy(env: &str) -> bool {
 }
 
 fn rpc_regression_tests_gen() {
-    use std::{fs::File, io::BufWriter, path::PathBuf};
-
     println!("cargo:rerun-if-changed=src/tool/subcommands/api_cmd/test_snapshots.txt");
-
     let tests: Vec<&str> = include_str!("src/tool/subcommands/api_cmd/test_snapshots.txt")
         .lines()
         .map(|i| {
@@ -91,4 +95,34 @@ fn rpc_regression_tests_gen() {
         )
         .unwrap();
     }
+}
+
+fn state_compute_tests_gen() {
+    println!("cargo:rerun-if-changed=src/state_manager/state_compute_tests.yaml");
+    let StateComputeTests { tests } =
+        serde_yaml::from_str(include_str!("src/state_manager/state_compute_tests.yaml")).unwrap();
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let out_path = out_dir.join("__state_compute_tests_gen.rs");
+    let mut w = BufWriter::new(File::create(&out_path).unwrap());
+    for (chain, epochs) in tests {
+        for epoch in epochs {
+            writeln!(
+                w,
+                r#"
+                    #[cfg(feature = "cargo-test")]
+                    #[tokio::test(flavor = "multi_thread")]
+                    #[fickle::fickle]
+                    async fn cargo_test_state_compute_{chain}_{epoch}() {{
+                        state_compute_test_run("{chain}".parse().unwrap(), {epoch}).await
+                    }}
+                "#,
+            )
+            .unwrap();
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StateComputeTests {
+    tests: HashMap<String, Vec<i64>>,
 }

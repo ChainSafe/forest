@@ -140,6 +140,29 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10m
+  forest-via-gateway:
+    depends_on:
+      forest-rpc-ready:
+        condition: service_completed_successfully
+    image: ${LOTUS_IMAGE}
+    volumes:
+      - node-data:/data
+    networks:
+      - api-tests
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euxo pipefail
+        export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
+        lotus-gateway run --api-max-lookback 72000h --api-wait-lookback-limit 2000 --listen 0.0.0.0:${FOREST_VIA_GATEWAY_RPC_PORT}
+    healthcheck:
+      test: |
+        export FULLNODE_API_INFO="/dns/forest-via-gateway/tcp/${FOREST_VIA_GATEWAY_RPC_PORT}/http"
+        lotus chain head || exit 1
+      interval: 10s
+      retries: 10
+      start_period: 30s
+      timeout: 5s
   lotus:
     depends_on:
       init:
@@ -198,10 +221,6 @@ services:
         lotus sync wait
         # After the sync is done, import the wallet for signing blocks. It might be already there, which will return an error. We ignore it.
         echo $MINER_WORKER_KEY | lotus wallet import || true
-        # Wait until F3 certificate instance 100 is available
-        until lotus f3 c get 100; do
-            sleep 5s;
-        done
   api-compare:
     depends_on:
       lotus-sync-wait:
@@ -246,8 +265,76 @@ services:
         status=$$?
         echo "==== API Compare Report ===="
         cat /data/api-compare-report/*.json || echo "(Report file not accessible)"
-        FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
         exit $$status
+
+  api-compare-gateway:
+    depends_on:
+      lotus-sync-wait:
+        condition: service_completed_successfully
+      forest-via-gateway:
+        condition: service_healthy
+      forest-wallet-import:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - ./filter-list-gateway:/data/filter-list-gateway
+    networks:
+      - api-tests
+    environment:
+      - RUST_LOG=info,forest::tool::subcommands=debug
+      - FOREST_RPC_DEFAULT_TIMEOUT=120
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: ["/bin/bash", "-c"]
+    user: 0:0
+    command:
+      - |
+        set -uxo pipefail
+        # Test against websocket endpoint for online server
+        LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/ws"
+        FOREST_API_INFO="$(cat /data/forest-token):/dns/forest-via-gateway/tcp/${FOREST_VIA_GATEWAY_RPC_PORT}/ws"
+        forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
+          --forest $$FOREST_API_INFO \
+          --lotus $$LOTUS_API_INFO \
+          --n-tipsets 5 \
+          --test-criteria-overrides=valid-and-timeout,timeout-and-timeout \
+          --filter-file /data/filter-list-gateway \
+          --miner-address ${MINER_ADDRESS} \
+          --worker-address ${MINER_WORKER_ADDRESS} \
+          --report-mode=failure-only \
+          --report-dir=/data/api-compare-gateway-report
+
+        status=$$?
+        echo "==== Gateway API Compare Report ===="
+        cat /data/api-compare-gateway-report/*.json || echo "(Report file not accessible)"
+        exit $$status
+
+  forest-shutdown:
+    depends_on:
+      api-compare:
+        condition: service_completed_successfully
+      api-compare-gateway:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+    networks:
+      - api-tests
+    environment:
+      - RUST_LOG=info,forest::tool::subcommands=debug
+      - FOREST_RPC_DEFAULT_TIMEOUT=120
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: ["/bin/bash", "-c"]
+    user: 0:0
+    command:
+      - |
+        set -uxo pipefail
+        export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
+        forest-cli shutdown --force
 
   api-compare-offline:
     profiles:

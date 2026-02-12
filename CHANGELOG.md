@@ -29,11 +29,21 @@
 
 ### Added
 
+- [#6590](https://github.com/ChainSafe/forest/pull/6590): Set F3 `InitialPowerTable` on calibnet.
+
+- [#6524](https://github.com/ChainSafe/forest/pull/6524): Implemented `Filecoin.EthSendRawTransactionUntrusted` for API v2.
+
+- [#6513](https://github.com/ChainSafe/forest/pull/6513): Enabled `Filecoin.EthNewFilter` for API v2.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#6577](https://github.com/ChainSafe/forest/issues/6577): Fixed `Filecoin.EthGetBalance` compatibility issue with Lotus Gateway.
+
+- [#6551](https://github.com/ChainSafe/forest/pull/6551): Fixed `ErrExecutionReverted` JSONRPCError conversion error with Lotus Gateway.
 
 ## Forest v0.32.0 "Ember"
 

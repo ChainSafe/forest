@@ -1717,6 +1717,30 @@ methods:
       schema:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
+  - name: Filecoin.EthSendRawTransactionUntrusted
+    params:
+      - name: rawTx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthBytes"
+    result:
+      name: Filecoin.EthSendRawTransactionUntrusted.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthHash"
+    paramStructure: by-position
+  - name: eth_sendRawTransactionUntrusted
+    params:
+      - name: rawTx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthBytes"
+    result:
+      name: eth_sendRawTransactionUntrusted.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthHash"
+    paramStructure: by-position
   - name: Filecoin.GasEstimateFeeCap
     description: Returns the estimated fee cap for the given parameters.
     params:
@@ -4867,9 +4891,9 @@ components:
           $ref: "#/components/schemas/EthHash"
         requireCanonical:
           type: boolean
+          default: false
       required:
         - blockHash
-        - requireCanonical
     BlockHeader:
       type: object
       properties:
