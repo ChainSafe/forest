@@ -31,7 +31,7 @@ echo "Test subcommands: f3 status"
 $FOREST_CLI_PATH f3 status
 echo "Test subcommands: f3 manifest"
 $FOREST_CLI_PATH f3 manifest
-echo "Test subcommands: f3 certs get"
-$FOREST_CLI_PATH f3 certs list
 echo "Test subcommands: f3 certs list"
+$FOREST_CLI_PATH f3 certs list
+echo "Test subcommands: f3 certs get"
 $FOREST_CLI_PATH f3 certs get
