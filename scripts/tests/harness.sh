@@ -25,7 +25,6 @@ function handle_auto_download_snapshot_env {
       -o "$(basename "${FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH}")"
   fi
 }
-}
 
 function forest_import_non_calibnet_snapshot {
   echo "Importing a non calibnet snapshot"
