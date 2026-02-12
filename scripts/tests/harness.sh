@@ -16,6 +16,13 @@ LOG_DIRECTORY=$TMP_DIR/logs
 export TMP_DIR
 export LOG_DIRECTORY
 
+function handle_auto_download_snapshot_env {
+  if [ -v FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH ]; then
+    echo "Downloading calibnet snapshot to ${FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH}"
+    aria2c -x5 -c https://forest-archive.chainsafe.dev/latest/calibnet/ -o "${FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH}"
+  fi
+}
+
 function forest_import_non_calibnet_snapshot {
   echo "Importing a non calibnet snapshot"
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --import-snapshot ./test-snapshots/chain4.car
@@ -23,6 +30,7 @@ function forest_import_non_calibnet_snapshot {
 
 function forest_download_and_import_snapshot {
   echo "Downloading and importing snapshot"
+  handle_auto_download_snapshot_env
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
 }
 
