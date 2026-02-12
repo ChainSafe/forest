@@ -346,7 +346,11 @@ impl ChainConfig {
             f3_consensus: true,
             // 2026-02-12T07:00:00Z
             f3_bootstrap_epoch: 3_451_774,
-            f3_initial_power_table: None,
+            f3_initial_power_table: Some(
+                "bafy2bzacednijkh5dhb6jb7snxhhtjt7zuqaydlewoha3ordhy76dhgwtmptg"
+                    .parse()
+                    .expect("invalid f3_initial_power_table"),
+            ),
             enable_indexer: false,
             enable_receipt_event_caching: true,
             default_max_fee: TokenAmount::zero(),
