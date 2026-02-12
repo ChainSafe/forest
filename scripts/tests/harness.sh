@@ -19,7 +19,7 @@ export LOG_DIRECTORY
 function handle_auto_download_snapshot_env {
   if [ -v FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH ]; then
     echo "Downloading calibnet snapshot to ${FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH}"
-    aria2c -x5 -c https://forest-archive.chainsafe.dev/latest/calibnet/ -o "${FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH}"
+    aria2c -x5 -c https://forest-archive.chainsafe.dev/latest/calibnet/ -d $(dirname "${FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH}") -o $(basename "${FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH}")
   fi
 }
 
