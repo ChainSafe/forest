@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6590](https://github.com/ChainSafe/forest/pull/6590): Set F3 `InitialPowerTable` on calibnet.
+
 - [#6524](https://github.com/ChainSafe/forest/pull/6524): Implemented `Filecoin.EthSendRawTransactionUntrusted` for API v2.
 
 - [#6513](https://github.com/ChainSafe/forest/pull/6513): Enabled `Filecoin.EthNewFilter` for API v2.
