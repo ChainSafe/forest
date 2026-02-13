@@ -63,7 +63,6 @@ data-encoding-macro = "0.1"
 derive_builder = "0.20"
 derive_more = { version = "2", features = ["from", "into"] }
 dialoguer = "0.12"
-digest = "0.10"
 directories = "6"
 educe = { version = "0.6", features = ["Debug"], default-features = false }
 enumflags2 = "0.7"
@@ -259,7 +258,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.318"
+ra_ap_syntax = "0.0.319"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
