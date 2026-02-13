@@ -1,6 +1,6 @@
 # trace_call Developer Guide
 
-This guide covers testing and development workflows for Forest's `trace_call` implementation. For API documentation and user-facing usage, see the [trace_call API guide](/docs/users/knowledge_base/trace_call).
+This guide covers testing and development workflows for Forest's `trace_call` implementation. For API documentation and user-facing usage, see the [trace_call API guide](/knowledge_base/trace_call).
 
 ## Tracer Contract
 
@@ -64,14 +64,14 @@ cast calldata "setX(uint256)" 123
 
 Pre-deployed Tracer contracts for quick testing:
 
-| Network  | Contract Address                                                                                                                    |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Calibnet | [0x73a43475aa2ccb14246613708b399f4b2ba546c7](https://calibration.filfox.info/en/address/0x73a43475aa2ccb14246613708b399f4b2ba546c7) |
-| Mainnet  | [0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2](https://filecoin.blockscout.com/address/0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2)    |
+| Network  | Contract Address                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Calibnet | [`0x73a43475aa2ccb14246613708b399f4b2ba546c7`](https://calibration.filfox.info/en/address/0x73a43475aa2ccb14246613708b399f4b2ba546c7) |
+| Mainnet  | [`0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2`](https://filecoin.blockscout.com/address/0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2)    |
 
 ## Comparison Testing with Anvil
 
-Anvil uses **Geth-style** tracing (`debug_traceCall` with `prestateTracer`), while Forest uses **Parity-style** tracing (`trace_call` with `stateDiff`). This makes Anvil useful for comparison testing — verifying that Forest produces semantically equivalent results in a different format.
+Anvil uses **Geth style** tracing (`debug_traceCall` with `prestateTracer`), while Forest uses **Parity style** tracing (`trace_call` with `stateDiff`). This makes Anvil useful for comparison testing — verifying that Forest produces semantically equivalent results in a different format.
 
 ### Prerequisites
 
@@ -99,7 +99,6 @@ Anvil RPC endpoint: `http://localhost:8545`
 ### Deploying Contract on Anvil
 
 ```bash
-# Use the first pre-funded account's private key
 forge create src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol:Tracer \
     --rpc-url http://localhost:8545 \
     --broadcast \
@@ -132,7 +131,7 @@ curl -s -X POST "http://localhost:2345/rpc/v1" \
     }'
 ```
 
-**Anvil (Geth-style `debug_traceCall`):**
+**Anvil (Geth style `debug_traceCall`):**
 
 ```bash
 curl -s -X POST "http://localhost:8545" \

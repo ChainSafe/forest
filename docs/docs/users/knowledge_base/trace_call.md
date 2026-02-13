@@ -171,10 +171,10 @@ Forest RPC endpoint: `http://localhost:2345/rpc/v1`
 
 A [Tracer](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c57eba39a2f8bf12ace74/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract is pre-deployed on Calibnet and Mainnet for testing `trace_call`. It provides functions for storage writes, ETH transfers, nested calls, and reverts.
 
-| Network  | Contract Address                                                                                                                    |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Calibnet | [0x73a43475aa2ccb14246613708b399f4b2ba546c7](https://calibration.filfox.info/en/address/0x73a43475aa2ccb14246613708b399f4b2ba546c7) |
-| Mainnet  | [0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2](https://filecoin.blockscout.com/address/0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2)    |
+| Network  | Contract Address                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Calibnet | [`0x73a43475aa2ccb14246613708b399f4b2ba546c7`](https://calibration.filfox.info/en/address/0x73a43475aa2ccb14246613708b399f4b2ba546c7) |
+| Mainnet  | [`0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2`](https://filecoin.blockscout.com/address/0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2)    |
 
 > **Note:** Contract availability depends on network state. Verify the contract exists before testing:
 >
