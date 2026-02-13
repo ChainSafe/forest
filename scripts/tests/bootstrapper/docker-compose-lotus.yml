@@ -69,6 +69,7 @@ services:
       - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http
       - LOTUS_P2P_BOOTSTRAPPERS=${FOREST_BOOTSTRAPPER_ADDRESS}
       - LOTUS_P2P_DHT_NO_ROUTING_TABLE_FILTER=1
+      - LOTUS_DISABLE_F3_SUBSYSTEM=1
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |

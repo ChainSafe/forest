@@ -224,6 +224,6 @@ diff dictionary.txt "$TMPFILE"
 
 [tools]
 cargo-binstall = "1.16.6"
-go = "1.25.5"
+go = "1.26.0"
 node = "20"
 pnpm = "10"

@@ -339,6 +339,7 @@ pub struct BlockNumber {
 #[serde(rename_all = "camelCase")]
 pub struct BlockHash {
     block_hash: EthHash,
+    #[serde(default)]
     require_canonical: bool,
 }
 
@@ -3429,6 +3430,28 @@ impl RpcMethod<1> for EthSendRawTransaction {
         let tx_args = parse_eth_transaction(&raw_tx.0)?;
         let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
         let cid = ctx.mpool.as_ref().push(smsg).await?;
+        Ok(cid.into())
+    }
+}
+
+pub enum EthSendRawTransactionUntrusted {}
+impl RpcMethod<1> for EthSendRawTransactionUntrusted {
+    const NAME: &'static str = "Filecoin.EthSendRawTransactionUntrusted";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_sendRawTransactionUntrusted");
+    const PARAM_NAMES: [&'static str; 1] = ["rawTx"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthBytes,);
+    type Ok = EthHash;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (raw_tx,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tx_args = parse_eth_transaction(&raw_tx.0)?;
+        let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
+        let cid = ctx.mpool.as_ref().push_untrusted(smsg).await?;
         Ok(cid.into())
     }
 }
