@@ -16,6 +16,9 @@ LOG_DIRECTORY=$TMP_DIR/logs
 export TMP_DIR
 export LOG_DIRECTORY
 
+# Use `aria2` to fetch the latest calibnet snapshot 
+# when `FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH` is set
+# This optimization is used on CI to speed up snapshot downloading
 function handle_auto_download_snapshot_env {
   if [[ -n "${FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH:-}" ]]; then
     echo "Downloading calibnet snapshot to ${FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH}"
