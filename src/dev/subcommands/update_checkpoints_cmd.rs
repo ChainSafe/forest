@@ -14,11 +14,11 @@ use crate::rpc::prelude::*;
 use crate::rpc::types::ApiTipsetKey;
 use crate::shim::clock::ChainEpoch;
 
-/// The interval between checkpoints (86400 epochs = 1 day at 30s block time)
+/// The interval between checkpoints (86400 epochs = 30 days)
 const CHECKPOINT_INTERVAL: ChainEpoch = 86400;
 
-/// YAML structure for known_blocks.yaml
-/// Using IndexMap to preserve insertion order
+/// YAML structure for `known_blocks.yaml`
+/// Using `IndexMap` to preserve insertion order
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct KnownBlocks {
     #[serde(with = "cid_string_map")]
@@ -38,13 +38,13 @@ pub enum Network {
     Mainnet,
 }
 
-/// Update known blocks in build/known_blocks.yaml by querying RPC endpoints
+/// Update known blocks in `build/known_blocks.yaml` by querying RPC endpoints
 ///
 /// This command finds and adds missing checkpoint entries at constant intervals
 /// by querying Filfox or other full-archive RPC nodes that support historical queries.
 #[derive(Debug, Parser)]
 pub struct UpdateCheckpointsCommand {
-    /// Path to known_blocks.yaml file
+    /// Path to `known_blocks.yaml` file
     #[arg(long, default_value = "build/known_blocks.yaml")]
     known_blocks_file: PathBuf,
 
@@ -123,11 +123,8 @@ async fn update_chain_checkpoints(
     let latest_checkpoint_epoch = (current_epoch / CHECKPOINT_INTERVAL) * CHECKPOINT_INTERVAL;
 
     let existing_max_epoch = checkpoints.keys().max().copied().unwrap_or(0);
-    println!("Existing max checkpoint epoch: {}", existing_max_epoch);
-    println!(
-        "Latest checkpoint epoch should be: {}",
-        latest_checkpoint_epoch
-    );
+    println!("Existing max checkpoint epoch: {existing_max_epoch}");
+    println!("Latest checkpoint epoch should be: {latest_checkpoint_epoch}");
 
     if latest_checkpoint_epoch <= existing_max_epoch {
         println!("No new checkpoints needed (already up to date)");
@@ -203,8 +200,9 @@ async fn update_chain_checkpoints(
     Ok(())
 }
 
-/// Fetch a checkpoint at a specific height via RPC
-/// Returns (actual_epoch, cid) where actual_epoch might be slightly earlier than requested
+/// Fetch a checkpoint at a specific height via RPC.
+///
+/// Returns `(actual_epoch, cid)` where `actual_epoch` might be slightly earlier than requested
 /// if there were no blocks at the exact requested height.
 async fn fetch_checkpoint_at_height(
     client: &Client,

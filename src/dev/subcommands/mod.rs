@@ -43,7 +43,8 @@ pub enum Subcommand {
     },
     #[command(subcommand)]
     State(state_cmd::StateCommand),
-    /// Update known blocks in build/known_blocks.yaml
+    /// Update known blocks (checkpoints), normally in `build/known_blocks.yaml`, by querying RPC
+    /// endpoints
     UpdateCheckpoints(update_checkpoints_cmd::UpdateCheckpointsCommand),
 }
 
