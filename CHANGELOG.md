@@ -29,6 +29,20 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.32.1 "Malfoy"
+
+This is a non-mandatory release for all node operators. It sets F3 initial power table on calibnet for late F3 participation and F3 data verification scenarios. It also includes new V2 RPC methods, a few bug fixes and `lotus-gateway` compatibility fixes.
+
+### Breaking
+
+### Added
+
 - [#6590](https://github.com/ChainSafe/forest/pull/6590): Set F3 `InitialPowerTable` on calibnet.
 
 - [#6524](https://github.com/ChainSafe/forest/pull/6524): Implemented `Filecoin.EthSendRawTransactionUntrusted` for API v2.
