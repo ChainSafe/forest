@@ -27,46 +27,6 @@ struct KnownBlocks {
     mainnet: IndexMap<ChainEpoch, Cid>,
 }
 
-// Custom serde module for serializing/deserializing IndexMap<ChainEpoch, Cid> as strings
-mod cid_string_map {
-    use super::*;
-    use serde::de::{Deserialize, Deserializer};
-    use serde::ser::Serializer;
-    use std::str::FromStr;
-
-    pub fn serialize<S>(
-        map: &IndexMap<ChainEpoch, Cid>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        use serde::ser::SerializeMap;
-        let mut ser_map = serializer.serialize_map(Some(map.len()))?;
-        for (k, v) in map {
-            ser_map.serialize_entry(k, &v.to_string())?;
-        }
-        ser_map.end()
-    }
-
-    pub fn deserialize<'de, D>(
-        deserializer: D,
-    ) -> Result<IndexMap<ChainEpoch, Cid>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let string_map: IndexMap<ChainEpoch, String> = IndexMap::deserialize(deserializer)?;
-        string_map
-            .into_iter()
-            .map(|(k, v)| {
-                Cid::from_str(&v)
-                    .map(|cid| (k, cid))
-                    .map_err(serde::de::Error::custom)
-            })
-            .collect()
-    }
-}
-
 /// Network selection for checkpoint updates
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Network {
@@ -79,8 +39,8 @@ pub enum Network {
 }
 
 /// Update known blocks in build/known_blocks.yaml by querying RPC endpoints
-/// 
-/// This command finds and adds missing checkpoint entries at 86400-epoch intervals
+///
+/// This command finds and adds missing checkpoint entries at constant intervals
 /// by querying Filfox or other full-archive RPC nodes that support historical queries.
 #[derive(Debug, Parser)]
 pub struct UpdateCheckpointsCommand {
@@ -115,36 +75,25 @@ impl UpdateCheckpointsCommand {
             dry_run,
         } = self;
 
-        // Read existing known_blocks.yaml
         println!("Reading known blocks from: {}", known_blocks_file.display());
         let yaml_content = std::fs::read_to_string(&known_blocks_file)
             .context("Failed to read known_blocks.yaml")?;
-        let mut known_blocks: KnownBlocks = serde_yaml::from_str(&yaml_content)
-            .context("Failed to parse known_blocks.yaml")?;
+        let mut known_blocks: KnownBlocks =
+            serde_yaml::from_str(&yaml_content).context("Failed to parse known_blocks.yaml")?;
 
-        // Update calibnet if requested
         if matches!(network, Network::All | Network::Calibnet) {
             println!("\n=== Updating Calibnet Checkpoints ===");
             let calibnet_client = Client::from_url(calibnet_rpc);
-            update_chain_checkpoints(
-                &calibnet_client,
-                &mut known_blocks.calibnet,
-                "calibnet"
-            ).await?;
+            update_chain_checkpoints(&calibnet_client, &mut known_blocks.calibnet, "calibnet")
+                .await?;
         }
 
-        // Update mainnet if requested
         if matches!(network, Network::All | Network::Mainnet) {
             println!("\n=== Updating Mainnet Checkpoints ===");
             let mainnet_client = Client::from_url(mainnet_rpc);
-            update_chain_checkpoints(
-                &mainnet_client,
-                &mut known_blocks.mainnet,
-                "mainnet"
-            ).await?;
+            update_chain_checkpoints(&mainnet_client, &mut known_blocks.mainnet, "mainnet").await?;
         }
 
-        // Write updated known_blocks.yaml
         if dry_run {
             println!("\n=== Dry Run - Changes Not Written ===");
             println!("Would write to: {}", known_blocks_file.display());
@@ -163,29 +112,28 @@ async fn update_chain_checkpoints(
     checkpoints: &mut IndexMap<ChainEpoch, Cid>,
     chain_name: &str,
 ) -> anyhow::Result<()> {
-    // Get the current chain head
-    println!("Fetching chain head for {}...", chain_name);
+    println!("Fetching chain head for {chain_name}...");
     let head = ChainHead::call(client, ())
         .await
         .context("Failed to get chain head")?;
-    
+
     let current_epoch = head.epoch();
     println!("Current epoch: {}", current_epoch);
 
-    // Find the highest epoch that should have a checkpoint
     let latest_checkpoint_epoch = (current_epoch / CHECKPOINT_INTERVAL) * CHECKPOINT_INTERVAL;
-    
-    // Find the existing highest checkpoint
+
     let existing_max_epoch = checkpoints.keys().max().copied().unwrap_or(0);
     println!("Existing max checkpoint epoch: {}", existing_max_epoch);
-    println!("Latest checkpoint epoch should be: {}", latest_checkpoint_epoch);
+    println!(
+        "Latest checkpoint epoch should be: {}",
+        latest_checkpoint_epoch
+    );
 
     if latest_checkpoint_epoch <= existing_max_epoch {
         println!("No new checkpoints needed (already up to date)");
         return Ok(());
     }
 
-    // Collect the epochs we need to add
     let mut needed_epochs = Vec::new();
     let mut epoch = existing_max_epoch + CHECKPOINT_INTERVAL;
     while epoch <= latest_checkpoint_epoch {
@@ -202,7 +150,6 @@ async fn update_chain_checkpoints(
 
     println!("Need to add {} checkpoint(s)", needed_epochs.len());
 
-    // Fetch checkpoints by querying specific heights
     println!("Fetching checkpoints via RPC...");
     let mut found_checkpoints: IndexMap<ChainEpoch, Cid> = IndexMap::new();
 
@@ -210,32 +157,35 @@ async fn update_chain_checkpoints(
         match fetch_checkpoint_at_height(client, requested_epoch).await {
             Ok((actual_epoch, cid)) => {
                 found_checkpoints.insert(actual_epoch, cid);
-                
+
                 if actual_epoch != requested_epoch {
-                    println!("  ✓ Epoch {} (requested {}, no blocks at exact height): {}", actual_epoch, requested_epoch, cid);
+                    println!(
+                        "  ✓ Epoch {actual_epoch} (requested {requested_epoch}, no blocks at exact height): {cid}"
+                    );
                 } else {
                     println!("  ✓ Epoch {}: {}", actual_epoch, cid);
                 }
-                
+
                 // Map chain name for Beryx URL (calibnet -> calibration)
-                let beryx_network = if chain_name == "calibnet" { "calibration" } else { chain_name };
-                println!("    Verify at: https://beryx.io/fil/{}/block-cid/{}", beryx_network, cid);
+                let beryx_network = if chain_name == "calibnet" {
+                    "calibration"
+                } else {
+                    chain_name
+                };
+                println!("    Verify at: https://beryx.io/fil/{beryx_network}/block-cid/{cid}",);
             }
             Err(e) => {
-                println!("  ✗ Epoch {}: {}", requested_epoch, e);
+                println!("  ✗ Epoch {requested_epoch}: {e}");
             }
         }
     }
 
-    // Add found checkpoints to the map (maintaining descending order)
     let num_found = found_checkpoints.len();
-    println!("\nAdding {} new checkpoint(s) to the file...", num_found);
-    
-    // Sort found checkpoints by epoch in descending order
+    println!("\nAdding {num_found} new checkpoint(s) to the file...");
+
     let mut sorted_checkpoints: Vec<_> = found_checkpoints.into_iter().collect();
     sorted_checkpoints.sort_by_key(|(epoch, _)| std::cmp::Reverse(*epoch));
-    
-    // Build a new map with sorted new checkpoints followed by existing ones
+
     let mut new_map = IndexMap::new();
     for (epoch, cid) in sorted_checkpoints {
         new_map.insert(epoch, cid);
@@ -245,8 +195,7 @@ async fn update_chain_checkpoints(
 
     if num_found < needed_epochs.len() {
         anyhow::bail!(
-            "Only found {} out of {} needed checkpoints. Consider using an RPC provider with full historical data (e.g., Filfox).",
-            num_found,
+            "Only found {num_found} out of {} needed checkpoints. Consider using an RPC provider with full historical data (e.g., Filfox).",
             needed_epochs.len()
         );
     }
@@ -257,13 +206,13 @@ async fn update_chain_checkpoints(
 /// Fetch a checkpoint at a specific height via RPC
 /// Returns (actual_epoch, cid) where actual_epoch might be slightly earlier than requested
 /// if there were no blocks at the exact requested height.
-async fn fetch_checkpoint_at_height(client: &Client, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, Cid)> {
-    let tipset = ChainGetTipSetByHeight::call(
-        client,
-        (epoch, ApiTipsetKey(None))
-    )
-    .await
-    .context("RPC call failed")?;
+async fn fetch_checkpoint_at_height(
+    client: &Client,
+    epoch: ChainEpoch,
+) -> anyhow::Result<(ChainEpoch, Cid)> {
+    let tipset = ChainGetTipSetByHeight::call(client, (epoch, ApiTipsetKey(None)))
+        .await
+        .context("ChainGetTipSetByHeight RPC call failed")?;
 
     let actual_epoch = tipset.epoch();
     let first_block_cid = tipset.block_headers().first().cid();
@@ -271,23 +220,60 @@ async fn fetch_checkpoint_at_height(client: &Client, epoch: ChainEpoch) -> anyho
 }
 
 fn write_known_blocks(path: &PathBuf, known_blocks: &KnownBlocks) -> anyhow::Result<()> {
-    // Manually construct YAML to preserve formatting and comments
     let mut output = String::new();
-    
-    // Add calibnet section (preserves order from IndexMap)
+
+    output.push_str("# This file is auto-generated by `forest-dev update-checkpoints` command.\n");
+    output.push_str("# Do not edit manually. Run the command to update checkpoints.\n\n");
+
     output.push_str("calibnet:\n");
     for (epoch, cid) in &known_blocks.calibnet {
-        output.push_str(&format!("  {}: {}\n", epoch, cid));
+        output.push_str(&format!("  {epoch}: {cid}\n"));
     }
 
-    // Add mainnet section (preserves order from IndexMap)
     output.push_str("mainnet:\n");
     for (epoch, cid) in &known_blocks.mainnet {
-        output.push_str(&format!("  {}: {}\n", epoch, cid));
+        output.push_str(&format!("  {epoch}: {cid}\n"));
     }
 
-    std::fs::write(path, output)
-        .context("Failed to write known_blocks.yaml")?;
+    std::fs::write(path, output).context(format!(
+        "Failed to write updated known blocks to {}",
+        path.display()
+    ))?;
 
     Ok(())
+}
+
+// Custom serde module for serializing/deserializing IndexMap<ChainEpoch, Cid> as strings
+mod cid_string_map {
+    use super::*;
+    use serde::de::{Deserialize, Deserializer};
+    use serde::ser::Serializer;
+    use std::str::FromStr;
+
+    pub fn serialize<S>(map: &IndexMap<ChainEpoch, Cid>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeMap;
+        let mut ser_map = serializer.serialize_map(Some(map.len()))?;
+        for (k, v) in map {
+            ser_map.serialize_entry(k, &v.to_string())?;
+        }
+        ser_map.end()
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<IndexMap<ChainEpoch, Cid>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let string_map: IndexMap<ChainEpoch, String> = IndexMap::deserialize(deserializer)?;
+        string_map
+            .into_iter()
+            .map(|(k, v)| {
+                Cid::from_str(&v)
+                    .map(|cid| (k, cid))
+                    .map_err(serde::de::Error::custom)
+            })
+            .collect()
+    }
 }
