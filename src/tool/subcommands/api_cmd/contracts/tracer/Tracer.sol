@@ -1,6 +1,17 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.30;
 
+/// @title Tracer Contract
+/// @notice Test contract for validating Forest's trace_call RPC implementation.
+/// @dev This contract is used internally for:
+///   - Integration tests comparing Forest's trace_call output with other implementations (e.g., Anvil)
+///   - Manual testing of trace, stateDiff
+///   - Generating test vectors for EVM execution tracing
+///
+/// NOT intended for production use. Functions are designed to exercise specific
+/// EVM behaviors (storage writes, subcalls, reverts, events) for trace validation.
+///
+/// See: docs/docs/developers/guides/trace_call_guide.md
 contract Tracer {
     uint256 public x; // slot 0 - initialized to 42
     mapping(address => uint256) public balances; // slot 1 - mapping base

@@ -903,4 +903,79 @@ mod tests {
         let result = EthAddress::eth_address_from_pub_key(&pubkey).unwrap();
         assert_eq!(result, expected_eth_address);
     }
+
+    #[test]
+    fn test_changed_type_serialization() {
+        let changed = ChangedType {
+            from: 10u64,
+            to: 20u64,
+        };
+        let json = serde_json::to_string(&changed).unwrap();
+        assert_eq!(json, r#"{"from":10,"to":20}"#);
+
+        let deserialized: ChangedType<u64> = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, changed);
+    }
+
+    #[test]
+    fn test_delta_unchanged() {
+        let delta: Delta<u64> = Delta::from_comparison(Some(42), Some(42));
+        assert!(delta.is_unchanged());
+        assert_eq!(delta, Delta::Unchanged);
+
+        let json = serde_json::to_string(&delta).unwrap();
+        assert_eq!(json, r#""=""#);
+    }
+
+    #[test]
+    fn test_delta_added() {
+        let delta: Delta<u64> = Delta::from_comparison(None, Some(100));
+        assert!(!delta.is_unchanged());
+        assert_eq!(delta, Delta::Added(100));
+
+        let json = serde_json::to_string(&delta).unwrap();
+        assert_eq!(json, r#"{"+":100}"#);
+    }
+
+    #[test]
+    fn test_delta_removed() {
+        let delta: Delta<u64> = Delta::from_comparison(Some(50), None);
+        assert!(!delta.is_unchanged());
+        assert_eq!(delta, Delta::Removed(50));
+
+        let json = serde_json::to_string(&delta).unwrap();
+        assert_eq!(json, r#"{"-":50}"#);
+    }
+
+    #[test]
+    fn test_delta_changed() {
+        let delta: Delta<u64> = Delta::from_comparison(Some(10), Some(20));
+        assert!(!delta.is_unchanged());
+        assert_eq!(delta, Delta::Changed(ChangedType { from: 10, to: 20 }));
+
+        let json = serde_json::to_string(&delta).unwrap();
+        assert_eq!(json, r#"{"*":{"from":10,"to":20}}"#);
+    }
+
+    #[test]
+    fn test_delta_none_none() {
+        let delta: Delta<u64> = Delta::from_comparison(None, None);
+        assert!(delta.is_unchanged());
+        assert_eq!(delta, Delta::Unchanged);
+    }
+
+    #[test]
+    fn test_delta_deserialization() {
+        let unchanged: Delta<u64> = serde_json::from_str(r#""=""#).unwrap();
+        assert_eq!(unchanged, Delta::Unchanged);
+
+        let added: Delta<u64> = serde_json::from_str(r#"{"+":42}"#).unwrap();
+        assert_eq!(added, Delta::Added(42));
+
+        let removed: Delta<u64> = serde_json::from_str(r#"{"-":42}"#).unwrap();
+        assert_eq!(removed, Delta::Removed(42));
+
+        let changed: Delta<u64> = serde_json::from_str(r#"{"*":{"from":10,"to":20}}"#).unwrap();
+        assert_eq!(changed, Delta::Changed(ChangedType { from: 10, to: 20 }));
+    }
 }

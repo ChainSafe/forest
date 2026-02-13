@@ -4330,6 +4330,8 @@ async fn trace_filter(
 mod test {
     use super::*;
     use crate::rpc::eth::EventEntry;
+    use crate::rpc::state::{ExecutionTrace, MessageTrace, ReturnTrace};
+    use crate::shim::{econ::TokenAmount, error::ExitCode};
     use crate::{
         db::MemoryDB,
         test_utils::{construct_bls_messages, construct_eth_messages, construct_messages},
@@ -4851,5 +4853,152 @@ mod test {
             EthUint64::from_bytes(&overflow_bytes).is_err(),
             "overflow with all ones"
         );
+    }
+
+    fn create_execution_trace(from: FilecoinAddress, to: FilecoinAddress) -> ExecutionTrace {
+        ExecutionTrace {
+            msg: MessageTrace {
+                from,
+                to,
+                value: TokenAmount::default(),
+                method: 0,
+                params: Default::default(),
+                params_codec: 0,
+                gas_limit: None,
+                read_only: None,
+            },
+            msg_rct: ReturnTrace {
+                exit_code: ExitCode::from(0u32),
+                r#return: Default::default(),
+                return_codec: 0,
+            },
+            invoked_actor: None,
+            gas_charges: vec![],
+            subcalls: vec![],
+        }
+    }
+
+    fn create_execution_trace_with_subcalls(
+        from: FilecoinAddress,
+        to: FilecoinAddress,
+        subcalls: Vec<ExecutionTrace>,
+    ) -> ExecutionTrace {
+        let mut trace = create_execution_trace(from, to);
+        trace.subcalls = subcalls;
+        trace
+    }
+
+    #[test]
+    fn test_extract_touched_addresses_with_id_addresses() {
+        // ID addresses (e.g., f0100) can be converted to EthAddress
+        let from = FilecoinAddress::new_id(100);
+        let to = FilecoinAddress::new_id(200);
+        let trace = create_execution_trace(from, to);
+
+        let addresses = extract_touched_eth_addresses(&trace);
+
+        assert_eq!(addresses.len(), 2);
+        assert!(addresses.contains(&EthAddress::from_filecoin_address(&from).unwrap()));
+        assert!(addresses.contains(&EthAddress::from_filecoin_address(&to).unwrap()));
+    }
+
+    #[test]
+    fn test_extract_touched_addresses_same_from_and_to() {
+        let addr = FilecoinAddress::new_id(100);
+        let trace = create_execution_trace(addr, addr);
+
+        let addresses = extract_touched_eth_addresses(&trace);
+
+        // Should deduplicate
+        assert_eq!(addresses.len(), 1);
+        assert!(addresses.contains(&EthAddress::from_filecoin_address(&addr).unwrap()));
+    }
+
+    #[test]
+    fn test_extract_touched_addresses_with_subcalls() {
+        let addr1 = FilecoinAddress::new_id(100);
+        let addr2 = FilecoinAddress::new_id(200);
+        let addr3 = FilecoinAddress::new_id(300);
+        let addr4 = FilecoinAddress::new_id(400);
+
+        let subcall = create_execution_trace(addr3, addr4);
+        let trace = create_execution_trace_with_subcalls(addr1, addr2, vec![subcall]);
+
+        let addresses = extract_touched_eth_addresses(&trace);
+
+        assert_eq!(addresses.len(), 4);
+        assert!(addresses.contains(&EthAddress::from_filecoin_address(&addr1).unwrap()));
+        assert!(addresses.contains(&EthAddress::from_filecoin_address(&addr2).unwrap()));
+        assert!(addresses.contains(&EthAddress::from_filecoin_address(&addr3).unwrap()));
+        assert!(addresses.contains(&EthAddress::from_filecoin_address(&addr4).unwrap()));
+    }
+
+    #[test]
+    fn test_extract_touched_addresses_with_nested_subcalls() {
+        let addr1 = FilecoinAddress::new_id(100);
+        let addr2 = FilecoinAddress::new_id(200);
+        let addr3 = FilecoinAddress::new_id(300);
+        let addr4 = FilecoinAddress::new_id(400);
+        let addr5 = FilecoinAddress::new_id(500);
+        let addr6 = FilecoinAddress::new_id(600);
+
+        // Create nested structure: trace -> subcall1 -> nested_subcall
+        let nested_subcall = create_execution_trace(addr5, addr6);
+        let subcall = create_execution_trace_with_subcalls(addr3, addr4, vec![nested_subcall]);
+        let trace = create_execution_trace_with_subcalls(addr1, addr2, vec![subcall]);
+
+        let addresses = extract_touched_eth_addresses(&trace);
+
+        assert_eq!(addresses.len(), 6);
+        for addr in [addr1, addr2, addr3, addr4, addr5, addr6] {
+            assert!(addresses.contains(&EthAddress::from_filecoin_address(&addr).unwrap()));
+        }
+    }
+
+    #[test]
+    fn test_extract_touched_addresses_with_multiple_subcalls() {
+        let addr1 = FilecoinAddress::new_id(100);
+        let addr2 = FilecoinAddress::new_id(200);
+        let addr3 = FilecoinAddress::new_id(300);
+        let addr4 = FilecoinAddress::new_id(400);
+        let addr5 = FilecoinAddress::new_id(500);
+        let addr6 = FilecoinAddress::new_id(600);
+
+        let subcall1 = create_execution_trace(addr3, addr4);
+        let subcall2 = create_execution_trace(addr5, addr6);
+        let trace = create_execution_trace_with_subcalls(addr1, addr2, vec![subcall1, subcall2]);
+
+        let addresses = extract_touched_eth_addresses(&trace);
+
+        assert_eq!(addresses.len(), 6);
+    }
+
+    #[test]
+    fn test_extract_touched_addresses_deduplicates_across_subcalls() {
+        // Same address appears in parent and subcall
+        let addr1 = FilecoinAddress::new_id(100);
+        let addr2 = FilecoinAddress::new_id(200);
+
+        let subcall = create_execution_trace(addr1, addr2); // addr1 repeated
+        let trace = create_execution_trace_with_subcalls(addr1, addr2, vec![subcall]);
+
+        let addresses = extract_touched_eth_addresses(&trace);
+
+        // Should deduplicate
+        assert_eq!(addresses.len(), 2);
+    }
+
+    #[test]
+    fn test_extract_touched_addresses_with_non_convertible_addresses() {
+        // BLS addresses cannot be converted to EthAddress
+        let bls_addr = FilecoinAddress::new_bls(&[0u8; 48]).unwrap();
+        let id_addr = FilecoinAddress::new_id(100);
+
+        let trace = create_execution_trace(bls_addr, id_addr);
+        let addresses = extract_touched_eth_addresses(&trace);
+
+        // Only the ID address should be in the set
+        assert_eq!(addresses.len(), 1);
+        assert!(addresses.contains(&EthAddress::from_filecoin_address(&id_addr).unwrap()));
     }
 }
