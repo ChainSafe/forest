@@ -183,6 +183,7 @@ services:
       - LOTUS_CHAINSTORE_ENABLESPLITSTORE=false
       - LOTUS_SYNC_BOOTSTRAP_PEERS=1
       - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http
+      - LOTUS_DISABLE_F3_SUBSYSTEM=1
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |

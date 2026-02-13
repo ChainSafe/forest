@@ -7,14 +7,14 @@
 # ```
 # 
 
-FROM golang:1.25-bookworm AS build-env
+FROM golang:1.26-bookworm AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # install dependencies
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y build-essential clang-14 curl git ca-certificates
+    apt-get install --no-install-recommends -y build-essential clang-20 curl git ca-certificates
 RUN update-ca-certificates
-ENV CC=clang-14 CXX=clang++-14
+ENV CC=clang-20 CXX=clang++-20
 
 # install Rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal

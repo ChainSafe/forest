@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.32.0"
+version = "0.32.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -215,7 +215,7 @@ tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-tungstenite = "0.28.0"
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
-toml = "0.8"
+toml = "1"
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["compression-full", "sensitive-headers"] }
 tracing = "0.1"
