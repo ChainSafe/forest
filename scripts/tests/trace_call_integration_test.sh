@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-set -e
+# Compare Forest `trace_call` (Parity-style traces and stateDiff) against Anvil
+# `debug_traceCall` (Geth-style prestateTracer) using the Tracer.sol contract.
+# Verifies call traces, balance diffs, and EVM storage diffs stay in sync.
+
+set -euo pipefail
 
 DEPLOY_CONTRACT=false
 while [[ $# -gt 0 ]]; do
@@ -25,11 +29,12 @@ PASS_COUNT=0 FAIL_COUNT=0
 command -v jq &>/dev/null || { echo "Error: jq is required"; exit 1; }
 command -v curl &>/dev/null || { echo "Error: curl is required"; exit 1; }
 
+# Call JSON-RPC method using jq for body construction (type-safe, no escaping needed)
 call_rpc() {
     local url="$1" method="$2" params="$3"
-    curl -s -X POST "$url" \
-        -H "Content-Type: application/json" \
-        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}"
+    local body=$(jq -n --arg method "$method" --argjson params "$params" \
+        '{"jsonrpc": "2.0", "id": 1, "method": $method, "params": $params}')
+    curl -s -X POST "$url" -H "Content-Type: application/json" -d "$body"
 }
 
 check_rpc() {
@@ -82,7 +87,7 @@ assert_eq() {
     local a_norm=$(echo "$a_val" | tr '[:upper:]' '[:lower:]')
     [[ "$f_norm" == "null" || -z "$f_norm" ]] && f_norm="0x"
     [[ "$a_norm" == "null" || -z "$a_norm" ]] && a_norm="0x"
-    
+
     if [ "$f_norm" = "$a_norm" ]; then
         echo -e "  ${GREEN}[PASS]${NC} $label: $f_val"
         PASS_COUNT=$((PASS_COUNT + 1))
@@ -107,10 +112,18 @@ test_trace() {
     local name="$1" data="$2" type="${3:-standard}"
     echo -e "${BLUE}--- $name ---${NC}"
 
-    local f_params="[{\"from\":\"$FOREST_ACCOUNT\",\"to\":\"$FOREST_CONTRACT\",\"data\":\"$data\"},[\"trace\"],\"latest\"]"
+    local f_params=$(jq -n \
+        --arg from "$FOREST_ACCOUNT" \
+        --arg to "$FOREST_CONTRACT" \
+        --arg data "$data" \
+        '[{"from": $from, "to": $to, "data": $data}, ["trace"], "latest"]')
     local f_resp=$(call_rpc "$FOREST_RPC_URL" "trace_call" "$f_params")
 
-    local a_params="[{\"from\":\"$ANVIL_ACCOUNT\",\"to\":\"$ANVIL_CONTRACT\",\"data\":\"$data\"},\"latest\",{\"tracer\":\"callTracer\"}]"
+    local a_params=$(jq -n \
+        --arg from "$ANVIL_ACCOUNT" \
+        --arg to "$ANVIL_CONTRACT" \
+        --arg data "$data" \
+        '[{"from": $from, "to": $to, "data": $data}, "latest", {"tracer": "callTracer"}]')
     local a_resp=$(call_rpc "$ANVIL_RPC_URL" "debug_traceCall" "$a_params")
 
     local f_input=$(echo "$f_resp" | jq -r '.result.trace[0].action.input')
@@ -144,10 +157,20 @@ test_balance_diff() {
     local name="$1" data="$2" value="${3:-0x0}" expect="${4:-unchanged}"
     echo -e "${BLUE}--- $name (balance) ---${NC}"
 
-    local f_params="[{\"from\":\"$FOREST_ACCOUNT\",\"to\":\"$FOREST_CONTRACT\",\"data\":\"$data\",\"value\":\"$value\"},[\"stateDiff\"],\"latest\"]"
+    local f_params=$(jq -n \
+        --arg from "$FOREST_ACCOUNT" \
+        --arg to "$FOREST_CONTRACT" \
+        --arg data "$data" \
+        --arg value "$value" \
+        '[{"from": $from, "to": $to, "data": $data, "value": $value}, ["stateDiff"], "latest"]')
     local f_resp=$(call_rpc "$FOREST_RPC_URL" "trace_call" "$f_params")
 
-    local a_params="[{\"from\":\"$ANVIL_ACCOUNT\",\"to\":\"$ANVIL_CONTRACT\",\"data\":\"$data\",\"value\":\"$value\"},\"latest\",{\"tracer\":\"prestateTracer\",\"tracerConfig\":{\"diffMode\":true}}]"
+    local a_params=$(jq -n \
+        --arg from "$ANVIL_ACCOUNT" \
+        --arg to "$ANVIL_CONTRACT" \
+        --arg data "$data" \
+        --arg value "$value" \
+        '[{"from": $from, "to": $to, "data": $data, "value": $value}, "latest", {"tracer": "prestateTracer", "tracerConfig": {"diffMode": true}}]')
     local a_resp=$(call_rpc "$ANVIL_RPC_URL" "debug_traceCall" "$a_params")
 
     local f_contract_lower=$(echo "$FOREST_CONTRACT" | tr '[:upper:]' '[:lower:]')
@@ -170,10 +193,18 @@ test_storage_diff() {
     local name="$1" data="$2" slot="$3" expect_type="${4:-changed}"
     echo -e "${BLUE}--- $name (storage) ---${NC}"
 
-    local f_params="[{\"from\":\"$FOREST_ACCOUNT\",\"to\":\"$FOREST_CONTRACT\",\"data\":\"$data\"},[\"stateDiff\"],\"latest\"]"
+    local f_params=$(jq -n \
+        --arg from "$FOREST_ACCOUNT" \
+        --arg to "$FOREST_CONTRACT" \
+        --arg data "$data" \
+        '[{"from": $from, "to": $to, "data": $data}, ["stateDiff"], "latest"]')
     local f_resp=$(call_rpc "$FOREST_RPC_URL" "trace_call" "$f_params")
 
-    local a_params="[{\"from\":\"$ANVIL_ACCOUNT\",\"to\":\"$ANVIL_CONTRACT\",\"data\":\"$data\"},\"latest\",{\"tracer\":\"prestateTracer\",\"tracerConfig\":{\"diffMode\":true}}]"
+    local a_params=$(jq -n \
+        --arg from "$ANVIL_ACCOUNT" \
+        --arg to "$ANVIL_CONTRACT" \
+        --arg data "$data" \
+        '[{"from": $from, "to": $to, "data": $data}, "latest", {"tracer": "prestateTracer", "tracerConfig": {"diffMode": true}}]')
     local a_resp=$(call_rpc "$ANVIL_RPC_URL" "debug_traceCall" "$a_params")
 
     local f_contract_lower=$(echo "$FOREST_CONTRACT" | tr '[:upper:]' '[:lower:]')
@@ -215,10 +246,18 @@ test_storage_multiple() {
     local slots=("$@")
     echo -e "${BLUE}--- $name (multi-storage) ---${NC}"
 
-    local f_params="[{\"from\":\"$FOREST_ACCOUNT\",\"to\":\"$FOREST_CONTRACT\",\"data\":\"$data\"},[\"stateDiff\"],\"latest\"]"
+    local f_params=$(jq -n \
+        --arg from "$FOREST_ACCOUNT" \
+        --arg to "$FOREST_CONTRACT" \
+        --arg data "$data" \
+        '[{"from": $from, "to": $to, "data": $data}, ["stateDiff"], "latest"]')
     local f_resp=$(call_rpc "$FOREST_RPC_URL" "trace_call" "$f_params")
 
-    local a_params="[{\"from\":\"$ANVIL_ACCOUNT\",\"to\":\"$ANVIL_CONTRACT\",\"data\":\"$data\"},\"latest\",{\"tracer\":\"prestateTracer\",\"tracerConfig\":{\"diffMode\":true}}]"
+    local a_params=$(jq -n \
+        --arg from "$ANVIL_ACCOUNT" \
+        --arg to "$ANVIL_CONTRACT" \
+        --arg data "$data" \
+        '[{"from": $from, "to": $to, "data": $data}, "latest", {"tracer": "prestateTracer", "tracerConfig": {"diffMode": true}}]')
     local a_resp=$(call_rpc "$ANVIL_RPC_URL" "debug_traceCall" "$a_params")
 
     local f_contract_lower=$(echo "$FOREST_CONTRACT" | tr '[:upper:]' '[:lower:]')
