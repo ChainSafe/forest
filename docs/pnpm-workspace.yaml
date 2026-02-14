@@ -1,0 +1,4 @@
+# https://pnpm.io/supply-chain-security
+
+blockExoticSubdeps: true
+minimumReleaseAge: 1440

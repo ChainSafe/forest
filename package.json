@@ -1,8 +1,12 @@
 {
   "name": "root",
   "private": true,
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
   "devDependencies": {
-    "prettier": "^3.8.0"
+    "prettier": "^3.8.1"
   },
   "scripts": {
     "prettier-version": "prettier --version",
@@ -10,6 +14,5 @@
     "md-check": "prettier --check '**/*.md'",
     "yaml-fmt": "prettier --write '**/*.{yml,yaml}'",
     "yaml-check": "prettier --check '**/*.{yml,yaml}'"
-  },
-  "packageManager": "yarn@4.12.0"
+  }
 }

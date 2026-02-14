@@ -4,14 +4,14 @@ This directory contains a Docusaurus documentation website for both user and dev
 
 ## Getting Started
 
-> Note: This project uses [Yarn](https://yarnpkg.com/getting-started/install)
+> Note: This project uses [pnpm](https://pnpm.io/installation)
 
 ### Installation
 
 Install the required dependencies:
 
 ```
-$ yarn
+$ pnpm i
 ```
 
 ### Local Development
@@ -19,7 +19,7 @@ $ yarn
 Start local development server:
 
 ```
-$ yarn start
+$ pnpm start
 ```
 
 ### Build
@@ -27,7 +27,7 @@ $ yarn start
 To compile an optimized production build:
 
 ```
-$ yarn build
+$ pnpm build
 ```
 
 ### CI Checks
@@ -35,9 +35,9 @@ $ yarn build
 These commands are recommended to run before committing code. They are run as checks in CI.
 
 ```
-yarn spellcheck # Checks spelling
-yarn format     # Run prettier to fix formatting issues
-yarn typecheck  # Validate typescript files
+pnpm spellcheck # Checks spelling
+pnpm format     # Run prettier to fix formatting issues
+pnpm typecheck  # Validate typescript files
 ```
 
 > **How to Fix Spellcheck Errors:** You can add unknown words to `dictionary.txt`.
