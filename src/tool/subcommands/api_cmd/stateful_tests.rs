@@ -439,7 +439,7 @@ fn eth_new_block_filter() -> RpcTestScenario {
                 let verify_hashes = async |hashes: &[EthHash]| -> anyhow::Result<()> {
                     for hash in hashes {
                         let _block = client
-                            .call(EthGetBlockByHash::request((hash.clone(), false))?)
+                            .call(EthGetBlockByHash::request((*hash, false))?)
                             .await?;
                     }
                     Ok(())
@@ -529,7 +529,7 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                     let mut cids = vec![];
                     for hash in &hashes {
                         if let Some(cid) = client
-                            .call(EthGetMessageCidByTransactionHash::request((hash.clone(),))?)
+                            .call(EthGetMessageCidByTransactionHash::request((*hash,))?)
                             .await?
                         {
                             cids.push(cid);

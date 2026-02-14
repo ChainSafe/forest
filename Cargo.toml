@@ -94,6 +94,7 @@ fvm4 = { package = "fvm", version = "~4.7", default-features = false, features =
 fvm_actor_utils = "14"
 fvm_ipld_blockstore = "0.3.1"
 fvm_ipld_encoding = "0.5.3"
+fvm_ipld_kamt = "0.4.5"
 fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["proofs"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["proofs"] }
