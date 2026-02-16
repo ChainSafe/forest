@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20",
+    "pnpm": ">=10"
   },
   "scripts": {
     "docusaurus": "docusaurus",
@@ -24,17 +25,19 @@
     "@docusaurus/core": "^3.9.2",
     "@docusaurus/preset-classic": "^3.9.2",
     "@docusaurus/theme-mermaid": "^3.9.2",
-    "@easyops-cn/docusaurus-search-local": "^0.54.0",
+    "@easyops-cn/docusaurus-search-local": "^0.54.1",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.12.2",
-    "prettier": "^3.8.0",
+    "prettier": "^3.8.1",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@docusaurus/mdx-loader": "^3.9.2",
     "@docusaurus/module-type-aliases": "^3.9.2",
     "@docusaurus/tsconfig": "^3.9.2",
+    "@docusaurus/types": "^3.9.2",
     "spellchecker-cli": "^7.0.2",
     "typescript": "^5.9.3"
   },
@@ -52,6 +55,5 @@
   },
   "resolutions": {
     "dompurify": "3.3.1"
-  },
-  "packageManager": "yarn@4.12.0"
+  }
 }
