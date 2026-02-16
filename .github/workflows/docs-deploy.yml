@@ -36,8 +36,8 @@ jobs:
           node-version: 20
           package-manager-cache: false
       - run: corepack enable
-      - run: yarn --immutable
-      - run: yarn run build
+      - run: pnpm i --frozen-lockfile
+      - run: pnpm build
 
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
