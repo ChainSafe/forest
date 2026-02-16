@@ -63,7 +63,8 @@ impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
             where
                 V: de::MapAccess<'de>,
             {
-                self.0.reserve(visitor.size_hint().unwrap_or(0));
+                let capacity = super::size_hint_cautious_cid(visitor.size_hint().unwrap_or(0));
+                self.0.reserve(capacity);
                 // This is where recursion happens, we unravel each [`Ipld`] till we reach all
                 // the nodes.
                 while visitor
@@ -83,7 +84,8 @@ impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
             where
                 A: SeqAccess<'de>,
             {
-                self.0.reserve(seq.size_hint().unwrap_or(0));
+                let capacity = super::size_hint_cautious_cid(seq.size_hint().unwrap_or(0));
+                self.0.reserve(capacity);
                 // This is where recursion happens, we unravel each [`Ipld`] till we reach all
                 // the nodes.
                 while seq.next_element_seed(FilterCids(self.0))?.is_some() {
