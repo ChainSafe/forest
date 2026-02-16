@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod state_cmd;
+mod update_checkpoints_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::networks::generate_actor_bundle;
@@ -42,6 +43,9 @@ pub enum Subcommand {
     },
     #[command(subcommand)]
     State(state_cmd::StateCommand),
+    /// Update known blocks (checkpoints), normally in `build/known_blocks.yaml`, by querying RPC
+    /// endpoints
+    UpdateCheckpoints(update_checkpoints_cmd::UpdateCheckpointsCommand),
 }
 
 impl Subcommand {
@@ -49,6 +53,7 @@ impl Subcommand {
         match self {
             Self::FetchTestSnapshots { actor_bundle } => fetch_test_snapshots(actor_bundle).await,
             Self::State(cmd) => cmd.run().await,
+            Self::UpdateCheckpoints(cmd) => cmd.run().await,
         }
     }
 }

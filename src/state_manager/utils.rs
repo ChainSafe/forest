@@ -260,7 +260,7 @@ pub mod state_compute {
         #[cfg(test)]
         {
             // To determine whether a test failure is caused by data corruption
-            use digest::Digest as _;
+            use sha2::digest::Digest as _;
             println!(
                 "snapshot: {file}, sha256sum: {}",
                 hex::encode(sha2::Sha256::digest(std::fs::read(&path)?))

@@ -36,6 +36,7 @@ env:
   CXX: sccache clang++
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   SHELL_IMAGE: busybox
+  FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH: /var/tmp/forest_snapshot_calibnet_latest.forest.car.zst
 jobs:
   build-macos:
     name: Build MacOS
@@ -594,7 +595,7 @@ jobs:
         uses: jwalton/gh-docker-logs@v2
   calibnet-rpc-checks-no-ops:
     name: Calibnet RPC checks
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-slim
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'RPC') }}
     steps:
       - run: echo "No-op job to trigger the required calibnet RPC checks."

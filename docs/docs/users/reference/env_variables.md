@@ -56,6 +56,7 @@ process.
 | `FOREST_ETH_BLOCK_CACHE_SIZE`                             | positive integer                 | 500                                            | 1                                                             | The size of Eth block cache                                                                                           |
 | `FOREST_RPC_BACKFILL_FULL_TIPSET_FROM_NETWORK`            | 1 or true                        | false                                          | 1                                                             | Whether or not to backfill full tipsets from the p2p network                                                          |
 | `FOREST_STRICT_JSON`                                      | 1 or true                        | false                                          | 1                                                             | Enable strict JSON validation to detect duplicate keys in RPC requests                                                |
+| `FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH`                      | URL or file path                 | empty                                          | `/var/tmp/forest_snapshot_calibnet.forest.car.zst`            | Override snapshot path for `--auto-download-snapshot`                                                                 |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 

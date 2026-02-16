@@ -2747,7 +2747,7 @@ fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {
         ))?),
         RpcTest::identity(F3IsRunning::request(())?),
         RpcTest::identity(F3GetCertificate::request((0,))?),
-        RpcTest::identity(F3GetCertificate::request((100,))?),
+        RpcTest::identity(F3GetCertificate::request((50,))?),
         RpcTest::identity(F3GetManifest::request(())?),
     ])
 }

@@ -709,8 +709,19 @@ async fn maybe_set_snapshot_path(
         (false, _, _) => {}   // noop - don't need a snapshot
         (true, true, _) => {} // noop - we need a snapshot, and we have one
         (true, false, true) => {
-            let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
-            config.client.snapshot_path = Some(url.to_string().into());
+            const AUTO_SNAPSHOT_PATH_ENV_KEY: &str = "FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH";
+            match std::env::var(AUTO_SNAPSHOT_PATH_ENV_KEY) {
+                Ok(path) if !path.is_empty() => {
+                    tracing::info!(
+                        "importing snapshot from {path} set by `{AUTO_SNAPSHOT_PATH_ENV_KEY}`"
+                    );
+                    config.client.snapshot_path = Some(path.into());
+                }
+                _ => {
+                    let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
+                    config.client.snapshot_path = Some(url.to_string().into());
+                }
+            }
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user

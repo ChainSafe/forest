@@ -160,6 +160,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactionsV2);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
+        $callback!($crate::rpc::eth::EthSendRawTransactionUntrusted);
 
         // gas vertical
         $callback!($crate::rpc::gas::GasEstimateFeeCap);

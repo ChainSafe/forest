@@ -5,7 +5,7 @@ expression: spec
 openrpc: 1.3.2
 info:
   title: forest
-  version: 0.32.0
+  version: 0.32.1
 methods:
   - name: Filecoin.ChainGetTipSet
     description: Returns the tipset with the specified CID.
@@ -1270,6 +1270,30 @@ methods:
       schema:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
+  - name: Filecoin.EthSendRawTransactionUntrusted
+    params:
+      - name: rawTx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthBytes"
+    result:
+      name: Filecoin.EthSendRawTransactionUntrusted.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthHash"
+    paramStructure: by-position
+  - name: eth_sendRawTransactionUntrusted
+    params:
+      - name: rawTx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthBytes"
+    result:
+      name: eth_sendRawTransactionUntrusted.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthHash"
+    paramStructure: by-position
   - name: Filecoin.NetListening
     params: []
     result:
@@ -1524,9 +1548,9 @@ components:
           $ref: "#/components/schemas/EthHash"
         requireCanonical:
           type: boolean
+          default: false
       required:
         - blockHash
-        - requireCanonical
     BlockHeader:
       type: object
       properties:

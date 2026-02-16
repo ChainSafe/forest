@@ -11,6 +11,7 @@ function shutdown {
 
 trap shutdown EXIT
 
+handle_auto_download_snapshot_env
 $FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --exit-after-init
 $FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --log-dir "$LOG_DIRECTORY" &
 FOREST_NODE_PID=$!
@@ -23,16 +24,15 @@ until $FOREST_CLI_PATH net peers | grep "calib"; do
 done
 
 # Verify F3 is getting certificates from the network
-# Disable until F3 is re-activated on calibnet
-# until [[ $($FOREST_CLI_PATH f3 certs get --output json | jq '.GPBFTInstance') -gt 100 ]]; do
-#     sleep 1s;
-# done
+until [[ $($FOREST_CLI_PATH f3 certs get --output json | jq '.GPBFTInstance') -gt 50 ]]; do
+    sleep 1s;
+done
 
-# echo "Test subcommands: f3 status"
-# $FOREST_CLI_PATH f3 status
-# echo "Test subcommands: f3 manifest"
-# $FOREST_CLI_PATH f3 manifest
-# echo "Test subcommands: f3 certs get"
-# $FOREST_CLI_PATH f3 certs list
-# echo "Test subcommands: f3 certs list"
-# $FOREST_CLI_PATH f3 certs get
+echo "Test subcommands: f3 status"
+$FOREST_CLI_PATH f3 status
+echo "Test subcommands: f3 manifest"
+$FOREST_CLI_PATH f3 manifest
+echo "Test subcommands: f3 certs list"
+$FOREST_CLI_PATH f3 certs list
+echo "Test subcommands: f3 certs get"
+$FOREST_CLI_PATH f3 certs get
