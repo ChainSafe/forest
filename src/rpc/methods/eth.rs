@@ -4115,10 +4115,7 @@ fn get_eth_block_number_from_string<DB: Blockstore>(
     block: Option<&str>,
     resolve: ResolveNullTipset,
 ) -> Result<EthUint64> {
-    let block_param = match block {
-        Some(block_str) => ExtBlockNumberOrHash::from_str(block_str)?,
-        None => bail!("cannot parse fromBlock"),
-    };
+    let block_param = ExtBlockNumberOrHash::from_str(block.unwrap_or("latest"))?;
     Ok(EthUint64(
         tipset_by_ext_block_number_or_hash(chain_store, block_param, resolve)?.epoch() as u64,
     ))
@@ -4129,10 +4126,7 @@ async fn get_eth_block_number_from_string_v2<DB: Blockstore + Send + Sync + 'sta
     block: Option<&str>,
     resolve: ResolveNullTipset,
 ) -> Result<EthUint64> {
-    let block_param = match block {
-        Some(block_str) => ExtBlockNumberOrHash::from_str(block_str)?,
-        None => bail!("cannot parse fromBlock"),
-    };
+    let block_param = ExtBlockNumberOrHash::from_str(block.unwrap_or("latest"))?;
     Ok(EthUint64(
         tipset_by_block_number_or_hash_v2(ctx, block_param, resolve)
             .await?
