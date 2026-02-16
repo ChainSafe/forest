@@ -9,6 +9,14 @@ use serde::{Deserializer, Serializer, de, ser};
 
 mod fallback_de_ipld_dagcbor;
 
+/// Limit the the number of bytes that are used for pre-allocating `Vec<Cid>`s. This follows what `serde` is
+/// doing internally with `serde::private::size_hint::cautious()`.
+/// The limit is set to 1 MiB, which is a reasonable upper bound for most use cases.
+fn size_hint_cautious_cid(size_hint: usize) -> usize {
+    const MAX_PREALLOC_BYTES: usize = 1024 * 1024;
+    size_hint.min(MAX_PREALLOC_BYTES / std::mem::size_of::<cid::Cid>())
+}
+
 /// This method will attempt to de-serialize given bytes using the regular
 /// `serde_ipld_dagcbor::from_slice`. Due to a historical issue in Lotus (see more in
 /// [FIP-0027](https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0027.md), we must still
@@ -257,5 +265,14 @@ mod tests {
         assert!(
             matches!(from_slice_with_fallback::<Ipld>(&corrupted).unwrap(), Ipld::Bytes(bytes) if bytes == [0x63, 0x74, 0x68, 0x75, 0x6c, 0xa0, 0xa1])
         )
+    }
+
+    #[test]
+    fn size_hint_cautious_test() {
+        assert_eq!(size_hint_cautious_cid(0), 0);
+        assert_eq!(
+            size_hint_cautious_cid(1024 * 1024),
+            1024 * 1024 / std::mem::size_of::<cid::Cid>()
+        );
     }
 }
