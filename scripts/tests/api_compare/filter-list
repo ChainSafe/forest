@@ -1,4 +1,2 @@
 # This list contains potentially broken methods (or tests) that are ignored.
 # They should be considered bugged, and not used until the root cause is resolved.
-# Disable until a new lotus image with calibnet F3 initial power table is published
-!Filecoin.F3
