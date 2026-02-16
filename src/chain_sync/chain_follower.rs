@@ -22,7 +22,9 @@ use crate::{
     chain::ChainStore,
     chain_sync::{
         ForkSyncInfo, ForkSyncStage, SyncStatus, SyncStatusReport, TipsetValidator,
-        bad_block_cache::BadBlockCache, metrics, tipset_syncer::validate_tipset,
+        bad_block_cache::BadBlockCache,
+        metrics,
+        tipset_syncer::{TipsetSyncerError, validate_tipset},
     },
     libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
     message_pool::{MessagePool, MpoolRpcProvider},
@@ -846,6 +848,14 @@ impl SyncTask {
                     tipset,
                     is_proposed_head,
                 }),
+                // If temporal drift error, don't mark as bad, just skip validation and try again
+                // later. This mirrors internal logic where temporal drift doesn't mark a block as
+                // bad permanently, since it could be valid later on. If not done, a single
+                // time-traveling block could cause the node to be stuck without making progress.
+                Err(e) if matches!(e, TipsetSyncerError::TimeTravellingBlock { .. }) => {
+                    warn!("Time travelling block detected, skipping tipset for now: {e}");
+                    None
+                }
                 Err(e) => {
                     warn!("Error validating tipset: {e}");
                     Some(SyncEvent::BadTipset(tipset))
