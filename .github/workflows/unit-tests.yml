@@ -43,6 +43,7 @@ env:
 jobs:
   tests-release:
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
