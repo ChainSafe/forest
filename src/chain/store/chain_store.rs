@@ -537,12 +537,11 @@ where
 {
     let amt = Amt::<Cid, _>::load(root, db)?;
 
-    let mut cids = Vec::new();
-    for i in 0..amt.count() {
-        if let Some(c) = amt.get(i)? {
-            cids.push(*c);
-        }
-    }
+    let mut cids = Vec::with_capacity(amt.count() as usize);
+    amt.for_each_cacheless(|_, c| {
+        cids.push(*c);
+        Ok(())
+    })?;
 
     Ok(cids)
 }

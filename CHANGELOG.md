@@ -37,6 +37,8 @@
 
 ### Fixed
 
+- [#6613](https://github.com/ChainSafe/forest/pull/6613): Fixed chain sync getting stuck when encountering time-travelling blocks by not marking the corresponding tipsets as permanently bad.
+
 ## Forest v0.32.1 "Malfoy"
 
 This is a non-mandatory release for all node operators. It sets F3 initial power table on calibnet for late F3 participation and F3 data verification scenarios. It also includes new V2 RPC methods, a few bug fixes and `lotus-gateway` compatibility fixes.
