@@ -152,8 +152,8 @@ rm -rf node_modules
 # We need to run them separately.
 description = "Run doctests."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
@@ -163,8 +163,8 @@ cargo test --doc --profile ${usage_profile?} --no-default-features --features "t
 [tasks."test:nextest"]
 description = "Run Rust unit and integration tests except `cargo-test` group with nextest."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
@@ -175,8 +175,8 @@ cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-default-fea
 [tasks."test:cargo"]
 description = "Run Rust unit, integration and doc tests of `cargo-test` group with cargo test."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
@@ -187,8 +187,8 @@ cargo test --lib --profile ${usage_profile?} --workspace --no-default-features -
 [tasks.test]
 description = "Run all tests."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''

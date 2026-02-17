@@ -76,7 +76,7 @@ jobs:
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - uses: jdx/mise-action@v3
       - run: |
-          mise test quick
+          mise test
         env:
           FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
           # https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
