@@ -20,8 +20,8 @@ importers:
         specifier: ^3.9.2
         version: 3.9.2(@docusaurus/plugin-content-docs@3.9.2(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       "@easyops-cn/docusaurus-search-local":
-        specifier: ^0.54.1
-        version: 0.54.1(@docusaurus/theme-common@3.9.2(@docusaurus/plugin-content-docs@3.9.2(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+        specifier: ^0.55.0
+        version: 0.55.0(@docusaurus/theme-common@3.9.2(@docusaurus/plugin-content-docs@3.9.2(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(open-ask-ai@0.7.3(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       mdx-mermaid:
         specifier: ^2.0.3
         version: 2.0.3(mermaid@11.12.2)(react@19.2.4)(typescript@5.9.3)(unist-util-visit@5.1.0)
@@ -1890,16 +1890,20 @@ packages:
         integrity: sha512-drg76jS6syilOUmVNkyo1c7ZEBPcPuK+aJA7AksM5ZIIbV57DMHCywiCr+uHyv8BE5jUTU98j/H7gVrkHrWW3Q==,
       }
 
-  "@easyops-cn/docusaurus-search-local@0.54.1":
+  "@easyops-cn/docusaurus-search-local@0.55.0":
     resolution:
       {
-        integrity: sha512-CexWCS1ktR7ZtvKWvbBhY7+NBRzQPVCAReBed6k5U9M2hdAARI3cK+NBUCegbd4F8VV54Re1HpIb2+GZwl8zEQ==,
+        integrity: sha512-pmyG+e9KZmo4wrufsneeoE2KG2zH9tbRGi0crJFY0kPxOTGSLeuU5w058Qzgpz8vZNui6i59lKjrlQtnXNBgog==,
       }
     engines: { node: ">=12" }
     peerDependencies:
       "@docusaurus/theme-common": ^2 || ^3
+      open-ask-ai: ^0.7.3
       react: ^16.14.0 || ^17 || ^18 || ^19
       react-dom: ^16.14.0 || 17 || ^18 || ^19
+    peerDependenciesMeta:
+      open-ask-ai:
+        optional: true
 
   "@emnapi/core@1.8.1":
     resolution:
@@ -10858,10 +10862,10 @@ packages:
         integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==,
       }
 
-  undici@7.21.0:
+  undici@7.22.0:
     resolution:
       {
-        integrity: sha512-Hn2tCQpoDt1wv23a68Ctc8Cr/BHpUSfaPYrkajTXOS9IKpxVRx/X5m1K2YkbK2ipgZgxXSgsUinl3x+2YdSSfg==,
+        integrity: sha512-RqslV2Us5BrllB+JeiZnK4peryVTndy9Dnqq62S3yYRRTj0tFQCwEniUy2167skdGOy3vqRzEvl1Dm4sV2ReDg==,
       }
     engines: { node: ">=20.18.1" }
 
@@ -11398,10 +11402,30 @@ packages:
       }
     engines: { node: ">=10.13.0" }
 
+  webpack-sources@3.3.4:
+    resolution:
+      {
+        integrity: sha512-7tP1PdV4vF+lYPnkMR0jMY5/la2ub5Fc/8VQrrU+lXkiM6C4TjVfGw7iKfyhnTQOsD+6Q/iKw0eFciziRgD58Q==,
+      }
+    engines: { node: ">=10.13.0" }
+
   webpack@5.105.1:
     resolution:
       {
         integrity: sha512-Gdj3X74CLJJ8zy4URmK42W7wTZUJrqL+z8nyGEr4dTN0kb3nVs+ZvjbTOqRYPD7qX4tUmwyHL9Q9K6T1seW6Yw==,
+      }
+    engines: { node: ">=10.13.0" }
+    hasBin: true
+    peerDependencies:
+      webpack-cli: "*"
+    peerDependenciesMeta:
+      webpack-cli:
+        optional: true
+
+  webpack@5.105.2:
+    resolution:
+      {
+        integrity: sha512-dRXm0a2qcHPUBEzVk8uph0xWSjV/xZxenQQbLwnwP7caQCYpqG1qddwlyEkIDkYn0K8tvmcrZ+bOrzoQ3HxCDw==,
       }
     engines: { node: ">=10.13.0" }
     hasBin: true
@@ -12884,7 +12908,7 @@ snapshots:
       postcss-preset-env: 10.6.1(postcss@8.5.6)
       terser-webpack-plugin: 5.3.16(webpack@5.105.1)
       tslib: 2.8.1
-      url-loader: 4.1.1(file-loader@6.2.0(webpack@5.105.1))(webpack@5.105.1)
+      url-loader: 4.1.1(file-loader@6.2.0(webpack@5.105.2))(webpack@5.105.1)
       webpack: 5.105.1
       webpackbar: 6.0.1(webpack@5.105.1)
     transitivePeerDependencies:
@@ -13003,7 +13027,7 @@ snapshots:
       tslib: 2.8.1
       unified: 11.0.5
       unist-util-visit: 5.1.0
-      url-loader: 4.1.1(file-loader@6.2.0(webpack@5.105.1))(webpack@5.105.1)
+      url-loader: 4.1.1(file-loader@6.2.0(webpack@5.105.2))(webpack@5.105.1)
       vfile: 6.0.3
       webpack: 5.105.1
     transitivePeerDependencies:
@@ -13093,7 +13117,7 @@ snapshots:
       schema-dts: 1.1.5
       tslib: 2.8.1
       utility-types: 3.11.0
-      webpack: 5.105.1
+      webpack: 5.105.2
     transitivePeerDependencies:
       - "@docusaurus/faster"
       - "@mdx-js/react"
@@ -13591,7 +13615,7 @@ snapshots:
       "@docusaurus/utils-common": 3.9.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       escape-string-regexp: 4.0.0
       execa: 5.1.1
-      file-loader: 6.2.0(webpack@5.105.1)
+      file-loader: 6.2.0(webpack@5.105.2)
       fs-extra: 11.3.3
       github-slugger: 1.5.0
       globby: 11.1.0
@@ -13604,9 +13628,9 @@ snapshots:
       prompts: 2.4.2
       resolve-pathname: 3.0.0
       tslib: 2.8.1
-      url-loader: 4.1.1(file-loader@6.2.0(webpack@5.105.1))(webpack@5.105.1)
+      url-loader: 4.1.1(file-loader@6.2.0(webpack@5.105.2))(webpack@5.105.2)
       utility-types: 3.11.0
-      webpack: 5.105.1
+      webpack: 5.105.2
     transitivePeerDependencies:
       - "@swc/core"
       - esbuild
@@ -13621,7 +13645,7 @@ snapshots:
       cssesc: 3.0.0
       immediate: 3.3.0
 
-  "@easyops-cn/docusaurus-search-local@0.54.1(@docusaurus/theme-common@3.9.2(@docusaurus/plugin-content-docs@3.9.2(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)":
+  "@easyops-cn/docusaurus-search-local@0.55.0(@docusaurus/theme-common@3.9.2(@docusaurus/plugin-content-docs@3.9.2(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(open-ask-ai@0.7.3(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)":
     dependencies:
       "@docusaurus/plugin-content-docs": 3.9.2(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(debug@4.4.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       "@docusaurus/theme-common": 3.9.2(@docusaurus/plugin-content-docs@3.9.2(@mdx-js/react@3.1.1(@types/react@19.2.13)(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -13652,8 +13676,6 @@ snapshots:
       - "@rspack/core"
       - "@swc/core"
       - "@swc/css"
-      - "@types/react"
-      - "@types/react-dom"
       - bufferutil
       - csso
       - esbuild
@@ -15271,7 +15293,7 @@ snapshots:
       parse5: 7.3.0
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
-      undici: 7.21.0
+      undici: 7.22.0
       whatwg-mimetype: 4.0.0
 
   chevrotain-allstar@0.3.1(chevrotain@11.0.3):
@@ -16298,6 +16320,12 @@ snapshots:
       loader-utils: 2.0.4
       schema-utils: 3.3.0
       webpack: 5.105.1
+
+  file-loader@6.2.0(webpack@5.105.2):
+    dependencies:
+      loader-utils: 2.0.4
+      schema-utils: 3.3.0
+      webpack: 5.105.2
 
   fill-range@7.1.1:
     dependencies:
@@ -20045,6 +20073,15 @@ snapshots:
       terser: 5.46.0
       webpack: 5.105.1
 
+  terser-webpack-plugin@5.3.16(webpack@5.105.2):
+    dependencies:
+      "@jridgewell/trace-mapping": 0.3.31
+      jest-worker: 27.5.1
+      schema-utils: 4.3.3
+      serialize-javascript: 6.0.2
+      terser: 5.46.0
+      webpack: 5.105.2
+
   terser@5.46.0:
     dependencies:
       "@jridgewell/source-map": 0.3.11
@@ -20135,7 +20172,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  undici@7.21.0: {}
+  undici@7.22.0: {}
 
   unherit@3.0.1: {}
 
@@ -20312,14 +20349,23 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  url-loader@4.1.1(file-loader@6.2.0(webpack@5.105.1))(webpack@5.105.1):
+  url-loader@4.1.1(file-loader@6.2.0(webpack@5.105.2))(webpack@5.105.1):
     dependencies:
       loader-utils: 2.0.4
       mime-types: 2.1.35
       schema-utils: 3.3.0
       webpack: 5.105.1
     optionalDependencies:
-      file-loader: 6.2.0(webpack@5.105.1)
+      file-loader: 6.2.0(webpack@5.105.2)
+
+  url-loader@4.1.1(file-loader@6.2.0(webpack@5.105.2))(webpack@5.105.2):
+    dependencies:
+      loader-utils: 2.0.4
+      mime-types: 2.1.35
+      schema-utils: 3.3.0
+      webpack: 5.105.2
+    optionalDependencies:
+      file-loader: 6.2.0(webpack@5.105.2)
 
   urlpattern-polyfill@10.0.0:
     optional: true
@@ -20532,6 +20578,8 @@ snapshots:
 
   webpack-sources@3.3.3: {}
 
+  webpack-sources@3.3.4: {}
+
   webpack@5.105.1:
     dependencies:
       "@types/eslint-scope": 3.7.7
@@ -20559,6 +20607,38 @@ snapshots:
       terser-webpack-plugin: 5.3.16(webpack@5.105.1)
       watchpack: 2.5.1
       webpack-sources: 3.3.3
+    transitivePeerDependencies:
+      - "@swc/core"
+      - esbuild
+      - uglify-js
+
+  webpack@5.105.2:
+    dependencies:
+      "@types/eslint-scope": 3.7.7
+      "@types/estree": 1.0.8
+      "@types/json-schema": 7.0.15
+      "@webassemblyjs/ast": 1.14.1
+      "@webassemblyjs/wasm-edit": 1.14.1
+      "@webassemblyjs/wasm-parser": 1.14.1
+      acorn: 8.15.0
+      acorn-import-phases: 1.0.4(acorn@8.15.0)
+      browserslist: 4.28.1
+      chrome-trace-event: 1.0.4
+      enhanced-resolve: 5.19.0
+      es-module-lexer: 2.0.0
+      eslint-scope: 5.1.1
+      events: 3.3.0
+      glob-to-regexp: 0.4.1
+      graceful-fs: 4.2.11
+      json-parse-even-better-errors: 2.3.1
+      loader-runner: 4.3.1
+      mime-types: 2.1.35
+      neo-async: 2.6.2
+      schema-utils: 4.3.3
+      tapable: 2.3.0
+      terser-webpack-plugin: 5.3.16(webpack@5.105.2)
+      watchpack: 2.5.1
+      webpack-sources: 3.3.4
     transitivePeerDependencies:
       - "@swc/core"
       - esbuild
