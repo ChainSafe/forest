@@ -2,7 +2,7 @@
 description = "Installs all Forest binaries with a specified profile."
 usage = '''
 arg "<profile>" help="Installation profile (quick, release, etc.)" default="release" {
-   choices "quick" "release" "release-lto-fat" "dev" "debugging" "profiling"
+   choices "quick" "quick-test" "release" "release-lto-fat" "dev" "debugging" "profiling"
 }
 flag "--slim" help="Install a slim version"
 flag "-v --verbose" help="Enable verbose output"
