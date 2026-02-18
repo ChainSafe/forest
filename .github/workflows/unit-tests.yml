@@ -43,6 +43,7 @@ env:
 jobs:
   tests-release:
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
@@ -76,7 +77,7 @@ jobs:
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - uses: jdx/mise-action@v3
       - run: |
-          mise test quick
+          mise test
         env:
           FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
           # https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories

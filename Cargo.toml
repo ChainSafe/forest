@@ -296,6 +296,10 @@ lto = "off"
 incremental = true
 codegen-units = 256
 
+[profile.quick-test]
+inherits = "quick"
+panic = "unwind"
+
 [profile.profiling]
 inherits = "dev"
 opt-level = 0
