@@ -62,7 +62,17 @@ These docs are automatically generated from the Forest CLI. See [script](/docs/d
 
 #### JSON-RPC Docs
 
-We use the OpenRPC document from Forest to populate the documentation for each method. For this we use `@metamask/docusaurus-openrpc`.
+We maintain comprehensive RPC documentation generated from the OpenRPC specification:
+
+1. **Method Reference** - An interactive, searchable reference for all 246 RPC methods. Generated automatically from `docs/users/openrpc.json` by a build script. See [RPC_REFERENCE.md](./RPC_REFERENCE.md) for details.
+
+2. **OpenRPC Schema Explorer** - An external playground linked from the docs for exploring the full schema interactively.
+
+To regenerate the method reference after updating `openrpc.json`:
+
+```bash
+pnpm generate:rpc-reference
+```
 
 ### Developer Docs
 
