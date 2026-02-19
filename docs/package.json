@@ -9,7 +9,7 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "build": "docusaurus build",
+    "build": "pnpm generate:rpc-reference && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
@@ -19,7 +19,8 @@
     "typecheck": "tsc",
     "spellcheck": "spellchecker -f \"./docs/**/*.md\" -l en-US -q  -d ./dictionary.txt",
     "format-check": "prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "generate:rpc-reference": "tsx scripts/generate-rpc-reference.ts"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
@@ -38,7 +39,9 @@
     "@docusaurus/module-type-aliases": "^3.9.2",
     "@docusaurus/tsconfig": "^3.9.2",
     "@docusaurus/types": "^3.9.2",
+    "@types/node": "^22.15.4",
     "spellchecker-cli": "^7.0.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "browserslist": {

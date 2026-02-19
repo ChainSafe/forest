@@ -36,6 +36,10 @@ jobs:
           node-version: 20
           package-manager-cache: false
       - run: corepack enable
+      - name: Generate OpenRPC specifications
+        run: |
+          cd scripts
+          ./generate-openrpc-specs.sh docker
       - run: pnpm i --frozen-lockfile
       - run: pnpm build
 
