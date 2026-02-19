@@ -422,7 +422,7 @@ mod test {
                 .filter_map(Result::ok)
                 .map(|entry| entry.path().strip_prefix(dir).unwrap().to_path_buf())
                 .sorted()
-                .collect::<Vec<PathBuf>>()
+                .collect_vec()
         };
         let restored = get_entries_recurse(restore_dir.path());
         let original = get_entries_recurse(&data_dir);

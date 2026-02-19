@@ -54,7 +54,7 @@ impl TipsetSelector {
 pub struct TipsetHeight {
     pub at: ChainEpoch,
     pub previous: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub anchor: Option<TipsetAnchor>,
 }
 lotus_json_with_self!(TipsetHeight);
@@ -82,10 +82,14 @@ impl TipsetHeight {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 pub struct TipsetAnchor {
-    #[serde(with = "crate::lotus_json")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "ApiTipsetKey::is_none",
+        default
+    )]
     #[schemars(with = "LotusJson<TipsetKey>")]
     pub key: ApiTipsetKey,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tag: Option<TipsetTag>,
 }
 lotus_json_with_self!(TipsetAnchor);

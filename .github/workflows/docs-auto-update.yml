@@ -8,7 +8,7 @@ on:
 
 jobs:
   update-docs:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v6
       - name: Run update script
@@ -20,8 +20,8 @@ jobs:
           node-version: 20
           package-manager-cache: false
       - run: corepack enable
-      - run: yarn --immutable
-      - run: yarn md-fmt
+      - run: pnpm i --frozen-lockfile
+      - run: pnpm md-fmt
       # This is needed in order to have the commits signed.
       - uses: actions/create-github-app-token@v2
         id: generate-token

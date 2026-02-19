@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{pin::Pin, task::Poll};
 
-use digest::{Digest, Output};
 use pin_project_lite::pin_project;
+use sha2::digest::{Digest, Output};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 pin_project! {

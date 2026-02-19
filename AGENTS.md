@@ -289,10 +289,10 @@ Each network has its own genesis, bootstrap peers, actor bundles, and upgrade ep
 
 ```bash
 # Mainnet (requires snapshot download)
-forest --encrypt-keystore false
+forest
 
 # Calibnet (testnet, auto-download snapshot)
-forest --chain calibnet --auto-download-snapshot --encrypt-keystore false
+forest --chain calibnet --auto-download-snapshot
 
 # Using Docker
 docker run --init -it --rm ghcr.io/chainsafe/forest:latest --chain calibnet --auto-download-snapshot
@@ -326,7 +326,7 @@ forest-tool snapshot fetch --chain calibnet
 forest-tool snapshot export --output snapshot.car
 
 # Import snapshot
-forest --import-snapshot snapshot.car --encrypt-keystore false
+forest --import-snapshot snapshot.car
 ```
 
 ### Debugging
@@ -358,6 +358,7 @@ lldb target/debugging/forest
 ## Cargo Features
 
 - **`default`** - `jemalloc`, `tokio-console`, `tracing-loki`, `tracing-chrome`
+- **`test`** - Default feature set for unit tests
 - **`slim`** - Minimal feature set (uses rustalloc)
 - **`jemalloc`** - Use jemalloc allocator (production default)
 - **`rustalloc`** - Use Rust standard allocator
@@ -366,6 +367,7 @@ lldb target/debugging/forest
 - **`tracing-loki`** - Send telemetry to Loki
 - **`tracing-chrome`** - Chrome tracing support
 - **`no-f3-sidecar`** - Disable F3 sidecar build
+- **`cargo-test`** - Group of tests that is recommended to run with `cargo test` instead of `nextest`
 - **`doctest-private`** - Enable doctests for private items
 - **`benchmark-private`** - Enable benchmark suite
 - **`interop-tests-private`** - Enable interop tests

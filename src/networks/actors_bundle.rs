@@ -207,7 +207,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
 
     roots.sort(); // deterministic
 
-    let mut blocks = blocks.into_iter().flatten().collect::<Vec<_>>();
+    let mut blocks = blocks.into_iter().flatten().collect_vec();
     blocks.sort();
     blocks.dedup();
 

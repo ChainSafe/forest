@@ -241,7 +241,7 @@ pub mod state_compute {
         });
 
         let url = Url::parse(&format!("{DO_SPACE_ROOT}{file}"))?;
-        Ok(crate::utils::retry(
+        let path = crate::utils::retry(
             crate::utils::RetryArgs {
                 timeout: Some(Duration::from_secs(30)),
                 max_retries: Some(5),
@@ -256,7 +256,17 @@ pub mod state_compute {
             },
         )
         .await?
-        .path)
+        .path;
+        #[cfg(test)]
+        {
+            // To determine whether a test failure is caused by data corruption
+            use sha2::digest::Digest as _;
+            println!(
+                "snapshot: {file}, sha256sum: {}",
+                hex::encode(sha2::Sha256::digest(std::fs::read(&path)?))
+            );
+        }
+        Ok(path)
     }
 
     pub async fn prepare_state_compute(
@@ -355,6 +365,7 @@ pub mod state_compute {
         //!
 
         use super::*;
+        #[cfg(feature = "cargo-test")]
         use crate::chain_sync::tipset_syncer::validate_tipset;
 
         #[tokio::test(flavor = "multi_thread")]
@@ -365,107 +376,19 @@ pub mod state_compute {
             get_state_snapshot_file(&files[0]).await.unwrap();
         }
 
-        // FVM@4
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_mainnet_5709604() {
-            let chain = NetworkChain::Mainnet;
-            let snapshot = get_state_compute_snapshot(&chain, 5709604).await.unwrap();
+        include!(concat!(env!("OUT_DIR"), "/__state_compute_tests_gen.rs"));
+
+        #[allow(dead_code)]
+        async fn state_compute_test_run(chain: NetworkChain, epoch: i64) {
+            let snapshot = get_state_compute_snapshot(&chain, epoch).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();
         }
 
-        // FVM@4
+        #[cfg(feature = "cargo-test")]
         #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_3408952() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 3408952).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        // Shark state migration with FVM@2
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_16801() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 16801).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        // Hygge state migration with FVM@2
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_322355() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 322355).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        // Lightning state migration with FVM@3
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_489095() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 489095).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        // Watermelon state migration with FVM@3
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_1013135() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 1013135).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        // Dragon state migration with FVM@4
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_1427975() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 1427975).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        // Waffle state migration with FVM@4
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_1779095() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 1779095).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        // TukTuk state migration with FVM@4
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_2078795() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 2078795).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        // Teep state migration with FVM@4
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_2523455() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 2523455).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        // GoldenWeek state migration with FVM@4
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_compute_calibnet_3007295() {
-            let chain = NetworkChain::Calibnet;
-            let snapshot = get_state_compute_snapshot(&chain, 3007295).await.unwrap();
-            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
-            state_compute(&sm, ts, &ts_next).await.unwrap();
-        }
-
-        #[tokio::test(flavor = "multi_thread")]
-        async fn state_validate_mainnet_5688000() {
+        #[fickle::fickle]
+        async fn cargo_test_state_validate_mainnet_5688000() {
             let chain = NetworkChain::Mainnet;
             let snapshot = get_state_validate_snapshot(&chain, 5688000).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
@@ -473,8 +396,10 @@ pub mod state_compute {
         }
 
         // Shark state migration
+        #[cfg(feature = "cargo-test")]
         #[tokio::test(flavor = "multi_thread")]
-        async fn state_validate_calibnet_16802() {
+        #[fickle::fickle]
+        async fn cargo_test_state_validate_calibnet_16802() {
             let chain = NetworkChain::Calibnet;
             let snapshot = get_state_validate_snapshot(&chain, 16802).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
@@ -482,8 +407,10 @@ pub mod state_compute {
         }
 
         // Hygge state migration
+        #[cfg(feature = "cargo-test")]
         #[tokio::test(flavor = "multi_thread")]
-        async fn state_validate_calibnet_322356() {
+        #[fickle::fickle]
+        async fn cargo_test_state_validate_calibnet_322356() {
             let chain = NetworkChain::Calibnet;
             let snapshot = get_state_validate_snapshot(&chain, 322356).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();

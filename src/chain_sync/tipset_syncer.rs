@@ -84,11 +84,7 @@ impl TipsetSyncerError {
     /// Concatenate all validation error messages into one comma separated
     /// version.
     fn concat(errs: NonEmpty<TipsetSyncerError>) -> Self {
-        let msg = errs
-            .iter()
-            .map(|e| e.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
+        let msg = errs.iter().map(|e| e.to_string()).collect_vec().join(", ");
 
         TipsetSyncerError::Validation(msg)
     }

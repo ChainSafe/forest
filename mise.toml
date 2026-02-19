@@ -2,7 +2,7 @@
 description = "Installs all Forest binaries with a specified profile."
 usage = '''
 arg "<profile>" help="Installation profile (quick, release, etc.)" default="release" {
-   choices "quick" "release" "release-lto-fat" "dev" "debugging" "profiling"
+   choices "quick" "quick-test" "release" "release-lto-fat" "dev" "debugging" "profiling"
 }
 flag "--slim" help="Install a slim version"
 flag "-v --verbose" help="Enable verbose output"
@@ -107,8 +107,8 @@ depends = ["lint:deny", "lint:spellcheck", "lint:rust-fmt", "lint:clippy", "lint
 [tasks."lint:yaml"]
 description = "Lint YAML files."
 run = '''
-yarn && yarn install
-yarn yaml-check
+pnpm i --frozen-lockfile
+pnpm yaml-check
 '''
 
 [tasks.format]
@@ -116,9 +116,9 @@ description = "Format all supported code."
 run = '''
 cargo fmt --all
 taplo fmt
-yarn && yarn install
-yarn md-fmt
-yarn yaml-fmt
+pnpm i --frozen-lockfile
+pnpm md-fmt
+pnpm yaml-fmt
 '''
 alias = "fmt"
 
@@ -126,18 +126,18 @@ alias = "fmt"
 description = "Format documentation files."
 dir = "docs"
 run = '''
-yarn --immutable
-yarn format
+pnpm i --frozen-lockfile
+pnpm format
 '''
 
 [tasks."docs:lint"]
 description = "Lint documentation files."
 dir = "docs"
 run = '''
-yarn --immutable
-yarn typecheck
-yarn spellcheck
-yarn format-check
+pnpm i --frozen-lockfile
+pnpm typecheck
+pnpm spellcheck
+pnpm format-check
 '''
 
 [tasks.clean]
@@ -152,42 +152,55 @@ rm -rf node_modules
 # We need to run them separately.
 description = "Run doctests."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
-cargo test --doc --profile ${usage_profile?} --features doctest-private --no-fail-fast
+cargo test --doc --profile ${usage_profile?} --no-default-features --features "test doctest-private" --no-fail-fast
 '''
 
-[tasks."test:rust"]
-description = "Run Rust unit and integration tests."
+[tasks."test:nextest"]
+description = "Run Rust unit and integration tests except `cargo-test` group with nextest."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
 echo "Running tests with profile: ${usage_profile?}" 
-cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-fail-fast
+cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-default-features --features "test" --no-fail-fast
+'''
+
+[tasks."test:cargo"]
+description = "Run Rust unit, integration and doc tests of `cargo-test` group with cargo test."
+usage = '''
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
+}
+'''
+run = '''
+echo "Running tests with profile: ${usage_profile?}" 
+cargo test --lib --profile ${usage_profile?} --workspace --no-default-features --features "test cargo-test" --no-fail-fast -- --test "cargo_test_"
 '''
 
 [tasks.test]
 description = "Run all tests."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
-mise task run test:rust ${usage_profile?}
+mise task run test:nextest ${usage_profile?}
+mise task run test:cargo ${usage_profile?}
 mise task run test:docs ${usage_profile?}
 '''
 
 [tasks.codecov]
 description = "Generate codecov report"
 run = '''
-cargo llvm-cov -p forest-filecoin --codecov --output-path lcov.info
+cargo llvm-cov -p forest-filecoin --codecov --no-default-features --features "test cargo-test" --output-path lcov.info
 '''
 
 [tasks."docs:format-spellcheck-dictionary"]
@@ -211,5 +224,6 @@ diff dictionary.txt "$TMPFILE"
 
 [tools]
 cargo-binstall = "1.16.6"
-go = "1.25.5"
-yarn = "4.12"
+go = "1.26.0"
+node = "20"
+pnpm = "10"

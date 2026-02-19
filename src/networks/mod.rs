@@ -341,13 +341,13 @@ impl ChainConfig {
             // FIP-0100: 300M -> 1.2B FIL
             upgrade_teep_initial_fil_reserved: Some(TokenAmount::from_whole(1_200_000_000)),
             // Enable after `f3_initial_power_table` is determined and set to avoid GC hell
-            // (state tree of epoch 2_081_674 - 900 has to be present in the database if `f3_initial_power_table` is not set)
+            // (state tree of epoch 3_451_774 - 900 has to be present in the database if `f3_initial_power_table` is not set)
             f3_enabled: true,
             f3_consensus: true,
-            // 2024-10-24T13:30:00Z
-            f3_bootstrap_epoch: 2_081_674,
+            // 2026-02-12T07:00:00Z
+            f3_bootstrap_epoch: 3_451_774,
             f3_initial_power_table: Some(
-                "bafy2bzaceab236vmmb3n4q4tkvua2n4dphcbzzxerxuey3mot4g3cov5j3r2c"
+                "bafy2bzacednijkh5dhb6jb7snxhhtjt7zuqaydlewoha3ordhy76dhgwtmptg"
                     .parse()
                     .expect("invalid f3_initial_power_table"),
             ),

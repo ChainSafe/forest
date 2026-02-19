@@ -28,13 +28,14 @@ on:
 
 env:
   CI: 1
-  CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
   AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
   AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
   RUSTC_WRAPPER: "sccache"
   CC: "sccache clang"
   CXX: "sccache clang++"
+  # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
+  RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   RUST_LOG: error
   FOREST_ACTOR_BUNDLE_PATH: /var/tmp/forest_actor_bundle.car.zst
@@ -42,6 +43,7 @@ env:
 jobs:
   tests-release:
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
@@ -71,12 +73,12 @@ jobs:
         uses: taiki-e/install-action@nextest
       - name: Fetch proof params and RPC test snapshots
         run: |
-          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
+          cargo run --bin forest-dev --no-default-features --profile quick-test -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - uses: jdx/mise-action@v3
       - run: |
-          mise test quick
+          mise test
         env:
-          # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
-          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
           FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
+          # https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
+          CARGO_BUILD_JOBS: 3

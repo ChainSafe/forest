@@ -45,18 +45,18 @@ use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use futures::stream::FuturesUnordered;
-use futures::stream::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
 use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
+use libsecp256k1::{PublicKey, SecretKey};
 use num_traits::Signed;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use similar::{ChangeTag, TextDiff};
+use std::borrow::Cow;
 use std::path::Path;
 use std::time::Instant;
 use std::{
@@ -66,6 +66,7 @@ use std::{
     time::Duration,
 };
 use tokio::sync::Semaphore;
+use tokio::task::JoinSet;
 use tracing::debug;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
@@ -123,6 +124,13 @@ static KNOWN_CALIBNET_F4_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
         .into()
 });
 
+fn generate_eth_random_address() -> anyhow::Result<EthAddress> {
+    let rng = &mut crate::utils::rand::forest_os_rng();
+    let secret_key = SecretKey::random(rng);
+    let public_key = PublicKey::from_secret_key(&secret_key);
+    EthAddress::eth_address_from_pub_key(&public_key.serialize())
+}
+
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
 const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
@@ -160,7 +168,12 @@ impl TestSummary {
         match err {
             rpc::ClientError::Call(it) => match it.code().into() {
                 ErrorCode::MethodNotFound => Self::MissingMethod,
-                _ => Self::Rejected(it.message().to_string()),
+                _ => {
+                    // `lotus-gateway` adds `RPC error (-32603):` prefix to the error message that breaks tests,
+                    // normalize the error message first
+                    let message = normalized_error_message(it.message());
+                    Self::Rejected(message.to_string())
+                }
             },
             rpc::ClientError::ParseError(_) => Self::NotJsonRPC,
             rpc::ClientError::RequestTimeout => Self::Timeout,
@@ -1643,6 +1656,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBalance::request((
+                generate_eth_random_address().unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBalanceV2::request((
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
                 ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
@@ -1710,6 +1730,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetBalanceV2::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalanceV2::request((
+                generate_eth_random_address().unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
             ))
             .unwrap(),
         ),
@@ -1927,6 +1954,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetTransactionCount::request((
+                generate_eth_random_address().unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetTransactionCountV2::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 ExtBlockNumberOrHash::from_block_hash_object(block_hash, true),
@@ -1970,6 +2004,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetTransactionCountV2::request((
+                generate_eth_random_address().unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetStorageAt::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
@@ -2004,6 +2045,14 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetStorageAt::request((
+                generate_eth_random_address().unwrap(),
+                EthBytes(vec![0x0]),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetStorageAtV2::request((
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
@@ -2024,6 +2073,14 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
                 ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetStorageAtV2::request((
+                generate_eth_random_address().unwrap(),
+                EthBytes(vec![0x0]),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
             ))
             .unwrap(),
         ),
@@ -2183,6 +2240,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetCode::request((
+                generate_eth_random_address().unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetCodeV2::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
@@ -2201,6 +2265,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetCodeV2::request((
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetCodeV2::request((
+                generate_eth_random_address().unwrap(),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
             ))
             .unwrap(),
         ),
@@ -2557,9 +2628,9 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             tests.push(RpcTest::identity(EthGetTransactionByHashLimited::request(
                 (tx.hash, shared_tipset.epoch()),
             )?));
-            tests.push(RpcTest::identity(
-                EthTraceTransaction::request((tx.hash.to_string(),)).unwrap(),
-            ));
+            tests.push(RpcTest::identity(EthTraceTransaction::request((tx
+                .hash
+                .to_string(),))?));
             if smsg.message.from.protocol() == Protocol::Delegated
                 && smsg.message.to.protocol() == Protocol::Delegated
             {
@@ -2660,7 +2731,7 @@ fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {
         ))?),
         RpcTest::identity(F3IsRunning::request(())?),
         RpcTest::identity(F3GetCertificate::request((0,))?),
-        RpcTest::identity(F3GetCertificate::request((100,))?),
+        RpcTest::identity(F3GetCertificate::request((50,))?),
         RpcTest::identity(F3GetManifest::request(())?),
     ])
 }
@@ -2856,11 +2927,12 @@ pub(super) async fn run_tests(
     test_criteria_overrides: &[TestCriteriaOverride],
     report_dir: Option<PathBuf>,
     report_mode: ReportMode,
+    n_retries: usize,
 ) -> anyhow::Result<()> {
     let forest = Into::<Arc<rpc::Client>>::into(forest);
     let lotus = Into::<Arc<rpc::Client>>::into(lotus);
     let semaphore = Arc::new(Semaphore::new(max_concurrent_requests));
-    let mut futures = FuturesUnordered::new();
+    let mut tasks = JoinSet::new();
 
     let filter_list = if let Some(filter_file) = &filter_file {
         FilterList::new_from_file(filter_file)?
@@ -2912,41 +2984,60 @@ pub(super) async fn run_tests(
         }
 
         // Acquire a permit from the semaphore before spawning a test
-        let permit = semaphore.clone().acquire_owned().await?;
+        let semaphore = semaphore.clone();
         let forest = forest.clone();
         let lotus = lotus.clone();
-        let future = tokio::spawn(async move {
-            let test_result = test.run(&forest, &lotus).await;
-            drop(permit); // Release the permit after test execution
-            (test, test_result)
+        let test_criteria_overrides = test_criteria_overrides.to_vec();
+        tasks.spawn(async move {
+            let mut n_retries_left = n_retries;
+            let mut backoff_secs = 2;
+            loop {
+                {
+                    // Ignore the error since 'An acquire operation can only fail if the semaphore has been closed'
+                    let _permit = semaphore.acquire().await;
+                    let test_result = test.run(&forest, &lotus).await;
+                    let success =
+                        evaluate_test_success(&test_result, &test, &test_criteria_overrides);
+                    if success || n_retries_left == 0 {
+                        return (success, test, test_result);
+                    }
+                    // Release the semaphore before sleeping
+                }
+                // Sleep before each retry
+                tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                n_retries_left = n_retries_left.saturating_sub(1);
+                backoff_secs = backoff_secs.saturating_mul(2);
+            }
         });
-
-        futures.push(future);
     }
 
     // If no tests to run after filtering, return early without saving/printing
-    if futures.is_empty() {
+    if tasks.is_empty() {
         return Ok(());
     }
 
-    while let Some(Ok((test, test_result))) = futures.next().await {
-        let method_name = test.request.method_name.clone();
-        let success = evaluate_test_success(&test_result, &test, test_criteria_overrides);
+    while let Some(result) = tasks.join_next().await {
+        match result {
+            Ok((success, test, test_result)) => {
+                let method_name = test.request.method_name.clone();
 
-        report_builder.track_test_result(
-            method_name.as_ref(),
-            success,
-            &test_result,
-            &test.request.params,
-        );
+                report_builder.track_test_result(
+                    method_name.as_ref(),
+                    success,
+                    &test_result,
+                    &test.request.params,
+                );
 
-        // Dump test data if configured
-        if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
-            dump_test_data(dump_dir, success, test_dump)?;
-        }
+                // Dump test data if configured
+                if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
+                    dump_test_data(dump_dir, success, test_dump)?;
+                }
 
-        if !success && fail_fast {
-            break;
+                if !success && fail_fast {
+                    break;
+                }
+            }
+            Err(e) => tracing::warn!("{e}"),
         }
     }
 
@@ -2993,6 +3084,12 @@ fn evaluate_test_success(
     }
 }
 
+fn normalized_error_message(s: &str) -> Cow<'_, str> {
+    // remove `RPC error (-32603):` prefix added by `lotus-gateway`
+    let lotus_gateway_error_prefix = lazy_regex::regex!(r#"^RPC\serror\s\(-?\d+\):\s*"#);
+    lotus_gateway_error_prefix.replace(s, "")
+}
+
 /// Dump test data to the specified directory
 fn dump_test_data(dump_dir: &Path, success: bool, test_dump: &TestDump) -> anyhow::Result<()> {
     let dir = dump_dir.join(if success { "valid" } else { "invalid" });
@@ -3037,4 +3134,29 @@ fn validate_tagged_tipset_v2(req: rpc::Request<Option<Tipset>>, offline: bool) -
         }
         _ => false,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalized_error_message_1() {
+        let s = "RPC error (-32603): exactly one tipset selection criteria must be specified";
+        let r = normalized_error_message(s);
+        assert_eq!(
+            r.as_ref(),
+            "exactly one tipset selection criteria must be specified"
+        );
+    }
+
+    #[test]
+    fn test_normalized_error_message_2() {
+        let s = "exactly one tipset selection criteria must be specified";
+        let r = normalized_error_message(s);
+        assert_eq!(
+            r.as_ref(),
+            "exactly one tipset selection criteria must be specified"
+        );
+    }
 }

@@ -170,7 +170,9 @@ where
 
     /// Writes the `TipsetKey` to the blockstore for `EthAPI` queries.
     pub fn put_tipset_key(&self, tsk: &TipsetKey) -> Result<(), Error> {
-        let hash = tsk.cid()?.into();
+        let tsk_bytes = tsk.bytes();
+        let tsk_cid = self.blockstore().put_cbor_default(&tsk_bytes)?;
+        let hash = tsk_cid.into();
         self.eth_mappings.write_obj(&hash, tsk)?;
         Ok(())
     }
@@ -535,12 +537,11 @@ where
 {
     let amt = Amt::<Cid, _>::load(root, db)?;
 
-    let mut cids = Vec::new();
-    for i in 0..amt.count() {
-        if let Some(c) = amt.get(i)? {
-            cids.push(*c);
-        }
-    }
+    let mut cids = Vec::with_capacity(amt.count() as usize);
+    amt.for_each_cacheless(|_, c| {
+        cids.push(*c);
+        Ok(())
+    })?;
 
     Ok(cids)
 }

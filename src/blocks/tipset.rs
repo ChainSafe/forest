@@ -49,13 +49,7 @@ pub struct TipsetKey(#[into_iterator(owned, ref)] SmallCidNonEmptyVec);
 impl TipsetKey {
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
-        use fvm_ipld_encoding::RawBytes;
-
-        let mut bytes = Vec::new();
-        for cid in self.to_cids() {
-            bytes.append(&mut cid.to_bytes())
-        }
-        Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
+        Ok(Cid::from_cbor_blake2b256(&self.bytes())?)
     }
 
     /// Returns `true` if the tipset key contains the given CID.
@@ -102,13 +96,18 @@ impl TipsetKey {
         self.to_cids()
             .into_iter()
             .map(terse_cid)
-            .collect::<Vec<_>>()
+            .collect_vec()
             .join(", ")
     }
 
     /// Formats tipset key to match the Lotus display.
     pub fn format_lotus(&self) -> String {
         format!("{{{}}}", self.to_cids().into_iter().join(","))
+    }
+
+    /// Bytes representation for CBOR encoding
+    pub fn bytes(&self) -> fvm_ipld_encoding::RawBytes {
+        fvm_ipld_encoding::RawBytes::new(self.iter().flat_map(|cid| cid.to_bytes()).collect())
     }
 }
 
@@ -127,7 +126,7 @@ impl fmt::Display for TipsetKey {
             .to_cids()
             .into_iter()
             .map(|cid| cid.to_string())
-            .collect::<Vec<_>>()
+            .collect_vec()
             .join(", ");
         write!(f, "[{s}]")
     }

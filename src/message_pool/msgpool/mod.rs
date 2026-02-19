@@ -28,7 +28,7 @@ use utils::{get_base_fee_lower_bound, recover_sig};
 use super::errors::Error;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
-    msg_pool::{MsgSet, add_helper, remove},
+    msg_pool::{MsgSet, TrustPolicy, add_helper, remove},
     provider::Provider,
 };
 
@@ -277,7 +277,14 @@ where
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
             let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.read().clone())?;
-            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
+            if let Err(e) = add_helper(
+                api,
+                bls_sig_cache,
+                pending,
+                msg,
+                sequence,
+                TrustPolicy::Trusted,
+            ) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
         }

@@ -293,10 +293,10 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     // always serialize it back to a valid TOML value or get the TOML value from
     // `path`
     let file = std::fs::read_to_string(path).unwrap();
-    let value = file.parse::<toml::Value>().unwrap();
+    let value = toml::Value::Table(file.parse::<toml::Table>().unwrap());
 
     let config_file = toml::to_string(config).unwrap();
-    let config_value = config_file.parse::<toml::Value>().unwrap();
+    let config_value = toml::Value::Table(config_file.parse::<toml::Table>().unwrap());
 
     let mut result = vec![];
     find_unknown_keys(vec![], &value, &config_value, &mut result);
@@ -325,8 +325,16 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+
+    #[test]
+    fn test_check_for_unknown_keys() {
+        let config = Config::default();
+        let config_content = toml::to_string(&config).unwrap();
+        let temp_file = tempfile::Builder::new().tempfile().unwrap();
+        std::fs::write(temp_file.path(), config_content).unwrap();
+        check_for_unknown_keys(temp_file.path(), &config);
+    }
 
     #[test]
     fn find_unknown_keys_must_work() {

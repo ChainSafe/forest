@@ -160,6 +160,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactionsV2);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
+        $callback!($crate::rpc::eth::EthSendRawTransactionUntrusted);
 
         // gas vertical
         $callback!($crate::rpc::gas::GasEstimateFeeCap);
@@ -467,6 +468,15 @@ static DEFAULT_REQUEST_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
         .unwrap_or(Duration::from_secs(60))
 });
 
+/// Default maximum connections for the RPC server. This needs to be high enough to
+/// accommodate the regular usage for RPC providers.
+static DEFAULT_MAX_CONNECTIONS: LazyLock<u32> = LazyLock::new(|| {
+    env::var("FOREST_RPC_MAX_CONNECTIONS")
+        .ok()
+        .and_then(|it| it.parse().ok())
+        .unwrap_or(1000)
+});
+
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
 const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 
@@ -566,6 +576,7 @@ where
                     // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
                     .max_request_body_size(MAX_REQUEST_BODY_SIZE)
                     .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+                    .max_connections(*DEFAULT_MAX_CONNECTIONS)
                     .set_id_provider(RandomHexStringIdProvider::new())
                     .build(),
             )
@@ -795,22 +806,28 @@ mod tests {
     use std::net::{Ipv4Addr, SocketAddr};
     use tokio::task::JoinSet;
 
-    // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
+    // To update RPC specs:
+    // `cargo test --lib -- rpc::tests::openrpc`
     // `cargo insta review`
+
     #[test]
-    #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
-    fn openrpc() {
-        for path in [ApiPaths::V0, ApiPaths::V1] {
-            let _spec = super::openrpc(path, None);
-            // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
-            //               this is disabled because it causes lots of merge
-            //               conflicts.
-            //               We should consider re-enabling it when our RPC is
-            //               more stable.
-            //               (We still run this test to make sure we're not
-            //               violating other invariants)
-            insta::assert_yaml_snapshot!(_spec);
-        }
+    fn openrpc_v0() {
+        openrpc(ApiPaths::V0);
+    }
+
+    #[test]
+    fn openrpc_v1() {
+        openrpc(ApiPaths::V1);
+    }
+
+    #[test]
+    fn openrpc_v2() {
+        openrpc(ApiPaths::V2);
+    }
+
+    fn openrpc(path: ApiPaths) {
+        let spec = super::openrpc(path, None);
+        insta::assert_yaml_snapshot!(path.path(), spec);
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -841,7 +858,7 @@ mod tests {
 
         let handle = tokio::spawn(start_rpc(state, rpc_listener, stop_handle, None));
 
-        // Send a few requests
+        // Send a few http requests
 
         let client = Client::from_url(
             format!("http://{}:{}/", rpc_address.ip(), rpc_address.port())
@@ -858,6 +875,19 @@ mod tests {
         );
         assert_eq!(response.block_delay, block_delay_secs);
         assert_eq!(response.api_version, ShiftingVersion::new(2, 3, 0));
+
+        let response = super::methods::auth::AuthVerify::call(&client, (jwt_read.clone(),))
+            .await
+            .unwrap();
+        assert_eq!(response, jwt_read_permissions);
+
+        // Send a few websocket requests
+
+        let client = Client::from_url(
+            format!("ws://{}:{}/", rpc_address.ip(), rpc_address.port())
+                .parse()
+                .unwrap(),
+        );
 
         let response = super::methods::auth::AuthVerify::call(&client, (jwt_read,))
             .await

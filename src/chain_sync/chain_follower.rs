@@ -22,7 +22,9 @@ use crate::{
     chain::ChainStore,
     chain_sync::{
         ForkSyncInfo, ForkSyncStage, SyncStatus, SyncStatusReport, TipsetValidator,
-        bad_block_cache::BadBlockCache, metrics, tipset_syncer::validate_tipset,
+        bad_block_cache::BadBlockCache,
+        metrics,
+        tipset_syncer::{TipsetSyncerError, validate_tipset},
     },
     libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
     message_pool::{MessagePool, MpoolRpcProvider},
@@ -234,12 +236,14 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
 
                 // Update the sync states
                 {
-                    let mut status_report_guard = sync_status.write();
-                    status_report_guard.update(
+                    let old_status_report = sync_status.read().clone();
+                    let new_status_report = old_status_report.update(
                         &state_manager,
                         current_active_forks,
                         stateless_mode,
                     );
+
+                    sync_status.write().clone_from(&new_status_report);
                 }
 
                 for task in task_vec {
@@ -844,6 +848,14 @@ impl SyncTask {
                     tipset,
                     is_proposed_head,
                 }),
+                // If temporal drift error, don't mark as bad, just skip validation and try again
+                // later. This mirrors internal logic where temporal drift doesn't mark a block as
+                // bad permanently, since it could be valid later on. If not done, a single
+                // time-traveling block could cause the node to be stuck without making progress.
+                Err(e) if matches!(e, TipsetSyncerError::TimeTravellingBlock { .. }) => {
+                    warn!("Time travelling block detected, skipping tipset for now: {e}");
+                    None
+                }
                 Err(e) => {
                     warn!("Error validating tipset: {e}");
                     Some(SyncEvent::BadTipset(tipset))
@@ -1037,9 +1049,9 @@ mod tests {
             .map(|v| {
                 v.into_iter()
                     .map(|ts| ts.weight().to_i64().unwrap_or(0))
-                    .collect()
+                    .collect_vec()
             })
-            .collect::<Vec<Vec<_>>>();
+            .collect_vec();
 
         // Both chains should start at the same tipset
         assert_eq!(chains, vec![vec![1, 3], vec![1, 2]]);

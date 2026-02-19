@@ -27,6 +27,10 @@ exclude = [
   "beryx.io/faucet",
   # Frequent timeouts
   "curiostorage.org",
+  # Bot protection / 403 Forbidden errors
+  "probelab.io",
+  # Bot protection / 403 Forbidden errors
+  "beryx.io",
 ]
 timeout = 30
 max_retries = 6

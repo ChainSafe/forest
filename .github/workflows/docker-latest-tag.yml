@@ -23,7 +23,7 @@ on:
 jobs:
   tag-docker-image:
     name: Retag image and push to GHCR
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-slim
     steps:
       - name: Login to Github Packages
         uses: docker/login-action@v3

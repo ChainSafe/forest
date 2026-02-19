@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use itertools::Itertools as _;
 use std::path::Path;
 
 /// A filter list that allows or rejects RPC methods based on their name.
@@ -47,7 +48,7 @@ impl FilterList {
         let reject = reject
             .into_iter()
             .map(|entry| entry.trim_start_matches('!').to_owned())
-            .collect::<Vec<_>>();
+            .collect_vec();
 
         Ok((allow, reject))
     }

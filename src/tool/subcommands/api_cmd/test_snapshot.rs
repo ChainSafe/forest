@@ -22,6 +22,7 @@ use crate::{
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
 };
+use anyhow::Context as _;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -79,25 +80,34 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         db: db_bytes,
         response: expected_response,
         api_path,
-    } = serde_json::from_slice(snapshot_bytes.as_slice())?;
+    } = serde_json::from_slice(snapshot_bytes.as_slice()).context("failed to parse snapshot")?;
     if chain.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
     let api_path = api_path.unwrap_or(ApiPaths::V1);
-    let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(AnyCar::new(db_bytes)?)?);
+    let db = Arc::new(
+        ManyCar::new(MemoryDB::default())
+            .with_read_only(AnyCar::new(db_bytes)?)
+            .context("failed to create db from snapshot")?,
+    );
     // backfill db with index data
-    backfill_eth_mappings(db.writer(), index)?;
+    backfill_eth_mappings(db.writer(), index)
+        .context("failed to backfill eth mappings from index")?;
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
-    let (ctx, _, _) = ctx(db, chain_config).await?;
-    let params_raw = match serde_json::to_string(&params)? {
-        s if s.is_empty() => None,
-        s => Some(s),
-    };
+    let (ctx, _, _) = ctx(db, chain_config)
+        .await
+        .context("failed to create RPC context")?;
+    let params_raw =
+        match serde_json::to_string(&params).context("failed to serialize params to string")? {
+            s if s.is_empty() => None,
+            s => Some(s),
+        };
 
     macro_rules! run_test {
         ($ty:ty) => {
             if method_name.as_str() == <$ty>::NAME && <$ty>::API_PATHS.contains(api_path) {
-                let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
+                let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)
+                    .context("failed to parse params")?;
                 let result = <$ty>::handle(ctx.clone(), params)
                     .await
                     .map(|r| r.into_lotus_json())
@@ -179,6 +189,7 @@ mod tests {
     // To run a single test: cargo test --lib filecoin_multisig_statedecodeparams_1754230255631789 -- --nocapture
     include!(concat!(env!("OUT_DIR"), "/__rpc_regression_tests_gen.rs"));
 
+    #[allow(dead_code)]
     async fn rpc_regression_test_run(name: &str) {
         // Set proof parameter data dir and make sure the proofs are available
         {

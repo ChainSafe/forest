@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.31.1"
+version = "0.32.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -12,6 +12,7 @@ exclude = [".config", ".github", ".maintain", "documentation", "scripts", "inter
 name = "forest"
 
 [workspace.dependencies]
+ahash = "0.8"
 anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.12"
@@ -22,10 +23,12 @@ libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.4"
+serde = { version = "1", default-features = false, features = ["derive"] }
+serde_yaml = "0.9"
 tokio = "1"
 
 [dependencies]
-ahash = "0.8"
+ahash = { workspace = true }
 anes = "0.2"
 anyhow = { workspace = true }
 argon2 = "0.5"
@@ -60,7 +63,6 @@ data-encoding-macro = "0.1"
 derive_builder = "0.20"
 derive_more = { version = "2", features = ["from", "into"] }
 dialoguer = "0.12"
-digest = "0.10"
 directories = "6"
 educe = { version = "0.6", features = ["Debug"], default-features = false }
 enumflags2 = "0.7"
@@ -179,18 +181,18 @@ reqwest = { version = "0.13", default-features = false, features = [
   "rustls",
   "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
-rlimit = "0.10"
+rlimit = "0.11"
 rlp = "0.6"
 rs-car-ipfs = "0.4"
 rust2go = { workspace = true }
 schemars = { version = "1", features = ["chrono04", "uuid1"] }
 scopeguard = "1"
 semver = "1"
-serde = { version = "1", default-features = false, features = ["derive"] }
+serde = { workspace = true }
 serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1", features = ["raw_value"] }
 serde_with = { version = "3", features = ["chrono_0_4"] }
-serde_yaml = "0.9"
+serde_yaml = { workspace = true }
 sha2 = { version = "0.10", default-features = false }
 similar = "2"
 slotmap = "1"
@@ -213,7 +215,7 @@ tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-tungstenite = "0.28.0"
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
-toml = "0.8"
+toml = "1"
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["compression-full", "sensitive-headers"] }
 tracing = "0.1"
@@ -257,14 +259,17 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.317"
+ra_ap_syntax = "0.0.319"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
 
 [build-dependencies]
+ahash = { workspace = true }
 rust2go = { workspace = true, features = ["build"] }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
 
 # https://doc.rust-lang.org/stable/cargo/guide/build-performance.html#reduce-amount-of-generated-debug-information
 [profile.dev]
@@ -289,6 +294,12 @@ split-debuginfo = "off"
 inherits = "release"
 opt-level = 1
 lto = "off"
+incremental = true
+codegen-units = 256
+
+[profile.quick-test]
+inherits = "quick"
+panic = "unwind"
 
 [profile.profiling]
 inherits = "dev"
@@ -311,7 +322,9 @@ lto = "fat"
 # These should be refactored (probably removed) in #2984
 [features]
 default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome", "sqlite"]
+test = []                                                                           # default feature set for unit tests
 slim = ["rustalloc"]
+cargo-test = []                                                                     # group of tests that is recommended to run with `cargo test` instead of `nextest`
 doctest-private = []                                                                # see lib.rs::doctest_private
 benchmark-private = ["dep:criterion"]                                               # see lib.rs::benchmark_private
 interop-tests-private = []                                                          # see lib.rs::interop_tests_private

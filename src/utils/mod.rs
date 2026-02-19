@@ -93,10 +93,11 @@ fn test_url_from_multiaddr() {
     #[track_caller]
     fn do_test(input: &str, expected: &str) {
         let UrlFromMultiAddr(url) = input.parse().unwrap();
-        assert_eq!(url.as_str(), expected);
+        assert_eq!(url.as_str(), expected, "input: {input}");
     }
     do_test("/dns/example.com/http", "http://example.com/");
     do_test("/dns/example.com/tcp/8080/http", "http://example.com:8080/");
+    do_test("/dns/example.com/tcp/8081/ws", "ws://example.com:8081/");
     do_test("/ip4/127.0.0.1/wss", "wss://127.0.0.1/");
 
     // with password

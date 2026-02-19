@@ -1,4 +1,4 @@
-73
+75
 Algorand/M
 API/M
 APIs
@@ -58,6 +58,7 @@ F3
 FFI
 FIL
 Filecoin/M
+Filfox
 Filops
 FIP
 FVM
@@ -147,4 +148,5 @@ VRF
 WebAssembly
 WebSocket
 WPoStProvingPeriodDeadlines
+YAML
 zstd

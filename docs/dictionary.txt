@@ -4,6 +4,8 @@ backend
 backfill
 backport
 benchmarking
+Beryx
+Blockscout
 blockstore
 BLS
 BuildKit
@@ -14,6 +16,7 @@ calibnet
 calibnet-related
 Calldata
 cardinality
+Chainlist
 ChainSafe
 chainsafe
 ChainSafe's
@@ -100,6 +103,7 @@ macOS
 Mainnet
 mainnet
 MDBX
+MetaMask
 migrator
 migrators
 mise-en-place

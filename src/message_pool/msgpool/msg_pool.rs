@@ -58,6 +58,14 @@ pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
 /// large messages from being added to the message pool.
 const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 
+/// Trust policy for whether a message is from a trusted or untrusted source.
+/// Untrusted sources are subject to stricter limits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrustPolicy {
+    Trusted,
+    Untrusted,
+}
+
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
 #[derive(Clone, Default, Debug)]
@@ -89,7 +97,6 @@ impl MsgSet {
     /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
     /// message has a sequence greater than any existing message sequence.
     /// Use this method when pushing a message coming from untrusted sources.
-    #[allow(dead_code)]
     pub fn add_untrusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
     where
         T: Provider,
@@ -111,7 +118,7 @@ impl MsgSet {
             self.next_sequence = m.sequence() + 1;
         }
 
-        if let Some(exms) = self.msgs.get(&m.sequence()) {
+        let has_existing = if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid() != exms.cid() {
                 let premium = &exms.message().gas_premium;
                 let min_price = premium.clone()
@@ -123,9 +130,13 @@ impl MsgSet {
             } else {
                 return Err(Error::DuplicateSequence);
             }
-        }
+            true
+        } else {
+            false
+        };
 
-        if self.msgs.len() as u64 >= max_actor_pending_messages {
+        // Only check the limit when adding a new message, not when replacing an existing one (RBF)
+        if !has_existing && self.msgs.len() as u64 >= max_actor_pending_messages {
             return Err(Error::TooManyPendingMessages(
                 m.message.from().to_string(),
                 trusted,
@@ -216,11 +227,15 @@ where
 
     /// Push a signed message to the `MessagePool`. Additionally performs basic
     /// checks on the validity of a message.
-    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
+    pub async fn push_internal(
+        &self,
+        msg: SignedMessage,
+        trust_policy: TrustPolicy,
+    ) -> Result<Cid, Error> {
         self.check_message(&msg)?;
         let cid = msg.cid();
         let cur_ts = self.current_tipset();
-        let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
+        let publish = self.add_tipset(msg.clone(), &cur_ts, true, trust_policy)?;
         let msg_ser = to_vec(&msg)?;
         let network_name = self.chain_config.network.genesis_name();
         self.add_local(msg)?;
@@ -234,6 +249,16 @@ where
                 .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
         }
         Ok(cid)
+    }
+
+    /// Push a signed message to the `MessagePool` from an trusted source.
+    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
+        self.push_internal(msg, TrustPolicy::Trusted).await
+    }
+
+    /// Push a signed message to the `MessagePool` from an untrusted source.
+    pub async fn push_untrusted(&self, msg: SignedMessage) -> Result<Cid, Error> {
+        self.push_internal(msg, TrustPolicy::Untrusted).await
     }
 
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
@@ -255,7 +280,7 @@ where
     pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg)?;
         let ts = self.current_tipset();
-        self.add_tipset(msg, &ts, false)?;
+        self.add_tipset(msg, &ts, false, TrustPolicy::Trusted)?;
         Ok(())
     }
 
@@ -280,7 +305,13 @@ where
     /// Verify the `state_sequence` and balance for the sender of the message
     /// given then call `add_locked` to finish adding the `signed_message`
     /// to pending.
-    fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
+    fn add_tipset(
+        &self,
+        msg: SignedMessage,
+        cur_ts: &Tipset,
+        local: bool,
+        trust_policy: TrustPolicy,
+    ) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
 
         if sequence > msg.message().sequence {
@@ -313,7 +344,7 @@ where
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
-        self.add_helper(msg)?;
+        self.add_helper(msg, trust_policy)?;
         Ok(publish)
     }
 
@@ -321,7 +352,7 @@ where
     /// hash-map. If an entry in the hash-map does not yet exist, create a
     /// new `mset` that will correspond to the from message and push it to
     /// the pending hash-map.
-    fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
+    fn add_helper(&self, msg: SignedMessage, trust_policy: TrustPolicy) -> Result<(), Error> {
         let from = msg.from();
         let cur_ts = self.current_tipset();
         add_helper(
@@ -330,6 +361,7 @@ where
             self.pending.as_ref(),
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
+            trust_policy,
         )
     }
 
@@ -427,7 +459,7 @@ where
     /// Loads local messages to the message pool to be applied.
     pub fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write();
-        for k in local_msgs.iter().cloned().collect::<Vec<SignedMessage>>() {
+        for k in local_msgs.iter().cloned().collect_vec() {
             self.add(k.clone()).unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
@@ -595,6 +627,7 @@ pub(in crate::message_pool) fn add_helper<T>(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
     sequence: u64,
+    trust_policy: TrustPolicy,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -607,15 +640,11 @@ where
     api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
     let mut pending = pending.write();
-    let msett = pending.get_mut(&msg.from());
-    match msett {
-        Some(mset) => mset.add_trusted(api, msg)?,
-        None => {
-            let mut mset = MsgSet::new(sequence);
-            let from = msg.from();
-            mset.add_trusted(api, msg)?;
-            pending.insert(from, mset);
-        }
+    let from = msg.from();
+    let mset = pending.entry(from).or_insert_with(|| MsgSet::new(sequence));
+    match trust_policy {
+        TrustPolicy::Untrusted => mset.add_untrusted(api, msg)?,
+        TrustPolicy::Trusted => mset.add_trusted(api, msg)?,
     }
 
     Ok(())
@@ -697,7 +726,61 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
         let sequence = msg.message().sequence;
-        let res = add_helper(&api, &bls_sig_cache, &pending, msg, sequence);
+        let res = add_helper(
+            &api,
+            &bls_sig_cache,
+            &pending,
+            msg,
+            sequence,
+            TrustPolicy::Trusted,
+        );
         assert!(res.is_ok());
+    }
+
+    // Test that RBF (Replace By Fee) is allowed even when at max_actor_pending_messages capacity
+    // This matches Lotus behavior where the check is: https://github.com/filecoin-project/lotus/blob/5f32d00550ddd2f2d0f9abe97dbae07615f18547/chain/messagepool/messagepool.go#L296-L299
+    #[test]
+    fn test_rbf_at_capacity() {
+        use crate::shim::econ::TokenAmount;
+
+        let api = TestApi::with_max_actor_pending_messages(10);
+        let mut mset = MsgSet::new(0);
+
+        // Fill up to capacity (10 messages)
+        for i in 0..10 {
+            let message = ShimMessage {
+                sequence: i,
+                gas_premium: TokenAmount::from_atto(100u64),
+                ..ShimMessage::default()
+            };
+            let msg = SignedMessage::mock_bls_signed_message(message);
+            let res = mset.add_trusted(&api, msg);
+            assert!(res.is_ok(), "Failed to add message {}: {:?}", i, res);
+        }
+
+        // Should reject adding a NEW message (sequence 10) when at capacity
+        let message_new = ShimMessage {
+            sequence: 10,
+            gas_premium: TokenAmount::from_atto(100u64),
+            ..ShimMessage::default()
+        };
+        let msg_new = SignedMessage::mock_bls_signed_message(message_new);
+        let res_new = mset.add_trusted(&api, msg_new);
+        assert!(matches!(res_new, Err(Error::TooManyPendingMessages(_, _))));
+
+        // Should ALLOW replacing an existing message (RBF) even when at capacity
+        // Replace message with sequence 5 with higher gas premium
+        let message_rbf = ShimMessage {
+            sequence: 5,
+            gas_premium: TokenAmount::from_atto(200u64),
+            ..ShimMessage::default()
+        };
+        let msg_rbf = SignedMessage::mock_bls_signed_message(message_rbf);
+        let res_rbf = mset.add_trusted(&api, msg_rbf);
+        assert!(
+            res_rbf.is_ok(),
+            "RBF should be allowed at capacity: {:?}",
+            res_rbf
+        );
     }
 }

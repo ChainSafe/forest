@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.31.1
+forest-filecoin 0.32.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.31.1
+forest-filecoin 0.32.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.31.1
+forest-filecoin 0.32.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1022,7 +1022,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.31.1
+forest-filecoin 0.32.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1852,6 +1852,11 @@ Options:
 
           [default: full]
 
+      --n-retries <N_RETRIES>
+          Number of retries for each test
+
+          [default: 2]
+
   -h, --help
           Print help (see a summary with '-h')
 ````
@@ -2110,7 +2115,7 @@ Options:
 ## `forest-dev`
 
 ```
-forest-filecoin 0.31.1
+forest-filecoin 0.32.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 

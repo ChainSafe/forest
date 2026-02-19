@@ -27,6 +27,46 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#6613](https://github.com/ChainSafe/forest/pull/6613): Fixed chain sync getting stuck when encountering time-travelling blocks by not marking the corresponding tipsets as permanently bad.
+
+## Forest v0.32.1 "Malfoy"
+
+This is a non-mandatory release for all node operators. It sets F3 initial power table on calibnet for late F3 participation and F3 data verification scenarios. It also includes new V2 RPC methods, a few bug fixes and `lotus-gateway` compatibility fixes.
+
+### Breaking
+
+### Added
+
+- [#6590](https://github.com/ChainSafe/forest/pull/6590): Set F3 `InitialPowerTable` on calibnet.
+
+- [#6524](https://github.com/ChainSafe/forest/pull/6524): Implemented `Filecoin.EthSendRawTransactionUntrusted` for API v2.
+
+- [#6513](https://github.com/ChainSafe/forest/pull/6513): Enabled `Filecoin.EthNewFilter` for API v2.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#6577](https://github.com/ChainSafe/forest/issues/6577): Fixed `Filecoin.EthGetBalance` compatibility issue with Lotus Gateway.
+
+- [#6551](https://github.com/ChainSafe/forest/pull/6551): Fixed `ErrExecutionReverted` JSONRPCError conversion error with Lotus Gateway.
+
+## Forest v0.32.0 "Ember"
+
+This is a non-mandatory release for all node operators. It resets F3 on calibnet, also includes new V2 RPC methods, a few bug fixes and `lotus-gateway` compatibility fixes.
+
+### Breaking
+
 - [#6475](https://github.com/ChainSafe/forest/pull/6475): Increased default JWT (generated via `Filecoin.AuthNew`) expiration time from 24 hours to 100 years to match Lotus behavior and ensure compatibility with clients like Curio.
 
 - [#6392](https://github.com/ChainSafe/forest/pull/6392): Changed execution reverted error code from 11 to 3.
@@ -53,11 +93,23 @@
 
 - [#6471](https://github.com/ChainSafe/forest/pull/6471): Moved `forest-tool state` subcommand to `forest-dev`.
 
+- [#6527](https://github.com/ChainSafe/forest/issues/6527): Increased the maximum number of allowed connections to the RPC server to 1000. This can be further configured via the `FOREST_RPC_MAX_CONNECTIONS` environment variable.
+
 ### Removed
 
 ### Fixed
 
 - [#6467](https://github.com/ChainSafe/forest/pull/6467): `Filecoin.EthGetBlockByNumber` now only supports retrieving a block by its block number or a special tag.
+
+- [#6531](https://github.com/ChainSafe/forest/issues/6531): `Filecoin.EthGetBlockByHash` now works with `lotus-gateway`.
+
+- [#6552](https://github.com/ChainSafe/forest/issues/6552): `Filecoin.ChainGetTipset` now works with `lotus-gateway`.
+
+- [#6535](https://github.com/ChainSafe/forest/pull/6535): Fixed incorrect replace by fee behavior when at limits of pending messages in mempool.
+
+- [#6541](https://github.com/ChainSafe/forest/pull/6541): Fixed "actor not found" errors when running Foundry (forge) scripts. The `eth_getBalance`, `eth_getTransactionCount`, and `eth_getCode` methods now return default values (0 balance, 0 nonce, empty code) for non-existent addresses, matching Lotus and standard Ethereum behavior.
+
+- [#6555](https://github.com/ChainSafe/forest/pull/6555): Fixed listing of wallets belonging to different networks in `forest-wallet list` command (and the `Filecoin.WalletList` RPC method). This incorrectly showed, e.g., calibnet wallets when running a mainnet node. Under the hood they're actually the same, but this could cause confusion and issues with some clients. It also resulted in errors trying to export a wallet that belongs to a different network.
 
 ## Forest v0.31.1 "Quadrantids"
 
