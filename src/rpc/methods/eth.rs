@@ -3991,7 +3991,7 @@ impl RpcMethod<3> for EthTraceCall {
     const NAME_ALIAS: Option<&'static str> = Some("trace_call");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 3] = ["tx", "traceTypes", "blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> =  make_bitflags!(ApiPaths::{ V1 | V2 });
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V1 | V2 });
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns traces created by the transaction.");
 
