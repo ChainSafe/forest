@@ -683,7 +683,8 @@ where
         tipset: Option<Tipset>,
         msg: Message,
         state_lookup: StateLookupPolicy,
-    ) -> anyhow::Result<(ApiInvocResult, Cid)> {
+        flush: bool,
+    ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
         let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
@@ -706,7 +707,14 @@ where
         };
 
         let (_invoc_res, apply_ret, duration, state_root) = self
-            .call_with_gas(&mut chain_msg, &[], Some(ts), VMTrace::Traced, state_lookup)
+            .call_with_gas(
+                &mut chain_msg,
+                &[],
+                Some(ts),
+                VMTrace::Traced,
+                state_lookup,
+                flush,
+            )
             .await?;
 
         Ok((
@@ -733,7 +741,8 @@ where
         tipset: Option<Tipset>,
         trace_config: VMTrace,
         state_lookup: StateLookupPolicy,
-    ) -> Result<(InvocResult, ApplyRet, Duration, Cid), Error> {
+        flush: bool,
+    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts, state_lookup)
@@ -778,7 +787,7 @@ where
 
             message.set_sequence(from_actor.sequence);
             let (ret, duration) = vm.apply_message(message)?;
-            let state_root = vm.flush()?;
+            let state_root = if flush { Some(vm.flush()?) } else { None };
             Ok((ret, duration, state_root))
         })?;
 

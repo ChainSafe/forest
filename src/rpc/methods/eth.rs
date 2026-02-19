@@ -2152,7 +2152,7 @@ where
 {
     let (invoc_res, _) = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg, StateLookupPolicy::Enabled)
+        .apply_on_state_with_gas(tipset, msg, StateLookupPolicy::Enabled, false)
         .await
         .map_err(|e| anyhow::anyhow!("failed to apply on state with gas: {e}"))?;
 
@@ -2249,6 +2249,7 @@ where
                 Some(ts),
                 VMTrace::NotTraced,
                 StateLookupPolicy::Enabled,
+                false,
             )
             .await?;
         Ok(apply_ret.msg_receipt().exit_code().is_success())
@@ -3972,9 +3973,16 @@ impl RpcMethod<3> for EthTraceCall {
 
         let (invoke_result, post_state_root) = ctx
             .state_manager
-            .apply_on_state_with_gas(Some(ts.clone()), msg.clone(), StateLookupPolicy::Enabled)
+            .apply_on_state_with_gas(
+                Some(ts.clone()),
+                msg.clone(),
+                StateLookupPolicy::Enabled,
+                true,
+            )
             .await
             .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;
+        let post_state_root =
+            post_state_root.context("post-execution state root required for trace call")?;
         let post_state = StateTree::new_from_root(ctx.store_owned(), &post_state_root)?;
 
         let mut trace_results = EthTraceResults {

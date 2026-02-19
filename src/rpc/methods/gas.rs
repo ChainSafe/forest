@@ -262,6 +262,7 @@ impl GasEstimateGasLimit {
                 Some(ts.clone()),
                 trace_config,
                 StateLookupPolicy::Enabled,
+                false,
             )
             .await?;
         Ok((invoc_res, apply_ret, prior_messages, ts))
