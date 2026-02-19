@@ -3951,13 +3951,18 @@ impl RpcMethod<3> for EthTraceCall {
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns traces created by the transaction.");
 
-    type Params = (EthCallMessage, NonEmpty<EthTraceType>, BlockNumberOrHash);
+    type Params = (
+        EthCallMessage,
+        NonEmpty<EthTraceType>,
+        Option<BlockNumberOrHash>,
+    );
     type Ok = EthTraceResults;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, trace_types, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let msg = Message::try_from(tx)?;
+        let block_param = block_param.unwrap_or(BlockNumberOrHash::from_str("latest")?);
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
             block_param,
