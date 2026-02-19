@@ -73,7 +73,7 @@ jobs:
         uses: taiki-e/install-action@nextest
       - name: Fetch proof params and RPC test snapshots
         run: |
-          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
+          cargo run --bin forest-dev --no-default-features --profile quick-test -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - uses: jdx/mise-action@v3
       - run: |
