@@ -2475,6 +2475,14 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         // requests with After and Count"
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(
+            EthTraceFilter::request((EthTraceFilterCriteria {
+                from_block: Some(ExtPredefined::Safe.to_string()),
+                count: Some(1.into()),
+                ..Default::default()
+            },))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthTraceFilterV2::request((EthTraceFilterCriteria {
                 from_block: Some(format!(
                     "0x{:x}",
@@ -2486,6 +2494,21 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         )
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(
+            EthTraceFilterV2::request((EthTraceFilterCriteria {
+                from_block: Some(ExtPredefined::Latest.to_string()),
+                count: Some(1.into()),
+                ..Default::default()
+            },))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthTraceFilterV2::request((EthTraceFilterCriteria {
+                count: Some(1.into()),
+                ..Default::default()
+            },))
+            .unwrap(),
+        ),
         RpcTest::identity(
             EthGetTransactionReceipt::request((
                 // A transaction that should not exist, to test the `null` response in case
