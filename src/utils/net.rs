@@ -105,7 +105,10 @@ pub async fn reader(
         }
     };
 
-    Ok(tokio::io::BufReader::new(
+    // Use a larger buffer (512KB) for better throughput on large files
+    const DOWNLOAD_BUFFER_SIZE: usize = 512 * 1024;
+    Ok(tokio::io::BufReader::with_capacity(
+        DOWNLOAD_BUFFER_SIZE,
         WithProgress::wrap_sync_read_with_callback("Loading", stream, content_length, callback)
             .bytes(),
     ))
