@@ -186,6 +186,13 @@ test_balance_diff() {
 
     assert_eq "BalanceChange" "$f_type" "$expect"
     assert_eq "ForestMatchesAnvil" "$f_type" "$a_type"
+
+    # Compare actual balance values when changed
+    if [ "$f_type" = "changed" ]; then
+        local f_bal_to=$(echo "$f_bal" | jq -r '.["*"].to // empty')
+        [[ -n "$f_bal_to" && -n "$a_post_bal" && "$a_post_bal" != "0x0" ]] && \
+            assert_eq "BalanceTo" "$f_bal_to" "$a_post_bal"
+    fi
     echo ""
 }
 
@@ -213,36 +220,43 @@ test_storage_diff() {
     # Forest: Extract storage slot delta and values
     local f_slot_data=$(echo "$f_resp" | jq -r --arg a "$f_contract_lower" --arg s "$slot" '.result.stateDiff[$a].storage[$s] // null')
     local f_type=$(get_delta_type "$f_slot_data")
-    local f_to_val=""
-    if [ "$f_type" = "changed" ]; then
-        f_to_val=$(echo "$f_slot_data" | jq -r '.["*"].to // empty')
-    elif [ "$f_type" = "added" ]; then
-        f_to_val=$(echo "$f_slot_data" | jq -r '.["+"] // empty')
-    fi
 
-    # Anvil: Extract storage slot pre/post values
-    local a_pre_val=$(echo "$a_resp" | jq -r --arg a "$a_contract_lower" --arg s "$slot" '.result.pre[$a].storage[$s] // "0x0"')
-    local a_post_val=$(echo "$a_resp" | jq -r --arg a "$a_contract_lower" --arg s "$slot" '.result.post[$a].storage[$s] // "0x0"')
+    # Anvil: Determine if the storage slot changed.
+    # Per reth/Parity behavior, all storage slot transitions on existing accounts
+    # are Delta::Changed ("*"), including zero→nonzero and nonzero→zero.
+    local a_pre_has=$(echo "$a_resp" | jq --arg a "$a_contract_lower" --arg s "$slot" '.result.pre[$a].storage[$s] != null')
+    local a_post_has=$(echo "$a_resp" | jq --arg a "$a_contract_lower" --arg s "$slot" '.result.post[$a].storage[$s] != null')
     local a_type="unchanged"
-    if [[ "$a_pre_val" == "0x0" || "$a_pre_val" == "null" ]] && [[ "$a_post_val" != "0x0" && "$a_post_val" != "null" ]]; then
-        a_type="changed"  # Added (was zero, now non-zero)
-    elif [[ "$a_pre_val" != "0x0" && "$a_pre_val" != "null" ]] && [[ "$a_post_val" != "$a_pre_val" ]]; then
-        a_type="changed"  # Modified
+    if [[ "$a_pre_has" == "true" || "$a_post_has" == "true" ]]; then
+        a_type="changed"
     fi
 
     assert_eq "StorageChangeType" "$f_type" "$expect_type"
     assert_eq "ForestMatchesAnvil" "$f_type" "$a_type"
 
-    # Compare actual values if both have the slot
-    if [[ -n "$f_to_val" && -n "$a_post_val" && "$a_post_val" != "null" ]]; then
-        assert_eq "StorageValue" "$f_to_val" "$a_post_val"
+    # Compare values: Forest uses "*": { "from": ..., "to": ... } for all changes.
+    # Anvil may omit the slot from pre (zero→nonzero) or post (nonzero→zero).
+    if [ "$f_type" = "changed" ]; then
+        local f_from=$(echo "$f_slot_data" | jq -r '.["*"].from // empty')
+        local f_to=$(echo "$f_slot_data" | jq -r '.["*"].to // empty')
+
+        # Anvil pre value: present means nonzero existed, absent means was zero
+        local a_from=$(echo "$a_resp" | jq -r --arg a "$a_contract_lower" --arg s "$slot" '.result.pre[$a].storage[$s] // empty')
+        # Anvil post value: present means nonzero now, absent means cleared to zero
+        local a_to=$(echo "$a_resp" | jq -r --arg a "$a_contract_lower" --arg s "$slot" '.result.post[$a].storage[$s] // empty')
+
+        if [[ -n "$f_to" && -n "$a_to" ]]; then
+            assert_eq "StorageTo" "$f_to" "$a_to"
+        elif [[ -n "$f_from" && -n "$a_from" ]]; then
+            assert_eq "StorageFrom" "$f_from" "$a_from"
+        fi
     fi
     echo ""
 }
 
 test_storage_multiple() {
-    local name="$1" data="$2"
-    shift 2
+    local name="$1" data="$2" expect_type="$3"
+    shift 3
     local slots=("$@")
     echo -e "${BLUE}--- $name (multi-storage) ---${NC}"
 
@@ -269,11 +283,13 @@ test_storage_multiple() {
 
     for slot in "${slots[@]}"; do
         local f_slot_data=$(echo "$f_resp" | jq -r --arg a "$f_contract_lower" --arg s "$slot" '.result.stateDiff[$a].storage[$s] // null')
-        local f_to_val=$(echo "$f_slot_data" | jq -r '.["*"].to // .["+"] // empty')
+        local f_type=$(get_delta_type "$f_slot_data")
+        local f_to_val=$(echo "$f_slot_data" | jq -r '.["*"].to // empty')
         local a_post_val=$(echo "$a_resp" | jq -r --arg a "$a_contract_lower" --arg s "$slot" '.result.post[$a].storage[$s] // empty')
 
         local slot_short="${slot: -4}"
-        assert_eq "Slot$slot_short" "$f_to_val" "$a_post_val"
+        assert_eq "Slot${slot_short}Type" "$f_type" "$expect_type"
+        assert_eq "Slot${slot_short}Value" "$f_to_val" "$a_post_val"
     done
     echo ""
 }
@@ -309,6 +325,21 @@ test_trace "deepTrace(3)" \
     "0x0f3a17b80000000000000000000000000000000000000000000000000000000000000003" \
     "deep"
 
+# delegateSelf(999) - selector: 0x8f5e07b8
+test_trace "delegateSelf(999)" \
+    "0x8f5e07b800000000000000000000000000000000000000000000000000000000000003e7"
+
+# wideTrace(3, 1) - selector: 0x56d15f7c, 3 siblings each 1 deep
+test_trace "wideTrace(3,1)" \
+    "0x56d15f7c00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001" \
+    "deep"
+
+# failAtDepth(3, 2) - revert at depth 2 inside depth-3 recursion
+# selector: 0x68bcf9e2
+test_trace "failAtDepth(3,2)" \
+    "0x68bcf9e200000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000002" \
+    "revert"
+
 # --- Balance Diff Tests ---
 echo -e "${BLUE}=== Balance Diff Tests ===${NC}"
 echo ""
@@ -327,21 +358,37 @@ test_balance_diff "setX(42) no value" \
 echo -e "${BLUE}=== Storage Diff Tests ===${NC}"
 echo ""
 
-# Slot 0: x variable (initialized to 42)
+# Note: Each trace_call is stateless — simulated against on-chain state.
+# Tests do NOT affect each other. Slot 0 (x) is always 42 on-chain.
+
+# Slot 0: setX(123) modifies existing value (42 → 123 = changed)
 test_storage_diff "setX(123) - change slot 0" \
     "0x4018d9aa000000000000000000000000000000000000000000000000000000000000007b" \
     "0x0000000000000000000000000000000000000000000000000000000000000000" \
     "changed"
 
-# Slot 2: storageTestA (starts empty)
-test_storage_diff "storageAdd(100) - add slot 2" \
+# Slot 0: setX(42) writes same value as on-chain (42 → 42 = unchanged, no storage entry)
+test_storage_diff "setX(42) - no-op same value" \
+    "0x4018d9aa000000000000000000000000000000000000000000000000000000000000002a" \
+    "0x0000000000000000000000000000000000000000000000000000000000000000" \
+    "unchanged"
+
+# Slot 0: setX(0) clears existing value (42 → 0 = changed per reth/Parity)
+test_storage_diff "setX(0) - clear slot 0" \
+    "0x4018d9aa0000000000000000000000000000000000000000000000000000000000000000" \
+    "0x0000000000000000000000000000000000000000000000000000000000000000" \
+    "changed"
+
+# Slot 2: storageTestA (starts empty on-chain, 0 → 100 = changed per reth/Parity)
+test_storage_diff "storageAdd(100) - write slot 2" \
     "0x55cb64b40000000000000000000000000000000000000000000000000000000000000064" \
     "0x0000000000000000000000000000000000000000000000000000000000000002" \
     "changed"
 
-# Multiple slots: storageTestA(10), storageTestB(20), storageTestC(30)
+# Multiple slots: storageTestA(10), storageTestB(20), storageTestC(30) - all start empty
 test_storage_multiple "storageMultiple(10,20,30) - slots 2,3,4" \
     "0x310af204000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000001e" \
+    "changed" \
     "0x0000000000000000000000000000000000000000000000000000000000000002" \
     "0x0000000000000000000000000000000000000000000000000000000000000003" \
     "0x0000000000000000000000000000000000000000000000000000000000000004"
