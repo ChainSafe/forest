@@ -376,6 +376,12 @@ pub enum BlockNumberOrHash {
     BlockHashObject(BlockHash),
 }
 
+impl Default for BlockNumberOrHash {
+    fn default() -> Self {
+        Self::PredefinedBlock(Predefined::default())
+    }
+}
+
 lotus_json_with_self!(BlockNumberOrHash);
 
 impl BlockNumberOrHash {

@@ -447,14 +447,20 @@ impl EthFilterSpec {
             }
             ParsedFilterTipsets::Hash(block_hash.clone())
         } else {
-            let from_block = self.from_block.as_deref().unwrap_or("");
-            let to_block = self.to_block.as_deref().unwrap_or("");
-            let (min, max) = parse_block_range(
-                chain_height,
-                BlockNumberOrHash::from_str(from_block)?,
-                BlockNumberOrHash::from_str(to_block)?,
-                max_filter_height_range,
-            )?;
+            let from_block = self
+                .from_block
+                .as_deref()
+                .map(BlockNumberOrHash::from_str)
+                .transpose()?
+                .unwrap_or_default();
+            let to_block = self
+                .to_block
+                .as_deref()
+                .map(BlockNumberOrHash::from_str)
+                .transpose()?
+                .unwrap_or_default();
+            let (min, max) =
+                parse_block_range(chain_height, from_block, to_block, max_filter_height_range)?;
             ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
         };
 
