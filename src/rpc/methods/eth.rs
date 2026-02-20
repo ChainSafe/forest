@@ -297,8 +297,19 @@ impl From<[u8; EVM_WORD_LENGTH]> for EthHash {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[derive(
+    PartialEq,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    Default,
+    JsonSchema,
+    strum::Display,
+    strum::EnumString,
+)]
+#[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum Predefined {
     Earliest,
     Pending,
@@ -400,16 +411,13 @@ impl BlockNumberOrHash {
     }
 
     pub fn from_str(s: &str) -> Result<Self, Error> {
-        match s {
-            "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
-            "pending" => Ok(BlockNumberOrHash::from_predefined(Predefined::Pending)),
-            "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
-            hex if hex.starts_with("0x") => {
-                let epoch = hex_str_to_epoch(hex)?;
-                Ok(BlockNumberOrHash::from_block_number(epoch))
-            }
-            _ => Err(anyhow!("Invalid block identifier")),
+        if s.starts_with("0x") {
+            let epoch = hex_str_to_epoch(s)?;
+            return Ok(BlockNumberOrHash::from_block_number(epoch));
         }
+        s.parse::<Predefined>()
+            .map(BlockNumberOrHash::from_predefined)
+            .map_err(|_| anyhow!("Invalid block identifier"))
     }
 }
 
