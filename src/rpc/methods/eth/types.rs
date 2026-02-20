@@ -131,8 +131,7 @@ impl GetSize for EthAddress {
 }
 
 impl EthAddress {
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_filecoin_address(&self) -> anyhow::Result<FilecoinAddress> {
+    pub fn to_filecoin_address(self) -> anyhow::Result<FilecoinAddress> {
         if self.is_masked_id() {
             const PREFIX_LEN: usize = MASKED_ID_PREFIX.len();
             // This is a masked ID address.
@@ -784,6 +783,11 @@ pub enum Delta<T> {
 }
 
 impl<T: PartialEq> Delta<T> {
+    /// Compares optional old/new values and returns the appropriate delta variant:
+    /// `Unchanged` if both are equal or absent,
+    /// `Added` if only new exists,
+    /// `Removed` if only old exists,
+    /// `Changed` if both exist but differ.
     pub fn from_comparison(old: Option<T>, new: Option<T>) -> Self {
         match (old, new) {
             (None, None) => Delta::Unchanged,
@@ -820,6 +824,7 @@ pub struct AccountDiff {
 }
 
 impl AccountDiff {
+    /// Returns true if the account diff contains no changes.
     pub fn is_unchanged(&self) -> bool {
         self.balance.is_unchanged()
             && self.code.is_unchanged()
@@ -838,6 +843,7 @@ impl StateDiff {
         Self(BTreeMap::new())
     }
 
+    /// Inserts the account diff only if it contains at least one change.
     pub fn insert_if_changed(&mut self, addr: EthAddress, diff: AccountDiff) {
         if !diff.is_unchanged() {
             self.0.insert(addr, diff);

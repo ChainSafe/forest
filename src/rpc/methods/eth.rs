@@ -73,6 +73,7 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use num::{BigInt, Zero as _};
+use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
@@ -80,8 +81,6 @@ use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
 use utils::{decode_payload, lookup_eth_address};
-
-use nunny::Vec as NonEmpty;
 
 static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
     LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
@@ -269,8 +268,7 @@ lotus_json_with_self!(EthInt64);
 
 impl EthHash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_cid(&self) -> cid::Cid {
+    pub fn to_cid(self) -> cid::Cid {
         let mh = MultihashCode::Blake2b256
             .wrap(self.0.as_bytes())
             .expect("should not fail");
@@ -472,6 +470,7 @@ impl ExtBlockNumberOrHash {
     }
 }
 
+/// Selects which trace outputs to include in the `trace_call` response.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum EthTraceType {
@@ -487,15 +486,16 @@ pub enum EthTraceType {
 
 lotus_json_with_self!(EthTraceType);
 
+/// Result payload returned by `trace_call`.
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTraceResults {
-    /// Output bytes from the transaction execution
-    pub output: Option<EthBytes>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    /// State diff showing all account changes (only when StateDiff trace type requested)
+    /// Output bytes from the transaction execution.
+    pub output: EthBytes,
+    /// State diff showing all account changes.
     pub state_diff: Option<StateDiff>,
-    /// Call trace hierarchy (only when Trace trace type requested)
+    /// Call trace hierarchy (empty when not requested).
+    #[serde(default)]
     pub trace: Vec<EthTrace>,
 }
 
@@ -3993,7 +3993,8 @@ impl RpcMethod<3> for EthTraceCall {
     const PARAM_NAMES: [&'static str; 3] = ["tx", "traceTypes", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V1 | V2 });
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns traces created by the transaction.");
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns parity style trace results for the given transaction.");
 
     type Params = (
         EthCallMessage,
@@ -4035,7 +4036,7 @@ impl RpcMethod<3> for EthTraceCall {
         let post_state = StateTree::new_from_root(ctx.store_owned(), &post_state_root)?;
 
         let mut trace_results = EthTraceResults {
-            output: get_trace_output(&msg, &invoke_result),
+            output: get_trace_output(&msg, &invoke_result)?,
             ..Default::default()
         };
 
@@ -4077,19 +4078,25 @@ impl RpcMethod<3> for EthTraceCall {
 }
 
 /// Get output bytes from trace execution result.
-fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Option<EthBytes> {
+fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Result<EthBytes> {
     if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
-        return Some(EthBytes::default());
+        return Ok(EthBytes::default());
     }
 
-    let msg_rct = invoke_result.msg_rct.as_ref()?;
+    let msg_rct = invoke_result
+        .msg_rct
+        .as_ref()
+        .context("missing message receipt")?;
     let return_data = msg_rct.return_data();
 
     if return_data.is_empty() {
-        return Some(EthBytes::default());
+        return Ok(EthBytes::default());
     }
 
-    decode_payload(&return_data, CBOR).ok()
+    match decode_payload(&return_data, CBOR) {
+        Ok(payload) => Ok(EthBytes::from(payload)),
+        Err(e) => Err(anyhow::anyhow!("failed to decode return data: {e}")),
+    }
 }
 
 /// Extract all unique Ethereum addresses touched during execution from the trace.

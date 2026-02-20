@@ -58,6 +58,10 @@ if [ "$DEPLOY_CONTRACT" = true ]; then
         --rpc-url "$ANVIL_RPC_URL" \
         --private-key "$ANVIL_PRIVATE_KEY" \
         --broadcast --json 2>/dev/null | jq -r '.deployedTo')
+    if [[ -z "$ANVIL_CONTRACT" || "$ANVIL_CONTRACT" == "null" ]]; then
+        echo -e "${RED}Error: Contract deployment failed${NC}"
+        exit 1
+    fi
     echo -e "Deployed to: ${GREEN}$ANVIL_CONTRACT${NC}"
 fi
 

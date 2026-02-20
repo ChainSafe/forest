@@ -1113,7 +1113,7 @@ methods:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
   - name: Forest.EthTraceCall
-    description: Returns traces created by the transaction.
+    description: Returns parity style trace results for the given transaction.
     params:
       - name: tx
         required: true
@@ -1136,7 +1136,7 @@ methods:
         $ref: "#/components/schemas/EthTraceResults"
     paramStructure: by-position
   - name: trace_call
-    description: Returns traces created by the transaction.
+    description: Returns parity style trace results for the given transaction.
     params:
       - name: tx
         required: true
@@ -2178,26 +2178,27 @@ components:
         - action
         - result
     EthTraceResults:
+      description: "Result payload returned by `trace_call`."
       type: object
       properties:
         output:
-          description: Output bytes from the transaction execution
-          anyOf:
-            - $ref: "#/components/schemas/EthBytes"
-            - type: "null"
+          description: Output bytes from the transaction execution.
+          $ref: "#/components/schemas/EthBytes"
         stateDiff:
-          description: State diff showing all account changes (only when StateDiff trace type requested)
+          description: State diff showing all account changes.
           anyOf:
             - $ref: "#/components/schemas/StateDiff"
             - type: "null"
         trace:
-          description: Call trace hierarchy (only when Trace trace type requested)
+          description: Call trace hierarchy (empty when not requested).
           type: array
+          default: []
           items:
             $ref: "#/components/schemas/EthTrace"
       required:
-        - trace
+        - output
     EthTraceType:
+      description: "Selects which trace outputs to include in the `trace_call` response."
       oneOf:
         - description: "Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)\nwith details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`."
           type: string

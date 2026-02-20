@@ -1,6 +1,6 @@
 # trace_call Developer Guide
 
-This guide covers testing and development workflows for Forest's `trace_call` implementation. For API documentation and user-facing usage, see the [trace_call API guide](/knowledge_base/trace_call).
+This guide covers testing and development workflows for Forest's `trace_call` implementation. For API documentation and user-facing usage, see the [trace_call API guide](/knowledge_base/rpc/trace_call).
 
 ## Tracer Contract
 
@@ -33,7 +33,7 @@ The [`Tracer.sol`](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c
 | Function                | Selector     | Description            |
 | ----------------------- | ------------ | ---------------------- |
 | `callSelf(uint256)`     | `0xa1a88595` | Single nested CALL     |
-| `delegateSelf(uint256)` | `0x8f5e07b8` | DELEGATECALL trace     |
+| `delegateSelf(uint256)` | `0x8f5e07b8` | `DELEGATECALL` trace   |
 | `complexTrace()`        | `0x6659ab96` | Multiple nested calls  |
 | `deepTrace(uint256)`    | `0x0f3a17b8` | Recursive N-level deep |
 
@@ -172,6 +172,6 @@ or
 
 - [OpenEthereum trace module](https://openethereum.github.io/JSONRPC-trace-module)
 - [Geth Built-in Tracers](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers)
-- [Alchemy: trace_call vs debug_traceCall](https://www.alchemy.com/docs/reference/trace_call-vs-debug_tracecall)
+- [Alchemy: `trace_call` vs `debug_traceCall`](https://www.alchemy.com/docs/reference/trace_call-vs-debug_tracecall)
 - [Reth trace Namespace](https://reth.rs/jsonrpc/trace)
 - [Foundry Book - Anvil](https://book.getfoundry.sh/reference/anvil/)
