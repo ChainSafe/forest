@@ -269,8 +269,7 @@ lotus_json_with_self!(EthInt64);
 
 impl EthHash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_cid(&self) -> cid::Cid {
+    pub fn to_cid(self) -> cid::Cid {
         let mh = MultihashCode::Blake2b256
             .wrap(self.0.as_bytes())
             .expect("should not fail");

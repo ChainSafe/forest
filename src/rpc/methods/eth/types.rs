@@ -131,8 +131,7 @@ impl GetSize for EthAddress {
 }
 
 impl EthAddress {
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_filecoin_address(&self) -> anyhow::Result<FilecoinAddress> {
+    pub fn to_filecoin_address(self) -> anyhow::Result<FilecoinAddress> {
         if self.is_masked_id() {
             const PREFIX_LEN: usize = MASKED_ID_PREFIX.len();
             // This is a masked ID address.

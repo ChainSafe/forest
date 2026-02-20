@@ -76,7 +76,7 @@ Forest uses the **Parity/OpenEthereum trace format**, which differs from [Geth's
 }
 ```
 
-### StateDiff Response
+### `stateDiff` Response
 
 State changes use **Delta notation**:
 
@@ -145,7 +145,7 @@ State changes use **Delta notation**:
 }
 ```
 
-**Geth (prestateTracer with diffMode):**
+**Geth (`prestateTracer` with `diffMode`):**
 
 ```json
 {
@@ -225,7 +225,7 @@ export SENDER="0xYOUR_ACCOUNT"              # your sender address
 export CONTRACT="0xCONTRACT_ADDRESS"        # deployed Tracer contract
 ```
 
-### 1. Basic Trace - setX(123)
+### 1. Basic Trace - `setX(123)`
 
 ```bash
 curl -s -X POST "$FOREST_RPC_URL" \
@@ -289,7 +289,7 @@ curl -s -X POST "$FOREST_RPC_URL" \
     }' | jq '.'
 ```
 
-### 4. Deep Trace - deepTrace(3)
+### 4. Deep Trace - `deepTrace(3)`
 
 ```bash
 curl -s -X POST "$FOREST_RPC_URL" \
@@ -310,7 +310,7 @@ curl -s -X POST "$FOREST_RPC_URL" \
     }' | jq '.result.trace | length'
 ```
 
-### 5. Multiple Storage Slots - storageMultiple(10,20,30)
+### 5. Multiple Storage Slots - `storageMultiple(10,20,30)`
 
 ```bash
 curl -s -X POST "$FOREST_RPC_URL" \
@@ -335,7 +335,7 @@ curl -s -X POST "$FOREST_RPC_URL" \
 
 ### Common Issues
 
-1. **Empty storage in stateDiff**: Ensure the contract is an EVM actor (has bytecode)
+1. **Empty storage in `stateDiff`**: Ensure the contract is an EVM actor (has bytecode)
 2. **Call reverts**: Check function requirements (e.g., `storageChange` requires slot to have value first)
 3. **Missing contract**: Verify contract is deployed at the specified address
 
@@ -359,5 +359,5 @@ curl -s -X POST "$FOREST_RPC_URL" \
 
 - [OpenEthereum trace module](https://openethereum.github.io/JSONRPC-trace-module)
 - [Geth Built-in Tracers](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers)
-- [Alchemy: trace_call vs debug_traceCall](https://www.alchemy.com/docs/reference/trace_call-vs-debug_tracecall)
+- [Alchemy: `trace_call` vs `debug_traceCall`](https://www.alchemy.com/docs/reference/trace_call-vs-debug_tracecall)
 - [Reth trace Namespace](https://reth.rs/jsonrpc/trace)
