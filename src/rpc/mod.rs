@@ -154,6 +154,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthTraceBlock);
         $callback!($crate::rpc::eth::EthTraceBlockV2);
         $callback!($crate::rpc::eth::EthTraceFilter);
+        $callback!($crate::rpc::eth::EthTraceFilterV2);
         $callback!($crate::rpc::eth::EthTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactionsV2);

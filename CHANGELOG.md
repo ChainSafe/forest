@@ -29,7 +29,11 @@
 
 ### Added
 
+- [#6522](https://github.com/ChainSafe/forest/pull/6522): Implemented `Filecoin.EthTraceFilter` for API v2.
+
 ### Changed
+
+- [#6522](https://github.com/ChainSafe/forest/pull/6522): `Filecoin.EthTraceFilter` filter options `from_block` and `to_block` now default to `latest` tag when omitted for v1 and v2 API.
 
 ### Removed
 

@@ -297,8 +297,19 @@ impl From<[u8; EVM_WORD_LENGTH]> for EthHash {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[derive(
+    PartialEq,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    Default,
+    JsonSchema,
+    strum::Display,
+    strum::EnumString,
+)]
+#[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum Predefined {
     Earliest,
     Pending,
@@ -306,8 +317,19 @@ pub enum Predefined {
     Latest,
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[derive(
+    PartialEq,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    Default,
+    JsonSchema,
+    strum::Display,
+    strum::EnumString,
+)]
+#[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum ExtPredefined {
     Earliest,
     Pending,
@@ -354,6 +376,12 @@ pub enum BlockNumberOrHash {
     BlockHashObject(BlockHash),
 }
 
+impl Default for BlockNumberOrHash {
+    fn default() -> Self {
+        Self::PredefinedBlock(Predefined::default())
+    }
+}
+
 lotus_json_with_self!(BlockNumberOrHash);
 
 impl BlockNumberOrHash {
@@ -389,16 +417,13 @@ impl BlockNumberOrHash {
     }
 
     pub fn from_str(s: &str) -> Result<Self, Error> {
-        match s {
-            "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
-            "pending" => Ok(BlockNumberOrHash::from_predefined(Predefined::Pending)),
-            "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
-            hex if hex.starts_with("0x") => {
-                let epoch = hex_str_to_epoch(hex)?;
-                Ok(BlockNumberOrHash::from_block_number(epoch))
-            }
-            _ => Err(anyhow!("Invalid block identifier")),
+        if s.starts_with("0x") {
+            let epoch = hex_str_to_epoch(s)?;
+            return Ok(BlockNumberOrHash::from_block_number(epoch));
         }
+        s.parse::<Predefined>()
+            .map(BlockNumberOrHash::from_predefined)
+            .map_err(|_| anyhow!("Invalid block identifier"))
     }
 }
 
@@ -411,6 +436,12 @@ pub enum ExtBlockNumberOrHash {
     BlockHash(EthHash),
     BlockNumberObject(BlockNumber),
     BlockHashObject(BlockHash),
+}
+
+impl Default for ExtBlockNumberOrHash {
+    fn default() -> Self {
+        Self::PredefinedBlock(ExtPredefined::default())
+    }
 }
 
 lotus_json_with_self!(ExtBlockNumberOrHash);
@@ -449,24 +480,13 @@ impl ExtBlockNumberOrHash {
     }
 
     pub fn from_str(s: &str) -> Result<Self, Error> {
-        match s {
-            "earliest" => Ok(ExtBlockNumberOrHash::from_predefined(
-                ExtPredefined::Earliest,
-            )),
-            "pending" => Ok(ExtBlockNumberOrHash::from_predefined(
-                ExtPredefined::Pending,
-            )),
-            "latest" | "" => Ok(ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest)),
-            "safe" => Ok(ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe)),
-            "finalized" => Ok(ExtBlockNumberOrHash::from_predefined(
-                ExtPredefined::Finalized,
-            )),
-            hex if hex.starts_with("0x") => {
-                let epoch = hex_str_to_epoch(hex)?;
-                Ok(ExtBlockNumberOrHash::from_block_number(epoch))
-            }
-            _ => Err(anyhow!("Invalid block identifier")),
+        if s.starts_with("0x") {
+            let epoch = hex_str_to_epoch(s)?;
+            return Ok(ExtBlockNumberOrHash::from_block_number(epoch));
         }
+        s.parse::<ExtPredefined>()
+            .map(ExtBlockNumberOrHash::from_predefined)
+            .map_err(|_| anyhow!("Invalid block identifier"))
     }
 }
 
@@ -4115,12 +4135,28 @@ fn get_eth_block_number_from_string<DB: Blockstore>(
     block: Option<&str>,
     resolve: ResolveNullTipset,
 ) -> Result<EthUint64> {
-    let block_param = match block {
-        Some(block_str) => ExtBlockNumberOrHash::from_str(block_str)?,
-        None => bail!("cannot parse fromBlock"),
-    };
+    let block_param = block
+        .map(ExtBlockNumberOrHash::from_str)
+        .transpose()?
+        .unwrap_or_default();
     Ok(EthUint64(
         tipset_by_ext_block_number_or_hash(chain_store, block_param, resolve)?.epoch() as u64,
+    ))
+}
+
+async fn get_eth_block_number_from_string_v2<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    block: Option<&str>,
+    resolve: ResolveNullTipset,
+) -> Result<EthUint64> {
+    let block_param = block
+        .map(ExtBlockNumberOrHash::from_str)
+        .transpose()?
+        .unwrap_or_default();
+    Ok(EthUint64(
+        tipset_by_block_number_or_hash_v2(ctx, block_param, resolve)
+            .await?
+            .epoch() as u64,
     ))
 }
 
@@ -4155,17 +4191,44 @@ impl RpcMethod<1> for EthTraceFilter {
         )
         .context("cannot parse toBlock")?;
 
-        Ok(trace_filter(ctx, filter, from_block, to_block)
-            .await?
-            .into_iter()
-            .sorted_by_key(|trace| {
-                (
-                    trace.block_number,
-                    trace.transaction_position,
-                    trace.trace.trace_address.clone(),
-                )
-            })
-            .collect_vec())
+        Ok(trace_filter(ctx, filter, from_block, to_block).await?)
+    }
+}
+
+pub enum EthTraceFilterV2 {}
+impl RpcMethod<1> for EthTraceFilterV2 {
+    const N_REQUIRED_PARAMS: usize = 1;
+    const NAME: &'static str = "Filecoin.EthTraceFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_filter");
+    const PARAM_NAMES: [&'static str; 1] = ["filter"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the traces for transactions matching the filter criteria.");
+    type Params = (EthTraceFilterCriteria,);
+    type Ok = Vec<EthBlockTrace>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let from_block = get_eth_block_number_from_string_v2(
+            &ctx,
+            filter.from_block.as_deref(),
+            ResolveNullTipset::TakeNewer,
+        )
+        .await
+        .context("cannot parse fromBlock")?;
+
+        let to_block = get_eth_block_number_from_string_v2(
+            &ctx,
+            filter.to_block.as_deref(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await
+        .context("cannot parse toBlock")?;
+
+        Ok(trace_filter(ctx, filter, from_block, to_block).await?)
     }
 }
 
@@ -4174,10 +4237,10 @@ async fn trace_filter(
     filter: EthTraceFilterCriteria,
     from_block: EthUint64,
     to_block: EthUint64,
-) -> Result<HashSet<EthBlockTrace>> {
+) -> Result<Vec<EthBlockTrace>> {
     let mut results = HashSet::default();
     if let Some(EthUint64(0)) = filter.count {
-        return Ok(results);
+        return Ok(Vec::new());
     }
     let count = *filter.count.unwrap_or_default();
     ensure!(
@@ -4188,7 +4251,8 @@ async fn trace_filter(
     );
 
     let mut trace_counter = 0;
-    for blk_num in from_block.0..=to_block.0 {
+    'blocks: for blk_num in from_block.0..=to_block.0 {
+        // For BlockNumber, EthTraceBlock and EthTraceBlockV2 are equivalent.
         let block_traces = EthTraceBlock::handle(
             ctx.clone(),
             (ExtBlockNumberOrHash::from_block_number(blk_num as i64),),
@@ -4209,7 +4273,7 @@ async fn trace_filter(
                 results.insert(block_trace);
 
                 if filter.count.is_some() && results.len() >= count as usize {
-                    return Ok(results);
+                    break 'blocks;
                 } else if results.len() > *FOREST_TRACE_FILTER_MAX_RESULT as usize {
                     bail!(
                         "too many results, maximum supported is {}, try paginating requests with After and Count",
@@ -4220,7 +4284,16 @@ async fn trace_filter(
         }
     }
 
-    Ok(results)
+    Ok(results
+        .into_iter()
+        .sorted_by_key(|trace| {
+            (
+                trace.block_number,
+                trace.transaction_position,
+                trace.trace.trace_address.clone(),
+            )
+        })
+        .collect_vec())
 }
 
 #[cfg(test)]
