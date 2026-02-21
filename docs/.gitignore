@@ -8,6 +8,12 @@
 # Docusaurus Build Directory
 /build/
 
+# Generated RPC reference data
+/src/data/rpc-methods.json
+
+# Generated OpenRPC specifications (auto-generated from Forest)
+/openrpc-specs/
+
 ### Docusaurus.Node Stack ###
 # Logs
 logs

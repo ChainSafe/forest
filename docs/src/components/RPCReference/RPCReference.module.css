@@ -1,0 +1,541 @@
+.rpcReference {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: var(--ifm-color-emphasis-700);
+  margin: 0.5rem 0;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+}
+
+.searchBox {
+  position: relative;
+  width: 100%;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
+  font-size: 1rem;
+  border: 2px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  transition: border-color 0.2s;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--ifm-color-primary);
+}
+
+.clearButton {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--ifm-color-emphasis-600);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+}
+
+.clearButton:hover {
+  color: var(--ifm-color-emphasis-900);
+}
+
+.versionSelector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.versionSelect {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 2px solid var(--ifm-color-primary);
+  border-radius: 6px;
+  background: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary-darkest);
+  cursor: pointer;
+}
+
+.versionSelect:focus {
+  outline: none;
+  border-color: var(--ifm-color-primary-dark);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.filterLabel {
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-800);
+  margin: 0;
+}
+
+.namespaceSelect {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.5rem;
+  font-size: 0.95rem;
+  border: 2px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+}
+
+.namespaceSelect:focus {
+  outline: none;
+  border-color: var(--ifm-color-primary);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.actionButton {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--ifm-color-emphasis-400);
+  border-radius: 6px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.actionButton:hover {
+  background: var(--ifm-color-emphasis-200);
+  border-color: var(--ifm-color-emphasis-600);
+}
+
+.results {
+  margin-bottom: 1rem;
+}
+
+.resultCount {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.namespaceSection {
+  margin-bottom: 3rem;
+}
+
+.namespaceTitle {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px solid var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.methodCount {
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--ifm-color-emphasis-600);
+}
+
+.methodList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.methodCard {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--ifm-background-surface-color);
+  transition: box-shadow 0.2s;
+}
+
+.methodCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.methodHeader {
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.methodHeader:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+.methodTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.methodActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copyLinkButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+  color: var(--ifm-color-emphasis-600);
+  transition:
+    color 0.2s,
+    transform 0.2s;
+  line-height: 1;
+}
+
+.copyLinkButton:hover {
+  color: var(--ifm-color-primary);
+  transform: scale(1.1);
+}
+
+.copyLinkButton:active {
+  transform: scale(0.95);
+}
+
+.methodName {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary-darker);
+  font-family: var(--ifm-font-family-monospace);
+}
+
+.expandIcon {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--ifm-color-emphasis-600);
+  width: 1.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.methodDescription {
+  margin: 0;
+  color: var(--ifm-color-emphasis-800);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.methodDetails {
+  padding: 0 1.25rem 1.25rem 1.25rem;
+  border-top: 1px solid var(--ifm-color-emphasis-300);
+  background: var(--ifm-background-color);
+}
+
+.detailSection {
+  margin-top: 1.25rem;
+}
+
+.detailSection:first-child {
+  margin-top: 1.5rem;
+}
+
+.detailTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem 0;
+  color: var(--ifm-color-emphasis-900);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.noParams {
+  color: var(--ifm-color-emphasis-600);
+  font-style: italic;
+  margin: 0;
+}
+
+.paramList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.param {
+  padding: 1rem;
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 6px;
+}
+
+.paramHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.paramName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-900);
+  font-family: var(--ifm-font-family-monospace);
+}
+
+.optionalBadge {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  background: var(--ifm-color-warning-contrast-background);
+  color: var(--ifm-color-warning-contrast-foreground);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.paramType {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.typeLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.typeValue {
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-900);
+  font-family: var(--ifm-font-family-monospace);
+  background: var(--ifm-code-background);
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+}
+
+.paramDescription {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.5;
+}
+
+.returnInfo {
+  padding: 1rem;
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 6px;
+}
+
+.returnType {
+  display: inline-block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ifm-color-success-dark);
+  font-family: var(--ifm-font-family-monospace);
+  background: var(--ifm-code-background);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.returnDescription {
+  margin: 0.75rem 0 0 0;
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.5;
+}
+
+.noResults {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--ifm-color-emphasis-600);
+  font-size: 1.1rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .controls {
+    padding: 1rem;
+  }
+
+  .namespaceTitle {
+    font-size: 1.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .methodCount {
+    font-size: 0.9rem;
+  }
+
+  .methodName {
+    font-size: 1rem;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .actionButton {
+    flex: 1;
+  }
+
+  .methodDetails {
+    padding: 0 1rem 1rem 1rem;
+  }
+
+  .param {
+    padding: 0.75rem;
+  }
+}
+
+/* Schema display styles */
+.typeWithSchema {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.typeValueClickable {
+  font-size: 0.9rem;
+  color: var(--ifm-color-primary-darker);
+  font-family: var(--ifm-font-family-monospace);
+  background: var(--ifm-code-background);
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.typeValueClickable:hover {
+  background: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary-darkest);
+}
+
+.schemaToggle {
+  font-size: 0.7rem;
+  color: var(--ifm-color-emphasis-600);
+}
+
+.returnTypeWrapper {
+  margin-bottom: 0.5rem;
+}
+
+.returnTypeWrapper .typeValueClickable {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ifm-color-success-dark);
+  padding: 0.25rem 0.5rem;
+}
+
+.schemaDetails {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--ifm-color-emphasis-100);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: var(--ifm-font-family-monospace);
+  overflow-x: auto;
+}
+
+.schemaObject {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.schemaProperties {
+  padding-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.schemaProp {
+  display: flex;
+  gap: 0.25rem;
+  align-items: baseline;
+}
+
+.schemaPropName {
+  color: var(--ifm-color-emphasis-900);
+  font-weight: 600;
+}
+
+.optionalMark {
+  color: var(--ifm-color-emphasis-600);
+  font-weight: normal;
+}
+
+.schemaRef {
+  color: var(--ifm-color-primary);
+  font-weight: 500;
+}
+
+.schemaPrimitive {
+  color: var(--ifm-color-success-dark);
+}
+
+.schemaEllipsis {
+  color: var(--ifm-color-emphasis-600);
+  font-style: italic;
+}
+
+.schemaNotFound {
+  color: var(--ifm-color-danger);
+  font-style: italic;
+}
+
+.schemaUnknown {
+  color: var(--ifm-color-warning-dark);
+  font-style: italic;
+}
+
+/* Responsive adjustments for schema display */
+@media (max-width: 768px) {
+  .schemaDetails {
+    font-size: 0.75rem;
+    padding: 0.5rem;
+  }
+
+  .schemaProperties {
+    padding-left: 1rem;
+  }
+}
