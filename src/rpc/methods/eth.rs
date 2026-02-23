@@ -4094,7 +4094,7 @@ fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Result<Eth
     }
 
     match decode_payload(&return_data, CBOR) {
-        Ok(payload) => Ok(EthBytes::from(payload)),
+        Ok(payload) => Ok(payload),
         Err(e) => Err(anyhow::anyhow!("failed to decode return data: {e}")),
     }
 }
@@ -4102,24 +4102,19 @@ fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Result<Eth
 /// Extract all unique Ethereum addresses touched during execution from the trace.
 fn extract_touched_eth_addresses(trace: &crate::rpc::state::ExecutionTrace) -> HashSet<EthAddress> {
     let mut addresses = HashSet::default();
-    extract_addresses_recursive(trace, &mut addresses);
+    let mut stack = vec![trace];
+
+    while let Some(current) = stack.pop() {
+        if let Ok(eth_addr) = EthAddress::from_filecoin_address(&current.msg.from) {
+            addresses.insert(eth_addr);
+        }
+        if let Ok(eth_addr) = EthAddress::from_filecoin_address(&current.msg.to) {
+            addresses.insert(eth_addr);
+        }
+        stack.extend(&current.subcalls);
+    }
+
     addresses
-}
-
-fn extract_addresses_recursive(
-    trace: &crate::rpc::state::ExecutionTrace,
-    addresses: &mut HashSet<EthAddress>,
-) {
-    if let Ok(eth_addr) = EthAddress::from_filecoin_address(&trace.msg.from) {
-        addresses.insert(eth_addr);
-    }
-    if let Ok(eth_addr) = EthAddress::from_filecoin_address(&trace.msg.to) {
-        addresses.insert(eth_addr);
-    }
-
-    for subcall in &trace.subcalls {
-        extract_addresses_recursive(subcall, addresses);
-    }
 }
 
 pub enum EthTraceTransaction {}
