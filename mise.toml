@@ -140,6 +140,14 @@ pnpm spellcheck
 pnpm format-check
 '''
 
+[tasks."docs:build"]
+description = "Build documentation site."
+dir = "docs"
+run = '''
+pnpm i --frozen-lockfile
+pnpm build
+'''
+
 [tasks.clean]
 description = "Cleanup all build artifacts and dependencies."
 run = '''
