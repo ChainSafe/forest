@@ -32,10 +32,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
-      - name: Generate OpenRPC specifications
-        run: |
-          cd scripts
-          ./generate-openrpc-specs.sh docker
       - name: Install dependencies and generate RPC reference
         run: |
           pnpm i --frozen-lockfile
