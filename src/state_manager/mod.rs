@@ -683,7 +683,7 @@ where
         tipset: Option<Tipset>,
         msg: Message,
         state_lookup: StateLookupPolicy,
-        flush: bool,
+        vm_flush: VMFlush,
     ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
@@ -713,7 +713,7 @@ where
                 Some(ts),
                 VMTrace::Traced,
                 state_lookup,
-                flush,
+                vm_flush,
             )
             .await?;
 
@@ -741,7 +741,7 @@ where
         tipset: Option<Tipset>,
         trace_config: VMTrace,
         state_lookup: StateLookupPolicy,
-        flush: bool,
+        vm_flush: VMFlush,
     ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let (st, _) = self
@@ -787,7 +787,10 @@ where
 
             message.set_sequence(from_actor.sequence);
             let (ret, duration) = vm.apply_message(message)?;
-            let state_root = if flush { Some(vm.flush()?) } else { None };
+            let state_root = match vm_flush {
+                VMFlush::Flush => Some(vm.flush()?),
+                VMFlush::Skip => None,
+            };
             Ok((ret, duration, state_root))
         })?;
 
@@ -2108,4 +2111,12 @@ pub enum StateLookupPolicy {
     #[default]
     Enabled,
     Disabled,
+}
+
+/// Controls whether the VM should flush its state after execution
+#[derive(Debug, Copy, Clone, Default)]
+pub enum VMFlush {
+    Flush,
+    #[default]
+    Skip,
 }

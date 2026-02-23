@@ -54,7 +54,7 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::StateLookupPolicy;
+use crate::state_manager::{StateLookupPolicy, VMFlush};
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -2159,7 +2159,7 @@ where
 {
     let (invoc_res, _) = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg, StateLookupPolicy::Enabled, false)
+        .apply_on_state_with_gas(tipset, msg, StateLookupPolicy::Enabled, VMFlush::Skip)
         .await
         .map_err(|e| anyhow::anyhow!("failed to apply on state with gas: {e}"))?;
 
@@ -2256,7 +2256,7 @@ where
                 Some(ts),
                 VMTrace::NotTraced,
                 StateLookupPolicy::Enabled,
-                false,
+                VMFlush::Skip,
             )
             .await?;
         Ok(apply_ret.msg_receipt().exit_code().is_success())
@@ -4027,7 +4027,7 @@ impl RpcMethod<3> for EthTraceCall {
                 Some(ts.clone()),
                 msg.clone(),
                 StateLookupPolicy::Enabled,
-                true,
+                VMFlush::Flush,
             )
             .await
             .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;

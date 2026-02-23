@@ -15,7 +15,7 @@ use crate::shim::{
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
-use crate::state_manager::StateLookupPolicy;
+use crate::state_manager::{StateLookupPolicy, VMFlush};
 use anyhow::{Context, Result};
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
@@ -263,7 +263,7 @@ impl GasEstimateGasLimit {
                 Some(ts.clone()),
                 trace_config,
                 StateLookupPolicy::Enabled,
-                false,
+                VMFlush::Skip,
             )
             .await?;
         Ok((invoc_res, apply_ret, prior_messages, ts))
