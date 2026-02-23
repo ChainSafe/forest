@@ -11,9 +11,7 @@ use itertools::Itertools;
 use libp2p::Multiaddr;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
-use strum_macros::Display;
-use strum_macros::EnumIter;
+use strum::{Display, EnumIter, IntoEnumIterator};
 use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};

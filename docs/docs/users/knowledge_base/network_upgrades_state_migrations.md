@@ -37,10 +37,10 @@ Sample output:
 location: /archive/mainnet/latest/forest_snapshot_mainnet_2024-08-06_height_415650.forest.car.zst
 ```
 
-You see that the snapshot is past the upgrade epoch by ten epochs. You download the snapshot with `aria2c` because it's significantly faster than a raw `curl`.
+You see that the snapshot is past the upgrade epoch by ten epochs. You download the snapshot with the in-built tool which is faster than raw `cURL`.
 
 ```bash
-aria2c -x5 https://forest-archive.chainsafe.dev/latest/mainnet/
+forest-tool snapshot fetch --chain mainnet
 ```
 
 You start your node with `--import-snapshot <snapshot-path>` and enjoy the new, fancy NV23 features. Hooray!

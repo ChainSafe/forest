@@ -57,6 +57,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
+use rand::Rng as _;
 use sha2::Sha256;
 use std::path::PathBuf;
 use std::sync::{
@@ -196,16 +197,21 @@ where
                 let sync_status = &*sync_status.read();
                 let network_head_epoch = sync_status.network_head_epoch;
                 let head_epoch = sync_status.current_head_epoch;
+                // Add some random delay to the GC interval to avoid a cluster of nodes run GC and reboot RPC services at the same time.
+                // This will no longer be needed once <https://github.com/ChainSafe/forest/issues/6593> is implemented.
+                // 0..30 is 0-15min on mainnet and calibnet.
+                let gc_interval_random_delay_epochs = crate::utils::rand::forest_rng()
+                    .gen_range(0..=30.min(snap_gc_interval_epochs / 5));
                 if head_epoch > 0 // sync_status has been initialized
                     && head_epoch <= network_head_epoch // head epoch is within a sane range
                     && sync_status.is_synced() // chain is in sync
                     && sync_status.active_forks.is_empty() // no active fork
-                    && head_epoch - car_db_head_epoch >= snap_gc_interval_epochs // the gap between chain head and car_db head is above threshold
+                    && head_epoch - car_db_head_epoch >= snap_gc_interval_epochs + gc_interval_random_delay_epochs // the gap between chain head and car_db head is above threshold
                     && self.trigger_tx.try_send(()).is_ok()
                 {
-                    tracing::info!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
+                    tracing::info!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, %gc_interval_random_delay_epochs, "Snap GC scheduled");
                 } else {
-                    tracing::debug!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
+                    tracing::debug!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, %gc_interval_random_delay_epochs, "Snap GC not scheduled");
                 }
             }
             tokio::time::sleep(snap_gc_check_interval).await;

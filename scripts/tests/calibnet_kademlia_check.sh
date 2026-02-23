@@ -24,7 +24,6 @@ cat <<- EOF > $CONFIG_PATH
 	kademlia = true
 EOF
 
-handle_auto_download_snapshot_env
 $FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --save-token ./admin_token --rpc-address 127.0.0.1:12345 --metrics-address 127.0.0.1:6117 --healthcheck-address 127.0.0.1:2347 &
 FOREST_NODE_PID=$!
 # Verify that more peers are connected via kademlia

@@ -67,6 +67,8 @@ pub async fn fetch(
         .date_and_height_and_forest();
     let filename = filename(vendor, chain, date, height, forest_format);
 
+    tracing::info!("Downloading snapshot: {filename}");
+
     download_file_with_retry(
         &url,
         directory,

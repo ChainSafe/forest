@@ -1,7 +1,8 @@
-75
+78
 Algorand/M
 API/M
 APIs
+aria2c
 args
 arities
 arity
@@ -81,6 +82,7 @@ libp2p
 liveness
 localhost
 mainnet
+MD5
 MDNS
 mempool
 Merkle
@@ -131,6 +133,7 @@ TOML
 trie
 truthy
 TTY
+UI
 uncompress
 unrepresentable
 untrusted

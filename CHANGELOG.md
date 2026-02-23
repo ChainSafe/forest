@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#3715](https://github.com/ChainSafe/forest/issues/3715): Implemented parallel HTTP downloads for snapshots with 5 concurrent connections by default (configurable via `FOREST_DOWNLOAD_CONNECTIONS`), bringing significant performance improvements for snapshot downloads (on par with a manual `aria2c -x5`).
+
 ### Changed
 
 ### Removed
@@ -36,6 +38,8 @@
 ### Fixed
 
 - [#6613](https://github.com/ChainSafe/forest/pull/6613): Fixed chain sync getting stuck when encountering time-travelling blocks by not marking the corresponding tipsets as permanently bad.
+
+- [#6594](https://github.com/ChainSafe/forest/issues/6594): Added random GC delay to avoid a cluster of nodes run GC and reboot RPC services at the same time.
 
 ## Forest v0.32.1 "Malfoy"
 
