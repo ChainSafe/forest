@@ -718,14 +718,19 @@ async fn maybe_set_snapshot_path(
                     config.client.snapshot_path = Some(path.into());
                 }
                 _ => {
-                    let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
-                    config.client.snapshot_path = Some(url.to_string().into());
+                    // Resolve the redirect URL to get the actual snapshot URL
+                    // This ensures all chunks download from the same snapshot even if
+                    // a new snapshot is published during the download
+                    let (resolved_url, _num_bytes, filename) =
+                        crate::cli_shared::snapshot::peek(vendor, chain).await?;
+                    tracing::info!("Downloading snapshot: {filename}");
+                    config.client.snapshot_path = Some(resolved_url.to_string().into());
                 }
             }
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
-            let (url, num_bytes, _path) = crate::cli_shared::snapshot::peek(vendor, chain)
+            let (url, num_bytes, filename) = crate::cli_shared::snapshot::peek(vendor, chain)
                 .await
                 .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
@@ -751,6 +756,7 @@ async fn maybe_set_snapshot_path(
                     "Forest requires a snapshot to sync with the network, but automatic fetching is disabled."
                 )
             }
+            tracing::info!("Downloading snapshot: {filename}");
             config.client.snapshot_path = Some(url.to_string().into());
         }
     };

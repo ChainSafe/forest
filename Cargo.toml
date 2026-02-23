@@ -202,8 +202,7 @@ spire_enum = "1"
 stacker = "0.1"
 static_assertions = "1"
 statrs = "0.18"
-strum = { version = "0.27", features = ["derive"] }
-strum_macros = "0.27"
+strum = { version = "0.28", features = ["derive", "strum_macros"] }
 tabled = { version = "0.20", default-features = false, features = ["std"] }
 tap = "1"
 tar = "0.4"
@@ -258,7 +257,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.319"
+ra_ap_syntax = "0.0.320"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
