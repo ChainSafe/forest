@@ -893,6 +893,9 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
+        // Explicitly drop the WebSocket client to close the connection
+        drop(client);
+
         // Gracefully shutdown the RPC server
         shutdown_send.send(()).await.unwrap();
         shutdown_recv.recv().await;
