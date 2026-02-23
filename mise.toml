@@ -135,6 +135,7 @@ description = "Lint documentation files."
 dir = "docs"
 run = '''
 pnpm i --frozen-lockfile
+pnpm generate:rpc-reference
 pnpm typecheck
 pnpm spellcheck
 pnpm format-check
