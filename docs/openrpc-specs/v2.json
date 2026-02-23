@@ -1,0 +1,3559 @@
+{
+  "openrpc": "1.3.2",
+  "info": {
+    "title": "forest",
+    "version": "0.32.1"
+  },
+  "methods": [
+    {
+      "name": "Filecoin.ChainGetTipSet",
+      "description": "Returns the tipset with the specified CID.",
+      "params": [
+        {
+          "name": "tipsetSelector",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/TipsetSelector"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.ChainGetTipSet.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/Tipset"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthAccounts",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthAccounts.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthAddressToFilecoinAddress",
+      "description": "Converts an EthAddress into an f410 Filecoin Address",
+      "params": [
+        {
+          "name": "ethAddress",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthAddressToFilecoinAddress.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Address"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthBlockNumber",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthBlockNumber.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthCall",
+      "params": [
+        {
+          "name": "tx",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthCallMessage"
+          }
+        },
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthCall.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBytes"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthChainId",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthChainId.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthEstimateGas",
+      "params": [
+        {
+          "name": "tx",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthCallMessage"
+          }
+        },
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthEstimateGas.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthFeeHistory",
+      "params": [
+        {
+          "name": "blockCount",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthUint64"
+          }
+        },
+        {
+          "name": "newestBlockNumber",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        },
+        {
+          "name": "rewardPercentiles",
+          "required": true,
+          "schema": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthFeeHistory.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthFeeHistoryResult"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGasPrice",
+      "description": "Returns the current gas price in attoFIL",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthGasPrice.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBigInt"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetBalance",
+      "description": "Returns the balance of an Ethereum address at the specified block state",
+      "params": [
+        {
+          "name": "address",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        },
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetBalance.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBigInt"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetBlockByHash",
+      "params": [
+        {
+          "name": "blockHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        },
+        {
+          "name": "fullTxInfo",
+          "required": true,
+          "schema": {
+            "type": "boolean"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetBlockByHash.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Block"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetBlockByNumber",
+      "description": "Retrieves a block by its number or a special tag.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
+          }
+        },
+        {
+          "name": "fullTxInfo",
+          "required": true,
+          "schema": {
+            "type": "boolean"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetBlockByNumber.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Block"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetBlockReceipts",
+      "description": "Retrieves all transaction receipts for a block by its number, hash or a special tag.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetBlockReceipts.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthTxReceipt"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetBlockReceiptsLimited",
+      "description": "Retrieves all transaction receipts for a block identified by its number, hash or a special tag along with an optional limit on the chain epoch for state resolution.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        },
+        {
+          "name": "limit",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetBlockReceiptsLimited.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthTxReceipt"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetBlockTransactionCountByHash",
+      "params": [
+        {
+          "name": "blockHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetBlockTransactionCountByHash.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetBlockTransactionCountByNumber",
+      "description": "Returns the number of transactions in a block identified by its block number or a special tag.",
+      "params": [
+        {
+          "name": "blockNumber",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetBlockTransactionCountByNumber.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetCode",
+      "description": "Retrieves the contract code at a specific address and block state, identified by its number, hash, or a special tag.",
+      "params": [
+        {
+          "name": "ethAddress",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        },
+        {
+          "name": "blockNumberOrHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetCode.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBytes"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetFilterChanges",
+      "description": "Returns event logs which occurred since the last poll",
+      "params": [
+        {
+          "name": "filterId",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/FilterID"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetFilterChanges.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthFilterResult"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetFilterLogs",
+      "params": [
+        {
+          "name": "filterId",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/FilterID"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetFilterLogs.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthFilterResult"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetLogs",
+      "params": [
+        {
+          "name": "ethFilter",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthFilterSpec"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetLogs.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthFilterResult"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetMessageCidByTransactionHash",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetMessageCidByTransactionHash.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/Cid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetStorageAt",
+      "description": "Retrieves the storage value at a specific position for a contract\n        at a given block state, identified by its number, hash, or a special tag.",
+      "params": [
+        {
+          "name": "ethAddress",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        },
+        {
+          "name": "position",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthBytes"
+          }
+        },
+        {
+          "name": "blockNumberOrHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetStorageAt.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBytes"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetTransactionByBlockHashAndIndex",
+      "params": [
+        {
+          "name": "blockHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        },
+        {
+          "name": "txIndex",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthUint64"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetTransactionByBlockHashAndIndex.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ApiEthTx"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetTransactionByBlockNumberAndIndex",
+      "description": "Retrieves a transaction by its block number and index.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
+          }
+        },
+        {
+          "name": "txIndex",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthUint64"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetTransactionByBlockNumberAndIndex.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ApiEthTx"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetTransactionByHash",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetTransactionByHash.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ApiEthTx"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetTransactionByHashLimited",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        },
+        {
+          "name": "limit",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetTransactionByHashLimited.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ApiEthTx"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetTransactionCount",
+      "params": [
+        {
+          "name": "sender",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        },
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetTransactionCount.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetTransactionHashByCid",
+      "params": [
+        {
+          "name": "cid",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Cid"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetTransactionHashByCid.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/EthHash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetTransactionReceipt",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetTransactionReceipt.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/EthTxReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthGetTransactionReceiptLimited",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        },
+        {
+          "name": "limit",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthGetTransactionReceiptLimited.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/EthTxReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthMaxPriorityFeePerGas",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthMaxPriorityFeePerGas.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBigInt"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthNewBlockFilter",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthNewBlockFilter.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/FilterID"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthNewFilter",
+      "params": [
+        {
+          "name": "filterSpec",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthFilterSpec"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthNewFilter.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/FilterID"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthNewPendingTransactionFilter",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthNewPendingTransactionFilter.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/FilterID"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthProtocolVersion",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthProtocolVersion.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthSendRawTransaction",
+      "params": [
+        {
+          "name": "rawTx",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthBytes"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthSendRawTransaction.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthHash"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthSendRawTransactionUntrusted",
+      "params": [
+        {
+          "name": "rawTx",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthBytes"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthSendRawTransactionUntrusted.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthHash"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthSubscribe",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthSubscribe.Result",
+        "required": true,
+        "schema": {
+          "type": "null"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthSyncing",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthSyncing.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthSyncingResultLotusJson"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthTraceBlock",
+      "description": "Returns traces created at given block.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthTraceBlock.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthBlockTrace"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthTraceReplayBlockTransactions",
+      "description": "Replays all transactions in a block returning the requested traces for each transaction.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        },
+        {
+          "name": "traceTypes",
+          "required": true,
+          "schema": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthTraceReplayBlockTransactions.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthTraceTransaction",
+      "description": "Returns the traces for a specific transaction.",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthTraceTransaction.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthBlockTrace"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthUninstallFilter",
+      "params": [
+        {
+          "name": "filterId",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/FilterID"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.EthUninstallFilter.Result",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.EthUnsubscribe",
+      "params": [],
+      "result": {
+        "name": "Filecoin.EthUnsubscribe.Result",
+        "required": true,
+        "schema": {
+          "type": "null"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.FilecoinAddressToEthAddress",
+      "description": "Converts any Filecoin address to an EthAddress",
+      "params": [
+        {
+          "name": "filecoinAddress",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Address"
+          }
+        },
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BlockNumberOrPredefined"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.FilecoinAddressToEthAddress.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthAddress"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.NetListening",
+      "params": [],
+      "result": {
+        "name": "Filecoin.NetListening.Result",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.NetVersion",
+      "params": [],
+      "result": {
+        "name": "Filecoin.NetVersion.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.StateGetActor",
+      "description": "Returns the nonce and balance for the specified actor.",
+      "params": [
+        {
+          "name": "address",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Address"
+          }
+        },
+        {
+          "name": "tipsetSelector",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/TipsetSelector"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.StateGetActor.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ActorState"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.StateGetID",
+      "description": "Retrieves the ID address for the specified address at the selected tipset.",
+      "params": [
+        {
+          "name": "address",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Address"
+          }
+        },
+        {
+          "name": "tipsetSelector",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/TipsetSelector"
+          }
+        }
+      ],
+      "result": {
+        "name": "Filecoin.StateGetID.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Address"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.Web3ClientVersion",
+      "params": [],
+      "result": {
+        "name": "Filecoin.Web3ClientVersion.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_accounts",
+      "params": [],
+      "result": {
+        "name": "eth_accounts.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_blockNumber",
+      "params": [],
+      "result": {
+        "name": "eth_blockNumber.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_call",
+      "params": [
+        {
+          "name": "tx",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthCallMessage"
+          }
+        },
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_call.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBytes"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_chainId",
+      "params": [],
+      "result": {
+        "name": "eth_chainId.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_estimateGas",
+      "params": [
+        {
+          "name": "tx",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthCallMessage"
+          }
+        },
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_estimateGas.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_feeHistory",
+      "params": [
+        {
+          "name": "blockCount",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthUint64"
+          }
+        },
+        {
+          "name": "newestBlockNumber",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        },
+        {
+          "name": "rewardPercentiles",
+          "required": true,
+          "schema": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_feeHistory.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthFeeHistoryResult"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_gasPrice",
+      "description": "Returns the current gas price in attoFIL",
+      "params": [],
+      "result": {
+        "name": "eth_gasPrice.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBigInt"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getBalance",
+      "description": "Returns the balance of an Ethereum address at the specified block state",
+      "params": [
+        {
+          "name": "address",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        },
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getBalance.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBigInt"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getBlockByHash",
+      "params": [
+        {
+          "name": "blockHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        },
+        {
+          "name": "fullTxInfo",
+          "required": true,
+          "schema": {
+            "type": "boolean"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getBlockByHash.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Block"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getBlockByNumber",
+      "description": "Retrieves a block by its number or a special tag.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
+          }
+        },
+        {
+          "name": "fullTxInfo",
+          "required": true,
+          "schema": {
+            "type": "boolean"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getBlockByNumber.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Block"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getBlockReceipts",
+      "description": "Retrieves all transaction receipts for a block by its number, hash or a special tag.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getBlockReceipts.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthTxReceipt"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getBlockReceiptsLimited",
+      "description": "Retrieves all transaction receipts for a block identified by its number, hash or a special tag along with an optional limit on the chain epoch for state resolution.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        },
+        {
+          "name": "limit",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getBlockReceiptsLimited.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthTxReceipt"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getBlockTransactionCountByHash",
+      "params": [
+        {
+          "name": "blockHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getBlockTransactionCountByHash.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getBlockTransactionCountByNumber",
+      "description": "Returns the number of transactions in a block identified by its block number or a special tag.",
+      "params": [
+        {
+          "name": "blockNumber",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getBlockTransactionCountByNumber.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getCode",
+      "description": "Retrieves the contract code at a specific address and block state, identified by its number, hash, or a special tag.",
+      "params": [
+        {
+          "name": "ethAddress",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        },
+        {
+          "name": "blockNumberOrHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getCode.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBytes"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getFilterChanges",
+      "description": "Returns event logs which occurred since the last poll",
+      "params": [
+        {
+          "name": "filterId",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/FilterID"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getFilterChanges.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthFilterResult"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getFilterLogs",
+      "params": [
+        {
+          "name": "filterId",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/FilterID"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getFilterLogs.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthFilterResult"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getLogs",
+      "params": [
+        {
+          "name": "ethFilter",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthFilterSpec"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getLogs.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthFilterResult"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getMessageCidByTransactionHash",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getMessageCidByTransactionHash.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/Cid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getStorageAt",
+      "description": "Retrieves the storage value at a specific position for a contract\n        at a given block state, identified by its number, hash, or a special tag.",
+      "params": [
+        {
+          "name": "ethAddress",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        },
+        {
+          "name": "position",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthBytes"
+          }
+        },
+        {
+          "name": "blockNumberOrHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getStorageAt.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBytes"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getTransactionByBlockHashAndIndex",
+      "params": [
+        {
+          "name": "blockHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        },
+        {
+          "name": "txIndex",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthUint64"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getTransactionByBlockHashAndIndex.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ApiEthTx"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getTransactionByBlockNumberAndIndex",
+      "description": "Retrieves a transaction by its block number and index.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
+          }
+        },
+        {
+          "name": "txIndex",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthUint64"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getTransactionByBlockNumberAndIndex.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ApiEthTx"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getTransactionByHash",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getTransactionByHash.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ApiEthTx"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getTransactionByHashLimited",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        },
+        {
+          "name": "limit",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getTransactionByHashLimited.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/ApiEthTx"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getTransactionCount",
+      "params": [
+        {
+          "name": "sender",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        },
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getTransactionCount.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getTransactionHashByCid",
+      "params": [
+        {
+          "name": "cid",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Cid"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getTransactionHashByCid.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/EthHash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getTransactionReceipt",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getTransactionReceipt.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/EthTxReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_getTransactionReceiptLimited",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthHash"
+          }
+        },
+        {
+          "name": "limit",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_getTransactionReceiptLimited.Result",
+        "required": false,
+        "schema": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/EthTxReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_maxPriorityFeePerGas",
+      "params": [],
+      "result": {
+        "name": "eth_maxPriorityFeePerGas.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBigInt"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_newBlockFilter",
+      "params": [],
+      "result": {
+        "name": "eth_newBlockFilter.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/FilterID"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_newFilter",
+      "params": [
+        {
+          "name": "filterSpec",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthFilterSpec"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_newFilter.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/FilterID"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_newPendingTransactionFilter",
+      "params": [],
+      "result": {
+        "name": "eth_newPendingTransactionFilter.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/FilterID"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_protocolVersion",
+      "params": [],
+      "result": {
+        "name": "eth_protocolVersion.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthUint64"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_sendRawTransaction",
+      "params": [
+        {
+          "name": "rawTx",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthBytes"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_sendRawTransaction.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthHash"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_sendRawTransactionUntrusted",
+      "params": [
+        {
+          "name": "rawTx",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/EthBytes"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_sendRawTransactionUntrusted.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthHash"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_subscribe",
+      "params": [],
+      "result": {
+        "name": "eth_subscribe.Result",
+        "required": true,
+        "schema": {
+          "type": "null"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_syncing",
+      "params": [],
+      "result": {
+        "name": "eth_syncing.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthSyncingResultLotusJson"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_uninstallFilter",
+      "params": [
+        {
+          "name": "filterId",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/FilterID"
+          }
+        }
+      ],
+      "result": {
+        "name": "eth_uninstallFilter.Result",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "eth_unsubscribe",
+      "params": [],
+      "result": {
+        "name": "eth_unsubscribe.Result",
+        "required": true,
+        "schema": {
+          "type": "null"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "net_listening",
+      "params": [],
+      "result": {
+        "name": "net_listening.Result",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "net_version",
+      "params": [],
+      "result": {
+        "name": "net_version.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "trace_block",
+      "description": "Returns traces created at given block.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        }
+      ],
+      "result": {
+        "name": "trace_block.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthBlockTrace"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "trace_replayBlockTransactions",
+      "description": "Replays all transactions in a block returning the requested traces for each transaction.",
+      "params": [
+        {
+          "name": "blockParam",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+          }
+        },
+        {
+          "name": "traceTypes",
+          "required": true,
+          "schema": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ],
+      "result": {
+        "name": "trace_replayBlockTransactions.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "trace_transaction",
+      "description": "Returns the traces for a specific transaction.",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "result": {
+        "name": "trace_transaction.Result",
+        "required": false,
+        "schema": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/components/schemas/EthBlockTrace"
+          }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "web3_clientVersion",
+      "params": [],
+      "result": {
+        "name": "web3_clientVersion.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "ActorState": {
+        "type": "object",
+        "properties": {
+          "Balance": {
+            "$ref": "#/components/schemas/TokenAmount"
+          },
+          "Code": {
+            "$ref": "#/components/schemas/Cid"
+          },
+          "DelegatedAddress": {
+            "$ref": "#/components/schemas/Nullable_Address"
+          },
+          "Head": {
+            "$ref": "#/components/schemas/Cid"
+          },
+          "Nonce": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "Code",
+          "Head",
+          "Nonce",
+          "Balance"
+        ]
+      },
+      "Address": {
+        "type": "string"
+      },
+      "ApiEthTx": {
+        "type": "object",
+        "properties": {
+          "accessList": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/EthHash"
+            }
+          },
+          "blockHash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "blockNumber": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "chainId": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "from": {
+            "$ref": "#/components/schemas/EthAddress"
+          },
+          "gas": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "gasPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "input": {
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "maxFeePerGas": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxPriorityFeePerGas": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nonce": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "r": {
+            "$ref": "#/components/schemas/EthBigInt"
+          },
+          "s": {
+            "$ref": "#/components/schemas/EthBigInt"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transactionIndex": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "type": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "v": {
+            "$ref": "#/components/schemas/EthBigInt"
+          },
+          "value": {
+            "$ref": "#/components/schemas/EthBigInt"
+          }
+        },
+        "required": [
+          "chainId",
+          "nonce",
+          "hash",
+          "blockHash",
+          "blockNumber",
+          "transactionIndex",
+          "from",
+          "value",
+          "type",
+          "input",
+          "gas",
+          "v",
+          "r",
+          "s"
+        ]
+      },
+      "Base64String": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "BeaconEntry": {
+        "type": "object",
+        "properties": {
+          "Data": {
+            "$ref": "#/components/schemas/Base64String"
+          },
+          "Round": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "Round",
+          "Data"
+        ]
+      },
+      "BigInt": {
+        "type": "string"
+      },
+      "Block": {
+        "type": "object",
+        "properties": {
+          "baseFeePerGas": {
+            "$ref": "#/components/schemas/EthBigInt"
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "extraData": {
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "gasLimit": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "gasUsed": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "hash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "logsBloom": {
+            "$ref": "#/components/schemas/Bloom"
+          },
+          "miner": {
+            "$ref": "#/components/schemas/EthAddress"
+          },
+          "mixHash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "nonce": {
+            "$ref": "#/components/schemas/Nonce"
+          },
+          "number": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "parentHash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "receiptsRoot": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "sha3Uncles": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "size": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "stateRoot": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "timestamp": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "totalDifficulty": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "transactions": {
+            "$ref": "#/components/schemas/Transactions"
+          },
+          "transactionsRoot": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "uncles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthHash"
+            }
+          }
+        },
+        "required": [
+          "hash",
+          "parentHash",
+          "sha3Uncles",
+          "miner",
+          "stateRoot",
+          "transactionsRoot",
+          "receiptsRoot",
+          "logsBloom",
+          "difficulty",
+          "totalDifficulty",
+          "number",
+          "gasLimit",
+          "gasUsed",
+          "timestamp",
+          "extraData",
+          "mixHash",
+          "nonce",
+          "baseFeePerGas",
+          "size",
+          "transactions",
+          "uncles"
+        ]
+      },
+      "BlockHash": {
+        "type": "object",
+        "properties": {
+          "blockHash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "requireCanonical": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "blockHash"
+        ]
+      },
+      "BlockHeader": {
+        "type": "object",
+        "properties": {
+          "BLSAggregate": {
+            "$ref": "#/components/schemas/Nullable_Signature"
+          },
+          "BeaconEntries": {
+            "$ref": "#/components/schemas/Nullable_Array_of_BeaconEntry"
+          },
+          "BlockSig": {
+            "$ref": "#/components/schemas/Nullable_Signature"
+          },
+          "ElectionProof": {
+            "$ref": "#/components/schemas/Nullable_ElectionProof"
+          },
+          "ForkSignaling": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "Height": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Messages": {
+            "$ref": "#/components/schemas/Cid"
+          },
+          "Miner": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "ParentBaseFee": {
+            "$ref": "#/components/schemas/TokenAmount"
+          },
+          "ParentMessageReceipts": {
+            "$ref": "#/components/schemas/Cid"
+          },
+          "ParentStateRoot": {
+            "$ref": "#/components/schemas/Cid"
+          },
+          "ParentWeight": {
+            "$ref": "#/components/schemas/BigInt"
+          },
+          "Parents": {
+            "$ref": "#/components/schemas/NonEmpty_Array_of_Cid"
+          },
+          "Ticket": {
+            "$ref": "#/components/schemas/Nullable_Ticket"
+          },
+          "Timestamp": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "WinPoStProof": {
+            "$ref": "#/components/schemas/Nullable_Array_of_PoStProof"
+          }
+        },
+        "required": [
+          "Miner",
+          "BeaconEntries",
+          "WinPoStProof",
+          "Parents",
+          "ParentWeight",
+          "Height",
+          "ParentStateRoot",
+          "ParentMessageReceipts",
+          "Messages",
+          "Timestamp",
+          "ForkSignaling",
+          "ParentBaseFee"
+        ]
+      },
+      "BlockNumber": {
+        "type": "object",
+        "properties": {
+          "blockNumber": {
+            "$ref": "#/components/schemas/EthInt64"
+          }
+        },
+        "required": [
+          "blockNumber"
+        ]
+      },
+      "BlockNumberOrPredefined": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/components/schemas/EthInt64"
+          }
+        ]
+      },
+      "Bloom": {
+        "type": "string"
+      },
+      "Cid": {
+        "type": "object",
+        "properties": {
+          "/": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "/"
+        ]
+      },
+      "ElectionProof": {
+        "type": "object",
+        "properties": {
+          "VRFProof": {
+            "$ref": "#/components/schemas/Base64String"
+          },
+          "WinCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "VRFProof",
+          "WinCount"
+        ]
+      },
+      "EthAddress": {
+        "type": "string"
+      },
+      "EthAddressList": {
+        "description": "Represents an [`EthAddress`] or a collection of thereof. This allows the caller to either use,\ne.g., `0x1234...` or `[\"0x1234...\", \"0x5678...\"]` as the address parameter.",
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthAddress"
+            }
+          },
+          {
+            "$ref": "#/components/schemas/EthAddress"
+          }
+        ]
+      },
+      "EthBigInt": {
+        "type": "string"
+      },
+      "EthBlockTrace": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/TraceAction"
+          },
+          "blockHash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "blockNumber": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/TraceResult"
+          },
+          "subtraces": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "traceAddress": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "transactionHash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "transactionPosition": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "subtraces",
+          "traceAddress",
+          "action",
+          "result",
+          "blockHash",
+          "blockNumber",
+          "transactionHash",
+          "transactionPosition"
+        ]
+      },
+      "EthBytes": {
+        "type": "string"
+      },
+      "EthCallMessage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBytes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gas": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthUint64"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gasPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "EthCallTraceAction": {
+        "type": "object",
+        "properties": {
+          "callType": {
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/components/schemas/EthAddress"
+          },
+          "gas": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "input": {
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/EthBigInt"
+          }
+        },
+        "required": [
+          "callType",
+          "from",
+          "gas",
+          "value",
+          "input"
+        ]
+      },
+      "EthCallTraceResult": {
+        "type": "object",
+        "properties": {
+          "gasUsed": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "output": {
+            "$ref": "#/components/schemas/EthBytes"
+          }
+        },
+        "required": [
+          "gasUsed",
+          "output"
+        ]
+      },
+      "EthCreateTraceAction": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/EthAddress"
+          },
+          "gas": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "init": {
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "value": {
+            "$ref": "#/components/schemas/EthBigInt"
+          }
+        },
+        "required": [
+          "from",
+          "gas",
+          "value",
+          "init"
+        ]
+      },
+      "EthCreateTraceResult": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "gasUsed": {
+            "$ref": "#/components/schemas/EthUint64"
+          }
+        },
+        "required": [
+          "gasUsed",
+          "code"
+        ]
+      },
+      "EthFeeHistoryResult": {
+        "type": "object",
+        "properties": {
+          "baseFeePerGas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthBigInt"
+            }
+          },
+          "gasUsedRatio": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "oldestBlock": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "reward": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/EthBigInt"
+              }
+            }
+          }
+        },
+        "required": [
+          "oldestBlock",
+          "baseFeePerGas",
+          "gasUsedRatio"
+        ]
+      },
+      "EthFilterResult": {
+        "description": "`EthFilterResult` represents the response from executing a filter:\n- A list of block hashes\n- A list of transaction hashes\n- Or a list of logs",
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthHash"
+            }
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthLog"
+            }
+          }
+        ]
+      },
+      "EthFilterSpec": {
+        "description": "Represents a filter specification for querying Ethereum event logs.\nThis struct can be used to specify criteria for filtering Ethereum event logs based on block range,\naddress, topics, and block hash. It is useful for making requests to Ethereum nodes to fetch logs\nthat match certain conditions.\n\n# Fields\n\n* `from_block` - Optional field interpreted as an epoch (in hex):\n  - `\"latest\"`: latest mined block.\n  - `\"earliest\"`: first block.\n  - `\"pending\"`: blocks that have not yet been mined.\n    If omitted, the default value is `\"latest\"`.\n    This field is skipped during serialization if `None`.\n\n* `to_block` - Optional field interpreted as an epoch (in hex):\n  - `\"latest\"`: latest mined block.\n  - `\"earliest\"`: first block.\n  - `\"pending\"`: blocks that have not yet been mined.\n    If omitted, the default value is `\"latest\"`.\n    This field is skipped during serialization if `None`.\n\n* `address` - Optional field interpreted as Actor address or a list of addresses (`Vec<EthAddress>`) from which event logs should originate.\n  If the filter needs to match a single address, it can be specified as a single element vector.\n  This field is required and cannot be omitted.\n\n* `topics` - List of topics (`EthTopicSpec`) to be matched in the event logs.  \n\n* `block_hash` - Optional field specifying a block hash (`Hash`)\n  Restricts event logs returned to those emitted from messages contained in this tipset. When `block_hash` is provided,\n  neither `from_block` nor `to_block` can be specified.\n  This field is skipped during serialization if `None`.\n  [the spec](https://github.com/filecoin-project/lotus/blob/475139ff95407ed9d55d3a2ef87e28da66512937/chain/types/ethtypes/eth_types.go#L602-L627).",
+        "type": "object",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddressList"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blockHash": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthHash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fromBlock": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "toBlock": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "topics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthTopicSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "EthHash": {
+        "type": "string"
+      },
+      "EthHashList": {
+        "description": "`EthHashList` represents a topic filter that can take one of two forms:\n- `List`: Matches if the hash is present in the vector.\n- `Single`: An optional hash, where:\n    - `Some(hash)`: Matches exactly this hash.\n    - `None`: Acts as a wildcard.",
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthHash"
+            }
+          },
+          {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthHash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        ]
+      },
+      "EthInt64": {
+        "type": "string"
+      },
+      "EthLog": {
+        "description": "Represents the results of an event filter execution.",
+        "type": "object",
+        "properties": {
+          "address": {
+            "description": "The address of the actor that produced the event log.",
+            "$ref": "#/components/schemas/EthAddress"
+          },
+          "blockHash": {
+            "description": "The hash of the tipset containing the message that produced the log.",
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "blockNumber": {
+            "description": "The epoch of the tipset containing the message.",
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "data": {
+            "description": "The value of the event log, excluding topics.",
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "logIndex": {
+            "description": "The index of the event log in the sequence of events produced by the message execution.\n(this is the index in the events AMT on the message receipt)",
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "removed": {
+            "description": "Indicates whether the log was removed due to a chain reorganization.",
+            "type": "boolean"
+          },
+          "topics": {
+            "description": "List of topics associated with the event log.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthHash"
+            }
+          },
+          "transactionHash": {
+            "description": "The hash of the RLP message that produced the event log.",
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "transactionIndex": {
+            "description": "The index in the tipset of the transaction that produced the event log.\nThe index corresponds to the sequence of messages produced by `ChainGetParentMessages`",
+            "$ref": "#/components/schemas/EthUint64"
+          }
+        },
+        "required": [
+          "address",
+          "data",
+          "topics",
+          "removed",
+          "logIndex",
+          "transactionIndex",
+          "transactionHash",
+          "blockHash",
+          "blockNumber"
+        ]
+      },
+      "EthReplayBlockTransactionTrace": {
+        "type": "object",
+        "properties": {
+          "output": {
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "stateDiff": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trace": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthTrace"
+            }
+          },
+          "transactionHash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "vmTrace": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "output",
+          "trace",
+          "transactionHash"
+        ]
+      },
+      "EthSyncingResultLotusJson": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "currentblock": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "highestblock": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "startingblock": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            "required": [
+              "startingblock",
+              "currentblock",
+              "highestblock"
+            ]
+          }
+        ]
+      },
+      "EthTopicSpec": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/EthHashList"
+        }
+      },
+      "EthTrace": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/TraceAction"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/TraceResult"
+          },
+          "subtraces": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "traceAddress": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "subtraces",
+          "traceAddress",
+          "action",
+          "result"
+        ]
+      },
+      "EthTxReceipt": {
+        "type": "object",
+        "properties": {
+          "blockHash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "blockNumber": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "contractAddress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cumulativeGasUsed": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "effectiveGasPrice": {
+            "$ref": "#/components/schemas/EthBigInt"
+          },
+          "from": {
+            "$ref": "#/components/schemas/EthAddress"
+          },
+          "gasUsed": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthLog"
+            }
+          },
+          "logsBloom": {
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "root": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transactionHash": {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          "transactionIndex": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "type": {
+            "$ref": "#/components/schemas/EthUint64"
+          }
+        },
+        "required": [
+          "transactionHash",
+          "transactionIndex",
+          "blockHash",
+          "blockNumber",
+          "from",
+          "root",
+          "status",
+          "cumulativeGasUsed",
+          "gasUsed",
+          "effectiveGasPrice",
+          "logsBloom",
+          "logs",
+          "type"
+        ]
+      },
+      "EthUint64": {
+        "type": "string"
+      },
+      "ExtBlockNumberOrHash": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/components/schemas/EthInt64"
+          },
+          {
+            "$ref": "#/components/schemas/EthHash"
+          },
+          {
+            "$ref": "#/components/schemas/BlockNumber"
+          },
+          {
+            "$ref": "#/components/schemas/BlockHash"
+          }
+        ]
+      },
+      "FilterID": {
+        "$ref": "#/components/schemas/EthHash"
+      },
+      "NonEmpty_Array_of_BlockHeader": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/BlockHeader"
+        },
+        "minItems": 1
+      },
+      "NonEmpty_Array_of_Cid": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Cid"
+        },
+        "minItems": 1
+      },
+      "Nonce": {
+        "type": "string"
+      },
+      "Nullable_Address": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/Address"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "Nullable_Array_of_BeaconEntry": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/components/schemas/BeaconEntry"
+        }
+      },
+      "Nullable_Array_of_PoStProof": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/components/schemas/PoStProof"
+        }
+      },
+      "Nullable_ElectionProof": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ElectionProof"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "Nullable_Signature": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/Signature"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "Nullable_Ticket": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/Ticket"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "PoStProof": {
+        "type": "object",
+        "properties": {
+          "PoStProof": {
+            "$ref": "#/components/schemas/int64"
+          },
+          "ProofBytes": {
+            "$ref": "#/components/schemas/Base64String"
+          }
+        },
+        "required": [
+          "PoStProof",
+          "ProofBytes"
+        ]
+      },
+      "Signature": {
+        "type": "object",
+        "properties": {
+          "Data": {
+            "$ref": "#/components/schemas/Base64String"
+          },
+          "Type": {
+            "$ref": "#/components/schemas/SignatureTypeLotusJson"
+          }
+        },
+        "required": [
+          "Type",
+          "Data"
+        ]
+      },
+      "SignatureType": {
+        "description": "Signature variants for Filecoin signatures.",
+        "type": "string",
+        "enum": [
+          "Secp256k1",
+          "Bls",
+          "Delegated"
+        ]
+      },
+      "SignatureTypeLotusJson": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0
+          },
+          {
+            "$ref": "#/components/schemas/SignatureType"
+          }
+        ]
+      },
+      "Ticket": {
+        "type": "object",
+        "properties": {
+          "VRFProof": {
+            "$ref": "#/components/schemas/Base64String"
+          }
+        },
+        "required": [
+          "VRFProof"
+        ]
+      },
+      "Tipset": {
+        "$ref": "#/components/schemas/TipsetInner"
+      },
+      "TipsetAnchor": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/NonEmpty_Array_of_Cid"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TipsetTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "TipsetHeight": {
+        "type": "object",
+        "properties": {
+          "anchor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TipsetAnchor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "previous": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "at",
+          "previous"
+        ]
+      },
+      "TipsetInner": {
+        "type": "object",
+        "properties": {
+          "Blocks": {
+            "$ref": "#/components/schemas/NonEmpty_Array_of_BlockHeader"
+          },
+          "Cids": {
+            "$ref": "#/components/schemas/NonEmpty_Array_of_Cid"
+          },
+          "Height": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "Cids",
+          "Blocks",
+          "Height"
+        ]
+      },
+      "TipsetSelector": {
+        "type": "object",
+        "properties": {
+          "height": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TipsetHeight"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "$ref": "#/components/schemas/NonEmpty_Array_of_Cid"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TipsetTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "TipsetTag": {
+        "type": "string",
+        "enum": [
+          "latest",
+          "finalized",
+          "safe"
+        ]
+      },
+      "TokenAmount": {
+        "$ref": "#/components/schemas/BigInt"
+      },
+      "TraceAction": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/EthCallTraceAction"
+          },
+          {
+            "$ref": "#/components/schemas/EthCreateTraceAction"
+          }
+        ]
+      },
+      "TraceResult": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/EthCallTraceResult"
+          },
+          {
+            "$ref": "#/components/schemas/EthCreateTraceResult"
+          }
+        ]
+      },
+      "Transactions": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiEthTx"
+            }
+          }
+        ]
+      },
+      "int64": {
+        "type": "integer",
+        "format": "int64"
+      }
+    }
+  }
+}
