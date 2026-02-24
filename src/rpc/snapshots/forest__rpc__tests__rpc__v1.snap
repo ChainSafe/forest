@@ -1527,7 +1527,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthTraceBlock.Result
       required: false
@@ -1544,7 +1544,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: trace_block.Result
       required: false
@@ -1675,7 +1675,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: traceTypes
         required: true
         schema:
@@ -1700,7 +1700,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: traceTypes
         required: true
         schema:
@@ -5990,13 +5990,6 @@ components:
       type: integer
       format: uint32
       minimum: 0
-    ExtBlockNumberOrHash:
-      anyOf:
-        - type: string
-        - $ref: "#/components/schemas/EthInt64"
-        - $ref: "#/components/schemas/EthHash"
-        - $ref: "#/components/schemas/BlockNumber"
-        - $ref: "#/components/schemas/BlockHash"
     ExtendedSectorInfo:
       type: object
       properties:
