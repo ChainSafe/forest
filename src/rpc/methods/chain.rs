@@ -68,7 +68,7 @@ const HEAD_CHANNEL_CAPACITY: usize = 10;
 /// Discussion on this current value and a tracking item to document the
 /// probabilistic impact of various values is in
 /// https://github.com/filecoin-project/go-f3/issues/944
-const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
+pub const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
 
 static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
     LazyLock::new(|| Mutex::new(None));
@@ -988,6 +988,7 @@ impl RpcMethod<1> for ChainGetBlock {
 }
 
 pub enum ChainGetTipSet {}
+
 impl RpcMethod<1> for ChainGetTipSet {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
@@ -1045,7 +1046,7 @@ impl ChainGetTipSetV2 {
     ) -> anyhow::Result<Option<Tipset>> {
         match tag {
             TipsetTag::Latest => Ok(Some(ctx.state_manager.heaviest_tipset())),
-            TipsetTag::Finalized => Self::get_latest_finalized_tipset(ctx).await,
+            TipsetTag::Finalized => Some(Self::get_latest_finalized_tipset(ctx).await).transpose(),
             TipsetTag::Safe => Some(Self::get_latest_safe_tipset(ctx).await).transpose(),
         }
     }
@@ -1056,9 +1057,7 @@ impl ChainGetTipSetV2 {
         let finalized = Self::get_latest_finalized_tipset(ctx).await?;
         let head = ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        if let Some(finalized) = finalized
-            && finalized.epoch() >= safe_height
-        {
+        if finalized.epoch() >= safe_height {
             Ok(finalized)
         } else {
             Ok(ctx.chain_index().tipset_by_height(
@@ -1069,9 +1068,17 @@ impl ChainGetTipSetV2 {
         }
     }
 
+    pub fn get_ec_safe_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
+        let head = ctx.chain_store().heaviest_tipset();
+        let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
+        Ok(ctx
+            .chain_index()
+            .tipset_by_height(safe_height, head, ResolveNullTipset::TakeOlder)?)
+    }
+
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         let Ok(f3_finalized_cert) =
             crate::rpc::f3::F3GetLatestCertificate::handle(ctx.clone(), ()).await
         else {
@@ -1095,22 +1102,17 @@ impl ChainGetTipSetV2 {
                     f3_finalized_head.key,
                 )
             })?;
-        Ok(Some(ts))
+        Ok(ts)
     }
 
-    pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Option<Tipset>> {
+    pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
         let head = ctx.chain_store().heaviest_tipset();
-        let ec_finality_epoch = head.epoch() - ctx.chain_config().policy.chain_finality;
-        if ec_finality_epoch >= 0 {
-            let ts = ctx.chain_index().tipset_by_height(
-                ec_finality_epoch,
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?;
-            Ok(Some(ts))
-        } else {
-            Ok(None)
-        }
+        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
+        Ok(ctx.chain_index().tipset_by_height(
+            ec_finality_epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?)
     }
 
     pub async fn get_tipset(

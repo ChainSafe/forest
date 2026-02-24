@@ -267,20 +267,20 @@ impl TryFrom<EthAddress> for FilecoinAddress {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema, derive_more::From)]
 #[serde(untagged)]
 pub enum BlockNumberOrPredefined {
     #[schemars(with = "String")]
-    PredefinedBlock(ExtPredefined),
+    PredefinedBlock(Predefined),
     BlockNumber(EthInt64),
 }
 lotus_json_with_self!(BlockNumberOrPredefined);
 
-impl From<BlockNumberOrPredefined> for ExtBlockNumberOrHash {
+impl From<BlockNumberOrPredefined> for BlockNumberOrHash {
     fn from(value: BlockNumberOrPredefined) -> Self {
         match value {
-            BlockNumberOrPredefined::PredefinedBlock(v) => ExtBlockNumberOrHash::PredefinedBlock(v),
-            BlockNumberOrPredefined::BlockNumber(v) => ExtBlockNumberOrHash::BlockNumber(v),
+            BlockNumberOrPredefined::PredefinedBlock(v) => BlockNumberOrHash::PredefinedBlock(v),
+            BlockNumberOrPredefined::BlockNumber(v) => BlockNumberOrHash::BlockNumber(v),
         }
     }
 }
