@@ -445,7 +445,7 @@ impl EthFilterSpec {
             if self.from_block.is_some() || self.to_block.is_some() {
                 bail!("must not specify block hash and from/to block");
             }
-            ParsedFilterTipsets::Hash(block_hash.clone())
+            ParsedFilterTipsets::Hash(*block_hash)
         } else {
             let from_block = self
                 .from_block
@@ -1262,7 +1262,7 @@ mod tests {
 
         // Matching the given address 0
         let spec0 = EthFilterSpec {
-            address: Some(vec![eth_addr0.clone()].into()),
+            address: Some(vec![eth_addr0].into()),
             ..Default::default()
         };
 
@@ -1272,7 +1272,7 @@ mod tests {
 
         // Matching the given address 0 or 1
         let spec1 = EthFilterSpec {
-            address: Some(vec![eth_addr0.clone(), eth_addr1.clone()].into()),
+            address: Some(vec![eth_addr0, eth_addr1].into()),
             ..Default::default()
         };
 
@@ -1350,45 +1350,35 @@ mod tests {
         assert!(spec2.matches(&addr0, &entries0).unwrap());
 
         let spec2 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(
-                topic0.clone(),
-            ))])),
+            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(topic0))])),
             ..Default::default()
         };
 
         assert!(spec2.matches(&addr0, &entries0).unwrap());
 
         let spec3 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic0.clone()])])),
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic0])])),
             ..Default::default()
         };
 
         assert!(spec3.matches(&addr0, &entries0).unwrap());
 
         let spec4 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![
-                topic1.clone(),
-                topic0.clone(),
-            ])])),
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic1, topic0])])),
             ..Default::default()
         };
 
         assert!(spec4.matches(&addr0, &entries0).unwrap());
 
         let spec5 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(
-                topic1.clone(),
-            ))])),
+            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(topic1))])),
             ..Default::default()
         };
 
         assert!(!spec5.matches(&addr0, &entries0).unwrap());
 
         let spec6 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![
-                topic2.clone(),
-                topic3.clone(),
-            ])])),
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic2, topic3])])),
             ..Default::default()
         };
 
@@ -1396,8 +1386,8 @@ mod tests {
 
         let spec7 = EthFilterSpec {
             topics: Some(EthTopicSpec(vec![
-                EthHashList::Single(Some(topic1.clone())),
-                EthHashList::Single(Some(topic1.clone())),
+                EthHashList::Single(Some(topic1)),
+                EthHashList::Single(Some(topic1)),
             ])),
             ..Default::default()
         };
@@ -1406,9 +1396,9 @@ mod tests {
 
         let spec8 = EthFilterSpec {
             topics: Some(EthTopicSpec(vec![
-                EthHashList::Single(Some(topic0.clone())),
-                EthHashList::Single(Some(topic1.clone())),
-                EthHashList::Single(Some(topic3.clone())),
+                EthHashList::Single(Some(topic0)),
+                EthHashList::Single(Some(topic1)),
+                EthHashList::Single(Some(topic3)),
             ])),
             ..Default::default()
         };

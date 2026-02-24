@@ -20,8 +20,7 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
 };
 use crate::interpreter::{
-    ApplyResult, BlockMessages, CalledAt, ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM,
-    resolve_to_key_addr,
+    BlockMessages, CalledAt, ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, resolve_to_key_addr,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
@@ -684,7 +683,8 @@ where
         tipset: Option<Tipset>,
         msg: Message,
         state_lookup: StateLookupPolicy,
-    ) -> anyhow::Result<ApiInvocResult> {
+        vm_flush: VMFlush,
+    ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
         let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
@@ -706,18 +706,30 @@ where
             _ => ChainMessage::Unsigned(msg.clone()),
         };
 
-        let (_invoc_res, apply_ret, duration) = self
-            .call_with_gas(&mut chain_msg, &[], Some(ts), VMTrace::Traced, state_lookup)
+        let (_invoc_res, apply_ret, duration, state_root) = self
+            .call_with_gas(
+                &mut chain_msg,
+                &[],
+                Some(ts),
+                VMTrace::Traced,
+                state_lookup,
+                vm_flush,
+            )
             .await?;
-        Ok(ApiInvocResult {
-            msg_cid: msg.cid(),
-            msg,
-            msg_rct: Some(apply_ret.msg_receipt()),
-            error: apply_ret.failure_info().unwrap_or_default(),
-            duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
-            gas_cost: MessageGasCost::default(),
-            execution_trace: structured::parse_events(apply_ret.exec_trace()).unwrap_or_default(),
-        })
+
+        Ok((
+            ApiInvocResult {
+                msg_cid: msg.cid(),
+                msg,
+                msg_rct: Some(apply_ret.msg_receipt()),
+                error: apply_ret.failure_info().unwrap_or_default(),
+                duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                gas_cost: MessageGasCost::default(),
+                execution_trace: structured::parse_events(apply_ret.exec_trace())
+                    .unwrap_or_default(),
+            },
+            state_root,
+        ))
     }
 
     /// Computes message on the given [Tipset] state, after applying other
@@ -729,7 +741,8 @@ where
         tipset: Option<Tipset>,
         trace_config: VMTrace,
         state_lookup: StateLookupPolicy,
-    ) -> Result<(InvocResult, ApplyRet, Duration), Error> {
+        vm_flush: VMFlush,
+    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts, state_lookup)
@@ -743,7 +756,7 @@ where
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
         // FVM, but that introduces some constraints, and possible deadlocks.
-        let (ret, duration) = stacker::grow(64 << 20, || -> ApplyResult {
+        let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> anyhow::Result<_> {
             let mut vm = VM::new(
                 ExecutionContext {
                     heaviest_tipset: ts.clone(),
@@ -771,14 +784,21 @@ where
                 .get_actor(&message.from())
                 .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
                 .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
+
             message.set_sequence(from_actor.sequence);
-            vm.apply_message(message)
+            let (ret, duration) = vm.apply_message(message)?;
+            let state_root = match vm_flush {
+                VMFlush::Flush => Some(vm.flush()?),
+                VMFlush::Skip => None,
+            };
+            Ok((ret, duration, state_root))
         })?;
 
         Ok((
             InvocResult::new(message.message().clone(), &ret),
             ret,
             duration,
+            state_cid,
         ))
     }
 
@@ -2091,4 +2111,12 @@ pub enum StateLookupPolicy {
     #[default]
     Enabled,
     Disabled,
+}
+
+/// Controls whether the VM should flush its state after execution
+#[derive(Debug, Copy, Clone, Default)]
+pub enum VMFlush {
+    Flush,
+    #[default]
+    Skip,
 }

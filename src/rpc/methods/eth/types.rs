@@ -11,6 +11,7 @@ use jsonrpsee::types::SubscriptionId;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use rand::Rng;
 use serde::de::{IntoDeserializer, value::StringDeserializer};
+use std::collections::BTreeMap;
 use std::{hash::Hash, ops::Deref};
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
@@ -103,11 +104,14 @@ impl GetStorageAtParams {
     Eq,
     Hash,
     PartialEq,
+    PartialOrd,
+    Ord,
     Debug,
     Deserialize,
     Serialize,
     Default,
     Clone,
+    Copy,
     JsonSchema,
     derive_more::From,
     derive_more::Into,
@@ -127,7 +131,7 @@ impl GetSize for EthAddress {
 }
 
 impl EthAddress {
-    pub fn to_filecoin_address(&self) -> anyhow::Result<FilecoinAddress> {
+    pub fn to_filecoin_address(self) -> anyhow::Result<FilecoinAddress> {
         if self.is_masked_id() {
             const PREFIX_LEN: usize = MASKED_ID_PREFIX.len();
             // This is a masked ID address.
@@ -379,12 +383,15 @@ impl TryFrom<EthCallMessage> for Message {
 #[derive(
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Hash,
     Debug,
     Deserialize,
     Serialize,
     Default,
     Clone,
+    Copy,
     JsonSchema,
     derive_more::Display,
     derive_more::From,
@@ -715,16 +722,15 @@ impl EthTrace {
         to_decoded_addresses: &Option<EthAddressList>,
     ) -> Result<bool> {
         let (trace_to, trace_from) = match &self.action {
-            TraceAction::Call(action) => (action.to.clone(), action.from.clone()),
+            TraceAction::Call(action) => (action.to, action.from),
             TraceAction::Create(action) => {
                 let address = match &self.result {
                     TraceResult::Create(result) => result
                         .address
-                        .clone()
                         .ok_or_else(|| anyhow::anyhow!("address is nil in create trace result"))?,
                     _ => bail!("invalid create trace result"),
                 };
-                (Some(address), action.from.clone())
+                (Some(address), action.from)
             }
         };
 
@@ -747,6 +753,105 @@ impl EthTrace {
         Ok(true)
     }
 }
+
+/// Represents a changed value with before and after states.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ChangedType<T> {
+    /// Value before the change
+    pub from: T,
+    /// Value after the change
+    pub to: T,
+}
+
+/// Represents how a value changed during transaction execution.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/parity.rs#L84
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum Delta<T> {
+    /// Existing value didn't change.
+    #[serde(rename = "=")]
+    #[default]
+    Unchanged,
+    /// A new value was added (account/storage created).
+    #[serde(rename = "+")]
+    Added(T),
+    /// The existing value was removed (account/storage deleted).
+    #[serde(rename = "-")]
+    Removed(T),
+    /// The existing value changed from one value to another.
+    #[serde(rename = "*")]
+    Changed(ChangedType<T>),
+}
+
+impl<T: PartialEq> Delta<T> {
+    /// Compares optional old/new values and returns the appropriate delta variant:
+    /// `Unchanged` if both are equal or absent,
+    /// `Added` if only new exists,
+    /// `Removed` if only old exists,
+    /// `Changed` if both exist but differ.
+    pub fn from_comparison(old: Option<T>, new: Option<T>) -> Self {
+        match (old, new) {
+            (None, None) => Delta::Unchanged,
+            (None, Some(new_val)) => Delta::Added(new_val),
+            (Some(old_val), None) => Delta::Removed(old_val),
+            (Some(old_val), Some(new_val)) => {
+                if old_val == new_val {
+                    Delta::Unchanged
+                } else {
+                    Delta::Changed(ChangedType {
+                        from: old_val,
+                        to: new_val,
+                    })
+                }
+            }
+        }
+    }
+
+    pub fn is_unchanged(&self) -> bool {
+        matches!(self, Delta::Unchanged)
+    }
+}
+
+/// Account state diff after transaction execution.
+/// Tracks changes to balance, nonce, code, and storage.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/parity.rs#L156
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AccountDiff {
+    pub balance: Delta<EthBigInt>,
+    pub code: Delta<EthBytes>,
+    pub nonce: Delta<EthUint64>,
+    /// All touched/changed storage values (key -> delta)
+    pub storage: BTreeMap<EthHash, Delta<EthHash>>,
+}
+
+impl AccountDiff {
+    /// Returns true if the account diff contains no changes.
+    pub fn is_unchanged(&self) -> bool {
+        self.balance.is_unchanged()
+            && self.code.is_unchanged()
+            && self.nonce.is_unchanged()
+            && self.storage.is_empty()
+    }
+}
+
+/// State diff containing all account changes from a transaction.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(transparent)]
+pub struct StateDiff(pub BTreeMap<EthAddress, AccountDiff>);
+
+impl StateDiff {
+    pub fn new() -> Self {
+        Self(BTreeMap::new())
+    }
+
+    /// Inserts the account diff only if it contains at least one change.
+    pub fn insert_if_changed(&mut self, addr: EthAddress, diff: AccountDiff) {
+        if !diff.is_unchanged() {
+            self.0.insert(addr, diff);
+        }
+    }
+}
+
+lotus_json_with_self!(StateDiff);
 
 #[cfg(test)]
 mod tests {
@@ -803,5 +908,80 @@ mod tests {
 
         let result = EthAddress::eth_address_from_pub_key(&pubkey).unwrap();
         assert_eq!(result, expected_eth_address);
+    }
+
+    #[test]
+    fn test_changed_type_serialization() {
+        let changed = ChangedType {
+            from: 10u64,
+            to: 20u64,
+        };
+        let json = serde_json::to_string(&changed).unwrap();
+        assert_eq!(json, r#"{"from":10,"to":20}"#);
+
+        let deserialized: ChangedType<u64> = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, changed);
+    }
+
+    #[test]
+    fn test_delta_unchanged() {
+        let delta: Delta<u64> = Delta::from_comparison(Some(42), Some(42));
+        assert!(delta.is_unchanged());
+        assert_eq!(delta, Delta::Unchanged);
+
+        let json = serde_json::to_string(&delta).unwrap();
+        assert_eq!(json, r#""=""#);
+    }
+
+    #[test]
+    fn test_delta_added() {
+        let delta: Delta<u64> = Delta::from_comparison(None, Some(100));
+        assert!(!delta.is_unchanged());
+        assert_eq!(delta, Delta::Added(100));
+
+        let json = serde_json::to_string(&delta).unwrap();
+        assert_eq!(json, r#"{"+":100}"#);
+    }
+
+    #[test]
+    fn test_delta_removed() {
+        let delta: Delta<u64> = Delta::from_comparison(Some(50), None);
+        assert!(!delta.is_unchanged());
+        assert_eq!(delta, Delta::Removed(50));
+
+        let json = serde_json::to_string(&delta).unwrap();
+        assert_eq!(json, r#"{"-":50}"#);
+    }
+
+    #[test]
+    fn test_delta_changed() {
+        let delta: Delta<u64> = Delta::from_comparison(Some(10), Some(20));
+        assert!(!delta.is_unchanged());
+        assert_eq!(delta, Delta::Changed(ChangedType { from: 10, to: 20 }));
+
+        let json = serde_json::to_string(&delta).unwrap();
+        assert_eq!(json, r#"{"*":{"from":10,"to":20}}"#);
+    }
+
+    #[test]
+    fn test_delta_none_none() {
+        let delta: Delta<u64> = Delta::from_comparison(None, None);
+        assert!(delta.is_unchanged());
+        assert_eq!(delta, Delta::Unchanged);
+    }
+
+    #[test]
+    fn test_delta_deserialization() {
+        let unchanged: Delta<u64> = serde_json::from_str(r#""=""#).unwrap();
+        assert_eq!(unchanged, Delta::Unchanged);
+
+        let added: Delta<u64> = serde_json::from_str(r#"{"+":42}"#).unwrap();
+        assert_eq!(added, Delta::Added(42));
+
+        let removed: Delta<u64> = serde_json::from_str(r#"{"-":42}"#).unwrap();
+        assert_eq!(removed, Delta::Removed(42));
+
+        let changed: Delta<u64> = serde_json::from_str(r#"{"*":{"from":10,"to":20}}"#).unwrap();
+        assert_eq!(changed, Delta::Changed(ChangedType { from: 10, to: 20 }));
     }
 }

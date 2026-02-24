@@ -5,7 +5,8 @@ sidebar_position: 5
 
 ### Enabling/Disabling Automatic Garbage Collection
 
-By default, automatic garbage collection is enabled in Forest to ensure that unnecessary data is regularly cleared out, optimizing disk usage and performance. By default, it runs every 7 days (20160 epochs). The interval can be overridden by setting environment variable `FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS`
+By default, automatic garbage collection is enabled in Forest to ensure that unnecessary data is regularly cleared out, optimizing disk usage and performance. The default GC interval is 20160 epochs(7 days). The interval can be overridden by setting environment variable `FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS`.
+Note that, an extra random small delay is added to the GC interval on every GC cycle to avoid a cluster of nodes run GC and reboot RPC services at the same time.
 
 If you want to disable the automatic GC, for example, while testing new features or running performance benchmarks where GC may cause unnecessary overhead, you can do so by starting the Forest daemon with the `--no-gc` flag.
 

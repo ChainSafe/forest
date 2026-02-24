@@ -24,7 +24,6 @@ cat <<- EOF > $CONFIG_PATH
 	kademlia = false
 EOF
 
-handle_auto_download_snapshot_env
 # Disable discovery to not connect to more nodes
 $FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --rpc false --metrics-address 127.0.0.1:6117 --healthcheck-address 127.0.0.1:2347 &
 FOREST_NODE_PID=$!

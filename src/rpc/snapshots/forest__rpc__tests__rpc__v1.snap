@@ -1555,6 +1555,52 @@ methods:
         items:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
+  - name: Forest.EthTraceCall
+    description: Returns parity style trace results for the given transaction.
+    params:
+      - name: tx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthCallMessage"
+      - name: traceTypes
+        required: true
+        schema:
+          $ref: "#/components/schemas/NonEmpty_Array_of_EthTraceType"
+      - name: blockParam
+        required: false
+        schema:
+          anyOf:
+            - $ref: "#/components/schemas/BlockNumberOrHash"
+            - type: "null"
+    result:
+      name: Forest.EthTraceCall.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthTraceResults"
+    paramStructure: by-position
+  - name: trace_call
+    description: Returns parity style trace results for the given transaction.
+    params:
+      - name: tx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthCallMessage"
+      - name: traceTypes
+        required: true
+        schema:
+          $ref: "#/components/schemas/NonEmpty_Array_of_EthTraceType"
+      - name: blockParam
+        required: false
+        schema:
+          anyOf:
+            - $ref: "#/components/schemas/BlockNumberOrHash"
+            - type: "null"
+    result:
+      name: trace_call.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthTraceResults"
+    paramStructure: by-position
   - name: Filecoin.EthTraceFilter
     description: Returns the traces for transactions matching the filter criteria.
     params:
@@ -4308,6 +4354,26 @@ methods:
     paramStructure: by-position
 components:
   schemas:
+    AccountDiff:
+      description: "Account state diff after transaction execution.\nTracks changes to balance, nonce, code, and storage."
+      type: object
+      properties:
+        balance:
+          $ref: "#/components/schemas/Delta"
+        code:
+          $ref: "#/components/schemas/Delta2"
+        nonce:
+          $ref: "#/components/schemas/Delta3"
+        storage:
+          description: All touched/changed storage values (key -> delta)
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Delta4"
+      required:
+        - balance
+        - code
+        - nonce
+        - storage
     ActorEvent:
       type: object
       properties:
@@ -5084,6 +5150,58 @@ components:
         - tipset_keys
         - skip_checksum
         - dry_run
+    ChangedType:
+      description: Represents a changed value with before and after states.
+      type: object
+      properties:
+        from:
+          description: Value before the change
+          $ref: "#/components/schemas/EthBigInt"
+        to:
+          description: Value after the change
+          $ref: "#/components/schemas/EthBigInt"
+      required:
+        - from
+        - to
+    ChangedType2:
+      description: Represents a changed value with before and after states.
+      type: object
+      properties:
+        from:
+          description: Value before the change
+          $ref: "#/components/schemas/EthBytes"
+        to:
+          description: Value after the change
+          $ref: "#/components/schemas/EthBytes"
+      required:
+        - from
+        - to
+    ChangedType3:
+      description: Represents a changed value with before and after states.
+      type: object
+      properties:
+        from:
+          description: Value before the change
+          $ref: "#/components/schemas/EthUint64"
+        to:
+          description: Value after the change
+          $ref: "#/components/schemas/EthUint64"
+      required:
+        - from
+        - to
+    ChangedType4:
+      description: Represents a changed value with before and after states.
+      type: object
+      properties:
+        from:
+          description: Value before the change
+          $ref: "#/components/schemas/EthHash"
+        to:
+          description: Value after the change
+          $ref: "#/components/schemas/EthHash"
+      required:
+        - from
+        - to
     Cid:
       type: object
       properties:
@@ -5184,6 +5302,126 @@ components:
       required:
         - Min
         - Max
+    Delta:
+      description: Represents how a value changed during transaction execution.
+      oneOf:
+        - description: "Existing value didn't change."
+          type: string
+          const: "="
+        - description: A new value was added (account/storage created).
+          type: object
+          properties:
+            +:
+              $ref: "#/components/schemas/EthBigInt"
+          additionalProperties: false
+          required:
+            - +
+        - description: The existing value was removed (account/storage deleted).
+          type: object
+          properties:
+            "-":
+              $ref: "#/components/schemas/EthBigInt"
+          additionalProperties: false
+          required:
+            - "-"
+        - description: The existing value changed from one value to another.
+          type: object
+          properties:
+            "*":
+              $ref: "#/components/schemas/ChangedType"
+          additionalProperties: false
+          required:
+            - "*"
+    Delta2:
+      description: Represents how a value changed during transaction execution.
+      oneOf:
+        - description: "Existing value didn't change."
+          type: string
+          const: "="
+        - description: A new value was added (account/storage created).
+          type: object
+          properties:
+            +:
+              $ref: "#/components/schemas/EthBytes"
+          additionalProperties: false
+          required:
+            - +
+        - description: The existing value was removed (account/storage deleted).
+          type: object
+          properties:
+            "-":
+              $ref: "#/components/schemas/EthBytes"
+          additionalProperties: false
+          required:
+            - "-"
+        - description: The existing value changed from one value to another.
+          type: object
+          properties:
+            "*":
+              $ref: "#/components/schemas/ChangedType2"
+          additionalProperties: false
+          required:
+            - "*"
+    Delta3:
+      description: Represents how a value changed during transaction execution.
+      oneOf:
+        - description: "Existing value didn't change."
+          type: string
+          const: "="
+        - description: A new value was added (account/storage created).
+          type: object
+          properties:
+            +:
+              $ref: "#/components/schemas/EthUint64"
+          additionalProperties: false
+          required:
+            - +
+        - description: The existing value was removed (account/storage deleted).
+          type: object
+          properties:
+            "-":
+              $ref: "#/components/schemas/EthUint64"
+          additionalProperties: false
+          required:
+            - "-"
+        - description: The existing value changed from one value to another.
+          type: object
+          properties:
+            "*":
+              $ref: "#/components/schemas/ChangedType3"
+          additionalProperties: false
+          required:
+            - "*"
+    Delta4:
+      description: Represents how a value changed during transaction execution.
+      oneOf:
+        - description: "Existing value didn't change."
+          type: string
+          const: "="
+        - description: A new value was added (account/storage created).
+          type: object
+          properties:
+            +:
+              $ref: "#/components/schemas/EthHash"
+          additionalProperties: false
+          required:
+            - +
+        - description: The existing value was removed (account/storage deleted).
+          type: object
+          properties:
+            "-":
+              $ref: "#/components/schemas/EthHash"
+          additionalProperties: false
+          required:
+            - "-"
+        - description: The existing value changed from one value to another.
+          type: object
+          properties:
+            "*":
+              $ref: "#/components/schemas/ChangedType4"
+          additionalProperties: false
+          required:
+            - "*"
     ECTipSet:
       type: object
       properties:
@@ -5606,6 +5844,35 @@ components:
           type:
             - string
             - "null"
+    EthTraceResults:
+      description: "Result payload returned by `trace_call`."
+      type: object
+      properties:
+        output:
+          description: Output bytes from the transaction execution.
+          $ref: "#/components/schemas/EthBytes"
+        stateDiff:
+          description: State diff showing all account changes.
+          anyOf:
+            - $ref: "#/components/schemas/StateDiff"
+            - type: "null"
+        trace:
+          description: Call trace hierarchy (empty when not requested).
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/EthTrace"
+      required:
+        - output
+    EthTraceType:
+      description: "Selects which trace outputs to include in the `trace_call` response."
+      oneOf:
+        - description: "Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)\nwith details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`."
+          type: string
+          const: trace
+        - description: "Requests a state difference object, detailing changes to account states (e.g., `balance`, `nonce`, `storage`, `code`)\ncaused by the simulated transaction.\n\nIt shows `\"from\"` and `\"to\"` values for modified fields, using `\"+\"`, `\"-\"`, or `\"=\"` for code changes."
+          type: string
+          const: stateDiff
     EthTxReceipt:
       type: object
       properties:
@@ -6779,6 +7046,11 @@ components:
       items:
         $ref: "#/components/schemas/ECTipSet"
       minItems: 1
+    NonEmpty_Array_of_EthTraceType:
+      type: array
+      items:
+        $ref: "#/components/schemas/EthTraceType"
+      minItems: 1
     Nonce:
       type: string
     Nullable_Address:
@@ -7302,6 +7574,11 @@ components:
         - Manifest
         - Bundle
         - ActorCids
+    StateDiff:
+      description: State diff containing all account changes from a transaction.
+      type: object
+      additionalProperties:
+        $ref: "#/components/schemas/AccountDiff"
     SupplementalData:
       type: object
       properties:

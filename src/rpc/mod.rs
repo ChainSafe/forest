@@ -153,6 +153,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
         $callback!($crate::rpc::eth::EthTraceBlockV2);
+        $callback!($crate::rpc::eth::EthTraceCall);
         $callback!($crate::rpc::eth::EthTraceFilter);
         $callback!($crate::rpc::eth::EthTraceFilterV2);
         $callback!($crate::rpc::eth::EthTraceTransaction);
@@ -893,6 +894,9 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
+
+        // Explicitly drop the WebSocket client to close the connection
+        drop(client);
 
         // Gracefully shutdown the RPC server
         shutdown_send.send(()).await.unwrap();

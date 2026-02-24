@@ -3304,6 +3304,7 @@ dependencies = [
  "fvm_actor_utils",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
+ "fvm_ipld_kamt",
  "fvm_shared 2.11.3",
  "fvm_shared 3.13.3",
  "fvm_shared 4.7.5",
@@ -3932,6 +3933,23 @@ dependencies = [
  "once_cell",
  "serde",
  "sha2 0.10.9",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "fvm_ipld_kamt"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6a7ef4cf7dab3bf09a2c988f7fc88fa0a532be2ca96136470942426ec5f99f0"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "cid",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "multihash-codetable",
+ "once_cell",
+ "serde",
  "thiserror 2.0.18",
 ]
 

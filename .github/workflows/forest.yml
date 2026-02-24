@@ -36,7 +36,6 @@ env:
   CXX: sccache clang++
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   SHELL_IMAGE: busybox
-  FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH: /var/tmp/forest_snapshot_calibnet_latest.forest.car.zst
 jobs:
   build-macos:
     name: Build MacOS
