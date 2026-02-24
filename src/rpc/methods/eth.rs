@@ -376,12 +376,6 @@ pub enum BlockNumberOrHash {
     BlockHashObject(BlockHash),
 }
 
-impl Default for BlockNumberOrHash {
-    fn default() -> Self {
-        Self::PredefinedBlock(Predefined::default())
-    }
-}
-
 lotus_json_with_self!(BlockNumberOrHash);
 
 impl BlockNumberOrHash {
@@ -436,12 +430,6 @@ pub enum ExtBlockNumberOrHash {
     BlockHash(EthHash),
     BlockNumberObject(BlockNumber),
     BlockHashObject(BlockHash),
-}
-
-impl Default for ExtBlockNumberOrHash {
-    fn default() -> Self {
-        Self::PredefinedBlock(ExtPredefined::default())
-    }
 }
 
 lotus_json_with_self!(ExtBlockNumberOrHash);
@@ -4300,7 +4288,7 @@ fn get_eth_block_number_from_string<DB: Blockstore>(
     let block_param = block
         .map(ExtBlockNumberOrHash::from_str)
         .transpose()?
-        .unwrap_or_default();
+        .unwrap_or(ExtBlockNumberOrHash::PredefinedBlock(ExtPredefined::Latest));
     Ok(EthUint64(
         tipset_by_ext_block_number_or_hash(chain_store, block_param, resolve)?.epoch() as u64,
     ))
@@ -4314,7 +4302,7 @@ async fn get_eth_block_number_from_string_v2<DB: Blockstore + Send + Sync + 'sta
     let block_param = block
         .map(ExtBlockNumberOrHash::from_str)
         .transpose()?
-        .unwrap_or_default();
+        .unwrap_or(ExtBlockNumberOrHash::PredefinedBlock(ExtPredefined::Latest));
     Ok(EthUint64(
         tipset_by_block_number_or_hash_v2(ctx, block_param, resolve)
             .await?
