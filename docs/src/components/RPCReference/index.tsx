@@ -158,22 +158,38 @@ function TypeWithSchema({
     return <code className={styles.typeValue}>{typeName}</code>;
   }
 
+  const schemaId = `schema-${version}-${schemaRef}`;
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setShowSchema(!showSchema);
+    }
+  };
+
   return (
     <div className={styles.typeWithSchema}>
       <code
         className={styles.typeValueClickable}
         onClick={() => setShowSchema(!showSchema)}
+        onKeyDown={handleKeyDown}
+        role="button"
+        tabIndex={0}
+        aria-expanded={showSchema}
+        aria-controls={schemaId}
         title="Click to show schema details"
       >
         {typeName}
         <span className={styles.schemaToggle}>{showSchema ? " ▼" : " ▶"}</span>
       </code>
       {showSchema && (
-        <SchemaDetails
-          schemaName={schemaRef}
-          version={version}
-          schemas={schemas}
-        />
+        <div id={schemaId}>
+          <SchemaDetails
+            schemaName={schemaRef}
+            version={version}
+            schemas={schemas}
+          />
+        </div>
       )}
     </div>
   );
@@ -308,6 +324,14 @@ export default function RPCReference(): ReactElement {
     });
   };
 
+  const handleMethodKeyDown =
+    (methodName: string) => (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleMethod(methodName);
+      }
+    };
+
   const expandAll = () => {
     setExpandedMethods(new Set(filteredMethods.map((m) => m.name)));
   };
@@ -428,11 +452,17 @@ export default function RPCReference(): ReactElement {
             <div className={styles.methodList}>
               {methods.map((method) => {
                 const isExpanded = expandedMethods.has(method.name);
+                const methodDetailsId = `method-details-${selectedVersion}-${method.name}`;
                 return (
                   <div key={method.name} className={styles.methodCard}>
                     <div
                       className={styles.methodHeader}
                       onClick={() => toggleMethod(method.name)}
+                      onKeyDown={handleMethodKeyDown(method.name)}
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      aria-controls={methodDetailsId}
                     >
                       <div className={styles.methodTitleRow}>
                         <code
@@ -466,7 +496,10 @@ export default function RPCReference(): ReactElement {
                     </div>
 
                     {isExpanded && (
-                      <div className={styles.methodDetails}>
+                      <div
+                        id={methodDetailsId}
+                        className={styles.methodDetails}
+                      >
                         <div className={styles.detailSection}>
                           <h4 className={styles.detailTitle}>Parameters</h4>
                           {method.params.length === 0 ? (
