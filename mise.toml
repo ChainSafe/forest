@@ -135,9 +135,18 @@ description = "Lint documentation files."
 dir = "docs"
 run = '''
 pnpm i --frozen-lockfile
+pnpm generate:rpc-reference
 pnpm typecheck
 pnpm spellcheck
 pnpm format-check
+'''
+
+[tasks."docs:build"]
+description = "Build documentation site."
+dir = "docs"
+run = '''
+pnpm i --frozen-lockfile
+pnpm build
 '''
 
 [tasks.clean]

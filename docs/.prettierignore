@@ -1,0 +1,14 @@
+# OpenRPC specification files (auto-generated from Forest)
+openrpc-specs/
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Build output
+build/
+.docusaurus/
+
+# Generated data
+src/data/rpc-methods.json

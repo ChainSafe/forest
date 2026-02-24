@@ -60,10 +60,6 @@ Follows the [Diátaxis](https://diataxis.fr/) framework for structuring document
 
 These docs are automatically generated from the Forest CLI. See [script](/docs/docs/users/reference/cli.sh).
 
-#### JSON-RPC Docs
-
-We use the OpenRPC document from Forest to populate the documentation for each method. For this we use `@metamask/docusaurus-openrpc`.
-
 ### Developer Docs
 
 Available at `/developers`, source code is located in `docs/developers`. Comprised of a collection of documents aimed at contributors. May be relevant to power users.

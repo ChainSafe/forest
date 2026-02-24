@@ -34,4 +34,4 @@ jobs:
       - uses: jdx/mise-action@v3
       - run: mise run docs:format-spellcheck-dictionary-check
       - run: mise run docs:lint
-      - run: pnpm build
+      - run: mise run docs:build
