@@ -1,0 +1,103 @@
+---
+title: Schema Explorer
+sidebar_position: 1
+---
+
+export const style = {
+  fontSize: "1.3em",
+  textDecoration: "underline",
+};
+
+export const versionStyle = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "1rem",
+  marginBottom: "2rem",
+};
+
+export const versionCard = {
+  padding: "1rem",
+  border: "1px solid var(--ifm-color-emphasis-300)",
+  borderRadius: "8px",
+  backgroundColor: "var(--ifm-background-surface-color)",
+};
+
+# JSON-RPC Schema Explorer
+
+Forest implements multiple API versions, each with its own OpenRPC specification. Use the interactive schema explorer to browse available methods, parameters, and return types for each version.
+
+## API Versions
+
+<div style={versionStyle}>
+  <div style={versionCard}>
+    <h3>RPC v0 API</h3>
+    <p>Deprecated API</p>
+    <a
+      href="https://playground.open-rpc.org/?uiSchema[appBar][ui:darkMode]=true&uiSchema[appBar][ui:examplesDropdown]=false&uiSchema[appBar][ui:splitView]=false&uiSchema[appBar][ui:input]=false&uiSchema[appBar][ui:title]=Forest%20RPC%20v0&schemaUrl=https://raw.githubusercontent.com/ChainSafe/forest/main/docs/openrpc-specs/v0.json"
+      target="_blank"
+      rel="noopener noreferrer"
+      style={style}
+    >
+      👉 View v0 Spec in Schema Explorer
+    </a>
+    <br />
+    <a
+      href="https://raw.githubusercontent.com/ChainSafe/forest/main/docs/openrpc-specs/v0.json"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      📄 Raw v0 Spec (JSON)
+    </a>
+  </div>
+
+<div style={versionCard}>
+  <h3>RPC v1 API</h3>
+  <p>Stable API - Recommended for production use</p>
+  <a
+    href="https://playground.open-rpc.org/?uiSchema[appBar][ui:darkMode]=true&uiSchema[appBar][ui:examplesDropdown]=false&uiSchema[appBar][ui:splitView]=false&uiSchema[appBar][ui:input]=false&uiSchema[appBar][ui:title]=Forest%20RPC%20v1&schemaUrl=https://raw.githubusercontent.com/ChainSafe/forest/main/docs/openrpc-specs/v1.json"
+    target="_blank"
+    rel="noopener noreferrer"
+    style={style}
+  >
+    👉 View v1 Spec in Schema Explorer
+  </a>
+  <br />
+  <a
+    href="https://raw.githubusercontent.com/ChainSafe/forest/main/docs/openrpc-specs/v1.json"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    📄 Raw v1 Spec (JSON)
+  </a>
+</div>
+
+  <div style={versionCard}>
+    <h3>RPC v2 API</h3>
+    <p>Experimental API</p>
+    <a
+      href="https://playground.open-rpc.org/?uiSchema[appBar][ui:darkMode]=true&uiSchema[appBar][ui:examplesDropdown]=false&uiSchema[appBar][ui:splitView]=false&uiSchema[appBar][ui:input]=false&uiSchema[appBar][ui:title]=Forest%20RPC%20v2&schemaUrl=https://raw.githubusercontent.com/ChainSafe/forest/main/docs/openrpc-specs/v2.json"
+      target="_blank"
+      rel="noopener noreferrer"
+      style={style}
+    >
+      👉 View v2 Spec in Schema Explorer
+    </a>
+    <br />
+    <a
+      href="https://raw.githubusercontent.com/ChainSafe/forest/main/docs/openrpc-specs/v2.json"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      📄 Raw v2 Spec (JSON)
+    </a>
+  </div>
+</div>
+
+:::tip
+For a searchable, filterable reference of all RPC methods, see the [Methods Reference](./methods.mdx) page.
+:::
+
+#### References
+
+- [OpenRPC Specification](https://spec.open-rpc.org/)
+- [JSON Schema](https://json-schema.org/)

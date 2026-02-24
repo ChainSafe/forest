@@ -1,17 +1,34 @@
-name: Checkpoints
+name: Checkpoints Auto Update
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 1 * *" # The 1st of every month
+    # Everyday at midnight UTC
+    - cron: "0 0 * * *"
 
 jobs:
-  checkpoint_issue:
+  update-checkpoints:
     runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v6
-      - uses: JasonEtco/create-an-issue@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update checkpoints
+        run: |
+          docker run --rm -v $PWD:/app -w /app --entrypoint forest-dev ghcr.io/chainsafe/forest:edge update-checkpoints
+      # This is needed in order to have the commits signed.
+      - uses: actions/create-github-app-token@v2
+        id: generate-token
         with:
-          filename: .github/CHECKPOINT_ISSUE_TEMPLATE.md
+          app-id: ${{ secrets.LESHY_APP_ID }}
+          private-key: ${{ secrets.LESHY_APP_PRIVATE_KEY }}
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          base: main
+          branch: leshy/update-forest-checkpoints
+          token: ${{ steps.generate-token.outputs.token }}
+          commit-message: Update Forest checkpoints
+          sign-commits: true
+          title: "[automated] Update Forest checkpoints"
+          body: |
+            ### Changes
+            - Updates Forest checkpoints
