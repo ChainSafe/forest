@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.32.1"
+version = "0.32.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
