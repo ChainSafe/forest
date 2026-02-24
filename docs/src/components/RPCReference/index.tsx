@@ -1,7 +1,12 @@
-import React, { useState, useMemo, useEffect, type ReactElement } from "react";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  type ReactElement,
+} from "react";
 import methodsData from "@site/src/data/rpc-methods.json";
 import styles from "./RPCReference.module.css";
-import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 
 interface MethodParam {
   name: string;
@@ -196,7 +201,6 @@ function TypeWithSchema({
 }
 
 export default function RPCReference(): ReactElement {
-  const { siteConfig } = useDocusaurusContext();
   const [selectedVersion, setSelectedVersion] = useState<string>(
     data.versions[0]?.version || "v0",
   );
@@ -207,6 +211,14 @@ export default function RPCReference(): ReactElement {
   );
   const [copiedMethod, setCopiedMethod] = useState<string | null>(null);
 
+  // Use a ref to track the current selected version to avoid re-running hash handler
+  const selectedVersionRef = useRef(selectedVersion);
+
+  // Keep the ref in sync with the state
+  useEffect(() => {
+    selectedVersionRef.current = selectedVersion;
+  }, [selectedVersion]);
+
   const currentVersion = useMemo(() => {
     return (
       data.versions.find((v) => v.version === selectedVersion) ||
@@ -214,7 +226,7 @@ export default function RPCReference(): ReactElement {
     );
   }, [selectedVersion]);
 
-  // Handle URL hash navigation
+  // Handle URL hash navigation (mount-only to prevent re-runs on version change)
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1); // Remove '#'
@@ -228,8 +240,10 @@ export default function RPCReference(): ReactElement {
           const methodName = parts.slice(1).join("-");
 
           // Switch to the correct version if needed
-          if (version !== selectedVersion) {
+          if (version !== selectedVersionRef.current) {
             setSelectedVersion(version);
+            // Reset namespace filter when switching versions via hash
+            setSelectedNamespace("all");
           }
 
           // Expand the method
@@ -250,8 +264,9 @@ export default function RPCReference(): ReactElement {
           const namespace = parts.slice(1).join("-");
 
           // Switch to the correct version if needed
-          if (version !== selectedVersion) {
+          if (version !== selectedVersionRef.current) {
             setSelectedVersion(version);
+            // Namespace will be set below, so no need to reset to "all" here
           }
 
           // Filter by namespace
@@ -274,15 +289,37 @@ export default function RPCReference(): ReactElement {
     // Listen for hash changes
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
-  }, [selectedVersion]);
+  }, []); // Empty deps - only run on mount/unmount
 
   const copyMethodLink = (methodName: string) => {
     const hash = `method-${selectedVersion}-${methodName}`;
     const url = `${window.location.origin}${window.location.pathname}#${hash}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiedMethod(methodName);
-      setTimeout(() => setCopiedMethod(null), 2000);
-    });
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setCopiedMethod(methodName);
+        setTimeout(() => setCopiedMethod(null), 2000);
+      })
+      .catch((err) => {
+        console.error("Failed to copy link:", err);
+        // Fallback to execCommand for older browsers or when clipboard access is denied
+        const textArea = document.createElement("textarea");
+        textArea.value = url;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand("copy");
+          setCopiedMethod(methodName);
+          setTimeout(() => setCopiedMethod(null), 2000);
+        } catch (execErr) {
+          console.error("Fallback copy failed:", execErr);
+          setCopiedMethod("error");
+          setTimeout(() => setCopiedMethod(null), 2000);
+        }
+        document.body.removeChild(textArea);
+      });
   };
 
   // Filter methods based on search and namespace
