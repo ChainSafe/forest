@@ -49,6 +49,8 @@ This is a non-mandatory release for all node operators. It brings significant pe
 
 ### Changed
 
+- [#6631](https://github.com/ChainSafe/forest/issues/6631): Backported F3 finality resolution to ETH v1 RPC methods.
+
 ### Removed
 
 ### Fixed
