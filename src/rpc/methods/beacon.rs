@@ -23,6 +23,7 @@ impl RpcMethod<1> for BeaconGetEntry {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (first,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let (_, beacon) = ctx.beacon().beacon_for_epoch(first)?;
         let rr =

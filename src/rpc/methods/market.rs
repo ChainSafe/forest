@@ -26,6 +26,7 @@ impl RpcMethod<3> for MarketAddBalance {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (wallet, address, amount): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let bytes = fvm_ipld_encoding::to_vec(&address)?;
         let params = RawBytes::new(bytes);
@@ -39,7 +40,7 @@ impl RpcMethod<3> for MarketAddBalance {
             ..Default::default()
         };
 
-        let smsg = MpoolPushMessage::handle(ctx, (message, None)).await?;
+        let smsg = MpoolPushMessage::handle(ctx, (message, None), ext).await?;
         Ok(smsg.cid())
     }
 }

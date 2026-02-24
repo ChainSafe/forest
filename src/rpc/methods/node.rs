@@ -22,7 +22,11 @@ impl RpcMethod<0> for NodeStatus {
     type Params = ();
     type Ok = NodeStatusResult;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let mut node_status = NodeStatusResult::default();
 
         let head = ctx.chain_store().heaviest_tipset();
