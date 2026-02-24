@@ -87,10 +87,7 @@ function extractSchemaRef(schema: any): string | undefined {
 /**
  * Resolve a JSON schema to a readable type string
  */
-function resolveSchemaType(
-  schema: any,
-  components?: Record<string, any>,
-): string {
+function resolveSchemaType(schema: any): string {
   if (!schema) {
     return "unknown";
   }
@@ -103,24 +100,20 @@ function resolveSchemaType(
 
   // Handle anyOf
   if (schema.anyOf) {
-    const types = schema.anyOf.map((s: any) =>
-      resolveSchemaType(s, components),
-    );
+    const types = schema.anyOf.map((s: any) => resolveSchemaType(s));
     return types.join(" | ");
   }
 
   // Handle oneOf
   if (schema.oneOf) {
-    const types = schema.oneOf.map((s: any) =>
-      resolveSchemaType(s, components),
-    );
+    const types = schema.oneOf.map((s: any) => resolveSchemaType(s));
     return types.join(" | ");
   }
 
   // Handle arrays with type union (e.g., ["array", "null"])
   if (Array.isArray(schema.type)) {
     if (schema.type.includes("array") && schema.items) {
-      const itemType = resolveSchemaType(schema.items, components);
+      const itemType = resolveSchemaType(schema.items);
       const baseType = `Array<${itemType}>`;
       return schema.type.includes("null") ? `${baseType} | null` : baseType;
     }
@@ -132,7 +125,7 @@ function resolveSchemaType(
 
   // Handle array
   if (schema.type === "array" && schema.items) {
-    const itemType = resolveSchemaType(schema.items, components);
+    const itemType = resolveSchemaType(schema.items);
     return `Array<${itemType}>`;
   }
 
@@ -198,12 +191,12 @@ function processVersion(
     const params: GeneratedMethodParam[] = method.params.map((param) => ({
       name: param.name,
       required: param.required,
-      type: resolveSchemaType(param.schema, components),
+      type: resolveSchemaType(param.schema),
       description: param.description,
       schemaRef: extractSchemaRef(param.schema),
     }));
 
-    const returnType = resolveSchemaType(method.result.schema, components);
+    const returnType = resolveSchemaType(method.result.schema);
     const returnSchemaRef = extractSchemaRef(method.result.schema);
 
     methods.push({

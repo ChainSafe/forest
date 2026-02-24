@@ -207,7 +207,10 @@ export default function RPCReference(): ReactElement {
   const [expandedMethods, setExpandedMethods] = useState<Set<string>>(
     new Set(),
   );
-  const [copiedMethod, setCopiedMethod] = useState<string | null>(null);
+  const [copiedMethod, setCopiedMethod] = useState<{
+    name: string;
+    status: "success" | "error";
+  } | null>(null);
 
   // Use a ref to track the current selected version to avoid re-running hash handler
   const selectedVersionRef = useRef(selectedVersion);
@@ -313,7 +316,7 @@ export default function RPCReference(): ReactElement {
     navigator.clipboard
       .writeText(url)
       .then(() => {
-        setCopiedMethod(methodName);
+        setCopiedMethod({ name: methodName, status: "success" });
         setTimeout(() => setCopiedMethod(null), 2000);
       })
       .catch((err) => {
@@ -328,16 +331,16 @@ export default function RPCReference(): ReactElement {
         try {
           const success = document.execCommand("copy");
           if (success) {
-            setCopiedMethod(methodName);
+            setCopiedMethod({ name: methodName, status: "success" });
             setTimeout(() => setCopiedMethod(null), 2000);
           } else {
             console.error("Fallback copy returned false");
-            setCopiedMethod("error");
+            setCopiedMethod({ name: methodName, status: "error" });
             setTimeout(() => setCopiedMethod(null), 2000);
           }
         } catch (execErr) {
           console.error("Fallback copy failed:", execErr);
-          setCopiedMethod("error");
+          setCopiedMethod({ name: methodName, status: "error" });
           setTimeout(() => setCopiedMethod(null), 2000);
         } finally {
           document.body.removeChild(textArea);
@@ -541,7 +544,11 @@ export default function RPCReference(): ReactElement {
                             title="Copy link to this method"
                             aria-label="Copy link"
                           >
-                            {copiedMethod === method.name ? "✓" : "🔗"}
+                            {copiedMethod?.name === method.name
+                              ? copiedMethod.status === "success"
+                                ? "✓"
+                                : "⚠"
+                              : "🔗"}
                           </button>
                           <span className={styles.expandIcon}>
                             {isExpanded ? "−" : "+"}
