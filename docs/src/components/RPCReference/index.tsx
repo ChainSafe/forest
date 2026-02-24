@@ -85,9 +85,7 @@ function SchemaDetails({
 
     // Handle array
     if (sch.type === "array" && sch.items) {
-      return (
-        <span>Array&lt;{renderSchemaContent(sch.items, depth + 1)}&gt;</span>
-      );
+      return <>Array&lt;{renderSchemaContent(sch.items, depth + 1)}&gt;</>;
     }
 
     // Handle object with properties
@@ -121,14 +119,14 @@ function SchemaDetails({
     if (sch.anyOf || sch.oneOf) {
       const variants = sch.anyOf || sch.oneOf;
       return (
-        <span>
+        <>
           {variants.map((v: any, i: number) => (
-            <span key={i}>
+            <React.Fragment key={i}>
               {i > 0 && " | "}
               {renderSchemaContent(v, depth + 1)}
-            </span>
+            </React.Fragment>
           ))}
-        </span>
+        </>
       );
     }
 
@@ -239,12 +237,21 @@ export default function RPCReference(): ReactElement {
           const version = parts[0];
           const methodName = parts.slice(1).join("-");
 
+          // Validate version exists, fallback to current if invalid
+          const isValidVersion = data.versions.some(
+            (v) => v.version === version,
+          );
+          const targetVersion = isValidVersion
+            ? version
+            : selectedVersionRef.current;
+
           // Switch to the correct version if needed
-          if (version !== selectedVersionRef.current) {
-            setSelectedVersion(version);
-            // Reset namespace filter when switching versions via hash
-            setSelectedNamespace("all");
+          if (targetVersion !== selectedVersionRef.current) {
+            setSelectedVersion(targetVersion);
           }
+
+          // Always reset namespace filter for method hashes to ensure visibility
+          setSelectedNamespace("all");
 
           // Expand the method
           setExpandedMethods((prev) => new Set(prev).add(methodName));
@@ -263,14 +270,23 @@ export default function RPCReference(): ReactElement {
           const version = parts[0];
           const namespace = parts.slice(1).join("-");
 
+          // Validate version exists, fallback to current if invalid
+          const isValidVersion = data.versions.some(
+            (v) => v.version === version,
+          );
+          const targetVersion = isValidVersion
+            ? version
+            : selectedVersionRef.current;
+
           // Switch to the correct version if needed
-          if (version !== selectedVersionRef.current) {
-            setSelectedVersion(version);
-            // Namespace will be set below, so no need to reset to "all" here
+          if (targetVersion !== selectedVersionRef.current) {
+            setSelectedVersion(targetVersion);
           }
 
-          // Filter by namespace
-          setSelectedNamespace(namespace);
+          // Filter by namespace (only set if version is valid)
+          if (isValidVersion) {
+            setSelectedNamespace(namespace);
+          }
 
           // Scroll to the namespace
           setTimeout(() => {
@@ -310,15 +326,22 @@ export default function RPCReference(): ReactElement {
         document.body.appendChild(textArea);
         textArea.select();
         try {
-          document.execCommand("copy");
-          setCopiedMethod(methodName);
-          setTimeout(() => setCopiedMethod(null), 2000);
+          const success = document.execCommand("copy");
+          if (success) {
+            setCopiedMethod(methodName);
+            setTimeout(() => setCopiedMethod(null), 2000);
+          } else {
+            console.error("Fallback copy returned false");
+            setCopiedMethod("error");
+            setTimeout(() => setCopiedMethod(null), 2000);
+          }
         } catch (execErr) {
           console.error("Fallback copy failed:", execErr);
           setCopiedMethod("error");
           setTimeout(() => setCopiedMethod(null), 2000);
+        } finally {
+          document.body.removeChild(textArea);
         }
-        document.body.removeChild(textArea);
       });
   };
 
