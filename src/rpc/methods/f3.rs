@@ -664,6 +664,7 @@ impl RpcMethod<1> for F3GetCertificate {
 pub enum F3GetLatestCertificate {}
 
 impl F3GetLatestCertificate {
+    /// Fetches the latest finality certificate via RPC.
     pub async fn get() -> anyhow::Result<FinalityCertificate> {
         let client = get_rpc_http_client()?;
         let response: LotusJson<FinalityCertificate> = client
