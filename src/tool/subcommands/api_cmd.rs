@@ -439,14 +439,14 @@ impl ApiCommands {
                         rpc::Request {
                             method_name,
                             params,
-                            api_paths,
+                            api_path,
                             ..
                         },
                     ignore,
                     ..
                 } in api_compare_tests::create_tests(create_tests_args).await?
                 {
-                    if !api_paths.contains(path) {
+                    if api_path != path {
                         continue;
                     }
                     if ignore.is_some() && !include_ignored {

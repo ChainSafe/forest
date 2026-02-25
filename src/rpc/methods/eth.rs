@@ -18,31 +18,27 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, index::ResolveNullTipset};
 use crate::chain_sync::NodeSyncStatus;
 use crate::cid_collections::CidHashSet;
-use crate::eth::parse_eth_transaction;
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
-    EthLegacyHomesteadTxArgs,
+    EthLegacyHomesteadTxArgs, parse_eth_transaction,
 };
 use crate::interpreter::VMTrace;
 use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
-use crate::rpc::error::ServerError;
-use crate::rpc::eth::errors::EthErrors;
-use crate::rpc::eth::filter::{
-    SkipEvent, event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter,
+use crate::rpc::{
+    ApiPaths, Ctx, EthEventHandler, LOOKBACK_NO_LIMIT, Permission, RpcMethod, RpcMethodExt as _,
+    error::ServerError,
+    eth::{
+        errors::EthErrors,
+        filter::{SkipEvent, event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter},
+        types::{EthBlockTrace, EthTrace},
+        utils::decode_revert_reason,
+    },
+    methods::chain::ChainGetTipSetV2,
+    state::ApiInvocResult,
+    types::{ApiTipsetKey, EventEntry, MessageLookup},
 };
-use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
-use crate::rpc::eth::utils::decode_revert_reason;
-use crate::rpc::methods::chain::ChainGetTipSetV2;
-use crate::rpc::state::ApiInvocResult;
-use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
-use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
-use crate::rpc::{EthEventHandler, LOOKBACK_NO_LIMIT};
-use crate::shim::actors::EVMActorStateLoad as _;
-use crate::shim::actors::eam;
-use crate::shim::actors::evm;
-use crate::shim::actors::is_evm_actor;
-use crate::shim::actors::system;
+use crate::shim::actors::{EVMActorStateLoad as _, eam, evm, is_evm_actor, system};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
@@ -1023,7 +1019,7 @@ impl RpcMethod<2> for EthGetBalance {
     const NAME: &'static str = "Filecoin.EthGetBalance";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBalance");
     const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the balance of an Ethereum address at the specified block state");
@@ -1034,36 +1030,14 @@ impl RpcMethod<2> for EthGetBalance {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, block_param): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = block_param
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        let balance = eth_get_balance(&ctx, &address, &ts).await?;
-        Ok(balance)
-    }
-}
-
-pub enum EthGetBalanceV2 {}
-impl RpcMethod<2> for EthGetBalanceV2 {
-    const NAME: &'static str = "Filecoin.EthGetBalance";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_getBalance");
-    const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the balance of an Ethereum address at the specified block state");
-
-    type Params = (EthAddress, BlockNumberOrHash);
-    type Ok = EthBigInt;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (address, block_param): Self::Params,
-        _: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(
+                &ctx,
+                ResolveNullTipset::TakeOlder,
+                Self::api_path(ext)?,
+            )
             .await?;
         let balance = eth_get_balance(&ctx, &address, &ts).await?;
         Ok(balance)
@@ -3225,7 +3199,7 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, block_param): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         if let Ok(eth_address) = EthAddress::from_filecoin_address(&address) {
             Ok(eth_address)
@@ -3234,7 +3208,11 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
                 Predefined::Finalized,
             ));
             let ts = BlockNumberOrHash::from(block_param)
-                .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
+                .tipset_by_block_number_or_hash(
+                    &ctx,
+                    ResolveNullTipset::TakeOlder,
+                    Self::api_path(ext)?,
+                )
                 .await?;
 
             let id_address = ctx.state_manager.lookup_required_id(&address, &ts)?;

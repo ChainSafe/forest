@@ -8,7 +8,6 @@ use crate::db::car::ManyCar;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
-use crate::rpc::FilterList;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
@@ -19,6 +18,7 @@ use crate::rpc::miner::BlockTemplate;
 use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::*;
+use crate::rpc::{ApiPaths, FilterList};
 use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
@@ -455,7 +455,7 @@ impl RpcTest {
             lotus_status,
             test_dump: Some(TestDump {
                 request: self.request.clone(),
-                path: self.request.api_path().expect("invalid api paths"),
+                path: self.request.api_path,
                 forest_response,
                 lotus_response,
             }),
@@ -1599,42 +1599,48 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
             ))
-            .unwrap(),
+            .unwrap()
+            .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
             ))
-            .unwrap(),
+            .unwrap()
+            .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
             ))
-            .unwrap(),
+            .unwrap()
+            .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_block_hash_object(block_hash, false),
             ))
-            .unwrap(),
+            .unwrap()
+            .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_block_hash_object(block_hash, true),
             ))
-            .unwrap(),
+            .unwrap()
+            .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Earliest),
             ))
-            .unwrap(),
+            .unwrap()
+            .with_api_path(ApiPaths::V1),
         )
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::basic(
@@ -1642,59 +1648,62 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Pending),
             ))
-            .unwrap(),
+            .unwrap()
+            .with_api_path(ApiPaths::V1),
         ),
         RpcTest::basic(
             EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Latest),
             ))
-            .unwrap(),
+            .unwrap()
+            .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
                 generate_eth_random_address().unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Latest),
             ))
-            .unwrap(),
+            .unwrap()
+            .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_block_hash_object(block_hash, false),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_block_hash_object(block_hash, true),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Earliest),
             ))
@@ -1702,35 +1711,35 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         )
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::basic(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Pending),
             ))
             .unwrap(),
         ),
         RpcTest::basic(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Latest),
             ))
             .unwrap(),
         ),
         RpcTest::basic(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Safe),
             ))
             .unwrap(),
         ),
         RpcTest::basic(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Finalized),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBalanceV2::request((
+            EthGetBalance::request((
                 generate_eth_random_address().unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Latest),
             ))
@@ -2836,7 +2845,7 @@ pub(super) async fn run_tests(
                  rpc::Request {
                      method_name,
                      params,
-                     api_paths,
+                     api_path,
                      ..
                  },
              ignore,
@@ -2845,7 +2854,7 @@ pub(super) async fn run_tests(
             (
                 method_name.clone(),
                 params.clone(),
-                *api_paths,
+                *api_path,
                 ignore.is_some(),
             )
         },
@@ -2864,7 +2873,7 @@ pub(super) async fn run_tests(
         }
 
         if let Some(filter_version) = filter_version
-            && !test.request.api_paths.contains(filter_version)
+            && test.request.api_path != filter_version
         {
             continue;
         }

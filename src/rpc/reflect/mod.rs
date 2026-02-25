@@ -286,19 +286,20 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         Ok(())
     }
     /// Returns [`Err`] if any of the parameters fail to serialize.
-    fn request(params: Self::Params) -> Result<crate::rpc::Request<Self::Ok>, serde_json::Error> {
+    fn request(params: Self::Params) -> serde_json::Result<crate::rpc::Request<Self::Ok>> {
         // hardcode calling convention because lotus is by-position only
         let params = Self::request_params(params)?;
         Ok(crate::rpc::Request {
             method_name: Self::NAME.into(),
             params,
             result_type: std::marker::PhantomData,
-            api_paths: Self::API_PATHS,
+            api_path: crate::rpc::Request::<Self::Ok>::max_api_path(Self::API_PATHS)
+                .map_err(serde_json::Error::custom)?,
             timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
         })
     }
 
-    fn request_params(params: Self::Params) -> Result<serde_json::Value, serde_json::Error> {
+    fn request_params(params: Self::Params) -> serde_json::Result<serde_json::Value> {
         // hardcode calling convention because lotus is by-position only
         Ok(
             match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
@@ -335,7 +336,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             method_name: name.into(),
             params,
             result_type: std::marker::PhantomData,
-            api_paths: Self::API_PATHS,
+            api_path: crate::rpc::Request::<Self::Ok>::max_api_path(Self::API_PATHS)?,
             timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
         })
     }
@@ -361,6 +362,12 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 .await
                 .map(Self::Ok::from_lotus_json)
         }
+    }
+
+    fn api_path(ext: &http::Extensions) -> anyhow::Result<ApiPaths> {
+        ext.get::<ApiPaths>()
+            .copied()
+            .context("failed to resolve api path")
     }
 }
 impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> {}
