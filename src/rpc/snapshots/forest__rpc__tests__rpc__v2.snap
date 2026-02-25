@@ -187,7 +187,7 @@ methods:
       - name: newestBlockNumber
         required: true
         schema:
-          $ref: "#/components/schemas/BlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrPredefined"
       - name: rewardPercentiles
         required: true
         schema:
@@ -212,7 +212,7 @@ methods:
       - name: newestBlockNumber
         required: true
         schema:
-          $ref: "#/components/schemas/BlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrPredefined"
       - name: rewardPercentiles
         required: true
         schema:
@@ -1430,7 +1430,7 @@ components:
         blockHash:
           $ref: "#/components/schemas/EthHash"
         blockNumber:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         chainId:
           $ref: "#/components/schemas/EthUint64"
         from:
@@ -1528,7 +1528,7 @@ components:
         nonce:
           $ref: "#/components/schemas/Nonce"
         number:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         parentHash:
           $ref: "#/components/schemas/EthHash"
         receiptsRoot:
@@ -2212,7 +2212,7 @@ components:
         blockHash:
           $ref: "#/components/schemas/EthHash"
         blockNumber:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         contractAddress:
           anyOf:
             - $ref: "#/components/schemas/EthAddress"

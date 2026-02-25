@@ -3026,9 +3026,8 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
             Ok(eth_address)
         } else {
             let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
-            let block_param = block_param.unwrap_or(BlockNumberOrPredefined::PredefinedBlock(
-                Predefined::Finalized,
-            ));
+            // Default to Finalized for Lotus parity
+            let block_param = block_param.unwrap_or_else(|| Predefined::Finalized.into());
             let ts = resolver
                 .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
                 .await?;
