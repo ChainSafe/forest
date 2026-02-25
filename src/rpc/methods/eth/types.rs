@@ -638,6 +638,37 @@ impl Default for TraceResult {
     }
 }
 
+/// Selects which trace outputs to include in the `trace_call` response.
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum EthTraceType {
+    /// Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
+    /// with details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`.
+    Trace,
+    /// Requests a state difference object, detailing changes to account states (e.g., `balance`, `nonce`, `storage`, `code`)
+    /// caused by the simulated transaction.
+    ///
+    /// It shows `"from"` and `"to"` values for modified fields, using `"+"`, `"-"`, or `"="` for code changes.
+    StateDiff,
+}
+
+lotus_json_with_self!(EthTraceType);
+
+/// Result payload returned by `trace_call`.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthTraceResults {
+    /// Output bytes from the transaction execution.
+    pub output: EthBytes,
+    /// State diff showing all account changes.
+    pub state_diff: Option<StateDiff>,
+    /// Call trace hierarchy (empty when not requested).
+    #[serde(default)]
+    pub trace: Vec<EthTrace>,
+}
+
+lotus_json_with_self!(EthTraceResults);
+
 #[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTrace {
@@ -675,11 +706,9 @@ impl EthBlockTrace {
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthReplayBlockTransactionTrace {
-    pub output: EthBytes,
-    pub state_diff: Option<String>,
-    pub trace: Vec<EthTrace>,
+    #[serde(flatten)]
+    pub full_trace: EthTraceResults,
     pub transaction_hash: EthHash,
-    pub vm_trace: Option<String>,
 }
 lotus_json_with_self!(EthReplayBlockTransactionTrace);
 
