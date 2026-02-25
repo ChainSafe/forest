@@ -41,6 +41,7 @@ impl RpcMethod<2> for AuthNew {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (permissions, expiration_secs): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ks = ctx.keystore.read();
         // Lotus admin tokens do not expire but Forest requires all JWT tokens to
@@ -65,6 +66,7 @@ impl RpcMethod<1> for AuthVerify {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (header_raw,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ks = ctx.keystore.read();
         let token = header_raw.trim_start_matches("Bearer ");

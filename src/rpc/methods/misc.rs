@@ -33,6 +33,7 @@ impl RpcMethod<1> for GetActorEventsRaw {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         if let Some(filter) = filter {
             let parsed_filter = ParsedFilter::from_actor_event_filter(

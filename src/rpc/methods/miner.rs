@@ -112,6 +112,7 @@ impl RpcMethod<1> for MinerCreateBlock {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_template,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.store();
         let parent_tipset = ctx
@@ -288,6 +289,7 @@ impl RpcMethod<3> for MinerGetBaseInfo {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (miner_address, epoch, ApiTipsetKey(tipset_key)): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx
             .chain_store()

@@ -881,6 +881,7 @@ impl RpcMethod<0> for Web3ClientVersion {
     async fn handle(
         _: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(format!(
             "forest/{}",
@@ -903,6 +904,7 @@ impl RpcMethod<0> for EthAccounts {
     async fn handle(
         _: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // EthAccounts will always return [] since we don't expect Forest to manage private keys
         Ok(vec![])
@@ -923,6 +925,7 @@ impl RpcMethod<0> for EthBlockNumber {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // `eth_block_number` needs to return the height of the latest committed tipset.
         // Ethereum clients expect all transactions included in this block to have execution outputs.
@@ -958,6 +961,7 @@ impl RpcMethod<0> for EthChainId {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(format!("{:#x}", ctx.chain_config().eth_chain_id))
     }
@@ -978,6 +982,7 @@ impl RpcMethod<0> for EthGasPrice {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // According to Geth's implementation, eth_gasPrice should return base + tip
         // Ref: https://github.com/ethereum/pm/issues/328#issuecomment-853234014
@@ -1008,6 +1013,7 @@ impl RpcMethod<2> for EthGetBalance {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
@@ -1035,6 +1041,7 @@ impl RpcMethod<2> for EthGetBalanceV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
@@ -1650,6 +1657,7 @@ impl RpcMethod<2> for EthGetBlockByHash {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash, full_tx_info): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
@@ -1678,6 +1686,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_ext_block_number_or_hash(
             ctx.chain_store(),
@@ -1706,6 +1715,7 @@ impl RpcMethod<2> for EthGetBlockByNumberV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(
             &ctx,
@@ -1776,6 +1786,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
@@ -1805,6 +1816,7 @@ impl RpcMethod<1> for EthGetBlockReceiptsV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
@@ -1831,6 +1843,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, limit): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
@@ -1860,6 +1873,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimitedV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, limit): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
@@ -1883,6 +1897,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
 
@@ -1911,6 +1926,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_number,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let height = block_number.0;
         let head = ctx.chain_store().heaviest_tipset();
@@ -1942,6 +1958,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumberV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_number,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(
             &ctx,
@@ -1968,6 +1985,7 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let result = ctx.chain_store().get_mapping(&tx_hash);
         match result {
@@ -2028,9 +2046,10 @@ impl RpcMethod<0> for EthSyncing {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let sync_status: crate::chain_sync::SyncStatusReport =
-            crate::rpc::sync::SyncStatus::handle(ctx, ()).await?;
+            crate::rpc::sync::SyncStatus::handle(ctx, (), ext).await?;
         match sync_status.status {
             NodeSyncStatus::Synced => Ok(EthSyncingResult {
                 done_sync: true,
@@ -2074,6 +2093,7 @@ impl RpcMethod<2> for EthEstimateGas {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = if let Some(block_param) = block_param {
             tipset_by_block_number_or_hash(
@@ -2104,6 +2124,7 @@ impl RpcMethod<2> for EthEstimateGasV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = if let Some(block_param) = block_param {
             tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
@@ -2308,6 +2329,7 @@ impl RpcMethod<3> for EthFeeHistory {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = tipset_by_ext_block_number_or_hash(
             ctx.chain_store(),
@@ -2335,6 +2357,7 @@ impl RpcMethod<3> for EthFeeHistoryV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = tipset_by_block_number_or_hash_v2(
             &ctx,
@@ -2481,6 +2504,7 @@ impl RpcMethod<2> for EthGetCode {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
@@ -2508,6 +2532,7 @@ impl RpcMethod<2> for EthGetCodeV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
@@ -2600,6 +2625,7 @@ impl RpcMethod<3> for EthGetStorageAt {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, position, block_number_or_hash): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
@@ -2628,6 +2654,7 @@ impl RpcMethod<3> for EthGetStorageAtV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, position, block_number_or_hash): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(
             &ctx,
@@ -2718,6 +2745,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (sender, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let addr = sender.to_filecoin_address()?;
         match block_param {
@@ -2750,6 +2778,7 @@ impl RpcMethod<2> for EthGetTransactionCountV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (sender, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let addr = sender.to_filecoin_address()?;
         match block_param {
@@ -2813,6 +2842,7 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         match gas::estimate_gas_premium(&ctx, 0, &ApiTipsetKey(None)).await {
             Ok(gas_premium) => Ok(EthBigInt(gas_premium.atto().clone())),
@@ -2835,6 +2865,7 @@ impl RpcMethod<0> for EthProtocolVersion {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let epoch = ctx.chain_store().heaviest_tipset().epoch();
         let version = u32::from(ctx.state_manager.get_network_version(epoch).0);
@@ -2858,6 +2889,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, tx_index): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_ext_block_number_or_hash(
             ctx.chain_store(),
@@ -2884,6 +2916,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndexV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, tx_index): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(
             &ctx,
@@ -2936,6 +2969,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash, tx_index): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
 
@@ -2979,6 +3013,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         get_eth_transaction_by_hash(&ctx, &tx_hash, None).await
     }
@@ -2998,6 +3033,7 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash, limit): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         get_eth_transaction_by_hash(&ctx, &tx_hash, Some(limit)).await
     }
@@ -3071,6 +3107,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
             crate::chain::messages_from_cids(ctx.store(), &[cid]);
@@ -3111,6 +3148,7 @@ impl RpcMethod<2> for EthCall {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
@@ -3134,6 +3172,7 @@ impl RpcMethod<2> for EthCallV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
@@ -3180,6 +3219,7 @@ impl RpcMethod<1> for EthNewFilter {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter_spec,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let eth_event_handler = ctx.eth_event_handler.clone();
         let chain_height = ctx.chain_store().heaviest_tipset().epoch();
@@ -3201,6 +3241,7 @@ impl RpcMethod<0> for EthNewPendingTransactionFilter {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let eth_event_handler = ctx.eth_event_handler.clone();
 
@@ -3222,6 +3263,7 @@ impl RpcMethod<0> for EthNewBlockFilter {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let eth_event_handler = ctx.eth_event_handler.clone();
 
@@ -3243,6 +3285,7 @@ impl RpcMethod<1> for EthUninstallFilter {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter_id,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let eth_event_handler = ctx.eth_event_handler.clone();
 
@@ -3270,6 +3313,7 @@ impl RpcMethod<0> for EthUnsubscribe {
     async fn handle(
         _: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(())
     }
@@ -3295,6 +3339,7 @@ impl RpcMethod<0> for EthSubscribe {
     async fn handle(
         _: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(())
     }
@@ -3313,6 +3358,7 @@ impl RpcMethod<1> for EthAddressToFilecoinAddress {
     async fn handle(
         _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(eth_address.to_filecoin_address()?)
     }
@@ -3332,6 +3378,7 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         if let Ok(eth_address) = EthAddress::from_filecoin_address(&address) {
             Ok(eth_address)
@@ -3427,6 +3474,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         get_eth_transaction_receipt(ctx, tx_hash, None).await
     }
@@ -3445,6 +3493,7 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash, limit): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         get_eth_transaction_receipt(ctx, tx_hash, Some(limit)).await
     }
@@ -3464,6 +3513,7 @@ impl RpcMethod<1> for EthSendRawTransaction {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (raw_tx,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tx_args = parse_eth_transaction(&raw_tx.0)?;
         let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
@@ -3486,6 +3536,7 @@ impl RpcMethod<1> for EthSendRawTransactionUntrusted {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (raw_tx,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tx_args = parse_eth_transaction(&raw_tx.0)?;
         let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
@@ -3729,6 +3780,7 @@ impl RpcMethod<1> for EthGetLogs {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_filter,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let pf = ctx
             .eth_event_handler
@@ -3754,6 +3806,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter_id,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let eth_event_handler = ctx.eth_event_handler.clone();
         if let Some(store) = &eth_event_handler.filter_store {
@@ -3804,6 +3857,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter_id,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let eth_event_handler = ctx.eth_event_handler.clone();
         if let Some(store) = &eth_event_handler.filter_store {
@@ -3917,13 +3971,14 @@ impl RpcMethod<1> for EthTraceBlock {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_ext_block_number_or_hash(
             ctx.chain_store(),
             block_param,
             ResolveNullTipset::TakeOlder,
         )?;
-        eth_trace_block(&ctx, &ts).await
+        eth_trace_block(&ctx, &ts, ext).await
     }
 }
 
@@ -3942,14 +3997,19 @@ impl RpcMethod<1> for EthTraceBlockV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        eth_trace_block(&ctx, &ts).await
+        eth_trace_block(&ctx, &ts, ext).await
     }
 }
 
-async fn eth_trace_block<DB>(ctx: &Ctx<DB>, ts: &Tipset) -> Result<Vec<EthBlockTrace>, ServerError>
+async fn eth_trace_block<DB>(
+    ctx: &Ctx<DB>,
+    ts: &Tipset,
+    ext: &http::Extensions,
+) -> Result<Vec<EthBlockTrace>, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -3965,7 +4025,7 @@ where
             continue;
         }
         msg_idx += 1;
-        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
         let tx_hash = tx_hash
             .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
         let mut env = trace::base_environment(&state, &ir.msg.from)
@@ -4013,6 +4073,7 @@ impl RpcMethod<3> for EthTraceCall {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, trace_types, block_param): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let msg = Message::try_from(tx)?;
         let block_param = block_param.unwrap_or(BlockNumberOrHash::from_str("latest")?);
@@ -4141,6 +4202,7 @@ impl RpcMethod<1> for EthTraceTransaction {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
         let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
@@ -4153,7 +4215,7 @@ impl RpcMethod<1> for EthTraceTransaction {
             ResolveNullTipset::TakeOlder,
         )?;
 
-        let traces = eth_trace_block(&ctx, &ts)
+        let traces = eth_trace_block(&ctx, &ts, ext)
             .await?
             .into_iter()
             .filter(|trace| trace.transaction_hash == eth_hash)
@@ -4180,6 +4242,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, trace_types): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         if trace_types.as_slice() != ["trace"] {
             return Err(ServerError::invalid_params(
@@ -4194,7 +4257,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             ResolveNullTipset::TakeOlder,
         )?;
 
-        eth_trace_replay_block_transactions(&ctx, &ts).await
+        eth_trace_replay_block_transactions(&ctx, &ts, ext).await
     }
 }
 
@@ -4216,6 +4279,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, trace_types): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         if trace_types.as_slice() != ["trace"] {
             return Err(ServerError::invalid_params(
@@ -4227,13 +4291,14 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
         let ts = tipset_by_block_number_or_hash_v2(&ctx, block_param, ResolveNullTipset::TakeOlder)
             .await?;
 
-        eth_trace_replay_block_transactions(&ctx, &ts).await
+        eth_trace_replay_block_transactions(&ctx, &ts, ext).await
     }
 }
 
 async fn eth_trace_replay_block_transactions<DB>(
     ctx: &Ctx<DB>,
     ts: &Tipset,
+    ext: &http::Extensions,
 ) -> Result<Vec<EthReplayBlockTransactionTrace>, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -4248,7 +4313,7 @@ where
             continue;
         }
 
-        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
         let tx_hash = tx_hash
             .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
 
@@ -4326,6 +4391,7 @@ impl RpcMethod<1> for EthTraceFilter {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter,): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let from_block = get_eth_block_number_from_string(
             ctx.chain_store(),
@@ -4341,7 +4407,7 @@ impl RpcMethod<1> for EthTraceFilter {
         )
         .context("cannot parse toBlock")?;
 
-        Ok(trace_filter(ctx, filter, from_block, to_block).await?)
+        Ok(trace_filter(ctx, filter, from_block, to_block, ext).await?)
     }
 }
 
@@ -4361,6 +4427,7 @@ impl RpcMethod<1> for EthTraceFilterV2 {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter,): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let from_block = get_eth_block_number_from_string_v2(
             &ctx,
@@ -4378,7 +4445,7 @@ impl RpcMethod<1> for EthTraceFilterV2 {
         .await
         .context("cannot parse toBlock")?;
 
-        Ok(trace_filter(ctx, filter, from_block, to_block).await?)
+        Ok(trace_filter(ctx, filter, from_block, to_block, ext).await?)
     }
 }
 
@@ -4387,6 +4454,7 @@ async fn trace_filter(
     filter: EthTraceFilterCriteria,
     from_block: EthUint64,
     to_block: EthUint64,
+    ext: &http::Extensions,
 ) -> Result<Vec<EthBlockTrace>> {
     let mut results = HashSet::default();
     if let Some(EthUint64(0)) = filter.count {
@@ -4406,6 +4474,7 @@ async fn trace_filter(
         let block_traces = EthTraceBlock::handle(
             ctx.clone(),
             (ExtBlockNumberOrHash::from_block_number(blk_num as i64),),
+            ext,
         )
         .await?;
         for block_trace in block_traces {

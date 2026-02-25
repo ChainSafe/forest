@@ -25,7 +25,11 @@ impl RpcMethod<0> for Session {
     type Params = ();
     type Ok = Uuid;
 
-    async fn handle(_: Ctx<impl Any>, (): Self::Params) -> Result<Uuid, ServerError> {
+    async fn handle(
+        _: Ctx<impl Any>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Uuid, ServerError> {
         Ok(*SESSION_UUID)
     }
 }
@@ -40,7 +44,11 @@ impl RpcMethod<0> for Version {
     type Params = ();
     type Ok = PublicVersion;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(PublicVersion {
             version: crate::utils::version::FOREST_VERSION_STRING.clone(),
             // This matches Lotus's versioning for the API v1.
@@ -61,7 +69,11 @@ impl RpcMethod<0> for Shutdown {
     type Params = ();
     type Ok = ();
 
-    async fn handle(ctx: Ctx<impl Any>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Any>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         ctx.shutdown.send(()).await?;
         Ok(())
     }
@@ -77,7 +89,11 @@ impl RpcMethod<0> for StartTime {
     type Params = ();
     type Ok = chrono::DateTime<chrono::Utc>;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.start_time)
     }
 }
