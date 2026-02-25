@@ -1104,14 +1104,6 @@ impl ChainGetTipSetV2 {
         }
     }
 
-    pub fn get_ec_safe_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
-        let head = ctx.chain_store().heaviest_tipset();
-        let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        Ok(ctx
-            .chain_index()
-            .tipset_by_height(safe_height, head, ResolveNullTipset::TakeOlder)?)
-    }
-
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {

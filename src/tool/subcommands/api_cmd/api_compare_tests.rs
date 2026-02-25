@@ -1589,851 +1589,631 @@ fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
     tests
 }
 
-fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let block_cid = shared_tipset.key().cid().unwrap();
+fn eth_tests_with_tipset<DB: Blockstore>(
+    store: &Arc<DB>,
+    shared_tipset: &Tipset,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let block_cid = shared_tipset.key().cid()?;
     let block_hash: EthHash = block_cid.into();
 
     let mut tests = vec![
         RpcTest::identity(
             EthGetBalance::request((
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa")?,
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))
-            .unwrap()
+            ))?
             .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))
-            .unwrap()
+            ))?
             .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
                 BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
-            ))
-            .unwrap()
+            ))?
             .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
                 BlockNumberOrHash::from_block_hash_object(block_hash, false),
-            ))
-            .unwrap()
+            ))?
             .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
                 BlockNumberOrHash::from_block_hash_object(block_hash, true),
-            ))
-            .unwrap()
+            ))?
             .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
                 BlockNumberOrHash::from_predefined(Predefined::Earliest),
-            ))
-            .unwrap()
+            ))?
             .with_api_path(ApiPaths::V1),
         )
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::basic(
             EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
                 BlockNumberOrHash::from_predefined(Predefined::Pending),
-            ))
-            .unwrap()
+            ))?
             .with_api_path(ApiPaths::V1),
         ),
         RpcTest::basic(
             EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
                 BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap()
+            ))?
             .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
             EthGetBalance::request((
-                generate_eth_random_address().unwrap(),
+                generate_eth_random_address()?,
                 BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap()
+            ))?
             .with_api_path(ApiPaths::V1),
         ),
+        RpcTest::identity(EthGetBalance::request((
+            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa")?,
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        ))?),
+        RpcTest::identity(EthGetBalance::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        ))?),
+        RpcTest::identity(EthGetBalance::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
+        ))?),
+        RpcTest::identity(EthGetBalance::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_block_hash_object(block_hash, false),
+        ))?),
+        RpcTest::identity(EthGetBalance::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_block_hash_object(block_hash, true),
+        ))?),
+        RpcTest::identity(EthGetBalance::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Earliest),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::basic(EthGetBalance::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Pending),
+        ))?),
+        RpcTest::basic(EthGetBalance::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::basic(EthGetBalance::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Safe),
+        ))?),
+        RpcTest::basic(EthGetBalance::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Finalized),
+        ))?),
+        RpcTest::identity(EthGetBalance::request((
+            generate_eth_random_address()?,
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
         RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))
-            .unwrap(),
+            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), false))?
+                .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))
-            .unwrap(),
+            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), false))?
+                .with_api_path(ApiPaths::V2),
         ),
         RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
-            ))
-            .unwrap(),
+            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), true))?
+                .with_api_path(ApiPaths::V1),
         ),
         RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_block_hash_object(block_hash, false),
-            ))
-            .unwrap(),
+            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), true))?
+                .with_api_path(ApiPaths::V2),
         ),
         RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_block_hash_object(block_hash, true),
-            ))
-            .unwrap(),
-        ),
+            EthGetBlockByNumber::request((Predefined::Earliest.into(), true))?
+                .with_api_path(ApiPaths::V1),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Earliest),
-            ))
-            .unwrap(),
+            EthGetBlockByNumber::request((Predefined::Earliest.into(), true))?
+                .with_api_path(ApiPaths::V2),
         )
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::basic(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Pending),
-            ))
-            .unwrap(),
+            EthGetBlockByNumber::request((Predefined::Pending.into(), true))?
+                .with_api_path(ApiPaths::V1),
         ),
         RpcTest::basic(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
+            EthGetBlockByNumber::request((Predefined::Pending.into(), true))?
+                .with_api_path(ApiPaths::V2),
         ),
         RpcTest::basic(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Safe),
-            ))
-            .unwrap(),
+            EthGetBlockByNumber::request((Predefined::Latest.into(), true))?
+                .with_api_path(ApiPaths::V1),
         ),
         RpcTest::basic(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Finalized),
-            ))
-            .unwrap(),
+            EthGetBlockByNumber::request((Predefined::Latest.into(), true))?
+                .with_api_path(ApiPaths::V2),
         ),
-        RpcTest::identity(
-            EthGetBalance::request((
-                generate_eth_random_address().unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), false)).unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), true)).unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockByNumber::request((Predefined::Earliest.into(), true)).unwrap(),
-        )
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(EthGetBlockByNumber::request((Predefined::Pending.into(), true)).unwrap()),
-        RpcTest::basic(EthGetBlockByNumber::request((Predefined::Latest.into(), true)).unwrap()),
-        RpcTest::basic(EthGetBlockByNumber::request((Predefined::Safe.into(), true)).unwrap()),
-        RpcTest::basic(EthGetBlockByNumber::request((Predefined::Finalized.into(), true)).unwrap()),
-        RpcTest::identity(
-            EthGetBlockByNumberV2::request((EthInt64(shared_tipset.epoch()).into(), false))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockByNumberV2::request((EthInt64(shared_tipset.epoch()).into(), true)).unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockByNumberV2::request((Predefined::Earliest.into(), true)).unwrap(),
-        )
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(EthGetBlockByNumberV2::request((Predefined::Pending.into(), true)).unwrap()),
-        RpcTest::basic(EthGetBlockByNumberV2::request((Predefined::Latest.into(), true)).unwrap()),
-        RpcTest::basic(EthGetBlockByNumberV2::request((Predefined::Safe.into(), true)).unwrap()),
         RpcTest::basic(
-            EthGetBlockByNumberV2::request((Predefined::Finalized.into(), true)).unwrap(),
+            EthGetBlockByNumber::request((Predefined::Safe.into(), true))?
+                .with_api_path(ApiPaths::V1),
         ),
-        RpcTest::identity(
-            EthGetBlockReceipts::request((BlockNumberOrHash::from_block_hash_object(
-                block_hash, true,
-            ),))
-            .unwrap(),
+        RpcTest::basic(
+            EthGetBlockByNumber::request((Predefined::Safe.into(), true))?
+                .with_api_path(ApiPaths::V2),
         ),
+        RpcTest::basic(
+            EthGetBlockByNumber::request((Predefined::Finalized.into(), true))?
+                .with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::basic(
+            EthGetBlockByNumber::request((Predefined::Finalized.into(), true))?
+                .with_api_path(ApiPaths::V2),
+        ),
+        RpcTest::identity(EthGetBlockReceipts::request((
+            BlockNumberOrHash::from_block_hash_object(block_hash, true),
+        ))?),
         // Nodes might be synced to different epochs, so we can't assert the exact result here.
         // Regardless, we want to check if the node returns a valid response and accepts predefined
         // values.
-        RpcTest::basic(
-            EthGetBlockReceipts::request((BlockNumberOrHash::from_predefined(Predefined::Latest),))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockReceiptsV2::request((BlockNumberOrHash::from_block_hash_object(
-                block_hash, true,
-            ),))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetBlockReceiptsV2::request((BlockNumberOrHash::from_predefined(Predefined::Safe),))
-                .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetBlockReceiptsV2::request((BlockNumberOrHash::from_predefined(
-                Predefined::Finalized,
-            ),))
-            .unwrap(),
-        ),
-        RpcTest::identity(EthGetBlockTransactionCountByHash::request((block_hash,)).unwrap()),
-        RpcTest::identity(
-            EthGetBlockReceiptsLimited::request((
-                BlockNumberOrHash::from_block_hash_object(block_hash, true),
-                4,
-            ))
-            .unwrap(),
-        )
+        RpcTest::basic(EthGetBlockReceipts::request((
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthGetBlockReceiptsV2::request((
+            BlockNumberOrHash::from_block_hash_object(block_hash, true),
+        ))?),
+        RpcTest::basic(EthGetBlockReceiptsV2::request((
+            BlockNumberOrHash::from_predefined(Predefined::Safe),
+        ))?),
+        RpcTest::basic(EthGetBlockReceiptsV2::request((
+            BlockNumberOrHash::from_predefined(Predefined::Finalized),
+        ))?),
+        RpcTest::identity(EthGetBlockTransactionCountByHash::request((block_hash,))?),
+        RpcTest::identity(EthGetBlockReceiptsLimited::request((
+            BlockNumberOrHash::from_block_hash_object(block_hash, true),
+            4,
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::identity(
-            EthGetBlockReceiptsLimited::request((
-                BlockNumberOrHash::from_block_hash_object(block_hash, true),
-                -1,
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockReceiptsLimitedV2::request((
-                BlockNumberOrHash::from_block_hash_object(block_hash, true),
-                4,
-            ))
-            .unwrap(),
-        )
+        RpcTest::identity(EthGetBlockReceiptsLimited::request((
+            BlockNumberOrHash::from_block_hash_object(block_hash, true),
+            -1,
+        ))?),
+        RpcTest::identity(EthGetBlockReceiptsLimitedV2::request((
+            BlockNumberOrHash::from_block_hash_object(block_hash, true),
+            4,
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::identity(
-            EthGetBlockReceiptsLimitedV2::request((
-                BlockNumberOrHash::from_block_hash_object(block_hash, true),
-                -1,
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockTransactionCountByNumber::request((EthInt64(shared_tipset.epoch()),))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockTransactionCountByNumberV2::request((
-                EthInt64(shared_tipset.epoch()).into(),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockTransactionCountByNumberV2::request((Predefined::Safe.into(),)).unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockTransactionCountByNumberV2::request((Predefined::Finalized.into(),))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetTransactionCount::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_block_hash_object(block_hash, true),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetTransactionCount::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Earliest),
-            ))
-            .unwrap(),
+        RpcTest::identity(EthGetBlockReceiptsLimitedV2::request((
+            BlockNumberOrHash::from_block_hash_object(block_hash, true),
+            -1,
+        ))?),
+        RpcTest::identity(EthGetBlockTransactionCountByNumber::request((EthInt64(
+            shared_tipset.epoch(),
         )
+        .into(),))?),
+        RpcTest::identity(EthGetBlockTransactionCountByNumberV2::request((EthInt64(
+            shared_tipset.epoch(),
+        )
+        .into(),))?),
+        RpcTest::identity(EthGetBlockTransactionCountByNumberV2::request((
+            Predefined::Safe.into(),
+        ))?),
+        RpcTest::identity(EthGetBlockTransactionCountByNumberV2::request((
+            Predefined::Finalized.into(),
+        ))?),
+        RpcTest::identity(EthGetTransactionCount::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_block_hash_object(block_hash, true),
+        ))?),
+        RpcTest::identity(EthGetTransactionCount::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Earliest),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(
-            EthGetTransactionCount::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Pending),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetTransactionCount::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetTransactionCount::request((
-                generate_eth_random_address().unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetTransactionCountV2::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_block_hash_object(block_hash, true),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetTransactionCountV2::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Earliest),
-            ))
-            .unwrap(),
-        )
+        RpcTest::basic(EthGetTransactionCount::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Pending),
+        ))?),
+        RpcTest::basic(EthGetTransactionCount::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthGetTransactionCount::request((
+            generate_eth_random_address()?,
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthGetTransactionCountV2::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_block_hash_object(block_hash, true),
+        ))?),
+        RpcTest::identity(EthGetTransactionCountV2::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Earliest),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(
-            EthGetTransactionCountV2::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Pending),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetTransactionCountV2::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetTransactionCountV2::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Safe),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetTransactionCountV2::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Finalized),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetTransactionCountV2::request((
-                generate_eth_random_address().unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetStorageAt::request((
-                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                EthBytes(vec![0xa]),
-                BlockNumberOrHash::BlockNumber(EthInt64(shared_tipset.epoch())),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetStorageAt::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                EthBytes(vec![0xa]),
-                BlockNumberOrHash::from_predefined(Predefined::Earliest),
-            ))
-            .unwrap(),
-        )
+        RpcTest::basic(EthGetTransactionCountV2::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Pending),
+        ))?),
+        RpcTest::basic(EthGetTransactionCountV2::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::basic(EthGetTransactionCountV2::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Safe),
+        ))?),
+        RpcTest::basic(EthGetTransactionCountV2::request((
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+            BlockNumberOrHash::from_predefined(Predefined::Finalized),
+        ))?),
+        RpcTest::identity(EthGetTransactionCountV2::request((
+            generate_eth_random_address()?,
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthGetStorageAt::request((
+            // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            EthBytes(vec![0xa]),
+            BlockNumberOrHash::BlockNumber(EthInt64(shared_tipset.epoch())),
+        ))?),
+        RpcTest::identity(EthGetStorageAt::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            EthBytes(vec![0xa]),
+            BlockNumberOrHash::from_predefined(Predefined::Earliest),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(
-            EthGetStorageAt::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                EthBytes(vec![0xa]),
-                BlockNumberOrHash::from_predefined(Predefined::Pending),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetStorageAt::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                EthBytes(vec![0xa]),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetStorageAt::request((
-                generate_eth_random_address().unwrap(),
-                EthBytes(vec![0x0]),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetStorageAtV2::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                EthBytes(vec![0xa]),
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetStorageAtV2::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                EthBytes(vec![0xa]),
-                BlockNumberOrHash::from_predefined(Predefined::Safe),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetStorageAtV2::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                EthBytes(vec![0xa]),
-                BlockNumberOrHash::from_predefined(Predefined::Finalized),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetStorageAtV2::request((
-                generate_eth_random_address().unwrap(),
-                EthBytes(vec![0x0]),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthFeeHistory::request((10.into(), EthInt64(shared_tipset.epoch()).into(), None))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            EthFeeHistory::request((
-                10.into(),
-                EthInt64(shared_tipset.epoch()).into(),
-                Some(vec![10., 50., 90.]),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthFeeHistory::request((10.into(), Predefined::Earliest.into(), None)).unwrap(),
-        )
+        RpcTest::basic(EthGetStorageAt::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            EthBytes(vec![0xa]),
+            BlockNumberOrHash::from_predefined(Predefined::Pending),
+        ))?),
+        RpcTest::basic(EthGetStorageAt::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            EthBytes(vec![0xa]),
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthGetStorageAt::request((
+            generate_eth_random_address()?,
+            EthBytes(vec![0x0]),
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthGetStorageAtV2::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            EthBytes(vec![0xa]),
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        ))?),
+        RpcTest::basic(EthGetStorageAtV2::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            EthBytes(vec![0xa]),
+            BlockNumberOrHash::from_predefined(Predefined::Safe),
+        ))?),
+        RpcTest::basic(EthGetStorageAtV2::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            EthBytes(vec![0xa]),
+            BlockNumberOrHash::from_predefined(Predefined::Finalized),
+        ))?),
+        RpcTest::identity(EthGetStorageAtV2::request((
+            generate_eth_random_address()?,
+            EthBytes(vec![0x0]),
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthFeeHistory::request((
+            10.into(),
+            EthInt64(shared_tipset.epoch()).into(),
+            None,
+        ))?),
+        RpcTest::identity(EthFeeHistory::request((
+            10.into(),
+            EthInt64(shared_tipset.epoch()).into(),
+            Some(vec![10., 50., 90.]),
+        ))?),
+        RpcTest::identity(EthFeeHistory::request((
+            10.into(),
+            Predefined::Earliest.into(),
+            None,
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(
-            EthFeeHistory::request((
-                10.into(),
-                Predefined::Pending.into(),
-                Some(vec![10., 50., 90.]),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthFeeHistory::request((10.into(), Predefined::Latest.into(), None)).unwrap(),
-        ),
-        RpcTest::basic(EthFeeHistory::request((10.into(), Predefined::Safe.into(), None)).unwrap()),
-        RpcTest::basic(
-            EthFeeHistory::request((
-                10.into(),
-                Predefined::Finalized.into(),
-                Some(vec![10., 50., 90.]),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthFeeHistoryV2::request((
-                10.into(),
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-                None,
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthFeeHistoryV2::request((
-                10.into(),
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-                Some(vec![10., 50., 90.]),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthFeeHistoryV2::request((
-                10.into(),
-                BlockNumberOrHash::from_predefined(Predefined::Earliest),
-                None,
-            ))
-            .unwrap(),
-        )
+        RpcTest::basic(EthFeeHistory::request((
+            10.into(),
+            Predefined::Pending.into(),
+            Some(vec![10., 50., 90.]),
+        ))?),
+        RpcTest::basic(EthFeeHistory::request((
+            10.into(),
+            Predefined::Latest.into(),
+            None,
+        ))?),
+        RpcTest::basic(EthFeeHistory::request((
+            10.into(),
+            Predefined::Safe.into(),
+            None,
+        ))?),
+        RpcTest::basic(EthFeeHistory::request((
+            10.into(),
+            Predefined::Finalized.into(),
+            Some(vec![10., 50., 90.]),
+        ))?),
+        RpcTest::identity(EthFeeHistoryV2::request((
+            10.into(),
+            EthInt64(shared_tipset.epoch()).into(),
+            None,
+        ))?),
+        RpcTest::identity(EthFeeHistoryV2::request((
+            10.into(),
+            EthInt64(shared_tipset.epoch()).into(),
+            Some(vec![10., 50., 90.]),
+        ))?),
+        RpcTest::identity(EthFeeHistoryV2::request((
+            10.into(),
+            Predefined::Earliest.into(),
+            None,
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(
-            EthFeeHistoryV2::request((
-                10.into(),
-                BlockNumberOrHash::from_predefined(Predefined::Pending),
-                Some(vec![10., 50., 90.]),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthFeeHistoryV2::request((
-                10.into(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-                None,
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthFeeHistoryV2::request((
-                10.into(),
-                BlockNumberOrHash::from_predefined(Predefined::Safe),
-                None,
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthFeeHistoryV2::request((
-                10.into(),
-                BlockNumberOrHash::from_predefined(Predefined::Finalized),
-                Some(vec![10., 50., 90.]),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetCode::request((
-                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetCode::request((
-                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
-                Address::from_str("f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq")
-                    .unwrap()
-                    .try_into()
-                    .unwrap(),
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetCode::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Earliest),
-            ))
-            .unwrap(),
-        )
+        RpcTest::basic(EthFeeHistoryV2::request((
+            10.into(),
+            Predefined::Pending.into(),
+            Some(vec![10., 50., 90.]),
+        ))?),
+        RpcTest::basic(EthFeeHistoryV2::request((
+            10.into(),
+            Predefined::Latest.into(),
+            None,
+        ))?),
+        RpcTest::basic(EthFeeHistoryV2::request((
+            10.into(),
+            Predefined::Safe.into(),
+            None,
+        ))?),
+        RpcTest::basic(EthFeeHistoryV2::request((
+            10.into(),
+            Predefined::Finalized.into(),
+            Some(vec![10., 50., 90.]),
+        ))?),
+        RpcTest::identity(EthGetCode::request((
+            // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        ))?),
+        RpcTest::identity(EthGetCode::request((
+            // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+            Address::from_str("f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq")?.try_into()?,
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        ))?),
+        RpcTest::identity(EthGetCode::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            BlockNumberOrHash::from_predefined(Predefined::Earliest),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(
-            EthGetCode::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Pending),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetCode::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetCode::request((
-                generate_eth_random_address().unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetCodeV2::request((
-                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetCodeV2::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Safe),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetCodeV2::request((
-                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Finalized),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetCodeV2::request((
-                generate_eth_random_address().unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetTransactionByBlockNumberAndIndex::request((
-                EthInt64(shared_tipset.epoch()).into(),
-                0.into(),
-            ))
-            .unwrap(),
-        )
+        RpcTest::basic(EthGetCode::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            BlockNumberOrHash::from_predefined(Predefined::Pending),
+        ))?),
+        RpcTest::basic(EthGetCode::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthGetCode::request((
+            generate_eth_random_address()?,
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthGetCodeV2::request((
+            // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        ))?),
+        RpcTest::basic(EthGetCodeV2::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            BlockNumberOrHash::from_predefined(Predefined::Safe),
+        ))?),
+        RpcTest::basic(EthGetCodeV2::request((
+            EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44")?,
+            BlockNumberOrHash::from_predefined(Predefined::Finalized),
+        ))?),
+        RpcTest::identity(EthGetCodeV2::request((
+            generate_eth_random_address()?,
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::identity(EthGetTransactionByBlockNumberAndIndex::request((
+            EthInt64(shared_tipset.epoch()).into(),
+            0.into(),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetTransactionByBlockNumberAndIndex::request((
-                Predefined::Earliest.into(),
-                0.into(),
-            ))
-            .unwrap(),
-        )
+        RpcTest::identity(EthGetTransactionByBlockNumberAndIndex::request((
+            Predefined::Earliest.into(),
+            0.into(),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetTransactionByBlockNumberAndIndex::request((Predefined::Pending.into(), 0.into()))
-                .unwrap(),
-        )
+        RpcTest::identity(EthGetTransactionByBlockNumberAndIndex::request((
+            Predefined::Pending.into(),
+            0.into(),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetTransactionByBlockNumberAndIndex::request((Predefined::Latest.into(), 0.into()))
-                .unwrap(),
-        )
+        RpcTest::identity(EthGetTransactionByBlockNumberAndIndex::request((
+            Predefined::Latest.into(),
+            0.into(),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetTransactionByBlockNumberAndIndexV2::request((
-                EthInt64(shared_tipset.epoch()).into(),
-                0.into(),
-            ))
-            .unwrap(),
-        )
+        RpcTest::identity(EthGetTransactionByBlockNumberAndIndexV2::request((
+            EthInt64(shared_tipset.epoch()).into(),
+            0.into(),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetTransactionByBlockNumberAndIndexV2::request((Predefined::Safe.into(), 0.into()))
-                .unwrap(),
-        )
+        RpcTest::identity(EthGetTransactionByBlockNumberAndIndexV2::request((
+            Predefined::Safe.into(),
+            0.into(),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetTransactionByBlockNumberAndIndexV2::request((
-                Predefined::Finalized.into(),
-                0.into(),
-            ))
-            .unwrap(),
-        )
+        RpcTest::identity(EthGetTransactionByBlockNumberAndIndexV2::request((
+            Predefined::Finalized.into(),
+            0.into(),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetTransactionByBlockHashAndIndex::request((block_hash, 0.into())).unwrap(),
-        )
+        RpcTest::identity(EthGetTransactionByBlockHashAndIndex::request((
+            block_hash,
+            0.into(),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::identity(EthGetBlockByHash::request((block_hash, false)).unwrap()),
-        RpcTest::identity(EthGetBlockByHash::request((block_hash, true)).unwrap()),
-        RpcTest::identity(
-            EthGetLogs::request((EthFilterSpec {
-                from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                ..Default::default()
-            },))
-            .unwrap(),
-        )
+        RpcTest::identity(EthGetBlockByHash::request((block_hash, false))?),
+        RpcTest::identity(EthGetBlockByHash::request((block_hash, true))?),
+        RpcTest::identity(EthGetLogs::request((EthFilterSpec {
+            from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+            to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+            ..Default::default()
+        },))?)
         .sort_policy(SortPolicy::All)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetLogs::request((EthFilterSpec {
-                from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                address: Some(EthAddressList::List(Vec::new())),
-                ..Default::default()
-            },))
-            .unwrap(),
-        )
+        RpcTest::identity(EthGetLogs::request((EthFilterSpec {
+            from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+            to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+            address: Some(EthAddressList::List(Vec::new())),
+            ..Default::default()
+        },))?)
         .sort_policy(SortPolicy::All)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetLogs::request((EthFilterSpec {
-                from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
-                to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                ..Default::default()
-            },))
-            .unwrap(),
-        )
+        RpcTest::identity(EthGetLogs::request((EthFilterSpec {
+            from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
+            to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+            ..Default::default()
+        },))?)
         .sort_policy(SortPolicy::All)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetLogs::request((EthFilterSpec {
-                address: Some(EthAddressList::Single(
-                    EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                )),
-                ..Default::default()
-            },))
-            .unwrap(),
-        )
+        RpcTest::identity(EthGetLogs::request((EthFilterSpec {
+            address: Some(EthAddressList::Single(EthAddress::from_str(
+                "0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44",
+            )?)),
+            ..Default::default()
+        },))?)
         .sort_policy(SortPolicy::All)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(EthGetFilterLogs::request((FilterID::new().unwrap(),)).unwrap())
+        RpcTest::identity(EthGetFilterLogs::request((FilterID::new()?,))?)
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::identity(EthGetFilterChanges::request((FilterID::new().unwrap(),)).unwrap())
+        RpcTest::identity(EthGetFilterChanges::request((FilterID::new()?,))?)
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
-        RpcTest::identity(
-            EthTraceBlock::request((BlockNumberOrHash::from_block_number(shared_tipset.epoch()),))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            EthTraceBlock::request((BlockNumberOrHash::from_predefined(Predefined::Earliest),))
-                .unwrap(),
-        )
+        RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,))?),
+        RpcTest::identity(EthTraceBlock::request((
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        ))?),
+        RpcTest::identity(EthTraceBlock::request((
+            BlockNumberOrHash::from_predefined(Predefined::Earliest),
+        ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(
-            EthTraceBlock::request((BlockNumberOrHash::from_predefined(Predefined::Pending),))
-                .unwrap(),
-        ),
-        RpcTest::basic(
-            EthTraceBlock::request((BlockNumberOrHash::from_predefined(Predefined::Latest),))
-                .unwrap(),
-        ),
-        RpcTest::basic(
-            EthTraceBlock::request((BlockNumberOrHash::from_predefined(Predefined::Safe),))
-                .unwrap(),
-        ),
-        RpcTest::basic(
-            EthTraceBlock::request((BlockNumberOrHash::from_predefined(Predefined::Finalized),))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            EthTraceBlockV2::request(
-                (BlockNumberOrHash::from_block_number(shared_tipset.epoch()),),
-            )
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthTraceBlockV2::request((BlockNumberOrHash::from_predefined(Predefined::Pending),))
-                .unwrap(),
-        ),
-        RpcTest::basic(
-            EthTraceBlockV2::request((BlockNumberOrHash::from_predefined(Predefined::Latest),))
-                .unwrap(),
-        ),
-        RpcTest::basic(
-            EthTraceBlockV2::request((BlockNumberOrHash::from_predefined(Predefined::Safe),))
-                .unwrap(),
-        ),
-        RpcTest::basic(
-            EthTraceBlockV2::request((BlockNumberOrHash::from_predefined(Predefined::Finalized),))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            EthTraceReplayBlockTransactions::request((
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-                vec!["trace".to_string()],
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthTraceReplayBlockTransactionsV2::request((
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-                vec!["trace".to_string()],
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthTraceFilter::request((EthTraceFilterCriteria {
-                from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
-                to_block: Some(format!(
-                    "0x{:x}",
-                    shared_tipset.epoch() - SAFE_EPOCH_DELAY_FOR_TESTING
-                )),
-                ..Default::default()
-            },))
-            .unwrap(),
-        )
+        RpcTest::basic(EthTraceBlock::request((
+            BlockNumberOrHash::from_predefined(Predefined::Pending),
+        ))?),
+        RpcTest::basic(EthTraceBlock::request((
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::basic(EthTraceBlock::request((
+            BlockNumberOrHash::from_predefined(Predefined::Safe),
+        ))?),
+        RpcTest::basic(EthTraceBlock::request((
+            BlockNumberOrHash::from_predefined(Predefined::Finalized),
+        ))?),
+        RpcTest::identity(EthTraceBlockV2::request((
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        ))?),
+        RpcTest::basic(EthTraceBlockV2::request((
+            BlockNumberOrHash::from_predefined(Predefined::Pending),
+        ))?),
+        RpcTest::basic(EthTraceBlockV2::request((
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        ))?),
+        RpcTest::basic(EthTraceBlockV2::request((
+            BlockNumberOrHash::from_predefined(Predefined::Safe),
+        ))?),
+        RpcTest::basic(EthTraceBlockV2::request((
+            BlockNumberOrHash::from_predefined(Predefined::Finalized),
+        ))?),
+        RpcTest::identity(EthTraceReplayBlockTransactions::request((
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            vec!["trace".to_string()],
+        ))?),
+        RpcTest::identity(EthTraceReplayBlockTransactionsV2::request((
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            vec!["trace".to_string()],
+        ))?),
+        RpcTest::identity(EthTraceFilter::request((EthTraceFilterCriteria {
+            from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
+            to_block: Some(format!(
+                "0x{:x}",
+                shared_tipset.epoch() - SAFE_EPOCH_DELAY_FOR_TESTING
+            )),
+            ..Default::default()
+        },))?)
         // both nodes could fail on, e.g., "too many results, maximum supported is 500, try paginating
         // requests with After and Count"
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::identity(
-            EthGetTransactionReceipt::request((
-                // A transaction that should not exist, to test the `null` response in case
-                // of missing transaction.
-                EthHash::from_str(
-                    "0xf234567890123456789d6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f70809",
-                )
-                .unwrap(),
-            ))
-            .unwrap(),
-        ),
+        RpcTest::identity(EthGetTransactionReceipt::request((
+            // A transaction that should not exist, to test the `null` response in case
+            // of missing transaction.
+            EthHash::from_str(
+                "0xf234567890123456789d6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f70809",
+            )?,
+        ))?),
     ];
 
     for block in shared_tipset.block_headers() {
         tests.extend([
-            RpcTest::identity(
-                FilecoinAddressToEthAddress::request((
-                    block.miner_address,
-                    Some(Predefined::Latest.into()),
-                ))
-                .unwrap(),
-            ),
-            RpcTest::identity(
-                FilecoinAddressToEthAddress::request((
-                    block.miner_address,
-                    Some(Predefined::Safe.into()),
-                ))
-                .unwrap(),
-            ),
-            RpcTest::identity(
-                FilecoinAddressToEthAddress::request((
-                    block.miner_address,
-                    Some(Predefined::Finalized.into()),
-                ))
-                .unwrap(),
-            ),
+            RpcTest::identity(FilecoinAddressToEthAddress::request((
+                block.miner_address,
+                Some(Predefined::Latest.into()),
+            ))?),
+            RpcTest::identity(FilecoinAddressToEthAddress::request((
+                block.miner_address,
+                Some(Predefined::Safe.into()),
+            ))?),
+            RpcTest::identity(FilecoinAddressToEthAddress::request((
+                block.miner_address,
+                Some(Predefined::Finalized.into()),
+            ))?),
         ]);
-        let (bls_messages, secp_messages) =
-            crate::chain::store::block_messages(store, block).unwrap();
+        let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
-            tests.extend([RpcTest::identity(
-                FilecoinAddressToEthAddress::request((msg.from(), Some(Predefined::Latest.into())))
-                    .unwrap(),
-            )]);
+            tests.extend([RpcTest::identity(FilecoinAddressToEthAddress::request((
+                msg.from(),
+                Some(Predefined::Latest.into()),
+            ))?)]);
             if let Ok(eth_to_addr) = EthAddress::try_from(msg.to) {
-                tests.extend([RpcTest::identity(
-                    EthEstimateGas::request((
-                        EthCallMessage {
-                            to: Some(eth_to_addr),
-                            value: Some(msg.value.clone().into()),
-                            data: Some(msg.params.clone().into()),
-                            ..Default::default()
-                        },
-                        Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
-                    ))
-                    .unwrap(),
-                )
+                tests.extend([RpcTest::identity(EthEstimateGas::request((
+                    EthCallMessage {
+                        to: Some(eth_to_addr),
+                        value: Some(msg.value.clone().into()),
+                        data: Some(msg.params.clone().into()),
+                        ..Default::default()
+                    },
+                    Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
+                ))?)
                 .policy_on_rejected(PolicyOnRejected::Pass)]);
-                tests.extend([RpcTest::identity(
-                    EthEstimateGasV2::request((
-                        EthCallMessage {
-                            to: Some(eth_to_addr),
-                            value: Some(msg.value.clone().into()),
-                            data: Some(msg.params.clone().into()),
-                            ..Default::default()
-                        },
-                        Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
-                    ))
-                    .unwrap(),
-                )
+                tests.extend([RpcTest::identity(EthEstimateGasV2::request((
+                    EthCallMessage {
+                        to: Some(eth_to_addr),
+                        value: Some(msg.value.clone().into()),
+                        data: Some(msg.params.clone().into()),
+                        ..Default::default()
+                    },
+                    Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
+                ))?)
                 .policy_on_rejected(PolicyOnRejected::Pass)]);
             }
         }
     }
 
-    tests
+    Ok(tests)
 }
 
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
@@ -2661,7 +2441,7 @@ fn snapshot_tests(
         tests.extend(chain_tests_with_tipset(&store, offline, &tipset)?);
         tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
-        tests.extend(eth_tests_with_tipset(&store, &tipset));
+        tests.extend(eth_tests_with_tipset(&store, &tipset)?);
         tests.extend(event_tests_with_tipset(&store, &tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
         tests.extend(mpool_tests_with_tipset(&tipset));

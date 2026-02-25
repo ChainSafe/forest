@@ -6,9 +6,11 @@ mod eth_tx;
 pub mod filter;
 pub mod pubsub;
 pub(crate) mod pubsub_trait;
+mod tipset_resolver;
 mod trace;
 pub mod types;
 mod utils;
+pub use tipset_resolver::TipsetResolver;
 
 use self::eth_tx::*;
 use self::filter::hex_str_to_epoch;
@@ -253,6 +255,7 @@ impl EthUint64 {
     derive_more::From,
     derive_more::Into,
     derive_more::Deref,
+    GetSize,
 )]
 pub struct EthInt64(
     #[schemars(with = "String")]
@@ -293,7 +296,9 @@ impl From<[u8; EVM_WORD_LENGTH]> for EthHash {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema, strum::Display)]
+#[derive(
+    PartialEq, Debug, Clone, Copy, Serialize, Deserialize, Default, JsonSchema, strum::Display,
+)]
 #[serde(rename_all = "camelCase")]
 pub enum Predefined {
     Earliest,
@@ -302,75 +307,6 @@ pub enum Predefined {
     Latest,
     Safe,
     Finalized,
-}
-
-impl Predefined {
-    pub async fn resolve_predefined_tipset<DB: Blockstore + Send + Sync + 'static>(
-        &self,
-        ctx: &Ctx<DB>,
-        api_version: ApiPaths,
-    ) -> anyhow::Result<Tipset> {
-        match api_version {
-            ApiPaths::V2 => self.resolve_predefined_tipset_v2(ctx).await,
-            _ => self.resolve_predefined_tipset_v1(ctx).await,
-        }
-    }
-
-    pub async fn resolve_predefined_tipset_v1<DB: Blockstore + Send + Sync + 'static>(
-        &self,
-        ctx: &Ctx<DB>,
-    ) -> anyhow::Result<Tipset> {
-        const ETH_V1_DISABLE_F3_FINALITY_RESOLUTION_ENV_KEY: &str =
-            "FOREST_ETH_V1_DISABLE_F3_FINALITY_RESOLUTION";
-        static ETH_V1_F3_FINALITY_RESOLUTION_DISABLED: LazyLock<bool> =
-            LazyLock::new(|| is_env_truthy(ETH_V1_DISABLE_F3_FINALITY_RESOLUTION_ENV_KEY));
-
-        if *ETH_V1_F3_FINALITY_RESOLUTION_DISABLED {
-            if let Some(ts) = self.resolve_common_predefined_tipset(ctx.chain_store())? {
-                Ok(ts)
-            } else {
-                match self {
-                    Predefined::Safe => Ok(ChainGetTipSetV2::get_ec_safe_tipset(ctx)?),
-                    Predefined::Finalized => Ok(ChainGetTipSetV2::get_ec_finalized_tipset(ctx)?),
-                    tag => anyhow::bail!("unknown block tag: {tag}"),
-                }
-            }
-        } else {
-            self.resolve_predefined_tipset_v2(ctx).await
-        }
-    }
-
-    pub async fn resolve_predefined_tipset_v2<DB: Blockstore + Send + Sync + 'static>(
-        &self,
-        ctx: &Ctx<DB>,
-    ) -> anyhow::Result<Tipset> {
-        if let Some(ts) = self.resolve_common_predefined_tipset(ctx.chain_store())? {
-            Ok(ts)
-        } else {
-            match self {
-                Predefined::Safe => ChainGetTipSetV2::get_latest_safe_tipset(ctx).await,
-                Predefined::Finalized => ChainGetTipSetV2::get_latest_finalized_tipset(ctx).await,
-                tag => anyhow::bail!("unknown block tag: {tag}"),
-            }
-        }
-    }
-
-    pub fn resolve_common_predefined_tipset<DB: Blockstore>(
-        &self,
-        chain_store: &ChainStore<DB>,
-    ) -> anyhow::Result<Option<Tipset>> {
-        let head = chain_store.heaviest_tipset();
-        match self {
-            Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
-            Predefined::Pending => Ok(Some(head)),
-            Predefined::Latest => Ok(Some(
-                chain_store
-                    .chain_index()
-                    .load_required_tipset(head.parents())?,
-            )),
-            _ => Ok(None),
-        }
-    }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -387,7 +323,9 @@ pub struct BlockHash {
     require_canonical: bool,
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema, strum::Display)]
+#[derive(
+    PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema, strum::Display, derive_more::From,
+)]
 #[serde(untagged)]
 pub enum BlockNumberOrHash {
     #[schemars(with = "String")]
@@ -444,53 +382,6 @@ impl BlockNumberOrHash {
                 Ok(BlockNumberOrHash::from_block_number(epoch))
             }
             _ => Err(anyhow!("Invalid block identifier")),
-        }
-    }
-
-    pub async fn tipset_by_block_number_or_hash_v1<DB: Blockstore + Send + Sync + 'static>(
-        &self,
-        ctx: &Ctx<DB>,
-        resolve: ResolveNullTipset,
-    ) -> anyhow::Result<Tipset> {
-        self.tipset_by_block_number_or_hash(ctx, resolve, ApiPaths::V1)
-            .await
-    }
-
-    pub async fn tipset_by_block_number_or_hash_v2<DB: Blockstore + Send + Sync + 'static>(
-        &self,
-        ctx: &Ctx<DB>,
-        resolve: ResolveNullTipset,
-    ) -> anyhow::Result<Tipset> {
-        self.tipset_by_block_number_or_hash(ctx, resolve, ApiPaths::V2)
-            .await
-    }
-
-    pub async fn tipset_by_block_number_or_hash<DB: Blockstore + Send + Sync + 'static>(
-        &self,
-        ctx: &Ctx<DB>,
-        resolve: ResolveNullTipset,
-        api_version: ApiPaths,
-    ) -> anyhow::Result<Tipset> {
-        match self {
-            BlockNumberOrHash::PredefinedBlock(tag) => {
-                tag.resolve_predefined_tipset(ctx, api_version).await
-            }
-            BlockNumberOrHash::BlockNumber(block_number)
-            | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
-                resolve_block_number_tipset(ctx.chain_store(), *block_number, resolve)
-            }
-            BlockNumberOrHash::BlockHash(block_hash) => {
-                resolve_block_hash_tipset(ctx.chain_store(), block_hash, false, resolve)
-            }
-            BlockNumberOrHash::BlockHashObject(BlockHash {
-                block_hash,
-                require_canonical,
-            }) => resolve_block_hash_tipset(
-                ctx.chain_store(),
-                block_hash,
-                *require_canonical,
-                resolve,
-            ),
         }
     }
 }
@@ -571,7 +462,7 @@ pub struct Block {
     pub logs_bloom: Bloom,
     pub difficulty: EthUint64,
     pub total_difficulty: EthUint64,
-    pub number: EthUint64,
+    pub number: EthInt64,
     pub gas_limit: EthUint64,
     pub gas_used: EthUint64,
     pub timestamp: EthUint64,
@@ -638,7 +529,7 @@ impl Block {
             b
         } else {
             let parent_cid = tipset.parents().cid()?;
-            let block_number = EthUint64(tipset.epoch() as u64);
+            let block_number = EthInt64(tipset.epoch());
             let block_hash: EthHash = block_cid.into();
 
             let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &tipset).await?;
@@ -708,7 +599,7 @@ pub struct ApiEthTx {
     pub nonce: EthUint64,
     pub hash: EthHash,
     pub block_hash: EthHash,
-    pub block_number: EthUint64,
+    pub block_number: EthInt64,
     pub transaction_index: EthUint64,
     pub from: EthAddress,
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -833,7 +724,7 @@ pub struct EthTxReceipt {
     transaction_hash: EthHash,
     transaction_index: EthUint64,
     block_hash: EthHash,
-    block_number: EthUint64,
+    block_number: EthInt64,
     from: EthAddress,
     to: Option<EthAddress>,
     root: EthHash,
@@ -1032,12 +923,9 @@ impl RpcMethod<2> for EthGetBalance {
         (address, block_param): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash(
-                &ctx,
-                ResolveNullTipset::TakeOlder,
-                Self::api_path(ext)?,
-            )
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         let balance = eth_get_balance(&ctx, &address, &ts).await?;
         Ok(balance)
@@ -1354,7 +1242,7 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
 
     Ok(ApiEthTx {
         block_hash: parent_ts_cid.into(),
-        block_number: (parent_ts.epoch() as u64).into(),
+        block_number: parent_ts.epoch().into(),
         transaction_index: tx_index.into(),
         ..new_eth_tx_from_signed_message(&smsg, &state, ctx.chain_config().eth_chain_id)?
     })
@@ -1373,7 +1261,7 @@ fn new_eth_tx<DB: Blockstore>(
 
     Ok(ApiEthTx {
         block_hash: (*msg_tipset_cid).into(),
-        block_number: (block_height as u64).into(),
+        block_number: block_height.into(),
         transaction_index: tx_index.into(),
         ..tx
     })
@@ -1515,10 +1403,11 @@ impl RpcMethod<2> for EthGetBlockByHash {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash, full_tx_info): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = BlockNumberOrHash::from_block_hash(block_hash)
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_hash, ResolveNullTipset::TakeOlder)
             .await?;
         Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
             .await
@@ -1531,7 +1420,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByNumber");
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Retrieves a block by its number or a special tag.");
@@ -1542,37 +1431,11 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = BlockNumberOrHash::from(block_param)
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
-            .await
-            .map_err(ServerError::from)
-    }
-}
-
-pub enum EthGetBlockByNumberV2 {}
-impl RpcMethod<2> for EthGetBlockByNumberV2 {
-    const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByNumber");
-    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Retrieves a block by its number or a special tag.");
-
-    type Params = (BlockNumberOrPredefined, bool);
-    type Ok = Block;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_param, full_tx_info): Self::Params,
-        _: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        let ts = BlockNumberOrHash::from(block_param)
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
             .await
@@ -1637,10 +1500,11 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         get_block_receipts(&ctx, ts, None)
             .await
@@ -1664,15 +1528,10 @@ impl RpcMethod<1> for EthGetBlockReceiptsV2 {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_param,): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        get_block_receipts(&ctx, ts, None)
-            .await
-            .map_err(ServerError::from)
+        EthGetBlockReceipts::handle(ctx, params, ext).await
     }
 }
 
@@ -1693,10 +1552,11 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, limit): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         get_block_receipts(&ctx, ts, Some(limit))
             .await
@@ -1720,15 +1580,10 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimitedV2 {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_param, limit): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        get_block_receipts(&ctx, ts, Some(limit))
-            .await
-            .map_err(ServerError::from)
+        EthGetBlockReceiptsLimited::handle(ctx, params, ext).await
     }
 }
 
@@ -1766,25 +1621,22 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const PARAM_NAMES: [&'static str; 1] = ["blockNumber"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the number of transactions in a block identified by its block number.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the number of transactions in a block identified by its block number or a special tag.",
+    );
 
-    type Params = (EthInt64,);
+    type Params = (BlockNumberOrPredefined,);
     type Ok = EthUint64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_number,): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let height = block_number.0;
-        let head = ctx.chain_store().heaviest_tipset();
-        if height > head.epoch() {
-            return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
-        }
-        let ts = ctx
-            .chain_index()
-            .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_number, ResolveNullTipset::TakeOlder)
+            .await?;
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
         Ok(EthUint64(count as _))
     }
@@ -1806,14 +1658,10 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumberV2 {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_number,): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = BlockNumberOrHash::from(block_number)
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        let count = count_messages_in_tipset(ctx.store(), &ts)?;
-        Ok(EthUint64(count as _))
+        EthGetBlockTransactionCountByNumber::handle(ctx, params, ext).await
     }
 }
 
@@ -1939,11 +1787,12 @@ impl RpcMethod<2> for EthEstimateGas {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = if let Some(block_param) = block_param {
-            block_param
-                .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+            let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+            resolver
+                .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
                 .await?
         } else {
             ctx.chain_store().heaviest_tipset()
@@ -1967,17 +1816,10 @@ impl RpcMethod<2> for EthEstimateGasV2 {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (tx, block_param): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = if let Some(block_param) = block_param {
-            block_param
-                .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-                .await?
-        } else {
-            ctx.chain_store().heaviest_tipset()
-        };
-        eth_estimate_gas(&ctx, tx, tipset).await
+        EthEstimateGas::handle(ctx, params, ext).await
     }
 }
 
@@ -2174,10 +2016,11 @@ impl RpcMethod<3> for EthFeeHistory {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = BlockNumberOrHash::from(newest_block_number)
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let tipset = resolver
+            .tipset_by_block_number_or_hash(newest_block_number, ResolveNullTipset::TakeOlder)
             .await?;
         eth_fee_history(ctx, tipset, block_count, reward_percentiles).await
     }
@@ -2193,19 +2036,15 @@ impl RpcMethod<3> for EthFeeHistoryV2 {
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (EthUint64, BlockNumberOrHash, Option<Vec<f64>>);
+    type Params = (EthUint64, BlockNumberOrPredefined, Option<Vec<f64>>);
     type Ok = EthFeeHistoryResult;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = newest_block_number
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-
-        eth_fee_history(ctx, tipset, block_count, reward_percentiles).await
+        EthFeeHistory::handle(ctx, params, ext).await
     }
 }
 
@@ -2343,10 +2182,11 @@ impl RpcMethod<2> for EthGetCode {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, block_param): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         eth_get_code(&ctx, &ts, &eth_address).await
     }
@@ -2368,13 +2208,10 @@ impl RpcMethod<2> for EthGetCodeV2 {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (eth_address, block_param): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        eth_get_code(&ctx, &ts, &eth_address).await
+        EthGetCode::handle(ctx, params, ext).await
     }
 }
 
@@ -2463,10 +2300,11 @@ impl RpcMethod<3> for EthGetStorageAt {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, position, block_number_or_hash): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_number_or_hash
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_number_or_hash, ResolveNullTipset::TakeOlder)
             .await?;
         get_storage_at(&ctx, ts, eth_address, position).await
     }
@@ -2489,13 +2327,10 @@ impl RpcMethod<3> for EthGetStorageAtV2 {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (eth_address, position, block_number_or_hash): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_number_or_hash
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        get_storage_at(&ctx, ts, eth_address, position).await
+        EthGetStorageAt::handle(ctx, params, ext).await
     }
 }
 
@@ -2578,7 +2413,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (sender, block_param): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let addr = sender.to_filecoin_address()?;
         match block_param {
@@ -2586,8 +2421,9 @@ impl RpcMethod<2> for EthGetTransactionCount {
                 Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
             }
             _ => {
-                let ts = block_param
-                    .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+                let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+                let ts = resolver
+                    .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
                     .await?;
                 eth_get_transaction_count(&ctx, &ts, addr).await
             }
@@ -2608,21 +2444,10 @@ impl RpcMethod<2> for EthGetTransactionCountV2 {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (sender, block_param): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let addr = sender.to_filecoin_address()?;
-        match block_param {
-            BlockNumberOrHash::PredefinedBlock(Predefined::Pending) => {
-                Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
-            }
-            _ => {
-                let ts = block_param
-                    .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-                    .await?;
-                eth_get_transaction_count(&ctx, &ts, addr).await
-            }
-        }
+        EthGetTransactionCount::handle(ctx, params, ext).await
     }
 }
 
@@ -2717,10 +2542,11 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, tx_index): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = BlockNumberOrHash::from(block_param)
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
     }
@@ -2741,13 +2567,10 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndexV2 {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_param, tx_index): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = BlockNumberOrHash::from(block_param)
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
+        EthGetTransactionByBlockNumberAndIndex::handle(ctx, params, ext).await
     }
 }
 
@@ -2971,10 +2794,11 @@ impl RpcMethod<2> for EthCall {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         eth_call(&ctx, tx, ts).await
     }
@@ -2992,13 +2816,10 @@ impl RpcMethod<2> for EthCallV2 {
     type Ok = EthBytes;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (tx, block_param): Self::Params,
-        _: &http::Extensions,
+        params: Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        eth_call(&ctx, tx, ts).await
+        EthCall::handle(ctx, params, ext).await
     }
 }
 
@@ -3204,15 +3025,12 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
         if let Ok(eth_address) = EthAddress::from_filecoin_address(&address) {
             Ok(eth_address)
         } else {
+            let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
             let block_param = block_param.unwrap_or(BlockNumberOrPredefined::PredefinedBlock(
                 Predefined::Finalized,
             ));
-            let ts = BlockNumberOrHash::from(block_param)
-                .tipset_by_block_number_or_hash(
-                    &ctx,
-                    ResolveNullTipset::TakeOlder,
-                    Self::api_path(ext)?,
-                )
+            let ts = resolver
+                .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
                 .await?;
 
             let id_address = ctx.state_manager.lookup_required_id(&address, &ts)?;
@@ -3796,8 +3614,9 @@ impl RpcMethod<1> for EthTraceBlock {
         (block_param,): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         eth_trace_block(&ctx, &ts, ext).await
     }
@@ -3817,13 +3636,10 @@ impl RpcMethod<1> for EthTraceBlockV2 {
     type Ok = Vec<EthBlockTrace>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_param,): Self::Params,
+        params: Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-        eth_trace_block(&ctx, &ts, ext).await
+        EthTraceBlock::handle(ctx, params, ext).await
     }
 }
 
@@ -3895,12 +3711,13 @@ impl RpcMethod<3> for EthTraceCall {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, trace_types, block_param): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let msg = Message::try_from(tx)?;
-        let block_param = block_param.unwrap_or(BlockNumberOrHash::from_str("latest")?);
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
+        let block_param = block_param.unwrap_or_else(|| Predefined::Latest.into());
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
 
         let (pre_state_root, _) = ctx
@@ -4029,8 +3846,9 @@ impl RpcMethod<1> for EthTraceTransaction {
             .await?
             .ok_or(ServerError::internal_error("transaction not found", None))?;
 
-        let ts = BlockNumberOrHash::from_block_number(eth_txn.block_number.0 as i64)
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(eth_txn.block_number, ResolveNullTipset::TakeOlder)
             .await?;
 
         let traces = eth_trace_block(&ctx, &ts, ext)
@@ -4069,8 +3887,9 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             ));
         }
 
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v1(&ctx, ResolveNullTipset::TakeOlder)
+        let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
+        let ts = resolver
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
 
         eth_trace_replay_block_transactions(&ctx, &ts, ext).await
@@ -4094,21 +3913,10 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_param, trace_types): Self::Params,
+        params: Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        if trace_types.as_slice() != ["trace"] {
-            return Err(ServerError::invalid_params(
-                "only 'trace' is supported",
-                None,
-            ));
-        }
-
-        let ts = block_param
-            .tipset_by_block_number_or_hash_v2(&ctx, ResolveNullTipset::TakeOlder)
-            .await?;
-
-        eth_trace_replay_block_transactions(&ctx, &ts, ext).await
+        EthTraceReplayBlockTransactions::handle(ctx, params, ext).await
     }
 }
 
@@ -4166,14 +3974,16 @@ async fn get_eth_block_number_from_string<DB: Blockstore + Send + Sync + 'static
     ctx: &Ctx<DB>,
     block: Option<&str>,
     resolve: ResolveNullTipset,
+    api_path: ApiPaths,
 ) -> Result<EthUint64> {
     let block_param = match block {
         Some(block_str) => BlockNumberOrHash::from_str(block_str)?,
         None => bail!("cannot parse fromBlock"),
     };
+    let resolver = TipsetResolver::new(ctx, api_path);
     Ok(EthUint64(
-        block_param
-            .tipset_by_block_number_or_hash_v1(ctx, resolve)
+        resolver
+            .tipset_by_block_number_or_hash(block_param, resolve)
             .await?
             .epoch() as u64,
     ))
@@ -4197,10 +4007,12 @@ impl RpcMethod<1> for EthTraceFilter {
         (filter,): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let api_path = Self::api_path(ext)?;
         let from_block = get_eth_block_number_from_string(
             &ctx,
             filter.from_block.as_deref(),
             ResolveNullTipset::TakeNewer,
+            api_path,
         )
         .await
         .context("cannot parse fromBlock")?;
@@ -4209,6 +4021,7 @@ impl RpcMethod<1> for EthTraceFilter {
             &ctx,
             filter.to_block.as_deref(),
             ResolveNullTipset::TakeOlder,
+            api_path,
         )
         .await
         .context("cannot parse toBlock")?;
