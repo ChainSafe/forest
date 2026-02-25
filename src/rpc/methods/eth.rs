@@ -337,18 +337,9 @@ pub enum BlockNumberOrHash {
 }
 lotus_json_with_self!(BlockNumberOrHash);
 
-#[allow(dead_code)]
 impl BlockNumberOrHash {
-    pub fn from_predefined(tag: Predefined) -> Self {
-        Self::PredefinedBlock(tag)
-    }
-
     pub fn from_block_number(number: i64) -> Self {
         Self::BlockNumber(EthInt64(number))
-    }
-
-    pub fn from_block_hash(hash: EthHash) -> Self {
-        Self::BlockHash(hash)
     }
 
     /// Construct a block number using EIP-1898 Object scheme.
@@ -372,11 +363,11 @@ impl BlockNumberOrHash {
 
     pub fn from_str(s: &str) -> Result<Self, Error> {
         match s {
-            "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
-            "pending" => Ok(BlockNumberOrHash::from_predefined(Predefined::Pending)),
-            "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
-            "safe" => Ok(BlockNumberOrHash::from_predefined(Predefined::Safe)),
-            "finalized" => Ok(BlockNumberOrHash::from_predefined(Predefined::Finalized)),
+            "earliest" => Ok(Predefined::Earliest.into()),
+            "pending" => Ok(Predefined::Pending.into()),
+            "latest" | "" => Ok(Predefined::Latest.into()),
+            "safe" => Ok(Predefined::Safe.into()),
+            "finalized" => Ok(Predefined::Finalized.into()),
             hex if hex.starts_with("0x") => {
                 let epoch = hex_str_to_epoch(hex)?;
                 Ok(BlockNumberOrHash::from_block_number(epoch))
