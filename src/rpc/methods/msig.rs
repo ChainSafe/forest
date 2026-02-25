@@ -26,6 +26,7 @@ impl RpcMethod<2> for MsigGetAvailableBalance {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (address, ApiTipsetKey(tsk)): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let height = ts.epoch();
@@ -54,6 +55,7 @@ impl RpcMethod<2> for MsigGetPending {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (address, ApiTipsetKey(tsk)): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let ms: multisig::State = ctx
@@ -88,6 +90,7 @@ impl RpcMethod<3> for MsigGetVested {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (addr, ApiTipsetKey(start_tsk), ApiTipsetKey(end_tsk)): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let start_ts = ctx
             .chain_store()
@@ -127,6 +130,7 @@ impl RpcMethod<2> for MsigGetVestingSchedule {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (addr, ApiTipsetKey(tsk)): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let ms: multisig::State = ctx.state_manager.get_actor_state_from_address(&ts, &addr)?;

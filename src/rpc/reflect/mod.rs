@@ -29,7 +29,7 @@ use ahash::HashMap;
 use anyhow::Context as _;
 use enumflags2::{BitFlags, bitflags, make_bitflags};
 use fvm_ipld_blockstore::Blockstore;
-use http::Uri;
+use http::{Extensions, Uri};
 use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
@@ -80,6 +80,7 @@ pub trait RpcMethod<const ARITY: usize> {
     fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
+        ext: &Extensions,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
     /// If it a subscription method. Defaults to false.
     const SUBSCRIPTION: bool = false;
@@ -270,10 +271,10 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             {
                 module.register_async_method(
                     Self::NAME,
-                    move |params, ctx, _extensions| async move {
+                    move |params, ctx, extensions| async move {
                         let params = Self::parse_params(params.as_str(), calling_convention)
                             .map_err(|e| Error::invalid_params(e, None))?;
-                        let ok = Self::handle(ctx, params).await?;
+                        let ok = Self::handle(ctx, params, &extensions).await?;
                         Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
                     },
                 )?;

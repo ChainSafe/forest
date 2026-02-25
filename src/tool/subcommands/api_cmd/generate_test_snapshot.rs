@@ -44,13 +44,15 @@ pub async fn run_test_with_dump(
     let chain_config = Arc::new(ChainConfig::from_chain(chain));
     let (ctx, _, _) = ctx(db, chain_config).await?;
     let params_raw = Some(serde_json::to_string(&test_dump.request.params)?);
+    let mut ext = http::Extensions::new();
+    ext.insert(test_dump.path);
     macro_rules! run_test {
         ($ty:ty) => {
             if test_dump.request.method_name.as_ref() == <$ty>::NAME
                 && <$ty>::API_PATHS.contains(test_dump.path)
             {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
-                match <$ty>::handle(ctx.clone(), params).await {
+                match <$ty>::handle(ctx.clone(), params, &ext).await {
                     Ok(result) => {
                         anyhow::ensure!(
                             allow_response_mismatch
