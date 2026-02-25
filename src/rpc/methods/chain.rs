@@ -1076,6 +1076,34 @@ impl ChainGetTipSetV2 {
         }
     }
 
+    /// Resolves a tipset corresponding to the given `TipsetTag`.
+    ///
+    /// - `TipsetTag::Latest` returns the current heaviest tipset.
+    /// - `TipsetTag::Finalized` returns the latest finalized tipset when available.
+    /// - `TipsetTag::Safe` returns the latest safe tipset when available.
+    ///
+    /// # Parameters
+    ///
+    /// - `tag` — the tag specifying which tipset to resolve.
+    ///
+    /// # Returns
+    ///
+    /// `Some(Tipset)` when the requested tipset could be resolved, `None` when a `Finalized` or `Safe` tipset is not available.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use anyhow::Result;
+    /// # use forest_rpc::methods::chain::get_tipset_by_tag;
+    /// # use forest_rpc::types::TipsetTag;
+    /// # async fn example(ctx: &forest_rpc::Ctx<impl forest_blocks::Blockstore + Send + Sync + 'static>) -> Result<()> {
+    /// let ts = get_tipset_by_tag(ctx, TipsetTag::Latest).await?;
+    /// if let Some(tipset) = ts {
+    ///     println!("resolved tipset at epoch {}", tipset.epoch());
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn get_tipset_by_tag(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         tag: TipsetTag,
@@ -1087,6 +1115,20 @@ impl ChainGetTipSetV2 {
         }
     }
 
+    /// Chooses a "safe" tipset for clients to use.
+    ///
+    /// Returns the latest finalized tipset if its epoch is greater than or equal to the chain head epoch
+    /// minus SAFE_HEIGHT_DISTANCE; otherwise returns the tipset at that safe height.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn demo() -> anyhow::Result<()> {
+    /// // `ctx` must be an initialized RPC context providing access to the chain store/index.
+    /// let safe = crate::rpc::methods::chain::ChainGetTipSetV2::get_latest_safe_tipset(&ctx).await?;
+    /// println!("safe tipset epoch: {}", safe.epoch());
+    /// # Ok(()) }
+    /// ```
     pub async fn get_latest_safe_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {
@@ -1104,6 +1146,27 @@ impl ChainGetTipSetV2 {
         }
     }
 
+    /// Resolves the most recent finalized tipset, preferring F3 finality and falling back to EC finality when necessary.
+    ///
+    /// If an F3 certificate is available and its finalized head is within EC finality distance from the current head,
+    /// the tipset referenced by that certificate is returned. If no F3 certificate is available, or the F3-finalized
+    /// head is older than EC finality relative to the current head, this function resolves and returns the EC-finalized tipset.
+    /// An error is returned if the resolved tipset cannot be loaded from the chain index.
+    ///
+    /// # Returns
+    ///
+    /// The resolved finalized `Tipset`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// // Assume `ctx` implements the required traits and is available in scope.
+    /// # async fn example(ctx: &crate::rpc::Ctx<impl forest_blocks::Blockstore + Send + Sync + 'static>) -> anyhow::Result<()> {
+    /// let finalized = crate::rpc::methods::chain::ChainGetTipSetV2::get_latest_finalized_tipset(ctx).await?;
+    /// println!("finalized epoch: {}", finalized.epoch());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {
@@ -1131,6 +1194,27 @@ impl ChainGetTipSetV2 {
         Ok(ts)
     }
 
+    /// Resolve the tipset whose epoch is considered finalized by EC finality relative to the current head.
+    ///
+    /// Computes the EC finality epoch as head.epoch minus the configured chain finality (flooring at 0)
+    /// and returns the tipset at or before that epoch using the "take older" null-tipset resolution policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the chain index fails to load the resolved tipset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use anyhow::Result;
+    /// # use your_crate::rpc::methods::chain::get_ec_finalized_tipset;
+    /// # use your_crate::Ctx;
+    /// # fn example(ctx: &Ctx<impl your_crate::blockstore::Blockstore>) -> Result<()> {
+    /// let finalized = get_ec_finalized_tipset(ctx)?;
+    /// println!("EC-finalized epoch: {}", finalized.epoch());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
         let head = ctx.chain_store().heaviest_tipset();
         let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
@@ -1141,6 +1225,34 @@ impl ChainGetTipSetV2 {
         )?)
     }
 
+    /// Resolve a tipset according to the provided `TipsetSelector` (by key, height, or tag).
+    ///
+    /// The selector is validated, then:
+    /// - if a key is present, the exact tipset for that key is returned;
+    /// - if a height is present, the tipset at/around that height is resolved using the selector's anchor and null resolution policy;
+    /// - if a tag is present, the selector's tag-based lookup is used (which may yield `None`).
+    ///
+    /// # Parameters
+    ///
+    /// - `ctx`: context providing access to the chain index and store.
+    /// - `selector`: criteria used to locate the desired tipset.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(Tipset))` when a tipset is found, `Ok(None)` when the selector (typically a tag) resolves to no tipset, and `Err` on validation or backend load errors.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use anyhow::Result;
+    /// # async fn example(ctx: &Ctx<impl Blockstore + Send + Sync + 'static>, selector: TipsetSelector) -> Result<()> {
+    /// let maybe_ts = get_tipset(ctx, &selector).await?;
+    /// if let Some(ts) = maybe_ts {
+    ///     println!("Resolved tipset at epoch: {}", ts.epoch());
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn get_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         selector: &TipsetSelector,

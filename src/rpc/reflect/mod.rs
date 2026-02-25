@@ -245,7 +245,31 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         }
     }
 
-    /// Register a method with an [`RpcModule`].
+    /// Registers this RPC method on every provided `RpcModule` whose `ApiPaths` are enabled for the method.
+    ///
+    /// For each `ApiPaths` variant contained in `Self::API_PATHS`, if a corresponding module exists in
+    /// `modules` the method is registered as an asynchronous JSON-RPC handler that:
+    /// - parses incoming parameters using `Self::parse_params` with the given `calling_convention`,
+    /// - invokes `Self::handle` with the parsed params and provided extensions,
+    /// - converts the method's result to its Lotus JSON representation.
+    ///
+    /// If `Self::NAME_ALIAS` is `Some`, the alias is also registered for the same method name.
+    /// The function asserts that `Self::N_REQUIRED_PARAMS` is less than or equal to `ARITY`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first `jsonrpsee::core::RegisterMethodError` produced while registering a method or
+    /// alias on any module.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use std::collections::HashMap;
+    /// # use crate::rpc::{ApiPaths, RpcModule, RPCState};
+    /// # use crate::rpc::ParamStructure;
+    /// // `MyMethod` implements the RpcMethod trait; `modules` is a prepared map of ApiPaths -> RpcModule.
+    /// // MyMethod::register(&mut modules, ParamStructure::ByPosition)?;
+    /// ```
     fn register(
         modules: &mut HashMap<
             ApiPaths,
@@ -285,7 +309,15 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         }
         Ok(())
     }
-    /// Returns [`Err`] if any of the parameters fail to serialize.
+    /// Constructs a JSON-RPC request for this RPC method using positional parameters.
+    ///
+    /// The returned `Request` is ready to be sent to the server and includes the method name,
+    /// serialized parameters, the resolved API path, and the default timeout.
+    ///
+    /// # Returns
+    ///
+    /// A `Request` for this method on success; an error if parameter serialization fails or if
+    /// resolving the method's API path fails.
     fn request(params: Self::Params) -> serde_json::Result<crate::rpc::Request<Self::Ok>> {
         // hardcode calling convention because lotus is by-position only
         let params = Self::request_params(params)?;
@@ -299,6 +331,20 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         })
     }
 
+    /// Serialize the method's typed parameters into a JSON value using a positional calling convention.
+    ///
+    /// The returned `serde_json::Value` is either an array (for positional parameters) or an object (for named parameters).
+    /// For the positional form, any trailing optional parameters with a `null` value are omitted so the resulting array
+    /// does not include unnecessary `null` elements beyond the required parameter count.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Given a method `MyMethod` implementing the RpcMethod trait:
+    /// // let val = MyMethod::request_params((1, Some(2), None)).unwrap();
+    /// // // `val` will be a `serde_json::Value::Array` with trailing `null` omitted:
+    /// // assert_eq!(val, serde_json::json!([1, 2]));
+    /// ```
     fn request_params(params: Self::Params) -> serde_json::Result<serde_json::Value> {
         // hardcode calling convention because lotus is by-position only
         Ok(
@@ -320,7 +366,23 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         )
     }
 
-    /// Creates a request, using the alias method name if `use_alias` is `true`.
+    /// Build a JSON-RPC Request for this method, using the method alias when `use_alias` is `true`.
+    ///
+    /// The returned `Request` contains the method name (alias or primary), serialized parameters,
+    /// the resolved API path for this method, and the default timeout.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parameter serialization fails, if `use_alias` is `true` but the method has no alias,
+    /// or if API path resolution fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Pseudocode: `MyMethod` is an implementation of the RpcMethod trait.
+    /// // let req = MyMethod::request_with_alias(params, true)?;
+    /// // assert_eq!(req.method_name, MyMethod::NAME_ALIAS.unwrap().into());
+    /// ```
     fn request_with_alias(
         params: Self::Params,
         use_alias: bool,
@@ -353,6 +415,18 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             Ok(serde_json::from_value(json)?)
         }
     }
+    /// Invoke the RPC method on the given client and deserialize the response into the method's `Ok` type.
+    ///
+    /// On success, returns the method's `Ok` value. On failure, returns a `jsonrpsee::core::ClientError`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example<M: crate::rpc::RpcMethod>(client: &crate::rpc::client::Client, params: M::Params) -> Result<M::Ok, jsonrpsee::core::ClientError> {
+    /// let res = M::call(client, params).await?;
+    /// Ok(res)
+    /// # }
+    /// ```
     fn call(
         client: &crate::rpc::client::Client,
         params: Self::Params,
@@ -364,6 +438,22 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         }
     }
 
+    /// Resolve the `ApiPaths` value stored in an HTTP request's extensions.
+    ///
+    /// Returns an error if no `ApiPaths` value is present in `ext`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use http::Extensions;
+    /// # use crate::rpc::ApiPaths;
+    /// # fn example() -> anyhow::Result<()> {
+    /// let mut exts = Extensions::new();
+    /// exts.insert(ApiPaths::V1);
+    /// let path = crate::rpc::api_path(&exts)?;
+    /// assert_eq!(path, ApiPaths::V1);
+    /// # Ok(()) }
+    /// ```
     fn api_path(ext: &http::Extensions) -> anyhow::Result<ApiPaths> {
         ext.get::<ApiPaths>()
             .copied()

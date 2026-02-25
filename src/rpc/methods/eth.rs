@@ -291,6 +291,15 @@ impl From<Cid> for EthHash {
 }
 
 impl From<[u8; EVM_WORD_LENGTH]> for EthHash {
+    /// Creates an `EthHash` from a 32-byte EVM word.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let bytes = [0u8; 32];
+    /// let h = EthHash::from(bytes);
+    /// assert_eq!(h.as_bytes(), &bytes);
+    /// ```
     fn from(value: [u8; EVM_WORD_LENGTH]) -> Self {
         Self(ethereum_types::H256(value))
     }
@@ -339,10 +348,52 @@ lotus_json_with_self!(BlockNumberOrHash);
 
 #[allow(dead_code)]
 impl BlockNumberOrHash {
+    /// Create a `BlockNumberOrHash` that represents a predefined block label.
+    
+    ///
+    
+    /// The `tag` selects a predefined block reference (e.g., `Earliest`, `Latest`, `Pending`, `Safe`, `Finalized`)
+    
+    /// which is wrapped as `BlockNumberOrHash::PredefinedBlock`.
+    
+    ///
+    
+    /// # Examples
+    
+    ///
+    
+    /// ```
+    
+    /// use crate::rpc::methods::eth::{BlockNumberOrHash, Predefined};
+    
+    ///
+    
+    /// let v = BlockNumberOrHash::from_predefined(Predefined::Latest);
+    
+    /// match v {
+    
+    ///     BlockNumberOrHash::PredefinedBlock(Predefined::Latest) => (),
+    
+    ///     _ => panic!("unexpected variant"),
+    
+    /// }
+    
+    /// ```
     pub fn from_predefined(tag: Predefined) -> Self {
         Self::PredefinedBlock(tag)
     }
 
+    /// Creates a `BlockNumberOrHash` that refers to a block by its numeric height.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let b = BlockNumberOrHash::from_block_number(42);
+    /// match b {
+    ///     BlockNumberOrHash::BlockNumber(n) => assert_eq!(n.0, 42),
+    ///     _ => panic!("expected BlockNumber variant"),
+    /// }
+    /// ```
     pub fn from_block_number(number: i64) -> Self {
         Self::BlockNumber(EthInt64(number))
     }
@@ -370,6 +421,22 @@ impl BlockNumberOrHash {
         })
     }
 
+    /// Parse a block identifier string into a `BlockNumberOrHash`.
+    ///
+    /// Accepts the keywords `"earliest"`, `"pending"`, `"latest"` (or `""`),
+    /// `"safe"`, and `"finalized"`, or a hex-encoded block number prefixed with `"0x"`.
+    /// Returns an error for any other input.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let v = BlockNumberOrHash::from_str("latest").unwrap();
+    /// let n = BlockNumberOrHash::from_str("0x10").unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `s` is not a recognized keyword or a valid hex block number.
     pub fn from_str(s: &str) -> Result<Self, Error> {
         match s {
             "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
@@ -506,9 +573,33 @@ impl Block {
         }
     }
 
-    /// Creates a new Ethereum block from a Filecoin tipset, executing transactions if requested.
+    /// Creates an Ethereum-compatible Block from a Filecoin tipset.
     ///
-    /// Reference: <https://github.com/filecoin-project/lotus/blob/941455f1d23e73b9ee92a1a4ce745d8848969858/node/impl/eth/utils.go#L44>
+    /// The function converts the given Filecoin tipset into an Ethereum-style Block. It will execute
+    /// the tipset to obtain state, messages, and receipts needed to populate transactions and gas
+    /// usage. Use `tx_info` to control whether the returned block contains full transaction objects
+    /// or only transaction hashes. The function may consult an internal cache and will populate
+    /// block fields such as hash, parent_hash, number, timestamp, base_fee_per_gas, gas_used, and
+    /// transactions accordingly.
+    ///
+    /// # Parameters
+    /// - `ctx`: Context providing access to chain state, state manager, and chain configuration.
+    /// - `tipset`: The Filecoin tipset to convert into an Ethereum block.
+    /// - `tx_info`: Determines transaction representation in the returned block (`TxInfo::Full` for
+    ///   full transactions, `TxInfo::Hash` for transaction hashes only).
+    ///
+    /// # Returns
+    /// The constructed `Block` representing the provided tipset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use crate::rpc::methods::eth::{from_filecoin_tipset, TxInfo};
+    /// # async fn example(ctx: /* Ctx<DB> */ , tipset: /* crate::blocks::Tipset */) -> anyhow::Result<()> {
+    /// let eth_block = from_filecoin_tipset(ctx, tipset, TxInfo::Full).await?;
+    /// println!("eth block number: {}", eth_block.number);
+    /// # Ok(()) }
+    /// ```
     pub async fn from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         ctx: Ctx<DB>,
         tipset: crate::blocks::Tipset,
@@ -918,6 +1009,19 @@ impl RpcMethod<2> for EthGetBalance {
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthBigInt;
 
+    /// Resolves the provided block parameter to a tipset and returns the Ethereum balance of the given address at that tipset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use crate::rpc::methods::eth::EthGetBalance;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let ctx = /* Ctx */ todo!();
+    /// let params = (/* address */ todo!(), /* block_param */ todo!());
+    /// let ext = http::Extensions::new();
+    /// let balance = EthGetBalance::handle(ctx, params, &ext).await?;
+    /// # Ok(()) }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, block_param): Self::Params,
@@ -949,6 +1053,18 @@ async fn eth_get_balance<DB: Blockstore + Send + Sync + 'static>(
     }
 }
 
+/// Resolve a tipset from an Ethereum-style block hash.
+///
+/// Looks up the tipset key associated with `block_hash` in the chain store and
+/// loads the corresponding `Tipset`.
+///
+/// Returns an error if the tipset key is not present or the tipset cannot be loaded.
+///
+/// # Examples
+///
+/// ```
+/// // let tipset = get_tipset_from_hash(&chain_store, &block_hash).unwrap();
+/// ```
 fn get_tipset_from_hash<DB: Blockstore>(
     chain_store: &ChainStore<DB>,
     block_hash: &EthHash,
@@ -957,6 +1073,25 @@ fn get_tipset_from_hash<DB: Blockstore>(
     Tipset::load_required(chain_store.blockstore(), &tsk)
 }
 
+/// Resolve the tipset corresponding to a given Ethereum-style block number against the chain head.
+///
+/// Returns the tipset at the requested block height. Errors if the requested height is beyond the
+/// latest available epoch or if the underlying chain index lookup fails.
+///
+/// # Parameters
+///
+/// - `chain`: chain store used to resolve the tipset.
+/// - `block_number`: target block number expressed as `EthInt64` (converted to a `ChainEpoch`).
+/// - `resolve`: policy for resolving null tipsets when looking up by height.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use crate::rpc::methods::eth::{resolve_block_number_tipset, EthInt64, ResolveNullTipset};
+/// # use crate::chain::{ChainStore}; // pseudo imports for illustration
+/// // let chain: ChainStore<_> = ...;
+/// // let ts = resolve_block_number_tipset(&chain, EthInt64(42), ResolveNullTipset::Latest).unwrap();
+/// ```
 fn resolve_block_number_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_number: EthInt64,
@@ -972,6 +1107,25 @@ fn resolve_block_number_tipset<DB: Blockstore>(
         .tipset_by_height(height, head, resolve)?)
 }
 
+/// Resolve a tipset by an Ethereum-style block hash, optionally requiring it to be on the canonical chain.
+///
+/// When `require_canonical` is true, the function verifies the located tipset is part of the node's current canonical chain and returns an error if it is not.
+///
+/// # Errors
+/// Returns an error if no tipset exists for `block_hash` or if `require_canonical` is `true` and the resolved tipset is not canonical.
+///
+/// # Examples
+///
+/// ```no_run
+/// use crate::chain::ChainStore;
+/// use crate::rpc::methods::eth::ResolveNullTipset;
+/// use crate::types::EthHash;
+///
+/// # fn example<DB: crate::chain::Blockstore>(chain: &ChainStore<DB>, hash: &EthHash) -> anyhow::Result<()> {
+/// let ts = crate::rpc::methods::eth::resolve_block_hash_tipset(chain, hash, true, ResolveNullTipset::None)?;
+/// println!("resolved tipset epoch: {}", ts.epoch());
+/// # Ok(()) }
+/// ```
 fn resolve_block_hash_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_hash: &EthHash,
@@ -994,6 +1148,22 @@ fn resolve_block_hash_tipset<DB: Blockstore>(
     Ok(ts)
 }
 
+/// Resolve a tipset's executed state and pair its chain messages with their receipts.
+///
+/// On success returns the tipset's state root Cid and a vector of (ChainMessage, Receipt)
+/// tuples corresponding to the tipset's messages in order. Returns an error if the underlying
+/// state or receipt lookup fails or if the number of messages does not match the number of receipts.
+///
+/// # Examples
+///
+/// ```
+/// # async fn example<DB: Blockstore + Send + Sync + 'static>(data: &Ctx<DB>, tipset: &Tipset) -> anyhow::Result<()> {
+/// let (state_root, msg_receipt_pairs) = execute_tipset(data, tipset).await?;
+/// println!("state root: {}", state_root);
+/// assert!(!msg_receipt_pairs.is_empty());
+/// # Ok(())
+/// # }
+/// ```
 async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: &Ctx<DB>,
     tipset: &Tipset,
@@ -1205,9 +1375,28 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     Ok(ApiEthTx { hash, ..tx })
 }
 
-/// Creates an Ethereum transaction from Filecoin message lookup. If `None` is passed for `tx_index`,
-/// it looks up the transaction index of the message in the tipset.
-/// Otherwise, it uses some index passed into the function.
+/// Constructs an `ApiEthTx` for the Filecoin message referenced by `message_lookup`.
+///
+/// If `tx_index` is `None`, the function resolves the message's transaction index within the parent tipset; if `tx_index` is provided, it is used directly. The returned `ApiEthTx` has `block_hash`, `block_number`, and `transaction_index` set for the message and the remaining fields derived from the signed message and chain state.
+///
+/// # Parameters
+///
+/// - `message_lookup`: lookup that identifies the message and its containing tipset.
+/// - `tx_index`: optional transaction index within the parent tipset; when `None`, the index is resolved from the tipset.
+///
+/// # Returns
+///
+/// `ApiEthTx` populated for the referenced message wrapped in `Result`; an error is returned if the tipset, message, or signed message cannot be resolved.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use crate::rpc::methods::eth::new_eth_tx_from_message_lookup;
+/// # use crate::rpc::types::MessageLookup;
+/// let ctx = unimplemented!(); // a properly constructed Ctx<DB>
+/// let lookup: MessageLookup = unimplemented!();
+/// let eth_tx = new_eth_tx_from_message_lookup(&ctx, &lookup, None).unwrap();
+/// ```
 fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     ctx: &Ctx<DB>,
     message_lookup: &MessageLookup,
@@ -1248,6 +1437,33 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     })
 }
 
+/// Create an `ApiEthTx` representing a signed Filecoin message within a specific tipset.
+///
+/// This constructs an Ethereum-style transaction by fetching the signed message identified by
+/// `msg_cid`, converting it using the provided chain state and chain configuration, and
+/// populating block-related fields from the supplied tipset CID and block height.
+///
+/// # Parameters
+///
+/// - `ctx`: execution context providing access to chain components.
+/// - `state`: state tree used to resolve actor/state-dependent fields required for conversion.
+/// - `block_height`: chain epoch (block number) at which the transaction is included.
+/// - `msg_tipset_cid`: CID of the tipset that contains the message; used to set `block_hash`.
+/// - `msg_cid`: CID of the signed message to convert into an `ApiEthTx`.
+/// - `tx_index`: index of the transaction within the block; used to set `transaction_index`.
+///
+/// # Returns
+///
+/// `ApiEthTx` populated with transaction fields derived from the signed message and with
+/// block context (`block_hash`, `block_number`, `transaction_index`) set from the inputs.
+///
+/// # Examples
+///
+/// ```
+/// // Given `ctx`, `state`, `tipset_cid`, `msg_cid`, `height`, and `idx` are available:
+/// let eth_tx = new_eth_tx(&ctx, &state, height, &tipset_cid, &msg_cid, idx)?;
+/// assert_eq!(eth_tx.block_hash, tipset_cid.into());
+/// ```
 fn new_eth_tx<DB: Blockstore>(
     ctx: &Ctx<DB>,
     state: &StateTree<DB>,
@@ -1400,6 +1616,25 @@ impl RpcMethod<2> for EthGetBlockByHash {
     type Params = (EthHash, bool);
     type Ok = Block;
 
+    /// Resolves a block reference to a tipset and constructs an Ethereum-style `Block`.
+    ///
+    /// Given a block reference (hash or predefined identifier) and a flag for full transaction
+    /// inclusion, this handler resolves the corresponding tipset using the request's API path
+    /// and converts that tipset into an `Block`.
+    ///
+    /// # Returns
+    ///
+    /// An Ethereum-compatible `Block` built from the resolved tipset. The block's `transactions`
+    /// field contains either transaction hashes or full transaction objects depending on
+    /// `full_tx_info`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Pseudocode illustrating usage:
+    /// // let result = MyMethod::handle(ctx, (block_hash, full_tx_info), &ext).await?;
+    /// // assert_eq!(result.number, expected_block_number);
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash, full_tx_info): Self::Params,
@@ -1428,6 +1663,35 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     type Params = (BlockNumberOrPredefined, bool);
     type Ok = Block;
 
+    /// Resolve the provided block parameter to a tipset and construct an Ethereum-style `Block`.
+    ///
+    /// This handler resolves `block_param` using the request's tipset resolver and converts the
+    /// resolved tipset into a `Block`, honoring the `full_tx_info` flag to include either
+    /// transaction hashes or full transaction objects.
+    ///
+    /// # Parameters
+    /// - `block_param`: block identifier (number, hash, or predefined tag) used to locate the tipset.
+    /// - `full_tx_info`: when `true`, include full transaction objects in the resulting `Block`; when `false`, include transaction hashes.
+    ///
+    /// # Returns
+    /// `Ok(Block)` on success, `Err(ServerError)` if tipset resolution or block construction fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # async fn example_call() -> Result<(), crate::rpc::ServerError> {
+    /// // ctx, ext and params would be provided by the RPC framework in real usage.
+    /// let ctx = /* Ctx<...> from handler environment */;
+    /// let block_param = /* BlockNumberOrHash value */;
+    /// let full_tx_info = true;
+    /// let ext = /* http::Extensions from request */;
+    ///
+    /// // Call the handler (illustrative; actual invocation comes via RPC dispatch)
+    /// let block = MyHandler::handle(ctx, (block_param, full_tx_info), &ext).await?;
+    /// println!("Resolved block number: {:?}", block.number);
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
@@ -1497,6 +1761,26 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     type Params = (BlockNumberOrHash,);
     type Ok = Vec<EthTxReceipt>;
 
+    /// Retrieve Ethereum-style transaction receipts for the block identified by `block_param`.
+    ///
+    /// Resolves `block_param` to a tipset (using the request's API path) and returns all receipts for that tipset.
+    ///
+    /// # Parameters
+    ///
+    /// - `block_param` — Block identifier (number, hash, or predefined tag) used to resolve the tipset whose receipts will be returned.
+    ///
+    /// # Returns
+    ///
+    /// A vector of `EthTxReceipt` entries for every transaction in the resolved block.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::rpc::methods::eth::BlockNumberOrHash;
+    ///
+    /// // Example usage (async context)
+    /// // let result = handle(ctx, (BlockNumberOrHash::from_predefined(Predefined::Latest),), &ext).await?;
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
@@ -1526,6 +1810,33 @@ impl RpcMethod<1> for EthGetBlockReceiptsV2 {
     type Params = (BlockNumberOrHash,);
     type Ok = Vec<EthTxReceipt>;
 
+    /// Handle an `eth_getBlockReceipts` RPC request and return Ethereum-style receipts for the specified block.
+    ///
+    /// The handler resolves the requested block via the provided context and HTTP extensions and produces the RPC response.
+    ///
+    /// # Parameters
+    ///
+    /// - `ctx`: execution context carrying services like the blockstore and chain state.
+    /// - `params`: RPC request parameters for `eth_getBlockReceipts`.
+    /// - `ext`: HTTP request extensions providing resolver-related metadata.
+    ///
+    /// # Returns
+    ///
+    /// `Self::Ok` containing the block's Ethereum-style receipts on success, or a `ServerError` on failure.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use futures::executor::block_on;
+    /// # // `ctx`, `params`, and `ext` would be prepared by the RPC server runtime.
+    /// # let ctx = todo!();
+    /// # let params = todo!();
+    /// # let ext = http::Extensions::new();
+    /// # block_on(async {
+    /// let res = YourMethodType::handle(ctx, params, &ext).await;
+    /// // handle `res`
+    /// # });
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -1549,6 +1860,27 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     type Params = (BlockNumberOrHash, ChainEpoch);
     type Ok = Vec<EthTxReceipt>;
 
+    /// Resolve the requested tipset and fetch its Ethereum-style receipts, optionally limited.
+    ///
+    /// Given a block identifier (number or hash) this handler resolves the corresponding tipset
+    /// and returns the block's Ethereum-compatible receipts, respecting the provided `limit`.
+    ///
+    /// # Returns
+    ///
+    /// A vector of Ethereum transaction receipts for the resolved tipset; at most `limit` receipts
+    /// are returned when a limit is provided.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use crate::rpc::methods::eth::EthGetBlockReceiptsLimited; // adjust path as needed
+    /// # tokio_test::block_on(async {
+    /// // ctx, ext, and params would be provided by the RPC framework in real usage.
+    /// // Here we show the call shape only.
+    /// // let result = EthGetBlockReceiptsLimited::handle(ctx, (block_param, limit), &ext).await;
+    /// // assert!(result.is_ok());
+    /// # });
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, limit): Self::Params,
@@ -1578,6 +1910,9 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimitedV2 {
     type Params = (BlockNumberOrHash, ChainEpoch);
     type Ok = Vec<EthTxReceipt>;
 
+    /// Handles an RPC request to retrieve the receipts for a specific block with an enforced result limit.
+    ///
+    /// Returns the block's Ethereum-compatible receipts according to the method's response format.
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -1628,6 +1963,47 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     type Params = (BlockNumberOrPredefined,);
     type Ok = EthUint64;
 
+    /// Resolve a block identifier to a tipset, count the messages in that tipset, and return the count as an `EthUint64`.
+    
+    ///
+    
+    /// The function constructs a `TipsetResolver` using the request's API path, resolves `block_number` to a tipset
+    
+    /// (using `ResolveNullTipset::TakeOlder` when the identifier points to a null tipset), then counts all messages
+    
+    /// contained in the resolved tipset.
+    
+    ///
+    
+    /// # Parameters
+    
+    ///
+    
+    /// - `block_number`: the block identifier to resolve (block number, block hash, or predefined tag).
+    
+    ///
+    
+    /// # Returns
+    
+    ///
+    
+    /// `EthUint64` containing the number of messages in the resolved tipset.
+    
+    ///
+    
+    /// # Examples
+    
+    ///
+    
+    /// ```ignore
+    
+    /// // Example (illustrative):
+    
+    /// // let result = futures::executor::block_on(handle(ctx, (block_number,), ext));
+    
+    /// // assert_eq!(result.unwrap(), EthUint64(expected_count));
+    
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_number,): Self::Params,
@@ -1656,6 +2032,18 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumberV2 {
     type Params = (BlockNumberOrPredefined,);
     type Ok = EthUint64;
 
+    /// Return the number of transactions in the block specified by `params`.
+    ///
+    /// # Returns
+    ///
+    /// The transaction count for the specified block.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // In an async context:
+    /// // let count = YourMethod::handle(ctx, params, ext).await?;
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -1784,6 +2172,35 @@ impl RpcMethod<2> for EthEstimateGas {
     type Params = (EthCallMessage, Option<BlockNumberOrHash>);
     type Ok = EthUint64;
 
+    /// Estimate gas required to execute the provided transaction against a resolved tipset.
+    ///
+    /// If `block_param` is supplied it is resolved (via the request's API path) to a tipset using
+    /// TipsetResolver; otherwise the node's heaviest tipset is used. The resolved tipset is then
+    /// used to simulate the transaction and compute an estimated gas amount.
+    ///
+    /// # Parameters
+    ///
+    /// - `tx`: the transaction call object to estimate gas for.
+    /// - `block_param`: optional block reference used to resolve the tipset context for the estimation.
+    /// - `ext`: HTTP request extensions used to determine the API path for tipset resolution.
+    ///
+    /// # Returns
+    ///
+    /// The estimated gas amount required to execute the transaction.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # tokio_test::block_on(async {
+    /// // pseudo-code illustrating usage
+    /// let ctx = /* RPC context */ ;
+    /// let tx = /* transaction call object */ ;
+    /// let block_param = Some(/* block reference */);
+    /// let ext = http::Extensions::new();
+    /// let estimate = MyMethod::handle(ctx, (tx, block_param), &ext).await.unwrap();
+    /// println!("estimated gas: {:?}", estimate);
+    /// # });
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
@@ -1814,6 +2231,18 @@ impl RpcMethod<2> for EthEstimateGasV2 {
     type Params = (EthCallMessage, Option<BlockNumberOrHash>);
     type Ok = EthUint64;
 
+    /// Estimates the gas required for a transaction using the provided context and block parameters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Sketch: construct a test `ctx`, `params`, and `ext` appropriate for the RPC environment,
+    /// // then call the handler to obtain an estimated gas value.
+    /// // let res = tokio_test::block_on(EthEstimateGasV2::handle(ctx, params, &ext)).unwrap();
+    /// // assert!(res.0 > 0u64.into());
+    /// ```
+    ///
+    /// `Ok` contains the estimated gas as an `EthBigInt`; `Err` is returned on failure.
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -2013,6 +2442,35 @@ impl RpcMethod<3> for EthFeeHistory {
     type Params = (EthUint64, BlockNumberOrPredefined, Option<Vec<f64>>);
     type Ok = EthFeeHistoryResult;
 
+    /// Handle an `eth_feeHistory` RPC request by resolving the requested tipset and computing fee history.
+    ///
+    /// The handler resolves `newest_block_number` (which may be a predefined tag, block number, or block hash)
+    /// to a tipset; if the resolution targets a null tipset it will use the nearest older tipset.
+    /// It then returns fee-history data for `block_count` blocks ending at that tipset, sampled at `reward_percentiles` if provided.
+    ///
+    /// # Parameters
+    ///
+    /// - `block_count`: number of blocks to include in the returned history.
+    /// - `newest_block_number`: block reference (predefined tag, number, or hash) that specifies the end of the range to query.
+    /// - `reward_percentiles`: optional list of percentiles for which to include miner reward estimates.
+    ///
+    /// # Returns
+    ///
+    /// The fee history for the requested range, including per-block base fees, gas-used ratios, and reward estimates for the requested percentiles.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// // Resolve a tipset identified by "latest" and request the last 10 blocks with two reward percentiles.
+    /// // (ctx and ext are placeholders for the actual server context and HTTP extensions.)
+    /// # use crate::rpc::methods::eth::BlockNumberOrHash;
+    /// # use crate::rpc::methods::eth::Predefined;
+    /// # use crate::rpc::methods::eth::EthUint64;
+    /// # async fn example(ctx: Ctx<impl Blockstore + Send + Sync + 'static>, ext: &http::Extensions) {
+    /// let params = (EthUint64(10), BlockNumberOrHash::from_predefined(Predefined::Latest), Some(vec![0.1_f64, 0.5_f64]));
+    /// let _history = crate::rpc::methods::eth::EthFeeHistory::handle(ctx, params, ext).await;
+    /// # }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
@@ -2039,6 +2497,18 @@ impl RpcMethod<3> for EthFeeHistoryV2 {
     type Params = (EthUint64, BlockNumberOrPredefined, Option<Vec<f64>>);
     type Ok = EthFeeHistoryResult;
 
+    /// Process an `eth_feeHistory` RPC request and return the computed fee history for the requested block range and percentile rewards.
+    ///
+    /// The function handles the incoming RPC parameters and HTTP extensions, and returns the fee-history result or a server error.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Example usage (context, params and extensions must be provided by the caller)
+    /// let result = tokio::runtime::Runtime::new().unwrap().block_on(async {
+    ///     handle(ctx, params, &ext).await
+    /// });
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -2179,6 +2649,29 @@ impl RpcMethod<2> for EthGetCode {
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthBytes;
 
+    /// Handle an `eth_getCode` request: resolve the requested block and return the contract bytecode for the given Ethereum address at that block.
+    ///
+    /// The handler resolves `block_param` to a tipset using the request's API path and then queries the chain for the account code at `eth_address` in that tipset.
+    ///
+    /// # Returns
+    ///
+    /// The contract bytecode for `eth_address` at the resolved block as returned by the node; an empty byte sequence if no contract exists at that address.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use anyhow::Result;
+    /// # async fn example() -> Result<()> {
+    /// // Pseudocode: construct a context, address and block parameter appropriate for your test harness
+    /// // let ctx = ...;
+    /// // let addr = EthAddress::from_str("0x...")?;
+    /// // let block = BlockNumberOrHash::from_predefined(Predefined::Latest);
+    /// // let ext = http::Extensions::default();
+    /// // let bytes = EthGetCode::handle(ctx, (addr, block), &ext).await?;
+    /// // assert!(bytes.len() >= 0);
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, block_param): Self::Params,
@@ -2206,6 +2699,17 @@ impl RpcMethod<2> for EthGetCodeV2 {
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthBytes;
 
+    /// Handles an `eth_getCode` RPC request and returns the contract bytecode for the specified
+    /// address at the requested block state.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// // `ctx`, `params`, and `ext` would be provided by the RPC framework.
+    /// // EthGetCodeHandler::handle(ctx, params, ext).await?;
+    /// # Ok(()) }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -2297,6 +2801,24 @@ impl RpcMethod<3> for EthGetStorageAt {
     type Params = (EthAddress, EthBytes, BlockNumberOrHash);
     type Ok = EthBytes;
 
+    /// Handle an eth_getStorageAt RPC: resolve the requested block and return the 32-byte storage slot value for the given Ethereum address and position.
+    ///
+    /// Resolves the block parameter using the tipset resolver (respecting the API path) and delegates to `get_storage_at` to fetch the storage slot value for `eth_address` at `position`.
+    ///
+    /// # Returns
+    ///
+    /// `EthBigInt` containing the 32-byte value stored at the given slot for the specified address.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use crate::rpc::methods::eth::EthGetStorageAt;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// // Pseudocode: call the handler with a valid context, params, and http extensions.
+    /// // let value = EthGetStorageAt::handle(ctx, (eth_address, position, block_param), &ext).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, position, block_number_or_hash): Self::Params,
@@ -2325,6 +2847,21 @@ impl RpcMethod<3> for EthGetStorageAtV2 {
     type Params = (EthAddress, EthBytes, BlockNumberOrHash);
     type Ok = EthBytes;
 
+    /// Handle an `eth_getStorageAt` RPC request and return the 32-byte storage value for the given address, slot, and block parameter.
+    ///
+    /// This method resolves the requested block context, reads the storage slot for the specified contract address, and returns the raw 32-byte storage value.
+    ///
+    /// # Returns
+    ///
+    /// The 32-byte storage value as a hex-encoded byte array (`Vec<u8>`) representing the slot contents.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Example usage (context and params omitted for brevity):
+    /// let result = MyMethod::handle(ctx, params, ext).await?;
+    /// assert_eq!(result.len(), 32);
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -2410,6 +2947,25 @@ impl RpcMethod<2> for EthGetTransactionCount {
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthUint64;
 
+    /// Return the transaction count (nonce) for `sender` at the block referenced by `block_param`.
+    ///
+    /// If `block_param` is `Predefined::Pending`, the pending (mempool) sequence number is returned;
+    /// otherwise the block reference is resolved and the on-chain transaction count at that tipset is returned.
+    ///
+    /// # Returns
+    ///
+    /// `EthUint64` containing the transaction count for `sender` at the resolved block reference.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use crate::rpc::methods::eth::{EthUint64, Predefined, BlockNumberOrHash};
+    /// # // The following is illustrative; constructing a real `Ctx` and calling `handle` requires
+    /// # // the RPC server context and extensions.
+    /// let pending = BlockNumberOrHash::from_predefined(Predefined::Pending);
+    /// // calling `handle` with a pending parameter will yield the pending nonce wrapped in `EthUint64`
+    /// let _nonce: EthUint64 = EthUint64(0); // placeholder for the actual returned value
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (sender, block_param): Self::Params,
@@ -2442,6 +2998,49 @@ impl RpcMethod<2> for EthGetTransactionCountV2 {
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthUint64;
 
+    /// Handle an `eth_getTransactionCount` RPC request and return the transaction count (nonce)
+    
+    /// for the specified address at the given block reference.
+    
+    ///
+    
+    /// # Returns
+    
+    ///
+    
+    /// The transaction count (nonce) for the address as an `EthBigInt`.
+    
+    ///
+    
+    /// # Examples
+    
+    ///
+    
+    /// ```
+    
+    /// // Pseudocode example showing typical usage within an async context.
+    
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    
+    /// use crate::rpc::methods::eth::EthGetTransactionCountV2;
+    
+    /// // `ctx`, `params`, and `ext` would be provided by the RPC framework in real usage.
+    
+    /// let ctx = /* Ctx<...> */ unimplemented!();
+    
+    /// let params = /* EthGetTransactionCountV2::Params */ unimplemented!();
+    
+    /// let ext = /* http::Extensions */ unimplemented!();
+    
+    ///
+    
+    /// let result = EthGetTransactionCountV2::handle(ctx, params, &ext).await?;
+    
+    /// // `result` contains the nonce as `EthBigInt`.
+    
+    /// # Ok(()) }
+    
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -2539,6 +3138,30 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     type Params = (BlockNumberOrPredefined, EthUint64);
     type Ok = Option<ApiEthTx>;
 
+    /// Resolve the block parameter to a tipset and return the transaction at the specified index.
+    ///
+    /// The function resolves `block_param` (block number, predefined tag, or block hash) to a tipset
+    /// and then returns the transaction located at `tx_index` within that tipset. If the index is
+    /// out of range or the transaction is not present, `None` is returned.
+    ///
+    /// # Returns
+    ///
+    /// `Some(ApiEthTx)` containing the transaction for the given block and index, or `None` if not found.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// // Pseudocode example showing intended use:
+    /// # use crate::rpc::methods::eth::EthGetTransactionByBlockNumberAndIndex;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let ctx = /* context with blockstore and api */ ;
+    /// let ext = /* http extensions containing api path */ ;
+    /// let block_param = /* BlockNumberOrHash */ ;
+    /// let tx_index = 0usize;
+    /// let result = EthGetTransactionByBlockNumberAndIndex::handle(ctx, (block_param, tx_index), &ext).await?;
+    /// // result is Some(transaction) if found, or None otherwise
+    /// # Ok(()) }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, tx_index): Self::Params,
@@ -2565,6 +3188,20 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndexV2 {
     type Params = (BlockNumberOrPredefined, EthUint64);
     type Ok = Option<ApiEthTx>;
 
+    /// Handle an RPC request to retrieve the transaction at the specified block (by number or hash) and transaction index.
+    ///
+    /// On success, returns the transaction representation for the requested block and index; on failure, returns a `ServerError`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// // `ctx`, `params`, and `ext` would be provided by the RPC server environment.
+    /// // This handler is typically invoked by the RPC dispatch layer:
+    /// // let result = MyHandler::handle(ctx, params, &ext).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -2791,6 +3428,23 @@ impl RpcMethod<2> for EthCall {
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthCallMessage, BlockNumberOrHash);
     type Ok = EthBytes;
+    /// Resolve the given block parameter to a tipset and execute the supplied transaction as an `eth_call`.
+    ///
+    /// This handler constructs a `TipsetResolver` from the request context and API path, resolves
+    /// `block_param` to a concrete tipset, and then runs `eth_call` with that tipset and transaction.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use crate::rpc::methods::eth::EthCall; // adjust path as needed
+    /// # use crate::rpc::tipset_resolver::TipsetResolver;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// // `ctx`, `tx`, `block_param`, and `ext` would come from the RPC framework.
+    /// // This demonstrates the intended call pattern; details depend on the surrounding server setup.
+    /// // let result = EthCall::handle(ctx, (tx, block_param), &ext).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
@@ -2814,6 +3468,28 @@ impl RpcMethod<2> for EthCallV2 {
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthCallMessage, BlockNumberOrHash);
     type Ok = EthBytes;
+    /// Execute a simulated transaction call against the specified chain state.
+    ///
+    /// Runs the eth_call operation using the provided execution context, RPC parameters, and HTTP extensions,
+    /// and returns the call output or an error.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Self::Ok)` with the call result on success, or `Err(ServerError)` if the simulation or resolution fails.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use crate::rpc::Ctx;
+    /// # use http::Extensions;
+    /// # async fn example(ctx: Ctx<impl Send + Sync>, params: <YourMethod as crate::rpc::RpcMethod>::Params, ext: &Extensions) {
+    /// let result = YourMethod::handle(ctx, params, ext).await;
+    /// match result {
+    ///     Ok(output) => println!("call output: {:?}", output),
+    ///     Err(e) => eprintln!("error: {}", e),
+    /// }
+    /// # }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -2881,6 +3557,17 @@ impl RpcMethod<0> for EthNewPendingTransactionFilter {
     type Params = ();
     type Ok = FilterID;
 
+    /// Creates a new filter that tracks pending transactions.
+    ///
+    /// Returns the new pending-transaction filter identifier on success.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Example usage (pseudo-code — replace with real context and handler):
+    /// // let filter_id = handler.handle(ctx, (), &extensions).await.unwrap();
+    /// // assert!(!filter_id.to_string().is_empty());
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
@@ -3017,6 +3704,28 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
         Some("Converts any Filecoin address to an EthAddress");
     type Params = (FilecoinAddress, Option<BlockNumberOrPredefined>);
     type Ok = EthAddress;
+    /// Convert a Filecoin address to its corresponding Ethereum address.
+    ///
+    /// If the provided Filecoin address can be directly mapped to an Ethereum address (e.g., is already in an ETH-compatible form),
+    /// that Ethereum address is returned. Otherwise the function resolves the provided block parameter (defaulting to `Finalized`),
+    /// looks up the canonical ID address at that tipset, and returns the Ethereum address derived from that ID address.
+    ///
+    /// # Returns
+    ///
+    /// An `EthAddress` corresponding to the resolved Filecoin address.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// // `ctx`, `ext` and `filecoin_address` are placeholders for the real runtime values.
+    /// let ctx = /* Ctx<...> */ unimplemented!();
+    /// let ext = http::Extensions::new();
+    /// let params = (filecoin_address, None);
+    /// let eth_addr = MyRpcMethod::handle(ctx, params, &ext).await?;
+    /// println!("{}", eth_addr);
+    /// # Ok(()) }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, block_param): Self::Params,
@@ -3608,6 +4317,28 @@ impl RpcMethod<1> for EthTraceBlock {
 
     type Params = (BlockNumberOrHash,);
     type Ok = Vec<EthBlockTrace>;
+    /// Produces Ethereum-compatible execution traces for the block identified by the given block parameter.
+    ///
+    /// The block parameter is resolved via the request's API path using TipsetResolver; once the corresponding tipset
+    /// is found, this handler generates and returns the per-block/per-transaction traces.
+    ///
+    /// # Returns
+    ///
+    /// Ok containing the trace results for the resolved tipset, or Err when tipset resolution or trace generation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// // Acquire a `Ctx` and `http::Extensions` from your server context / request handling.
+    /// let ctx = /* obtain Ctx<...> */;
+    /// let block_param = /* a BlockNumberOrHash value */;
+    /// let ext = /* http::Extensions from the incoming request */;
+    ///
+    /// let traces = crate::rpc::methods::eth::EthTraceBlock::handle(ctx, (block_param,), &ext).await?;
+    /// // `traces` now holds the Ethereum-style trace results for the resolved block/tipset.
+    /// # Ok(()) }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
@@ -3633,6 +4364,24 @@ impl RpcMethod<1> for EthTraceBlockV2 {
 
     type Params = (BlockNumberOrHash,);
     type Ok = Vec<EthBlockTrace>;
+    /// Handle an `eth_traceBlock` RPC request.
+    ///
+    /// Processes the provided parameters and HTTP extensions and produces the tracing
+    /// results for the requested block.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// use http::Extensions;
+    /// // `ctx` and `params` should be constructed from the RPC environment.
+    /// // Here we show the call shape only.
+    /// let ctx = /* Ctx<impl Blockstore> */ todo!();
+    /// let params = /* EthTraceBlock::Params */ todo!();
+    /// let ext = Extensions::new();
+    /// let res = crate::rpc::methods::eth::EthTraceBlock::handle(ctx, params, &ext).await;
+    /// # Ok(()) }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -3707,6 +4456,27 @@ impl RpcMethod<3> for EthTraceCall {
         Option<BlockNumberOrHash>,
     );
     type Ok = EthTraceResults;
+    /// Generates Ethereum-compatible trace results for executing the given Filecoin `Message`
+    /// against the state found at `block_param` (defaults to `Latest`).
+    ///
+    /// The handler resolves the target tipset, executes the message on that tipset's state,
+    /// and returns an `EthTraceResults` containing:
+    /// - the call output,
+    /// - optional per-call execution traces when `trace_types` contains `Trace`,
+    /// - optional state-diff when `trace_types` contains `StateDiff` (computed for touched addresses).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ServerError` if tipset resolution, state lookup, or message execution fails,
+    /// or if required post-execution state roots or trace construction cannot be obtained.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Example usage (context, tx and extensions omitted for brevity):
+    /// let res = Handler::handle(ctx, (tx, vec![EthTraceType::Trace, EthTraceType::StateDiff], None), ext).await?;
+    /// assert!(res.output.len() >= 0);
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, trace_types, block_param): Self::Params,
@@ -3835,6 +4605,22 @@ impl RpcMethod<1> for EthTraceTransaction {
 
     type Params = (String,);
     type Ok = Vec<EthBlockTrace>;
+    /// Retrieves the trace entries for the transaction identified by `tx_hash`.
+    ///
+    /// Looks up the transaction by its hash, resolves the tipset that contains the transaction, collects traces for that block, and returns only the traces whose `transaction_hash` matches the given `tx_hash`.
+    ///
+    /// # Returns
+    ///
+    /// A vector of trace objects corresponding to the specified transaction; empty if the transaction has no traces.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // async context assumed
+    /// let tx_hash = "0x...".to_string();
+    /// let traces = handle(ctx, (tx_hash.clone(),), ext).await?;
+    /// assert!(traces.iter().all(|tr| tr.transaction_hash == EthHash::from_str(&tx_hash).unwrap()));
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
@@ -3874,6 +4660,21 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     type Params = (BlockNumberOrHash, Vec<String>);
     type Ok = Vec<EthReplayBlockTransactionTrace>;
 
+    /// Resolve the given block parameter to a tipset and replay traces for every transaction in that tipset.
+    ///
+    /// If `trace_types` is not exactly `["trace"]`, this returns a `ServerError::invalid_params`.
+    ///
+    /// # Returns
+    ///
+    /// `Self::Ok` containing the replay traces for every transaction in the resolved tipset.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Pseudocode illustrating intended use:
+    /// // let result = MyMethod::handle(ctx, (block_param, vec!["trace".to_string()]), &ext).await?;
+    /// // assert!(result.transactions.len() > 0);
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, trace_types): Self::Params,
@@ -3910,6 +4711,32 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
     type Params = (BlockNumberOrHash, Vec<String>);
     type Ok = Vec<EthReplayBlockTransactionTrace>;
 
+    /// Replays every transaction in a target block and returns their trace results.
+    ///
+    /// The `params` argument specifies which block to replay and any trace options (filters, trace type,
+    /// etc.). The function executes a replay of each transaction in that block and produces per-transaction
+    /// trace outputs compatible with the eth_trace_replay* RPCs.
+    ///
+    /// # Parameters
+    ///
+    /// - `params`: Block selection and trace options used to locate the target block and control tracing.
+    ///
+    /// # Returns
+    ///
+    /// The collection of replay traces for each transaction in the specified block.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Pseudocode example — replace with real context, params and extensions in actual use.
+    /// # async fn example() {
+    /// # let ctx = /* Ctx<impl Blockstore + Send + Sync> */ unimplemented!();
+    /// # let params = /* trace params */ unimplemented!();
+    /// # let ext = http::Extensions::new();
+    /// let traces = crate::rpc::methods::eth::EthTraceReplayBlockTransactions::handle(ctx, params, &ext).await;
+    /// # let _ = traces;
+    /// # }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
@@ -3919,6 +4746,25 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
     }
 }
 
+/// Replays execution traces for every non-system transaction in a tipset and returns per-transaction replay results.
+///
+/// This function obtains the execution trace and state root for `ts` from the state manager, skips messages sent by the system actor, resolves each message CID to an Ethereum transaction hash, reconstructs per-message VM traces and outputs, and returns a vector of `EthReplayBlockTransactionTrace`. The returned entries include the call/create trace and final output; `state_diff` and `vm_trace` are not populated by this path.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Illustrative example — test harness must provide a Ctx, Tipset and http::Extensions.
+/// # async fn example<DB>(ctx: &crate::Ctx<DB>, ts: &crate::Tipset, ext: &http::Extensions)
+/// # where DB: crate::Blockstore + Send + Sync + 'static
+/// # {
+/// let traces = crate::eth_trace_replay_block_transactions(ctx, ts, ext).await.unwrap();
+/// // Each element corresponds to a non-system message in the tipset
+/// for t in traces {
+///     // transaction_hash and trace are populated
+///     assert!(!t.transaction_hash.0.is_empty());
+/// }
+/// # }
+/// ```
 async fn eth_trace_replay_block_transactions<DB>(
     ctx: &Ctx<DB>,
     ts: &Tipset,
@@ -3969,6 +4815,29 @@ where
     Ok(all_traces)
 }
 
+/// Resolve a block parameter string into the corresponding block number (epoch).
+///
+/// Parses `block` as a predefined tag, a decimal block number, or a block hash, then uses a
+/// TipsetResolver constructed from `ctx` and `api_path` to resolve that reference into a tipset
+/// and return its epoch as an `EthUint64`.
+///
+/// # Parameters
+///
+/// - `block`: string slice representing the block reference (predefined tag, decimal number, or hash).
+/// - `resolve`: controls how null/missing tipsets are treated during resolution.
+/// - `api_path`: the API path used to construct the resolver and influence resolution behavior.
+///
+/// # Returns
+///
+/// `EthUint64` containing the resolved tipset's epoch as a `u64`.
+///
+/// # Examples
+///
+/// ```ignore
+/// // `ctx`, `resolve`, and `api_path` are provided by the RPC handling environment.
+/// let eth_block = get_eth_block_number_from_string(&ctx, Some("latest"), ResolveNullTipset::Default, ApiPaths::Eth).await?;
+/// println!("block number: {}", eth_block.0);
+/// ```
 async fn get_eth_block_number_from_string<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     block: Option<&str>,
@@ -4001,6 +4870,32 @@ impl RpcMethod<1> for EthTraceFilter {
     type Params = (EthTraceFilterCriteria,);
     type Ok = Vec<EthBlockTrace>;
 
+    /// Handles a trace-filter RPC request: parses the filter's from/to block parameters,
+    /// executes the trace filter, and returns matching traces sorted by block number,
+    /// transaction index, and trace address.
+    ///
+    /// Parses `fromBlock` and `toBlock` from the request extensions, resolves tipsets
+    /// according to the configured resolver behavior, applies the provided filter,
+    /// and returns the collected traces in deterministic order.
+    ///
+    /// # Returns
+    ///
+    /// A vector of trace entries matching the filter, sorted by (block number, transaction position, trace address).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// // Illustrative example — actual context, store and extensions must be provided by the server.
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// use crate::rpc::methods::eth::TraceFilter; // hypothetical path
+    /// // ctx, params, and ext would be obtained from the server environment
+    /// // let ctx = ...;
+    /// // let params = (trace_filter_params,);
+    /// // let ext = http::Extensions::new();
+    /// // let result = TraceFilter::handle(ctx, params, &ext).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter,): Self::Params,
@@ -4039,6 +4934,45 @@ impl RpcMethod<1> for EthTraceFilter {
     }
 }
 
+/// Scan a range of blocks for traces that match the given filter criteria and return matching traces.
+///
+/// The function iterates blocks from `from_block` through `to_block` (inclusive), collects traces whose
+/// call traces match the filter's `from_address`/`to_address` criteria, applies the optional `after`
+/// offset and `count` limit, and enforces the global `FOREST_TRACE_FILTER_MAX_RESULT` cap.
+///
+/// # Parameters
+///
+/// - `filter`: Criteria used to match traces (addresses, optional `after` offset, and optional `count` limit).
+/// - `from_block`: Starting block number (inclusive).
+/// - `to_block`: Ending block number (inclusive).
+/// - `ext`: HTTP request extensions used to resolve tipset/block context.
+///
+/// # Returns
+///
+/// A `HashSet<EthBlockTrace>` containing unique traces from the scanned block range that satisfy the filter.
+///
+/// # Errors
+///
+/// Returns an error if block resolution or trace retrieval fails, or if the requested `count` exceeds
+/// `FOREST_TRACE_FILTER_MAX_RESULT`.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::collections::HashSet;
+/// # use tokio::runtime::Runtime;
+/// # async fn doc_example() -> Result<(), Box<dyn std::error::Error>> {
+/// let ctx = todo!("provide a Ctx<impl Blockstore>");
+/// let filter = EthTraceFilterCriteria::default();
+/// let from_block = EthUint64(1);
+/// let to_block = EthUint64(10);
+/// let ext = http::Extensions::new();
+///
+/// let results: HashSet<EthBlockTrace> = trace_filter(ctx, filter, from_block, to_block, &ext).await?;
+/// println!("found {} matching traces", results.len());
+/// # Ok(()) }
+/// # let _ = Runtime::new().unwrap().block_on(doc_example());
+/// ```
 async fn trace_filter(
     ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
     filter: EthTraceFilterCriteria,

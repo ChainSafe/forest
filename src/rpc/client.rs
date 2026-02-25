@@ -88,6 +88,35 @@ impl Client {
     pub fn base_url(&self) -> &Url {
         &self.base_url
     }
+    /// Send a JSON-RPC request and convert the Lotus JSON response into `T`.
+    ///
+    /// This method selects the per-path client for the request, applies the request's per-call
+    /// timeout, encodes `params` as JSON-RPC parameters (accepting `null`, array, or object),
+    /// performs the RPC call, and converts the successful response via `T::from_lotus_json`.
+    ///
+    /// Primitive JSON parameter values (string, number, boolean) are rejected and produce
+    /// `ClientError::Custom`. If the call does not complete within the request's `timeout`,
+    /// `ClientError::RequestTimeout` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::time::Duration;
+    /// use url::Url;
+    /// use crate::{Client, Request, ApiPaths};
+    /// // Construct a client (example)
+    /// let client = Client::from_url(Url::parse("http://127.0.0.1/").unwrap());
+    /// // Build a request (method, params, timeout, api_path)
+    /// let req = Request {
+    ///     method_name: "Example.Method".into(),
+    ///     params: serde_json::Value::Null,
+    ///     timeout: Duration::from_secs(30),
+    ///     api_path: ApiPaths::V1,
+    ///     _marker: std::marker::PhantomData,
+    /// };
+    /// // Call and handle the result
+    /// let _res = tokio_test::block_on(async { client.call(req).await });
+    /// ```
     pub async fn call<T: crate::lotus_json::HasLotusJson + std::fmt::Debug>(
         &self,
         req: Request<T>,

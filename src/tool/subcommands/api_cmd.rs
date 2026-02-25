@@ -261,6 +261,30 @@ pub enum ApiCommands {
 }
 
 impl ApiCommands {
+    /// Execute the selected ApiCommands action.
+    ///
+    /// This dispatches on the enum variant and performs the corresponding operation
+    /// (serve an offline RPC server, compare RPC providers, generate snapshots,
+    /// run tests, run stateful tests, or dump tests), returning any error encountered.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success, or an `anyhow::Error` if the chosen action fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::path::PathBuf;
+    /// use anyhow::Result;
+    ///
+    /// #[tokio::test]
+    /// async fn run_example() -> Result<()> {
+    ///     // Running with an empty test list is a no-op for the `Test` variant.
+    ///     let cmd = ApiCommands::Test { files: Vec::<PathBuf>::new() };
+    ///     cmd.run().await?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Serve {

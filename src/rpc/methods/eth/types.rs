@@ -262,6 +262,19 @@ impl TryFrom<&EthAddress> for FilecoinAddress {
 impl TryFrom<EthAddress> for FilecoinAddress {
     type Error = anyhow::Error;
 
+    /// Convert an `EthAddress` into a `FilecoinAddress`.
+    ///
+    /// Attempts to produce a corresponding `FilecoinAddress`; returns `Ok` with the converted
+    /// address on success, or `Err` if the Ethereum address cannot be represented as a Filecoin address.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::convert::TryFrom;
+    /// // construct an example EthAddress from 20 bytes
+    /// let eth = EthAddress::from([0u8; 20]);
+    /// let fc = FilecoinAddress::try_from(eth).expect("conversion should succeed or return an error");
+    /// ```
     fn try_from(value: EthAddress) -> Result<Self, Self::Error> {
         value.to_filecoin_address()
     }
@@ -277,6 +290,21 @@ pub enum BlockNumberOrPredefined {
 lotus_json_with_self!(BlockNumberOrPredefined);
 
 impl From<BlockNumberOrPredefined> for BlockNumberOrHash {
+    /// Map predefined-block and numeric-block variants to their corresponding block-or-hash variants.
+    ///
+    /// This converts a `PredefinedBlock` variant to the equivalent `PredefinedBlock` in the target enum
+    /// and a numeric `BlockNumber` variant to the corresponding `BlockNumber`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let src = BlockNumberOrPredefined::BlockNumber(42);
+    /// let dst: BlockNumberOrHash = src.into();
+    /// match dst {
+    ///     BlockNumberOrHash::BlockNumber(n) => assert_eq!(n, 42),
+    ///     _ => panic!("unexpected variant"),
+    /// }
+    /// ```
     fn from(value: BlockNumberOrPredefined) -> Self {
         match value {
             BlockNumberOrPredefined::PredefinedBlock(v) => BlockNumberOrHash::PredefinedBlock(v),

@@ -63,6 +63,35 @@ fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<
     Ok(())
 }
 
+/// Runs a single RPC regression test defined by a snapshot file at the given path.
+
+///
+
+/// Reads a snapshot (optionally zstd-compressed), reconstructs an in-memory RPC context and
+
+/// database (including optional Ethereum mappings), invokes the matching RPC handler with the
+
+/// snapshot's parameters, and asserts the handler's output matches the snapshot's expected response.
+
+///
+
+/// # Examples
+
+///
+
+/// ```
+
+/// # use std::path::Path;
+
+/// # async fn _example() -> anyhow::Result<()> {
+
+/// run_test_from_snapshot(Path::new("tests/snapshots/example_snapshot.json")).await?;
+
+/// # Ok(())
+
+/// # }
+
+/// ```
 pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     let mut run = false;
     let snapshot_bytes = std::fs::read(path)?;

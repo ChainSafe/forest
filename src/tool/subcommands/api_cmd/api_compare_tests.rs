@@ -397,6 +397,26 @@ impl RpcTest {
         self
     }
 
+    /// Runs this RPC test against a Forest and a Lotus RPC client and returns the aggregated result.
+    ///
+    /// The returned TestResult contains per-client TestSummary statuses, an optional TestDump with
+    /// the original request and both raw responses (or error strings), and the elapsed duration.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use futures::executor::block_on;
+    /// use crate::rpc;
+    /// use crate::tests::RpcTest;
+    ///
+    /// // Placeholder values for demonstration only.
+    /// let rpc_test: RpcTest = unimplemented!();
+    /// let forest: rpc::Client = unimplemented!();
+    /// let lotus: rpc::Client = unimplemented!();
+    ///
+    /// let result = block_on(rpc_test.run(&forest, &lotus));
+    /// // inspect `result.forest_status`, `result.lotus_status`, `result.test_dump`, etc.
+    /// ```
     async fn run(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
         let start = Instant::now();
         let forest_resp = forest.call(self.request.clone()).await;
@@ -1381,6 +1401,16 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
     tests
 }
 
+/// Builds a suite of Ethereum-compatible RpcTest cases covering common eth/web3 methods,
+/// address conversions, eth_call variants, filters, and gas/fee related endpoints. Tests are
+/// generated twice: once using RPC parameter aliases and once without.
+///
+/// # Examples
+///
+/// ```
+/// let tests = eth_tests();
+/// assert!(tests.len() > 0);
+/// ```
 fn eth_tests() -> Vec<RpcTest> {
     let mut tests = vec![];
     for use_alias in [false, true] {
@@ -1541,6 +1571,24 @@ fn eth_tests() -> Vec<RpcTest> {
     tests
 }
 
+/// Builds RPC tests that deploy intentionally erroring smart contracts using `EthCall` and `EthCallV2` at the given block reference.
+///
+/// Each generated test deploys a contract whose bytecode is designed to trigger runtime errors (overflow, assert, divide-by-zero, out-of-memory, etc.) and is configured to accept identical error messages as a passing condition.
+///
+/// # Parameters
+///
+/// - `epoch`: the block number used as the block reference for the `eth_call` requests.
+///
+/// # Returns
+///
+/// A `Vec<RpcTest>` where each test deploys one error-producing contract and uses `PolicyOnRejected::PassWithIdenticalError`.
+///
+/// # Examples
+///
+/// ```
+/// let tests = eth_call_api_err_tests(100);
+/// assert!(!tests.is_empty());
+/// ```
 fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
     let contract_codes = [
         include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex"),
@@ -1589,6 +1637,35 @@ fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
     tests
 }
 
+/// Generate a suite of Ethereum-compatible RpcTest cases derived from a tipset and blockstore.
+///
+/// The returned tests cover a wide range of eth_* RPC endpoints (balance, block queries,
+/// storage, fee history, code, logs, traces, receipts, transaction counts, getLogs/getFilter,
+/// trace replay/filter, estimate gas, conversions between Filecoin and Eth addresses, etc.)
+/// using the provided tipset's epoch and blocks. Some tests are configured with tolerant
+/// rejection policies or sorting policies to account for acceptable differences between
+/// Forest and Lotus implementations.
+///
+/// # Parameters
+///
+/// - `store`: reference to a blockstore used to read block messages referenced by the tipset.
+/// - `shared_tipset`: the tipset from which to derive block hashes, epochs, and per-block tests.
+///
+/// # Returns
+///
+/// A vector of `RpcTest` instances covering many eth-related RPC endpoints for the given tipset,
+/// or an error if test construction fails (e.g., invalid addresses or block CID conversions).
+///
+/// # Examples
+///
+/// ```ignore
+/// use std::sync::Arc;
+/// use anyhow::Result;
+/// // assume `store: Arc<impl Blockstore>` and `tipset: Tipset` are available
+/// // let tests = eth_tests_with_tipset(&store, &tipset)?;
+/// // run or inspect `tests` as needed
+/// # Ok::<(), anyhow::Error>(())
+/// ```
 fn eth_tests_with_tipset<DB: Blockstore>(
     store: &Arc<DB>,
     shared_tipset: &Tipset,
@@ -2216,6 +2293,28 @@ fn eth_tests_with_tipset<DB: Blockstore>(
     Ok(tests)
 }
 
+/// Constructs a set of StateReadState RPC tests targeting common system and sample actors at the provided tipset.
+///
+/// The returned tests query the on-chain state for well-known system actors (system, cron, market, init, power,
+/// reward, verified registry, datacap token) and several calibrated sample addresses (payment channel, multisig,
+/// a sample account, a miner, and an EVM actor) at the given tipset key. Each test is an identity check that
+/// requires Forest and Lotus to return equivalent read-state results for the same actor and tipset.
+///
+/// # Returns
+///
+/// `Ok(Vec<RpcTest>)` containing StateReadState identity tests for the listed actors, or an error if any request
+/// construction fails.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use crate::tests::read_state_api_tests;
+/// # use forest_blocks::Tipset;
+/// // obtain or construct a Tipset suitable for testing
+/// let tipset: Tipset = /* ... */ unimplemented!();
+/// let tests = read_state_api_tests(&tipset).unwrap();
+/// assert!(!tests.is_empty());
+/// ```
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let tests = vec![
         RpcTest::identity(StateReadState::request((
@@ -2420,6 +2519,37 @@ fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
 
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
+/// Builds a collection of RPC tests derived from a ManyCar snapshot for a sequence of tipsets.
+///
+/// This reads the store's heaviest tipset (adjusted back by SAFE_EPOCH_DELAY_FOR_TESTING), then
+/// iterates up to `num_tipsets` tipsets from that point and aggregates tests produced by the
+/// chain, miner, state, eth, events, gas, mpool, eth-state, and f3 test generators for each tipset.
+///
+/// # Parameters
+///
+/// - `store`: the snapshot car store containing tipset and chain data used to generate tests.
+/// - `offline`: whether the target RPC server is offline; affects certain test tolerances and selectors.
+/// - `num_tipsets`: the maximum number of consecutive tipsets to generate tests for (starting from the adjusted heaviest tipset).
+/// - `miner_address`: optional miner address used to generate miner-scoped tests when present.
+/// - `eth_chain_id`: Ethereum chain id passed to Ethereum-related test generators.
+///
+/// # Returns
+///
+/// A vector of `RpcTest` instances assembled from the snapshot tipsets, or an error if reading the store or building tests fails.
+///
+/// # Examples
+///
+/// ```no_run
+/// use std::sync::Arc;
+/// # use anyhow::Result;
+/// # async fn doc_example() -> Result<()> {
+/// // Assume `store` is an opened ManyCar snapshot.
+/// let store: Arc<ManyCar> = Arc::new(/* ... */);
+/// let tests = snapshot_tests(store, /*offline=*/ false, 10, None, 314u64)?;
+/// assert!(!tests.is_empty());
+/// # Ok(())
+/// # }
+/// ```
 fn snapshot_tests(
     store: Arc<ManyCar>,
     offline: bool,
@@ -2552,6 +2682,38 @@ fn create_deferred_tests(snapshot_files: Vec<PathBuf>) -> anyhow::Result<Vec<Rpc
     Ok(tests)
 }
 
+/// Revalidates a chain stored in a ManyCar database up to a window after the current head.
+///
+/// This performs full tipset validation starting from the store's heaviest tipset and
+/// validating a number of tipsets equal to `SAFE_EPOCH_DELAY_FOR_TESTING + n_ts_to_validate`.
+/// It ensures proof parameters are available before running validation.
+///
+/// # Parameters
+///
+/// - `db`: shared ManyCar blockstore containing the chain data to validate.
+/// - `n_ts_to_validate`: number of tipsets beyond the safe epoch delay to validate; a value
+///   of `0` is a no-op.
+///
+/// # Errors
+///
+/// Returns an error if chain configuration, genesis header, proof parameters, or tipset
+/// validation fail.
+///
+/// # Examples
+///
+/// ```
+/// # use std::sync::Arc;
+/// # use anyhow::Result;
+/// # use many_car::ManyCar;
+/// #
+/// # #[tokio::test]
+/// # async fn example_revalidate_chain() -> Result<()> {
+/// let db = Arc::new(ManyCar::open_readonly("tests/data/example.car")?);
+/// // validate 2 tipsets beyond the safe delay
+/// crate::revalidate_chain(db, 2).await?;
+/// # Ok(())
+/// # }
+/// ```
 async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::Result<()> {
     if n_ts_to_validate == 0 {
         return Ok(());
@@ -2587,7 +2749,63 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Runs a suite of RPC tests against Forest and Lotus RPC clients and produces a report.
+///
+/// This function concurrently executes the provided tests (subject to `max_concurrent_requests`),
+/// applies filtering and run/ignore policies, optionally retries failing tests with exponential
+/// backoff, collects results into a report, and optionally writes per-test dumps and the final
+/// report to disk.
+///
+/// # Parameters
+///
+/// - `tests`: An iterator of `RpcTest` values to execute.
+/// - `forest`, `lotus`: RPC clients to use for the Forest and Lotus endpoints respectively.
+/// - `max_concurrent_requests`: Maximum number of tests to execute concurrently.
+/// - `filter_file`: Optional path to a file listing allowed method names; when `None` the `filter`
+///   string is used instead.
+/// - `filter`: A filter string used when `filter_file` is not provided.
+/// - `filter_version`: Optional API path to restrict tests to a single API version.
+/// - `run_ignored`: Controls whether ignored tests are skipped, only-run, or treated normally.
+/// - `fail_fast`: If `true`, stop running further tests on the first observed failure.
+/// - `dump_dir`: Optional directory to write per-test request/response dumps for failed tests.
+/// - `test_criteria_overrides`: Overrides that modify pass/fail evaluation for specific tests.
+/// - `report_dir`: Optional directory to save the final report.
+/// - `report_mode`: Controls report output format/verbosity.
+/// - `n_retries`: Number of times to retry a failing test before considering it final.
+///
+/// # Returns
+///
+/// `Ok(())` when all selected tests pass (or when no tests are selected); an error if any selected
+/// test is considered a failure or if I/O/reporting/filter setup fails.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::sync::Arc;
+/// # use std::path::PathBuf;
+/// # use tokio;
+/// # async fn example() -> anyhow::Result<()> {
+/// let forest = Arc::new(crate::rpc::Client::default());
+/// let lotus = Arc::new(crate::rpc::Client::default());
+/// run_tests(
+///     Vec::new(),                // no tests
+///     forest,
+///     lotus,
+///     4,                        // max concurrent
+///     None,                     // no filter file
+///     String::new(),            // empty filter
+///     None,                     // no version filter
+///     crate::tests::RunIgnored::Default,
+///     false,                    // don't fail fast
+///     None,                     // no dump dir
+///     &[],                      // no overrides
+///     None,                     // no report dir
+///     crate::tests::ReportMode::Stdout,
+///     0,                        // no retries
+/// ).await?;
+/// # Ok(())
+/// # }
+/// ```
 pub(super) async fn run_tests(
     tests: impl IntoIterator<Item = RpcTest>,
     forest: impl Into<Arc<rpc::Client>>,
