@@ -1570,170 +1570,6 @@ fn eth_tests_with_tipset<DB: Blockstore>(
     let block_hash: EthHash = block_cid.into();
 
     let mut tests = vec![
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa")?,
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))?
-            .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            ))?
-            .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-                BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
-            ))?
-            .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-                BlockNumberOrHash::from_block_hash_object(block_hash, false),
-            ))?
-            .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-                BlockNumberOrHash::from_block_hash_object(block_hash, true),
-            ))?
-            .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-                Predefined::Earliest.into(),
-            ))?
-            .with_api_path(ApiPaths::V1),
-        )
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-                Predefined::Pending.into(),
-            ))?
-            .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::basic(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-                Predefined::Latest.into(),
-            ))?
-            .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::identity(
-            EthGetBalance::request((generate_eth_random_address()?, Predefined::Latest.into()))?
-                .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::identity(EthGetBalance::request((
-            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa")?,
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-        ))?),
-        RpcTest::identity(EthGetBalance::request((
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-        ))?),
-        RpcTest::identity(EthGetBalance::request((
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-            BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
-        ))?),
-        RpcTest::identity(EthGetBalance::request((
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-            BlockNumberOrHash::from_block_hash_object(block_hash, false),
-        ))?),
-        RpcTest::identity(EthGetBalance::request((
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-            BlockNumberOrHash::from_block_hash_object(block_hash, true),
-        ))?),
-        RpcTest::identity(EthGetBalance::request((
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-            Predefined::Earliest.into(),
-        ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(EthGetBalance::request((
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-            Predefined::Pending.into(),
-        ))?),
-        RpcTest::basic(EthGetBalance::request((
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-            Predefined::Latest.into(),
-        ))?),
-        RpcTest::basic(EthGetBalance::request((
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-            Predefined::Safe.into(),
-        ))?),
-        RpcTest::basic(EthGetBalance::request((
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
-            Predefined::Finalized.into(),
-        ))?),
-        RpcTest::identity(EthGetBalance::request((
-            generate_eth_random_address()?,
-            Predefined::Latest.into(),
-        ))?),
-        RpcTest::identity(
-            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), false))?
-                .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::identity(
-            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), false))?
-                .with_api_path(ApiPaths::V2),
-        ),
-        RpcTest::identity(
-            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), true))?
-                .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::identity(
-            EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), true))?
-                .with_api_path(ApiPaths::V2),
-        ),
-        RpcTest::identity(
-            EthGetBlockByNumber::request((Predefined::Earliest.into(), true))?
-                .with_api_path(ApiPaths::V1),
-        )
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(
-            EthGetBlockByNumber::request((Predefined::Earliest.into(), true))?
-                .with_api_path(ApiPaths::V2),
-        )
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::basic(
-            EthGetBlockByNumber::request((Predefined::Pending.into(), true))?
-                .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::basic(
-            EthGetBlockByNumber::request((Predefined::Pending.into(), true))?
-                .with_api_path(ApiPaths::V2),
-        ),
-        RpcTest::basic(
-            EthGetBlockByNumber::request((Predefined::Latest.into(), true))?
-                .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::basic(
-            EthGetBlockByNumber::request((Predefined::Latest.into(), true))?
-                .with_api_path(ApiPaths::V2),
-        ),
-        RpcTest::basic(
-            EthGetBlockByNumber::request((Predefined::Safe.into(), true))?
-                .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::basic(
-            EthGetBlockByNumber::request((Predefined::Safe.into(), true))?
-                .with_api_path(ApiPaths::V2),
-        ),
-        RpcTest::basic(
-            EthGetBlockByNumber::request((Predefined::Finalized.into(), true))?
-                .with_api_path(ApiPaths::V1),
-        ),
-        RpcTest::basic(
-            EthGetBlockByNumber::request((Predefined::Finalized.into(), true))?
-                .with_api_path(ApiPaths::V2),
-        ),
         RpcTest::identity(EthGetBlockReceipts::request((
             BlockNumberOrHash::from_block_hash_object(block_hash, true),
         ))?),
@@ -1901,6 +1737,120 @@ fn eth_tests_with_tipset<DB: Blockstore>(
 
     for api_path in [ApiPaths::V1, ApiPaths::V2] {
         tests.extend([
+            RpcTest::identity(
+                EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), false))?
+                    .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), true))?
+                    .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBlockByNumber::request((Predefined::Earliest.into(), true))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+            RpcTest::basic(
+                EthGetBlockByNumber::request((Predefined::Pending.into(), true))?
+                    .with_api_path(api_path),
+            ),
+            RpcTest::basic(
+                EthGetBlockByNumber::request((Predefined::Latest.into(), true))?
+                    .with_api_path(api_path),
+            ),
+            RpcTest::basic(
+                EthGetBlockByNumber::request((Predefined::Safe.into(), true))?
+                    .with_api_path(api_path),
+            ),
+            RpcTest::basic(
+                EthGetBlockByNumber::request((Predefined::Finalized.into(), true))?
+                    .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBalance::request((
+                    generate_eth_random_address()?,
+                    Predefined::Latest.into(),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa")?,
+                    BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+                    BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+                    BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+                    BlockNumberOrHash::from_block_hash_object(block_hash, false),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+                    BlockNumberOrHash::from_block_hash_object(block_hash, true),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+                    Predefined::Earliest.into(),
+                ))?
+                .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+            RpcTest::basic(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+                    Predefined::Pending.into(),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::basic(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+                    Predefined::Latest.into(),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::basic(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+                    Predefined::Safe.into(),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::basic(
+                EthGetBalance::request((
+                    EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
+                    Predefined::Finalized.into(),
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthGetBalance::request((
+                    generate_eth_random_address()?,
+                    Predefined::Latest.into(),
+                ))?
+                .with_api_path(api_path),
+            ),
             RpcTest::identity(
                 EthFeeHistory::request((10.into(), EthInt64(shared_tipset.epoch()).into(), None))?
                     .with_api_path(api_path),
