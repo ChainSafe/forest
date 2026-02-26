@@ -105,7 +105,6 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::FilecoinAddressToEthAddress);
         $callback!($crate::rpc::eth::EthBlockNumber);
         $callback!($crate::rpc::eth::EthCall);
-        $callback!($crate::rpc::eth::EthCallV2);
         $callback!($crate::rpc::eth::EthChainId);
         $callback!($crate::rpc::eth::EthEstimateGas);
         $callback!($crate::rpc::eth::EthFeeHistory);
@@ -123,14 +122,11 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetFilterChanges);
         $callback!($crate::rpc::eth::EthGetMessageCidByTransactionHash);
         $callback!($crate::rpc::eth::EthGetStorageAt);
-        $callback!($crate::rpc::eth::EthGetStorageAtV2);
         $callback!($crate::rpc::eth::EthGetTransactionByHash);
         $callback!($crate::rpc::eth::EthGetTransactionByHashLimited);
         $callback!($crate::rpc::eth::EthGetTransactionCount);
-        $callback!($crate::rpc::eth::EthGetTransactionCountV2);
         $callback!($crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndex);
-        $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndexV2);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);
         $callback!($crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!($crate::rpc::eth::EthProtocolVersion);
@@ -144,12 +140,10 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthSubscribe);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
-        $callback!($crate::rpc::eth::EthTraceBlockV2);
         $callback!($crate::rpc::eth::EthTraceCall);
         $callback!($crate::rpc::eth::EthTraceFilter);
         $callback!($crate::rpc::eth::EthTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
-        $callback!($crate::rpc::eth::EthTraceReplayBlockTransactionsV2);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
         $callback!($crate::rpc::eth::EthSendRawTransactionUntrusted);

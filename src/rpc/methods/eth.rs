@@ -2142,7 +2142,7 @@ impl RpcMethod<3> for EthGetStorageAt {
     const NAME: &'static str = "Filecoin.EthGetStorageAt";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getStorageAt");
     const PARAM_NAMES: [&'static str; 3] = ["ethAddress", "position", "blockNumberOrHash"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Retrieves the storage value at a specific position for a contract
@@ -2162,30 +2162,6 @@ impl RpcMethod<3> for EthGetStorageAt {
             .tipset_by_block_number_or_hash(block_number_or_hash, ResolveNullTipset::TakeOlder)
             .await?;
         get_storage_at(&ctx, ts, eth_address, position).await
-    }
-}
-
-pub enum EthGetStorageAtV2 {}
-impl RpcMethod<3> for EthGetStorageAtV2 {
-    const NAME: &'static str = "Filecoin.EthGetStorageAt";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_getStorageAt");
-    const PARAM_NAMES: [&'static str; 3] = ["ethAddress", "position", "blockNumberOrHash"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves the storage value at a specific position for a contract
-        at a given block state, identified by its number, hash, or a special tag.",
-    );
-
-    type Params = (EthAddress, EthBytes, BlockNumberOrHash);
-    type Ok = EthBytes;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
-        ext: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        EthGetStorageAt::handle(ctx, params, ext).await
     }
 }
 
@@ -2259,7 +2235,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
     const NAME: &'static str = "Filecoin.EthGetTransactionCount";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionCount");
     const PARAM_NAMES: [&'static str; 2] = ["sender", "blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
@@ -2283,26 +2259,6 @@ impl RpcMethod<2> for EthGetTransactionCount {
                 eth_get_transaction_count(&ctx, &ts, addr).await
             }
         }
-    }
-}
-
-pub enum EthGetTransactionCountV2 {}
-impl RpcMethod<2> for EthGetTransactionCountV2 {
-    const NAME: &'static str = "Filecoin.EthGetTransactionCount";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionCount");
-    const PARAM_NAMES: [&'static str; 2] = ["sender", "blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-
-    type Params = (EthAddress, BlockNumberOrHash);
-    type Ok = EthUint64;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
-        ext: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        EthGetTransactionCount::handle(ctx, params, ext).await
     }
 }
 
@@ -2386,7 +2342,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     const NAME: &'static str = "Filecoin.EthGetTransactionByBlockNumberAndIndex";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockNumberAndIndex");
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "txIndex"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Retrieves a transaction by its block number and index.");
@@ -2404,28 +2360,6 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
-    }
-}
-
-pub enum EthGetTransactionByBlockNumberAndIndexV2 {}
-impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndexV2 {
-    const NAME: &'static str = "Filecoin.EthGetTransactionByBlockNumberAndIndex";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockNumberAndIndex");
-    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "txIndex"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Retrieves a transaction by its block number and index.");
-
-    type Params = (BlockNumberOrPredefined, EthUint64);
-    type Ok = Option<ApiEthTx>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
-        ext: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        EthGetTransactionByBlockNumberAndIndex::handle(ctx, params, ext).await
     }
 }
 
@@ -2642,7 +2576,7 @@ impl RpcMethod<2> for EthCall {
     const NAME_ALIAS: Option<&'static str> = Some("eth_call");
     const N_REQUIRED_PARAMS: usize = 2;
     const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthCallMessage, BlockNumberOrHash);
     type Ok = EthBytes;
@@ -2656,25 +2590,6 @@ impl RpcMethod<2> for EthCall {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         eth_call(&ctx, tx, ts).await
-    }
-}
-
-pub enum EthCallV2 {}
-impl RpcMethod<2> for EthCallV2 {
-    const NAME: &'static str = "Filecoin.EthCall";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_call");
-    const N_REQUIRED_PARAMS: usize = 2;
-    const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    type Params = (EthCallMessage, BlockNumberOrHash);
-    type Ok = EthBytes;
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
-        ext: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        EthCall::handle(ctx, params, ext).await
     }
 }
 
@@ -3457,7 +3372,7 @@ impl RpcMethod<1> for EthTraceBlock {
     const NAME_ALIAS: Option<&'static str> = Some("trace_block");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns traces created at given block.");
 
@@ -3473,27 +3388,6 @@ impl RpcMethod<1> for EthTraceBlock {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
         eth_trace_block(&ctx, &ts, ext).await
-    }
-}
-
-pub enum EthTraceBlockV2 {}
-impl RpcMethod<1> for EthTraceBlockV2 {
-    const NAME: &'static str = "Filecoin.EthTraceBlock";
-    const NAME_ALIAS: Option<&'static str> = Some("trace_block");
-    const N_REQUIRED_PARAMS: usize = 1;
-    const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns traces created at given block.");
-
-    type Params = (BlockNumberOrHash,);
-    type Ok = Vec<EthBlockTrace>;
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
-        ext: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        EthTraceBlock::handle(ctx, params, ext).await
     }
 }
 
@@ -3720,7 +3614,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     const NAME: &'static str = "Filecoin.EthTraceReplayBlockTransactions";
     const NAME_ALIAS: Option<&'static str> = Some("trace_replayBlockTransactions");
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "traceTypes"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Replays all transactions in a block returning the requested traces for each transaction.",
@@ -3747,30 +3641,6 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             .await?;
 
         eth_trace_replay_block_transactions(&ctx, &ts, ext).await
-    }
-}
-
-pub enum EthTraceReplayBlockTransactionsV2 {}
-impl RpcMethod<2> for EthTraceReplayBlockTransactionsV2 {
-    const N_REQUIRED_PARAMS: usize = 2;
-    const NAME: &'static str = "Filecoin.EthTraceReplayBlockTransactions";
-    const NAME_ALIAS: Option<&'static str> = Some("trace_replayBlockTransactions");
-    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "traceTypes"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Replays all transactions in a block returning the requested traces for each transaction.",
-    );
-
-    type Params = (BlockNumberOrHash, Vec<String>);
-    type Ok = Vec<EthReplayBlockTransactionTrace>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
-        ext: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        EthTraceReplayBlockTransactions::handle(ctx, params, ext).await
     }
 }
 
