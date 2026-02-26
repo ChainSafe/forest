@@ -108,9 +108,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthCallV2);
         $callback!($crate::rpc::eth::EthChainId);
         $callback!($crate::rpc::eth::EthEstimateGas);
-        $callback!($crate::rpc::eth::EthEstimateGasV2);
         $callback!($crate::rpc::eth::EthFeeHistory);
-        $callback!($crate::rpc::eth::EthFeeHistoryV2);
         $callback!($crate::rpc::eth::EthGasPrice);
         $callback!($crate::rpc::eth::EthGetBalance);
         $callback!($crate::rpc::eth::EthGetBlockByHash);
@@ -120,7 +118,6 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumber);
         $callback!($crate::rpc::eth::EthGetCode);
-        $callback!($crate::rpc::eth::EthGetCodeV2);
         $callback!($crate::rpc::eth::EthGetLogs);
         $callback!($crate::rpc::eth::EthGetFilterLogs);
         $callback!($crate::rpc::eth::EthGetFilterChanges);
