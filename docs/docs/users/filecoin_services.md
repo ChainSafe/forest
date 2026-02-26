@@ -89,7 +89,7 @@ You can check the status of many ChainSafe services at [status.chainsafe.dev](ht
 :::
 
 :::info
-Questions? Issues? Feedback? [Connect with the Forest team](./introduction.md#connect-with-us).
+Questions? Issues? Feedback? [Connect with the Forest team](/#connect-with-us).
 
 We are also active on the following channels on the [Filecoin Slack](https://filecoin.io/slack). Reach out to us for any questions or issues:
 
