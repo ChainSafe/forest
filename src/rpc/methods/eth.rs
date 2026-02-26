@@ -1479,7 +1479,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceipts");
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Retrieves all transaction receipts for a block by its number, hash or a special tag.",
@@ -1503,35 +1503,12 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     }
 }
 
-pub enum EthGetBlockReceiptsV2 {}
-impl RpcMethod<1> for EthGetBlockReceiptsV2 {
-    const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceipts");
-    const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves all transaction receipts for a block by its number, hash or a special tag.",
-    );
-
-    type Params = (BlockNumberOrHash,);
-    type Ok = Vec<EthTxReceipt>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
-        ext: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        EthGetBlockReceipts::handle(ctx, params, ext).await
-    }
-}
-
 pub enum EthGetBlockReceiptsLimited {}
 impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     const NAME: &'static str = "Filecoin.EthGetBlockReceiptsLimited";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceiptsLimited");
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "limit"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Retrieves all transaction receipts for a block identified by its number, hash or a special tag along with an optional limit on the chain epoch for state resolution.",
@@ -1552,29 +1529,6 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
         get_block_receipts(&ctx, ts, Some(limit))
             .await
             .map_err(ServerError::from)
-    }
-}
-
-pub enum EthGetBlockReceiptsLimitedV2 {}
-impl RpcMethod<2> for EthGetBlockReceiptsLimitedV2 {
-    const NAME: &'static str = "Filecoin.EthGetBlockReceiptsLimited";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceiptsLimited");
-    const PARAM_NAMES: [&'static str; 2] = ["blockParam", "limit"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves all transaction receipts for a block identified by its number, hash or a special tag along with an optional limit on the chain epoch for state resolution.",
-    );
-
-    type Params = (BlockNumberOrHash, ChainEpoch);
-    type Ok = Vec<EthTxReceipt>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
-        ext: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        EthGetBlockReceiptsLimited::handle(ctx, params, ext).await
     }
 }
 
@@ -1610,7 +1564,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByNumber");
     const PARAM_NAMES: [&'static str; 1] = ["blockNumber"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns the number of transactions in a block identified by its block number or a special tag.",
@@ -1630,29 +1584,6 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
             .await?;
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
         Ok(EthUint64(count as _))
-    }
-}
-
-pub enum EthGetBlockTransactionCountByNumberV2 {}
-impl RpcMethod<1> for EthGetBlockTransactionCountByNumberV2 {
-    const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByNumber");
-    const PARAM_NAMES: [&'static str; 1] = ["blockNumber"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V2);
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the number of transactions in a block identified by its block number or a special tag.",
-    );
-
-    type Params = (BlockNumberOrPredefined,);
-    type Ok = EthUint64;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
-        ext: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        EthGetBlockTransactionCountByNumber::handle(ctx, params, ext).await
     }
 }
 

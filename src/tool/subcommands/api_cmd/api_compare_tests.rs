@@ -1742,47 +1742,103 @@ fn eth_tests_with_tipset<DB: Blockstore>(
         // Nodes might be synced to different epochs, so we can't assert the exact result here.
         // Regardless, we want to check if the node returns a valid response and accepts predefined
         // values.
-        RpcTest::basic(EthGetBlockReceipts::request((Predefined::Latest.into(),))?),
-        RpcTest::identity(EthGetBlockReceiptsV2::request((
-            BlockNumberOrHash::from_block_hash_object(block_hash, true),
-        ))?),
-        RpcTest::basic(EthGetBlockReceiptsV2::request((Predefined::Safe.into(),))?),
-        RpcTest::basic(EthGetBlockReceiptsV2::request((
-            Predefined::Finalized.into(),
-        ))?),
+        RpcTest::basic(
+            EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::basic(
+            EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(ApiPaths::V2),
+        ),
+        RpcTest::basic(
+            EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::basic(
+            EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(ApiPaths::V2),
+        ),
+        RpcTest::basic(
+            EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::basic(
+            EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(ApiPaths::V2),
+        ),
+        RpcTest::identity(
+            EthGetBlockReceipts::request((BlockNumberOrHash::from_block_hash_object(
+                block_hash, true,
+            ),))?
+            .with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::identity(
+            EthGetBlockReceipts::request((BlockNumberOrHash::from_block_hash_object(
+                block_hash, true,
+            ),))?
+            .with_api_path(ApiPaths::V2),
+        ),
         RpcTest::identity(EthGetBlockTransactionCountByHash::request((block_hash,))?),
-        RpcTest::identity(EthGetBlockReceiptsLimited::request((
-            BlockNumberOrHash::from_block_hash_object(block_hash, true),
-            4,
-        ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::identity(EthGetBlockReceiptsLimited::request((
-            BlockNumberOrHash::from_block_hash_object(block_hash, true),
-            -1,
-        ))?),
-        RpcTest::identity(EthGetBlockReceiptsLimitedV2::request((
-            BlockNumberOrHash::from_block_hash_object(block_hash, true),
-            4,
-        ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::identity(EthGetBlockReceiptsLimitedV2::request((
-            BlockNumberOrHash::from_block_hash_object(block_hash, true),
-            -1,
-        ))?),
-        RpcTest::identity(EthGetBlockTransactionCountByNumber::request((EthInt64(
-            shared_tipset.epoch(),
+        RpcTest::identity(
+            EthGetBlockReceiptsLimited::request((
+                BlockNumberOrHash::from_block_hash_object(block_hash, true),
+                4,
+            ))?
+            .with_api_path(ApiPaths::V1),
         )
-        .into(),))?),
-        RpcTest::identity(EthGetBlockTransactionCountByNumberV2::request((EthInt64(
-            shared_tipset.epoch(),
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(
+            EthGetBlockReceiptsLimited::request((
+                BlockNumberOrHash::from_block_hash_object(block_hash, true),
+                4,
+            ))?
+            .with_api_path(ApiPaths::V2),
         )
-        .into(),))?),
-        RpcTest::identity(EthGetBlockTransactionCountByNumberV2::request((
-            Predefined::Safe.into(),
-        ))?),
-        RpcTest::identity(EthGetBlockTransactionCountByNumberV2::request((
-            Predefined::Finalized.into(),
-        ))?),
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(
+            EthGetBlockReceiptsLimited::request((
+                BlockNumberOrHash::from_block_hash_object(block_hash, true),
+                -1,
+            ))?
+            .with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::identity(
+            EthGetBlockReceiptsLimited::request((
+                BlockNumberOrHash::from_block_hash_object(block_hash, true),
+                -1,
+            ))?
+            .with_api_path(ApiPaths::V2),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request(
+                (EthInt64(shared_tipset.epoch()).into(),),
+            )?
+            .with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request(
+                (EthInt64(shared_tipset.epoch()).into(),),
+            )?
+            .with_api_path(ApiPaths::V2),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request((Predefined::Latest.into(),))?
+                .with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request((Predefined::Latest.into(),))?
+                .with_api_path(ApiPaths::V2),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request((Predefined::Safe.into(),))?
+                .with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request((Predefined::Safe.into(),))?
+                .with_api_path(ApiPaths::V2),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request((Predefined::Finalized.into(),))?
+                .with_api_path(ApiPaths::V1),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request((Predefined::Finalized.into(),))?
+                .with_api_path(ApiPaths::V2),
+        ),
         RpcTest::identity(EthGetTransactionCount::request((
             EthAddress::from_str("0xff000000000000000000000000000000000003ec")?,
             BlockNumberOrHash::from_block_hash_object(block_hash, true),
