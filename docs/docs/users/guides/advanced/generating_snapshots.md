@@ -38,4 +38,4 @@ expect a file of over 5 GB. Note that the snapshot size grows over time.
 
 ### CLI reference
 
-Details on the `forest-cli snapshot export` command and its subcommands can be found at the [CLI reference](../../reference/cli.md#forest-cli-snapshot).
+Details on the `forest-cli snapshot export` command and its subcommands can be found at the [CLI reference](../../reference/cli#forest-cli-snapshot).
