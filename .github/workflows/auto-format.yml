@@ -1,0 +1,47 @@
+# This workflow runs on every push and automatically applies formatting using mise format
+name: Auto-format code
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      # Give the default GITHUB_TOKEN write permission to commit and push the
+      # added or changed files to the repository.
+      contents: write
+    # Only run on the main repo, skip forks
+    # Skip if commit is already from this auto-format workflow to avoid infinite loops
+    if: github.repository == 'ChainSafe/forest' && !contains(github.event.head_commit.message, '[LeshyBot] Apply automatic formatting')
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.LESHY_APP_ID }}
+          private-key: ${{ secrets.LESHY_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          ref: ${{ github.head_ref }}
+          # Value already defaults to true, but `persist-credentials` is required to push new commits to the repository.
+          persist-credentials: true
+
+      - uses: jdx/mise-action@v3
+      - run: mise install-lint-tools
+      - run: mise format
+
+      - name: Commit and push formatting changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "[LeshyBot] Apply automatic formatting"
+          commit_user_name: "leshyatwork[bot]"
+          commit_user_email: "217592034+leshyatwork[bot]@users.noreply.github.com"
+          commit_author: "leshyatwork[bot] <217592034+leshyatwork[bot]@users.noreply.github.com>"
