@@ -39,7 +39,7 @@
     "@docusaurus/module-type-aliases": "^3.9.2",
     "@docusaurus/tsconfig": "^3.9.2",
     "@docusaurus/types": "^3.9.2",
-    "@types/node": "^22.15.4",
+    "@types/node": "^25.3.0",
     "spellchecker-cli": "^7.0.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
