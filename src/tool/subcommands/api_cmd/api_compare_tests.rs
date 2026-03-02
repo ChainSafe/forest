@@ -2110,7 +2110,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(
                 .with_api_path(api_path),
             )
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-            RpcTest::identity(
+            RpcTest::basic(
                 EthTraceFilter::request((EthTraceFilterCriteria {
                     from_block: Some(Predefined::Safe.to_string()),
                     count: Some(1.into()),
@@ -2125,7 +2125,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(
                     ..Default::default()
                 },))?
                 .with_api_path(api_path),
-            ),
+            )
+            .ignore("`finalized` is not supported by Lotus yet"),
             RpcTest::identity(EthTraceFilter::request((EthTraceFilterCriteria {
                 from_block: Some(Predefined::Latest.to_string()),
                 count: Some(1.into()),
