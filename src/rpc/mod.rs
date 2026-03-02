@@ -833,16 +833,19 @@ mod tests {
 
     #[test]
     fn test_rpc_server() {
+        const TIMEOUT: Duration = Duration::from_secs(5);
+        let (done_tx, done_rx) = flume::bounded(1);
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap();
-        rt.block_on(async { test_rpc_server_inner().await });
+        rt.block_on(async move { test_rpc_server_inner(done_tx).await });
+        done_rx.recv().unwrap();
         // To mitigate the transient timeout issue
-        rt.shutdown_timeout(Duration::from_secs(5));
+        rt.shutdown_timeout(TIMEOUT);
     }
 
-    async fn test_rpc_server_inner() {
+    async fn test_rpc_server_inner(done_tx: flume::Sender<()>) {
         let chain = NetworkChain::Calibnet;
         let db = Arc::new(MemoryDB::default());
         let mut services = JoinSet::new();
@@ -892,6 +895,8 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
+        drop(client);
+
         println!("sending a few websocket requests");
 
         let client = Client::from_url(
@@ -905,6 +910,8 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
+        drop(client);
+
         // Gracefully shutdown the RPC server
         println!("sending shutdown signal");
         shutdown_send.send(()).await.unwrap();
@@ -915,5 +922,6 @@ mod tests {
         println!("waiting on graceful shutdown");
         handle.await.unwrap().unwrap();
         println!("done");
+        done_tx.send(()).unwrap();
     }
 }
