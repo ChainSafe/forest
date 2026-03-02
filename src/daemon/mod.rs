@@ -739,7 +739,7 @@ async fn maybe_set_snapshot_path(
                 "Forest requires a snapshot to sync with the network, but automatic fetching is disabled."
             );
             let message = format!(
-                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+                "Fetch a {} snapshot? (denying will exit the program). ",
                 indicatif::HumanBytes(num_bytes)
             );
             let have_permission = asyncify(|| {
