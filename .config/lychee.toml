@@ -4,33 +4,13 @@
 
 verbose = "debug"
 no_progress = true
-exclude_path = ["./node_modules", "./docs/node_modules", "./documentation", "./target"]
+# docs are checked via Docusaurus link checker, so we can skip them here
+exclude_path = ["./node_modules", "./target", "./docs/", "./build"]
 exclude = [
   # Avoid Github rate limits
   "github.com/ChainSafe/forest",
-  # Requires CAPTCHA verification
-  "faucet.calibnet.chainsafe-fil.io/funds.html",
-  # Bot protection
-  "jwt.io",
-  "forest-explorer.chainsafe.dev",
   # Maybe temporarily down with 404, but it blocks the CI
   "filecoin.io/slack",
-  # Bot protection / 403 Forbidden errors
-  "crates.io",
-  # Bot protection / 403 Forbidden errors
-  "linuxhint.com",
-  # Bot protection / 403 Forbidden errors
-  "wikipedia.org",
-  # Probably bot protection / 404 but works in browser
-  "ubuntu.com",
-  # Bot protection / 403 Forbidden errors
-  "beryx.io/faucet",
-  # Frequent timeouts
-  "curiostorage.org",
-  # Bot protection / 403 Forbidden errors
-  "probelab.io",
-  # Bot protection / 403 Forbidden errors
-  "beryx.io",
 ]
 timeout = 30
 max_retries = 6

@@ -10,7 +10,7 @@ sidebar_position: 4
 When running a Filecoin node, you might want to restrict the RPC methods that are available to the clients. This can be useful for security reasons, to limit the exposure of the node to the internet, or to reduce the load on the node by disabling unnecessary methods.
 
 :::note
-[JWT authentication](../knowledge_base/jwt_handling.md) is a different way to restrict access to the node. It allows you to authorize certain operations on the node using JWTs. However, JWT restrictions are hard-coded in the node and cannot be changed dynamically. If you want to make sure that a certain read-only method is not available to the clients, you can use the method filtering feature.
+[JWT authentication](../knowledge_base/jwt_handling) is a different way to restrict access to the node. It allows you to authorize certain operations on the node using JWTs. However, JWT restrictions are hard-coded in the node and cannot be changed dynamically. If you want to make sure that a certain read-only method is not available to the clients, you can use the method filtering feature.
 
 The methods are first filtered by the method filtering feature, and then the JWT authentication is applied. If a method is disallowed by the method filtering, the JWT token will not be checked for this method.
 :::

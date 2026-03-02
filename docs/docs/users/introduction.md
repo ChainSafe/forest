@@ -40,7 +40,7 @@ Forest consists of multiple binaries:
 - `forest-tool` - Utilities for maintaining and debugging Forest
 - `forest-wallet` - Manage the built-in wallet
 
-Check out the [CLI docs](./reference/cli.md) for more details.
+Check out the [CLI docs](./reference/cli) for more details.
 
 ## Roadmap Updates
 
