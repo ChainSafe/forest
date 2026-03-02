@@ -831,8 +831,18 @@ mod tests {
         insta::assert_yaml_snapshot!(path.path(), spec);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_rpc_server() {
+    #[test]
+    fn test_rpc_server() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async { test_rpc_server_inner().await });
+        // To mitigate the transient timeout issue
+        rt.shutdown_timeout(Duration::from_secs(5));
+    }
+
+    async fn test_rpc_server_inner() {
         let chain = NetworkChain::Calibnet;
         let db = Arc::new(MemoryDB::default());
         let mut services = JoinSet::new();
@@ -895,9 +905,6 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
-        // Explicitly drop the WebSocket client to close the connection
-        drop(client);
-
         // Gracefully shutdown the RPC server
         println!("sending shutdown signal");
         shutdown_send.send(()).await.unwrap();
@@ -908,6 +915,5 @@ mod tests {
         println!("waiting on graceful shutdown");
         handle.await.unwrap().unwrap();
         println!("done");
-        std::process::exit(0);
     }
 }
