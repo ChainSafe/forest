@@ -425,6 +425,8 @@ impl RpcMethod<1> for ForestChainExport {
             recent_roots,
             output_path,
             tipset_keys: ApiTipsetKey(tsk),
+            message_receipts,
+            events,
             skip_checksum,
             dry_run,
         } = params;
@@ -448,6 +450,8 @@ impl RpcMethod<1> for ForestChainExport {
 
         let options = Some(ExportOptions {
             skip_checksum,
+            message_receipts,
+            events,
             seen: Default::default(),
         });
         let writer = if dry_run {
@@ -682,6 +686,8 @@ impl RpcMethod<1> for ChainExport {
                 recent_roots,
                 output_path,
                 tipset_keys,
+                message_receipts: false,
+                events: false,
                 skip_checksum,
                 dry_run,
             },),
@@ -1468,6 +1474,8 @@ pub struct ForestChainExportParams {
     #[schemars(with = "LotusJson<ApiTipsetKey>")]
     #[serde(with = "crate::lotus_json")]
     pub tipset_keys: ApiTipsetKey,
+    pub message_receipts: bool,
+    pub events: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }

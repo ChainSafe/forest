@@ -33,6 +33,8 @@ use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 #[derive(Debug, Clone, Default)]
 pub struct ExportOptions {
     pub skip_checksum: bool,
+    pub message_receipts: bool,
+    pub events: bool,
     pub seen: CidHashSet,
 }
 
@@ -140,6 +142,8 @@ async fn export_to_forest_car<D: Digest>(
 ) -> anyhow::Result<Option<digest::Output<D>>> {
     let ExportOptions {
         skip_checksum,
+        message_receipts,
+        events,
         seen,
     } = options.unwrap_or_default();
 
@@ -161,6 +165,8 @@ async fn export_to_forest_car<D: Digest>(
             stateroot_lookup_limit,
         )
         .with_seen(seen)
+        .with_message_receipts(message_receipts)
+        .with_events(events)
         .track_progress(true),
     );
 
