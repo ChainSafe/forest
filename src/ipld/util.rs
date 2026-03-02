@@ -365,6 +365,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                         .collect(),
                                 ));
                             }
+                            // ignore failure as receipts are not required by a lite snapshot
                             if *this.events
                                 && let Ok(receipts) =
                                     Receipt::get_receipts(this.db, block.message_receipts)

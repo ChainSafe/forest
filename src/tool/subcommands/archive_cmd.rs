@@ -430,9 +430,9 @@ impl ArchiveInfo {
                 message_receipts += 1;
                 for receipt in receipts {
                     if let Some(events_root) = receipt.events_root()
-                        && StampedEvent::get_events(store, &events_root).is_ok()
+                        && let Ok(e) = StampedEvent::get_events(store, &events_root)
                     {
-                        events += 1;
+                        events += e.len();
                     }
                 }
             }

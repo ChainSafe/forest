@@ -1474,7 +1474,9 @@ pub struct ForestChainExportParams {
     #[schemars(with = "LotusJson<ApiTipsetKey>")]
     #[serde(with = "crate::lotus_json")]
     pub tipset_keys: ApiTipsetKey,
+    #[serde(default)]
     pub message_receipts: bool,
+    #[serde(default)]
     pub events: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
