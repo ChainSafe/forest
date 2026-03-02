@@ -2471,7 +2471,7 @@ fn calculate_rewards_and_gas_used(
         .map(|_| EthBigInt(MIN_GAS_PREMIUM.into()))
         .collect_vec();
     if !tx_gas_rewards.is_empty() {
-        tx_gas_rewards.sort_by_key(|i| i.premium.clone());
+        tx_gas_rewards.sort_by(|a, b| a.premium.cmp(&b.premium));
         let mut idx = 0;
         let mut sum = 0;
         #[allow(clippy::indexing_slicing)]
@@ -4505,13 +4505,7 @@ async fn trace_filter(
 
     Ok(results
         .into_iter()
-        .sorted_by_key(|trace| {
-            (
-                trace.block_number,
-                trace.transaction_position,
-                trace.trace.trace_address.clone(),
-            )
-        })
+        .sorted_by(|a, b| a.sort_key().cmp(&b.sort_key()))
         .collect_vec())
 }
 
