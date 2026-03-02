@@ -859,7 +859,7 @@ mod tests {
 
         let handle = tokio::spawn(start_rpc(state, rpc_listener, stop_handle, None));
 
-        // Send a few http requests
+        println!("sending a few http requests");
 
         let client = Client::from_url(
             format!("http://{}:{}/", rpc_address.ip(), rpc_address.port())
@@ -882,7 +882,7 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
-        // Send a few websocket requests
+        println!("sending a few websocket requests");
 
         let client = Client::from_url(
             format!("ws://{}:{}/", rpc_address.ip(), rpc_address.port())
@@ -899,9 +899,13 @@ mod tests {
         drop(client);
 
         // Gracefully shutdown the RPC server
+        println!("sending shutdown signal");
         shutdown_send.send(()).await.unwrap();
+        println!("waiting on shutdown receiver");
         shutdown_recv.recv().await;
+        println!("sending server stop signal");
         server_handle.stop().unwrap();
+        println!("waiting on graceful shutdown");
         handle.await.unwrap().unwrap();
     }
 }
