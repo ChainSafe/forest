@@ -180,11 +180,14 @@ impl<DB, T> ChainStream<DB, T> {
         self
     }
 
+    /// Enable traversal of message receipt roots during chain export.
     pub fn with_message_receipts(mut self, message_receipts: bool) -> Self {
         self.message_receipts = message_receipts;
         self
     }
 
+    /// Enable traversal of events roots during chain export.
+    /// Requires message receipts to be enabled as well.
     pub fn with_events(mut self, events: bool) -> Self {
         self.events = events;
         self
