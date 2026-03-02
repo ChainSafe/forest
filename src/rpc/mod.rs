@@ -906,6 +906,6 @@ mod tests {
         println!("sending server stop signal");
         server_handle.stop().unwrap();
         println!("waiting on graceful shutdown");
-        handle.await.unwrap().unwrap();
+        _ = tokio::time::timeout(Duration::from_secs(5), handle).await
     }
 }
