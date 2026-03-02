@@ -33,8 +33,8 @@ use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 #[derive(Debug, Clone, Default)]
 pub struct ExportOptions {
     pub skip_checksum: bool,
-    pub message_receipts: bool,
-    pub events: bool,
+    pub include_receipts: bool,
+    pub include_events: bool,
     pub seen: CidHashSet,
 }
 
