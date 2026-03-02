@@ -447,14 +447,18 @@ impl EthFilterSpec {
             }
             ParsedFilterTipsets::Hash(*block_hash)
         } else {
-            let from_block = self.from_block.as_deref().unwrap_or("");
-            let to_block = self.to_block.as_deref().unwrap_or("");
-            let (min, max) = parse_block_range(
-                chain_height,
-                BlockNumberOrHash::from_str(from_block)?,
-                BlockNumberOrHash::from_str(to_block)?,
-                max_filter_height_range,
-            )?;
+            let from_block = self
+                .from_block
+                .as_deref()
+                .map(BlockNumberOrHash::from_str)
+                .transpose()?;
+            let to_block = self
+                .to_block
+                .as_deref()
+                .map(BlockNumberOrHash::from_str)
+                .transpose()?;
+            let (min, max) =
+                parse_block_range(chain_height, from_block, to_block, max_filter_height_range)?;
             ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
         };
 
@@ -531,10 +535,12 @@ impl Matcher for EthFilterSpec {
 // TODO(forest): https://github.com/ChainSafe/forest/issues/6411
 fn parse_block_range(
     heaviest: ChainEpoch,
-    from_block: BlockNumberOrHash,
-    to_block: BlockNumberOrHash,
+    from_block: Option<BlockNumberOrHash>,
+    to_block: Option<BlockNumberOrHash>,
     max_range: ChainEpoch,
 ) -> Result<(ChainEpoch, ChainEpoch), Error> {
+    let from_block = from_block.unwrap_or(BlockNumberOrHash::PredefinedBlock(Predefined::Latest));
+    let to_block = to_block.unwrap_or(BlockNumberOrHash::PredefinedBlock(Predefined::Latest));
     let min_height = match from_block {
         BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
             Predefined::Latest => heaviest,
@@ -946,8 +952,8 @@ mod tests {
         // Test case 1: from_block = "earliest", to_block = "latest"
         let result = parse_block_range(
             heaviest,
-            BlockNumberOrHash::from_str("earliest").unwrap(),
-            BlockNumberOrHash::from_str("latest").unwrap(),
+            Some(BlockNumberOrHash::from_str("earliest").unwrap()),
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
             max_range,
         );
         assert!(result.is_ok());
@@ -958,8 +964,8 @@ mod tests {
         // Test case 2: from_block = "0x1", to_block = "0xA"
         let result = parse_block_range(
             heaviest,
-            BlockNumberOrHash::from_str("0x1").unwrap(),
-            BlockNumberOrHash::from_str("0xA").unwrap(),
+            Some(BlockNumberOrHash::from_str("0x1").unwrap()),
+            Some(BlockNumberOrHash::from_str("0xA").unwrap()),
             max_range,
         );
         assert!(result.is_ok());
@@ -967,41 +973,29 @@ mod tests {
         assert_eq!(min_height, 1); // hex_str_to_epoch("0x1") = 1
         assert_eq!(max_height, 10); // hex_str_to_epoch("0xA") = 10
 
-        // Test case 3: from_block = "latest", to_block = ""
+        // Test case 3: Range too large
         let result = parse_block_range(
             heaviest,
-            BlockNumberOrHash::from_str("latest").unwrap(),
-            BlockNumberOrHash::from_str("").unwrap(),
-            max_range,
-        );
-        assert!(result.is_ok());
-        let (min_height, max_height) = result.unwrap();
-        assert_eq!(min_height, heaviest);
-        assert_eq!(max_height, -1);
-
-        // Test case 4: Range too large
-        let result = parse_block_range(
-            heaviest,
-            BlockNumberOrHash::from_str("earliest").unwrap(),
-            BlockNumberOrHash::from_str("0x100").unwrap(),
+            Some(BlockNumberOrHash::from_str("earliest").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x100").unwrap()),
             max_range,
         );
         assert!(result.is_err());
 
-        // Test case 5: from_block = "latest", to_block = "earliest"
+        // Test case 4: from_block = "latest", to_block = "earliest"
         let result = parse_block_range(
             heaviest,
-            BlockNumberOrHash::from_str("latest").unwrap(),
-            BlockNumberOrHash::from_str("earliest").unwrap(),
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
+            Some(BlockNumberOrHash::from_str("earliest").unwrap()),
             max_range,
         );
         assert!(result.is_err());
 
-        // Test case 6: from_block = "earliest", to_block = "earliest"
+        // Test case 5: from_block = "earliest", to_block = "earliest"
         let result = parse_block_range(
             heaviest,
-            BlockNumberOrHash::from_str("earliest").unwrap(),
-            BlockNumberOrHash::from_str("earliest").unwrap(),
+            Some(BlockNumberOrHash::from_str("earliest").unwrap()),
+            Some(BlockNumberOrHash::from_str("earliest").unwrap()),
             max_range,
         );
         assert!(result.is_ok());
@@ -1009,11 +1003,11 @@ mod tests {
         assert_eq!(min_height, 0);
         assert_eq!(max_height, 0);
 
-        // Test case 7: from_block = "latest", to_block = "latest"
+        // Test case 6: from_block = "latest", to_block = "latest"
         let result = parse_block_range(
             heaviest,
-            BlockNumberOrHash::from_str("latest").unwrap(),
-            BlockNumberOrHash::from_str("latest").unwrap(),
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
             max_range,
         );
         assert!(result.is_ok());
@@ -1021,11 +1015,41 @@ mod tests {
         assert_eq!(min_height, heaviest);
         assert_eq!(max_height, -1);
 
-        // Test case 8: from_block = "earliest", to_block = ""
+        // Test case 7: Both blocks are non-negative but from_block > to_block.
         let result = parse_block_range(
             heaviest,
-            BlockNumberOrHash::from_str("earliest").unwrap(),
-            BlockNumberOrHash::from_str("").unwrap(),
+            Some(BlockNumberOrHash::from_str("0xA").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x1").unwrap()),
+            max_range,
+        );
+        assert!(result.is_err());
+
+        // Test case 8: Both blocks are non-negative, order is correct, but the range is too large.
+        let result = parse_block_range(
+            heaviest,
+            Some(BlockNumberOrHash::from_str("earliest").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x65").unwrap()),
+            max_range,
+        );
+        assert!(result.is_err());
+
+        // Test case 9: Range exactly equal to max_range (boundary, should succeed).
+        let result = parse_block_range(
+            heaviest,
+            Some(BlockNumberOrHash::from_str("earliest").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x64").unwrap()),
+            max_range,
+        );
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, 0);
+        assert_eq!(max_height, 100);
+
+        // Test case 10: Past range exactly equal to max_range (heaviest - min_height == max_range, should succeed).
+        let result = parse_block_range(
+            100, // heaviest
+            Some(BlockNumberOrHash::from_str("earliest").unwrap()),
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
             max_range,
         );
         assert!(result.is_ok());
@@ -1033,56 +1057,47 @@ mod tests {
         assert_eq!(min_height, 0);
         assert_eq!(max_height, -1);
 
-        // Test case 9: from_block = "", to_block = "earliest"
+        // Test case 11: Single block by numeric height.
         let result = parse_block_range(
             heaviest,
-            BlockNumberOrHash::from_str("").unwrap(),
-            BlockNumberOrHash::from_str("earliest").unwrap(),
+            Some(BlockNumberOrHash::from_str("0x32").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x32").unwrap()),
+            max_range,
+        );
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, 50);
+        assert_eq!(max_height, 50);
+
+        // Test case 12: Unsupported type for from_block (BlockHash) returns error.
+        let result = parse_block_range(
+            heaviest,
+            Some(BlockNumberOrHash::BlockHash(EthHash::default())),
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
             max_range,
         );
         assert!(result.is_err());
 
-        // Test case 10: from_block = "", to_block = "latest"
+        // Test case 13: Unsupported type for to_block (BlockHash) returns error.
         let result = parse_block_range(
             heaviest,
-            BlockNumberOrHash::from_str("").unwrap(),
-            BlockNumberOrHash::from_str("latest").unwrap(),
+            Some(BlockNumberOrHash::from_str("earliest").unwrap()),
+            Some(BlockNumberOrHash::BlockHash(EthHash::default())),
+            max_range,
+        );
+        assert!(result.is_err());
+
+        // Test case 14: "pending" behaves like "latest" for from_block and to_block.
+        let result = parse_block_range(
+            heaviest,
+            Some(BlockNumberOrHash::from_str("pending").unwrap()),
+            Some(BlockNumberOrHash::from_str("pending").unwrap()),
             max_range,
         );
         assert!(result.is_ok());
         let (min_height, max_height) = result.unwrap();
         assert_eq!(min_height, heaviest);
         assert_eq!(max_height, -1);
-
-        // Test case 11: from_block = "", to_block = ""
-        let result = parse_block_range(
-            heaviest,
-            BlockNumberOrHash::from_str("").unwrap(),
-            BlockNumberOrHash::from_str("").unwrap(),
-            max_range,
-        );
-        assert!(result.is_ok());
-        let (min_height, max_height) = result.unwrap();
-        assert_eq!(min_height, heaviest);
-        assert_eq!(max_height, -1);
-
-        // Test case 12: Both blocks are non-negative but from_block > to_block.
-        let result = parse_block_range(
-            heaviest,
-            BlockNumberOrHash::from_str("0xA").unwrap(),
-            BlockNumberOrHash::from_str("0x1").unwrap(),
-            max_range,
-        );
-        assert!(result.is_err());
-
-        // Test case 13: Both blocks are non-negative, order is correct, but the range is too large.
-        let result = parse_block_range(
-            heaviest,
-            BlockNumberOrHash::from_str("earliest").unwrap(),
-            BlockNumberOrHash::from_str("0x65").unwrap(),
-            max_range,
-        );
-        assert!(result.is_err());
     }
 
     #[test]
