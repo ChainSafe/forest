@@ -57,7 +57,7 @@ jobs:
       - name: Generate code coverage
         run: mise codecov
       # Save lcov.info as an artifact for debugging purposes
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: lcov.info
           path: lcov.info
