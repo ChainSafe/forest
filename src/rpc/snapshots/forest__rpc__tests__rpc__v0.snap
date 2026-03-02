@@ -6016,6 +6016,12 @@ components:
         epoch:
           type: integer
           format: int64
+        include_events:
+          type: boolean
+          default: false
+        include_receipts:
+          type: boolean
+          default: false
         output_path:
           type: string
         recent_roots:

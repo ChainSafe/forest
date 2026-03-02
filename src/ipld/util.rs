@@ -5,6 +5,7 @@ use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::executor::Receipt;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
@@ -137,7 +138,9 @@ impl Iterator for DfsIter {
 
 enum IterateType {
     Message(Cid),
+    MessageReceipts(Cid),
     StateRoot(Cid),
+    EventsRoot(Cid),
 }
 
 enum Task {
@@ -155,6 +158,8 @@ pin_project! {
         seen: CidHashSet,
         stateroot_limit_exclusive: ChainEpoch,
         fail_on_dead_links: bool,
+        message_receipts: bool,
+        events: bool,
         track_progress: bool,
     }
 }
@@ -172,6 +177,19 @@ impl<DB, T> ChainStream<DB, T> {
 
     pub fn track_progress(mut self, track_progress: bool) -> Self {
         self.track_progress = track_progress;
+        self
+    }
+
+    /// Enable traversal of message receipt roots during chain export.
+    pub fn with_message_receipts(mut self, message_receipts: bool) -> Self {
+        self.message_receipts = message_receipts;
+        self
+    }
+
+    /// Enable traversal of events roots during chain export.
+    /// Requires message receipts to be enabled as well.
+    pub fn with_events(mut self, events: bool) -> Self {
+        self.events = events;
         self
     }
 
@@ -204,6 +222,8 @@ pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
         seen: CidHashSet::default(),
         stateroot_limit_exclusive,
         fail_on_dead_links: true,
+        message_receipts: false,
+        events: false,
         track_progress: false,
     }
 }
@@ -276,6 +296,20 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                         IterateType::StateRoot(c) => {
                                             format!("state root {c}")
                                         }
+                                        IterateType::MessageReceipts(c) => {
+                                            // Forgive message receipts
+                                            tracing::trace!(
+                                                "[Iterate] missing key: {cid} from message receipts {c} in block {block_cid} at epoch {epoch}"
+                                            );
+                                            continue;
+                                        }
+                                        IterateType::EventsRoot(c) => {
+                                            // Forgive events
+                                            tracing::trace!(
+                                                "[Iterate] missing key: {cid} from events root {c} in block {block_cid} at epoch {epoch}"
+                                            );
+                                            continue;
+                                        }
                                     };
                                     return Poll::Ready(Some(Err(anyhow::anyhow!(
                                         "[Iterate] missing key: {cid} from {type_display} in block {block_cid} at epoch {epoch}"
@@ -318,6 +352,34 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                     .filter_map(ipld_to_cid)
                                     .collect(),
                             ));
+                            if *this.message_receipts {
+                                this.dfs.push_back(Iterate(
+                                    block.epoch,
+                                    *block.cid(),
+                                    IterateType::MessageReceipts(block.message_receipts),
+                                    DfsIter::from(block.message_receipts)
+                                        .filter_map(ipld_to_cid)
+                                        .collect(),
+                                ));
+                            }
+                            // ignore failure as receipts are not required by a lite snapshot
+                            if *this.events
+                                && let Ok(receipts) =
+                                    Receipt::get_receipts(this.db, block.message_receipts)
+                            {
+                                for receipt in receipts {
+                                    if let Some(events_root) = receipt.events_root() {
+                                        this.dfs.push_back(Iterate(
+                                            block.epoch,
+                                            *block.cid(),
+                                            IterateType::EventsRoot(events_root),
+                                            DfsIter::from(events_root)
+                                                .filter_map(ipld_to_cid)
+                                                .collect(),
+                                        ));
+                                    }
+                                }
+                            }
                         }
 
                         // Visit the block if it's within required depth. And a special case for `0`
