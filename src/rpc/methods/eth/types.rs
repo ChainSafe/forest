@@ -662,6 +662,16 @@ pub struct EthBlockTrace {
 }
 lotus_json_with_self!(EthBlockTrace);
 
+impl EthBlockTrace {
+    pub fn sort_key(&self) -> (i64, i64, &[i64]) {
+        (
+            self.block_number,
+            self.transaction_position,
+            self.trace.trace_address.as_slice(),
+        )
+    }
+}
+
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthReplayBlockTransactionTrace {

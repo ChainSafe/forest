@@ -2501,7 +2501,7 @@ pub(super) async fn create_tests(
             eth_chain_id,
         )?);
     }
-    tests.sort_by_key(|test| test.request.method_name.clone());
+    tests.sort_by(|a, b| a.request.method_name.cmp(&b.request.method_name));
 
     tests.extend(create_deferred_tests(snapshot_files)?);
     Ok(tests)
