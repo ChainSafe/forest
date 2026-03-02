@@ -246,12 +246,6 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
 
-        if self.events && !self.message_receipts {
-            return Poll::Ready(Some(Err(anyhow::anyhow!(
-                "message receipts must be included when events are included"
-            ))));
-        }
-
         let fail_on_dead_links = self.fail_on_dead_links;
         let stateroot_limit_exclusive = self.stateroot_limit_exclusive;
         let this = self.project();

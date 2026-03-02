@@ -427,12 +427,12 @@ impl ArchiveInfo {
             }
 
             if let Ok(receipts) = Receipt::get_receipts(store, *tipset.parent_message_receipts()) {
-                message_receipts += 1;
+                message_receipts_count += 1;
                 for receipt in receipts {
                     if let Some(events_root) = receipt.events_root()
                         && let Ok(e) = StampedEvent::get_events(store, &events_root)
                     {
-                        events += e.len();
+                        events_count += e.len();
                     }
                 }
             }
@@ -460,8 +460,8 @@ impl ArchiveInfo {
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
-            message_receipts,
-            events,
+            message_receipts: message_receipts_count,
+            events: events_count,
             head,
             snapshot_version,
             index_size_bytes,
@@ -627,8 +627,8 @@ pub async fn do_export(
         writer,
         Some(ExportOptions {
             skip_checksum: true,
-            message_receipts: false,
-            events: false,
+            include_receipts: false,
+            include_events: false,
             seen,
         }),
     )

@@ -408,7 +408,7 @@ pub enum ForestChainExport {}
 impl RpcMethod<1> for ForestChainExport {
     const NAME: &'static str = "Forest.ChainExport";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ForestChainExportParams,);
@@ -425,8 +425,8 @@ impl RpcMethod<1> for ForestChainExport {
             recent_roots,
             output_path,
             tipset_keys: ApiTipsetKey(tsk),
-            message_receipts,
-            events,
+            include_receipts,
+            include_events,
             skip_checksum,
             dry_run,
         } = params;
@@ -450,8 +450,8 @@ impl RpcMethod<1> for ForestChainExport {
 
         let options = Some(ExportOptions {
             skip_checksum,
-            message_receipts,
-            events,
+            include_receipts,
+            include_events,
             seen: Default::default(),
         });
         let writer = if dry_run {
@@ -538,7 +538,7 @@ pub enum ForestChainExportStatus {}
 impl RpcMethod<0> for ForestChainExportStatus {
     const NAME: &'static str = "Forest.ChainExportStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -579,7 +579,7 @@ pub enum ForestChainExportCancel {}
 impl RpcMethod<0> for ForestChainExportCancel {
     const NAME: &'static str = "Forest.ChainExportCancel";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -603,7 +603,7 @@ pub enum ForestChainExportDiff {}
 impl RpcMethod<1> for ForestChainExportDiff {
     const NAME: &'static str = "Forest.ChainExportDiff";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ForestChainExportDiffParams,);
@@ -686,8 +686,8 @@ impl RpcMethod<1> for ChainExport {
                 recent_roots,
                 output_path,
                 tipset_keys,
-                message_receipts: false,
-                events: false,
+                include_receipts: false,
+                include_events: false,
                 skip_checksum,
                 dry_run,
             },),
@@ -1475,9 +1475,9 @@ pub struct ForestChainExportParams {
     #[serde(with = "crate::lotus_json")]
     pub tipset_keys: ApiTipsetKey,
     #[serde(default)]
-    pub message_receipts: bool,
+    pub include_receipts: bool,
     #[serde(default)]
-    pub events: bool,
+    pub include_events: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }

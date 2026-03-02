@@ -256,8 +256,8 @@ where
             file,
             Some(ExportOptions {
                 skip_checksum: true,
-                message_receipts: true,
-                events: true,
+                include_receipts: true,
+                include_events: true,
                 seen: Default::default(),
             }),
         )

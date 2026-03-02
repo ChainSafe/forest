@@ -22,6 +22,46 @@ methods:
           - $ref: "#/components/schemas/Tipset"
           - type: "null"
     paramStructure: by-position
+  - name: Forest.ChainExport
+    params:
+      - name: params
+        required: true
+        schema:
+          $ref: "#/components/schemas/ForestChainExportParams"
+    result:
+      name: Forest.ChainExport.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/ApiExportResult"
+    paramStructure: by-position
+  - name: Forest.ChainExportDiff
+    params:
+      - name: params
+        required: true
+        schema:
+          $ref: "#/components/schemas/ForestChainExportDiffParams"
+    result:
+      name: Forest.ChainExportDiff.Result
+      required: true
+      schema:
+        type: "null"
+    paramStructure: by-position
+  - name: Forest.ChainExportStatus
+    params: []
+    result:
+      name: Forest.ChainExportStatus.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/ApiExportStatus"
+    paramStructure: by-position
+  - name: Forest.ChainExportCancel
+    params: []
+    result:
+      name: Forest.ChainExportCancel.Result
+      required: true
+      schema:
+        type: boolean
+    paramStructure: by-position
   - name: Filecoin.EthAccounts
     params: []
     result:
@@ -1486,6 +1526,39 @@ components:
         - v
         - r
         - s
+    ApiExportResult:
+      oneOf:
+        - type: string
+          enum:
+            - Cancelled
+        - type: object
+          properties:
+            Done:
+              type:
+                - string
+                - "null"
+          additionalProperties: false
+          required:
+            - Done
+    ApiExportStatus:
+      type: object
+      properties:
+        cancelled:
+          type: boolean
+        exporting:
+          type: boolean
+        progress:
+          type: number
+          format: double
+        start_time:
+          type:
+            - string
+            - "null"
+          format: date-time
+      required:
+        - progress
+        - exporting
+        - cancelled
     Base64String:
       type:
         - string
@@ -2268,8 +2341,65 @@ components:
         - $ref: "#/components/schemas/EthHash"
         - $ref: "#/components/schemas/BlockNumber"
         - $ref: "#/components/schemas/BlockHash"
+    FilecoinSnapshotVersion:
+      type: string
+      enum:
+        - V1
+        - V2
     FilterID:
       $ref: "#/components/schemas/EthHash"
+    ForestChainExportDiffParams:
+      type: object
+      properties:
+        depth:
+          type: integer
+          format: int64
+        from:
+          type: integer
+          format: int64
+        output_path:
+          type: string
+        to:
+          type: integer
+          format: int64
+      required:
+        - from
+        - to
+        - depth
+        - output_path
+    ForestChainExportParams:
+      type: object
+      properties:
+        dry_run:
+          type: boolean
+        epoch:
+          type: integer
+          format: int64
+        include_events:
+          type: boolean
+          default: false
+        include_receipts:
+          type: boolean
+          default: false
+        output_path:
+          type: string
+        recent_roots:
+          type: integer
+          format: int64
+        skip_checksum:
+          type: boolean
+        tipset_keys:
+          $ref: "#/components/schemas/Nullable_Array_of_Cid"
+        version:
+          $ref: "#/components/schemas/FilecoinSnapshotVersion"
+      required:
+        - version
+        - epoch
+        - recent_roots
+        - output_path
+        - tipset_keys
+        - skip_checksum
+        - dry_run
     NonEmpty_Array_of_BlockHeader:
       type: array
       items:
@@ -2297,6 +2427,12 @@ components:
         - "null"
       items:
         $ref: "#/components/schemas/BeaconEntry"
+    Nullable_Array_of_Cid:
+      type:
+        - array
+        - "null"
+      items:
+        $ref: "#/components/schemas/Cid"
     Nullable_Array_of_PoStProof:
       type:
         - array

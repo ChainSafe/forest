@@ -142,10 +142,14 @@ async fn export_to_forest_car<D: Digest>(
 ) -> anyhow::Result<Option<digest::Output<D>>> {
     let ExportOptions {
         skip_checksum,
-        message_receipts,
-        events,
+        include_receipts,
+        include_events,
         seen,
     } = options.unwrap_or_default();
+
+    if include_events && !include_receipts {
+        anyhow::bail!("message receipts must be included when events are included");
+    }
 
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
 
@@ -165,8 +169,8 @@ async fn export_to_forest_car<D: Digest>(
             stateroot_lookup_limit,
         )
         .with_seen(seen)
-        .with_message_receipts(message_receipts)
-        .with_events(events)
+        .with_message_receipts(include_receipts)
+        .with_events(include_events)
         .track_progress(true),
     );
 
