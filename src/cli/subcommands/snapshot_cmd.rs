@@ -143,6 +143,8 @@ impl SnapshotCommands {
                     recent_roots: depth,
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: tipset.key().clone().into(),
+                    include_receipts: false,
+                    include_events: false,
                     skip_checksum,
                     dry_run,
                 };

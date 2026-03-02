@@ -297,9 +297,19 @@ impl From<[u8; EVM_WORD_LENGTH]> for EthHash {
 }
 
 #[derive(
-    PartialEq, Debug, Clone, Copy, Serialize, Deserialize, Default, JsonSchema, strum::Display,
+    PartialEq,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    Default,
+    JsonSchema,
+    strum::Display,
+    strum::EnumString,
 )]
-#[serde(rename_all = "camelCase")]
+#[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum Predefined {
     Earliest,
     Pending,
@@ -362,18 +372,13 @@ impl BlockNumberOrHash {
     }
 
     pub fn from_str(s: &str) -> Result<Self, Error> {
-        match s {
-            "earliest" => Ok(Predefined::Earliest.into()),
-            "pending" => Ok(Predefined::Pending.into()),
-            "latest" | "" => Ok(Predefined::Latest.into()),
-            "safe" => Ok(Predefined::Safe.into()),
-            "finalized" => Ok(Predefined::Finalized.into()),
-            hex if hex.starts_with("0x") => {
-                let epoch = hex_str_to_epoch(hex)?;
-                Ok(BlockNumberOrHash::from_block_number(epoch))
-            }
-            _ => Err(anyhow!("Invalid block identifier")),
+        if s.starts_with("0x") {
+            let epoch = hex_str_to_epoch(s)?;
+            return Ok(BlockNumberOrHash::from_block_number(epoch));
         }
+        s.parse::<Predefined>()
+            .map_err(|_| anyhow!("Invalid block identifier"))
+            .map(BlockNumberOrHash::from)
     }
 }
 
@@ -3700,10 +3705,10 @@ async fn get_eth_block_number_from_string<DB: Blockstore + Send + Sync + 'static
     resolve: ResolveNullTipset,
     api_path: ApiPaths,
 ) -> Result<EthUint64> {
-    let block_param = match block {
-        Some(block_str) => BlockNumberOrHash::from_str(block_str)?,
-        None => bail!("cannot parse fromBlock"),
-    };
+    let block_param = block
+        .map(BlockNumberOrHash::from_str)
+        .transpose()?
+        .unwrap_or(BlockNumberOrHash::PredefinedBlock(Predefined::Latest));
     let resolver = TipsetResolver::new(ctx, api_path);
     Ok(EthUint64(
         resolver
@@ -3719,7 +3724,7 @@ impl RpcMethod<1> for EthTraceFilter {
     const NAME: &'static str = "Filecoin.EthTraceFilter";
     const NAME_ALIAS: Option<&'static str> = Some("trace_filter");
     const PARAM_NAMES: [&'static str; 1] = ["filter"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the traces for transactions matching the filter criteria.");
@@ -3750,17 +3755,7 @@ impl RpcMethod<1> for EthTraceFilter {
         .await
         .context("cannot parse toBlock")?;
 
-        Ok(trace_filter(ctx, filter, from_block, to_block, ext)
-            .await?
-            .into_iter()
-            .sorted_by_key(|trace| {
-                (
-                    trace.block_number,
-                    trace.transaction_position,
-                    trace.trace.trace_address.clone(),
-                )
-            })
-            .collect_vec())
+        Ok(trace_filter(ctx, filter, from_block, to_block, ext).await?)
     }
 }
 
@@ -3770,10 +3765,10 @@ async fn trace_filter(
     from_block: EthUint64,
     to_block: EthUint64,
     ext: &http::Extensions,
-) -> Result<HashSet<EthBlockTrace>> {
+) -> Result<Vec<EthBlockTrace>> {
     let mut results = HashSet::default();
     if let Some(EthUint64(0)) = filter.count {
-        return Ok(results);
+        return Ok(Vec::new());
     }
     let count = *filter.count.unwrap_or_default();
     ensure!(
@@ -3784,7 +3779,8 @@ async fn trace_filter(
     );
 
     let mut trace_counter = 0;
-    for blk_num in from_block.0..=to_block.0 {
+    'blocks: for blk_num in from_block.0..=to_block.0 {
+        // For BlockNumber, EthTraceBlock and EthTraceBlockV2 are equivalent.
         let block_traces = EthTraceBlock::handle(
             ctx.clone(),
             (BlockNumberOrHash::from_block_number(blk_num as i64),),
@@ -3806,7 +3802,7 @@ async fn trace_filter(
                 results.insert(block_trace);
 
                 if filter.count.is_some() && results.len() >= count as usize {
-                    return Ok(results);
+                    break 'blocks;
                 } else if results.len() > *FOREST_TRACE_FILTER_MAX_RESULT as usize {
                     bail!(
                         "too many results, maximum supported is {}, try paginating requests with After and Count",
@@ -3817,7 +3813,16 @@ async fn trace_filter(
         }
     }
 
-    Ok(results)
+    Ok(results
+        .into_iter()
+        .sorted_by_key(|trace| {
+            (
+                trace.block_number,
+                trace.transaction_position,
+                trace.trace.trace_address.clone(),
+            )
+        })
+        .collect_vec())
 }
 
 #[cfg(test)]

@@ -256,7 +256,9 @@ where
             file,
             Some(ExportOptions {
                 skip_checksum: true,
-                ..Default::default()
+                include_receipts: true,
+                include_events: true,
+                seen: Default::default(),
             }),
         )
         .await?;

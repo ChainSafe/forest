@@ -39,8 +39,10 @@
 !Filecoin.StateMinerAllocated
 !Filecoin.StateMinerAvailableBalance
 !Filecoin.StateMinerFaults
+!Filecoin.StateMinerInitialPledgeCollateral
 !Filecoin.StateMinerInitialPledgeForSector
 !Filecoin.StateMinerPartitions
+!Filecoin.StateMinerPreCommitDepositForPower
 !Filecoin.StateMinerRecoveries
 !Filecoin.StateMinerSectorAllocated
 !Filecoin.StateMinerSectors

@@ -31,9 +31,23 @@
 
 ### Changed
 
+- [#6631](https://github.com/ChainSafe/forest/issues/6631): Backported F3 finality resolution to ETH v1 RPC methods.
+
 ### Removed
 
 ### Fixed
+
+## Forest v0.32.3 "Unimpressive Serenity"
+
+### Added
+
+- [#6522](https://github.com/ChainSafe/forest/pull/6522): Implemented `Filecoin.EthTraceFilter` for API v2.
+
+### Changed
+
+- [#6655](https://github.com/ChainSafe/forest/issues/6655): Updated garbage collector to keep message receipts and events.
+
+- [#6522](https://github.com/ChainSafe/forest/pull/6522): `Filecoin.EthTraceFilter` filter options `from_block` and `to_block` now default to `latest` tag when omitted for v1 and v2 API.
 
 ## Forest v0.32.2 "Phagun"
 
@@ -48,8 +62,6 @@ This is a non-mandatory release for all node operators. It brings significant pe
 - [#6185](https://github.com/ChainSafe/forest/issues/6185): Implemented `Forest.TraceCall` RPC method for API v1 and v2.
 
 ### Changed
-
-- [#6631](https://github.com/ChainSafe/forest/issues/6631): Backported F3 finality resolution to ETH v1 RPC methods.
 
 ### Removed
 

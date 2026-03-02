@@ -1615,24 +1615,17 @@ fn eth_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(EthGetFilterChanges::request((FilterID::new()?,))?)
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,))?),
-        RpcTest::identity(EthTraceFilter::request((EthTraceFilterCriteria {
-            from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
-            to_block: Some(format!(
-                "0x{:x}",
-                shared_tipset.epoch() - SAFE_EPOCH_DELAY_FOR_TESTING
-            )),
-            ..Default::default()
-        },))?)
-        // both nodes could fail on, e.g., "too many results, maximum supported is 500, try paginating
-        // requests with After and Count"
-        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::identity(EthGetTransactionReceipt::request((
-            // A transaction that should not exist, to test the `null` response in case
-            // of missing transaction.
-            EthHash::from_str(
-                "0xf234567890123456789d6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f70809",
-            )?,
-        ))?),
+        RpcTest::identity(
+            EthGetTransactionReceipt::request((
+                // A transaction that should not exist, to test the `null` response in case
+                // of missing transaction.
+                EthHash::from_str(
+                    "0xf234567890123456789d6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f70809",
+                )
+                .unwrap(),
+            ))
+            .unwrap(),
+        ),
     ];
 
     for api_path in [ApiPaths::V1, ApiPaths::V2] {
@@ -2087,6 +2080,63 @@ fn eth_tests_with_tipset<DB: Blockstore>(
                     vec!["trace".to_string()],
                 ))?
                 .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthTraceFilter::request((EthTraceFilterCriteria {
+                    from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
+                    to_block: Some(format!(
+                        "0x{:x}",
+                        shared_tipset.epoch() - SAFE_EPOCH_DELAY_FOR_TESTING
+                    )),
+                    ..Default::default()
+                },))?
+                .with_api_path(api_path),
+            )
+            // both nodes could fail on, e.g., "too many results, maximum supported is 500, try paginating
+            // requests with After and Count"
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthTraceFilter::request((EthTraceFilterCriteria {
+                    from_block: Some(format!(
+                        "0x{:x}",
+                        shared_tipset.epoch() - (SAFE_EPOCH_DELAY_FOR_TESTING + 1)
+                    )),
+                    to_block: Some(format!(
+                        "0x{:x}",
+                        shared_tipset.epoch() - SAFE_EPOCH_DELAY_FOR_TESTING
+                    )),
+                    ..Default::default()
+                },))?
+                .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthTraceFilter::request((EthTraceFilterCriteria {
+                    from_block: Some(Predefined::Safe.to_string()),
+                    count: Some(1.into()),
+                    ..Default::default()
+                },))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthTraceFilter::request((EthTraceFilterCriteria {
+                    from_block: Some(Predefined::Finalized.to_string()),
+                    count: Some(1.into()),
+                    ..Default::default()
+                },))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(EthTraceFilter::request((EthTraceFilterCriteria {
+                from_block: Some(Predefined::Latest.to_string()),
+                count: Some(1.into()),
+                ..Default::default()
+            },))?),
+            RpcTest::identity(
+                EthTraceFilter::request((EthTraceFilterCriteria {
+                    count: Some(1.into()),
+                    ..Default::default()
+                },))
+                .unwrap(),
             ),
         ]);
     }
