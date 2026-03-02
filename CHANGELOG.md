@@ -31,6 +31,8 @@
 
 ### Changed
 
+- [#6655](https://github.com/ChainSafe/forest/issues/6655): Updated garbage collector to keep message receipts and events.
+
 ### Removed
 
 ### Fixed
