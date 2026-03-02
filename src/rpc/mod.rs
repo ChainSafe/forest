@@ -831,8 +831,21 @@ mod tests {
         insta::assert_yaml_snapshot!(path.path(), spec);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_rpc_server() {
+    #[test]
+    fn test_rpc_server() {
+        const TIMEOUT: Duration = Duration::from_secs(5);
+        let (done_tx, done_rx) = flume::bounded(1);
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async move { test_rpc_server_inner(done_tx).await });
+        done_rx.recv().unwrap();
+        // To mitigate the transient timeout issue
+        rt.shutdown_timeout(TIMEOUT);
+    }
+
+    async fn test_rpc_server_inner(done_tx: flume::Sender<()>) {
         let chain = NetworkChain::Calibnet;
         let db = Arc::new(MemoryDB::default());
         let mut services = JoinSet::new();
@@ -859,7 +872,7 @@ mod tests {
 
         let handle = tokio::spawn(start_rpc(state, rpc_listener, stop_handle, None));
 
-        // Send a few http requests
+        println!("sending a few http requests");
 
         let client = Client::from_url(
             format!("http://{}:{}/", rpc_address.ip(), rpc_address.port())
@@ -882,7 +895,9 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
-        // Send a few websocket requests
+        drop(client);
+
+        println!("sending a few websocket requests");
 
         let client = Client::from_url(
             format!("ws://{}:{}/", rpc_address.ip(), rpc_address.port())
@@ -895,13 +910,18 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
-        // Explicitly drop the WebSocket client to close the connection
         drop(client);
 
         // Gracefully shutdown the RPC server
+        println!("sending shutdown signal");
         shutdown_send.send(()).await.unwrap();
+        println!("waiting on shutdown receiver");
         shutdown_recv.recv().await;
+        println!("sending server stop signal");
         server_handle.stop().unwrap();
+        println!("waiting on graceful shutdown");
         handle.await.unwrap().unwrap();
+        println!("done");
+        done_tx.send(()).unwrap();
     }
 }
