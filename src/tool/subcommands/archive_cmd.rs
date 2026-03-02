@@ -386,8 +386,8 @@ impl ArchiveInfo {
         let mut network: String = "unknown".into();
         let mut lowest_stateroot_epoch = root_epoch;
         let mut lowest_message_epoch = root_epoch;
-        let mut message_receipts = 0;
-        let mut events = 0;
+        let mut message_receipts_count = 0;
+        let mut events_count = 0;
 
         let iter = if progress {
             itertools::Either::Left(windowed.progress_count(root_epoch as u64))
