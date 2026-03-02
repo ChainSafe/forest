@@ -282,7 +282,7 @@ async fn handle_snapshots(
     if !auto_download_snapshot {
         warn!("Automatic snapshot download is disabled.");
         let message = format!(
-            "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+            "Fetch a {} snapshot? (denying will exit the program). ",
             indicatif::HumanBytes(num_bytes)
         );
         let have_permission =
