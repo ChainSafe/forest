@@ -355,22 +355,6 @@ lldb target/debugging/forest
 - `FULLNODE_API_INFO` - RPC endpoint and authentication token
 - `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT` - Disable F3 sidecar build (for debugging profile)
 
-## Cargo Features
-
-- **`default`** - `jemalloc`, `tracing-loki`
-- **`test`** - Default feature set for unit tests
-- **`slim`** - Minimal feature set (uses rustalloc)
-- **`jemalloc`** - Use jemalloc allocator (production default)
-- **`rustalloc`** - Use Rust standard allocator
-- **`system-alloc`** - Use system allocator (for memory profiling)
-- **`tokio-console`** - Enable tokio-console integration
-- **`tracing-loki`** - Send telemetry to Loki
-- **`no-f3-sidecar`** - Disable F3 sidecar build
-- **`cargo-test`** - Group of tests that is recommended to run with `cargo test` instead of `nextest`
-- **`doctest-private`** - Enable doctests for private items
-- **`benchmark-private`** - Enable benchmark suite
-- **`interop-tests-private`** - Enable interop tests
-
 ## Build Profiles
 
 - **`dev`** - Fast compile, line-table-only debug info, opt-level=1 for deps
