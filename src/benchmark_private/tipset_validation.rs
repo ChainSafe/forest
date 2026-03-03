@@ -29,11 +29,11 @@ pub fn bench_tipset_validation(c: &mut Criterion) {
                 })
                 .unwrap();
             b.to_async(&rt).iter(|| {
-                state_compute(
+                black_box(state_compute(
                     black_box(&state_manager),
                     black_box(ts.clone()),
                     black_box(&ts_next),
-                )
+                ))
             })
         })
         .bench_function("mainnet@5709604", |b| {
@@ -46,11 +46,11 @@ pub fn bench_tipset_validation(c: &mut Criterion) {
                 })
                 .unwrap();
             b.to_async(&rt).iter(|| {
-                state_compute(
+                black_box(state_compute(
                     black_box(&state_manager),
                     black_box(ts.clone()),
                     black_box(&ts_next),
-                )
+                ))
             })
         });
 
