@@ -35,6 +35,8 @@
 
 ### Removed
 
+- [#6681](https://github.com/ChainSafe/forest/pull/6681) Removed `tracing-chrome` feature and all related code as it was deemed unused. If you didn't set `CHROME_TRACE_FILE` manually before, you shouldn't be affected by this change. If you were using this feature, reach out.
+
 ### Fixed
 
 ## Forest v0.32.3 "Unimpressive Serenity"

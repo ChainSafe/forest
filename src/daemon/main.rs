@@ -35,7 +35,7 @@ where
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the
     // subcommand.
 
-    let (background_tasks, _guards) = logger::setup_logger(&opts);
+    let background_tasks = logger::setup_logger(&opts);
 
     if let Some(path) = &path {
         match path {

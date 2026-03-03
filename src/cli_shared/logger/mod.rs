@@ -11,16 +11,9 @@ use crate::utils::misc::LoggingColor;
 
 type BackgroundTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
-#[derive(Default)]
-pub struct Guards {
-    #[cfg(feature = "tracing-chrome")]
-    tracing_chrome: Option<tracing_chrome::FlushGuard>,
-}
-
 #[allow(unused_mut)]
-pub fn setup_logger(opts: &CliOpts) -> (Vec<BackgroundTask>, Guards) {
+pub fn setup_logger(opts: &CliOpts) -> Vec<BackgroundTask> {
     let mut background_tasks: Vec<BackgroundTask> = vec![];
-    let mut guards = Guards::default();
     let mut layers: Vec<Box<dyn tracing_subscriber::layer::Layer<Registry> + Send + Sync>> =
         // console logger
         vec![Box::new(
@@ -88,30 +81,8 @@ pub fn setup_logger(opts: &CliOpts) -> (Vec<BackgroundTask>, Guards) {
         }
     }
 
-    // Go to <https://ui.perfetto.dev> to browse trace files.
-    // You may want to call ChromeLayerBuilder::trace_style as appropriate
-    if let Some(_chrome_trace_file) = std::env::var_os("CHROME_TRACE_FILE") {
-        #[cfg(not(feature = "tracing-chrome"))]
-        tracing::warn!(
-            "`tracing-chrome` is unavailable, forest binaries need to be recompiled with `tracing-chrome` feature"
-        );
-
-        #[cfg(feature = "tracing-chrome")]
-        {
-            let (layer, guard) = match _chrome_trace_file.is_empty() {
-                true => tracing_chrome::ChromeLayerBuilder::new().build(),
-                false => tracing_chrome::ChromeLayerBuilder::new()
-                    .file(_chrome_trace_file)
-                    .build(),
-            };
-
-            guards.tracing_chrome = Some(guard);
-            layers.push(Box::new(layer));
-        }
-    }
-
     tracing_subscriber::registry().with(layers).init();
-    (background_tasks, guards)
+    background_tasks
 }
 
 // Log warnings to stderr
