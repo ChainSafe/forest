@@ -3,6 +3,7 @@
   "position": 4,
   "link": {
     "type": "generated-index",
+    "slug": "/reference/json-rpc",
     "description": "Forest JSON-RPC API documentation including schema explorer and method reference."
   }
 }
