@@ -317,7 +317,7 @@ pub mod state_compute {
         } = state_manager
             .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
             .await?;
-        println!(
+        tracing::info!(
             "epoch: {epoch}, state_root: {state_root}, receipt_root: {receipt_root}, took {}.",
             humantime::format_duration(start.elapsed())
         );
