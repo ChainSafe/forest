@@ -50,8 +50,8 @@ pub trait BlockstoreReadCacheStats {
 
 #[derive(Debug, Default)]
 pub struct DefaultBlockstoreReadCacheStats {
-    hit: AtomicUsize,
-    miss: AtomicUsize,
+    hit: crossbeam_utils::CachePadded<AtomicUsize>,
+    miss: crossbeam_utils::CachePadded<AtomicUsize>,
 }
 
 impl BlockstoreReadCacheStats for DefaultBlockstoreReadCacheStats {
