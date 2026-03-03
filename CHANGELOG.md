@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#6680](https://github.com/ChainSafe/forest/pull/6680) Made the `tokio-console` feature optional and disabled by default. Users relying on this feature must now explicitly compile Forest with `--features tokio-console` to enable it.
+
 ### Added
 
 ### Changed
