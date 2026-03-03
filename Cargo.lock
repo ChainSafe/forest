@@ -3264,6 +3264,7 @@ dependencies = [
  "colored 3.1.1",
  "console-subscriber",
  "criterion",
+ "crossbeam-utils",
  "crypto_secretbox",
  "cs_serde_bytes",
  "data-encoding",

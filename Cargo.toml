@@ -57,6 +57,7 @@ clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 colored = "3"
 criterion = { version = "0.8", default-features = false, features = ["async_tokio"], optional = true }
+crossbeam-utils = "0.8"
 crypto_secretbox = "0.1"
 data-encoding = "2"
 data-encoding-macro = "0.1"
