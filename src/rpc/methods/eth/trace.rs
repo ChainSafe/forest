@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::types::{
-    EthAddress, EthBytes, EthCallTraceAction, EthHash, EthTrace, TraceAction, TraceResult,
+    EthAddress, EthBytes, EthCallTraceAction, EthHash, EthTrace, GethCallFrame, GethCallType,
+    TraceAction, TraceResult,
 };
-use super::utils::{decode_params, decode_return};
+use super::utils::{decode_params, decode_return, parse_eth_revert};
 use super::{
     EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult, decode_payload,
     encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
@@ -32,6 +33,16 @@ use num::FromPrimitive;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use tracing::debug;
+
+const EVM_REVERTED_CONTRACT: &str = "Reverted"; // capitalized for compatibility
+const EVM_INVALID_INSTRUCTION: &str = "invalid instruction";
+const EVM_UNDEFINED_INSTRUCTION: &str = "undefined instruction";
+const EVM_STACK_UNDERFLOW: &str = "stack underflow";
+const EVM_STACK_OVERFLOW: &str = "stack overflow";
+const EVM_ILLEGAL_MEMORY_ACCESS: &str = "illegal memory access";
+const EVM_BAD_JUMPDEST: &str = "invalid jump destination";
+const EVM_SELFDESTRUCT_FAILED: &str = "self destruct failed";
+const EVM_OUT_OF_GAS: &str = "out of gas";
 
 /// KAMT configuration matching the EVM actor in builtin-actors.
 // Code is taken from: https://github.com/filecoin-project/builtin-actors/blob/v17.0.0/actors/evm/src/interpreter/system.rs#L47
@@ -112,7 +123,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
 
     // EVM tools often expect this literal string.
     if code == ExitCode::SYS_OUT_OF_GAS {
-        return Some("out of gas".into());
+        return Some(EVM_OUT_OF_GAS.into());
     }
 
     // indicate when we have a "system" error.
@@ -123,23 +134,30 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
     // handle special exit codes from the EVM/EAM.
     if trace_is_evm_or_eam(trace) {
         match code.into() {
-            evm12::EVM_CONTRACT_REVERTED => return Some("Reverted".into()), // capitalized for compatibility
-            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => return Some("invalid instruction".into()),
+            evm12::EVM_CONTRACT_REVERTED => return Some(EVM_REVERTED_CONTRACT.into()),
+            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => return Some(EVM_INVALID_INSTRUCTION.into()),
             evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => {
-                return Some("undefined instruction".into());
+                return Some(EVM_UNDEFINED_INSTRUCTION.into());
             }
-            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some("stack underflow".into()),
-            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some("stack overflow".into()),
+            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some(EVM_STACK_UNDERFLOW.into()),
+            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some(EVM_STACK_OVERFLOW.into()),
             evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => {
-                return Some("illegal memory access".into());
+                return Some(EVM_ILLEGAL_MEMORY_ACCESS.into());
             }
-            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some("invalid jump destination".into()),
-            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => return Some("self destruct failed".into()),
+            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some(EVM_BAD_JUMPDEST.into()),
+            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => return Some(EVM_SELFDESTRUCT_FAILED.into()),
             _ => (),
         }
     }
     // everything else...
     Some(format!("actor error: {code}"))
+}
+
+fn parity_error_to_geth(parity_error: &str) -> String {
+    match parity_error {
+        EVM_REVERTED_CONTRACT => "execution reverted".into(),
+        other => other.to_string(),
+    }
 }
 
 /// Recursively builds the traces for a given ExecutionTrace by walking the subcalls
@@ -657,6 +675,157 @@ fn trace_evm_private(
             Ok((None, None))
         }
     }
+}
+
+/// Builds a Geth-style nested call frame tree from a Filecoin execution trace.
+///
+/// Reuses [`build_trace`] for classification and data extraction, then converts
+/// the Parity-style [`EthTrace`] into a nested [`GethCallFrame`].
+pub fn build_geth_call_frame(
+    env: &mut Environment,
+    trace: ExecutionTrace,
+    only_top_call: bool,
+) -> anyhow::Result<Option<GethCallFrame>> {
+    build_geth_frame_recursive(env, trace, true, only_top_call)
+}
+
+fn build_geth_frame_recursive(
+    env: &mut Environment,
+    trace: ExecutionTrace,
+    is_root: bool,
+    only_top_call: bool,
+) -> anyhow::Result<Option<GethCallFrame>> {
+    let msg_to = trace.msg.to;
+    let msg_method = trace.msg.method;
+
+    // Reuse build_trace for all classification logic (EVM call, create, delegatecall, etc.).
+    // Pass an empty address for root (skips the insufficient-funds early-return) and a
+    // non-empty placeholder for subcalls (enables it).
+    let address: &[i64] = if is_root { &[] } else { &[0] };
+    let (eth_trace, recurse_into) = build_trace(env, address, trace)?;
+
+    let eth_trace = match eth_trace {
+        Some(t) => t,
+        None => return Ok(None),
+    };
+
+    let call_type = match &eth_trace.action {
+        TraceAction::Call(action) => GethCallType::from_parity_call_type(&action.call_type),
+        TraceAction::Create(_) => {
+            if msg_to == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
+                && matches!(EAMMethod::from_u64(msg_method), Some(EAMMethod::Create2))
+            {
+                GethCallType::Create2
+            } else {
+                GethCallType::Create
+            }
+        }
+    };
+
+    let mut frame = eth_trace_to_geth_frame(eth_trace, call_type)?;
+
+    if !only_top_call {
+        if let Some(recurse_trace) = recurse_into {
+            if let Some(invoked_actor) = &recurse_trace.invoked_actor {
+                let mut sub_env = Environment {
+                    caller: trace_to_address(invoked_actor),
+                    is_evm: is_evm_actor(&invoked_actor.state.code),
+                    ..Environment::default()
+                };
+                let mut subcalls = Vec::new();
+                for subcall in recurse_trace.subcalls {
+                    if let Some(f) =
+                        build_geth_frame_recursive(&mut sub_env, subcall, false, false)?
+                    {
+                        subcalls.push(f);
+                    }
+                }
+                if !subcalls.is_empty() {
+                    frame.calls = Some(subcalls);
+                }
+            }
+        }
+    }
+
+    Ok(Some(frame))
+}
+
+/// Converts a Parity-style [`EthTrace`] into a Geth-style [`GethCallFrame`].
+fn eth_trace_to_geth_frame(
+    trace: EthTrace,
+    call_type: GethCallType,
+) -> anyhow::Result<GethCallFrame> {
+    let error = trace.error.map(|e| parity_error_to_geth(&e));
+    let is_error = error.is_some();
+    let is_revert = error.as_deref() == Some("execution reverted");
+
+    match (trace.action, trace.result) {
+        (TraceAction::Call(action), TraceResult::Call(result)) => {
+            let mut frame = GethCallFrame {
+                r#type: call_type.clone(),
+                from: action.from,
+                to: action.to,
+                value: if call_type.is_static_call() {
+                    None
+                } else {
+                    Some(action.value)
+                },
+                gas: action.gas,
+                gas_used: result.gas_used,
+                input: action.input,
+                output: (!result.output.is_empty()).then_some(result.output.clone()),
+                error: None,
+                revert_reason: None,
+                calls: None,
+            };
+
+            if is_error {
+                if !is_revert {
+                    frame.gas_used = action.gas;
+                    frame.output = None;
+                } else {
+                    frame.revert_reason = extract_revert_reason(&result.output);
+                }
+                frame.error = error;
+            }
+
+            Ok(frame)
+        }
+        (TraceAction::Create(action), TraceResult::Create(result)) => {
+            let mut frame = GethCallFrame {
+                r#type: call_type,
+                from: action.from,
+                to: result.address,
+                value: Some(action.value),
+                gas: action.gas,
+                gas_used: result.gas_used,
+                input: action.init,
+                output: (!result.code.is_empty()).then_some(result.code.clone()),
+                error: None,
+                revert_reason: None,
+                calls: None,
+            };
+
+            if is_error {
+                frame.to = None;
+                if !is_revert {
+                    frame.gas_used = action.gas;
+                    frame.output = None;
+                } else {
+                    frame.revert_reason = extract_revert_reason(&result.code);
+                }
+                frame.error = error;
+            }
+
+            Ok(frame)
+        }
+        _ => bail!("mismatched trace action and result types"),
+    }
+}
+
+fn extract_revert_reason(output: &EthBytes) -> Option<String> {
+    let reason = parse_eth_revert(&output.0);
+    (!reason.starts_with("0x")).then_some(reason)
 }
 
 /// Build state diff by comparing pre and post-execution states for touched addresses.
