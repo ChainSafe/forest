@@ -320,7 +320,7 @@ lto = "fat"
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome", "sqlite"]
+default = ["jemalloc", "tracing-loki", "tracing-chrome", "sqlite"]
 test = []                                                                           # default feature set for unit tests
 slim = ["rustalloc"]
 cargo-test = []                                                                     # group of tests that is recommended to run with `cargo test` instead of `nextest`
