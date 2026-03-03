@@ -27,13 +27,15 @@
 
 ### Breaking
 
-- [#6680](https://github.com/ChainSafe/forest/pull/6680) Made the `tokio-console` feature optional and disabled by default. Users relying on this feature must now explicitly compile Forest with `--features tokio-console` to enable it.
+- [#6680](https://github.com/ChainSafe/forest/pull/6680): Made the `tokio-console` feature optional and disabled by default. Users relying on this feature must now explicitly compile Forest with `--features tokio-console` to enable it.
 
 ### Added
 
 ### Changed
 
 ### Removed
+
+- [#6681](https://github.com/ChainSafe/forest/pull/6681): Removed `tracing-chrome` feature and all related code as it was deemed unused. If you didn't set `CHROME_TRACE_FILE` manually before, you shouldn't be affected by this change. If you were using this feature, reach out.
 
 ### Fixed
 
