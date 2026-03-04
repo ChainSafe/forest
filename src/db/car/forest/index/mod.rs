@@ -64,13 +64,15 @@
 //! ├──────────────┤ <- Zstd skip frame header)
 //! ```
 
+use crate::db::car::plain::write_skip_frame_header_async;
+
 #[cfg_vis(feature = "benchmark-private", pub)]
 use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _};
 use cfg_vis::cfg_vis;
 use cid::Cid;
-use itertools::Itertools as _;
-use positioned_io::{ReadAt, Size};
+use itertools::Itertools;
+use positioned_io::{ReadAt, ReadBytesAtExt as _, Size};
 use smallvec::{SmallVec, smallvec};
 use std::{
     cmp,
@@ -180,11 +182,88 @@ where
     /// Replace the inner reader.
     /// It MUST point to the same underlying IO, else future calls to `get`
     /// will be incorrect.
-    pub fn map<T>(self, f: impl FnOnce(R) -> T) -> Reader<T> {
-        Reader {
-            inner: f(self.inner),
+    pub fn map<T>(self, f: impl FnOnce(R) -> io::Result<T>) -> io::Result<Reader<T>> {
+        Ok(Reader {
+            inner: f(self.inner)?,
             table_offset: self.table_offset,
             header: self.header,
+        })
+    }
+}
+
+pub struct ZstdSkipFramesEncodedDataReader<R> {
+    reader: R,
+    skip_frame_header_offsets: Vec<u64>,
+}
+
+impl<R: ReadAt> ZstdSkipFramesEncodedDataReader<R> {
+    pub fn new(reader: R) -> io::Result<Self> {
+        let mut offset = 0;
+        let mut skip_frame_header_offsets = vec![];
+        while let Ok(len) = reader.read_u32_at::<LittleEndian>(offset + 4) {
+            skip_frame_header_offsets.push(offset);
+            offset += 8 + len as u64;
+        }
+        Ok(Self {
+            reader,
+            skip_frame_header_offsets,
+        })
+    }
+
+    pub fn inner(&self) -> &R {
+        &self.reader
+    }
+
+    pub fn into_inner(self) -> R {
+        self.reader
+    }
+}
+
+impl<R: Size> Size for ZstdSkipFramesEncodedDataReader<R> {
+    fn size(&self) -> io::Result<Option<u64>> {
+        if let Some(size) = self.reader.size()? {
+            let total_header_size = (self.skip_frame_header_offsets.len() * 8) as u64;
+            if size >= total_header_size {
+                Ok(Some(size - total_header_size))
+            } else {
+                Err(io::Error::other(format!(
+                    "unexpected error: size({size}) < total_header_size({total_header_size})"
+                )))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl<R> ReadAt for ZstdSkipFramesEncodedDataReader<R>
+where
+    R: ReadAt,
+{
+    fn read_at(&self, pos: u64, buf: &mut [u8]) -> io::Result<usize> {
+        let mut amended_pos = pos;
+        let mut next_frame_pos = None;
+        for &p in self.skip_frame_header_offsets.iter() {
+            if p <= amended_pos {
+                amended_pos += 8;
+            } else {
+                next_frame_pos = Some(p);
+                break;
+            }
+        }
+        if let Some(next_frame_pos) = next_frame_pos
+            && amended_pos + buf.len() as u64 > next_frame_pos
+        {
+            let max_read_len = (next_frame_pos - amended_pos) as usize;
+            if max_read_len < buf.len() {
+                #[allow(clippy::indexing_slicing)]
+                Ok(self.reader.read_at(amended_pos, &mut buf[..max_read_len])?
+                    + self.read_at(pos + max_read_len as u64, &mut buf[max_read_len..])?)
+            } else {
+                self.reader.read_at(amended_pos, buf)
+            }
+        } else {
+            self.reader.read_at(amended_pos, buf)
         }
     }
 }
@@ -358,27 +437,6 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn written_len(&self) -> u64 {
-        let Self {
-            version,
-            header,
-            slots,
-        } = self;
-        written_len(version)
-            + written_len(header)
-            // this logic must be kept in sync with [`slots`], below
-            + cmp::max(
-                u64::try_from(
-                    slots
-                        .iter()
-                        .map(|(pre, _)| *pre + 1 /* occupied */)
-                        .sum::<usize>()
-                        + 1, /* trailing */
-                )
-                .unwrap(),
-                header.initial_buckets + 1, /* trailing */
-            ) * Slot::LEN
-    }
     fn slots(
         min_slots: usize,
         slots: impl IntoIterator<Item = (usize, OccupiedSlot)>,
@@ -394,20 +452,40 @@ impl Writer {
             .pad_using(min_slots, |_ix| Slot::Empty)
             .chain(iter::once(Slot::Empty))
     }
-    pub async fn write_into(self, writer: impl AsyncWrite) -> io::Result<()> {
+    pub async fn write_zstd_skip_frames_into(self, writer: impl AsyncWrite) -> io::Result<()> {
+        // write every 128MiB slots to a skip frame
+        const CHUNK_FRAME_DATA_MAX_BYTES: usize = 128 * 1024;
+        self.write_zstd_skip_frames_into_inner(writer, CHUNK_FRAME_DATA_MAX_BYTES)
+            .await
+    }
+    async fn write_zstd_skip_frames_into_inner(
+        self,
+        writer: impl AsyncWrite,
+        skip_frame_data_max_bytes: usize,
+    ) -> io::Result<()> {
         let mut writer = pin!(writer);
         let Self {
             version,
             header,
             slots,
         } = self;
+        // write version and header to a skip frame
+        let frame_data_len: u32 = (written_len(&version) + written_len(&header)) as u32;
+        write_skip_frame_header_async(&mut writer, frame_data_len).await?;
         version.write_to(&mut writer).await?;
         header.write_to(&mut writer).await?;
+
+        let mut buf = Vec::with_capacity(skip_frame_data_max_bytes);
         for slot in Self::slots(
             header.initial_buckets.try_into().unwrap(),
             slots.iter().copied(),
         ) {
-            slot.write_to(&mut writer).await?;
+            slot.write_to(&mut buf).await?;
+            if buf.len() >= skip_frame_data_max_bytes {
+                write_skip_frame_header_async(&mut writer, buf.len() as u32).await?;
+                writer.write_all(&buf).await?;
+                buf.clear();
+            }
         }
         Ok(())
     }
@@ -607,7 +685,7 @@ trait Writable {
 }
 
 /// Useful for exhaustiveness checking
-fn written_len<T: Writable>(_: T) -> u64 {
+fn written_len<T: Writable>(_: &T) -> u64 {
     T::LEN
 }
 
@@ -660,18 +738,21 @@ mod tests {
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
     fn do_hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
-        let subject = Reader::new(write_to_vec(|v| {
+        let r = ZstdSkipFramesEncodedDataReader::new(write_to_vec(|v| {
             let writer =
                 Builder::from_iter(reference.clone().into_iter().flat_map(|(hash, offsets)| {
                     offsets.into_iter().map(move |offset| (hash, offset))
                 }))
                 .into_writer();
-            let expected_len = writer.written_len();
-            block_on(writer.write_into(&mut *v))?;
-            assert_eq!(expected_len as usize, v.len());
+            block_on(writer.write_zstd_skip_frames_into(&mut *v))?;
             Ok(())
         }))
         .unwrap();
+        println!(
+            "skip_frame_header_offsets_len: {}",
+            r.skip_frame_header_offsets.len()
+        );
+        let subject = Reader::new(r).unwrap();
         for (cid, expected) in reference {
             let actual = subject.get(cid).unwrap().into_iter().collect();
             assert!(expected.is_subset(&actual)); // collisions
@@ -687,18 +768,21 @@ mod tests {
     ///
     /// Additionally checks [`Reader::iter`]
     fn do_hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) {
-        let subject = Reader::new(write_to_vec(|v| {
+        let r = ZstdSkipFramesEncodedDataReader::new(write_to_vec(|v| {
             let writer =
                 Builder::from_iter(reference.clone().into_iter().flat_map(|(hash, offsets)| {
                     offsets.into_iter().map(move |offset| (hash, offset))
                 }))
                 .into_writer();
-            let expected_len = writer.written_len();
-            block_on(writer.write_into(&mut *v))?;
-            assert_eq!(expected_len as usize, v.len());
+            block_on(writer.write_zstd_skip_frames_into(&mut *v))?;
             Ok(())
         }))
         .unwrap();
+        println!(
+            "skip_frame_header_offsets_len: {}",
+            r.skip_frame_header_offsets.len()
+        );
+        let subject = Reader::new(r).unwrap();
         for (hash, expected) in &reference {
             let actual = subject.get_by_hash(*hash).unwrap().into_iter().collect();
             assert!(expected.is_subset(&actual)) // collisions
@@ -757,8 +841,7 @@ mod tests {
 
     #[track_caller]
     fn round_trip<T: PartialEq + std::fmt::Debug + Readable + Writable>(original: &T) {
-        let serialized =
-            write_to_vec(|v| tokio::runtime::Runtime::new()?.block_on(original.write_to(v)));
+        let serialized = write_to_vec(|v| block_on(original.write_to(v)));
         assert_eq!(
             serialized.len(),
             usize::try_from(written_len(original)).unwrap()

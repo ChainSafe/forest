@@ -55,6 +55,7 @@ use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
+use human_repr::HumanCount as _;
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use multihash_derive::MultihashDigest as _;
@@ -313,7 +314,7 @@ pub struct ArchiveInfo {
     events: usize,
     head: Tipset,
     snapshot_version: FilecoinSnapshotVersion,
-    index_size_bytes: Option<u32>,
+    index_size_bytes: Option<u64>,
 }
 
 impl std::fmt::Display for ArchiveInfo {
@@ -338,7 +339,7 @@ impl std::fmt::Display for ArchiveInfo {
             write!(
                 f,
                 "Index size:       {}",
-                human_bytes::human_bytes(index_size_bytes)
+                index_size_bytes.human_count_bytes()
             )?;
         }
         Ok(())
@@ -353,7 +354,7 @@ impl ArchiveInfo {
         variant: String,
         heaviest_tipset: Tipset,
         snapshot_version: FilecoinSnapshotVersion,
-        index_size_bytes: Option<u32>,
+        index_size_bytes: Option<u64>,
     ) -> anyhow::Result<Self> {
         Self::from_store_with(
             store,
@@ -373,7 +374,7 @@ impl ArchiveInfo {
         variant: String,
         heaviest_tipset: Tipset,
         snapshot_version: FilecoinSnapshotVersion,
-        index_size_bytes: Option<u32>,
+        index_size_bytes: Option<u64>,
         progress: bool,
     ) -> anyhow::Result<Self> {
         let head = heaviest_tipset;

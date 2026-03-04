@@ -50,12 +50,11 @@ use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::FilecoinSnapshotMetadata;
 use crate::db::car::RandomAccessFileReader;
-use crate::db::car::plain::write_skip_frame_header_async;
+use crate::db::car::forest::index::ZstdSkipFramesEncodedDataReader;
 use crate::utils::db::car_stream::{CarBlock, CarV1Header, uvi_bytes};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::get_size::CidWrapper;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
-use byteorder::LittleEndian;
 use bytes::{BufMut as _, Bytes, BytesMut, buf::Writer};
 use cid::Cid;
 use futures::{Stream, TryStreamExt as _};
@@ -63,7 +62,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 use integer_encoding::VarIntReader;
 use nunny::Vec as NonEmpty;
-use positioned_io::{Cursor, ReadAt, ReadBytesAtExt, SizeCursor};
+use positioned_io::{Cursor, ReadAt, SizeCursor};
 use std::io::{Seek, SeekFrom};
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
@@ -95,8 +94,8 @@ pub struct ForestCar<ReaderT> {
     // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
     // the origin of a cached z-frame.
     cache_key: CacheKey,
-    indexed: index::Reader<positioned_io::Slice<ReaderT>>,
-    index_size_bytes: u32,
+    indexed: index::Reader<index::ZstdSkipFramesEncodedDataReader<positioned_io::Slice<ReaderT>>>,
+    index_size_bytes: u64,
     frame_cache: Arc<ZstdFrameCache>,
     header: CarV1Header,
     metadata: OnceLock<Option<FilecoinSnapshotMetadata>>,
@@ -104,15 +103,10 @@ pub struct ForestCar<ReaderT> {
 
 impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     pub fn new(reader: ReaderT) -> io::Result<ForestCar<ReaderT>> {
-        let (header, footer) = Self::validate_car(&reader)?;
-        let index_size_bytes = reader.read_u32_at::<LittleEndian>(
-            footer.index.saturating_sub(std::mem::size_of::<u32>() as _),
-        )?;
-        let indexed = index::Reader::new(positioned_io::Slice::new(
-            reader,
-            footer.index,
-            Some(index_size_bytes as u64),
-        ))?;
+        let (header, index_start_pos, index_size_bytes) = Self::validate_car(&reader)?;
+        let indexed = index::Reader::new(index::ZstdSkipFramesEncodedDataReader::new(
+            positioned_io::Slice::new(reader, index_start_pos, Some(index_size_bytes)),
+        )?)?;
         Ok(ForestCar {
             cache_key: 0,
             indexed,
@@ -141,9 +135,10 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         Self::validate_car(reader).is_ok()
     }
 
-    fn validate_car(reader: &ReaderT) -> io::Result<(CarV1Header, ForestCarFooter)> {
+    fn validate_car(reader: &ReaderT) -> io::Result<(CarV1Header, u64, u64)> {
         let mut cursor = SizeCursor::new(&reader);
         cursor.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
+        let index_end_pos = cursor.position();
 
         let mut footer_buffer = [0; ForestCarFooter::SIZE];
         cursor.read_exact(&mut footer_buffer)?;
@@ -153,6 +148,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
                 "not recognizable as a `{FOREST_CAR_FILE_EXTENSION}` file"
             ))
         })?;
+        let index_start_pos = footer.index - ZSTD_SKIP_FRAME_LEN;
 
         let cursor = Cursor::new_pos(&reader, 0);
         let mut header_zstd_frame = decode_zstd_single_frame(cursor)?.into();
@@ -162,7 +158,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         let header = from_slice_with_fallback::<CarV1Header>(&block_frame)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        Ok((header, footer))
+        Ok((header, index_start_pos, index_end_pos - index_start_pos))
     }
 
     pub fn head_tipset_key(&self) -> &NonEmpty<Cid> {
@@ -175,7 +171,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         }
     }
 
-    pub fn index_size_bytes(&self) -> u32 {
+    pub fn index_size_bytes(&self) -> u64 {
         self.index_size_bytes
     }
 
@@ -187,22 +183,22 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         Tipset::load_required(self, &self.heaviest_tipset_key())
     }
 
-    pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
-        ForestCar {
+    pub fn into_dyn(self) -> io::Result<ForestCar<Box<dyn super::RandomAccessFileReader>>> {
+        Ok(ForestCar {
             cache_key: self.cache_key,
             indexed: self.indexed.map(|slice| {
-                let offset = slice.offset();
-                positioned_io::Slice::new(
-                    Box::new(slice.into_inner()) as Box<dyn RandomAccessFileReader>,
+                let offset = slice.inner().offset();
+                ZstdSkipFramesEncodedDataReader::new(positioned_io::Slice::new(
+                    Box::new(slice.into_inner().into_inner()) as Box<dyn RandomAccessFileReader>,
                     offset,
                     None,
-                )
-            }),
+                ))
+            })?,
             index_size_bytes: self.index_size_bytes,
             frame_cache: self.frame_cache,
             header: self.header,
             metadata: self.metadata,
-        }
+        })
     }
 
     pub fn with_cache(self, cache: Arc<ZstdFrameCache>, key: CacheKey) -> Self {
@@ -217,7 +213,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     pub fn get_reader(&self, k: Cid) -> anyhow::Result<Option<impl Read>> {
         for position in self.indexed.get(k)? {
             // escape the positioned_io::Slice
-            let entire_file = self.indexed.reader().get_ref();
+            let entire_file = self.indexed.reader().inner().get_ref();
             // `position` is the frame start offset.
             let cursor = Cursor::new_pos(entire_file, position);
             let mut decoder = zstd::Decoder::new(cursor)?.single_frame();
@@ -259,7 +255,7 @@ where
                 Some(None) => {}
                 None => {
                     // Decode entire frame into memory, "position" arg is the frame start offset.
-                    let entire_file = indexed.reader().get_ref(); // escape the positioned_io::Slice
+                    let entire_file = indexed.reader().inner().get_ref(); // escape the positioned_io::Slice
                     let cursor = Cursor::new_pos(entire_file, position);
                     let mut zstd_frame = decode_zstd_single_frame(cursor)?.into();
                     // Parse all key-value pairs and insert them into a map
@@ -332,8 +328,7 @@ impl Encoder {
 
         // Create index
         let writer = builder.into_writer();
-        write_skip_frame_header_async(&mut sink, writer.written_len().try_into().unwrap()).await?;
-        writer.write_into(&mut sink).await?;
+        writer.write_zstd_skip_frames_into(&mut sink).await?;
 
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCarFooter {
