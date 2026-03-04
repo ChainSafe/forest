@@ -487,6 +487,12 @@ impl Writer {
                 buf.clear();
             }
         }
+
+        if !buf.is_empty() {
+            write_skip_frame_header_async(&mut writer, buf.len() as u32).await?;
+            writer.write_all(&buf).await?;
+        }
+
         Ok(())
     }
 }
