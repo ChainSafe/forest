@@ -64,7 +64,7 @@
 //! ├──────────────┤ <- Zstd skip frame header)
 //! ```
 
-use crate::db::car::plain::write_skip_frame_header_async;
+use crate::{db::car::plain::write_skip_frame_header_async, utils::misc::env::is_env_truthy};
 
 #[cfg_vis(feature = "benchmark-private", pub)]
 use self::util::NonMaximalU64;
@@ -437,6 +437,28 @@ pub struct Writer {
 }
 
 impl Writer {
+    // To keep backward compatibility, remove after NV28 release
+    fn written_len(&self) -> u64 {
+        let Self {
+            version,
+            header,
+            slots,
+        } = self;
+        written_len(version)
+            + written_len(header)
+            // this logic must be kept in sync with [`slots`], below
+            + cmp::max(
+                u64::try_from(
+                    slots
+                        .iter()
+                        .map(|(pre, _)| *pre + 1 /* occupied */)
+                        .sum::<usize>()
+                        + 1, /* trailing */
+                )
+                .unwrap(),
+                header.initial_buckets + 1, /* trailing */
+            ) * Slot::LEN
+    }
     fn slots(
         min_slots: usize,
         slots: impl IntoIterator<Item = (usize, OccupiedSlot)>,
@@ -455,13 +477,20 @@ impl Writer {
     pub async fn write_zstd_skip_frames_into(self, writer: impl AsyncWrite) -> io::Result<()> {
         // write every 128MiB slots to a skip frame
         const CHUNK_FRAME_DATA_MAX_BYTES: usize = 128 * 1024;
-        self.write_zstd_skip_frames_into_inner(writer, CHUNK_FRAME_DATA_MAX_BYTES)
-            .await
+        let written_len = self.written_len();
+        self.write_zstd_skip_frames_into_inner(
+            writer,
+            CHUNK_FRAME_DATA_MAX_BYTES,
+            u32::try_from(written_len).ok(),
+        )
+        .await
     }
     async fn write_zstd_skip_frames_into_inner(
         self,
         writer: impl AsyncWrite,
         skip_frame_data_max_bytes: usize,
+        // To keep backward compatibility, remove after NV28 release
+        index_data_len: Option<u32>,
     ) -> io::Result<()> {
         let mut writer = pin!(writer);
         let Self {
@@ -469,28 +498,41 @@ impl Writer {
             header,
             slots,
         } = self;
-        // write version and header to a skip frame
-        let frame_data_len: u32 = (written_len(&version) + written_len(&header)) as u32;
-        write_skip_frame_header_async(&mut writer, frame_data_len).await?;
-        version.write_to(&mut writer).await?;
-        header.write_to(&mut writer).await?;
-
-        let mut buf = Vec::with_capacity(skip_frame_data_max_bytes);
-        for slot in Self::slots(
+        let slots = Self::slots(
             header.initial_buckets.try_into().unwrap(),
             slots.iter().copied(),
-        ) {
-            slot.write_to(&mut buf).await?;
-            if buf.len() >= skip_frame_data_max_bytes {
+        );
+        if let Some(index_data_len) = index_data_len
+            && !is_env_truthy("FOREST_CAR_INDEX_USE_MULTIPLE_SKIP_FRAMES")
+        {
+            // To keep backward compatibility, remove after NV28 release
+            write_skip_frame_header_async(&mut writer, index_data_len).await?;
+            version.write_to(&mut writer).await?;
+            header.write_to(&mut writer).await?;
+            for slot in slots {
+                slot.write_to(&mut writer).await?;
+            }
+        } else {
+            // write version and header to a skip frame
+            let frame_data_len: u32 = (written_len(&version) + written_len(&header)) as u32;
+            write_skip_frame_header_async(&mut writer, frame_data_len).await?;
+            version.write_to(&mut writer).await?;
+            header.write_to(&mut writer).await?;
+
+            let mut buf = Vec::with_capacity(skip_frame_data_max_bytes);
+            for slot in slots {
+                slot.write_to(&mut buf).await?;
+                if buf.len() >= skip_frame_data_max_bytes {
+                    write_skip_frame_header_async(&mut writer, buf.len() as u32).await?;
+                    writer.write_all(&buf).await?;
+                    buf.clear();
+                }
+            }
+
+            if !buf.is_empty() {
                 write_skip_frame_header_async(&mut writer, buf.len() as u32).await?;
                 writer.write_all(&buf).await?;
-                buf.clear();
             }
-        }
-
-        if !buf.is_empty() {
-            write_skip_frame_header_async(&mut writer, buf.len() as u32).await?;
-            writer.write_all(&buf).await?;
         }
 
         Ok(())
@@ -744,24 +786,35 @@ mod tests {
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
     fn do_hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
-        let r = ZstdSkipFramesEncodedDataReader::new(write_to_vec(|v| {
-            let writer =
-                Builder::from_iter(reference.clone().into_iter().flat_map(|(hash, offsets)| {
-                    offsets.into_iter().map(move |offset| (hash, offset))
+        for multi_index_frame in [false, true] {
+            let r: ZstdSkipFramesEncodedDataReader<Vec<u8>> =
+                ZstdSkipFramesEncodedDataReader::new(write_to_vec(|v| {
+                    let writer = Builder::from_iter(reference.clone().into_iter().flat_map(
+                        |(hash, offsets)| offsets.into_iter().map(move |offset| (hash, offset)),
+                    ))
+                    .into_writer();
+                    block_on(async {
+                        if multi_index_frame {
+                            writer
+                                .write_zstd_skip_frames_into_inner(&mut *v, 1024, None)
+                                .await
+                        } else {
+                            writer.write_zstd_skip_frames_into(&mut *v).await
+                        }
+                    })?;
+                    Ok(())
                 }))
-                .into_writer();
-            block_on(writer.write_zstd_skip_frames_into(&mut *v))?;
-            Ok(())
-        }))
-        .unwrap();
-        println!(
-            "skip_frame_header_offsets_len: {}",
-            r.skip_frame_header_offsets.len()
-        );
-        let subject = Reader::new(r).unwrap();
-        for (cid, expected) in reference {
-            let actual = subject.get(cid).unwrap().into_iter().collect();
-            assert!(expected.is_subset(&actual)); // collisions
+                .unwrap();
+            if multi_index_frame {
+                assert!(r.skip_frame_header_offsets.len() > 1);
+            } else {
+                assert_eq!(r.skip_frame_header_offsets.len(), 1);
+            }
+            let subject = Reader::new(r).unwrap();
+            for (&cid, expected) in &reference {
+                let actual = subject.get(cid).unwrap().into_iter().collect();
+                assert!(expected.is_subset(&actual)); // collisions
+            }
         }
     }
 
@@ -774,41 +827,53 @@ mod tests {
     ///
     /// Additionally checks [`Reader::iter`]
     fn do_hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) {
-        let r = ZstdSkipFramesEncodedDataReader::new(write_to_vec(|v| {
-            let writer =
-                Builder::from_iter(reference.clone().into_iter().flat_map(|(hash, offsets)| {
-                    offsets.into_iter().map(move |offset| (hash, offset))
-                }))
+        for multi_index_frame in [false, true] {
+            let r = ZstdSkipFramesEncodedDataReader::new(write_to_vec(|v| {
+                let writer = Builder::from_iter(reference.clone().into_iter().flat_map(
+                    |(hash, offsets)| offsets.into_iter().map(move |offset| (hash, offset)),
+                ))
                 .into_writer();
-            block_on(writer.write_zstd_skip_frames_into(&mut *v))?;
-            Ok(())
-        }))
-        .unwrap();
-        println!(
-            "skip_frame_header_offsets_len: {}",
-            r.skip_frame_header_offsets.len()
-        );
-        let subject = Reader::new(r).unwrap();
-        for (hash, expected) in &reference {
-            let actual = subject.get_by_hash(*hash).unwrap().into_iter().collect();
-            assert!(expected.is_subset(&actual)) // collisions
-        }
+                block_on(async {
+                    if multi_index_frame {
+                        writer
+                            .write_zstd_skip_frames_into_inner(&mut *v, 1024, None)
+                            .await
+                    } else {
+                        writer.write_zstd_skip_frames_into(&mut *v).await
+                    }
+                })?;
+                Ok(())
+            }))
+            .unwrap();
+            if multi_index_frame {
+                assert!(r.skip_frame_header_offsets.len() > 1);
+            } else {
+                assert_eq!(r.skip_frame_header_offsets.len(), 1);
+            }
+            let subject = Reader::new(r).unwrap();
+            for (hash, expected) in &reference {
+                let actual = subject.get_by_hash(*hash).unwrap().into_iter().collect();
+                assert!(expected.is_subset(&actual)) // collisions
+            }
 
-        let via_iter = subject
-            .iter()
-            .unwrap()
-            .filter_map(|it| match it.unwrap() {
-                Slot::Empty => None,
-                Slot::Occupied(it) => Some(it),
-            })
-            .chunk_by(|it| it.hash)
-            .into_iter()
-            .map(|(hash, group)| (hash, HashSet::from_iter(group.map(|it| it.frame_offset))))
-            .collect::<HashMap<_, _>>();
-        assert_eq!(
-            via_iter,
-            reference.tap_mut(|it| it.retain(|_, v| !v.is_empty()))
-        );
+            let via_iter = subject
+                .iter()
+                .unwrap()
+                .filter_map(|it| match it.unwrap() {
+                    Slot::Empty => None,
+                    Slot::Occupied(it) => Some(it),
+                })
+                .chunk_by(|it| it.hash)
+                .into_iter()
+                .map(|(hash, group)| (hash, HashSet::from_iter(group.map(|it| it.frame_offset))))
+                .collect::<HashMap<_, _>>();
+            assert_eq!(
+                via_iter,
+                reference
+                    .clone()
+                    .tap_mut(|it| it.retain(|_, v| !v.is_empty()))
+            );
+        }
     }
 
     quickcheck::quickcheck! {
