@@ -36,16 +36,15 @@
 //! - Add and move progressively to new API (Iterator, Streams), and removed deprecated usage of [`WithProgressRaw`]
 //! - Add a more accurate ETA etc
 
-use human_bytes::human_bytes;
-use humantime::format_duration;
-use std::time::{Duration, Instant};
-
 use educe::Educe;
+use human_repr::HumanCount as _;
+use humantime::format_duration;
 use pin_project_lite::pin_project;
 use std::io;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::{Duration, Instant};
 use tokio::io::ReadBuf;
 
 const UPDATE_FREQUENCY: Duration = Duration::from_millis(5000);
@@ -169,7 +168,7 @@ impl Progress {
         let seconds_since_last_msg = (now - self.last_logged).as_secs_f64().max(0.1);
 
         let at = match self.item_type {
-            ItemType::Bytes => human_bytes(self.completed_items as f64),
+            ItemType::Bytes => self.completed_items.human_count_bytes().to_string(),
             ItemType::Items => self.completed_items.to_string(),
         };
 
@@ -178,7 +177,7 @@ impl Progress {
             if total > 0 {
                 output += " / ";
                 output += &match self.item_type {
-                    ItemType::Bytes => human_bytes(total as f64),
+                    ItemType::Bytes => total.human_count_bytes().to_string(),
                     ItemType::Items => total.to_string(),
                 };
                 output += &format!(", {}%", self.completed_items * 100 / total);
@@ -190,7 +189,7 @@ impl Progress {
 
         let diff = (self.completed_items - self.last_logged_items) as f64 / seconds_since_last_msg;
         let speed = match self.item_type {
-            ItemType::Bytes => format!("{}/s", human_bytes(diff)),
+            ItemType::Bytes => format!("{}/s", diff.human_count_bytes()),
             ItemType::Items => format!("{diff:.0} items/s"),
         };
 

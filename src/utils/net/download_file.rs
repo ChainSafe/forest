@@ -34,7 +34,7 @@ use anyhow::{Context as _, ensure};
 use backon::{ExponentialBuilder, Retryable as _};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
-use human_bytes::human_bytes;
+use human_repr::HumanCount as _;
 use humantime::format_duration;
 use md5::{Digest as _, Md5};
 use std::sync::Arc;
@@ -376,10 +376,10 @@ async fn download_http_parallel(
                         tracing::info!(
                             target: "forest::progress",
                             "Loading {} / {}, {}%, {}/s, elapsed time: {}",
-                            human_bytes(downloaded as f64),
-                            human_bytes(total_size as f64),
+                            downloaded.human_count_bytes() ,
+                            total_size.human_count_bytes() ,
                             percent,
-                            human_bytes(speed),
+                            speed.human_count_bytes(),
                             format_duration(Duration::from_secs(elapsed_secs as u64))
                         );
 
