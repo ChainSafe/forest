@@ -254,18 +254,14 @@ where
             }
         }
         if let Some(next_frame_pos) = next_frame_pos
-            && adjusted_pos + buf.len() as u64 > next_frame_pos
+            && let max_read_len = (next_frame_pos - adjusted_pos) as usize
+            && max_read_len < buf.len()
         {
-            let max_read_len = (next_frame_pos - adjusted_pos) as usize;
-            if max_read_len < buf.len() {
-                #[allow(clippy::indexing_slicing)]
-                Ok(self
-                    .reader
-                    .read_at(adjusted_pos, &mut buf[..max_read_len])?
-                    + self.read_at(pos + max_read_len as u64, &mut buf[max_read_len..])?)
-            } else {
-                self.reader.read_at(adjusted_pos, buf)
-            }
+            #[allow(clippy::indexing_slicing)]
+            Ok(self
+                .reader
+                .read_at(adjusted_pos, &mut buf[..max_read_len])?
+                + self.read_at(pos + max_read_len as u64, &mut buf[max_read_len..])?)
         } else {
             self.reader.read_at(adjusted_pos, buf)
         }
