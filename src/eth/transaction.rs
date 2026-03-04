@@ -6,7 +6,7 @@ use crate::eth::{LEGACY_V_VALUE_27, LEGACY_V_VALUE_28};
 use crate::shim::crypto::Signature;
 use crate::shim::fvm_shared_latest;
 use anyhow::{Context, bail, ensure};
-use bytes::BytesMut;
+use bytes::Bytes;
 use cbor4ii::core::{Value, dec::Decode as _, utils::SliceReader};
 use fvm_shared4::METHOD_CONSTRUCTOR;
 use num::{BigInt, Signed as _, bigint::Sign};
@@ -273,37 +273,37 @@ pub fn get_eth_params_and_recipient(
     Ok((params, to))
 }
 
-pub fn format_u64(value: u64) -> BytesMut {
+pub fn format_u64(value: u64) -> Bytes {
     if value != 0 {
         let i = (value.leading_zeros() / 8) as usize;
         let bytes = value.to_be_bytes();
         // `leading_zeros` for a positive `u64` returns a number in the range [1-63]
         // `i` is in the range [1-7], and `bytes` is an array of size 8
         // therefore, getting the slice from `i` to end should never fail
-        bytes.get(i..).expect("failed to get slice").into()
+        bytes.get(i..).expect("failed to get slice").to_vec().into()
     } else {
         // If all bytes are zero, return an empty slice
-        BytesMut::new()
+        Bytes::new()
     }
 }
 
-pub fn format_bigint(value: &BigInt) -> anyhow::Result<BytesMut> {
+pub fn format_bigint(value: &BigInt) -> anyhow::Result<Bytes> {
     Ok(if value.is_positive() {
-        BytesMut::from_iter(value.to_bytes_be().1.iter())
+        value.to_bytes_be().1.into()
     } else {
         if value.is_negative() {
             bail!("can't format a negative number");
         }
         // If all bytes are zero, return an empty slice
-        BytesMut::new()
+        Bytes::new()
     })
 }
 
-pub fn format_address(value: &Option<EthAddress>) -> BytesMut {
+pub fn format_address(value: &Option<EthAddress>) -> Bytes {
     if let Some(addr) = value {
-        addr.0.as_bytes().into()
+        addr.0.as_bytes().to_vec().into()
     } else {
-        BytesMut::new()
+        Bytes::new()
     }
 }
 
@@ -878,12 +878,11 @@ pub(crate) mod tests {
             assert!(bm.is_empty());
         } else {
             // check that buffer doesn't start with zero
-            let freezed = bm.freeze();
-            assert!(!freezed.starts_with(&[0]));
+            assert!(!bm.starts_with(&[0]));
 
             // roundtrip
             let mut padded = [0u8; 8];
-            let bytes: &[u8] = &freezed.slice(..);
+            let bytes: &[u8] = &bm.slice(..);
             padded[8 - bytes.len()..].copy_from_slice(bytes);
             assert_eq!(i, u64::from_be_bytes(padded));
         }
@@ -897,11 +896,10 @@ pub(crate) mod tests {
                     assert!(bm.is_empty());
                 } else {
                     // check that buffer doesn't start with zero
-                    let freezed = bm.freeze();
-                    assert!(!freezed.starts_with(&[0]));
+                    assert!(!bm.starts_with(&[0]));
 
                     // roundtrip
-                    let unsigned = num_bigint::BigUint::from_be_bytes(&freezed.slice(..));
+                    let unsigned = num_bigint::BigUint::from_be_bytes(&bm.slice(..));
                     assert_eq!(bi, unsigned.into());
                 }
             }
