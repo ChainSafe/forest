@@ -148,7 +148,12 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
                 "not recognizable as a `{FOREST_CAR_FILE_EXTENSION}` file"
             ))
         })?;
-        let index_start_pos = footer.index - ZSTD_SKIP_FRAME_LEN;
+        let index_start_pos = footer.index.checked_sub(ZSTD_SKIP_FRAME_LEN).ok_or_else(||
+            invalid_data(format!(
+                "unexpected error: footer.index({}) < ZSTD_SKIP_FRAME_LEN({ZSTD_SKIP_FRAME_LEN})",
+                footer.index
+            )),
+        )?;
 
         let cursor = Cursor::new_pos(&reader, 0);
         let mut header_zstd_frame = decode_zstd_single_frame(cursor)?.into();

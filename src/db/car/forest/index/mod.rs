@@ -475,8 +475,8 @@ impl Writer {
             .chain(iter::once(Slot::Empty))
     }
     pub async fn write_zstd_skip_frames_into(self, writer: impl AsyncWrite) -> io::Result<()> {
-        // write every 128MiB slots to a skip frame
-        const CHUNK_FRAME_DATA_MAX_BYTES: usize = 128 * 1024;
+        // write every 512MiB slots to a skip frame
+        const CHUNK_FRAME_DATA_MAX_BYTES: usize = 512 * 1024 * 1024;
         let written_len = self.written_len();
         self.write_zstd_skip_frames_into_inner(
             writer,
