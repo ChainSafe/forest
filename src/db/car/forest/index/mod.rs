@@ -64,6 +64,7 @@
 //! ├──────────────┤ <- Zstd skip frame header)
 //! ```
 
+use super::ZSTD_SKIP_FRAME_LEN;
 use crate::{db::car::plain::write_skip_frame_header_async, utils::misc::env::is_env_truthy};
 
 #[cfg_vis(feature = "benchmark-private", pub)]
@@ -202,7 +203,7 @@ impl<R: ReadAt> ZstdSkipFramesEncodedDataReader<R> {
         let mut skip_frame_header_offsets = vec![];
         while let Ok(len) = reader.read_u32_at::<LittleEndian>(offset + 4) {
             skip_frame_header_offsets.push(offset);
-            offset += 8 + len as u64;
+            offset += ZSTD_SKIP_FRAME_LEN + len as u64;
         }
         Ok(Self {
             reader,
@@ -222,7 +223,8 @@ impl<R: ReadAt> ZstdSkipFramesEncodedDataReader<R> {
 impl<R: Size> Size for ZstdSkipFramesEncodedDataReader<R> {
     fn size(&self) -> io::Result<Option<u64>> {
         if let Some(size) = self.reader.size()? {
-            let total_header_size = (self.skip_frame_header_offsets.len() * 8) as u64;
+            let total_header_size =
+                ZSTD_SKIP_FRAME_LEN * self.skip_frame_header_offsets.len() as u64;
             if size >= total_header_size {
                 Ok(Some(size - total_header_size))
             } else {
@@ -241,29 +243,31 @@ where
     R: ReadAt,
 {
     fn read_at(&self, pos: u64, buf: &mut [u8]) -> io::Result<usize> {
-        let mut amended_pos = pos;
+        let mut adjusted_pos = pos;
         let mut next_frame_pos = None;
         for &p in self.skip_frame_header_offsets.iter() {
-            if p <= amended_pos {
-                amended_pos += 8;
+            if p <= adjusted_pos {
+                adjusted_pos += ZSTD_SKIP_FRAME_LEN;
             } else {
                 next_frame_pos = Some(p);
                 break;
             }
         }
         if let Some(next_frame_pos) = next_frame_pos
-            && amended_pos + buf.len() as u64 > next_frame_pos
+            && adjusted_pos + buf.len() as u64 > next_frame_pos
         {
-            let max_read_len = (next_frame_pos - amended_pos) as usize;
+            let max_read_len = (next_frame_pos - adjusted_pos) as usize;
             if max_read_len < buf.len() {
                 #[allow(clippy::indexing_slicing)]
-                Ok(self.reader.read_at(amended_pos, &mut buf[..max_read_len])?
+                Ok(self
+                    .reader
+                    .read_at(adjusted_pos, &mut buf[..max_read_len])?
                     + self.read_at(pos + max_read_len as u64, &mut buf[max_read_len..])?)
             } else {
-                self.reader.read_at(amended_pos, buf)
+                self.reader.read_at(adjusted_pos, buf)
             }
         } else {
-            self.reader.read_at(amended_pos, buf)
+            self.reader.read_at(adjusted_pos, buf)
         }
     }
 }

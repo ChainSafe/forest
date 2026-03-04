@@ -85,7 +85,7 @@ pub const TEMP_FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst.tmp";
 pub const ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER: [u8; 4] = [0x50, 0x2A, 0x4D, 0x18];
 pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
 pub const DEFAULT_FOREST_CAR_COMPRESSION_LEVEL: u16 = zstd::DEFAULT_COMPRESSION_LEVEL as _;
-const ZSTD_SKIP_FRAME_LEN: u64 = 8;
+pub const ZSTD_SKIP_FRAME_LEN: u64 = 8;
 
 /// `zstd` frame of Forest CAR
 pub type ForestCarFrame = (Vec<Cid>, Bytes);
