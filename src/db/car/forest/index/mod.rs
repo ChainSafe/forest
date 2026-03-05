@@ -538,13 +538,12 @@ impl Writer {
                 slot.write_to(&mut writer).await?;
             }
         } else {
-            // write version and header to a skip frame
-            let frame_data_len: u32 = (written_len(&version) + written_len(&header)) as u32;
-            write_skip_frame_header_async(&mut writer, frame_data_len).await?;
-            version.write_to(&mut writer).await?;
-            header.write_to(&mut writer).await?;
-
             let mut buf = Vec::with_capacity(skip_frame_data_max_bytes);
+
+            // write version and header
+            version.write_to(&mut buf).await?;
+            header.write_to(&mut buf).await?;
+
             for slot in slots {
                 slot.write_to(&mut buf).await?;
                 if buf.len() >= skip_frame_data_max_bytes {
