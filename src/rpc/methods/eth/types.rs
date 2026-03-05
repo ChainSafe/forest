@@ -638,6 +638,188 @@ impl Default for TraceResult {
     }
 }
 
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub enum GethDebugBuiltInTracerType {
+    #[serde(rename = "callTracer")]
+    CallTracer,
+    #[serde(rename = "flatCallTracer")]
+    FlatCallTracer,
+    #[serde(rename = "prestateTracer")]
+    PreStateTracer,
+    #[serde(rename = "noopTracer")]
+    NoopTracer,
+}
+
+/// Options for the `debug_traceTransaction` API.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GethDebugTracingOptions {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracer: Option<GethDebugBuiltInTracerType>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracer_config: Option<TracerConfig>,
+}
+
+lotus_json_with_self!(GethDebugTracingOptions);
+
+impl GethDebugTracingOptions {
+    /// Extracts the `callTracer` config, defaulting to no-op values when absent.
+    pub fn call_config(&self) -> CallTracerConfig {
+        self.tracer_config
+            .as_ref()
+            .filter(|c| !c.0.is_null())
+            .and_then(|c| serde_json::from_value(c.0.clone()).ok())
+            .unwrap_or_default()
+    }
+}
+
+/// Configuration for the `callTracer`.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CallTracerConfig {
+    #[serde(default)]
+    pub only_top_call: bool,
+}
+
+lotus_json_with_self!(CallTracerConfig);
+
+/// Opaque JSON blob for per-tracer configuration.
+///
+/// Exists as a newtype because `serde_json::Value` does not implement
+/// `JsonSchema`. The actual interpretation depends on the selected tracer.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(transparent)]
+pub struct TracerConfig(pub serde_json::Value);
+lotus_json_with_self!(TracerConfig);
+
+/// EVM call/create operation type for Geth-style trace frames.
+///
+/// Maps to the EVM opcodes: CALL, STATICCALL, DELEGATECALL, CREATE, CREATE2.
+/// Used as the `type` field in [`GethCallFrame`].
+#[derive(PartialEq, Eq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+pub enum GethCallType {
+    #[default]
+    #[serde(rename = "CALL")]
+    Call,
+    #[serde(rename = "STATICCALL")]
+    StaticCall,
+    #[serde(rename = "DELEGATECALL")]
+    DelegateCall,
+    #[serde(rename = "CREATE")]
+    Create,
+    #[serde(rename = "CREATE2")]
+    Create2,
+}
+
+impl GethCallType {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Call => "CALL",
+            Self::StaticCall => "STATICCALL",
+            Self::DelegateCall => "DELEGATECALL",
+            Self::Create => "CREATE",
+            Self::Create2 => "CREATE2",
+        }
+    }
+
+    pub const fn is_static_call(&self) -> bool {
+        matches!(self, Self::StaticCall)
+    }
+
+    pub const fn is_delegate_call(&self) -> bool {
+        matches!(self, Self::DelegateCall)
+    }
+
+    /// Converts a Parity-style call type string to a [`GethCallType`].
+    pub fn from_parity_call_type(call_type: &str) -> Self {
+        match call_type {
+            "staticcall" => Self::StaticCall,
+            "delegatecall" => Self::DelegateCall,
+            _ => Self::Call,
+        }
+    }
+}
+
+impl std::fmt::Display for GethCallType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Geth-style nested call frame returned by the `callTracer`.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GethCallFrame {
+    pub r#type: GethCallType,
+    pub from: EthAddress,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to: Option<EthAddress>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<EthBigInt>,
+    pub gas: EthUint64,
+    pub gas_used: EthUint64,
+    pub input: EthBytes,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<EthBytes>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revert_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calls: Option<Vec<GethCallFrame>>,
+}
+
+lotus_json_with_self!(GethCallFrame);
+
+/// Empty frame returned by the `noopTracer`.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+pub struct NoopFrame {}
+
+lotus_json_with_self!(NoopFrame);
+
+/// Polymorphic trace result from `debug_traceTransaction`.
+/// The shape depends on the selected tracer.
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum GethTrace {
+    CallTracer(GethCallFrame),
+    FlatCallTracer(Vec<EthBlockTrace>),
+    NoopTracer(NoopFrame),
+}
+
+lotus_json_with_self!(GethTrace);
+
+/// Selects which trace outputs to include in the `trace_call` response.
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum EthTraceType {
+    /// Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
+    /// with details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`.
+    Trace,
+    /// Requests a state difference object, detailing changes to account states (e.g., `balance`, `nonce`, `storage`, `code`)
+    /// caused by the simulated transaction.
+    ///
+    /// It shows `"from"` and `"to"` values for modified fields, using `"+"`, `"-"`, or `"="` for code changes.
+    StateDiff,
+}
+
+lotus_json_with_self!(EthTraceType);
+
+/// Result payload returned by `trace_call`.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthTraceResults {
+    /// Output bytes from the transaction execution.
+    pub output: EthBytes,
+    /// State diff showing all account changes.
+    pub state_diff: Option<StateDiff>,
+    /// Call trace hierarchy (empty when not requested).
+    #[serde(default)]
+    pub trace: Vec<EthTrace>,
+}
+
+lotus_json_with_self!(EthTraceResults);
+
 #[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTrace {
@@ -675,11 +857,9 @@ impl EthBlockTrace {
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthReplayBlockTransactionTrace {
-    pub output: EthBytes,
-    pub state_diff: Option<String>,
-    pub trace: Vec<EthTrace>,
+    #[serde(flatten)]
+    pub full_trace: EthTraceResults,
     pub transaction_hash: EthHash,
-    pub vm_trace: Option<String>,
 }
 lotus_json_with_self!(EthReplayBlockTransactionTrace);
 
