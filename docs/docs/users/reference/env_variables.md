@@ -58,6 +58,7 @@ process.
 | `FOREST_STRICT_JSON`                                      | 1 or true                       | false                                          | 1                                                             | Enable strict JSON validation to detect duplicate keys in RPC requests                                                |
 | `FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH`                      | URL or file path                | empty                                          | `/var/tmp/forest_snapshot_calibnet.forest.car.zst`            | Override snapshot path for `--auto-download-snapshot`                                                                 |
 | `FOREST_DOWNLOAD_CONNECTIONS`                             | positive integer                | 5                                              | 10                                                            | Number of parallel HTTP connections for downloading snapshots                                                         |
+| `FOREST_ETH_V1_DISABLE_F3_FINALITY_RESOLUTION`            | 1 or true                       | empty                                          | 1                                                             | Whether or not to disable F3 finality resolution in Eth `v1` RPC methods                                              |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 

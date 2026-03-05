@@ -68,7 +68,7 @@ const HEAD_CHANNEL_CAPACITY: usize = 10;
 /// Discussion on this current value and a tracking item to document the
 /// probabilistic impact of various values is in
 /// https://github.com/filecoin-project/go-f3/issues/944
-const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
+pub const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
 
 static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
     LazyLock::new(|| Mutex::new(None));
@@ -1029,6 +1029,7 @@ impl RpcMethod<1> for ChainGetBlock {
 }
 
 pub enum ChainGetTipSet {}
+
 impl RpcMethod<1> for ChainGetTipSet {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
@@ -1063,13 +1064,13 @@ impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_anchor(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         anchor: &Option<TipsetAnchor>,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         if let Some(anchor) = anchor {
             match (&anchor.key.0, &anchor.tag) {
                 // Anchor is zero-valued. Fall back to heaviest tipset.
-                (None, None) => Ok(Some(ctx.state_manager.heaviest_tipset())),
+                (None, None) => Ok(ctx.state_manager.heaviest_tipset()),
                 // Get tipset at the specified key.
-                (Some(tsk), None) => Ok(Some(ctx.chain_index().load_required_tipset(tsk)?)),
+                (Some(tsk), None) => Ok(ctx.chain_index().load_required_tipset(tsk)?),
                 (None, Some(tag)) => Self::get_tipset_by_tag(ctx, *tag).await,
                 _ => {
                     anyhow::bail!("invalid anchor")
@@ -1084,11 +1085,11 @@ impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_tag(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         tag: TipsetTag,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         match tag {
-            TipsetTag::Latest => Ok(Some(ctx.state_manager.heaviest_tipset())),
+            TipsetTag::Latest => Ok(ctx.state_manager.heaviest_tipset()),
             TipsetTag::Finalized => Self::get_latest_finalized_tipset(ctx).await,
-            TipsetTag::Safe => Some(Self::get_latest_safe_tipset(ctx).await).transpose(),
+            TipsetTag::Safe => Self::get_latest_safe_tipset(ctx).await,
         }
     }
 
@@ -1098,9 +1099,7 @@ impl ChainGetTipSetV2 {
         let finalized = Self::get_latest_finalized_tipset(ctx).await?;
         let head = ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        if let Some(finalized) = finalized
-            && finalized.epoch() >= safe_height
-        {
+        if finalized.epoch() >= safe_height {
             Ok(finalized)
         } else {
             Ok(ctx.chain_index().tipset_by_height(
@@ -1113,7 +1112,7 @@ impl ChainGetTipSetV2 {
 
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         let Ok(f3_finalized_cert) = crate::rpc::f3::F3GetLatestCertificate::get().await else {
             return Self::get_ec_finalized_tipset(ctx);
         };
@@ -1135,43 +1134,38 @@ impl ChainGetTipSetV2 {
                     f3_finalized_head.key,
                 )
             })?;
-        Ok(Some(ts))
+        Ok(ts)
     }
 
-    pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Option<Tipset>> {
+    pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
         let head = ctx.chain_store().heaviest_tipset();
-        let ec_finality_epoch = head.epoch() - ctx.chain_config().policy.chain_finality;
-        if ec_finality_epoch >= 0 {
-            let ts = ctx.chain_index().tipset_by_height(
-                ec_finality_epoch,
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?;
-            Ok(Some(ts))
-        } else {
-            Ok(None)
-        }
+        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
+        Ok(ctx.chain_index().tipset_by_height(
+            ec_finality_epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?)
     }
 
     pub async fn get_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         selector: &TipsetSelector,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         selector.validate()?;
         // Get tipset by key.
         if let ApiTipsetKey(Some(tsk)) = &selector.key {
             let ts = ctx.chain_index().load_required_tipset(tsk)?;
-            return Ok(Some(ts));
+            return Ok(ts);
         }
         // Get tipset by height.
         if let Some(height) = &selector.height {
             let anchor = Self::get_tipset_by_anchor(ctx, &height.anchor).await?;
             let ts = ctx.chain_index().tipset_by_height(
                 height.at,
-                anchor.unwrap_or_else(|| ctx.chain_store().heaviest_tipset()),
+                anchor,
                 height.resolve_null_tipset_policy(),
             )?;
-            return Ok(Some(ts));
+            return Ok(ts);
         }
         // Get tipset by tag, either latest or finalized.
         if let Some(tag) = &selector.tag {
@@ -1179,15 +1173,6 @@ impl ChainGetTipSetV2 {
             return Ok(ts);
         }
         anyhow::bail!("no tipset found for selector")
-    }
-
-    pub async fn get_required_tipset(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        selector: &TipsetSelector,
-    ) -> anyhow::Result<Tipset> {
-        Self::get_tipset(ctx, selector)
-            .await?
-            .context("failed to select a tipset")
     }
 }
 
@@ -1199,7 +1184,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
     type Params = (TipsetSelector,);
-    type Ok = Option<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,

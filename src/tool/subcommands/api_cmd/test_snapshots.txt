@@ -127,7 +127,7 @@ filecoin_ethtraceblock_v2_safe_1769092401374979.rpcsnap.json.zst
 filecoin_ethtracefilter_1742371405673188.rpcsnap.json.zst
 filecoin_ethtracefilter_1742983898701553.rpcsnap.json.zst
 filecoin_ethtracefilter_1746449543820062.rpcsnap.json.zst
-filecoin_ethtracefilter_safe_1771492815155978.rpcsnap.json.zst
+filecoin_ethtracefilter_1772466405810428.rpcsnap.json.zst # safe tag
 filecoin_ethtracefilter_v2_1770740801450325.rpcsnap.json.zst
 filecoin_ethtracefilter_v2_default_1771492815053207.rpcsnap.json.zst
 filecoin_ethtracefilter_v2_latest_1771492815053002.rpcsnap.json.zst
@@ -144,9 +144,12 @@ filecoin_evm_invokecontractdelegate_statedecodeparams_1755004924714578.rpcsnap.j
 filecoin_evm_resurrect_statedecodeparams_1755004924714636.rpcsnap.json.zst
 filecoin_filecoinaddresstoethaddress_1765291874419799.rpcsnap.json.zst # F4 address
 filecoin_filecoinaddresstoethaddress_1765357908887069.rpcsnap.json.zst # F0 address
-filecoin_filecoinaddresstoethaddress_1765363872743134.rpcsnap.json.zst # F1 address
-filecoin_filecoinaddresstoethaddress_1765363872743268.rpcsnap.json.zst # F3 address
-filecoin_filecoinaddresstoethaddress_1765363872743313.rpcsnap.json.zst # F2 address
+filecoin_filecoinaddresstoethaddress_1771943760273649.rpcsnap.json.zst # F3 address
+filecoin_filecoinaddresstoethaddress_1771943760275947.rpcsnap.json.zst # F2 address
+filecoin_filecoinaddresstoethaddress_1771943760315677.rpcsnap.json.zst # F1 address
+filecoin_filecoinaddresstoethaddress_1771946498262342.rpcsnap.json.zst # finalized tag
+filecoin_filecoinaddresstoethaddress_1771946498262483.rpcsnap.json.zst # latest tag
+filecoin_filecoinaddresstoethaddress_1771946498262885.rpcsnap.json.zst # safe tag
 filecoin_gasestimategaslimit_1741782110512299.rpcsnap.json.zst
 filecoin_gasestimatemessagegas_1758735195199472.rpcsnap.json.zst
 filecoin_getactoreventsraw_1741782590255476.rpcsnap.json.zst

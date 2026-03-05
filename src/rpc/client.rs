@@ -92,9 +92,7 @@ impl Client {
         &self,
         req: Request<T>,
     ) -> Result<T, ClientError> {
-        let max_api_path = req
-            .api_path()
-            .map_err(|e| ClientError::Custom(e.to_string()))?;
+        let api_path = req.api_path;
         let Request {
             method_name,
             params,
@@ -102,7 +100,7 @@ impl Client {
             ..
         } = req;
         let method_name = method_name.as_ref();
-        let client = self.get_or_init_client(max_api_path).await?;
+        let client = self.get_or_init_client(api_path).await?;
         let span = tracing::debug_span!("request", method = %method_name, url = %client.url);
         let work = async {
             // jsonrpsee's clients have a global `timeout`, but not a per-request timeout, which
