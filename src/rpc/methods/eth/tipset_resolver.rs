@@ -72,7 +72,7 @@ where
     async fn resolve_predefined_tipset(&self, tag: Predefined) -> anyhow::Result<Tipset> {
         match self.api_version {
             ApiPaths::V2 => self.resolve_predefined_tipset_v2(tag).await,
-            _ => self.resolve_predefined_tipset_v1(tag).await,
+            ApiPaths::V1 | ApiPaths::V0 => self.resolve_predefined_tipset_v1(tag).await,
         }
     }
 
@@ -165,7 +165,7 @@ where
         )?)
     }
 
-    /// Returns the tipset considered finalized by election-confirmation finality.
+    /// Returns the tipset considered finalized by expected-consensus finality.
     ///
     /// The finalized epoch is computed as head.epoch() minus the chain's `policy.chain_finality`, clamped to zero. The tipset at that epoch is returned; when the exact height is unavailable, an older tipset is selected.
     pub fn get_ec_finalized_tipset(&self) -> anyhow::Result<Tipset> {
