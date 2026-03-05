@@ -14,6 +14,7 @@ use crate::{
     state_manager::{StateManager, StateOutput},
     tool::subcommands::api_cmd::generate_test_snapshot,
 };
+use human_repr::HumanCount as _;
 use nonzero_ext::nonzero;
 use std::{num::NonZeroUsize, path::PathBuf, sync::Arc, time::Instant};
 
@@ -120,7 +121,7 @@ impl ComputeCommand {
         db.export_forest_car(&mut db_snapshot).await?;
         println!(
             "epoch: {epoch}, state_root: {state_root}, receipt_root: {receipt_root}, db_snapshot_size: {}",
-            human_bytes::human_bytes(db_snapshot.len() as f64)
+            db_snapshot.len().human_count_bytes()
         );
         let expected_state_root = *ts_next.parent_state();
         let expected_receipt_root = *ts_next.parent_message_receipts();
@@ -232,7 +233,7 @@ impl ValidateCommand {
         db.export_forest_car(&mut db_snapshot).await?;
         println!(
             "epoch: {epoch}, db_snapshot_size: {}",
-            human_bytes::human_bytes(db_snapshot.len() as f64)
+            db_snapshot.len().human_count_bytes()
         );
         if let Some(export_db_to) = export_db_to {
             std::fs::write(export_db_to, db_snapshot)?;

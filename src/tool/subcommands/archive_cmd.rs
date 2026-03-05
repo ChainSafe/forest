@@ -55,6 +55,7 @@ use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
+use human_repr::HumanCount as _;
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use multihash_derive::MultihashDigest as _;
@@ -338,7 +339,7 @@ impl std::fmt::Display for ArchiveInfo {
             write!(
                 f,
                 "Index size:       {}",
-                human_bytes::human_bytes(index_size_bytes)
+                index_size_bytes.human_count_bytes()
             )?;
         }
         Ok(())
