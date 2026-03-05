@@ -46,6 +46,9 @@ updates:
         patterns:
           - "actions/upload-artifact"
           - "actions/download-artifact"
+      docker:
+        patterns:
+          - "docker/*"
 
   - package-ecosystem: "npm"
     directory: "/docs" # Location of package manifests
