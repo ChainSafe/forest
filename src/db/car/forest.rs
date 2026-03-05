@@ -62,7 +62,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 use integer_encoding::VarIntReader;
 use nunny::Vec as NonEmpty;
-use positioned_io::{Cursor, ReadAt, SizeCursor};
+use positioned_io::{Cursor, ReadAt, Size as _, SizeCursor};
 use std::io::{Seek, SeekFrom};
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
@@ -193,10 +193,11 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             cache_key: self.cache_key,
             indexed: self.indexed.map(|slice| {
                 let offset = slice.inner().offset();
+                let size = slice.inner().size()?;
                 ZstdSkipFramesEncodedDataReader::new(positioned_io::Slice::new(
                     Box::new(slice.into_inner().into_inner()) as Box<dyn RandomAccessFileReader>,
                     offset,
-                    None,
+                    size,
                 ))
             })?,
             index_size_bytes: self.index_size_bytes,
