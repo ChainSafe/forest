@@ -154,6 +154,9 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
                 footer.index
             )),
         )?;
+        let index_len = index_end_pos.checked_sub(index_start_pos).ok_or_else(||
+            invalid_data(format!("unexpected error: index_end_pos({index_end_pos}) < index_start_pos({index_start_pos})"))
+        )?;
 
         let cursor = Cursor::new_pos(&reader, 0);
         let mut header_zstd_frame = decode_zstd_single_frame(cursor)?.into();
@@ -163,7 +166,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         let header = from_slice_with_fallback::<CarV1Header>(&block_frame)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        Ok((header, index_start_pos, index_end_pos - index_start_pos))
+        Ok((header, index_start_pos, index_len))
     }
 
     pub fn head_tipset_key(&self) -> &NonEmpty<Cid> {
