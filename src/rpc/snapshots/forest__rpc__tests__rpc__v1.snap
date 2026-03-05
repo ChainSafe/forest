@@ -892,12 +892,12 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: Filecoin.EthGetBlockTransactionCountByNumber
-    description: Returns the number of transactions in a block identified by its block number.
+    description: Returns the number of transactions in a block identified by its block number or a special tag.
     params:
       - name: blockNumber
         required: true
         schema:
-          $ref: "#/components/schemas/EthInt64"
+          $ref: "#/components/schemas/BlockNumberOrPredefined"
     result:
       name: Filecoin.EthGetBlockTransactionCountByNumber.Result
       required: true
@@ -905,12 +905,12 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_getBlockTransactionCountByNumber
-    description: Returns the number of transactions in a block identified by its block number.
+    description: Returns the number of transactions in a block identified by its block number or a special tag.
     params:
       - name: blockNumber
         required: true
         schema:
-          $ref: "#/components/schemas/EthInt64"
+          $ref: "#/components/schemas/BlockNumberOrPredefined"
     result:
       name: eth_getBlockTransactionCountByNumber.Result
       required: true
@@ -1527,7 +1527,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthTraceBlock.Result
       required: false
@@ -1544,7 +1544,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: trace_block.Result
       required: false
@@ -1675,7 +1675,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: traceTypes
         required: true
         schema:
@@ -1700,7 +1700,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: traceTypes
         required: true
         schema:
@@ -4622,7 +4622,7 @@ components:
         blockHash:
           $ref: "#/components/schemas/EthHash"
         blockNumber:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         chainId:
           $ref: "#/components/schemas/EthUint64"
         from:
@@ -4876,7 +4876,7 @@ components:
         nonce:
           $ref: "#/components/schemas/Nonce"
         number:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         parentHash:
           $ref: "#/components/schemas/EthHash"
         receiptsRoot:
@@ -5879,7 +5879,7 @@ components:
         blockHash:
           $ref: "#/components/schemas/EthHash"
         blockNumber:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         contractAddress:
           anyOf:
             - $ref: "#/components/schemas/EthAddress"
@@ -5990,13 +5990,6 @@ components:
       type: integer
       format: uint32
       minimum: 0
-    ExtBlockNumberOrHash:
-      anyOf:
-        - type: string
-        - $ref: "#/components/schemas/EthInt64"
-        - $ref: "#/components/schemas/EthHash"
-        - $ref: "#/components/schemas/BlockNumber"
-        - $ref: "#/components/schemas/BlockHash"
     ExtendedSectorInfo:
       type: object
       properties:

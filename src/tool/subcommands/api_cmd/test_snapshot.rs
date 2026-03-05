@@ -1,11 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain_sync::SyncStatusReport;
 use crate::{
     KeyStore, KeyStoreConfig,
     chain::ChainStore,
-    chain_sync::network_context::SyncNetworkContext,
+    chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
     db::{
         MemoryDB,
         car::{AnyCar, ManyCar},
@@ -117,7 +116,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
                     Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
                     Err(e) => Err(e),
                 };
-                assert_eq!(result, expected);
+                pretty_assertions::assert_eq!(result, expected);
                 run = true;
             }
         };

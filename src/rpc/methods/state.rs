@@ -330,7 +330,7 @@ impl RpcMethod<2> for StateGetActorV2 {
         (address, selector): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ChainGetTipSetV2::get_required_tipset(&ctx, &selector).await?;
+        let ts = ChainGetTipSetV2::get_tipset(&ctx, &selector).await?;
         Ok(ctx.state_manager.get_actor(&address, *ts.parent_state())?)
     }
 }
@@ -353,7 +353,7 @@ impl RpcMethod<2> for StateGetID {
         (address, selector): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ChainGetTipSetV2::get_required_tipset(&ctx, &selector).await?;
+        let ts = ChainGetTipSetV2::get_tipset(&ctx, &selector).await?;
         Ok(ctx.state_manager.lookup_required_id(&address, &ts)?)
     }
 }

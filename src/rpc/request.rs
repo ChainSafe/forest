@@ -17,7 +17,7 @@ pub struct Request<T = serde_json::Value> {
     #[serde(skip)]
     pub result_type: PhantomData<T>,
     #[serde(skip)]
-    pub api_paths: BitFlags<ApiPaths>,
+    pub api_path: ApiPaths,
     #[serde(skip)]
     pub timeout: Duration,
 }
@@ -32,23 +32,28 @@ impl<T> Request<T> {
         self
     }
 
+    pub fn set_api_path(&mut self, api_path: ApiPaths) {
+        self.api_path = api_path;
+    }
+
+    pub fn with_api_path(mut self, api_path: ApiPaths) -> Self {
+        self.set_api_path(api_path);
+        self
+    }
+
     /// Map type information about the response.
     pub fn map_ty<U>(self) -> Request<U> {
         Request {
             method_name: self.method_name,
             params: self.params,
             result_type: PhantomData,
-            api_paths: self.api_paths,
+            api_path: self.api_path,
             timeout: self.timeout,
         }
     }
 
     pub fn max_api_path(api_paths: BitFlags<ApiPaths>) -> anyhow::Result<ApiPaths> {
         api_paths.iter().max().context("No supported versions")
-    }
-
-    pub fn api_path(&self) -> anyhow::Result<ApiPaths> {
-        Self::max_api_path(self.api_paths)
     }
 }
 
