@@ -30,6 +30,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
       - name: Cargo Build
         run: |
           mkdir -p release-binaries forest-${{ github.ref_name }}

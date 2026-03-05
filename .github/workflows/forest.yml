@@ -59,6 +59,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
       - name: Cargo Check
         run: cargo check
   build-ubuntu:
@@ -83,6 +84,10 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
       - uses: jdx/mise-action@v3
       - name: Go tests
         run: |
@@ -157,6 +162,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
