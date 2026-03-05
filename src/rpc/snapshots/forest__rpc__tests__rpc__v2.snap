@@ -16,11 +16,9 @@ methods:
           $ref: "#/components/schemas/TipsetSelector"
     result:
       name: Filecoin.ChainGetTipSet.Result
-      required: false
+      required: true
       schema:
-        anyOf:
-          - $ref: "#/components/schemas/Tipset"
-          - type: "null"
+        $ref: "#/components/schemas/Tipset"
     paramStructure: by-position
   - name: Forest.ChainExport
     params:

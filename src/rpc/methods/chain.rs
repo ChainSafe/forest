@@ -1064,13 +1064,13 @@ impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_anchor(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         anchor: &Option<TipsetAnchor>,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         if let Some(anchor) = anchor {
             match (&anchor.key.0, &anchor.tag) {
                 // Anchor is zero-valued. Fall back to heaviest tipset.
-                (None, None) => Ok(Some(ctx.state_manager.heaviest_tipset())),
+                (None, None) => Ok(ctx.state_manager.heaviest_tipset()),
                 // Get tipset at the specified key.
-                (Some(tsk), None) => Ok(Some(ctx.chain_index().load_required_tipset(tsk)?)),
+                (Some(tsk), None) => Ok(ctx.chain_index().load_required_tipset(tsk)?),
                 (None, Some(tag)) => Self::get_tipset_by_tag(ctx, *tag).await,
                 _ => {
                     anyhow::bail!("invalid anchor")
@@ -1085,11 +1085,11 @@ impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_tag(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         tag: TipsetTag,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         match tag {
-            TipsetTag::Latest => Ok(Some(ctx.state_manager.heaviest_tipset())),
-            TipsetTag::Finalized => Some(Self::get_latest_finalized_tipset(ctx).await).transpose(),
-            TipsetTag::Safe => Some(Self::get_latest_safe_tipset(ctx).await).transpose(),
+            TipsetTag::Latest => Ok(ctx.state_manager.heaviest_tipset()),
+            TipsetTag::Finalized => Self::get_latest_finalized_tipset(ctx).await,
+            TipsetTag::Safe => Self::get_latest_safe_tipset(ctx).await,
         }
     }
 
@@ -1150,22 +1150,22 @@ impl ChainGetTipSetV2 {
     pub async fn get_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         selector: &TipsetSelector,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         selector.validate()?;
         // Get tipset by key.
         if let ApiTipsetKey(Some(tsk)) = &selector.key {
             let ts = ctx.chain_index().load_required_tipset(tsk)?;
-            return Ok(Some(ts));
+            return Ok(ts);
         }
         // Get tipset by height.
         if let Some(height) = &selector.height {
             let anchor = Self::get_tipset_by_anchor(ctx, &height.anchor).await?;
             let ts = ctx.chain_index().tipset_by_height(
                 height.at,
-                anchor.unwrap_or_else(|| ctx.chain_store().heaviest_tipset()),
+                anchor,
                 height.resolve_null_tipset_policy(),
             )?;
-            return Ok(Some(ts));
+            return Ok(ts);
         }
         // Get tipset by tag, either latest or finalized.
         if let Some(tag) = &selector.tag {
@@ -1173,15 +1173,6 @@ impl ChainGetTipSetV2 {
             return Ok(ts);
         }
         anyhow::bail!("no tipset found for selector")
-    }
-
-    pub async fn get_required_tipset(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        selector: &TipsetSelector,
-    ) -> anyhow::Result<Tipset> {
-        Self::get_tipset(ctx, selector)
-            .await?
-            .context("failed to select a tipset")
     }
 }
 
@@ -1193,7 +1184,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
     type Params = (TipsetSelector,);
-    type Ok = Option<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,

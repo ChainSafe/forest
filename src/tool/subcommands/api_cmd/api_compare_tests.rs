@@ -2767,17 +2767,13 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
     })
 }
 
-fn validate_tagged_tipset_v2(req: rpc::Request<Option<Tipset>>, offline: bool) -> RpcTest {
-    RpcTest::validate(req, move |forest, lotus| match (forest, lotus) {
-        (None, None) => true,
-        (Some(forest), Some(lotus)) => {
-            if offline {
-                true
-            } else {
-                (forest.epoch() - lotus.epoch()).abs() <= 2
-            }
+fn validate_tagged_tipset_v2(req: rpc::Request<Tipset>, offline: bool) -> RpcTest {
+    RpcTest::validate(req, move |forest, lotus| {
+        if offline {
+            true
+        } else {
+            (forest.epoch() - lotus.epoch()).abs() <= 2
         }
-        _ => false,
     })
 }
 

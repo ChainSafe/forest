@@ -64,8 +64,6 @@ where
 
     /// Resolve a predefined tipset according to the resolver's API version.
     ///
-    /// This dispatches to the API-version-specific resolution logic and returns the resolved tipset for the given predefined tag.
-    ///
     /// # Returns
     ///
     /// The resolved `Tipset`, or an error if resolution fails.
@@ -81,8 +79,9 @@ where
     ///
     /// If the environment variable `FOREST_ETH_V1_DISABLE_F3_FINALITY_RESOLUTION` is set to a truthy value,
     /// this function first attempts common predefined tag resolution (e.g., Pending, Latest). If that yields
-    /// no result, the function returns the "safe" or "finalized" tipset for the corresponding `Predefined` tag.
-    /// When the environment variable is not set or is falsy, resolution is delegated to the V2 resolver.
+    /// no result, the function uses expected-consensus finality to resolve the "safe" or "finalized" tipset
+    /// for the corresponding `Predefined` tag. When the environment variable is not set or is falsy,
+    /// resolution is delegated to the V2 resolver.
     ///
     /// # Errors
     ///
@@ -98,8 +97,8 @@ where
                 Ok(ts)
             } else {
                 match tag {
-                    Predefined::Safe => Ok(self.get_ec_safe_tipset()?),
-                    Predefined::Finalized => Ok(self.get_ec_finalized_tipset()?),
+                    Predefined::Safe => self.get_ec_safe_tipset(),
+                    Predefined::Finalized => self.get_ec_finalized_tipset(),
                     tag => anyhow::bail!("unknown block tag: {tag}"),
                 }
             }
@@ -148,7 +147,7 @@ where
                     .chain_index()
                     .load_required_tipset(head.parents())?,
             )),
-            _ => Ok(None),
+            Predefined::Safe | Predefined::Finalized => Ok(None),
         }
     }
 
