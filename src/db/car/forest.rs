@@ -6,16 +6,17 @@
 //! See [`crate::db::car::plain`] for details on the CAR format.
 //!
 //! The `forest.car.zst` format wraps multiple CAR blocks in small (usually 8 KiB)
-//! zstd frames, and has an index in a skippable zstd frame. At the end of the
-//! data, there has to be a fixed-size skippable frame containing magic numbers
-//! and meta information about the archive. CAR blocks may not span multiple
-//! z-frames and the CAR header is kept it a separate z-frame.
+//! zstd frames, and has an index in one ore more skippable zstd frames (each
+//! skippable frame contains up to `u32::MAX` bytes). At the end of the data, there
+//! has to be a fixed-size skippable frame containing magic numbers and meta
+//! information about the archive. CAR blocks may not span multiple z-frames
+//! and the CAR header is kept it a separate z-frame.
 //!
 //! Imagine a `forest.car.zst` archive with 5 blocks. They could be arranged in
 //! z-frames as drawn below:
 //!
 //! ```text
-//!  Z-Frame 1   Z-Frame 2   Z-Frame 3   Skip Frame    Skip Frame
+//!  Z-Frame 1   Z-Frame 2   Z-Frame 3   Skip Frames    Skip Frame
 //! ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌───────────┐ ┌────────────┐
 //! │┌──────┐ │ │┌───────┐│ │┌───────┐│ │Offsets    │ │Index offset│
 //! ││Header│ │ ││Block 1││ ││Block 4││ │ Z-Frame 2 │ │Magic number│
@@ -42,7 +43,7 @@
 //! # Additional reading
 //!
 //! `zstd` frame format: <https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md>
-//!
+//! skippable `zstd` frames: <https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#skippable-frames>
 //! CARv1 specification: <https://ipld.io/specs/transport/car/carv1/>
 //!
 

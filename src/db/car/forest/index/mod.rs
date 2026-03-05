@@ -65,7 +65,10 @@
 //! ```
 
 use super::ZSTD_SKIP_FRAME_LEN;
-use crate::{db::car::plain::write_skip_frame_header_async, utils::misc::env::is_env_truthy};
+use crate::{
+    db::car::{forest::ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER, plain::write_skip_frame_header_async},
+    utils::misc::env::is_env_truthy,
+};
 
 #[cfg_vis(feature = "benchmark-private", pub)]
 use self::util::NonMaximalU64;
@@ -201,9 +204,11 @@ impl<R: ReadAt> ZstdSkipFramesEncodedDataReader<R> {
     pub fn new(reader: R) -> io::Result<Self> {
         let mut offset = 0;
         let mut skip_frame_header_offsets = vec![];
-        while let Ok(len) = reader.read_u32_at::<LittleEndian>(offset + 4) {
+        while let Ok(data_len) = reader
+            .read_u32_at::<LittleEndian>(offset + ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER.len() as u64)
+        {
             skip_frame_header_offsets.push(offset);
-            offset += ZSTD_SKIP_FRAME_LEN + len as u64;
+            offset += ZSTD_SKIP_FRAME_LEN + data_len as u64;
         }
         Ok(Self {
             reader,
@@ -243,12 +248,24 @@ where
     R: ReadAt,
 {
     fn read_at(&self, pos: u64, buf: &mut [u8]) -> io::Result<usize> {
+        // Start with the logical position; we'll shift it forward to account for
+        // skip-frame headers as we scan through the known header offsets.
         let mut adjusted_pos = pos;
+        // Track the physical offset of the next skip-frame header that lies *after*
+        // the current adjusted position (i.e., still inside the read window).
         let mut next_frame_pos = None;
+
+        // Walk the sorted list of skip-frame header offsets to translate the
+        // logical `pos` into a physical offset in the underlying reader.
+        // For every header whose physical position is at or before `adjusted_pos`,
+        // the header itself is already "behind" us, so we advance `adjusted_pos`
+        // by `ZSTD_SKIP_FRAME_LEN` (8 bytes) to skip past it.
         for &p in self.skip_frame_header_offsets.iter() {
             if p <= adjusted_pos {
                 adjusted_pos += ZSTD_SKIP_FRAME_LEN;
             } else {
+                // The first header that is still ahead of us defines the boundary
+                // of the current contiguous read window.
                 next_frame_pos = Some(p);
                 break;
             }
@@ -257,12 +274,20 @@ where
             && let max_read_len = (next_frame_pos - adjusted_pos) as usize
             && max_read_len < buf.len()
         {
+            // The next skip-frame header falls within the requested buffer range.
+            // Split the read into two parts so we never read across a header boundary:
+            //   1. Read up to (but not including) the upcoming skip-frame header.
+            //   2. Recursively read the remainder starting at the logical position
+            //      just after that boundary, placing the result into the rest of the buffer.
+            // The two byte counts are summed to give the total bytes read.
             #[allow(clippy::indexing_slicing)]
             Ok(self
                 .reader
                 .read_at(adjusted_pos, &mut buf[..max_read_len])?
                 + self.read_at(pos + max_read_len as u64, &mut buf[max_read_len..])?)
         } else {
+            // No skip-frame header interrupts this read window; delegate directly
+            // to the underlying reader at the translated physical position.
             self.reader.read_at(adjusted_pos, buf)
         }
     }
