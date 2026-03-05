@@ -155,7 +155,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         })?;
 
         let cursor = Cursor::new_pos(&reader, 0);
-        let mut header_zstd_frame = decode_zstd_single_frame(cursor)?;
+        let mut header_zstd_frame = decode_zstd_single_frame(cursor)?.into();
         let block_frame = uvi_bytes()
             .decode(&mut header_zstd_frame)?
             .ok_or_else(|| invalid_data("malformed uvibytes"))?;
@@ -261,7 +261,7 @@ where
                     // Decode entire frame into memory, "position" arg is the frame start offset.
                     let entire_file = indexed.reader().get_ref(); // escape the positioned_io::Slice
                     let cursor = Cursor::new_pos(entire_file, position);
-                    let mut zstd_frame = decode_zstd_single_frame(cursor)?;
+                    let mut zstd_frame = decode_zstd_single_frame(cursor)?.into();
                     // Parse all key-value pairs and insert them into a map
                     let mut block_map = hashbrown::HashMap::new();
                     while let Some(block_frame) = uvi_bytes().decode_eof(&mut zstd_frame)? {
@@ -287,12 +287,12 @@ where
     }
 }
 
-fn decode_zstd_single_frame<ReaderT: Read>(reader: ReaderT) -> io::Result<BytesMut> {
+fn decode_zstd_single_frame<ReaderT: Read>(reader: ReaderT) -> io::Result<Bytes> {
     let mut zstd_frame = vec![];
     zstd::Decoder::new(reader)?
         .single_frame()
         .read_to_end(&mut zstd_frame)?;
-    Ok(zstd_frame.into_iter().collect())
+    Ok(zstd_frame.into())
 }
 
 pub struct Encoder {}
