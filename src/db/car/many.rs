@@ -108,7 +108,7 @@ impl<WriterT> ManyCar<WriterT> {
         read_only.push(WithHeaviestEpoch::new(
             any_car
                 .with_cache(self.shared_cache.clone(), key)
-                .into_dyn(),
+                .into_dyn()?,
         )?);
 
         Ok(())

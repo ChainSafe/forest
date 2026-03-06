@@ -314,7 +314,7 @@ pub struct ArchiveInfo {
     events: usize,
     head: Tipset,
     snapshot_version: FilecoinSnapshotVersion,
-    index_size_bytes: Option<u32>,
+    index_size_bytes: Option<u64>,
 }
 
 impl std::fmt::Display for ArchiveInfo {
@@ -354,7 +354,7 @@ impl ArchiveInfo {
         variant: String,
         heaviest_tipset: Tipset,
         snapshot_version: FilecoinSnapshotVersion,
-        index_size_bytes: Option<u32>,
+        index_size_bytes: Option<u64>,
     ) -> anyhow::Result<Self> {
         Self::from_store_with(
             store,
@@ -374,7 +374,7 @@ impl ArchiveInfo {
         variant: String,
         heaviest_tipset: Tipset,
         snapshot_version: FilecoinSnapshotVersion,
-        index_size_bytes: Option<u32>,
+        index_size_bytes: Option<u64>,
         progress: bool,
     ) -> anyhow::Result<Self> {
         let head = heaviest_tipset;
