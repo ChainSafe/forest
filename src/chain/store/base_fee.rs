@@ -8,6 +8,15 @@ use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
 use ahash::{HashSet, HashSetExt};
 use fvm_ipld_blockstore::Blockstore;
 
+use super::weighted_quick_select::weighted_quick_select;
+
+/// TODO(FIP-0115): Replace this placeholder with actual next upgrade height
+/// This is a temporary value used during the FIP-0115 implementation.
+/// Replace with the actual next upgrade height once it is determined and finalized.
+pub const PLACEHOLDER_NEXT_UPGRADE_HEIGHT: ChainEpoch = ChainEpoch::MAX;
+
+pub const BLOCK_GAS_TARGET_INDEX: u64 = BLOCK_GAS_LIMIT * 80 / 100 - 1;
+
 /// Used in calculating the base fee change.
 pub const BLOCK_GAS_TARGET: u64 = BLOCK_GAS_LIMIT / 2;
 
@@ -57,6 +66,68 @@ fn compute_next_base_fee(
 }
 
 pub fn compute_base_fee<DB>(
+    db: &DB,
+    ts: &Tipset,
+    smoke_height: ChainEpoch,
+    next_upgrade_height: ChainEpoch,
+) -> Result<TokenAmount, crate::chain::Error>
+where
+    DB: Blockstore,
+{
+    // FIP-0115: https://github.com/filecoin-project/FIPs/pull/1233
+    if ts.epoch() >= next_upgrade_height {
+        return compute_next_base_fee_from_premiums(db, ts);
+    }
+
+    compute_next_base_fee_from_utlilization(db, ts, smoke_height)
+}
+
+fn compute_next_base_fee_from_premiums<DB>(
+    db: &DB,
+    ts: &Tipset,
+) -> Result<TokenAmount, crate::chain::Error>
+where
+    DB: Blockstore,
+{
+    let mut limits = Vec::new();
+    let mut premiums = Vec::new();
+    let mut seen = HashSet::new();
+    let parent_base_fee = &ts.block_headers().first().parent_base_fee;
+
+    let mut add_message = |m: &dyn Message| {
+        let sender_with_nonce = (m.from(), m.sequence());
+        if !seen.contains(&sender_with_nonce) {
+            limits.push(m.gas_limit());
+            premiums.push(m.effective_gas_premium(parent_base_fee));
+            seen.insert(sender_with_nonce);
+        }
+    };
+
+    for b in ts.block_headers() {
+        let (bls_msgs, secp_msgs) = crate::chain::block_messages(db, b)?;
+        for m in bls_msgs {
+            add_message(&m);
+        }
+        for m in secp_msgs {
+            add_message(&m);
+        }
+    }
+
+    let percentile_premium = weighted_quick_select(premiums, limits, BLOCK_GAS_TARGET_INDEX);
+    compute_next_base_fee_from_premium(parent_base_fee, percentile_premium)
+}
+
+pub(crate) fn compute_next_base_fee_from_premium(
+    base_fee: &TokenAmount,
+    percentile_premium: TokenAmount,
+) -> Result<TokenAmount, crate::chain::Error> {
+    let denom = TokenAmount::from_atto(BASE_FEE_MAX_CHANGE_DENOM);
+    let max_adj = (base_fee + (&denom - &TokenAmount::from_atto(1))) / denom;
+    Ok(TokenAmount::from_atto(MINIMUM_BASE_FEE)
+        .max(base_fee + (&max_adj).min(&(&percentile_premium - &max_adj))))
+}
+
+fn compute_next_base_fee_from_utlilization<DB>(
     db: &DB,
     ts: &Tipset,
     smoke_height: ChainEpoch,
@@ -174,6 +245,14 @@ mod tests {
         });
         let ts = Tipset::from(h0);
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        assert!(compute_base_fee(&blockstore, &ts, smoke_height).is_err());
+        assert!(
+            compute_base_fee(
+                &blockstore,
+                &ts,
+                smoke_height,
+                PLACEHOLDER_NEXT_UPGRADE_HEIGHT
+            )
+            .is_err()
+        );
     }
 }
