@@ -11,7 +11,7 @@ use super::{
     encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
 };
 use crate::eth::{EAMMethod, EVMMethod};
-use crate::rpc::eth::types::{AccountDiff, Delta, StateDiff};
+use crate::rpc::eth::types::{AccountDiff, CallTracerConfig, Delta, StateDiff};
 use crate::rpc::eth::{EthBigInt, EthUint64};
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::ExecutionTrace;
@@ -34,15 +34,19 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use tracing::debug;
 
-const EVM_REVERTED_CONTRACT: &str = "Reverted"; // capitalized for compatibility
-const EVM_INVALID_INSTRUCTION: &str = "invalid instruction";
-const EVM_UNDEFINED_INSTRUCTION: &str = "undefined instruction";
-const EVM_STACK_UNDERFLOW: &str = "stack underflow";
-const EVM_STACK_OVERFLOW: &str = "stack overflow";
-const EVM_ILLEGAL_MEMORY_ACCESS: &str = "illegal memory access";
-const EVM_BAD_JUMPDEST: &str = "invalid jump destination";
-const EVM_SELFDESTRUCT_FAILED: &str = "self destruct failed";
-const EVM_OUT_OF_GAS: &str = "out of gas";
+// EVM geth format Error Message
+pub(crate) const GETH_EVM_REVERTED_CONTRACT: &str = "Reverted"; // capitalized for compatibility
+
+// EVM Parity format Error Message
+pub(crate) const PARITY_EVM_REVERTED_CONTRACT: &str = "execution reverted";
+const PARITY_EVM_INVALID_INSTRUCTION: &str = "invalid instruction";
+const PARITY_EVM_UNDEFINED_INSTRUCTION: &str = "undefined instruction";
+const PARITY_EVM_STACK_UNDERFLOW: &str = "stack underflow";
+const PARITY_EVM_STACK_OVERFLOW: &str = "stack overflow";
+const PARITY_EVM_ILLEGAL_MEMORY_ACCESS: &str = "illegal memory access";
+const PARITY_EVM_BAD_JUMPDEST: &str = "invalid jump destination";
+const PARITY_EVM_SELFDESTRUCT_FAILED: &str = "self destruct failed";
+const PARITY_EVM_OUT_OF_GAS: &str = "out of gas";
 
 /// KAMT configuration matching the EVM actor in builtin-actors.
 // Code is taken from: https://github.com/filecoin-project/builtin-actors/blob/v17.0.0/actors/evm/src/interpreter/system.rs#L47
@@ -123,7 +127,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
 
     // EVM tools often expect this literal string.
     if code == ExitCode::SYS_OUT_OF_GAS {
-        return Some(EVM_OUT_OF_GAS.into());
+        return Some(PARITY_EVM_OUT_OF_GAS.into());
     }
 
     // indicate when we have a "system" error.
@@ -134,30 +138,27 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
     // handle special exit codes from the EVM/EAM.
     if trace_is_evm_or_eam(trace) {
         match code.into() {
-            evm12::EVM_CONTRACT_REVERTED => return Some(EVM_REVERTED_CONTRACT.into()),
-            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => return Some(EVM_INVALID_INSTRUCTION.into()),
+            evm12::EVM_CONTRACT_REVERTED => return Some(GETH_EVM_REVERTED_CONTRACT.into()),
+            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => {
+                return Some(PARITY_EVM_INVALID_INSTRUCTION.into());
+            }
             evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => {
-                return Some(EVM_UNDEFINED_INSTRUCTION.into());
+                return Some(PARITY_EVM_UNDEFINED_INSTRUCTION.into());
             }
-            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some(EVM_STACK_UNDERFLOW.into()),
-            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some(EVM_STACK_OVERFLOW.into()),
+            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some(PARITY_EVM_STACK_UNDERFLOW.into()),
+            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some(PARITY_EVM_STACK_OVERFLOW.into()),
             evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => {
-                return Some(EVM_ILLEGAL_MEMORY_ACCESS.into());
+                return Some(PARITY_EVM_ILLEGAL_MEMORY_ACCESS.into());
             }
-            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some(EVM_BAD_JUMPDEST.into()),
-            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => return Some(EVM_SELFDESTRUCT_FAILED.into()),
+            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some(PARITY_EVM_BAD_JUMPDEST.into()),
+            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => {
+                return Some(PARITY_EVM_SELFDESTRUCT_FAILED.into());
+            }
             _ => (),
         }
     }
     // everything else...
     Some(format!("actor error: {code}"))
-}
-
-fn parity_error_to_geth(parity_error: &str) -> String {
-    match parity_error {
-        EVM_REVERTED_CONTRACT => "execution reverted".into(),
-        other => other.to_string(),
-    }
 }
 
 /// Recursively builds the traces for a given ExecutionTrace by walking the subcalls
@@ -684,16 +685,16 @@ fn trace_evm_private(
 pub fn build_geth_call_frame(
     env: &mut Environment,
     trace: ExecutionTrace,
-    only_top_call: bool,
+    tracer_cfg: &CallTracerConfig,
 ) -> anyhow::Result<Option<GethCallFrame>> {
-    build_geth_frame_recursive(env, trace, true, only_top_call)
+    build_geth_frame_recursive(env, trace, tracer_cfg, true)
 }
 
 fn build_geth_frame_recursive(
     env: &mut Environment,
     trace: ExecutionTrace,
+    tracer_cfg: &CallTracerConfig,
     is_root: bool,
-    only_top_call: bool,
 ) -> anyhow::Result<Option<GethCallFrame>> {
     let msg_to = trace.msg.to;
     let msg_method = trace.msg.method;
@@ -722,9 +723,13 @@ fn build_geth_frame_recursive(
         }
     };
 
-    let mut frame = eth_trace_to_geth_frame(eth_trace, call_type)?;
+    let mut frame = eth_trace_to_geth_frame(
+        eth_trace,
+        call_type,
+        tracer_cfg.with_log.unwrap_or_default(),
+    )?;
 
-    if !only_top_call {
+    if !tracer_cfg.only_top_call.unwrap_or_default() {
         if let Some(recurse_trace) = recurse_into {
             if let Some(invoked_actor) = &recurse_trace.invoked_actor {
                 let mut sub_env = Environment {
@@ -735,7 +740,7 @@ fn build_geth_frame_recursive(
                 let mut subcalls = Vec::new();
                 for subcall in recurse_trace.subcalls {
                     if let Some(f) =
-                        build_geth_frame_recursive(&mut sub_env, subcall, false, false)?
+                        build_geth_frame_recursive(&mut sub_env, subcall, &tracer_cfg, false)?
                     {
                         subcalls.push(f);
                     }
@@ -751,13 +756,15 @@ fn build_geth_frame_recursive(
 }
 
 /// Converts a Parity-style [`EthTrace`] into a Geth-style [`GethCallFrame`].
+// Code taken from https://github.com/paradigmxyz/revm-inspectors/blob/v0.36.0/src/tracing/types.rs#L430
 fn eth_trace_to_geth_frame(
     trace: EthTrace,
     call_type: GethCallType,
+    with_log: bool,
 ) -> anyhow::Result<GethCallFrame> {
-    let error = trace.error.map(|e| parity_error_to_geth(&e));
-    let is_error = error.is_some();
-    let is_revert = error.as_deref() == Some("execution reverted");
+    let is_success = trace.is_success();
+    let is_revert = trace.is_reverted();
+    let error = trace.parity_error_to_geth();
 
     match (trace.action, trace.result) {
         (TraceAction::Call(action), TraceResult::Call(result)) => {
@@ -779,7 +786,7 @@ fn eth_trace_to_geth_frame(
                 calls: None,
             };
 
-            if is_error {
+            if !is_success {
                 if !is_revert {
                     frame.gas_used = action.gas;
                     frame.output = None;
@@ -806,7 +813,7 @@ fn eth_trace_to_geth_frame(
                 calls: None,
             };
 
-            if is_error {
+            if !is_success {
                 frame.to = None;
                 if !is_revert {
                     frame.gas_used = action.gas;

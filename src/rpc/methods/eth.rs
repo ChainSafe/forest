@@ -4127,8 +4127,7 @@ where
 
     match tracer {
         GethDebugBuiltInTracerType::CallTracer => {
-            let frame =
-                trace::build_geth_call_frame(&mut env, execution_trace, call_config.only_top_call)?;
+            let frame = trace::build_geth_call_frame(&mut env, execution_trace, &call_config)?;
             Ok(GethTrace::CallTracer(frame.unwrap_or_default()))
         }
         GethDebugBuiltInTracerType::FlatCallTracer => {

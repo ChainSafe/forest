@@ -317,13 +317,23 @@ pub struct EthCallMessage {
     pub gas_price: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<EthBigInt>,
-    // Some clients use `input`, others use `data`. We have to support both.
-    #[serde(alias = "input", skip_serializing_if = "Option::is_none", default)]
+    // Ethereum tools (cast, ethers.js, etc.) send calldata as `data`.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub data: Option<EthBytes>,
+    // Lotus/Filecoin clients send calldata as `input`.
+    // Both are accepted; `input` takes precedence when both are present.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub input: Option<EthBytes>,
 }
 lotus_json_with_self!(EthCallMessage);
 
 impl EthCallMessage {
+    /// Returns the effective calldata, preferring `input` over `data` when both are set.
+    // Some ethereum tools uses both `data` and `input` to represent calldata.
+    pub fn effective_input(&self) -> Option<&EthBytes> {
+        self.input.as_ref().or(self.data.as_ref())
+    }
+
     pub fn convert_data_to_message_params(data: EthBytes) -> anyhow::Result<RawBytes> {
         if data.0.is_empty() {
             Ok(RawBytes::new(data.0))
@@ -353,7 +363,8 @@ impl TryFrom<EthCallMessage> for Message {
             }
         };
         let params = tx
-            .data
+            .effective_input()
+            .cloned()
             .map(EthCallMessage::convert_data_to_message_params)
             .transpose()?
             .unwrap_or_default();
@@ -677,8 +688,10 @@ impl GethDebugTracingOptions {
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CallTracerConfig {
-    #[serde(default)]
-    pub only_top_call: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub only_top_call: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub with_log: Option<bool>,
 }
 
 lotus_json_with_self!(CallTracerConfig);
@@ -830,6 +843,35 @@ pub struct EthTrace {
     pub result: TraceResult,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+impl EthTrace {
+    pub fn is_success(&self) -> bool {
+        self.error.is_none()
+    }
+
+    /// Returns true if the trace is a revert error.
+    ///
+    /// This is not a complete check for reverted traces (there are other possible revert reasons).
+    pub fn is_reverted(&self) -> bool {
+        if let Some(error) = self.error.as_ref() {
+            error == trace::GETH_EVM_REVERTED_CONTRACT
+        } else {
+            false
+        }
+    }
+
+    pub fn parity_error_to_geth(&self) -> Option<String> {
+        if let Some(error) = self.error.as_ref() {
+            if error == trace::GETH_EVM_REVERTED_CONTRACT {
+                Some(trace::PARITY_EVM_REVERTED_CONTRACT.into())
+            } else {
+                Some(error.to_string())
+            }
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]

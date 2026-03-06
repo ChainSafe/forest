@@ -199,10 +199,7 @@ fn parse_error_revert(data: &[u8]) -> String {
 
         // Attempt to decode valid UTF-8
         let string = data.get(string_start..string_start + len).ok_or(())?;
-        Ok(format!(
-            "Error({})",
-            std::str::from_utf8(string).map_err(|_| ())?
-        ))
+        Ok(format!("{}", std::str::from_utf8(string).map_err(|_| ())?))
     })();
 
     parse_result.unwrap_or_else(|_| fallback())
