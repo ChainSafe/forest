@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::types::{
-    EthAddress, EthBytes, EthCallTraceAction, EthHash, EthTrace, GethCallFrame, GethCallType,
-    TraceAction, TraceResult,
+    CallLogFrame, EthAddress, EthBytes, EthCallTraceAction, EthHash, EthTrace, GethCallFrame,
+    GethCallType, TraceAction, TraceResult,
 };
 use super::utils::{decode_params, decode_return, parse_eth_revert};
 use super::{
     EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult, decode_payload,
-    encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
+    encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi, eth_log_from_event,
 };
 use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::eth::types::{AccountDiff, CallTracerConfig, Delta, StateDiff};
@@ -16,9 +16,11 @@ use crate::rpc::eth::{EthBigInt, EthUint64};
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::ExecutionTrace;
 use crate::rpc::state::ActorTrace;
+use crate::rpc::types::EventEntry;
 use crate::shim::actors::{EVMActorStateLoad, evm};
+use crate::shim::executor::StampedEvent;
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
-use crate::shim::state_tree::ActorState;
+use crate::shim::state_tree::{ActorID, ActorState};
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
 use ahash::{HashMap, HashSet};
 use anyhow::{Context, bail};
@@ -682,6 +684,10 @@ fn trace_evm_private(
 ///
 /// Reuses [`build_trace`] for classification and data extraction, then converts
 /// the Parity-style [`EthTrace`] into a nested [`GethCallFrame`].
+///
+/// When `with_log` is set and `events` is non-empty, logs are correlated to
+/// call frames by matching each event's emitter actor ID against the frame's
+/// invoked actor.
 pub fn build_geth_call_frame(
     env: &mut Environment,
     trace: ExecutionTrace,
@@ -723,11 +729,7 @@ fn build_geth_frame_recursive(
         }
     };
 
-    let mut frame = eth_trace_to_geth_frame(
-        eth_trace,
-        call_type,
-        tracer_cfg.with_log.unwrap_or_default(),
-    )?;
+    let mut frame = eth_trace_to_geth_frame(eth_trace, call_type)?;
 
     if !tracer_cfg.only_top_call.unwrap_or_default() {
         if let Some(recurse_trace) = recurse_into {
@@ -760,7 +762,6 @@ fn build_geth_frame_recursive(
 fn eth_trace_to_geth_frame(
     trace: EthTrace,
     call_type: GethCallType,
-    with_log: bool,
 ) -> anyhow::Result<GethCallFrame> {
     let is_success = trace.is_success();
     let is_revert = trace.is_reverted();
@@ -784,6 +785,7 @@ fn eth_trace_to_geth_frame(
                 error: None,
                 revert_reason: None,
                 calls: None,
+                logs: Vec::new(),
             };
 
             if !is_success {
@@ -811,6 +813,7 @@ fn eth_trace_to_geth_frame(
                 error: None,
                 revert_reason: None,
                 calls: None,
+                logs: Vec::new(),
             };
 
             if !is_success {
@@ -835,6 +838,32 @@ fn extract_revert_reason(output: &EthBytes) -> Option<String> {
     (!reason.starts_with("0x")).then_some(reason)
 }
 
+/// Returns the effective nonce for an actor: EVM nonce for EVM actors, sequence otherwise.
+fn actor_nonce<DB: Blockstore>(store: &DB, actor: &ActorState) -> EthUint64 {
+    if is_evm_actor(&actor.code) {
+        EthUint64::from(
+            evm::State::load(store, actor.code, actor.state)
+                .map(|s| s.nonce())
+                .unwrap_or(actor.sequence),
+        )
+    } else {
+        EthUint64::from(actor.sequence)
+    }
+}
+
+/// Returns the deployed bytecode of an EVM actor, or `None` for non-EVM actors.
+fn actor_bytecode<DB: Blockstore>(store: &DB, actor: &ActorState) -> Option<EthBytes> {
+    if !is_evm_actor(&actor.code) {
+        return None;
+    }
+    let evm_state = evm::State::load(store, actor.code, actor.state).ok()?;
+    store
+        .get(&evm_state.bytecode())
+        .ok()
+        .flatten()
+        .map(EthBytes)
+}
+
 /// Build state diff by comparing pre and post-execution states for touched addresses.
 pub(crate) fn build_state_diff<S: Blockstore, T: Blockstore>(
     store: &S,
@@ -847,7 +876,6 @@ pub(crate) fn build_state_diff<S: Blockstore, T: Blockstore>(
     for eth_addr in touched_addresses {
         let fil_addr = eth_addr.to_filecoin_address()?;
 
-        // Get actor state before and after
         let pre_actor = pre_state
             .get_actor(&fil_addr)
             .map_err(|e| anyhow::anyhow!("failed to get actor state: {e}"))?;
@@ -858,7 +886,6 @@ pub(crate) fn build_state_diff<S: Blockstore, T: Blockstore>(
 
         let account_diff = build_account_diff(store, pre_actor.as_ref(), post_actor.as_ref())?;
 
-        // Only include it if there were actual changes
         state_diff.insert_if_changed(*eth_addr, account_diff);
     }
 
@@ -873,52 +900,145 @@ fn build_account_diff<DB: Blockstore>(
 ) -> anyhow::Result<AccountDiff> {
     let mut diff = AccountDiff::default();
 
-    // Compare balance
     let pre_balance = pre_actor.map(|a| EthBigInt(a.balance.atto().clone()));
     let post_balance = post_actor.map(|a| EthBigInt(a.balance.atto().clone()));
     diff.balance = Delta::from_comparison(pre_balance, post_balance);
 
-    // Helper to get nonce from actor (uses EVM nonce for EVM actors)
-    let get_nonce = |actor: &ActorState| -> EthUint64 {
-        if is_evm_actor(&actor.code) {
-            EthUint64::from(
-                evm::State::load(store, actor.code, actor.state)
-                    .map(|s| s.nonce())
-                    .unwrap_or(actor.sequence),
-            )
-        } else {
-            EthUint64::from(actor.sequence)
-        }
-    };
-
-    // Helper to get bytecode from an EVM actor
-    let get_bytecode = |actor: &ActorState| -> Option<EthBytes> {
-        if !is_evm_actor(&actor.code) {
-            return None;
-        }
-
-        let evm_state = evm::State::load(store, actor.code, actor.state).ok()?;
-        store
-            .get(&evm_state.bytecode())
-            .ok()
-            .flatten()
-            .map(EthBytes)
-    };
-
-    // Compare nonce
-    let pre_nonce = pre_actor.map(get_nonce);
-    let post_nonce = post_actor.map(get_nonce);
+    let pre_nonce = pre_actor.map(|a| actor_nonce(store, a));
+    let post_nonce = post_actor.map(|a| actor_nonce(store, a));
     diff.nonce = Delta::from_comparison(pre_nonce, post_nonce);
 
-    // Compare code (bytecode for EVM actors)
-    let pre_code = pre_actor.and_then(get_bytecode);
-    let post_code = post_actor.and_then(get_bytecode);
+    let pre_code = pre_actor.and_then(|a| actor_bytecode(store, a));
+    let post_code = post_actor.and_then(|a| actor_bytecode(store, a));
     diff.code = Delta::from_comparison(pre_code, post_code);
 
-    // Compare storage slots for EVM actors
     diff.storage = diff_evm_storage_for_actors(store, pre_actor, post_actor)?;
 
     Ok(diff)
+}
+
+/// Build a [`PreStateFrame`] for the `prestateTracer`.
+///
+/// In default mode, returns the pre-execution state of every touched account.
+/// In diff mode, returns separate `pre` and `post` snapshots with unchanged
+/// fields stripped from `post`.
+pub(crate) fn build_prestate_frame<S: Blockstore, T: Blockstore>(
+    store: &S,
+    pre_state: &StateTree<T>,
+    post_state: &StateTree<T>,
+    touched_addresses: &HashSet<EthAddress>,
+    config: &super::types::PreStateConfig,
+) -> anyhow::Result<super::types::PreStateFrame> {
+    use super::types::{DiffMode, PreStateFrame, PreStateMode};
+
+    let include_code = !config.is_code_disabled();
+    let include_storage = !config.is_storage_disabled();
+
+    if config.is_diff_mode() {
+        let mut pre_map = BTreeMap::new();
+        let mut post_map = BTreeMap::new();
+
+        for eth_addr in touched_addresses {
+            let fil_addr = eth_addr.to_filecoin_address()?;
+
+            let pre_actor = pre_state
+                .get_actor(&fil_addr)
+                .map_err(|e| anyhow::anyhow!("failed to get pre actor state: {e}"))?;
+            let post_actor = post_state
+                .get_actor(&fil_addr)
+                .map_err(|e| anyhow::anyhow!("failed to get post actor state: {e}"))?;
+
+            let pre_snap =
+                build_account_snapshot(store, pre_actor.as_ref(), include_code, include_storage);
+            let mut post_snap =
+                build_account_snapshot(store, post_actor.as_ref(), include_code, include_storage);
+
+            let is_created = pre_actor.is_none() && post_actor.is_some();
+            let is_deleted = pre_actor.is_some() && post_actor.is_none();
+
+            if !is_created {
+                if let Some(snap) = pre_snap.as_ref() {
+                    if !snap.is_empty() {
+                        pre_map.insert(*eth_addr, snap.clone());
+                    }
+                }
+            }
+
+            if !is_deleted {
+                if let Some(ref mut snap) = post_snap {
+                    if let Some(pre_snap) = pre_snap.as_ref() {
+                        snap.retain_changed(pre_snap);
+                    }
+                    if !snap.is_empty() {
+                        post_map.insert(*eth_addr, snap.clone());
+                    }
+                }
+            }
+        }
+
+        Ok(PreStateFrame::Diff(DiffMode {
+            pre: pre_map,
+            post: post_map,
+        }))
+    } else {
+        let mut result = BTreeMap::new();
+
+        for eth_addr in touched_addresses {
+            let fil_addr = eth_addr.to_filecoin_address()?;
+
+            let pre_actor = pre_state
+                .get_actor(&fil_addr)
+                .map_err(|e| anyhow::anyhow!("failed to get pre actor state: {e}"))?;
+
+            if let Some(snap) =
+                build_account_snapshot(store, pre_actor.as_ref(), include_code, include_storage)
+            {
+                if !snap.is_empty() {
+                    result.insert(*eth_addr, snap);
+                }
+            }
+        }
+
+        Ok(PreStateFrame::Default(PreStateMode(result)))
+    }
+}
+
+/// Build an [`AccountState`] snapshot from an actor.
+/// Returns `None` when the actor does not exist.
+fn build_account_snapshot<DB: Blockstore>(
+    store: &DB,
+    actor: Option<&ActorState>,
+    include_code: bool,
+    include_storage: bool,
+) -> Option<super::types::AccountState> {
+    let actor = actor?;
+
+    let balance = Some(EthBigInt(actor.balance.atto().clone()));
+    let nonce = {
+        let n = actor_nonce(store, actor);
+        (n.0 != 0).then_some(n)
+    };
+    let code = if include_code {
+        actor_bytecode(store, actor)
+    } else {
+        None
+    };
+    let storage = if include_storage {
+        let entries = extract_evm_storage_entries(store, Some(actor));
+        entries
+            .into_iter()
+            .map(|(k, v)| (EthHash(ethereum_types::H256(k)), u256_to_eth_hash(&v)))
+            .collect()
+    } else {
+        BTreeMap::new()
+    };
+
+    Some(super::types::AccountState {
+        balance,
+        code,
+        nonce,
+        storage,
+    })
 }
 
 /// Compute storage diff between pre and post actor states.

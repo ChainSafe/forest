@@ -682,6 +682,15 @@ impl GethDebugTracingOptions {
             .and_then(|c| serde_json::from_value(c.0.clone()).ok())
             .unwrap_or_default()
     }
+
+    /// Extracts the `prestateTracer` config, defaulting to no-op values when absent.
+    pub fn prestate_config(&self) -> PreStateConfig {
+        self.tracer_config
+            .as_ref()
+            .filter(|c| !c.0.is_null())
+            .and_then(|c| serde_json::from_value(c.0.clone()).ok())
+            .unwrap_or_default()
+    }
 }
 
 /// Configuration for the `callTracer`.
@@ -695,6 +704,35 @@ pub struct CallTracerConfig {
 }
 
 lotus_json_with_self!(CallTracerConfig);
+
+/// Configuration for the `prestateTracer`.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L14
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PreStateConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diff_mode: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disable_code: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disable_storage: Option<bool>,
+}
+
+lotus_json_with_self!(PreStateConfig);
+
+impl PreStateConfig {
+    pub fn is_diff_mode(&self) -> bool {
+        self.diff_mode.unwrap_or(false)
+    }
+
+    pub fn is_code_disabled(&self) -> bool {
+        self.disable_code.unwrap_or(false)
+    }
+
+    pub fn is_storage_disabled(&self) -> bool {
+        self.disable_storage.unwrap_or(false)
+    }
+}
 
 /// Opaque JSON blob for per-tracer configuration.
 ///
@@ -780,15 +818,102 @@ pub struct GethCallFrame {
     pub revert_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calls: Option<Vec<GethCallFrame>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub logs: Vec<CallLogFrame>,
 }
 
 lotus_json_with_self!(GethCallFrame);
+
+/// A log entry emitted during a traced call, attached to a [`GethCallFrame`]
+/// when `withLog: true` is set in the callTracer config.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CallLogFrame {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address: Option<EthAddress>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub topics: Option<Vec<EthHash>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<EthBytes>,
+}
+
+lotus_json_with_self!(CallLogFrame);
 
 /// Empty frame returned by the `noopTracer`.
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 pub struct NoopFrame {}
 
 lotus_json_with_self!(NoopFrame);
+
+/// Snapshot of a single account's state at a point in time.
+/// All fields are optional; absent means "not relevant" or "default".
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L108
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AccountState {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub balance: Option<EthBigInt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<EthBytes>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<EthUint64>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub storage: BTreeMap<EthHash, EthHash>,
+}
+
+impl AccountState {
+    /// Strips fields that are identical in `other`, keeping only changed ones.
+    /// Used to minimize the `post` side of diff-mode output.
+    pub fn retain_changed(&mut self, other: &Self) {
+        if self.balance == other.balance {
+            self.balance = None;
+        }
+        if self.nonce == other.nonce {
+            self.nonce = None;
+        }
+        if self.code == other.code {
+            self.code = None;
+        }
+        self.storage.retain(|k, v| other.storage.get(k) != Some(v));
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.balance.is_none()
+            && self.code.is_none()
+            && self.nonce.is_none()
+            && self.storage.is_empty()
+    }
+}
+
+/// Default prestate mode: flat map of address → pre-execution account state.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L72
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(transparent)]
+pub struct PreStateMode(pub BTreeMap<EthAddress, AccountState>);
+
+lotus_json_with_self!(PreStateMode);
+
+/// Diff mode: separate `pre` and `post` account snapshots.
+/// Created accounts appear only in `post`; deleted accounts appear only in `pre`.
+/// Unchanged fields are stripped from `post` entries.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L88
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct DiffMode {
+    pub pre: BTreeMap<EthAddress, AccountState>,
+    pub post: BTreeMap<EthAddress, AccountState>,
+}
+
+lotus_json_with_self!(DiffMode);
+
+/// Return type for the `prestateTracer`.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L33
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum PreStateFrame {
+    Default(PreStateMode),
+    Diff(DiffMode),
+}
+
+lotus_json_with_self!(PreStateFrame);
 
 /// Polymorphic trace result from `debug_traceTransaction`.
 /// The shape depends on the selected tracer.
@@ -797,6 +922,7 @@ lotus_json_with_self!(NoopFrame);
 pub enum GethTrace {
     CallTracer(GethCallFrame),
     FlatCallTracer(Vec<EthBlockTrace>),
+    PreStateTracer(PreStateFrame),
     NoopTracer(NoopFrame),
 }
 

@@ -3527,7 +3527,7 @@ pub struct CollectedEvent {
     pub(crate) msg_cid: Cid,
 }
 
-fn match_key(key: &str) -> Option<usize> {
+pub(crate) fn match_key(key: &str) -> Option<usize> {
     match key.get(0..2) {
         Some("t1") => Some(0),
         Some("t2") => Some(1),
@@ -3537,7 +3537,7 @@ fn match_key(key: &str) -> Option<usize> {
     }
 }
 
-fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)> {
+pub(crate) fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)> {
     let mut topics_found = [false; 4];
     let mut topics_found_count = 0;
     let mut data_found = false;
@@ -4086,12 +4086,11 @@ async fn debug_trace_transaction<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let call_config = opts.call_config();
     let tracer = opts
         .tracer
+        .clone()
         .unwrap_or(GethDebugBuiltInTracerType::CallTracer);
 
-    // Exit early if the tracer is no op
     if tracer == GethDebugBuiltInTracerType::NoopTracer {
         return Ok(GethTrace::NoopTracer(NoopFrame {}));
     }
@@ -4106,6 +4105,14 @@ where
         ExtBlockNumberOrHash::from_block_number(eth_txn.block_number.0 as i64),
         ResolveNullTipset::TakeOlder,
     )?;
+
+    if tracer == GethDebugBuiltInTracerType::PreStateTracer {
+        let message_cid = ctx
+            .chain_store()
+            .get_mapping(&eth_hash)?
+            .unwrap_or_else(|| eth_hash.to_cid());
+        return debug_trace_prestate(&ctx, &ts, message_cid, &opts).await;
+    }
 
     let (state, entries) = execute_tipset_traces(&ctx, &ts, ext).await?;
     let entry = entries
@@ -4127,6 +4134,7 @@ where
 
     match tracer {
         GethDebugBuiltInTracerType::CallTracer => {
+            let call_config = opts.call_config();
             let frame = trace::build_geth_call_frame(&mut env, execution_trace, &call_config)?;
             Ok(GethTrace::CallTracer(frame.unwrap_or_default()))
         }
@@ -4146,11 +4154,56 @@ where
                 .collect();
             Ok(GethTrace::FlatCallTracer(traces))
         }
-        GethDebugBuiltInTracerType::PreStateTracer => {
-            unimplemented!("prestateTracer is not yet supported")
-        }
-        _ => unreachable!("noopTracer handled above"),
+        _ => unreachable!("noopTracer and prestateTracer handled above"),
     }
+}
+
+/// Handles the `prestateTracer` variant of `debug_traceTransaction`.
+///
+/// Replays the tipset up to the target message to obtain per-transaction
+/// pre/post state roots, then builds the appropriate [`PreStateFrame`].
+async fn debug_trace_prestate<DB>(
+    ctx: &Ctx<DB>,
+    ts: &Tipset,
+    target_mcid: Cid,
+    opts: &GethDebugTracingOptions,
+) -> Result<GethTrace, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let prestate_config = opts.prestate_config();
+
+    let (pre_root, invoc_result, post_root) = ctx
+        .state_manager
+        .replay_message_with_state_roots(ts.clone(), target_mcid)
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to replay message with state roots: {e}"))?;
+
+    let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_root)?;
+    let post_state = StateTree::new_from_root(ctx.store_owned(), &post_root)?;
+
+    let mut touched = invoc_result
+        .execution_trace
+        .as_ref()
+        .map(extract_touched_eth_addresses)
+        .unwrap_or_default();
+
+    if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.from()) {
+        touched.insert(addr);
+    }
+    if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.to()) {
+        touched.insert(addr);
+    }
+
+    let frame = trace::build_prestate_frame(
+        ctx.store(),
+        &pre_state,
+        &post_state,
+        &touched,
+        &prestate_config,
+    )?;
+
+    Ok(GethTrace::PreStateTracer(frame))
 }
 
 pub enum EthTraceCall {}

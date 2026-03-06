@@ -851,6 +851,150 @@ where
         api_invoc_result.ok_or_else(|| Error::Other("failed to replay".into()))
     }
 
+    /// Replays a tipset up to a specific message, returning the pre-execution
+    /// and post-execution state roots alongside the traced invocation result.
+    ///
+    /// This is used by the `prestateTracer` in `debug_traceTransaction` which
+    /// needs to compare account states before and after a single transaction.
+    pub async fn replay_message_with_state_roots(
+        self: &Arc<Self>,
+        ts: Tipset,
+        target_mcid: Cid,
+    ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || {
+            this.replay_message_with_state_roots_blocking(ts, target_mcid)
+        })
+        .await
+        .map_err(|e| Error::Other(format!("{e}")))?
+    }
+
+    /// Blocking version of [`Self::replay_message_with_state_roots`].
+    fn replay_message_with_state_roots_blocking(
+        self: &Arc<Self>,
+        ts: Tipset,
+        target_mcid: Cid,
+    ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
+        use crate::shim::clock::EPOCH_DURATION_SECONDS;
+        use ahash::HashSet;
+
+        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
+        let chain_config = self.chain_config().clone();
+        let chain_index = self.chain_index().clone();
+        let rand = ChainRand::new(
+            chain_config.clone(),
+            ts.clone(),
+            chain_index.clone(),
+            self.beacon_schedule().clone(),
+        );
+
+        let genesis_info = GenesisInfo::from_chain_config(chain_config.clone());
+        let create_vm = |state_root: Cid, epoch, timestamp, trace_config| {
+            let circulating_supply =
+                genesis_info.get_vm_circulating_supply(epoch, chain_index.db(), &state_root)?;
+            VM::new(
+                ExecutionContext {
+                    heaviest_tipset: ts.clone(),
+                    state_tree_root: state_root,
+                    epoch,
+                    rand: Box::new(rand.clone()),
+                    base_fee: ts.min_ticket_block().parent_base_fee.clone(),
+                    circ_supply: circulating_supply,
+                    chain_config: chain_config.clone(),
+                    chain_index: chain_index.clone(),
+                    timestamp,
+                },
+                &self.engine,
+                trace_config,
+            )
+        };
+
+        let mut parent_state = *ts.parent_state();
+        let parent_epoch = Tipset::load_required(chain_index.db(), ts.parents())?.epoch();
+        let epoch = ts.epoch();
+
+        for epoch_i in parent_epoch..epoch {
+            if epoch_i > parent_epoch {
+                let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+                parent_state = stacker::grow(64 << 20, || -> anyhow::Result<Cid> {
+                    let mut vm = create_vm(parent_state, epoch_i, timestamp, VMTrace::NotTraced)?;
+                    if let Err(e) = vm.run_cron(epoch_i, NO_CALLBACK) {
+                        error!("Beginning of epoch cron failed to run: {e}");
+                    }
+                    vm.flush()
+                })?;
+            }
+            if let Some(new_state) =
+                run_state_migrations(epoch_i, &chain_config, chain_index.db(), &parent_state)?
+            {
+                parent_state = new_state;
+            }
+        }
+
+        let block_messages = BlockMessages::for_tipset(chain_index.db(), &ts)
+            .map_err(|e| Error::Other(e.to_string()))?;
+
+        stacker::grow(64 << 20, || -> Result<(Cid, ApiInvocResult, Cid), Error> {
+            let mut vm = create_vm(parent_state, epoch, ts.min_timestamp(), VMTrace::NotTraced)?;
+            let mut processed = HashSet::default();
+
+            for block in block_messages.iter() {
+                let mut penalty = TokenAmount::zero();
+                let mut gas_reward = TokenAmount::zero();
+
+                for msg in block.messages.iter() {
+                    let cid = msg.cid();
+                    if processed.contains(&cid) {
+                        continue;
+                    }
+                    processed.insert(cid);
+
+                    if cid == target_mcid {
+                        let pre_root = vm.flush()?;
+
+                        let mut traced_vm =
+                            create_vm(pre_root, epoch, ts.min_timestamp(), VMTrace::Traced)?;
+                        let (ret, duration) = traced_vm.apply_message(msg)?;
+                        let post_root = traced_vm.flush()?;
+
+                        let invoc_result = ApiInvocResult {
+                            msg_cid: cid,
+                            msg: msg.message().clone(),
+                            msg_rct: Some(ret.msg_receipt()),
+                            error: ret.failure_info().unwrap_or_default(),
+                            duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                            gas_cost: MessageGasCost::default(),
+                            execution_trace: structured::parse_events(ret.exec_trace())
+                                .unwrap_or_default(),
+                        };
+
+                        return Ok((pre_root, invoc_result, post_root));
+                    }
+
+                    let (ret, _) = vm.apply_message(msg)?;
+                    gas_reward += ret.miner_tip();
+                    penalty += ret.penalty();
+                }
+
+                if let Some(rew_msg) =
+                    vm.reward_message(epoch, block.miner, block.win_count, penalty, gas_reward)?
+                {
+                    let (ret, _) = vm.apply_implicit_message(&rew_msg)?;
+                    if let Some(err) = ret.failure_info() {
+                        return Err(Error::Other(format!(
+                            "failed to apply reward message for miner {}: {err}",
+                            block.miner
+                        )));
+                    }
+                }
+            }
+
+            Err(Error::Other(format!(
+                "message {target_mcid} not found in tipset"
+            )))
+        })
+    }
+
     /// Checks the eligibility of the miner. This is used in the validation that
     /// a block's miner has the requirements to mine a block.
     pub fn eligible_to_mine(
