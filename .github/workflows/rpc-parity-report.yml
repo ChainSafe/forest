@@ -44,6 +44,18 @@ jobs:
           docker system df
           docker system df --verbose
           df -h
+      - name: Set WORKFLOW_URL
+        if: always()
+        run: |
+          export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo ${WORKFLOW_URL}
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
+      - uses: JasonEtco/create-an-issue@v2
+        if: github.ref == 'refs/heads/main' && failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/RPC_PARITY_REPORT_ISSUE_TEMPLATE.md
       - uses: jdx/mise-action@v3
       - run: mise add_conformance_report
       - run: mise run docs:format
