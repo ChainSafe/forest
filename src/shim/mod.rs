@@ -37,3 +37,5 @@ pub mod fvm_latest {
 }
 
 pub type MethodNum = fvm_shared_latest::MethodNum;
+
+pub type ActorID = fvm_shared_latest::ActorID;

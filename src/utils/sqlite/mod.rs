@@ -34,16 +34,6 @@ pub async fn open_file(file: &Path) -> anyhow::Result<SqlitePool> {
     Ok(open(options).await?)
 }
 
-/// Opens for creates an in-memory database
-pub async fn open_memory() -> sqlx::Result<SqlitePool> {
-    open(
-        SqliteConnectOptions::new()
-            .in_memory(true)
-            .shared_cache(true),
-    )
-    .await
-}
-
 /// Opens a database at the given path. If the database does not exist, it will be created.
 pub async fn open(options: SqliteConnectOptions) -> sqlx::Result<SqlitePool> {
     let options = options
@@ -54,7 +44,8 @@ pub async fn open(options: SqliteConnectOptions) -> sqlx::Result<SqlitePool> {
         .journal_mode(SqliteJournalMode::Wal)
         .pragma("journal_size_limit", "0") // always reset journal and wal files
         .foreign_keys(true)
-        .read_only(false);
+        .read_only(false)
+        .create_if_missing(true);
     SqlitePool::connect_with(options).await
 }
 
@@ -89,13 +80,15 @@ pub async fn init_db<'q>(
         tx.commit().await
     };
 
-    if sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name='_meta';")
+    if sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name='_meta'")
         .fetch_optional(db)
         .await
         .map_err(|e| anyhow::anyhow!("error looking for {name} database _meta table: {e}"))?
         .is_none()
     {
-        init(db, schema_version).await?;
+        init(db, schema_version).await.map_err(|e| {
+            anyhow::anyhow!("failed to initialize db version {schema_version}: {e}")
+        })?;
     }
 
     let found_version: u64 = sqlx::query_scalar("SELECT max(version) FROM _meta")

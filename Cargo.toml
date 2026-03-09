@@ -200,6 +200,7 @@ smallvec = "1"
 smart-default = "0.7"
 sonic-rs = "0.5"
 spire_enum = "1"
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"] }
 stacker = "0.1"
 static_assertions = "1"
 statrs = "0.18"
@@ -228,7 +229,6 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
-sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
 
@@ -319,14 +319,13 @@ lto = "fat"
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "tracing-loki", "sqlite"]
-test = []                                        # default feature set for unit tests
+default = ["jemalloc", "tracing-loki"]
+test = []                              # default feature set for unit tests
 slim = ["rustalloc"]
-cargo-test = []                                  # group of tests that is recommended to run with `cargo test` instead of `nextest`
-doctest-private = []                             # see lib.rs::doctest_private
-benchmark-private = ["dep:criterion"]            # see lib.rs::benchmark_private
-interop-tests-private = []                       # see lib.rs::interop_tests_private
-sqlite = ["dep:sqlx"]
+cargo-test = []                        # group of tests that is recommended to run with `cargo test` instead of `nextest`
+doctest-private = []                   # see lib.rs::doctest_private
+benchmark-private = ["dep:criterion"]  # see lib.rs::benchmark_private
+interop-tests-private = []             # see lib.rs::interop_tests_private
 
 # Allocator. Use at most one of these.
 rustalloc = []
