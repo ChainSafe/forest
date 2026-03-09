@@ -8,7 +8,7 @@ sidebar_position: 0
 :::note
 
 Need a specific method? Let us know on
-[Github](https://github.com/ChainSafe/forest/issues) or Filecoin Slack
+[GitHub](https://github.com/ChainSafe/forest/issues) or Filecoin Slack
 (`#fil-forest-help`) 🙏
 
 :::
