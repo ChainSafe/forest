@@ -84,6 +84,7 @@ Forest.ChainExportStatus
 Forest.ChainGetMinBaseFee
 Forest.ChainGetTipsetByParentState
 Forest.EthTraceCall
+Forest.EthDebugTraceTransaction
 Forest.NetInfo
 Forest.SnapshotGC
 Forest.StateActorInfo

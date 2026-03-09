@@ -871,7 +871,7 @@ impl AccountState {
     }
 }
 
-/// Default prestate mode: flat map of address → pre-execution account state.
+/// Returns the account states necessary to execute a given transaction.
 // Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L72
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
