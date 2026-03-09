@@ -28,7 +28,10 @@ pub fn weighted_quick_select(
             0 => return TokenAmount::zero(),
             1 => {
                 return if limits.first().is_some_and(|&limit| limit > target_index) {
-                    premiums.into_iter().next().unwrap()
+                    premiums
+                        .into_iter()
+                        .next()
+                        .expect("premiums has one element")
                 } else {
                     TokenAmount::zero()
                 };
