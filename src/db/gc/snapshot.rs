@@ -56,6 +56,7 @@ use ahash::HashMap;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use human_repr::HumanCount as _;
 use parking_lot::RwLock;
 use rand::Rng as _;
 use sha2::Sha256;
@@ -375,7 +376,7 @@ where
                     }
                     tracing::info!(
                         "backfilled {count} new db records since snapshot epoch, approximate heap size: {}, took {}",
-                        human_bytes::human_bytes(approximate_heap_size as f64),
+                        approximate_heap_size.human_count_bytes(),
                         humantime::format_duration(start.elapsed())
                     );
                 }

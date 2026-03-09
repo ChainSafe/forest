@@ -1127,13 +1127,13 @@
     },
     {
       "name": "Filecoin.EthGetBlockTransactionCountByNumber",
-      "description": "Returns the number of transactions in a block identified by its block number.",
+      "description": "Returns the number of transactions in a block identified by its block number or a special tag.",
       "params": [
         {
           "name": "blockNumber",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/EthInt64"
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
           }
         }
       ],
@@ -1684,7 +1684,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -1738,7 +1738,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         },
         {
@@ -6342,13 +6342,13 @@
     },
     {
       "name": "eth_getBlockTransactionCountByNumber",
-      "description": "Returns the number of transactions in a block identified by its block number.",
+      "description": "Returns the number of transactions in a block identified by its block number or a special tag.",
       "params": [
         {
           "name": "blockNumber",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/EthInt64"
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
           }
         }
       ],
@@ -6955,7 +6955,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -7051,7 +7051,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         },
         {
@@ -7500,7 +7500,7 @@
             "$ref": "#/components/schemas/EthHash"
           },
           "blockNumber": {
-            "$ref": "#/components/schemas/EthUint64"
+            "$ref": "#/components/schemas/EthInt64"
           },
           "chainId": {
             "$ref": "#/components/schemas/EthUint64"
@@ -7880,7 +7880,7 @@
             "$ref": "#/components/schemas/Nonce"
           },
           "number": {
-            "$ref": "#/components/schemas/EthUint64"
+            "$ref": "#/components/schemas/EthInt64"
           },
           "parentHash": {
             "$ref": "#/components/schemas/EthHash"
@@ -9407,7 +9407,7 @@
             "$ref": "#/components/schemas/EthHash"
           },
           "blockNumber": {
-            "$ref": "#/components/schemas/EthUint64"
+            "$ref": "#/components/schemas/EthInt64"
           },
           "contractAddress": {
             "anyOf": [
@@ -9574,25 +9574,6 @@
         "type": "integer",
         "format": "uint32",
         "minimum": 0
-      },
-      "ExtBlockNumberOrHash": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "$ref": "#/components/schemas/EthInt64"
-          },
-          {
-            "$ref": "#/components/schemas/EthHash"
-          },
-          {
-            "$ref": "#/components/schemas/BlockNumber"
-          },
-          {
-            "$ref": "#/components/schemas/BlockHash"
-          }
-        ]
       },
       "ExtendedSectorInfo": {
         "type": "object",

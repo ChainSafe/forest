@@ -69,6 +69,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - name: Fetch proof params and RPC test snapshots

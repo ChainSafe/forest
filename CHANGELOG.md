@@ -33,6 +33,8 @@
 
 ### Changed
 
+- [#6631](https://github.com/ChainSafe/forest/issues/6631): Backported F3 finality resolution to ETH v1 RPC methods.
+
 ### Removed
 
 - [#6681](https://github.com/ChainSafe/forest/pull/6681): Removed `tracing-chrome` feature and all related code as it was deemed unused. If you didn't set `CHROME_TRACE_FILE` manually before, you shouldn't be affected by this change. If you were using this feature, reach out.

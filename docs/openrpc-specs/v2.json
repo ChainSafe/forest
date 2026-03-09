@@ -19,16 +19,9 @@
       ],
       "result": {
         "name": "Filecoin.ChainGetTipSet.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "anyOf": [
-            {
-              "$ref": "#/components/schemas/Tipset"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/components/schemas/Tipset"
         }
       },
       "paramStructure": "by-position"
@@ -98,7 +91,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -139,7 +132,7 @@
           "schema": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+                "$ref": "#/components/schemas/BlockNumberOrHash"
               },
               {
                 "type": "null"
@@ -171,7 +164,7 @@
           "name": "newestBlockNumber",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
           }
         },
         {
@@ -226,7 +219,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -302,7 +295,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -329,7 +322,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         },
         {
@@ -412,7 +405,7 @@
           "name": "blockNumberOrHash",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -535,7 +528,7 @@
           "name": "blockNumberOrHash",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -693,7 +686,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -935,7 +928,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -989,7 +982,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         },
         {
@@ -1364,7 +1357,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -1405,7 +1398,7 @@
           "schema": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+                "$ref": "#/components/schemas/BlockNumberOrHash"
               },
               {
                 "type": "null"
@@ -1437,7 +1430,7 @@
           "name": "newestBlockNumber",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrPredefined"
           }
         },
         {
@@ -1492,7 +1485,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -1568,7 +1561,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -1595,7 +1588,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         },
         {
@@ -1678,7 +1671,7 @@
           "name": "blockNumberOrHash",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -1801,7 +1794,7 @@
           "name": "blockNumberOrHash",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -1959,7 +1952,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -2257,7 +2250,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         }
       ],
@@ -2353,7 +2346,7 @@
           "name": "blockParam",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/ExtBlockNumberOrHash"
+            "$ref": "#/components/schemas/BlockNumberOrHash"
           }
         },
         {
@@ -2502,7 +2495,7 @@
             "$ref": "#/components/schemas/EthHash"
           },
           "blockNumber": {
-            "$ref": "#/components/schemas/EthUint64"
+            "$ref": "#/components/schemas/EthInt64"
           },
           "chainId": {
             "$ref": "#/components/schemas/EthUint64"
@@ -2710,7 +2703,7 @@
             "$ref": "#/components/schemas/Nonce"
           },
           "number": {
-            "$ref": "#/components/schemas/EthUint64"
+            "$ref": "#/components/schemas/EthInt64"
           },
           "parentHash": {
             "$ref": "#/components/schemas/EthHash"
@@ -3849,7 +3842,7 @@
             "$ref": "#/components/schemas/EthHash"
           },
           "blockNumber": {
-            "$ref": "#/components/schemas/EthUint64"
+            "$ref": "#/components/schemas/EthInt64"
           },
           "contractAddress": {
             "anyOf": [
@@ -3926,25 +3919,6 @@
       },
       "EthUint64": {
         "type": "string"
-      },
-      "ExtBlockNumberOrHash": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "$ref": "#/components/schemas/EthInt64"
-          },
-          {
-            "$ref": "#/components/schemas/EthHash"
-          },
-          {
-            "$ref": "#/components/schemas/BlockNumber"
-          },
-          {
-            "$ref": "#/components/schemas/BlockHash"
-          }
-        ]
       },
       "FilecoinSnapshotVersion": {
         "type": "string",

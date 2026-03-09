@@ -35,7 +35,7 @@ fn bench_car_index(c: &mut Criterion) {
         block_on(
             index::Builder::from_iter(reference.clone())
                 .into_writer()
-                .write_into(&mut v),
+                .write_zstd_skip_frames_into(&mut v),
         )
         .unwrap();
         index::Reader::new(v).unwrap()
@@ -45,18 +45,20 @@ fn bench_car_index(c: &mut Criterion) {
 
     group
         .bench_function("reference/hit", |b| {
-            b.iter(|| reference.get(black_box(&live_key)))
+            b.iter(|| black_box(reference.get(black_box(&live_key))))
         })
         .bench_function("reference/miss", |b| {
-            b.iter(|| reference.get(black_box(&dead_key)))
+            b.iter(|| black_box(reference.get(black_box(&dead_key))))
         })
-        .bench_function("miss", |b| b.iter(|| subject.get(black_box(dead_key))));
+        .bench_function("miss", |b| {
+            b.iter(|| black_box(subject.get(black_box(dead_key))))
+        });
 
     for i in [0, 1, 2, 3, 4, 5, 100_u64] {
         let (hash_key, distance) = hash_at_distance(&subject, i);
 
         group.bench_function(BenchmarkId::new("hit", distance), |b| {
-            b.iter(|| subject.get_by_hash(black_box(hash_key)))
+            b.iter(|| black_box(subject.get_by_hash(black_box(hash_key))))
         });
     }
 

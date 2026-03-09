@@ -330,7 +330,7 @@ impl RpcMethod<2> for StateGetActorV2 {
         (address, selector): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ChainGetTipSetV2::get_required_tipset(&ctx, &selector).await?;
+        let ts = ChainGetTipSetV2::get_tipset(&ctx, &selector).await?;
         Ok(ctx.state_manager.get_actor(&address, *ts.parent_state())?)
     }
 }
@@ -353,7 +353,7 @@ impl RpcMethod<2> for StateGetID {
         (address, selector): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ChainGetTipSetV2::get_required_tipset(&ctx, &selector).await?;
+        let ts = ChainGetTipSetV2::get_tipset(&ctx, &selector).await?;
         Ok(ctx.state_manager.lookup_required_id(&address, &ts)?)
     }
 }
@@ -3143,6 +3143,7 @@ pub struct ForkUpgradeParams {
     upgrade_teep_height: ChainEpoch,
     upgrade_tock_height: ChainEpoch,
     //upgrade_golden_week_height: ChainEpoch,
+    //upgrade_xxx_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -3191,6 +3192,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_teep_height: get_height(Teep)?,
             upgrade_tock_height: get_height(Tock)?,
             //upgrade_golden_week_height: get_height(GoldenWeek)?,
+            //upgrade_xxx_height: get_height(Xxx)?,
         })
     }
 }

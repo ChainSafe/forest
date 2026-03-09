@@ -16,11 +16,9 @@ methods:
           $ref: "#/components/schemas/TipsetSelector"
     result:
       name: Filecoin.ChainGetTipSet.Result
-      required: false
+      required: true
       schema:
-        anyOf:
-          - $ref: "#/components/schemas/Tipset"
-          - type: "null"
+        $ref: "#/components/schemas/Tipset"
     paramStructure: by-position
   - name: Forest.ChainExport
     params:
@@ -143,7 +141,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthCall.Result
       required: true
@@ -159,7 +157,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_call.Result
       required: true
@@ -192,7 +190,7 @@ methods:
         required: true
         schema:
           anyOf:
-            - $ref: "#/components/schemas/ExtBlockNumberOrHash"
+            - $ref: "#/components/schemas/BlockNumberOrHash"
             - type: "null"
     result:
       name: Filecoin.EthEstimateGas.Result
@@ -210,7 +208,7 @@ methods:
         required: true
         schema:
           anyOf:
-            - $ref: "#/components/schemas/ExtBlockNumberOrHash"
+            - $ref: "#/components/schemas/BlockNumberOrHash"
             - type: "null"
     result:
       name: eth_estimateGas.Result
@@ -227,7 +225,7 @@ methods:
       - name: newestBlockNumber
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrPredefined"
       - name: rewardPercentiles
         required: true
         schema:
@@ -252,7 +250,7 @@ methods:
       - name: newestBlockNumber
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrPredefined"
       - name: rewardPercentiles
         required: true
         schema:
@@ -296,7 +294,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetBalance.Result
       required: true
@@ -313,7 +311,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getBalance.Result
       required: true
@@ -392,7 +390,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetBlockReceipts.Result
       required: false
@@ -409,7 +407,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getBlockReceipts.Result
       required: false
@@ -426,7 +424,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: limit
         required: true
         schema:
@@ -448,7 +446,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: limit
         required: true
         schema:
@@ -524,7 +522,7 @@ methods:
       - name: blockNumberOrHash
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetCode.Result
       required: true
@@ -541,7 +539,7 @@ methods:
       - name: blockNumberOrHash
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getCode.Result
       required: true
@@ -664,7 +662,7 @@ methods:
       - name: blockNumberOrHash
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetStorageAt.Result
       required: true
@@ -685,7 +683,7 @@ methods:
       - name: blockNumberOrHash
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getStorageAt.Result
       required: true
@@ -767,7 +765,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetTransactionCount.Result
       required: true
@@ -783,7 +781,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getTransactionCount.Result
       required: true
@@ -1124,7 +1122,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthTraceBlock.Result
       required: false
@@ -1141,7 +1139,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: trace_block.Result
       required: false
@@ -1272,7 +1270,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: traceTypes
         required: true
         schema:
@@ -1297,7 +1295,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: traceTypes
         required: true
         schema:
@@ -1504,7 +1502,7 @@ components:
         blockHash:
           $ref: "#/components/schemas/EthHash"
         blockNumber:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         chainId:
           $ref: "#/components/schemas/EthUint64"
         from:
@@ -1635,7 +1633,7 @@ components:
         nonce:
           $ref: "#/components/schemas/Nonce"
         number:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         parentHash:
           $ref: "#/components/schemas/EthHash"
         receiptsRoot:
@@ -2352,7 +2350,7 @@ components:
         blockHash:
           $ref: "#/components/schemas/EthHash"
         blockNumber:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         contractAddress:
           anyOf:
             - $ref: "#/components/schemas/EthAddress"
@@ -2401,13 +2399,6 @@ components:
         - type
     EthUint64:
       type: string
-    ExtBlockNumberOrHash:
-      anyOf:
-        - type: string
-        - $ref: "#/components/schemas/EthInt64"
-        - $ref: "#/components/schemas/EthHash"
-        - $ref: "#/components/schemas/BlockNumber"
-        - $ref: "#/components/schemas/BlockHash"
     FilecoinSnapshotVersion:
       type: string
       enum:
