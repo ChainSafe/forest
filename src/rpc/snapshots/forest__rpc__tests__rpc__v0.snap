@@ -6130,6 +6130,9 @@ components:
         UpgradeDragonHeight:
           type: integer
           format: int64
+        UpgradeGoldenWeekHeight:
+          type: integer
+          format: int64
         UpgradeHyggeHeight:
           type: integer
           format: int64
@@ -6234,6 +6237,7 @@ components:
         - UpgradeTuktukHeight
         - UpgradeTeepHeight
         - UpgradeTockHeight
+        - UpgradeGoldenWeekHeight
     GasTrace:
       type: object
       properties:
