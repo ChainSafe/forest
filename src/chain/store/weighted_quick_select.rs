@@ -24,10 +24,10 @@ pub fn weighted_quick_select(
     mut target_index: u64,
 ) -> TokenAmount {
     loop {
-        match premiums.as_slice() {
-            [] => return TokenAmount::zero(),
-            [premium] => {
-                return if limits[0] > target_index {
+        match (premiums.as_slice(), limits.as_slice()) {
+            ([], _) => return TokenAmount::zero(),
+            ([premium], [limit]) => {
+                return if *limit > target_index {
                     premium.clone()
                 } else {
                     TokenAmount::zero()

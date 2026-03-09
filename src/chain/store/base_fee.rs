@@ -10,9 +10,8 @@ use fvm_ipld_blockstore::Blockstore;
 
 use super::weighted_quick_select::weighted_quick_select;
 
-/// TODO(FIP-0115): Replace this placeholder with actual next upgrade height
-/// This is a temporary value used during the FIP-0115 implementation.
-/// Replace with the actual next upgrade height once it is determined and finalized.
+/// Placeholder for the FIP-0115 activation height.
+/// Replace with the actual network upgrade height once finalized.
 pub const PLACEHOLDER_NEXT_UPGRADE_HEIGHT: ChainEpoch = ChainEpoch::MAX;
 
 pub const BLOCK_GAS_TARGET_INDEX: u64 = BLOCK_GAS_LIMIT * 80 / 100 - 1;
@@ -99,7 +98,10 @@ where
     }
 
     let percentile_premium = weighted_quick_select(premiums, limits, BLOCK_GAS_TARGET_INDEX);
-    Ok(compute_next_base_fee_from_premium(parent_base_fee, percentile_premium))
+    Ok(compute_next_base_fee_from_premium(
+        parent_base_fee,
+        percentile_premium,
+    ))
 }
 
 pub(crate) fn compute_next_base_fee_from_premium(
