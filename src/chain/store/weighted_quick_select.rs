@@ -210,51 +210,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_next_base_fee_from_premium() {
-        use super::super::base_fee::compute_next_base_fee_from_premium;
-
-        // Test cases from Lotus PR #13531
-        let test_cases = vec![
-            (100, 0, 100),
-            (100, 13, 100),
-            (100, 14, 101),
-            (100, 26, 113),
-            (801, 0, 700),
-            (801, 20, 720),
-            (801, 40, 740),
-            (801, 60, 760),
-            (801, 80, 780),
-            (801, 100, 800),
-            (801, 120, 820),
-            (801, 140, 840),
-            (801, 160, 860),
-            (801, 180, 880),
-            (801, 200, 900),
-            (801, 201, 901),
-            (808, 0, 707),
-            (808, 1, 708),
-            (808, 201, 908),
-            (808, 202, 909),
-            (808, 203, 909),
-        ];
-
-        for (base_fee, premium_p, expected) in test_cases {
-            let base_fee = TokenAmount::from_atto(base_fee);
-            let premium = TokenAmount::from_atto(premium_p);
-
-            let result = compute_next_base_fee_from_premium(&base_fee, premium);
-
-            assert_eq!(
-                result,
-                TokenAmount::from_atto(expected),
-                "Failed for base_fee={}, premium_p={}",
-                base_fee.atto(),
-                premium_p
-            );
-        }
-    }
-
     mod quickcheck_tests {
         use super::*;
         use crate::blocks::BLOCK_MESSAGE_LIMIT;

@@ -234,4 +234,104 @@ mod tests {
             .is_err()
         );
     }
+
+    #[test]
+    fn test_next_base_fee_from_premium() {
+        // Test cases from Lotus PR #13531
+        let test_cases = vec![
+            (100, 0, 100),
+            (100, 13, 100),
+            (100, 14, 101),
+            (100, 26, 113),
+            (801, 0, 700),
+            (801, 20, 720),
+            (801, 40, 740),
+            (801, 60, 760),
+            (801, 80, 780),
+            (801, 100, 800),
+            (801, 120, 820),
+            (801, 140, 840),
+            (801, 160, 860),
+            (801, 180, 880),
+            (801, 200, 900),
+            (801, 201, 901),
+            (808, 0, 707),
+            (808, 1, 708),
+            (808, 201, 908),
+            (808, 202, 909),
+            (808, 203, 909),
+        ];
+
+        for (base_fee, premium_p, expected) in test_cases {
+            let base_fee = TokenAmount::from_atto(base_fee);
+            let premium = TokenAmount::from_atto(premium_p);
+
+            let result = compute_next_base_fee_from_premium(&base_fee, premium);
+
+            assert_eq!(
+                result,
+                TokenAmount::from_atto(expected),
+                "Failed for base_fee={}, premium_p={}",
+                base_fee.atto(),
+                premium_p
+            );
+        }
+    }
+
+    mod quickcheck_tests {
+        use super::*;
+        use num::Zero;
+        use quickcheck_macros::quickcheck;
+
+        #[quickcheck]
+        fn prop_next_base_fee_never_below_minimum(base_fee: TokenAmount, premium: TokenAmount) {
+            let result = compute_next_base_fee_from_premium(&base_fee, premium);
+            assert!(result >= TokenAmount::from_atto(MINIMUM_BASE_FEE));
+        }
+
+        #[quickcheck]
+        fn prop_next_base_fee_change_bounded(base_fee: TokenAmount, premium: TokenAmount) -> bool {
+            if base_fee.is_zero() {
+                return true;
+            }
+            let min_fee = TokenAmount::from_atto(MINIMUM_BASE_FEE);
+            let result = compute_next_base_fee_from_premium(&base_fee, premium);
+
+            // maxAdj = ceil(base_fee / 8)
+            let denom = TokenAmount::from_atto(BASE_FEE_MAX_CHANGE_DENOM);
+            let max_adj = (&base_fee + &denom - TokenAmount::from_atto(1)) / &denom;
+
+            // Result should be within [max(MIN, base - max_adj), max(MIN, base + max_adj)]
+            let lower = min_fee.clone().max(&base_fee - &max_adj);
+            let upper = min_fee.max(&base_fee + &max_adj);
+
+            result >= lower && result <= upper
+        }
+
+        #[quickcheck]
+        fn prop_next_base_fee_monotonic_in_premium(
+            base_fee: TokenAmount,
+            premium1: TokenAmount,
+            premium2: TokenAmount,
+        ) {
+            let result1 = compute_next_base_fee_from_premium(&base_fee, premium1.clone());
+            let result2 = compute_next_base_fee_from_premium(&base_fee, premium2.clone());
+
+            // Higher premium should give higher or equal result
+            if premium1 <= premium2 {
+                assert!(result1 <= result2);
+            } else {
+                assert!(result1 >= result2);
+            }
+        }
+
+        #[quickcheck]
+        fn prop_zero_premium_decreases_or_maintains_base_fee(base_fee: TokenAmount) {
+            let min_fee = TokenAmount::from_atto(MINIMUM_BASE_FEE);
+            let result = compute_next_base_fee_from_premium(&base_fee, TokenAmount::zero());
+
+            // With zero premium, base fee should decrease (or stay at minimum)
+            assert!(result <= base_fee || result == min_fee);
+        }
+    }
 }
