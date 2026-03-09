@@ -1012,7 +1012,7 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     ))
 }
 
-fn is_eth_address(addr: &VmAddress) -> bool {
+pub fn is_eth_address(addr: &VmAddress) -> bool {
     if addr.protocol() != Protocol::Delegated {
         return false;
     }

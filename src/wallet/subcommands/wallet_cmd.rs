@@ -12,12 +12,17 @@ use crate::key_management::{Key, KeyInfo};
 use crate::{
     ENCRYPTED_KEYSTORE_NAME,
     cli::humantoken,
+    eth::{EAMMethod, EVMMethod, EthEip1559TxArgsBuilder, EthTx},
     message::SignedMessage,
     rpc::{
+        eth::{EthChainId, is_eth_address, types::EthAddress},
         mpool::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
         types::ApiTipsetKey,
     },
-    shim::address::Address,
+    shim::{
+        address::{Address, Protocol},
+        message::{METHOD_SEND, Message},
+    },
 };
 use crate::{KeyStore, lotus_json::LotusJson};
 use crate::{
@@ -26,7 +31,6 @@ use crate::{
         address::StrictAddress,
         crypto::{Signature, SignatureType},
         econ::TokenAmount,
-        message::{METHOD_SEND, Message},
     },
 };
 use crate::{
@@ -499,11 +503,47 @@ impl WalletCommands {
                     .into()
                 };
 
+                let (mut to, is_0x_recipient) = match StrictAddress::from_str(&target_address) {
+                    Ok(addr) => (addr.into(), false),
+                    Err(_) => {
+                        let eth_addr = EthAddress::from_str(&target_address).context(
+                            "target address must be a valid FIL address or ETH address (0x...)",
+                        )?;
+                        let addr = eth_addr.to_filecoin_address()?;
+                        if addr.protocol() != Protocol::ID && addr.protocol() != Protocol::Delegated
+                        {
+                            bail!(
+                                "ETH addresses can only map to FIL addresses starting with f410f/t410f or f0/t0"
+                            );
+                        }
+                        (addr, true)
+                    }
+                };
+
+                let method_num = if is_eth_address(&from) || is_0x_recipient {
+                    if to.protocol() != Protocol::ID && to.protocol() != Protocol::Delegated {
+                        to = StateLookupID::call(&backend.remote, (to, ApiTipsetKey(None)))
+                            .await
+                            .map_err(|_| {
+                                anyhow::anyhow!(
+                                    "addresses starting with f410f can only send to other addresses starting with f410f, or id addresses. could not find id address for {to}"
+                                )
+                            })?;
+                    }
+                    if to == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+                        EAMMethod::CreateExternal as u64
+                    } else {
+                        EVMMethod::InvokeContract as u64
+                    }
+                } else {
+                    METHOD_SEND
+                };
+
                 let message = Message {
                     from,
-                    to: StrictAddress::from_str(&target_address)?.into(),
+                    to,
                     value: amount,
-                    method_num: METHOD_SEND,
+                    method_num,
                     gas_limit: gas_limit as u64,
                     gas_fee_cap: gas_feecap,
                     gas_premium,
@@ -526,13 +566,34 @@ impl WalletCommands {
                     message.sequence = MpoolGetNonce::call(&backend.remote, (from,)).await?;
 
                     let key = crate::key_management::find_key(&from, keystore)?;
-                    let sig = crate::key_management::sign(
-                        *key.key_info.key_type(),
-                        key.key_info.private_key(),
-                        message.cid().to_bytes().as_slice(),
-                    )?;
-
-                    let smsg = SignedMessage::new_from_parts(message, sig)?;
+                    let sig_type = *key.key_info.key_type();
+                    let smsg = if sig_type == SignatureType::Delegated {
+                        let eth_chain_id = u64::from_str_radix(
+                            EthChainId::call(&backend.remote, ())
+                                .await?
+                                .trim_start_matches("0x"),
+                            16,
+                        )?;
+                        let eth_tx_args = EthEip1559TxArgsBuilder::default()
+                            .chain_id(eth_chain_id)
+                            .unsigned_message(&message)?
+                            .build()?;
+                        let eth_tx = EthTx::Eip1559(Box::new(eth_tx_args));
+                        let sig = crate::key_management::sign(
+                            sig_type,
+                            key.key_info.private_key(),
+                            &eth_tx.rlp_unsigned_message(eth_chain_id)?,
+                        )?;
+                        let unsigned_msg = eth_tx.get_unsigned_message(from, eth_chain_id)?;
+                        SignedMessage::new_unchecked(unsigned_msg, sig)
+                    } else {
+                        let sig = crate::key_management::sign(
+                            sig_type,
+                            key.key_info.private_key(),
+                            message.cid().to_bytes().as_slice(),
+                        )?;
+                        SignedMessage::new_from_parts(message, sig)?
+                    };
 
                     MpoolPush::call(&backend.remote, (smsg.clone(),)).await?;
                     smsg
