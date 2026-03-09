@@ -345,7 +345,9 @@ mod tests {
 
         #[quickcheck]
         fn prop_result_respects_weight_ordering(pair: OrderedPremiumPair) -> bool {
-            let target = pair.weight_high;
+            // Use target strictly less than weight_high to actually test the behavior.
+            // weight_high >= 1 is guaranteed by the Arbitrary impl, so this is safe.
+            let target = pair.weight_high - 1;
             let result = weighted_quick_select(
                 vec![
                     TokenAmount::from_atto(pair.low_premium),
@@ -355,12 +357,9 @@ mod tests {
                 target,
             );
 
-            // Should select high premium if target < weight_high
-            if target < pair.weight_high {
-                result == TokenAmount::from_atto(pair.high_premium)
-            } else {
-                true // Don't constrain other cases
-            }
+            // When target < weight_high, should select the high premium
+            // (the high premium's weight alone is sufficient to cover the target)
+            result == TokenAmount::from_atto(pair.high_premium)
         }
 
         #[quickcheck]
