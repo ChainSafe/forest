@@ -3456,7 +3456,7 @@ impl RpcMethod<2> for EthDebugTraceTransaction {
         Some("Replays a transaction and returns execution traces in Geth-compatible format.");
 
     type Params = (String, Option<GethDebugTracingOptions>);
-    type Ok = GethTracer;
+    type Ok = GethTrace;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -3473,7 +3473,7 @@ async fn debug_trace_transaction<DB>(
     ext: &Extensions,
     tx_hash: String,
     opts: GethDebugTracingOptions,
-) -> Result<GethTracer, ServerError>
+) -> Result<GethTrace, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -3483,11 +3483,10 @@ where
         .unwrap_or(GethDebugBuiltInTracerType::Call);
 
     if tracer == GethDebugBuiltInTracerType::Noop {
-        return Ok(GethTracer::Noop(NoopFrame {}));
+        return Ok(GethTrace::Noop(NoopFrame {}));
     }
 
     let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
-    // TODO: We should return if the transaction is in pending state, need to verify this behaviour in Geth and Reth
     let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
         .await?
         .ok_or(ServerError::internal_error("transaction not found", None))?;
@@ -3534,7 +3533,7 @@ where
             &touched,
             &prestate_config,
         )?;
-        return Ok(GethTracer::PreState(frame));
+        return Ok(GethTrace::PreState(frame));
     }
 
     let (state, entries) = execute_tipset_traces(&ctx, &ts, ext).await?;
@@ -3559,7 +3558,7 @@ where
         GethDebugBuiltInTracerType::Call => {
             let call_config = opts.call_config();
             let frame = trace::build_geth_call_frame(&mut env, execution_trace, &call_config)?;
-            Ok(GethTracer::Call(frame.unwrap_or_default()))
+            Ok(GethTrace::Call(frame.unwrap_or_default()))
         }
         GethDebugBuiltInTracerType::FlatCall => {
             trace::build_traces(&mut env, &[], execution_trace)?;
@@ -3575,7 +3574,7 @@ where
                     transaction_position: entry.msg_position,
                 })
                 .collect();
-            Ok(GethTracer::FlatCall(traces))
+            Ok(GethTrace::FlatCall(traces))
         }
         _ => unreachable!("noopTracer and prestateTracer handled above"),
     }

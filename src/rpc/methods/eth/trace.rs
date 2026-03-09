@@ -682,10 +682,6 @@ fn trace_evm_private(
 ///
 /// Reuses [`build_trace`] for classification and data extraction, then converts
 /// the Parity-style [`EthTrace`] into a nested [`GethCallFrame`].
-///
-/// When `with_log` is set and `events` is non-empty, logs are correlated to
-/// call frames by matching each event's emitter actor ID against the frame's
-/// invoked actor.
 pub fn build_geth_call_frame(
     env: &mut Environment,
     trace: ExecutionTrace,

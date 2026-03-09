@@ -649,14 +649,19 @@ impl Default for TraceResult {
     }
 }
 
+/// The Available built-in tracer.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum GethDebugBuiltInTracerType {
+    /// The call tracer builds a hierarchical call tree, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
     #[serde(rename = "callTracer")]
     Call,
+    /// The flat call tracer builds a flat list of all calls, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
     #[serde(rename = "flatCallTracer")]
     FlatCall,
+    /// The prestate tracer builds a state snapshot of the accounts necessary to execute the transaction, and the state after the transaction.
     #[serde(rename = "prestateTracer")]
     PreState,
+    /// The noop tracer does not build any traces.
     #[serde(rename = "noopTracer")]
     Noop,
 }
@@ -665,8 +670,11 @@ pub enum GethDebugBuiltInTracerType {
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GethDebugTracingOptions {
+    /// The tracer to use for the transaction.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracer: Option<GethDebugBuiltInTracerType>,
+    /// The configuration for the provided tracer.
+    /// The configuration is a JSON object that is specific to the tracer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracer_config: Option<TracerConfig>,
 }
@@ -697,23 +705,26 @@ impl GethDebugTracingOptions {
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CallTracerConfig {
+    /// When set to true, only the top call will be returned.
+    /// Otherwise, the call tracer will return the full call tree.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub only_top_call: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub with_log: Option<bool>,
 }
 
 lotus_json_with_self!(CallTracerConfig);
 
 /// Configuration for the `prestateTracer`.
-// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L14
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L236
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PreStateConfig {
+    /// When set to true, the pre and post state of the accounts will be returned in the trace.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub diff_mode: Option<bool>,
+    /// When set to true, the code of the accounts will not be returned in the trace.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disable_code: Option<bool>,
+    /// When set to true, the storage of the accounts will not be returned in the trace.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disable_storage: Option<bool>,
 }
@@ -735,9 +746,6 @@ impl PreStateConfig {
 }
 
 /// Opaque JSON blob for per-tracer configuration.
-///
-/// Exists as a newtype because `serde_json::Value` does not implement
-/// `JsonSchema`. The actual interpretation depends on the selected tracer.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
 pub struct TracerConfig(pub serde_json::Value);
@@ -871,13 +879,13 @@ pub struct PreStateMode(pub BTreeMap<EthAddress, AccountState>);
 
 lotus_json_with_self!(PreStateMode);
 
-/// Diff mode: separate `pre` and `post` account snapshots.
-/// Created accounts appear only in `post`; deleted accounts appear only in `pre`.
-/// Unchanged fields are stripped from `post` entries.
+/// Account state differences between the transaction's pre and post-state.
 // Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L88
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct DiffMode {
+    /// account state before the transaction is executed.
     pub pre: BTreeMap<EthAddress, AccountState>,
+    /// account state after the transaction is executed.
     pub post: BTreeMap<EthAddress, AccountState>,
 }
 
@@ -888,24 +896,29 @@ lotus_json_with_self!(DiffMode);
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum PreStateFrame {
+    /// Default mode: returns the accounts necessary to execute a given transaction.
     Default(PreStateMode),
+    /// Diff mode: returns the differences between the transaction's pre and post-state.
     Diff(DiffMode),
 }
 
 lotus_json_with_self!(PreStateFrame);
 
-/// Polymorphic trace result from `debug_traceTransaction`.
-/// The shape depends on the selected tracer.
+/// Tracing response objects
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
-pub enum GethTracer {
+pub enum GethTrace {
+    /// Response object for the call tracer.
     Call(GethCallFrame),
+    /// Response object for the flat call tracer.
     FlatCall(Vec<EthBlockTrace>),
+    /// Response object for the prestate tracer.
     PreState(PreStateFrame),
+    /// Response object for the noop tracer.
     Noop(NoopFrame),
 }
 
-lotus_json_with_self!(GethTracer);
+lotus_json_with_self!(GethTrace);
 
 /// Selects which trace outputs to include in the `trace_call` response.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
