@@ -46,23 +46,13 @@ fn compute_next_base_fee(
     };
 
     // Limit absolute change at the block gas target.
-    if delta.abs() > BLOCK_GAS_TARGET as i64 {
-        delta = if delta.is_positive() {
-            BLOCK_GAS_TARGET as i64
-        } else {
-            -(BLOCK_GAS_TARGET as i64)
-        };
-    }
+    delta = delta.clamp(-(BLOCK_GAS_TARGET as i64), BLOCK_GAS_TARGET as i64);
 
     // cap change at 12.5% (BaseFeeMaxChangeDenom) by capping delta
     let change: TokenAmount = (base_fee * delta)
         .div_floor(BLOCK_GAS_TARGET)
         .div_floor(BASE_FEE_MAX_CHANGE_DENOM);
-    let mut next_base_fee = base_fee + change;
-    if next_base_fee.atto() < &MINIMUM_BASE_FEE.into() {
-        next_base_fee = TokenAmount::from_atto(MINIMUM_BASE_FEE);
-    }
-    next_base_fee
+    (base_fee + change).max(TokenAmount::from_atto(MINIMUM_BASE_FEE))
 }
 
 pub fn compute_base_fee<DB>(
@@ -94,37 +84,32 @@ where
     let mut seen = HashSet::new();
     let parent_base_fee = &ts.block_headers().first().parent_base_fee;
 
-    let mut add_message = |m: &dyn Message| {
-        let sender_with_nonce = (m.from(), m.sequence());
-        if !seen.contains(&sender_with_nonce) {
-            limits.push(m.gas_limit());
-            premiums.push(m.effective_gas_premium(parent_base_fee));
-            seen.insert(sender_with_nonce);
-        }
-    };
-
     for b in ts.block_headers() {
         let (bls_msgs, secp_msgs) = crate::chain::block_messages(db, b)?;
-        for m in bls_msgs {
-            add_message(&m);
-        }
-        for m in secp_msgs {
-            add_message(&m);
+        for m in bls_msgs
+            .iter()
+            .map(|m| m as &dyn Message)
+            .chain(secp_msgs.iter().map(|m| m as &dyn Message))
+        {
+            if seen.insert((m.from(), m.sequence())) {
+                limits.push(m.gas_limit());
+                premiums.push(m.effective_gas_premium(parent_base_fee));
+            }
         }
     }
 
     let percentile_premium = weighted_quick_select(premiums, limits, BLOCK_GAS_TARGET_INDEX);
-    compute_next_base_fee_from_premium(parent_base_fee, percentile_premium)
+    Ok(compute_next_base_fee_from_premium(parent_base_fee, percentile_premium))
 }
 
 pub(crate) fn compute_next_base_fee_from_premium(
     base_fee: &TokenAmount,
     percentile_premium: TokenAmount,
-) -> Result<TokenAmount, crate::chain::Error> {
+) -> TokenAmount {
     let denom = TokenAmount::from_atto(BASE_FEE_MAX_CHANGE_DENOM);
     let max_adj = (base_fee + (&denom - &TokenAmount::from_atto(1))) / denom;
-    Ok(TokenAmount::from_atto(MINIMUM_BASE_FEE)
-        .max(base_fee + (&max_adj).min(&(&percentile_premium - &max_adj))))
+    TokenAmount::from_atto(MINIMUM_BASE_FEE)
+        .max(base_fee + (&max_adj).min(&(&percentile_premium - &max_adj)))
 }
 
 fn compute_next_base_fee_from_utlilization<DB>(
@@ -140,19 +125,10 @@ where
 
     // Add all unique messages' gas limit to get the total for the Tipset.
     for b in ts.block_headers() {
-        let (msg1, msg2) = crate::chain::block_messages(db, b)?;
-        for m in msg1 {
-            let m_cid = m.cid();
-            if !seen.contains(&m_cid) {
-                total_limit += m.gas_limit();
-                seen.insert(m_cid);
-            }
-        }
-        for m in msg2 {
-            let m_cid = m.cid();
-            if !seen.contains(&m_cid) {
-                total_limit += m.gas_limit();
-                seen.insert(m_cid);
+        let (bls_msgs, secp_msgs) = crate::chain::block_messages(db, b)?;
+        for m in bls_msgs.iter().chain(secp_msgs.iter().map(|m| &m.message)) {
+            if seen.insert(m.cid()) {
+                total_limit += m.gas_limit;
             }
         }
     }

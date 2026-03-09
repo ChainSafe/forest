@@ -24,14 +24,11 @@ pub fn weighted_quick_select(
     mut target_index: u64,
 ) -> TokenAmount {
     loop {
-        match premiums.len() {
-            0 => return TokenAmount::zero(),
-            1 => {
-                return if limits.first().is_some_and(|&limit| limit > target_index) {
-                    premiums
-                        .into_iter()
-                        .next()
-                        .expect("premiums has one element")
+        match premiums.as_slice() {
+            [] => return TokenAmount::zero(),
+            [premium] => {
+                return if limits[0] > target_index {
+                    premium.clone()
                 } else {
                     TokenAmount::zero()
                 };
@@ -246,8 +243,7 @@ mod tests {
             let base_fee = TokenAmount::from_atto(base_fee);
             let premium = TokenAmount::from_atto(premium_p);
 
-            let result = compute_next_base_fee_from_premium(&base_fee, premium)
-                .expect("compute_next_base_fee_from_premium should succeed");
+            let result = compute_next_base_fee_from_premium(&base_fee, premium);
 
             assert_eq!(
                 result,
