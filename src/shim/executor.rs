@@ -22,7 +22,7 @@ use fvm_shared4::receipt::Receipt as Receipt_v4;
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 use fvm4::executor::ApplyRet as ApplyRet_v4;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use spire_enum::prelude::delegated_enum;
 use std::borrow::Borrow as _;
 

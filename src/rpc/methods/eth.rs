@@ -3527,7 +3527,7 @@ pub struct CollectedEvent {
     pub(crate) msg_cid: Cid,
 }
 
-pub(crate) fn match_key(key: &str) -> Option<usize> {
+fn match_key(key: &str) -> Option<usize> {
     match key.get(0..2) {
         Some("t1") => Some(0),
         Some("t2") => Some(1),
@@ -3537,7 +3537,7 @@ pub(crate) fn match_key(key: &str) -> Option<usize> {
     }
 }
 
-pub(crate) fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)> {
+fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)> {
     let mut topics_found = [false; 4];
     let mut topics_found_count = 0;
     let mut data_found = false;
@@ -4065,7 +4065,7 @@ impl RpcMethod<2> for EthDebugTraceTransaction {
         Some("Replays a transaction and returns execution traces in Geth-compatible format.");
 
     type Params = (String, Option<GethDebugTracingOptions>);
-    type Ok = GethTrace;
+    type Ok = GethTracer;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -4082,20 +4082,21 @@ async fn debug_trace_transaction<DB>(
     ext: &Extensions,
     tx_hash: String,
     opts: GethDebugTracingOptions,
-) -> Result<GethTrace, ServerError>
+) -> Result<GethTracer, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
     let tracer = opts
         .tracer
         .clone()
-        .unwrap_or(GethDebugBuiltInTracerType::CallTracer);
+        .unwrap_or(GethDebugBuiltInTracerType::Call);
 
-    if tracer == GethDebugBuiltInTracerType::NoopTracer {
-        return Ok(GethTrace::NoopTracer(NoopFrame {}));
+    if tracer == GethDebugBuiltInTracerType::Noop {
+        return Ok(GethTracer::Noop(NoopFrame {}));
     }
 
     let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
+    // TODO: We should return if the transaction is in pending state, need to verify this behaviour in Geth and Reth
     let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
         .await?
         .ok_or(ServerError::internal_error("transaction not found", None))?;
@@ -4106,12 +4107,43 @@ where
         ResolveNullTipset::TakeOlder,
     )?;
 
-    if tracer == GethDebugBuiltInTracerType::PreStateTracer {
+    // prestateTracer uses per-message replay for exact state boundaries,
+    // so it does not need the full tipset trace.
+    if tracer == GethDebugBuiltInTracerType::PreState {
+        let prestate_config = opts.prestate_config();
         let message_cid = ctx
             .chain_store()
             .get_mapping(&eth_hash)?
             .unwrap_or_else(|| eth_hash.to_cid());
-        return debug_trace_prestate(&ctx, &ts, message_cid, &opts).await;
+
+        let (pre_root, invoc_result, post_root) = ctx
+            .state_manager
+            .replay_for_prestate(ts.clone(), message_cid)
+            .await
+            .map_err(|e| anyhow::anyhow!("replay for prestate failed: {e}"))?;
+
+        let execution_trace = invoc_result
+            .execution_trace
+            .context("no execution trace for transaction")?;
+
+        let mut touched = extract_touched_eth_addresses(&execution_trace);
+        if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.from()) {
+            touched.insert(addr);
+        }
+        if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.to()) {
+            touched.insert(addr);
+        }
+
+        let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_root)?;
+        let post_state = StateTree::new_from_root(ctx.store_owned(), &post_root)?;
+        let frame = trace::build_prestate_frame(
+            ctx.store(),
+            &pre_state,
+            &post_state,
+            &touched,
+            &prestate_config,
+        )?;
+        return Ok(GethTracer::PreState(frame));
     }
 
     let (state, entries) = execute_tipset_traces(&ctx, &ts, ext).await?;
@@ -4133,12 +4165,12 @@ where
     })?;
 
     match tracer {
-        GethDebugBuiltInTracerType::CallTracer => {
+        GethDebugBuiltInTracerType::Call => {
             let call_config = opts.call_config();
             let frame = trace::build_geth_call_frame(&mut env, execution_trace, &call_config)?;
-            Ok(GethTrace::CallTracer(frame.unwrap_or_default()))
+            Ok(GethTracer::Call(frame.unwrap_or_default()))
         }
-        GethDebugBuiltInTracerType::FlatCallTracer => {
+        GethDebugBuiltInTracerType::FlatCall => {
             trace::build_traces(&mut env, &[], execution_trace)?;
             let block_hash: EthHash = ts.key().cid()?.into();
             let traces = env
@@ -4152,58 +4184,10 @@ where
                     transaction_position: entry.msg_position,
                 })
                 .collect();
-            Ok(GethTrace::FlatCallTracer(traces))
+            Ok(GethTracer::FlatCall(traces))
         }
         _ => unreachable!("noopTracer and prestateTracer handled above"),
     }
-}
-
-/// Handles the `prestateTracer` variant of `debug_traceTransaction`.
-///
-/// Replays the tipset up to the target message to obtain per-transaction
-/// pre/post state roots, then builds the appropriate [`PreStateFrame`].
-async fn debug_trace_prestate<DB>(
-    ctx: &Ctx<DB>,
-    ts: &Tipset,
-    target_mcid: Cid,
-    opts: &GethDebugTracingOptions,
-) -> Result<GethTrace, ServerError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let prestate_config = opts.prestate_config();
-
-    let (pre_root, invoc_result, post_root) = ctx
-        .state_manager
-        .replay_message_with_state_roots(ts.clone(), target_mcid)
-        .await
-        .map_err(|e| anyhow::anyhow!("failed to replay message with state roots: {e}"))?;
-
-    let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_root)?;
-    let post_state = StateTree::new_from_root(ctx.store_owned(), &post_root)?;
-
-    let mut touched = invoc_result
-        .execution_trace
-        .as_ref()
-        .map(extract_touched_eth_addresses)
-        .unwrap_or_default();
-
-    if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.from()) {
-        touched.insert(addr);
-    }
-    if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.to()) {
-        touched.insert(addr);
-    }
-
-    let frame = trace::build_prestate_frame(
-        ctx.store(),
-        &pre_state,
-        &post_state,
-        &touched,
-        &prestate_config,
-    )?;
-
-    Ok(GethTrace::PreStateTracer(frame))
 }
 
 pub enum EthTraceCall {}

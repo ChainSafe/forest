@@ -199,7 +199,8 @@ fn parse_error_revert(data: &[u8]) -> String {
 
         // Attempt to decode valid UTF-8
         let string = data.get(string_start..string_start + len).ok_or(())?;
-        Ok(format!("{}", std::str::from_utf8(string).map_err(|_| ())?))
+        // TODO: Earlier we used to return `Error()` format same as lotus but now we are matching Geth
+        Ok(std::str::from_utf8(string).map_err(|_| ())?.to_string())
     })();
 
     parse_result.unwrap_or_else(|_| fallback())

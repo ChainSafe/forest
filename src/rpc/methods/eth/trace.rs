@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::types::{
-    CallLogFrame, EthAddress, EthBytes, EthCallTraceAction, EthHash, EthTrace, GethCallFrame,
-    GethCallType, TraceAction, TraceResult,
+    EthAddress, EthBytes, EthCallTraceAction, EthHash, EthTrace, GethCallFrame, GethCallType,
+    TraceAction, TraceResult,
 };
 use super::utils::{decode_params, decode_return, parse_eth_revert};
 use super::{
     EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult, decode_payload,
-    encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi, eth_log_from_event,
+    encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
 };
 use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::eth::types::{AccountDiff, CallTracerConfig, Delta, StateDiff};
@@ -16,11 +16,9 @@ use crate::rpc::eth::{EthBigInt, EthUint64};
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::ExecutionTrace;
 use crate::rpc::state::ActorTrace;
-use crate::rpc::types::EventEntry;
 use crate::shim::actors::{EVMActorStateLoad, evm};
-use crate::shim::executor::StampedEvent;
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
-use crate::shim::state_tree::{ActorID, ActorState};
+use crate::shim::state_tree::ActorState;
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
 use ahash::{HashMap, HashSet};
 use anyhow::{Context, bail};
@@ -731,26 +729,23 @@ fn build_geth_frame_recursive(
 
     let mut frame = eth_trace_to_geth_frame(eth_trace, call_type)?;
 
-    if !tracer_cfg.only_top_call.unwrap_or_default() {
-        if let Some(recurse_trace) = recurse_into {
-            if let Some(invoked_actor) = &recurse_trace.invoked_actor {
-                let mut sub_env = Environment {
-                    caller: trace_to_address(invoked_actor),
-                    is_evm: is_evm_actor(&invoked_actor.state.code),
-                    ..Environment::default()
-                };
-                let mut subcalls = Vec::new();
-                for subcall in recurse_trace.subcalls {
-                    if let Some(f) =
-                        build_geth_frame_recursive(&mut sub_env, subcall, &tracer_cfg, false)?
-                    {
-                        subcalls.push(f);
-                    }
-                }
-                if !subcalls.is_empty() {
-                    frame.calls = Some(subcalls);
-                }
+    if !tracer_cfg.only_top_call.unwrap_or_default()
+        && let Some(recurse_trace) = recurse_into
+        && let Some(invoked_actor) = &recurse_trace.invoked_actor
+    {
+        let mut sub_env = Environment {
+            caller: trace_to_address(invoked_actor),
+            is_evm: is_evm_actor(&invoked_actor.state.code),
+            ..Environment::default()
+        };
+        let mut subcalls = Vec::new();
+        for subcall in recurse_trace.subcalls {
+            if let Some(f) = build_geth_frame_recursive(&mut sub_env, subcall, tracer_cfg, false)? {
+                subcalls.push(f);
             }
+        }
+        if !subcalls.is_empty() {
+            frame.calls = Some(subcalls);
         }
     }
 
@@ -785,7 +780,6 @@ fn eth_trace_to_geth_frame(
                 error: None,
                 revert_reason: None,
                 calls: None,
-                logs: Vec::new(),
             };
 
             if !is_success {
@@ -813,7 +807,6 @@ fn eth_trace_to_geth_frame(
                 error: None,
                 revert_reason: None,
                 calls: None,
-                logs: Vec::new(),
             };
 
             if !is_success {
@@ -920,8 +913,10 @@ fn build_account_diff<DB: Blockstore>(
 /// Build a [`PreStateFrame`] for the `prestateTracer`.
 ///
 /// In default mode, returns the pre-execution state of every touched account.
+/// Only storage slots that changed between pre and post state are included.
+///
 /// In diff mode, returns separate `pre` and `post` snapshots with unchanged
-/// fields stripped from `post`.
+/// fields and accounts stripped.
 pub(crate) fn build_prestate_frame<S: Blockstore, T: Blockstore>(
     store: &S,
     pre_state: &StateTree<T>,
@@ -931,50 +926,49 @@ pub(crate) fn build_prestate_frame<S: Blockstore, T: Blockstore>(
 ) -> anyhow::Result<super::types::PreStateFrame> {
     use super::types::{DiffMode, PreStateFrame, PreStateMode};
 
-    let include_code = !config.is_code_disabled();
-    let include_storage = !config.is_storage_disabled();
-
     if config.is_diff_mode() {
         let mut pre_map = BTreeMap::new();
         let mut post_map = BTreeMap::new();
+        let mut deleted_addrs = HashSet::default();
 
         for eth_addr in touched_addresses {
             let fil_addr = eth_addr.to_filecoin_address()?;
+            let pre_actor = pre_state.get_actor(&fil_addr)?;
+            let post_actor = post_state.get_actor(&fil_addr)?;
 
-            let pre_actor = pre_state
-                .get_actor(&fil_addr)
-                .map_err(|e| anyhow::anyhow!("failed to get pre actor state: {e}"))?;
-            let post_actor = post_state
-                .get_actor(&fil_addr)
-                .map_err(|e| anyhow::anyhow!("failed to get post actor state: {e}"))?;
-
-            let pre_snap =
-                build_account_snapshot(store, pre_actor.as_ref(), include_code, include_storage);
-            let mut post_snap =
-                build_account_snapshot(store, post_actor.as_ref(), include_code, include_storage);
-
-            let is_created = pre_actor.is_none() && post_actor.is_some();
-            let is_deleted = pre_actor.is_some() && post_actor.is_none();
-
-            if !is_created {
-                if let Some(snap) = pre_snap.as_ref() {
-                    if !snap.is_empty() {
-                        pre_map.insert(*eth_addr, snap.clone());
-                    }
-                }
+            if pre_actor.is_some() && post_actor.is_none() {
+                deleted_addrs.insert(*eth_addr);
             }
 
-            if !is_deleted {
-                if let Some(ref mut snap) = post_snap {
-                    if let Some(pre_snap) = pre_snap.as_ref() {
-                        snap.retain_changed(pre_snap);
-                    }
-                    if !snap.is_empty() {
-                        post_map.insert(*eth_addr, snap.clone());
-                    }
+            let changed_keys = changed_storage_keys(store, pre_actor.as_ref(), post_actor.as_ref());
+
+            let pre_snap =
+                build_account_snapshot(store, pre_actor.as_ref(), config, Some(&changed_keys));
+            let post_snap =
+                build_account_snapshot(store, post_actor.as_ref(), config, Some(&changed_keys));
+
+            // Created accounts (pre=None) only appear in post.
+            if let Some(ref snap) = pre_snap {
+                pre_map.insert(*eth_addr, snap.clone());
+            }
+
+            // Deleted accounts (post=None) only appear in pre.
+            // For modified accounts, strip unchanged fields from the post snapshot.
+            if let Some(mut snap) = post_snap {
+                // Strip zero-valued storage entries from post.
+                snap.storage.retain(|_, v| *v != ZERO_HASH);
+                if let Some(ref pre) = pre_snap {
+                    snap.retain_changed(pre);
+                }
+                if !snap.is_empty() {
+                    post_map.insert(*eth_addr, snap);
                 }
             }
         }
+
+        // Remove fully unchanged accounts: keep only those with changes
+        // (in post_map) or that were deleted.
+        pre_map.retain(|addr, _| post_map.contains_key(addr) || deleted_addrs.contains(addr));
 
         Ok(PreStateFrame::Diff(DiffMode {
             pre: pre_map,
@@ -985,17 +979,15 @@ pub(crate) fn build_prestate_frame<S: Blockstore, T: Blockstore>(
 
         for eth_addr in touched_addresses {
             let fil_addr = eth_addr.to_filecoin_address()?;
+            let pre_actor = pre_state.get_actor(&fil_addr)?;
+            let post_actor = post_state.get_actor(&fil_addr)?;
 
-            let pre_actor = pre_state
-                .get_actor(&fil_addr)
-                .map_err(|e| anyhow::anyhow!("failed to get pre actor state: {e}"))?;
+            let changed_keys = changed_storage_keys(store, pre_actor.as_ref(), post_actor.as_ref());
 
             if let Some(snap) =
-                build_account_snapshot(store, pre_actor.as_ref(), include_code, include_storage)
+                build_account_snapshot(store, pre_actor.as_ref(), config, Some(&changed_keys))
             {
-                if !snap.is_empty() {
-                    result.insert(*eth_addr, snap);
-                }
+                result.insert(*eth_addr, snap);
             }
         }
 
@@ -1005,40 +997,69 @@ pub(crate) fn build_prestate_frame<S: Blockstore, T: Blockstore>(
 
 /// Build an [`AccountState`] snapshot from an actor.
 /// Returns `None` when the actor does not exist.
+///
+/// When `storage_filter` is provided, only storage keys in the filter set are
+/// included. This limits output to slots that actually changed between pre and
+/// post state.
 fn build_account_snapshot<DB: Blockstore>(
     store: &DB,
     actor: Option<&ActorState>,
-    include_code: bool,
-    include_storage: bool,
+    config: &super::types::PreStateConfig,
+    storage_filter: Option<&HashSet<[u8; 32]>>,
 ) -> Option<super::types::AccountState> {
     let actor = actor?;
 
-    let balance = Some(EthBigInt(actor.balance.atto().clone()));
-    let nonce = {
-        let n = actor_nonce(store, actor);
-        (n.0 != 0).then_some(n)
-    };
-    let code = if include_code {
-        actor_bytecode(store, actor)
-    } else {
+    let nonce = Some(actor_nonce(store, actor));
+    let code = if config.is_code_disabled() {
         None
+    } else {
+        actor_bytecode(store, actor)
     };
-    let storage = if include_storage {
-        let entries = extract_evm_storage_entries(store, Some(actor));
-        entries
+    let storage = if config.is_storage_disabled() {
+        BTreeMap::new()
+    } else {
+        extract_evm_storage_entries(store, Some(actor))
             .into_iter()
+            .filter(|(k, _)| storage_filter.is_none_or(|f| f.contains(k)))
             .map(|(k, v)| (EthHash(ethereum_types::H256(k)), u256_to_eth_hash(&v)))
             .collect()
-    } else {
-        BTreeMap::new()
     };
 
     Some(super::types::AccountState {
-        balance,
+        balance: Some(EthBigInt(actor.balance.atto().clone())),
         code,
         nonce,
         storage,
     })
+}
+
+/// Compute the set of storage keys that differ between pre and post actor states.
+fn changed_storage_keys<DB: Blockstore>(
+    store: &DB,
+    pre_actor: Option<&ActorState>,
+    post_actor: Option<&ActorState>,
+) -> HashSet<[u8; 32]> {
+    let pre_entries = extract_evm_storage_entries(store, pre_actor);
+    let post_entries = extract_evm_storage_entries(store, post_actor);
+
+    let mut changed = HashSet::default();
+
+    for (k, v) in &pre_entries {
+        match post_entries.get(k) {
+            Some(pv) if pv == v => {} // unchanged
+            _ => {
+                changed.insert(*k);
+            }
+        }
+    }
+
+    for k in post_entries.keys() {
+        if !pre_entries.contains_key(k) {
+            changed.insert(*k);
+        }
+    }
+
+    changed
 }
 
 /// Compute storage diff between pre and post actor states.

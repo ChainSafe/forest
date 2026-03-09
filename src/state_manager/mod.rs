@@ -851,92 +851,46 @@ where
         api_invoc_result.ok_or_else(|| Error::Other("failed to replay".into()))
     }
 
-    /// Replays a tipset up to a specific message, returning the pre-execution
-    /// and post-execution state roots alongside the traced invocation result.
-    ///
-    /// This is used by the `prestateTracer` in `debug_traceTransaction` which
-    /// needs to compare account states before and after a single transaction.
-    pub async fn replay_message_with_state_roots(
+    /// Replays a tipset up to a target message, capturing the state root before
+    /// and after execution.
+    pub async fn replay_for_prestate(
         self: &Arc<Self>,
         ts: Tipset,
         target_mcid: Cid,
     ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
         let this = Arc::clone(self);
-        tokio::task::spawn_blocking(move || {
-            this.replay_message_with_state_roots_blocking(ts, target_mcid)
-        })
-        .await
-        .map_err(|e| Error::Other(format!("{e}")))?
+        tokio::task::spawn_blocking(move || this.replay_for_prestate_blocking(ts, target_mcid))
+            .await
+            .map_err(|e| Error::Other(format!("{e}")))?
     }
 
-    /// Blocking version of [`Self::replay_message_with_state_roots`].
-    fn replay_message_with_state_roots_blocking(
+    fn replay_for_prestate_blocking(
         self: &Arc<Self>,
         ts: Tipset,
         target_mcid: Cid,
     ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
-        use crate::shim::clock::EPOCH_DURATION_SECONDS;
-        use ahash::HashSet;
-
-        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
-        let chain_config = self.chain_config().clone();
-        let chain_index = self.chain_index().clone();
-        let rand = ChainRand::new(
-            chain_config.clone(),
-            ts.clone(),
-            chain_index.clone(),
-            self.beacon_schedule().clone(),
-        );
-
-        let genesis_info = GenesisInfo::from_chain_config(chain_config.clone());
-        let create_vm = |state_root: Cid, epoch, timestamp, trace_config| {
-            let circulating_supply =
-                genesis_info.get_vm_circulating_supply(epoch, chain_index.db(), &state_root)?;
-            VM::new(
-                ExecutionContext {
-                    heaviest_tipset: ts.clone(),
-                    state_tree_root: state_root,
-                    epoch,
-                    rand: Box::new(rand.clone()),
-                    base_fee: ts.min_ticket_block().parent_base_fee.clone(),
-                    circ_supply: circulating_supply,
-                    chain_config: chain_config.clone(),
-                    chain_index: chain_index.clone(),
-                    timestamp,
-                },
-                &self.engine,
-                trace_config,
-            )
-        };
-
-        let mut parent_state = *ts.parent_state();
-        let parent_epoch = Tipset::load_required(chain_index.db(), ts.parents())?.epoch();
-        let epoch = ts.epoch();
-
-        for epoch_i in parent_epoch..epoch {
-            if epoch_i > parent_epoch {
-                let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
-                parent_state = stacker::grow(64 << 20, || -> anyhow::Result<Cid> {
-                    let mut vm = create_vm(parent_state, epoch_i, timestamp, VMTrace::NotTraced)?;
-                    if let Err(e) = vm.run_cron(epoch_i, NO_CALLBACK) {
-                        error!("Beginning of epoch cron failed to run: {e}");
-                    }
-                    vm.flush()
-                })?;
-            }
-            if let Some(new_state) =
-                run_state_migrations(epoch_i, &chain_config, chain_index.db(), &parent_state)?
-            {
-                parent_state = new_state;
-            }
+        if ts.epoch() == 0 {
+            return Err(Error::Other(
+                "cannot trace messages in the genesis block".into(),
+            ));
         }
 
-        let block_messages = BlockMessages::for_tipset(chain_index.db(), &ts)
-            .map_err(|e| Error::Other(e.to_string()))?;
+        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
+        let exec = TipsetExecutor::new(
+            self.chain_index().clone(),
+            self.chain_config().clone(),
+            self.beacon_schedule().clone(),
+            &self.engine,
+            ts.clone(),
+        );
+        let mut no_cb = NO_CALLBACK;
+        let (parent_state, epoch, block_messages) =
+            exec.prepare_parent_state(genesis_timestamp, VMTrace::NotTraced, &mut no_cb)?;
 
-        stacker::grow(64 << 20, || -> Result<(Cid, ApiInvocResult, Cid), Error> {
-            let mut vm = create_vm(parent_state, epoch, ts.min_timestamp(), VMTrace::NotTraced)?;
-            let mut processed = HashSet::default();
+        Ok(stacker::grow(64 << 20, || {
+            let mut vm =
+                exec.create_vm(parent_state, epoch, ts.min_timestamp(), VMTrace::NotTraced)?;
+            let mut processed = ahash::HashSet::default();
 
             for block in block_messages.iter() {
                 let mut penalty = TokenAmount::zero();
@@ -951,24 +905,25 @@ where
 
                     if cid == target_mcid {
                         let pre_root = vm.flush()?;
-
                         let mut traced_vm =
-                            create_vm(pre_root, epoch, ts.min_timestamp(), VMTrace::Traced)?;
+                            exec.create_vm(pre_root, epoch, ts.min_timestamp(), VMTrace::Traced)?;
                         let (ret, duration) = traced_vm.apply_message(msg)?;
                         let post_root = traced_vm.flush()?;
 
-                        let invoc_result = ApiInvocResult {
-                            msg_cid: cid,
-                            msg: msg.message().clone(),
-                            msg_rct: Some(ret.msg_receipt()),
-                            error: ret.failure_info().unwrap_or_default(),
-                            duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
-                            gas_cost: MessageGasCost::default(),
-                            execution_trace: structured::parse_events(ret.exec_trace())
-                                .unwrap_or_default(),
-                        };
-
-                        return Ok((pre_root, invoc_result, post_root));
+                        return Ok((
+                            pre_root,
+                            ApiInvocResult {
+                                msg_cid: cid,
+                                msg: msg.message().clone(),
+                                msg_rct: Some(ret.msg_receipt()),
+                                error: ret.failure_info().unwrap_or_default(),
+                                duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                                gas_cost: MessageGasCost::default(),
+                                execution_trace: structured::parse_events(ret.exec_trace())
+                                    .unwrap_or_default(),
+                            },
+                            post_root,
+                        ));
                     }
 
                     let (ret, _) = vm.apply_message(msg)?;
@@ -981,18 +936,16 @@ where
                 {
                     let (ret, _) = vm.apply_implicit_message(&rew_msg)?;
                     if let Some(err) = ret.failure_info() {
-                        return Err(Error::Other(format!(
+                        bail!(
                             "failed to apply reward message for miner {}: {err}",
                             block.miner
-                        )));
+                        );
                     }
                 }
             }
 
-            Err(Error::Other(format!(
-                "message {target_mcid} not found in tipset"
-            )))
-        })
+            bail!("message {target_mcid} not found in tipset")
+        })?)
     }
 
     /// Checks the eligibility of the miner. This is used in the validation that
@@ -2000,6 +1953,119 @@ where
         })
 }
 
+/// Shared context for creating VMs and preparing tipset state.
+///
+/// Encapsulates the common setup needed by both [`apply_block_messages`] and
+/// [`StateManager::replay_for_prestate_blocking`]: randomness source, genesis
+/// info, VM construction, null-epoch cron handling, and state migrations.
+struct TipsetExecutor<'a, DB: Blockstore + Send + Sync + 'static> {
+    tipset: Tipset,
+    rand: ChainRand<DB>,
+    chain_config: Arc<ChainConfig>,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    genesis_info: GenesisInfo,
+    engine: &'a MultiEngine,
+}
+
+impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
+    fn new(
+        chain_index: Arc<ChainIndex<Arc<DB>>>,
+        chain_config: Arc<ChainConfig>,
+        beacon: Arc<BeaconSchedule>,
+        engine: &'a MultiEngine,
+        tipset: Tipset,
+    ) -> Self {
+        let rand = ChainRand::new(
+            chain_config.clone(),
+            tipset.clone(),
+            chain_index.clone(),
+            beacon,
+        );
+        let genesis_info = GenesisInfo::from_chain_config(chain_config.clone());
+        Self {
+            tipset,
+            rand,
+            chain_config,
+            chain_index,
+            genesis_info,
+            engine,
+        }
+    }
+
+    fn create_vm(
+        &self,
+        state_root: Cid,
+        epoch: ChainEpoch,
+        timestamp: u64,
+        trace: VMTrace,
+    ) -> anyhow::Result<VM<DB>> {
+        let circ_supply = self.genesis_info.get_vm_circulating_supply(
+            epoch,
+            self.chain_index.db(),
+            &state_root,
+        )?;
+        VM::new(
+            ExecutionContext {
+                heaviest_tipset: self.tipset.clone(),
+                state_tree_root: state_root,
+                epoch,
+                rand: Box::new(self.rand.clone()),
+                base_fee: self.tipset.min_ticket_block().parent_base_fee.clone(),
+                circ_supply,
+                chain_config: self.chain_config.clone(),
+                chain_index: self.chain_index.clone(),
+                timestamp,
+            },
+            self.engine,
+            trace,
+        )
+    }
+
+    /// Runs null-epoch `crons` and state migrations, producing the state root
+    /// ready for message execution and the block messages for the tipset.
+    fn prepare_parent_state<F>(
+        &self,
+        genesis_timestamp: u64,
+        null_epoch_trace: VMTrace,
+        cron_callback: &mut Option<F>,
+    ) -> anyhow::Result<(Cid, ChainEpoch, Vec<BlockMessages>)>
+    where
+        F: FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>,
+    {
+        use crate::shim::clock::EPOCH_DURATION_SECONDS;
+
+        let mut parent_state = *self.tipset.parent_state();
+        let parent_epoch =
+            Tipset::load_required(self.chain_index.db(), self.tipset.parents())?.epoch();
+        let epoch = self.tipset.epoch();
+
+        for epoch_i in parent_epoch..epoch {
+            if epoch_i > parent_epoch {
+                let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+                parent_state = stacker::grow(64 << 20, || -> anyhow::Result<Cid> {
+                    let mut vm =
+                        self.create_vm(parent_state, epoch_i, timestamp, null_epoch_trace)?;
+                    if let Err(e) = vm.run_cron(epoch_i, cron_callback.as_mut()) {
+                        error!("Beginning of epoch cron failed to run: {e}");
+                    }
+                    vm.flush()
+                })?;
+            }
+            if let Some(new_state) = run_state_migrations(
+                epoch_i,
+                &self.chain_config,
+                self.chain_index.db(),
+                &parent_state,
+            )? {
+                parent_state = new_state;
+            }
+        }
+
+        let block_messages = BlockMessages::for_tipset(self.chain_index.db(), &self.tipset)?;
+        Ok((parent_state, epoch, block_messages))
+    }
+}
+
 /// Messages are transactions that produce new states. The state (usually
 /// referred to as the 'state-tree') is a mapping from actor addresses to actor
 /// states. Each block contains the hash of the state-tree that should be used
@@ -2090,19 +2156,8 @@ pub fn apply_block_messages<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    // This function will:
-    // 1. handle the genesis block as a special case
-    // 2. run 'cron' for any null-tipsets between the current tipset and our parent tipset
-    // 3. run migrations
-    // 4. execute block messages
-    // 5. write the state-tree to the DB and return the CID
-
-    // step 1: special case for genesis block
+    // Special case for genesis block.
     if tipset.epoch() == 0 {
-        // NB: This is here because the process that executes blocks requires that the
-        // block miner reference a valid miner in the state tree. Unless we create some
-        // magical genesis miner, this won't work properly, so we short circuit here
-        // This avoids the question of 'who gets paid the genesis block reward'
         let message_receipts = tipset.min_ticket_block().message_receipts;
         return Ok(StateOutput {
             state_root: *tipset.parent_state(),
@@ -2112,83 +2167,28 @@ where
         });
     }
 
-    let rand = ChainRand::new(
-        Arc::clone(&chain_config),
-        tipset.clone(),
-        Arc::clone(&chain_index),
+    let exec = TipsetExecutor::new(
+        chain_index.clone(),
+        chain_config,
         beacon,
+        engine,
+        tipset.clone(),
     );
-
-    let genesis_info = GenesisInfo::from_chain_config(chain_config.clone());
-    let create_vm = |state_root: Cid, epoch, timestamp| {
-        let circulating_supply =
-            genesis_info.get_vm_circulating_supply(epoch, chain_index.db(), &state_root)?;
-        VM::new(
-            ExecutionContext {
-                heaviest_tipset: tipset.clone(),
-                state_tree_root: state_root,
-                epoch,
-                rand: Box::new(rand.clone()),
-                base_fee: tipset.min_ticket_block().parent_base_fee.clone(),
-                circ_supply: circulating_supply,
-                chain_config: Arc::clone(&chain_config),
-                chain_index: Arc::clone(&chain_index),
-                timestamp,
-            },
-            engine,
-            enable_tracing,
-        )
-    };
-
-    let mut parent_state = *tipset.parent_state();
-
-    let parent_epoch = Tipset::load_required(chain_index.db(), tipset.parents())?.epoch();
-    let epoch = tipset.epoch();
-
-    for epoch_i in parent_epoch..epoch {
-        if epoch_i > parent_epoch {
-            // step 2: running cron for any null-tipsets
-            let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
-
-            // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
-            // FVM, but that introduces some constraints, and possible deadlocks.
-            parent_state = stacker::grow(64 << 20, || -> anyhow::Result<Cid> {
-                let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
-                // run cron for null rounds if any
-                if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
-                    error!("Beginning of epoch cron failed to run: {}", e);
-                }
-                vm.flush()
-            })?;
-        }
-
-        // step 3: run migrations
-        if let Some(new_state) =
-            run_state_migrations(epoch_i, &chain_config, chain_index.db(), &parent_state)?
-        {
-            parent_state = new_state;
-        }
-    }
-
-    let block_messages = BlockMessages::for_tipset(chain_index.db(), &tipset)
-        .map_err(|e| Error::Other(e.to_string()))?;
+    let (parent_state, epoch, block_messages) =
+        exec.prepare_parent_state(genesis_timestamp, enable_tracing, &mut callback)?;
 
     // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
     // FVM, but that introduces some constraints, and possible deadlocks.
     stacker::grow(64 << 20, || -> anyhow::Result<StateOutput> {
-        let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
+        let mut vm = exec.create_vm(parent_state, epoch, tipset.min_timestamp(), enable_tracing)?;
 
-        // step 4: apply tipset messages
         let (receipts, events, events_roots) =
             vm.apply_block_messages(&block_messages, epoch, callback)?;
 
-        // step 5: construct receipt root from receipts
         let receipt_root = Amtv0::new_from_iter(chain_index.db(), receipts)?;
 
-        // step 6: store events AMTs in the blockstore
         for (msg_events, events_root) in events.iter().zip(events_roots.iter()) {
             if let Some(event_root) = events_root {
-                // Store the events AMT - the root CID should match the one computed by FVM
                 let derived_event_root = Amt::new_from_iter_with_bit_width(
                     chain_index.db(),
                     EVENTS_AMT_BITWIDTH,
@@ -2196,7 +2196,6 @@ where
                 )
                 .map_err(|e| Error::Other(format!("failed to store events AMT: {e}")))?;
 
-                // Verify the stored root matches the FVM-computed root
                 ensure!(
                     derived_event_root.eq(event_root),
                     "Events AMT root mismatch: derived={derived_event_root}, actual={event_root}."

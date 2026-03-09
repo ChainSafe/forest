@@ -652,13 +652,13 @@ impl Default for TraceResult {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum GethDebugBuiltInTracerType {
     #[serde(rename = "callTracer")]
-    CallTracer,
+    Call,
     #[serde(rename = "flatCallTracer")]
-    FlatCallTracer,
+    FlatCall,
     #[serde(rename = "prestateTracer")]
-    PreStateTracer,
+    PreState,
     #[serde(rename = "noopTracer")]
-    NoopTracer,
+    Noop,
 }
 
 /// Options for the `debug_traceTransaction` API.
@@ -777,10 +777,6 @@ impl GethCallType {
         matches!(self, Self::StaticCall)
     }
 
-    pub const fn is_delegate_call(&self) -> bool {
-        matches!(self, Self::DelegateCall)
-    }
-
     /// Converts a Parity-style call type string to a [`GethCallType`].
     pub fn from_parity_call_type(call_type: &str) -> Self {
         match call_type {
@@ -818,26 +814,9 @@ pub struct GethCallFrame {
     pub revert_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calls: Option<Vec<GethCallFrame>>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub logs: Vec<CallLogFrame>,
 }
 
 lotus_json_with_self!(GethCallFrame);
-
-/// A log entry emitted during a traced call, attached to a [`GethCallFrame`]
-/// when `withLog: true` is set in the callTracer config.
-#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct CallLogFrame {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub address: Option<EthAddress>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub topics: Option<Vec<EthHash>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<EthBytes>,
-}
-
-lotus_json_with_self!(CallLogFrame);
 
 /// Empty frame returned by the `noopTracer`.
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
@@ -919,14 +898,14 @@ lotus_json_with_self!(PreStateFrame);
 /// The shape depends on the selected tracer.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
-pub enum GethTrace {
-    CallTracer(GethCallFrame),
-    FlatCallTracer(Vec<EthBlockTrace>),
-    PreStateTracer(PreStateFrame),
-    NoopTracer(NoopFrame),
+pub enum GethTracer {
+    Call(GethCallFrame),
+    FlatCall(Vec<EthBlockTrace>),
+    PreState(PreStateFrame),
+    Noop(NoopFrame),
 }
 
-lotus_json_with_self!(GethTrace);
+lotus_json_with_self!(GethTracer);
 
 /// Selects which trace outputs to include in the `trace_call` response.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
