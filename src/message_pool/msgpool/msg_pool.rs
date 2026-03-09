@@ -266,7 +266,6 @@ where
         if to_vec(msg)?.len() > MAX_MESSAGE_SIZE {
             return Err(Error::MessageTooBig);
         }
-        // Reject delegated (f4) recipient if not a valid Eth address (avoids black-hole sends).
         let to = msg.message().to();
         if to.protocol() == Protocol::Delegated && EthAddress::from_filecoin_address(&to).is_err() {
             return Err(Error::Other(format!(
