@@ -12,6 +12,7 @@ use super::weighted_quick_select::weighted_quick_select;
 
 /// Placeholder for the FIP-0115 activation height.
 /// Replace with the actual network upgrade height once finalized.
+/// Tracked in <https://github.com/ChainSafe/forest/issues/6704>
 pub const PLACEHOLDER_NEXT_UPGRADE_HEIGHT: ChainEpoch = ChainEpoch::MAX;
 
 pub const BLOCK_GAS_TARGET_INDEX: u64 = BLOCK_GAS_LIMIT * 80 / 100 - 1;
