@@ -682,9 +682,14 @@ pub struct GethDebugTracingOptions {
 lotus_json_with_self!(GethDebugTracingOptions);
 
 impl GethDebugTracingOptions {
-    /// Extracts the `callTracer` config, defaulting to no-op values when absent.
-    pub fn call_config(&self) -> CallTracerConfig {
-        parse_tracer_config::<CallTracerConfig>(&self.tracer_config)
+    /// Extracts and validates the `callTracer` config.
+    /// Returns an error if an unsupported flag (e.g. `withLog`) is set to true.
+    pub fn call_config(&self) -> anyhow::Result<CallTracerConfig> {
+        let cfg = parse_tracer_config::<CallTracerConfig>(&self.tracer_config);
+        if cfg.with_log.unwrap_or(false) {
+            anyhow::bail!("callTracer: withLog is not yet supported");
+        }
+        Ok(cfg)
     }
 
     /// Extracts the `prestateTracer` config, defaulting to no-op values when absent.
@@ -717,6 +722,10 @@ pub struct CallTracerConfig {
     /// Otherwise, the call tracer will return the full call tree.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub only_top_call: Option<bool>,
+    /// When set to true, logs emitted during calls will be included in the trace.
+    /// Not yet supported — a request with this flag set to true will return an error.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub with_log: Option<bool>,
 }
 
 lotus_json_with_self!(CallTracerConfig);

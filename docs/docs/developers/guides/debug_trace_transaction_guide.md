@@ -141,42 +141,24 @@ Save the transaction hashes from the output for use in the tracing examples belo
 
 ### Getting the correct transaction hash on Forest
 
-When you send a transaction to Forest (e.g. with `cast send` or another client), the value returned may be a **Filecoin message CID** (or another identifier), not the canonical **Ethereum transaction hash** that `debug_traceTransaction` expects.
+`debug_traceTransaction` expects the canonical **EthHash** (0x...). If your client returned something else, resolve it first.
 
-To obtain the canonical `hash` (EthHash) that Forest uses for tracing:
+- **0x... value** (e.g. from `cast send`): call `eth_getTransactionByHash` and use the response's **`hash`** field for tracing. Forest resolves via the indexer or by message lookup.
+- **Literal CID** (e.g. `bafy2bzace...`): `eth_getTransactionByHash` accepts only EthHash. Use `eth_getTransactionHashByCid` to get the hash, then pass it to `debug_traceTransaction`.
 
-1. Call `eth_getTransactionByHash` with the hash you received when sending the transaction (e.g. the value returned by `cast send`).
-2. From the response, use the **`hash`** field of the returned transaction object. That is the canonical Ethereum transaction hash; use it when calling `debug_traceTransaction`.
-
-Example: resolve the hash and then trace:
+Example (0x... from cast):
 
 ```bash
-# 1. Get the canonical transaction hash (`EthHash`) by querying with the hash from cast send.
-HASH_FROM_CAST="0x..."   # or your Filecoin-style identifier
-TX_HASH=$(curl -s -X POST http://localhost:2345/rpc/v1 \
-        -H "Content-Type: application/json" \
-        -d '{
-            "jsonrpc":"2.0",
-            "id":1,
-            "method": "eth_getTransactionByHash",
-            "params": ["'"$HASH_FROM_CAST"'"]
-        }' | jq -r '.result.hash // empty')
+HASH_0X="0x..."   # from cast send or block explorer
+TX_HASH=$(curl -s -X POST http://localhost:2345/rpc/v1 -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"eth_getTransactionByHash","params":["'"$HASH_0X"'"]}' \
+    | jq -r '.result.hash // empty')
 
-# 2. Call `debug_traceTransaction` with the canonical hash.
-curl -s -X POST "http://localhost:2345/rpc/v1" \
-    -H "Content-Type: application/json" \
-    -d '{
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "debug_traceTransaction",
-        "params": [
-            "'$TX_HASH'",
-            {"tracer": "prestateTracer", "tracerConfig": {"diffMode": true}}
-        ]
-    }'
+curl -s -X POST "http://localhost:2345/rpc/v1" -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"debug_traceTransaction","params":["'"$TX_HASH"'",{"tracer":"prestateTracer","tracerConfig":{"diffMode":true}}]}'
 ```
 
-If you already have the canonical Ethereum hash (e.g. from a block explorer or a previous `eth_getTransactionByHash` response), you can pass it directly to `debug_traceTransaction` without step 1.
+If you have a CID: `TX_HASH=$(curl -s ... -d '{"method":"eth_getTransactionHashByCid","params":["'"$MSG_CID"'"]}' | jq -r '.result // empty')`, then use `$TX_HASH` in the trace call above.
 
 ### Comparing Forest vs Anvil Responses
 

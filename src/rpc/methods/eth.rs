@@ -3401,6 +3401,7 @@ where
         if ir.msg.from == system::ADDRESS.into() {
             continue;
         }
+        msg_idx += 1;
         let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
         let tx_hash = tx_hash
             .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
@@ -3409,7 +3410,6 @@ where
             msg_position: msg_idx,
             invoc_result: ir,
         });
-        msg_idx += 1;
     }
 
     Ok((state, entries))
@@ -3496,10 +3496,6 @@ where
         }
     };
 
-    if tracer == GethDebugBuiltInTracerType::Noop {
-        return Ok(GethTrace::Noop(NoopFrame {}));
-    }
-
     let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
     let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
         .await?
@@ -3511,6 +3507,10 @@ where
             "no trace for pending transactions",
             None,
         ));
+    }
+
+    if tracer == GethDebugBuiltInTracerType::Noop {
+        return Ok(GethTrace::Noop(NoopFrame {}));
     }
 
     let resolver = TipsetResolver::new(&ctx, api_path);
@@ -3577,7 +3577,7 @@ where
 
     match tracer {
         GethDebugBuiltInTracerType::Call => {
-            let call_config = opts.call_config();
+            let call_config = opts.call_config()?;
             let frame = trace::build_geth_call_frame(&mut env, execution_trace, &call_config)?;
             Ok(GethTrace::Call(frame.unwrap_or_default()))
         }

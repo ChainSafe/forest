@@ -40,9 +40,11 @@ This guide explains the `debug_traceTransaction` RPC method implemented in Fores
 
 #### `prestateTracer` config
 
-| Option     | Type    | Default | Description                                      |
-| ---------- | ------- | ------- | ------------------------------------------------ |
-| `diffMode` | boolean | `false` | When `true`, returns both `pre` and `post` state |
+| Option            | Type    | Default | Description                                                                 |
+| ----------------- | ------- | ------- | --------------------------------------------------------------------------- |
+| `diffMode`        | boolean | `false` | When `true`, returns both `pre` and `post` state                            |
+| `disable_code`    | boolean | `false` | When `true`, the code of the accounts will not be returned in the trace.    |
+| `disable_storage` | boolean | `false` | When `true`, the storage of the accounts will not be returned in the trace. |
 
 #### `callTracer` config
 
@@ -338,7 +340,7 @@ Forest's `debug_traceTransaction` implementation has some differences from stand
 | **ID addresses**      | May include `0xff00...` Filecoin ID addresses  | Only EVM addresses                          |
 | **Coinbase**          | Not included (gas handled at protocol level)   | Included as `0x0000...0000`                 |
 | **Per-message state** | Re-executes all prior messages in the tipset   | Re-executes all prior transactions in block |
-| **Storage model**     | EVM storage via KAMT (Key-Address-Merkle-Tree) | Standard Merkle Patricia Trie               |
+| **Storage model**     | EVM storage via KAMT (Key-Address-Merkle-Tree) | Standard `Merkle Patricia Trie`             |
 
 ## Official Resources
 
