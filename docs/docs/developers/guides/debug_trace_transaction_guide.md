@@ -1,6 +1,6 @@
-# debug_traceTransaction Developer Guide
+# `debug_traceTransaction` Developer Guide
 
-This guide covers testing and development workflows for Forest's `debug_traceTransaction` implementation. For API documentation and user-facing usage, see the [debug_traceTransaction API guide](/knowledge_base/rpc/debug_trace_transaction).
+This guide covers testing and development workflows for Forest's `debug_traceTransaction` implementation. For API documentation and user-facing usage, see the [API guide](/knowledge_base/rpc/debug_trace_transaction).
 
 ## Tracer Contract
 
@@ -90,7 +90,7 @@ Anvil uses the same **Geth style** tracing as `debug_traceTransaction`, making i
 ### Starting Anvil
 
 ```bash
-# Start Anvil with tracer to allow debug_traceTransaction API's
+# Start Anvil with tracer to allow `debug_traceTransaction` API's
 anvil --tracing
 ```
 
@@ -139,11 +139,50 @@ cast send $ANVIL_CONTRACT "storageMultiple(uint256,uint256,uint256)" 10 20 30 \
 
 Save the transaction hashes from the output for use in the tracing examples below.
 
+### Getting the correct transaction hash on Forest
+
+When you send a transaction to Forest (e.g. with `cast send` or another client), the value returned may be a **Filecoin message CID** (or another identifier), not the canonical **Ethereum transaction hash** that `debug_traceTransaction` expects.
+
+To obtain the canonical `hash` (EthHash) that Forest uses for tracing:
+
+1. Call `eth_getTransactionByHash` with the hash you received when sending the transaction (e.g. the value returned by `cast send`).
+2. From the response, use the **`hash`** field of the returned transaction object. That is the canonical Ethereum transaction hash; use it when calling `debug_traceTransaction`.
+
+Example: resolve the hash and then trace:
+
+```bash
+# 1. Get the canonical transaction hash (`EthHash`) by querying with the hash from cast send.
+HASH_FROM_CAST="0x..."   # or your Filecoin-style identifier
+TX_HASH=$(curl -s -X POST http://localhost:2345/rpc/v1 \
+        -H "Content-Type: application/json" \
+        -d '{
+            "jsonrpc":"2.0",
+            "id":1,
+            "method": "eth_getTransactionByHash",
+            "params": ["'"$HASH_FROM_CAST"'"]
+        }' | jq -r '.result.hash // empty')
+
+# 2. Call `debug_traceTransaction` with the canonical hash.
+curl -s -X POST "http://localhost:2345/rpc/v1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "debug_traceTransaction",
+        "params": [
+            "'$TX_HASH'",
+            {"tracer": "prestateTracer", "tracerConfig": {"diffMode": true}}
+        ]
+    }'
+```
+
+If you already have the canonical Ethereum hash (e.g. from a block explorer or a previous `eth_getTransactionByHash` response), you can pass it directly to `debug_traceTransaction` without step 1.
+
 ### Comparing Forest vs Anvil Responses
 
-Both Forest and Anvil use the same `debug_traceTransaction` method and tracer format, so responses can be compared directly (unlike `trace_call` vs `debug_traceCall` which use different formats).
+Both Forest and Anvil use the same `debug_traceTransaction` method and tracer format, so responses can be compared directly.
 
-**Forest:**
+**Forest** (use the canonical `hash` from `eth_getTransactionByHash` as described above):
 
 ```bash
 curl -s -X POST "http://localhost:2345/rpc/v1" \
@@ -177,7 +216,7 @@ curl -s -X POST "http://localhost:8545" \
 
 ### Expected Differences Between Forest and Anvil
 
-When comparing `debug_traceTransaction` output from Forest and Anvil, expect these Filecoin-specific differences:
+When comparing `debug_traceTransaction` output from Forest and Anvil, expect these Filecoin specific differences:
 
 | Aspect                 | Forest (Filecoin)                          | Anvil (Ethereum)               |
 | ---------------------- | ------------------------------------------ | ------------------------------ |
@@ -191,29 +230,29 @@ When comparing `debug_traceTransaction` output from Forest and Anvil, expect the
 
 When testing `debug_traceTransaction`, cover these categories:
 
-#### 1. prestateTracer Tests
+#### 1. `prestateTracer` Tests
 
-| Test Case                   | Function                    | What to Verify                                          |
-| --------------------------- | --------------------------- | ------------------------------------------------------- |
-| Simple storage write        | `setX(123)`                 | Pre-state shows old value, post-state shows new value   |
-| ETH deposit                 | `deposit()` with value      | Balance changes in pre/post for sender and contract     |
-| Storage add (empty → value) | `storageAdd(100)`           | Storage slot absent in pre, present in post (diff mode) |
-| Storage change              | `storageChange(200)`        | Storage slot values differ between pre and post         |
-| Multiple storage writes     | `storageMultiple(10,20,30)` | Multiple storage slots change in single transaction     |
-| Default mode (no diff)      | `setX(123)`                 | Only pre-state returned, no post object                 |
+| Test Case                   | Function                    | What to Verify                                              |
+| --------------------------- | --------------------------- | ----------------------------------------------------------- |
+| Simple storage write        | `setX(123)`                 | `Pre-state` shows old value, `post-state` shows new value   |
+| ETH deposit                 | `deposit()` with value      | Balance changes in `pre/post` for sender and contract       |
+| Storage add (empty → value) | `storageAdd(100)`           | Storage slot absent in `pre`, present in `post` (diff mode) |
+| Storage change              | `storageChange(200)`        | Storage slot values differ between `pre` and `post`         |
+| Multiple storage writes     | `storageMultiple(10,20,30)` | Multiple storage slots change in single transaction         |
+| Default mode (no diff)      | `setX(123)`                 | Only `pre-state` returned, no post object                   |
 
-#### 2. callTracer Tests
+#### 2. `callTracer` Tests
 
 | Test Case       | Function            | What to Verify                               |
 | --------------- | ------------------- | -------------------------------------------- |
 | Simple call     | `setX(123)`         | Single top-level CALL frame                  |
 | Nested call     | `callSelf(456)`     | Parent CALL with child CALL in `calls` array |
-| Delegate call   | `delegateSelf(789)` | DELEGATECALL type in call frame              |
+| Delegate call   | `delegateSelf(789)` | `DELEGATECALL` type in call frame            |
 | Deep recursive  | `deepTrace(3)`      | N-level nested CALL hierarchy                |
-| Complex mixed   | `complexTrace()`    | Mix of CALL, DELEGATECALL, STATICCALL        |
+| Complex mixed   | `complexTrace()`    | Mix of CALL, `DELEGATECALL`, `STATICCALL`    |
 | Revert at depth | `failAtDepth(3,1)`  | Error field populated in failing frame       |
 
-#### 3. flatCallTracer Tests
+#### 3. `flatCallTracer` Tests
 
 | Test Case      | Function        | What to Verify                                          |
 | -------------- | --------------- | ------------------------------------------------------- |
@@ -221,27 +260,9 @@ When testing `debug_traceTransaction`, cover these categories:
 | Nested call    | `callSelf(456)` | Two entries with correct `traceAddress` and `subtraces` |
 | Deep recursive | `deepTrace(3)`  | Flat list with incrementing `traceAddress` depth        |
 
-## Integration Test Script
-
-An automated test script is available to compare Forest's `debug_traceTransaction` with Anvil:
-
-```bash
-# Run the test (requires Forest and Anvil running)
-./scripts/tests/debug_trace_transaction_test.sh
-
-# Deploy contract on Anvil first, forest and anvil node should already be running
-./scripts/tests/debug_trace_transaction_test.sh --deploy
-```
-
-### Test Categories
-
-1. **Prestate Tests**: Pre/post state snapshots, default mode, diff mode
-2. **Call Trace Tests**: Call hierarchy, nested calls, reverts
-3. **Storage Tests**: Single slot, multiple slots, add/change/delete patterns
-
 ## Official Resources
 
-- [Geth debug_traceTransaction](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracetransaction)
+- [Geth `debug_traceTransaction`](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracetransaction)
 - [Geth Built-in Tracers](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers)
 - [Reth debug Namespace](https://reth.rs/jsonrpc/debug)
 - [Foundry Book - Anvil](https://book.getfoundry.sh/reference/anvil/)

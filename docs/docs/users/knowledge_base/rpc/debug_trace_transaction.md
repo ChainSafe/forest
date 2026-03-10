@@ -1,4 +1,4 @@
-# debug_traceTransaction API Guide
+# `debug_traceTransaction` API Guide
 
 This guide explains the `debug_traceTransaction` RPC method implemented in Forest, which follows the **[Geth debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracetransaction)** format.
 
@@ -8,7 +8,7 @@ This guide explains the `debug_traceTransaction` RPC method implemented in Fores
 
 - Debugging failed or unexpected transactions
 - Analyzing the full execution trace of a historical transaction
-- Inspecting pre/post state changes caused by a specific transaction
+- Inspecting `pre/post` state changes caused by a specific transaction
 - Understanding nested call hierarchies in complex transactions
 
 ## Request Format
@@ -19,10 +19,10 @@ This guide explains the `debug_traceTransaction` RPC method implemented in Fores
   "id": 1,
   "method": "debug_traceTransaction",
   "params": [
-    "0x...", // Transaction hash
+    "0x...",
     {
-      "tracer": "prestateTracer", // Tracer type
-      "tracerConfig": { "diffMode": false } // Tracer-specific config (optional)
+      "tracer": "prestateTracer",
+      "tracerConfig": { "diffMode": false }
     }
   ]
 }
@@ -34,27 +34,28 @@ This guide explains the `debug_traceTransaction` RPC method implemented in Fores
 | ---------------- | --------------------------------------------------------------- |
 | `callTracer`     | Call hierarchy with inputs, outputs, gas used, and nested calls |
 | `flatCallTracer` | Flattened list of all calls (no nesting)                        |
-| `prestateTracer` | Pre-execution state snapshot of all touched accounts            |
+| `prestateTracer` | `Pre-execution` state snapshot of all touched accounts          |
 
 ### Tracer Configuration
 
-#### `prestateTracer` Config
+#### `prestateTracer` config
 
-| Option     | Type | Default | Description                                      |
-| ---------- | ---- | ------- | ------------------------------------------------ |
-| `diffMode` | bool | `false` | When `true`, returns both `pre` and `post` state |
+| Option     | Type    | Default | Description                                      |
+| ---------- | ------- | ------- | ------------------------------------------------ |
+| `diffMode` | boolean | `false` | When `true`, returns both `pre` and `post` state |
 
-#### `callTracer` Config
+#### `callTracer` config
 
-| Option        | Type | Default | Description                      |
-| ------------- | ---- | ------- | -------------------------------- |
-| `onlyTopCall` | bool | `false` | When `true`, only trace top call |
+| Option        | Type    | Default | Description                                                   |
+| ------------- | ------- | ------- | ------------------------------------------------------------- |
+| `onlyTopCall` | boolean | `false` | When `true`, only trace top call                              |
+| `withLog`     | boolean | `false` | When `true`, includes logs in the trace (not yet implemented) |
 
 ## Response Formats
 
 ### `prestateTracer` (Default Mode)
 
-Returns the pre-execution state of every account touched during the transaction. Each account includes only the fields that are relevant (empty fields are omitted).
+Returns the `pre-execution` state of every account touched during the transaction. Each account includes only the fields that are relevant (empty fields are omitted).
 
 ```json
 {
@@ -187,7 +188,7 @@ Returns a flat list of all call frames (equivalent to Parity-style `trace`).
 }
 ```
 
-## Using debug_traceTransaction with Forest
+## Using `debug_traceTransaction` with Forest
 
 ### Prerequisites
 
@@ -198,7 +199,7 @@ Forest RPC endpoint: `http://localhost:2345/rpc/v1`
 
 ### Deployed Contracts
 
-A [Tracer](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c57eba39a2f8bf12ace74/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract is pre-deployed on Calibnet and Mainnet for testing. You can send transactions to these contracts and then trace them.
+A [Tracer](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c57eba39a2f8bf12ace74/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract is `pre-deployed` on Calibnet and Mainnet for testing. You can send transactions to these contracts and then trace them.
 
 | Network  | Contract Address                                                                                                                      |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -231,9 +232,9 @@ export FOREST_RPC_URL="http://localhost:2345/rpc/v1"
 export TX_HASH="0xYOUR_TRANSACTION_HASH"
 ```
 
-### 1. Prestate Trace - Default Mode
+### 1. `Prestate` Trace - Default Mode
 
-Returns the pre-execution state of all accounts touched by the transaction.
+Returns the `pre-execution` state of all accounts touched by the transaction.
 
 ```bash
 curl -s -X POST "$FOREST_RPC_URL" \
@@ -249,9 +250,9 @@ curl -s -X POST "$FOREST_RPC_URL" \
     }' | jq '.'
 ```
 
-### 2. Prestate Trace - Diff Mode
+### 2. `Prestate` Trace - Diff Mode
 
-Returns both pre and post state, showing exactly what changed.
+Returns both `pre` and `post` state, showing exactly what changed.
 
 ```bash
 curl -s -X POST "$FOREST_RPC_URL" \
@@ -308,9 +309,9 @@ curl -s -X POST "$FOREST_RPC_URL" \
 ### Common Issues
 
 1. **"message not found in tipset"**: The transaction hash may not exist on the chain, or the node may not have synced the epoch containing this transaction.
-2. **"replay for prestate failed"**: The node does not have the state data required to re-execute the transaction. Ensure the node is synced past the epoch containing the transaction.
-3. **Empty storage in prestate**: The contract may not be an EVM actor, or no storage slots were modified by the transaction.
-4. **Extra addresses in response**: Forest may include Filecoin ID addresses (e.g., `0xff00...`) alongside EVM addresses. This is expected behavior due to Filecoin's dual address representation.
+2. **"replay for `prestate` failed"**: The node does not have the state data required to re-execute the transaction. Ensure the node is synced past the epoch containing the transaction.
+3. **Empty storage in `prestate`**: The contract may not be an EVM actor, or no storage slots were modified by the transaction.
+4. **Extra addresses in response**: Forest may include Filecoin ID addresses (e.g., `0xff00...`) alongside EVM addresses. This is expected behavior due to `Filecoin's` dual address representation.
 
 ### Debug Tips
 
@@ -328,20 +329,20 @@ curl -s -X POST "$FOREST_RPC_URL" \
     | jq '.result.status'
 ```
 
-## Filecoin-Specific Behavior
+## Filecoin Specific Behavior
 
-Forest's `debug_traceTransaction` implementation has some differences from standard Ethereum implementations due to Filecoin's architecture:
+Forest's `debug_traceTransaction` implementation has some differences from standard Ethereum implementations due to `Filecoin's` architecture:
 
-| Aspect                | Forest (Filecoin)                              | Geth (Ethereum)                     |
-| --------------------- | ---------------------------------------------- | ----------------------------------- |
-| **ID addresses**      | May include `0xff00...` Filecoin ID addresses  | Only EVM addresses                  |
-| **Coinbase**          | Not included (gas handled at protocol level)   | Included as `0x0000...0000`         |
-| **Per-message state** | Re-executes all prior messages in the tipset   | Re-executes all prior txns in block |
-| **Storage model**     | EVM storage via KAMT (Key-Address-Merkle-Tree) | Standard Merkle Patricia Trie       |
+| Aspect                | Forest (Filecoin)                              | Geth (Ethereum)                             |
+| --------------------- | ---------------------------------------------- | ------------------------------------------- |
+| **ID addresses**      | May include `0xff00...` Filecoin ID addresses  | Only EVM addresses                          |
+| **Coinbase**          | Not included (gas handled at protocol level)   | Included as `0x0000...0000`                 |
+| **Per-message state** | Re-executes all prior messages in the tipset   | Re-executes all prior transactions in block |
+| **Storage model**     | EVM storage via KAMT (Key-Address-Merkle-Tree) | Standard Merkle Patricia Trie               |
 
 ## Official Resources
 
-- [Geth debug_traceTransaction](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracetransaction)
+- [Geth `debug_traceTransaction`](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracetransaction)
 - [Geth Built-in Tracers](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers)
 - [Reth debug Namespace](https://reth.rs/jsonrpc/debug)
 - [Foundry Book - Cast](https://book.getfoundry.sh/reference/cast/)

@@ -33,7 +33,7 @@ use crate::rpc::{
     eth::{
         errors::EthErrors,
         filter::{SkipEvent, event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter},
-        types::{EthBlockTrace, EthTrace},
+        types::EthBlockTrace,
         utils::decode_revert_reason,
     },
     methods::chain::ChainGetTipSetV2,
@@ -3464,13 +3464,14 @@ impl RpcMethod<2> for EthDebugTraceTransaction {
         ext: &Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let opts = opts.unwrap_or_default();
-        debug_trace_transaction(ctx, ext, tx_hash, opts).await
+        debug_trace_transaction(ctx, ext, Self::api_path(ext)?, tx_hash, opts).await
     }
 }
 
 async fn debug_trace_transaction<DB>(
     ctx: Ctx<DB>,
     ext: &Extensions,
+    api_path: ApiPaths,
     tx_hash: String,
     opts: GethDebugTracingOptions,
 ) -> Result<GethTrace, ServerError>
@@ -3491,11 +3492,10 @@ where
         .await?
         .ok_or(ServerError::internal_error("transaction not found", None))?;
 
-    let ts = tipset_by_ext_block_number_or_hash(
-        ctx.chain_store(),
-        ExtBlockNumberOrHash::from_block_number(eth_txn.block_number.0 as i64),
-        ResolveNullTipset::TakeOlder,
-    )?;
+    let resolver = TipsetResolver::new(&ctx, api_path);
+    let ts = resolver
+        .tipset_by_block_number_or_hash(eth_txn.block_number, ResolveNullTipset::TakeOlder)
+        .await?;
 
     // prestateTracer uses per-message replay for exact state boundaries,
     // so it does not need the full tipset trace.
