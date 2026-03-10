@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Provide a report of unexpected behaviour
+about: Provide a report of unexpected behavior
 title: ""
 labels: "Type: Bug"
 assignees: ""

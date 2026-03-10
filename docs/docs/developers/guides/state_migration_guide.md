@@ -300,7 +300,7 @@ reasonable amount of time.
 ### Future considerations
 
 - Grab the actor bundles from the IPFS. This would make Forest less dependent on
-  the Github infrastructure.
+  the GitHub infrastructure.
   [Issue #2765](https://github.com/ChainSafe/forest/issues/2765)
 - Consider pre-migrations as Lotus does. It is not needed at the moment (the
   mainnet upgrade takes several seconds at most) but may become a bottleneck if

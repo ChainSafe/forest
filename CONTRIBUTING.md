@@ -17,7 +17,7 @@ forward to your contributions. 🎉
 >
 > - Star the project
 > - Tweet about it
-> - Refer this project in your project's readme
+> - Refer this project in your project's README
 > - Mention it to your Filecoin/IPFS/Rust friends
 
 <!-- omit in toc -->

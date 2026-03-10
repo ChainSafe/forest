@@ -3,8 +3,8 @@
 In addition to the Rust toolchain, Go toolchain is required to build the
 `f3-sidecar`. The Go version is specified in `go.mod`.
 
-Follow https://go.dev/doc/install or use one of the version managers of Go.
-(e.g. https://github.com/voidint/g?tab=readme-ov-file#installation)
+Follow <https://go.dev/doc/install> or use one of the version managers of Go.
+(e.g. <https://github.com/voidint/g?tab=readme-ov-file#installation>)
 
 ### EC tests
 
@@ -13,7 +13,7 @@ Follow https://go.dev/doc/install or use one of the version managers of Go.
 
 ### Run sidecar
 
-- run a forest node on calibnet (make sure to save jwt token with
+- run a forest node on calibnet (make sure to save JWT token with
   `--save-token jwt_path`)
 - import a shared miner key for testing `forest-wallet --remote-wallet import`
   (the shared miner worker key can be found in `scripts/tests/api_compare/.env`)

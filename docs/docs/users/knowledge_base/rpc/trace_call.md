@@ -1,6 +1,6 @@
 # trace_call API Guide
 
-This guide explains the `trace_call` RPC method implemented in Forest, which follows the **[Parity/OpenEthereum](https://openethereum.github.io/JSONRPC-trace-module#trace_call) and [reth](https://reth.rs/jsonrpc/trace#trace-format-specification) trace format**.
+This guide explains the `trace_call` RPC method implemented in Forest, which follows the **[Parity/OpenEthereum](https://openethereum.github.io/JSONRPC-trace-module#trace_call) and [Reth](https://reth.rs/jsonrpc/trace#trace-format-specification) trace format**.
 
 ## Overview
 
