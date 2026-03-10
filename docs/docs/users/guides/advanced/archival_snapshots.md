@@ -15,7 +15,7 @@ ChainSafe publishes two kinds of archival snapshots:
 
 | Type     | Naming pattern                                                      | Frequency                      | Contents                                                                                                                          |
 | -------- | ------------------------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Lite** | `forest_snapshot_<network>_<date>_height_<EPOCH>.forest.car.zst`    | Every 30,000 epochs (~10 days) | Complete state tree at `EPOCH`, plus the full block header history back to genesis.                                               |
+| **Lite** | `forest_snapshot_<network>_<date>_height_<EPOCH>.forest.car.zst`    | Every 30,000 epochs (~10 days) | Complete state trees from `EPOCH - 900` to `EPOCH`, plus the full block header history back to genesis.                           |
 | **Diff** | `forest_diff_<network>_<date>_height_<BASE>+<RANGE>.forest.car.zst` | Every 3,000 epochs (~1 day)    | Only the new IPLD key-value pairs added between `BASE` and `BASE + RANGE`. Does **not** contain a complete state tree on its own. |
 
 Archival snapshots are publicly available at:
@@ -62,12 +62,12 @@ every 3,000 epochs:
 ```
 Lite @3,480,000 ─┬─ Diff @3,480,000+3,000 ─── Diff @3,483,000+3,000 ─── ... ─── Diff @3,507,000+3,000
                  │
-                 └─ provides complete state tree @3,480,000
-                    each diff extends the complete state tree forward by 3,000 epochs
+                 └─ provides complete state trees from @3,479,100 to @3,480,000
+                    each diff extends the complete state trees forward by 3,000 epochs
 
 Lite @3,510,000 ─┬─ Diff @3,510,000+3,000 ─── ...
                  │
-                 └─ new base: complete state tree @3,510,000
+                 └─ new base: complete state trees from @3,509,100 to @3,510,000
 ```
 
 There are 10 diff snapshots between consecutive lite snapshots (30,000 / 3,000
@@ -184,6 +184,22 @@ You can validate specific epochs using `forest-dev`:
 ```shell
 forest-dev state validate --chain calibnet --epoch 3506992
 ```
+
+:::info
+
+Validation can look back up to **2000 epochs**, but each lite snapshot only
+contains 900 epochs of state trees. If you are validating an epoch close to the
+lite snapshot's head (e.g., within the first few epochs), you may need to also
+import the **previous** lite snapshot and its diffs to provide enough state
+history. In the worst case, this means downloading the previous segment (1 lite
+
+- 10 diffs).
+
+For epochs well past the lite snapshot's head (more than 2000 epochs ahead),
+this is not an issue because the diffs will have extended the state history
+sufficiently.
+
+:::
 
 ### Backfilling after downtime
 

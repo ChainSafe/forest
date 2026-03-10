@@ -16,7 +16,7 @@ The snapshots are compressed with the `zstd` algorithm. Both Forest and Lotus ca
 
 Archival snapshots are available free of charge. Note that they are not actively generated and are provided on a best-effort basis. Two types of archival snapshots are available:
 
-- **Lite snapshots**: historical snapshots containing a complete state tree at a given epoch, plus the full block header history back to genesis. They are available at 30,000 epoch intervals.
+- **Lite snapshots**: historical snapshots containing complete state trees for the 900 most recent epochs, plus the full block header history back to genesis. They are available at 30,000 epoch intervals.
 - **Diff snapshots**: incremental snapshots containing only the new IPLD key-value pairs since the last diff snapshot. Published every 3,000 epochs. A diff snapshot **must** be used together with its matching base lite snapshot — it does not contain a complete state tree on its own.
 
 For detailed usage instructions, including how to set up a partial archival node and how to figure out which snapshots you need, see the [Archival Snapshots guide](../guides/advanced/archival_snapshots.md).
