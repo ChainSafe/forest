@@ -3,7 +3,7 @@ title: Docker Tips & Tricks
 sidebar_position: 3
 ---
 
-# Forest in Docker🌲❤️🐋
+# Forest in Docker 🌲 ❤️ 🐋
 
 ## Prerequisites
 
