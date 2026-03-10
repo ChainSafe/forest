@@ -31,6 +31,8 @@
 
 ### Added
 
+- [#6710](https://github.com/ChainSafe/forest/pull/6710): Added support for f4 addresses in forest-wallet.
+
 ### Changed
 
 - [#6631](https://github.com/ChainSafe/forest/issues/6631): Backported F3 finality resolution to ETH v1 RPC methods.

@@ -198,7 +198,7 @@ done
 
 : Begin delegated wallet tests
 
-# The following steps test delegated (f4) wallets: create, fund from ADDR_ONE, and send to two new delegated addresses.
+# The following steps do basic delegated wallet handling tests.
 
 echo "Creating delegated wallet DELEGATE_ADDR_ONE"
 DELEGATE_ADDR_ONE=$($FOREST_WALLET_PATH new delegated)
@@ -221,17 +221,22 @@ while [[ $i != 20 && $DELEGATE_ADDR_ONE_BALANCE == "$FIL_ZERO" ]]; do
   DELEGATE_ADDR_ONE_BALANCE=$($FOREST_WALLET_PATH balance "$DELEGATE_ADDR_ONE" --exact-balance)
 done
 
-# Create new delegated addresses (local and remote)
 echo "Creating delegated wallet DELEGATE_ADDR_TWO"
 DELEGATE_ADDR_TWO=$($FOREST_WALLET_PATH new delegated)
 echo "$DELEGATE_ADDR_TWO"
+$FOREST_WALLET_PATH set-default "$DELEGATE_ADDR_ONE"
+
 echo "Creating delegated (remote) wallet DELEGATE_ADDR_THREE"
 DELEGATE_ADDR_THREE=$($FOREST_WALLET_PATH --remote-wallet new delegated)
 echo "$DELEGATE_ADDR_THREE"
+$FOREST_WALLET_PATH --remote-wallet set-default "$DELEGATE_ADDR_ONE"
 
-$FOREST_WALLET_PATH set-default "$DELEGATE_ADDR_ONE"
+$FOREST_WALLET_PATH list
+$FOREST_WALLET_PATH --remote-wallet list
+
 MSG_DELEGATE_TWO=$($FOREST_WALLET_PATH send "$DELEGATE_ADDR_TWO" "$FIL_AMT")
 : "$MSG_DELEGATE_TWO"
+
 MSG_DELEGATE_THREE=$($FOREST_WALLET_PATH send "$DELEGATE_ADDR_THREE" "$FIL_AMT")
 : "$MSG_DELEGATE_THREE"
 
