@@ -1,4 +1,4 @@
-254
+258
 Algorand/M
 API's
 API/SM
@@ -25,6 +25,7 @@ blockchain/M
 Blockscout
 blockstore/SM
 BLS
+bootnode/S
 bootstrapper/S
 BuildKit
 butterflynet
@@ -38,6 +39,7 @@ CARv1/SM
 CARv2/SM
 CBOR
 Chainlist
+chainsafe
 ChainSafe/M
 CHANGELOG
 changelog/S
@@ -109,6 +111,7 @@ hardcoded
 hasher
 healthcheck
 hotfix
+IaC
 implementer/S
 implementor/SM
 infeasible
@@ -147,6 +150,7 @@ migrator/S
 milliGas
 multiaddr/SM
 multiaddress
+multiaddresses
 multihash
 multisig
 mutex

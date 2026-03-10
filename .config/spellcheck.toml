@@ -28,6 +28,8 @@ transform_regex = [
   "^~",
   # URLs that slip through markdown parsing
   "^https?:",
+  # Common abbreviations with special characters (e.g., Q&A)
+  "^Q&A$",
 ]
 allow_concatenation = false
 allow_dashes = false

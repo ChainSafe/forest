@@ -39,9 +39,11 @@ jobs:
       - name: Check spellcheck dictionary format
         working-directory: .
         run: mise run format-spellcheck-dictionary-check
-      - name: Install spellcheck tools
+      - name: Install cargo-spellcheck
         working-directory: .
-        run: cargo binstall --no-confirm cargo-spellcheck
+        run: |
+          sudo apt-get install -y libclang-dev
+          cargo binstall --no-confirm cargo-spellcheck
       - name: Spellcheck Markdown files
         working-directory: .
         run: mise run lint:spellcheck-markdown

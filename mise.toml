@@ -35,13 +35,8 @@ run = '''
 cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
 '''
 
-[tasks."lint:spellcheck-markdown"]
-description = "Run cargo-spellcheck to check for spelling errors in Markdown files."
-run = '''
-cargo spellcheck check --code 1 \
-  $(find . -name "*.md" -not -path "*/node_modules/*" -not -path "*/target/*" -not -path "*/.git/*" -not -path "*/CHANGELOG.md") \
-  || (echo "See .config/spellcheck.md for tips"; false)
-'''
+
+
 
 [tasks."lint:toml"]
 description = "Run taplo-cli to check TOML files."
