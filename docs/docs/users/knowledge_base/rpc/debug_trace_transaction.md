@@ -36,6 +36,8 @@ This guide explains the `debug_traceTransaction` RPC method implemented in Fores
 | `flatCallTracer` | Flattened list of all calls (no nesting)                        |
 | `prestateTracer` | `Pre-execution` state snapshot of all touched accounts          |
 
+If `tracer` is omitted, Forest currently defaults to `callTracer`. This differs from `Geth`, which defaults to the `opcode/struct` logger.
+
 ### Tracer Configuration
 
 #### `prestateTracer` config

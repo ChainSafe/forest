@@ -198,7 +198,7 @@ curl -s -X POST "http://localhost:8545" \
 
 ### Expected Differences Between Forest and Anvil
 
-When comparing `debug_traceTransaction` output from Forest and Anvil, expect these Filecoin specific differences:
+When comparing `debug_traceTransaction` output from Forest and Anvil, expect these `Filecoin-specific` differences:
 
 | Aspect                 | Forest (Filecoin)                          | Anvil (Ethereum)               |
 | ---------------------- | ------------------------------------------ | ------------------------------ |
