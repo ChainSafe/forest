@@ -35,9 +35,6 @@ run = '''
 cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
 '''
 
-
-
-
 [tasks."lint:toml"]
 description = "Run taplo-cli to check TOML files."
 run = '''
