@@ -3385,7 +3385,14 @@ async fn execute_tipset_traces<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (state_root, raw_traces) = ctx.state_manager.execution_trace(ts)?;
+    // the async executor — execution_trace replays all messages in the tipset.
+    let (state_root, raw_traces) = {
+        let sm = ctx.state_manager.clone();
+        let ts = ts.clone();
+        tokio::task::spawn_blocking(move || sm.execution_trace(&ts))
+            .await
+            .context("execution_trace task panicked")??
+    };
     let state = ctx.state_manager.get_state_tree(&state_root)?;
 
     let mut entries = Vec::new();
@@ -3394,7 +3401,6 @@ where
         if ir.msg.from == system::ADDRESS.into() {
             continue;
         }
-        msg_idx += 1;
         let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
         let tx_hash = tx_hash
             .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
@@ -3403,6 +3409,7 @@ where
             msg_position: msg_idx,
             invoc_result: ir,
         });
+        msg_idx += 1;
     }
 
     Ok((state, entries))
@@ -3447,7 +3454,7 @@ where
 pub enum EthDebugTraceTransaction {}
 impl RpcMethod<2> for EthDebugTraceTransaction {
     const N_REQUIRED_PARAMS: usize = 1;
-    const NAME: &'static str = "Filecoin.EthDebugTraceTransaction";
+    const NAME: &'static str = "Forest.EthDebugTraceTransaction";
     const NAME_ALIAS: Option<&'static str> = Some("debug_traceTransaction");
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "opts"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V1 | V2 });
@@ -3464,6 +3471,7 @@ impl RpcMethod<2> for EthDebugTraceTransaction {
         ext: &Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let opts = opts.unwrap_or_default();
+
         debug_trace_transaction(ctx, ext, Self::api_path(ext)?, tx_hash, opts).await
     }
 }
@@ -3478,10 +3486,15 @@ async fn debug_trace_transaction<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let tracer = opts
-        .tracer
-        .clone()
-        .unwrap_or(GethDebugBuiltInTracerType::Call);
+    let tracer = match &opts.tracer {
+        Some(t) => t.clone(),
+        None => {
+            tracing::debug!(
+                "no tracer specified for debug_traceTransaction; defaulting to callTracer (struct logger not supported)"
+            );
+            GethDebugBuiltInTracerType::Call
+        }
+    };
 
     if tracer == GethDebugBuiltInTracerType::Noop {
         return Ok(GethTrace::Noop(NoopFrame {}));
@@ -3491,6 +3504,14 @@ where
     let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
         .await?
         .ok_or(ServerError::internal_error("transaction not found", None))?;
+
+    // Mempool/pending transactions cannot be traced — they have no containing tipset.
+    if eth_txn.block_hash == EthHash::default() {
+        return Err(ServerError::invalid_params(
+            "no trace for pending transactions",
+            None,
+        ));
+    }
 
     let resolver = TipsetResolver::new(&ctx, api_path);
     let ts = resolver
@@ -3823,6 +3844,7 @@ where
                     trace: env.traces,
                 },
                 transaction_hash: entry.tx_hash,
+                vm_trace: None,
             });
         }
     }

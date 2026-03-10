@@ -1264,7 +1264,7 @@ methods:
         items:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
-  - name: Filecoin.EthDebugTraceTransaction
+  - name: Forest.EthDebugTraceTransaction
     description: Replays a transaction and returns execution traces in Geth-compatible format.
     params:
       - name: txHash
@@ -1278,7 +1278,7 @@ methods:
             - $ref: "#/components/schemas/GethDebugTracingOptions"
             - type: "null"
     result:
-      name: Filecoin.EthDebugTraceTransaction.Result
+      name: Forest.EthDebugTraceTransaction.Result
       required: true
       schema:
         $ref: "#/components/schemas/GethTrace"
@@ -2290,7 +2290,7 @@ components:
         - blockHash
         - blockNumber
     EthReplayBlockTransactionTrace:
-      description: "Result payload returned by `trace_call`."
+      description: Replay block transaction trace.
       type: object
       properties:
         output:
@@ -2308,7 +2308,13 @@ components:
           items:
             $ref: "#/components/schemas/EthTrace"
         transactionHash:
+          description: The hash of the transaction.
           $ref: "#/components/schemas/EthHash"
+        vmTrace:
+          description: "The VM trace of the transaction.\nThis is optional because the VM trace is not always available (not supported by FVM)."
+          type:
+            - string
+            - "null"
       required:
         - output
         - transactionHash

@@ -34,11 +34,11 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use tracing::debug;
 
-// EVM geth format Error Message
-pub(crate) const GETH_EVM_REVERTED_CONTRACT: &str = "Reverted"; // capitalized for compatibility
+/// Error string used in Parity-format traces.
+pub(crate) const PARITY_TRACE_REVERT_ERROR: &str = "Reverted";
 
-// EVM Parity format Error Message
-pub(crate) const PARITY_EVM_REVERTED_CONTRACT: &str = "execution reverted";
+/// Error string used in Geth-format traces.
+pub(crate) const GETH_TRACE_REVERT_ERROR: &str = "execution reverted";
 const PARITY_EVM_INVALID_INSTRUCTION: &str = "invalid instruction";
 const PARITY_EVM_UNDEFINED_INSTRUCTION: &str = "undefined instruction";
 const PARITY_EVM_STACK_UNDERFLOW: &str = "stack underflow";
@@ -138,7 +138,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
     // handle special exit codes from the EVM/EAM.
     if trace_is_evm_or_eam(trace) {
         match code.into() {
-            evm12::EVM_CONTRACT_REVERTED => return Some(GETH_EVM_REVERTED_CONTRACT.into()),
+            evm12::EVM_CONTRACT_REVERTED => return Some(PARITY_TRACE_REVERT_ERROR.into()),
             evm12::EVM_CONTRACT_INVALID_INSTRUCTION => {
                 return Some(PARITY_EVM_INVALID_INSTRUCTION.into());
             }
@@ -756,7 +756,7 @@ fn eth_trace_to_geth_frame(
 ) -> anyhow::Result<GethCallFrame> {
     let is_success = trace.is_success();
     let is_revert = trace.is_reverted();
-    let error = trace.parity_error_to_geth();
+    let error = trace.to_geth_error();
 
     match (trace.action, trace.result) {
         (TraceAction::Call(action), TraceResult::Call(result)) => {
@@ -936,12 +936,24 @@ pub(crate) fn build_prestate_frame<S: Blockstore, T: Blockstore>(
                 deleted_addrs.insert(*eth_addr);
             }
 
-            let changed_keys = changed_storage_keys(store, pre_actor.as_ref(), post_actor.as_ref());
+            let pre_entries = extract_evm_storage_entries(store, pre_actor.as_ref());
+            let post_entries = extract_evm_storage_entries(store, post_actor.as_ref());
+            let changed_keys = diff_entry_keys(&pre_entries, &post_entries);
 
-            let pre_snap =
-                build_account_snapshot(store, pre_actor.as_ref(), config, Some(&changed_keys));
-            let post_snap =
-                build_account_snapshot(store, post_actor.as_ref(), config, Some(&changed_keys));
+            let pre_snap = build_account_snapshot_from_entries(
+                store,
+                pre_actor.as_ref(),
+                config,
+                &pre_entries,
+                Some(&changed_keys),
+            );
+            let post_snap = build_account_snapshot_from_entries(
+                store,
+                post_actor.as_ref(),
+                config,
+                &post_entries,
+                Some(&changed_keys),
+            );
 
             // Created accounts (pre=None) only appear in post.
             if let Some(ref snap) = pre_snap {
@@ -978,11 +990,19 @@ pub(crate) fn build_prestate_frame<S: Blockstore, T: Blockstore>(
             let pre_actor = pre_state.get_actor(&fil_addr)?;
             let post_actor = post_state.get_actor(&fil_addr)?;
 
-            let changed_keys = changed_storage_keys(store, pre_actor.as_ref(), post_actor.as_ref());
+            // Extract storage once per actor and derive both changed keys and
+            // the snapshot from the cached entries.
+            let pre_entries = extract_evm_storage_entries(store, pre_actor.as_ref());
+            let post_entries = extract_evm_storage_entries(store, post_actor.as_ref());
+            let changed_keys = diff_entry_keys(&pre_entries, &post_entries);
 
-            if let Some(snap) =
-                build_account_snapshot(store, pre_actor.as_ref(), config, Some(&changed_keys))
-            {
+            if let Some(snap) = build_account_snapshot_from_entries(
+                store,
+                pre_actor.as_ref(),
+                config,
+                &pre_entries,
+                Some(&changed_keys),
+            ) {
                 result.insert(*eth_addr, snap);
             }
         }
@@ -997,10 +1017,11 @@ pub(crate) fn build_prestate_frame<S: Blockstore, T: Blockstore>(
 /// When `storage_filter` is provided, only storage keys in the filter set are
 /// included. This limits output to slots that actually changed between pre and
 /// post state.
-fn build_account_snapshot<DB: Blockstore>(
+fn build_account_snapshot_from_entries<DB: Blockstore>(
     store: &DB,
     actor: Option<&ActorState>,
     config: &super::types::PreStateConfig,
+    entries: &HashMap<[u8; 32], U256>,
     storage_filter: Option<&HashSet<[u8; 32]>>,
 ) -> Option<super::types::AccountState> {
     let actor = actor?;
@@ -1014,10 +1035,10 @@ fn build_account_snapshot<DB: Blockstore>(
     let storage = if config.is_storage_disabled() {
         BTreeMap::new()
     } else {
-        extract_evm_storage_entries(store, Some(actor))
-            .into_iter()
-            .filter(|(k, _)| storage_filter.is_none_or(|f| f.contains(k)))
-            .map(|(k, v)| (EthHash(ethereum_types::H256(k)), u256_to_eth_hash(&v)))
+        entries
+            .iter()
+            .filter(|(k, _)| storage_filter.is_none_or(|f| f.contains(*k)))
+            .map(|(k, v)| (EthHash(ethereum_types::H256(*k)), u256_to_eth_hash(v)))
             .collect()
     };
 
@@ -1029,18 +1050,14 @@ fn build_account_snapshot<DB: Blockstore>(
     })
 }
 
-/// Compute the set of storage keys that differ between pre and post actor states.
-fn changed_storage_keys<DB: Blockstore>(
-    store: &DB,
-    pre_actor: Option<&ActorState>,
-    post_actor: Option<&ActorState>,
+// Compute the set of storage keys that differ between pre and post actor states.
+fn diff_entry_keys(
+    pre_entries: &HashMap<[u8; 32], U256>,
+    post_entries: &HashMap<[u8; 32], U256>,
 ) -> HashSet<[u8; 32]> {
-    let pre_entries = extract_evm_storage_entries(store, pre_actor);
-    let post_entries = extract_evm_storage_entries(store, post_actor);
-
     let mut changed = HashSet::default();
 
-    for (k, v) in &pre_entries {
+    for (k, v) in pre_entries {
         match post_entries.get(k) {
             Some(pv) if pv == v => {} // unchanged
             _ => {
@@ -1772,5 +1789,432 @@ mod tests {
 
         // Code should be unchanged (None -> None for non-EVM actors)
         assert!(diff.code.is_unchanged());
+    }
+
+    #[test]
+    fn test_diff_entry_keys_both_empty() {
+        let pre = HashMap::default();
+        let post = HashMap::default();
+        let keys = diff_entry_keys(&pre, &post);
+        assert!(keys.is_empty());
+    }
+
+    #[test]
+    fn test_diff_entry_keys_non_evm_actors() {
+        let store = MemoryDB::default();
+        let pre = create_test_actor(1000, 5);
+        let post = create_test_actor(2000, 6);
+        // Non-EVM actors have no EVM storage, so no changed keys
+        let pre_entries = extract_evm_storage_entries(&store, Some(&pre));
+        let post_entries = extract_evm_storage_entries(&store, Some(&post));
+        let keys = diff_entry_keys(&pre_entries, &post_entries);
+        assert!(keys.is_empty());
+    }
+
+    #[test]
+    fn test_diff_entry_keys_pre_none_post_non_evm() {
+        let store = MemoryDB::default();
+        let post = create_test_actor(1000, 0);
+        let pre_entries = extract_evm_storage_entries(&store, None);
+        let post_entries = extract_evm_storage_entries(&store, Some(&post));
+        let keys = diff_entry_keys(&pre_entries, &post_entries);
+        assert!(keys.is_empty());
+    }
+
+    // ---- actor_nonce tests ----
+
+    #[test]
+    fn test_actor_nonce_non_evm() {
+        let store = MemoryDB::default();
+        let actor = create_test_actor(1000, 42);
+        let nonce = actor_nonce(&store, &actor);
+        assert_eq!(nonce.0, 42);
+    }
+
+    #[test]
+    fn test_actor_nonce_evm() {
+        let store = Arc::new(MemoryDB::default());
+        if let Some(actor) = create_evm_actor_with_bytecode(&store, 1000, 0, 7, Some(&[0x60])) {
+            let nonce = actor_nonce(store.as_ref(), &actor);
+            // EVM actors use the EVM nonce field, not the actor sequence
+            assert_eq!(nonce.0, 7);
+        }
+    }
+
+    #[test]
+    fn test_actor_bytecode_non_evm() {
+        let store = MemoryDB::default();
+        let actor = create_test_actor(1000, 0);
+        assert!(actor_bytecode(&store, &actor).is_none());
+    }
+
+    #[test]
+    fn test_actor_bytecode_evm() {
+        let store = Arc::new(MemoryDB::default());
+        let bytecode = &[0x60, 0x80, 0x60, 0x40, 0x52];
+        if let Some(actor) = create_evm_actor_with_bytecode(&store, 1000, 0, 1, Some(bytecode)) {
+            let result = actor_bytecode(store.as_ref(), &actor);
+            assert_eq!(result, Some(EthBytes(bytecode.to_vec())));
+        }
+    }
+
+    #[test]
+    fn test_actor_bytecode_evm_no_bytecode() {
+        let store = Arc::new(MemoryDB::default());
+        if let Some(actor) = create_evm_actor_with_bytecode(&store, 1000, 0, 1, None) {
+            // No bytecode stored => None (Cid::default() won't resolve to raw data)
+            let result = actor_bytecode(store.as_ref(), &actor);
+            assert!(result.is_none());
+        }
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_successful_call() {
+        let from = EthAddress::default();
+        let to = EthAddress::from_actor_id(100);
+
+        let trace = EthTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type: "call".into(),
+                from,
+                to: Some(to),
+                gas: EthUint64(21000),
+                value: EthBigInt(num::BigInt::from(1000)),
+                input: EthBytes(vec![0x01, 0x02]),
+            }),
+            result: TraceResult::Call(EthCallTraceResult {
+                gas_used: EthUint64(5000),
+                output: EthBytes(vec![0x03]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        };
+
+        let frame = eth_trace_to_geth_frame(trace, GethCallType::Call).unwrap();
+        assert_eq!(frame.r#type, GethCallType::Call);
+        assert_eq!(frame.from, from);
+        assert_eq!(frame.to, Some(to));
+        assert_eq!(frame.gas.0, 21000);
+        assert_eq!(frame.gas_used.0, 5000);
+        assert!(frame.error.is_none());
+        assert!(frame.revert_reason.is_none());
+        assert_eq!(frame.value, Some(EthBigInt(num::BigInt::from(1000))));
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_static_call_no_value() {
+        let trace = EthTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type: "staticcall".into(),
+                from: EthAddress::default(),
+                to: Some(EthAddress::from_actor_id(100)),
+                gas: EthUint64(21000),
+                value: EthBigInt(num::BigInt::from(0)),
+                input: EthBytes(vec![]),
+            }),
+            result: TraceResult::Call(EthCallTraceResult {
+                gas_used: EthUint64(100),
+                output: EthBytes(vec![]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        };
+
+        let frame = eth_trace_to_geth_frame(trace, GethCallType::StaticCall).unwrap();
+        // Static calls omit the value field
+        assert!(frame.value.is_none());
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_reverted_call() {
+        let trace = EthTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type: "call".into(),
+                from: EthAddress::default(),
+                to: Some(EthAddress::from_actor_id(100)),
+                gas: EthUint64(21000),
+                value: EthBigInt(num::BigInt::from(0)),
+                input: EthBytes(vec![]),
+            }),
+            result: TraceResult::Call(EthCallTraceResult {
+                gas_used: EthUint64(100),
+                output: EthBytes(vec![]),
+            }),
+            error: Some(PARITY_TRACE_REVERT_ERROR.into()),
+            ..EthTrace::default()
+        };
+
+        let frame = eth_trace_to_geth_frame(trace, GethCallType::Call).unwrap();
+        assert!(frame.error.is_some());
+        assert_eq!(
+            frame.error.as_deref(),
+            Some(GETH_TRACE_REVERT_ERROR) // to_geth_error converts
+        );
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_successful_create() {
+        let from = EthAddress::default();
+        let created = EthAddress::from_actor_id(200);
+        let init_code = EthBytes(vec![0x60, 0x80]);
+        let trace = EthTrace {
+            r#type: "create".into(),
+            action: TraceAction::Create(EthCreateTraceAction {
+                from,
+                gas: EthUint64(100000),
+                value: EthBigInt(num::BigInt::from(0)),
+                init: init_code.clone(),
+            }),
+            result: TraceResult::Create(EthCreateTraceResult {
+                gas_used: EthUint64(50000),
+                address: Some(created),
+                code: EthBytes(vec![0xFE]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        };
+
+        let frame = eth_trace_to_geth_frame(trace, GethCallType::Create).unwrap();
+        assert_eq!(frame.r#type, GethCallType::Create);
+        assert_eq!(frame.from, from);
+        assert_eq!(frame.to, Some(created));
+        assert_eq!(frame.input.0, init_code.0); // initcode goes to input
+        assert!(frame.error.is_none());
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_mismatched_action_result() {
+        // Call action with Create result should fail
+        let trace = EthTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type: "call".into(),
+                from: EthAddress::default(),
+                to: None,
+                gas: EthUint64(0),
+                value: EthBigInt(num::BigInt::from(0)),
+                input: EthBytes(vec![]),
+            }),
+            result: TraceResult::Create(EthCreateTraceResult {
+                gas_used: EthUint64(0),
+                address: None,
+                code: EthBytes(vec![]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        };
+
+        assert!(eth_trace_to_geth_frame(trace, GethCallType::Call).is_err());
+    }
+
+    #[test]
+    fn test_build_prestate_frame_default_mode_empty() {
+        let trees = TestStateTrees::new().unwrap();
+        let config = super::super::types::PreStateConfig {
+            diff_mode: None,
+            disable_code: None,
+            disable_storage: None,
+        };
+        let touched = HashSet::new();
+
+        let frame = build_prestate_frame(
+            trees.store.as_ref(),
+            &trees.pre_state,
+            &trees.post_state,
+            &touched,
+            &config,
+        )
+        .unwrap();
+
+        match frame {
+            super::super::types::PreStateFrame::Default(mode) => {
+                assert!(mode.0.is_empty());
+            }
+            _ => panic!("Expected Default mode"),
+        }
+    }
+
+    #[test]
+    fn test_build_prestate_frame_default_mode_with_actor() {
+        let actor_id = 5001u64;
+        let pre_actor = create_test_actor(1000, 5);
+        let post_actor = create_test_actor(2000, 6);
+        let trees = TestStateTrees::with_changed_actor(actor_id, pre_actor, post_actor).unwrap();
+
+        let config = super::super::types::PreStateConfig {
+            diff_mode: None,
+            disable_code: None,
+            disable_storage: None,
+        };
+        let mut touched = HashSet::new();
+        let actor_addr = create_masked_id_eth_address(actor_id);
+        touched.insert(actor_addr);
+
+        let frame = build_prestate_frame(
+            trees.store.as_ref(),
+            &trees.pre_state,
+            &trees.post_state,
+            &touched,
+            &config,
+        )
+        .unwrap();
+
+        match frame {
+            super::super::types::PreStateFrame::Default(mode) => {
+                assert_eq!(mode.0.len(), 1);
+                let snap = mode.0.get(&actor_addr).unwrap();
+                // Default mode returns pre-state
+                assert_eq!(snap.balance, Some(EthBigInt(BigInt::from(1000))));
+                assert_eq!(snap.nonce, Some(EthUint64(5)));
+            }
+            _ => panic!("Expected Default mode"),
+        }
+    }
+
+    #[test]
+    fn test_build_prestate_frame_diff_mode() {
+        let actor_id = 5002u64;
+        let pre_actor = create_test_actor(1000, 5);
+        let post_actor = create_test_actor(2000, 6);
+        let trees = TestStateTrees::with_changed_actor(actor_id, pre_actor, post_actor).unwrap();
+
+        let config = super::super::types::PreStateConfig {
+            diff_mode: Some(true),
+            disable_code: None,
+            disable_storage: None,
+        };
+        let mut touched = HashSet::new();
+        touched.insert(create_masked_id_eth_address(actor_id));
+
+        let frame = build_prestate_frame(
+            trees.store.as_ref(),
+            &trees.pre_state,
+            &trees.post_state,
+            &touched,
+            &config,
+        )
+        .unwrap();
+
+        match frame {
+            super::super::types::PreStateFrame::Diff(diff) => {
+                let addr = create_masked_id_eth_address(actor_id);
+
+                // Pre should contain the original state
+                let pre_snap = diff.pre.get(&addr).unwrap();
+                assert_eq!(pre_snap.balance, Some(EthBigInt(BigInt::from(1000))));
+                assert_eq!(pre_snap.nonce, Some(EthUint64(5)));
+
+                // Post should only contain changed fields
+                let post_snap = diff.post.get(&addr).unwrap();
+                assert_eq!(post_snap.balance, Some(EthBigInt(BigInt::from(2000))));
+                assert_eq!(post_snap.nonce, Some(EthUint64(6)));
+            }
+            _ => panic!("Expected Diff mode"),
+        }
+    }
+
+    #[test]
+    fn test_build_prestate_frame_diff_mode_unchanged_actor_excluded() {
+        let actor_id = 5003u64;
+        let actor = create_test_actor(1000, 5);
+        let trees =
+            TestStateTrees::with_changed_actor(actor_id, actor.clone(), actor.clone()).unwrap();
+
+        let config = super::super::types::PreStateConfig {
+            diff_mode: Some(true),
+            disable_code: None,
+            disable_storage: None,
+        };
+        let mut touched = HashSet::new();
+        touched.insert(create_masked_id_eth_address(actor_id));
+
+        let frame = build_prestate_frame(
+            trees.store.as_ref(),
+            &trees.pre_state,
+            &trees.post_state,
+            &touched,
+            &config,
+        )
+        .unwrap();
+
+        match frame {
+            super::super::types::PreStateFrame::Diff(diff) => {
+                // Unchanged actors should not appear in either pre or post
+                assert!(diff.pre.is_empty());
+                assert!(diff.post.is_empty());
+            }
+            _ => panic!("Expected Diff mode"),
+        }
+    }
+
+    #[test]
+    fn test_build_prestate_frame_diff_mode_created_actor() {
+        let actor_id = 5004u64;
+        let post_actor = create_test_actor(5000, 0);
+        let trees = TestStateTrees::with_created_actor(actor_id, post_actor).unwrap();
+
+        let config = super::super::types::PreStateConfig {
+            diff_mode: Some(true),
+            disable_code: None,
+            disable_storage: None,
+        };
+        let mut touched = HashSet::new();
+        touched.insert(create_masked_id_eth_address(actor_id));
+
+        let frame = build_prestate_frame(
+            trees.store.as_ref(),
+            &trees.pre_state,
+            &trees.post_state,
+            &touched,
+            &config,
+        )
+        .unwrap();
+
+        match frame {
+            super::super::types::PreStateFrame::Diff(diff) => {
+                let addr = create_masked_id_eth_address(actor_id);
+                // Created accounts should only appear in post
+                assert!(!diff.pre.contains_key(&addr));
+                assert!(diff.post.contains_key(&addr));
+            }
+            _ => panic!("Expected Diff mode"),
+        }
+    }
+
+    #[test]
+    fn test_build_prestate_frame_diff_mode_deleted_actor() {
+        let actor_id = 5005u64;
+        let pre_actor = create_test_actor(3000, 10);
+        let trees = TestStateTrees::with_deleted_actor(actor_id, pre_actor).unwrap();
+
+        let config = super::super::types::PreStateConfig {
+            diff_mode: Some(true),
+            disable_code: None,
+            disable_storage: None,
+        };
+        let mut touched = HashSet::new();
+        touched.insert(create_masked_id_eth_address(actor_id));
+
+        let frame = build_prestate_frame(
+            trees.store.as_ref(),
+            &trees.pre_state,
+            &trees.post_state,
+            &touched,
+            &config,
+        )
+        .unwrap();
+
+        match frame {
+            super::super::types::PreStateFrame::Diff(diff) => {
+                let addr = create_masked_id_eth_address(actor_id);
+                // Deleted accounts should only appear in pre
+                assert!(diff.pre.contains_key(&addr));
+                assert!(!diff.post.contains_key(&addr));
+            }
+            _ => panic!("Expected Diff mode"),
+        }
     }
 }

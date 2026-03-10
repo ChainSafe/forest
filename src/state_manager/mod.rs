@@ -941,6 +941,13 @@ where
                             block.miner
                         );
                     }
+                    // This is more of a sanity check, this should not be able to be hit.
+                    if !ret.msg_receipt().exit_code().is_success() {
+                        bail!(
+                            "reward application message failed (exit: {:?})",
+                            ret.msg_receipt().exit_code()
+                        );
+                    }
                 }
             }
 

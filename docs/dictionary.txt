@@ -28,6 +28,7 @@ CLI
 cli
 Cloudflare
 codebase
+Coinbase
 config
 Datacap
 datacap
@@ -41,6 +42,7 @@ DigitalOcean
 Drand
 EAM
 enums
+EOAs
 ETH
 Eth
 Ethereum
@@ -80,6 +82,7 @@ JSON
 JSON-RPC
 JWT
 JWTs
+KAMT
 keypair
 keystore
 Kubernetes
@@ -99,6 +102,7 @@ macOS
 Mainnet
 mainnet
 MDBX
+Merkle
 MetaMask
 migrator
 migrators
@@ -124,6 +128,10 @@ Organisation
 P2P
 p2p
 performant
+Post
+post
+Pre
+pre
 pre-compiled
 Pre-deployed
 pre-deployed
@@ -165,6 +173,7 @@ TiB
 Tipset
 tipset
 tipsets
+Trie
 URL
 Verifier
 verifier
@@ -173,12 +182,3 @@ VPS
 WebSocket
 WIP
 zstd
-Pre
-pre
-Post
-post
-Coinbase
-EOAs
-KAMT
-Merkle
-Trie

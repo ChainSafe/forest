@@ -329,7 +329,7 @@ curl -s -X POST "$FOREST_RPC_URL" \
     | jq '.result.status'
 ```
 
-## Filecoin Specific Behavior
+## `Filecoin-Specific` Behavior
 
 Forest's `debug_traceTransaction` implementation has some differences from standard Ethereum implementations due to `Filecoin's` architecture:
 
