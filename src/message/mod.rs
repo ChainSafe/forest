@@ -160,8 +160,8 @@ mod tests {
 
     #[test]
     fn test_effective_gas_premium() {
-        // Test cases from Lotus PR #13531
-        // https://github.com/filecoin-project/lotus/pull/13531
+        // Test cases from the FIP-0115
+        // <https://github.com/filecoin-project/FIPs/blob/b84b89a34ccb3d239493392a7867d6b082193b38/FIPS/fip-0115.md#premium>>
         let test_cases = vec![
             // (base_fee, gas_fee_cap, gas_premium, expected)
             (8, 8, 8, 0),

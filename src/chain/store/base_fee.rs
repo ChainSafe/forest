@@ -225,7 +225,8 @@ mod tests {
 
     #[test]
     fn test_next_base_fee_from_premium() {
-        // Test cases from Lotus PR #13531
+        // Test cases from the FIP-0115
+        // <https://github.com/filecoin-project/FIPs/blob/b84b89a34ccb3d239493392a7867d6b082193b38/FIPS/fip-0115.md#basefee_next>
         let test_cases = vec![
             (100, 0, 100),
             (100, 13, 100),
