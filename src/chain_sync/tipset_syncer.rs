@@ -232,6 +232,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Base fee check
     validations.spawn_blocking({
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
+        let xxx_height = state_manager.chain_config().epoch(Height::Xxx);
         let base_tipset = base_tipset.clone();
         let block_store = state_manager.blockstore_owned();
         let block = Arc::clone(&block);
@@ -240,7 +241,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
                 &block_store,
                 &base_tipset,
                 smoke_height,
-                crate::chain::store::PLACEHOLDER_NEXT_UPGRADE_HEIGHT,
+                xxx_height,
             )
             .map_err(|e| {
                 TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))

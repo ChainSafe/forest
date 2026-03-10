@@ -10,11 +10,6 @@ use fvm_ipld_blockstore::Blockstore;
 
 use super::weighted_quick_select::weighted_quick_select;
 
-/// Placeholder for the FIP-0115 activation height.
-/// Replace with the actual network upgrade height once finalized.
-/// Tracked in <https://github.com/ChainSafe/forest/issues/6704>
-pub const PLACEHOLDER_NEXT_UPGRADE_HEIGHT: ChainEpoch = ChainEpoch::MAX;
-
 pub const BLOCK_GAS_TARGET_INDEX: u64 = BLOCK_GAS_LIMIT * 80 / 100 - 1;
 
 /// Used in calculating the base fee change.
@@ -224,15 +219,8 @@ mod tests {
         });
         let ts = Tipset::from(h0);
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        assert!(
-            compute_base_fee(
-                &blockstore,
-                &ts,
-                smoke_height,
-                PLACEHOLDER_NEXT_UPGRADE_HEIGHT
-            )
-            .is_err()
-        );
+        let xxx_height = ChainConfig::default().epoch(Height::Xxx);
+        assert!(compute_base_fee(&blockstore, &ts, smoke_height, xxx_height).is_err());
     }
 
     #[test]

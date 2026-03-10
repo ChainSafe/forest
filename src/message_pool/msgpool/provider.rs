@@ -113,12 +113,8 @@ where
 
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.sm.chain_config().epoch(Height::Smoke);
-        crate::chain::compute_base_fee(
-            self.sm.blockstore(),
-            ts,
-            smoke_height,
-            crate::chain::store::PLACEHOLDER_NEXT_UPGRADE_HEIGHT,
-        )
-        .map_err(|err| err.into())
+        let xxx_height = self.sm.chain_config().epoch(Height::Xxx);
+        crate::chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height, xxx_height)
+            .map_err(|err| err.into())
     }
 }
