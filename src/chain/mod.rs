@@ -35,6 +35,7 @@ pub struct ExportOptions {
     pub skip_checksum: bool,
     pub include_receipts: bool,
     pub include_events: bool,
+    pub include_tipset_keys: bool,
     pub seen: CidHashSet,
 }
 
@@ -144,6 +145,7 @@ async fn export_to_forest_car<D: Digest>(
         skip_checksum,
         include_receipts,
         include_events,
+        include_tipset_keys,
         seen,
     } = options.unwrap_or_default();
 
@@ -171,6 +173,7 @@ async fn export_to_forest_car<D: Digest>(
         .with_seen(seen)
         .with_message_receipts(include_receipts)
         .with_events(include_events)
+        .with_tipset_keys(include_tipset_keys)
         .track_progress(true),
     );
 

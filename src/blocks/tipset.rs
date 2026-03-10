@@ -13,7 +13,9 @@ use crate::{
     networks::{calibnet, mainnet},
     shim::clock::ChainEpoch,
     utils::{
-        cid::CidCborExt, db::CborStoreExt, get_size::nunny_vec_heap_size_helper,
+        cid::CidCborExt,
+        db::{CborStoreExt, car_stream::CarBlock},
+        get_size::nunny_vec_heap_size_helper,
         multihash::MultihashCode,
     },
 };
@@ -52,7 +54,13 @@ pub struct TipsetKey(#[into_iterator(owned, ref)] SmallCidNonEmptyVec);
 impl TipsetKey {
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
-        Ok(Cid::from_cbor_blake2b256(&self.bytes())?)
+        Ok(self.car_block()?.cid)
+    }
+
+    pub fn car_block(&self) -> anyhow::Result<CarBlock> {
+        let data = fvm_ipld_encoding::to_vec(&self.bytes())?;
+        let cid = Cid::from_cbor_encoded_raw_bytes_blake2b256(&data);
+        Ok(CarBlock { cid, data })
     }
 
     /// Returns `true` if the tipset key contains the given CID.

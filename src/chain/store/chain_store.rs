@@ -146,6 +146,7 @@ where
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(ts.key())?;
         *self.heaviest_tipset_cache.write() = Some(ts.clone());
+        ts.key().save(self.blockstore())?;
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
@@ -165,12 +166,6 @@ where
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
         self.update_heaviest(expanded)?;
-        Ok(())
-    }
-
-    /// Writes the `TipsetKey` to the blockstore for `EthAPI` queries.
-    pub fn put_tipset_key(&self, tsk: &TipsetKey) -> Result<(), Error> {
-        tsk.save(self.blockstore())?;
         Ok(())
     }
 

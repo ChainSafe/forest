@@ -145,6 +145,7 @@ impl SnapshotCommands {
                     tipset_keys: tipset.key().clone().into(),
                     include_receipts: false,
                     include_events: false,
+                    include_tipset_keys: false,
                     skip_checksum,
                     dry_run,
                 };
