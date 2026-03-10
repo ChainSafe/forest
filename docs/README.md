@@ -44,7 +44,7 @@ pnpm typecheck  # Validate typescript files
 
 ### Deployment
 
-The documentation site is continuously deployed to CloudFlare Pages, triggered on every commit to `main`. [This workflow](/.github/workflows/docs-deploy.yml) defines the deployment process.
+The documentation site is continuously deployed to Cloudflare Pages, triggered on every commit to `main`. [This workflow](/.github/workflows/docs-deploy.yml) defines the deployment process.
 
 ## Site Structure
 
@@ -76,7 +76,7 @@ Available at `/developers`, source code is located in `docs/developers`. Compris
 
 ### Useful Features
 
-- Admonitions (eg. Info, Warning, etc): https://docusaurus.io/docs/markdown-features/admonitions
+- Admonitions (e.g. Info, Warning, etc): https://docusaurus.io/docs/markdown-features/admonitions
 - Mermaid Diagrams: https://docusaurus.io/docs/markdown-features/diagrams
 - MDX (embedding JavaScript): https://docusaurus.io/docs/markdown-features/react
 - Code Blocks: https://docusaurus.io/docs/markdown-features/code-blocks

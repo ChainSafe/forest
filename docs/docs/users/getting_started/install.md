@@ -32,14 +32,14 @@ forest-filecoin 0.19.0+git.671c30c
 
 <h3>Images</h3>
 
-Images are available via Github Container Registry:
+Images are available via GitHub Container Registry:
 
 ```shell
 ghcr.io/chainsafe/forest
 ```
 
 :::tip
-If you have trouble using the Github Container Registry, make sure you are [authenticated with your Github account](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry).
+If you have trouble using the GitHub Container Registry, make sure you are [authenticated with your GitHub account](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry).
 :::
 
 You will find tagged images following these conventions:
