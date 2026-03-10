@@ -176,24 +176,24 @@ MSG_ETH=$($FOREST_WALLET_PATH send "$ETH_ADDR_TWO" "$FIL_AMT")
 MSG_ETH_REMOTE=$($FOREST_WALLET_PATH --remote-wallet send "$ETH_ADDR_THREE" "$FIL_AMT")
 : "$MSG_ETH_REMOTE"
 
-ETH_ADDR_TWO_BALANCE=$FIL_ZERO
+ETH_ADDR_TWO_BALANCE=$ADDR_TWO_BALANCE
 i=0
-while [[ $i != 20 && $ETH_ADDR_TWO_BALANCE == "$FIL_ZERO" ]]; do
+while [[ $i != 20 && $ETH_ADDR_TWO_BALANCE == "$ADDR_TWO_BALANCE" ]]; do
   i=$((i+1))
   
   : "Checking balance $i/20"
   sleep 30s
-  ETH_ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ETH_ADDR_TWO" --exact-balance)
+  ETH_ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO" --exact-balance)
 done
 
-ETH_ADDR_THREE_BALANCE=$FIL_ZERO
+ETH_ADDR_THREE_BALANCE=$ADDR_THREE_BALANCE
 i=0
-while [[ $i != 20 && $ETH_ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; do
+while [[ $i != 20 && $ETH_ADDR_THREE_BALANCE == "$ADDR_THREE_BALANCE" ]]; do
   i=$((i+1))
 
   : "Checking balance $i/20"
   sleep 30s
-  ETH_ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ETH_ADDR_THREE" --exact-balance)
+  ETH_ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_THREE" --exact-balance)
 done
 
 : Begin delegated wallet tests
