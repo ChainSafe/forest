@@ -159,14 +159,14 @@ done
 ETH_ADDR_TWO=$(curl -s -X POST "$FOREST_URL" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  --data "$(jq -n --arg addr "$ADDR_TWO" '{jsonrpc: "2.0", id: 1, method: "Filecoin.FilecoinAddressToEthAddress", params: [$addr, null]}')" \
+  --data "$(jq -n --arg addr "$ADDR_TWO" '{jsonrpc: "2.0", id: 1, method: "Filecoin.FilecoinAddressToEthAddress", params: [$addr, "pending"]}')" \
   | jq -r '.result')
 echo "ETH address: $ETH_ADDR_TWO"
 
 ETH_ADDR_THREE=$(curl -s -X POST "$FOREST_URL" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  --data "$(jq -n --arg addr "$ADDR_THREE" '{jsonrpc: "2.0", id: 1, method: "Filecoin.FilecoinAddressToEthAddress", params: [$addr, null]}')" \
+  --data "$(jq -n --arg addr "$ADDR_THREE" '{jsonrpc: "2.0", id: 1, method: "Filecoin.FilecoinAddressToEthAddress", params: [$addr, "pending"]}')" \
   | jq -r '.result')
 echo "ETH address: $ETH_ADDR_THREE"
 
