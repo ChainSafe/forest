@@ -3,7 +3,7 @@
 
 use std::{
     fmt,
-    sync::{Arc, OnceLock},
+    sync::{Arc, LazyLock, OnceLock},
 };
 
 use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
@@ -12,7 +12,10 @@ use crate::{
     cid_collections::SmallCidNonEmptyVec,
     networks::{calibnet, mainnet},
     shim::clock::ChainEpoch,
-    utils::{cid::CidCborExt, get_size::nunny_vec_heap_size_helper},
+    utils::{
+        cid::CidCborExt, db::CborStoreExt, get_size::nunny_vec_heap_size_helper,
+        multihash::MultihashCode,
+    },
 };
 use ahash::HashMap;
 use anyhow::Context as _;
@@ -21,6 +24,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use get_size2::GetSize;
 use itertools::Itertools as _;
+use multihash_derive::MultihashDigest as _;
 use num::BigInt;
 use nunny::{Vec as NonEmpty, vec as nonempty};
 use serde::{Deserialize, Serialize};
@@ -43,7 +47,6 @@ use thiserror::Error;
     GetSize,
     derive_more::IntoIterator,
 )]
-#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct TipsetKey(#[into_iterator(owned, ref)] SmallCidNonEmptyVec);
 
 impl TipsetKey {
@@ -108,6 +111,37 @@ impl TipsetKey {
     /// Bytes representation for CBOR encoding
     pub fn bytes(&self) -> fvm_ipld_encoding::RawBytes {
         fvm_ipld_encoding::RawBytes::new(self.iter().flat_map(|cid| cid.to_bytes()).collect())
+    }
+
+    /// Construct from bytes representation
+    pub fn from_bytes(bytes: fvm_ipld_encoding::RawBytes) -> anyhow::Result<Self> {
+        static BLOCK_HEADER_CID_LEN: LazyLock<usize> = LazyLock::new(|| {
+            let buf = [0_u8; 256];
+            let cid = Cid::new_v1(
+                fvm_ipld_encoding::DAG_CBOR,
+                MultihashCode::Blake2b256.digest(&buf),
+            );
+            cid.encoded_len()
+        });
+
+        let cids: Vec<Cid> = Vec::<u8>::from(bytes)
+            .chunks(*BLOCK_HEADER_CID_LEN)
+            .map(Cid::read_bytes)
+            .try_collect()?;
+
+        Ok(nunny::Vec::new(cids)
+            .map_err(|_| anyhow::anyhow!("tipset key cannot be empty"))?
+            .into())
+    }
+
+    /// Save tipset key to block store
+    pub fn save(&self, bs: &impl Blockstore) -> anyhow::Result<Cid> {
+        bs.put_cbor_default(&self.bytes())
+    }
+
+    /// Load tipset key from block store by its CID
+    pub fn load(bs: &impl Blockstore, cid: &Cid) -> anyhow::Result<Self> {
+        Self::from_bytes(bs.get_cbor_required(cid)?)
     }
 }
 
@@ -654,15 +688,17 @@ mod lotus_json {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::blocks::VRFProof;
     use crate::blocks::{
-        CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey, header::RawBlockHeader,
+        CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey, VRFProof,
+        header::RawBlockHeader,
     };
+    use crate::db::MemoryDB;
     use crate::shim::address::Address;
-    use crate::utils::multihash::prelude::*;
     use cid::Cid;
     use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
+    use quickcheck::Arbitrary;
+    use quickcheck_macros::quickcheck;
     use std::iter;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
@@ -809,5 +845,36 @@ mod test {
             Tipset::new(iter::empty::<RawBlockHeader>()).unwrap_err(),
             CreateTipsetError::Empty
         );
+    }
+
+    impl Arbitrary for TipsetKey {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let blocks: nunny::Vec<Vec<u8>> = nunny::Vec::arbitrary(g);
+            let cids = nunny::Vec::new(
+                blocks
+                    .into_iter()
+                    .map(|b| {
+                        Cid::new_v1(
+                            fvm_ipld_encoding::DAG_CBOR,
+                            MultihashCode::Blake2b256.digest(&b),
+                        )
+                    })
+                    .collect_vec(),
+            )
+            .expect("infallible");
+            cids.into()
+        }
+    }
+
+    #[quickcheck]
+    fn tipset_key_bytes(tsk: TipsetKey) {
+        let bytes = tsk.bytes();
+        let tsk2 = TipsetKey::from_bytes(bytes).unwrap();
+        assert_eq!(tsk, tsk2);
+
+        let bs = MemoryDB::default();
+        let cid = tsk.save(&bs).unwrap();
+        let tsk3 = TipsetKey::load(&bs, &cid).unwrap();
+        assert_eq!(tsk, tsk3);
     }
 }

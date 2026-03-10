@@ -170,21 +170,13 @@ where
 
     /// Writes the `TipsetKey` to the blockstore for `EthAPI` queries.
     pub fn put_tipset_key(&self, tsk: &TipsetKey) -> Result<(), Error> {
-        let tsk_bytes = tsk.bytes();
-        let tsk_cid = self.blockstore().put_cbor_default(&tsk_bytes)?;
-        let hash = tsk_cid.into();
-        self.eth_mappings.write_obj(&hash, tsk)?;
+        tsk.save(self.blockstore())?;
         Ok(())
     }
 
     /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
     pub fn get_required_tipset_key(&self, hash: &EthHash) -> Result<TipsetKey, Error> {
-        let tsk = self
-            .eth_mappings
-            .read_obj::<TipsetKey>(hash)?
-            .with_context(|| format!("cannot find tipset with hash {hash}"))?;
-
-        Ok(tsk)
+        Ok(TipsetKey::load(self.blockstore(), &hash.to_cid())?)
     }
 
     /// Writes with timestamp the `Hash` to `Cid` mapping to the blockstore for `EthAPI` queries.
