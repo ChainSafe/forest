@@ -2019,7 +2019,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ab67060fc6b8ef687992d439ca0fa36e7ed17e9a0b16b25b601e8757df720de"
 dependencies = [
  "data-encoding",
- "syn 2.0.117",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -4612,7 +4612,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.6.2",
+ "socket2 0.5.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -5873,7 +5873,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tracing",
  "yamux 0.12.1",
- "yamux 0.13.9",
+ "yamux 0.13.10",
 ]
 
 [[package]]
@@ -7515,7 +7515,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.1",
  "rustls",
- "socket2 0.6.2",
+ "socket2 0.5.10",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -7524,9 +7524,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.13"
+version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1906b49b0c3bc04b5fe5d86a77925ae6524a19b816ae38ce1e426255f1d8a31"
+checksum = "434b42fec591c96ef50e21e886936e66d3cc3f737104fdb9b737c40ffb94c098"
 dependencies = [
  "aws-lc-rs",
  "bytes",
@@ -7553,9 +7553,9 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.6.2",
+ "socket2 0.5.10",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -7614,15 +7614,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.321"
+version = "0.0.323"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47fa112a94a848c2022d9a257e1f24dbed752eb92ebf2e9a041d84e6f0eb7378"
+checksum = "4fc7a49699aa4989655a0cfb8a81e1ba6db4d0a67cbdeda6e5f451ff6040d66d"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.321"
+version = "0.0.323"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85b09587043c81fcef68553d9fd02d3b32aac27ba3fcbb706708ffa4063f644e"
+checksum = "85bb4714057019eca5b63500c41acb7423709c290893f938bbaabc81cff5088b"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7634,9 +7634,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.321"
+version = "0.0.323"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9328d327282a31833d2ea3dbae14cc8162512541080b61783c2d64da7a36a981"
+checksum = "fb3ced900a89851088b2ca8c295513618fa239ea37f8ba857fda4ebd07c4ff74"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
@@ -7650,9 +7650,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.321"
+version = "0.0.323"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebf151dec4138022612f096615d3316c2d8504c4b5fbaf269ff34cbfa5e786d4"
+checksum = "dc54c26b2f1fa1b2fa700219c48a84c4374adb020d9a4112a1154e420c52fe66"
 dependencies = [
  "either",
  "itertools 0.14.0",
@@ -11493,9 +11493,9 @@ dependencies = [
 
 [[package]]
 name = "yamux"
-version = "0.13.9"
+version = "0.13.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c650efd29044140aa63caaf80129996a9e2659a2ab7045a7e061807d02fc8549"
+checksum = "1991f6690292030e31b0144d73f5e8368936c58e45e7068254f7138b23b00672"
 dependencies = [
  "futures",
  "log",
