@@ -1,4 +1,4 @@
-258
+262
 Algorand/M
 API's
 API/SM
@@ -156,6 +156,7 @@ multisig
 mutex
 namespace/S
 Neo4j
+nextest
 NVMe
 NVXX
 onwards
@@ -194,6 +195,7 @@ rustup
 sccache
 schema/SM
 schemas
+SDK
 SECP
 SECP256k1
 seekable
@@ -226,7 +228,9 @@ tipset/SM
 tipsetkey/S
 Tokio
 TOML
+toml
 toolchain/S
+traceback
 trie
 truthy
 TTY
