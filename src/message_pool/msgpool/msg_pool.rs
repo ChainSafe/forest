@@ -267,10 +267,10 @@ where
             return Err(Error::MessageTooBig);
         }
         let to = msg.message().to();
-        if to.protocol() == Protocol::Delegated && EthAddress::from_filecoin_address(&to).is_err() {
-            return Err(Error::Other(format!(
+        if to.protocol() == Protocol::Delegated {
+            EthAddress::from_filecoin_address(&to).context(format!(
                 "message recipient {to} is a delegated address but not a valid Eth Address"
-            )));
+            ))?;
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
         if msg.value() > *crate::shim::econ::TOTAL_FILECOIN {
