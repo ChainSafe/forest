@@ -28,9 +28,9 @@ indexing intent).
 
 #### EVM Events documentation:
 
-https://docs.soliditylang.org/en/v0.8.27/contracts.html#events
+[Solidity Events](https://docs.soliditylang.org/en/v0.8.27/contracts.html#events)
 
-https://github.com/filecoin-project/lotus/blob/master/chain/types/event.go
+[Lotus event.go](https://github.com/filecoin-project/lotus/blob/master/chain/types/event.go)
 
 #### Ethereum LOG opcodes implementation:
 

@@ -21,7 +21,7 @@ alias = 'i'
 [tasks.install-lint-tools]
 description = "Installs linting tools for CI"
 tools.cargo-binstall = "latest"
-run = "cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-deny"
+run = "cargo binstall --no-confirm taplo-cli cargo-spellcheck@0.15.7 cargo-deny"
 
 [tasks."lint:deny"]
 description = "Run cargo-deny to check for license and security issues."
@@ -30,7 +30,7 @@ cargo deny check bans licenses sources || (echo "See deny.toml"; false)
 '''
 
 [tasks."lint:spellcheck"]
-description = "Run cargo-spellcheck to check for spelling errors."
+description = "Run cargo-spellcheck to check for spelling errors in Rust code."
 run = '''
 cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
 '''
@@ -137,7 +137,6 @@ run = '''
 pnpm i --frozen-lockfile
 pnpm generate:rpc-reference
 pnpm typecheck
-pnpm spellcheck
 pnpm format-check
 '''
 
@@ -212,23 +211,30 @@ run = '''
 cargo llvm-cov -p forest-filecoin --codecov --no-default-features --features "test cargo-test" --output-path lcov.info
 '''
 
-[tasks."docs:format-spellcheck-dictionary"]
+[tasks."format-spellcheck-dictionary"]
 description = "Format and deduplicate the spellcheck dictionary."
-dir = "docs"
 run = '''
 TMPFILE=$(mktemp)
-cat dictionary.txt | sort --ignore-case | uniq > "$TMPFILE"
-mv "$TMPFILE" dictionary.txt
+# Skip first line (word count), sort, deduplicate, then re-add count
+tail -n +2 .config/forest.dic | sort --ignore-case | uniq > "$TMPFILE"
+COUNT=$(wc -l < "$TMPFILE")
+{ echo "$COUNT"; cat "$TMPFILE"; } > .config/forest.dic
+rm "$TMPFILE"
 '''
 
-[tasks."docs:format-spellcheck-dictionary-check"]
+[tasks."format-spellcheck-dictionary-check"]
 description = "Check if spellcheck dictionary is properly formatted."
-dir = "docs"
 run = '''
 TMPFILE=$(mktemp)
 trap "rm -f $TMPFILE" EXIT
-cat dictionary.txt | sort --ignore-case | uniq > "$TMPFILE"
-diff dictionary.txt "$TMPFILE"
+tail -n +2 .config/forest.dic | sort --ignore-case | uniq > "$TMPFILE"
+COUNT=$(wc -l < "$TMPFILE")
+EXPECTED=$(head -1 .config/forest.dic)
+if [ "$COUNT" != "$EXPECTED" ]; then
+  echo "Word count mismatch: expected $EXPECTED, got $COUNT"
+  exit 1
+fi
+tail -n +2 .config/forest.dic | diff - "$TMPFILE"
 '''
 
 [tools]

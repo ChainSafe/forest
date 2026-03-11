@@ -1,15 +1,17 @@
 # Spellcheck
 
 We run spellchecks using
-[`cargo-spellcheck`](https://crates.io/crates/cargo-spellcheck).
+[`cargo-spellcheck`](https://crates.io/crates/cargo-spellcheck) with the
+[Hunspell](https://github.com/hunspell/hunspell) backend.
 
-It delegates to a program called
-[`Hunspell`](https://github.com/hunspell/hunspell).
+This is used for **both** Rust doc comments and Markdown files across the entire
+repository. A single dictionary file (`forest.dic`) is shared between all
+checks.
 
-Hunspell accepts uses `dictionary` files for words and `affix` files to define
+Hunspell uses `dictionary` files for words and `affix` files to define
 acceptable modifications to those words.
 
-Note that cargo-spellcheck comes with
+Note that `cargo-spellcheck` comes with
 [default dictionary and affix files](https://github.com/drahnr/cargo-spellcheck/blob/dff48db8ca954fce14a0cd5aea127ce59a929624/src/checker/hunspell.rs#L32).
 Our vendored `en_US.dic` is larger than theirs.
 
@@ -70,3 +72,11 @@ For more information see
 ## Tips
 
 - Include symbols in `backticks` - they won't have to be added to the dictionary
+- Wrap code identifiers (struct names, variable names, crate names) in backticks
+  rather than adding them to the dictionary
+- Only add common IT terms, proper nouns, and domain-specific terminology to the
+  dictionary
+- Use `<URL>` autolink syntax for bare URLs in Markdown files so they are skipped
+  by the checker
+- Run `mise run lint:spellcheck` for Rust code and
+  `mise run lint:spellcheck-markdown` for Markdown files

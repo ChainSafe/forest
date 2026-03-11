@@ -1,13 +1,13 @@
 There are often cases where the jobs fail at the CI and not locally, which tends
 to be cumbersome to debug. Also, when developing an integration test, it is
-useful to get immediate feedback instead of relying on Github Actions (which, on
+useful to get immediate feedback instead of relying on GitHub Actions (which, on
 a side note, are sometimes down).
 
 There is a [tool called Act](https://github.com/nektos/act) that allows you to
-run Github Actions locally. Given the complexity of Forest's CI, it is difficult
+run GitHub Actions locally. Given the complexity of Forest's CI, it is difficult
 to run the whole CI locally, but it is feasible to run a single or set of jobs.
 This is useful to debug a failing job, or to run an integration test locally.
-Note that while Github Actions are run in fully virtualized environments, Act
+Note that while GitHub Actions are run in fully virtualized environments, Act
 runs them in Docker containers. This means that the environment is not exactly
 the same, but it is close enough to be useful. In practice, we need some
 _tricks_ to make it work.
@@ -215,7 +215,7 @@ INFO[0000] Start server on http://192.168.1.10:34567
 
 ## Privileges
 
-By default, `act` runs jobs as `root`. Github Actions run under a regular
+By default, `act` runs jobs as `root`. GitHub Actions run under a regular
 account (with `sudo` privileges). Use `sudo` for installing dependencies, even
 if locally it works without it.
 

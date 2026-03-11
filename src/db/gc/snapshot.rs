@@ -259,6 +259,7 @@ where
                 skip_checksum: true,
                 include_receipts: true,
                 include_events: true,
+                include_tipset_keys: true,
                 seen: Default::default(),
             }),
         )
