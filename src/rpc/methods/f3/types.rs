@@ -7,7 +7,7 @@ use crate::{
     lotus_json::{HasLotusJson, LotusJson, base64_standard, lotus_json_with_self},
     networks::NetworkChain,
     shim::{executor::Receipt, fvm_shared_latest::bigint::bigint_ser},
-    utils::{encoding::serde_byte_array, multihash::prelude::*},
+    utils::encoding::serde_byte_array,
 };
 use byteorder::ByteOrder as _;
 use cid::Cid;
@@ -15,7 +15,6 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use flate2::read::DeflateDecoder;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared4::ActorID;
-use itertools::Itertools as _;
 use libp2p::PeerId;
 use num::Zero as _;
 use nunny::Vec as NonEmpty;
@@ -23,7 +22,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
 use std::io::Read as _;
-use std::sync::LazyLock;
 use std::{cmp::Ordering, time::Duration};
 
 const MAX_LEASE_INSTANCES: u64 = 5;
@@ -53,24 +51,7 @@ impl TryFrom<F3TipSetKey> for TipsetKey {
     type Error = anyhow::Error;
 
     fn try_from(tsk: F3TipSetKey) -> Result<Self, Self::Error> {
-        static BLOCK_HEADER_CID_LEN: LazyLock<usize> = LazyLock::new(|| {
-            let buf = [0_u8; 256];
-            let cid = Cid::new_v1(
-                fvm_ipld_encoding::DAG_CBOR,
-                MultihashCode::Blake2b256.digest(&buf),
-            );
-            cid.to_bytes().len()
-        });
-
-        let cids: Vec<Cid> = tsk
-            .0
-            .chunks(*BLOCK_HEADER_CID_LEN)
-            .map(Cid::read_bytes)
-            .try_collect()?;
-
-        Ok(nunny::Vec::new(cids)
-            .map_err(|_| anyhow::anyhow!("tipset key cannot be empty"))?
-            .into())
+        Self::from_bytes(tsk.0.into())
     }
 }
 

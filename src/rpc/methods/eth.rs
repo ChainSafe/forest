@@ -3832,6 +3832,7 @@ mod test {
     use fvm_shared4::event::Flags;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
+    use rstest::rstest;
 
     impl Arbitrary for EthHash {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -3925,20 +3926,14 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_hash() {
-        let test_cases = [
-            r#""0x013dbb9442ca9667baccc6230fcd5c1c4b2d4d2870f4bd20681d4d47cfd15184""#,
-            r#""0xab8653edf9f51785664a643b47605a7ba3d917b5339a0724e7642c114d0e4738""#,
-        ];
-
-        for hash in test_cases {
-            let h: EthHash = serde_json::from_str(hash).unwrap();
-
-            let c = h.to_cid();
-            let h1: EthHash = c.into();
-            assert_eq!(h, h1);
-        }
+    #[rstest]
+    #[case("\"0x013dbb9442ca9667baccc6230fcd5c1c4b2d4d2870f4bd20681d4d47cfd15184\"")]
+    #[case("\"0xab8653edf9f51785664a643b47605a7ba3d917b5339a0724e7642c114d0e4738\"")]
+    fn test_hash_serde_json(#[case] hash: &str) {
+        let h: EthHash = serde_json::from_str(hash).unwrap();
+        let c = h.to_cid();
+        let h1: EthHash = c.into();
+        assert_eq!(h, h1);
     }
 
     #[quickcheck]

@@ -630,6 +630,7 @@ pub async fn do_export(
             skip_checksum: true,
             include_receipts: false,
             include_events: false,
+            include_tipset_keys: false,
             seen,
         }),
     )
