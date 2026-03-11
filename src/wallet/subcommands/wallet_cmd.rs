@@ -518,7 +518,7 @@ impl WalletCommands {
                             )
                         })?;
                 }
-                let method_num = resolve_method_num(&from, &to, is_0x_recipient)?;
+                let method_num = resolve_method_num(&from, &to, is_0x_recipient);
 
                 let message = Message {
                     from,
@@ -650,14 +650,14 @@ fn resolve_target_address(target_address: &str) -> anyhow::Result<(Address, bool
     }
 }
 
-fn resolve_method_num(from: &Address, to: &Address, is_0x_recipient: bool) -> anyhow::Result<u64> {
+fn resolve_method_num(from: &Address, to: &Address, is_0x_recipient: bool) -> u64 {
     if !is_eth_address(from) && !is_0x_recipient {
-        return Ok(METHOD_SEND);
+        return METHOD_SEND;
     }
     if *to == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
-        Ok(EAMMethod::CreateExternal as u64)
+        EAMMethod::CreateExternal as u64
     } else {
-        Ok(EVMMethod::InvokeContract as u64)
+        EVMMethod::InvokeContract as u64
     }
 }
 
@@ -739,7 +739,7 @@ mod tests {
     fn test_resolve_method_num_send() {
         let from = Address::from_str("f01234").unwrap();
         let to = Address::from_str("f01234").unwrap();
-        let method = resolve_method_num(&from, &to, false).unwrap();
+        let method = resolve_method_num(&from, &to, false);
         assert_eq!(method, METHOD_SEND);
     }
 
@@ -747,7 +747,7 @@ mod tests {
     fn test_resolve_method_num_create_external() {
         let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
         let to = Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR;
-        let method = resolve_method_num(&from, &to, false).unwrap();
+        let method = resolve_method_num(&from, &to, false);
         assert_eq!(method, EAMMethod::CreateExternal as u64);
     }
 
@@ -755,7 +755,7 @@ mod tests {
     fn test_resolve_method_num_invoke_contract() {
         let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
         let to = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
-        let method = resolve_method_num(&from, &to, false).unwrap();
+        let method = resolve_method_num(&from, &to, false);
         assert_eq!(method, EVMMethod::InvokeContract as u64);
     }
 
@@ -766,7 +766,7 @@ mod tests {
             .unwrap()
             .to_filecoin_address()
             .unwrap();
-        let method = resolve_method_num(&from, &to, true).unwrap();
+        let method = resolve_method_num(&from, &to, true);
         assert_eq!(method, EVMMethod::InvokeContract as u64);
     }
 
@@ -774,7 +774,7 @@ mod tests {
     fn test_resolve_method_num_send_to_delegated() {
         let from = Address::from_str("f01234").unwrap();
         let to = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
-        let method = resolve_method_num(&from, &to, false).unwrap();
+        let method = resolve_method_num(&from, &to, false);
         assert_eq!(method, METHOD_SEND);
     }
 
@@ -785,7 +785,7 @@ mod tests {
             .unwrap()
             .to_filecoin_address()
             .unwrap();
-        let method = resolve_method_num(&from, &to, true).unwrap();
+        let method = resolve_method_num(&from, &to, true);
         assert_eq!(method, EVMMethod::InvokeContract as u64);
     }
 }
