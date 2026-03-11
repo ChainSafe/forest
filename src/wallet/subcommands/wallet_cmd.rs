@@ -510,7 +510,7 @@ impl WalletCommands {
                     && to.protocol() != Protocol::ID
                     && to.protocol() != Protocol::Delegated
                 {
-                    to = StateLookupID::call(&backend.remote, (to.clone(), ApiTipsetKey(None)))
+                    to = StateLookupID::call(&backend.remote, (to, ApiTipsetKey(None)))
                         .await
                         .with_context(|| {
                             format!(
