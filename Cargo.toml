@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.32.3"
+version = "0.32.4"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -257,8 +257,9 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.321"
+ra_ap_syntax = "0.0.323"
 regex-automata = "0.4"
+rstest = "0.26"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"

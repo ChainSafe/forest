@@ -11,8 +11,25 @@ extra_dictionaries = ["forest.dic", "en_US.dic"]
 
 [hunspell.quirks]
 transform_regex = [
-  # 10.7%
-  "^[0-9_]+(?:\\.[0-9]*)?%$",
+  # 10.7%, 30_000
+  "^[0-9_]+(?:\\.[0-9]*)?%?$",
+  # Words containing underscores (e.g., sidebar_position in YAML frontmatter)
+  "^[a-zA-Z0-9]*_[a-zA-Z0-9_]*$",
+  # Template braces {{ }}
+  "^\\{+$",
+  "^\\}+$",
+  # Short tokens (1-2 chars) that are almost always noise from markdown parsing
+  "^.{1,2}$",
+  # Version references like NV17, NV23, v21, FVM2
+  "^[a-zA-Z]+[0-9]+$",
+  # @-prefixed tokens (e.g., @theme imports in MDX)
+  "^@",
+  # Approximate values like ~14, ~80
+  "^~",
+  # URLs that slip through markdown parsing
+  "^https?:",
+  # Common abbreviations with special characters (e.g., Q&A)
+  "^Q&A$",
 ]
 allow_concatenation = false
 allow_dashes = false

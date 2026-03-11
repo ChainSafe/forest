@@ -3143,6 +3143,7 @@ pub struct ForkUpgradeParams {
     upgrade_teep_height: ChainEpoch,
     upgrade_tock_height: ChainEpoch,
     //upgrade_golden_week_height: ChainEpoch,
+    //upgrade_xxx_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -3191,6 +3192,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_teep_height: get_height(Teep)?,
             upgrade_tock_height: get_height(Tock)?,
             //upgrade_golden_week_height: get_height(GoldenWeek)?,
+            //upgrade_xxx_height: get_height(Xxx)?,
         })
     }
 }

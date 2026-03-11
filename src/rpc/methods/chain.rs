@@ -450,6 +450,7 @@ impl RpcMethod<1> for ForestChainExport {
             tipset_keys: ApiTipsetKey(tsk),
             include_receipts,
             include_events,
+            include_tipset_keys,
             skip_checksum,
             dry_run,
         } = params;
@@ -475,6 +476,7 @@ impl RpcMethod<1> for ForestChainExport {
             skip_checksum,
             include_receipts,
             include_events,
+            include_tipset_keys,
             seen: Default::default(),
         });
         let writer = if dry_run {
@@ -711,6 +713,7 @@ impl RpcMethod<1> for ChainExport {
                 tipset_keys,
                 include_receipts: false,
                 include_events: false,
+                include_tipset_keys: false,
                 skip_checksum,
                 dry_run,
             },),
@@ -1486,6 +1489,8 @@ pub struct ForestChainExportParams {
     pub include_receipts: bool,
     #[serde(default)]
     pub include_events: bool,
+    #[serde(default)]
+    pub include_tipset_keys: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }
