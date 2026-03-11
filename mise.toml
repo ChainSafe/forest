@@ -21,7 +21,7 @@ alias = 'i'
 [tasks.install-lint-tools]
 description = "Installs linting tools for CI"
 tools.cargo-binstall = "latest"
-run = "cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-deny"
+run = "cargo binstall --no-confirm taplo-cli cargo-spellcheck@0.15.7 cargo-deny"
 
 [tasks."lint:deny"]
 description = "Run cargo-deny to check for license and security issues."

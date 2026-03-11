@@ -43,7 +43,7 @@ jobs:
         working-directory: .
         run: |
           sudo apt-get install -y libclang-dev
-          cargo binstall --no-confirm cargo-spellcheck
+          cargo binstall --no-confirm cargo-spellcheck@0.15.7
       - name: Spellcheck Markdown files
         working-directory: .
         run: mise run lint:spellcheck-markdown

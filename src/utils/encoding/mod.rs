@@ -9,7 +9,7 @@ use serde::{Deserializer, Serializer, de, ser};
 
 mod fallback_de_ipld_dagcbor;
 
-/// Limit the the number of bytes that are used for pre-allocating `Vec<Cid>`s. This follows what `serde` is
+/// Limit the number of bytes that are used for pre-allocating `Vec<Cid>`s. This follows what `serde` is
 /// doing internally with `serde::private::size_hint::cautious()`.
 /// The limit is set to 1 MiB, which is a reasonable upper bound for most use cases.
 fn size_hint_cautious_cid(size_hint: usize) -> usize {
