@@ -30,7 +30,7 @@ forward to your contributions. 🎉
 - [Suggesting Enhancements](#suggesting-enhancements)
 - [Your First Code Contribution](#your-first-code-contribution)
 - [Improving The Documentation](#improving-the-documentation)
-- [Styleguides](#styleguides)
+- [Style Guides](#style-guides)
 - [Commit Messages](#commit-messages)
 - [Join The Project Team](#join-the-project-team)
 
@@ -91,7 +91,7 @@ steps in advance to help us fix any potential bug as fast as possible.
 - Also make sure to search the internet (including Stack Overflow) to see if
   users outside of the GitHub community have discussed the issue.
 - Collect information about the bug:
-- Stack trace (Traceback)
+- Stack trace (traceback)
 - OS, Platform and Version (Windows, Linux, macOS, x86, ARM)
 - Version of the interpreter, compiler, SDK, runtime environment, package
   manager, depending on what seems relevant.
@@ -189,24 +189,24 @@ the [Go website](https://golang.org/doc/install).
 We also use linters and tools to work with the code - you can install them by
 running `mise install-lint-tools`.
 
-#### 👥Fork and clone the repository
+#### 👥 Fork and clone the repository
 
 To contribute to Forest, you will need to fork the repository and clone it to
 your local machine. You can read more in the
 [GitHub documentation](https://docs.github.com/en/get-started/exploring-projects-on-github/contributing-to-a-project).
 
-#### ✅Check that everything works
+#### ✅ Check that everything works
 
 Before you start making changes, you should make sure that everything works. You
 can do this by running the tests with `mise test`. Note that you need to have
 [cargo nextest](https://nexte.st/) installed to run the tests.
 
-#### 💻Make your changes
+#### 💻 Make your changes
 
 Now you can make your changes! Make sure to follow the
-[styleguides](#styleguides) and run the linters before submitting your changes.
+[style guides](#style-guides) and run the linters before submitting your changes.
 
-#### 🚀Submit your changes
+#### 🚀 Submit your changes
 
 When you are ready to submit your changes, you can open a pull request. Make
 sure to fill exhaustively the PR template and provide as much context as
@@ -217,7 +217,7 @@ If you are a first-time contributor to the project, you will need to sign the
 Contributor License Agreement, which will be prompted when you open your pull
 request.
 
-### 🌲Enjoy contributing
+### 🌲 Enjoy contributing
 
 Congratulations! You have successfully contributed to Forest. 🎉 We are
 eternally grateful and hope you will continue to contribute to the project.
@@ -228,7 +228,7 @@ The documentation is currently hosted on
 [docs.forest.chainsafe.io](https://docs.forest.chainsafe.io/). If you find any
 issues with the documentation, please create an issue or contribute to the [docs directory](docs).
 
-## Styleguides
+## Style Guides
 
 ### 📝 Documentation practices
 
@@ -236,9 +236,9 @@ Code documentation is expected to be present in all code files, especially for
 public functions and structs. Please refer to the Forest team's
 [Documentation practices](https://github.com/ChainSafe/forest/wiki/Documentation-practices).
 
-### 🤖Code formatting
+### 🤖 Code formatting
 
-Formatting is standardised via various formatting tools for different
+Formatting is standardized via various formatting tools for different
 technologies. Please make sure to run the appropriate formatter before
 submitting your code, otherwise it will not pass the CI checks. You can format
 the code, including markdown files, with `mise fmt`.
