@@ -160,6 +160,7 @@ pin_project! {
         fail_on_dead_links: bool,
         message_receipts: bool,
         events: bool,
+        tipset_keys:bool,
         track_progress: bool,
     }
 }
@@ -180,16 +181,22 @@ impl<DB, T> ChainStream<DB, T> {
         self
     }
 
-    /// Enable traversal of message receipt roots during chain export.
+    /// Whether to enable traversal of message receipt roots during chain export.
     pub fn with_message_receipts(mut self, message_receipts: bool) -> Self {
         self.message_receipts = message_receipts;
         self
     }
 
-    /// Enable traversal of events roots during chain export.
+    /// Whether to enable traversal of events roots during chain export.
     /// Requires message receipts to be enabled as well.
     pub fn with_events(mut self, events: bool) -> Self {
         self.events = events;
+        self
+    }
+
+    /// Whether to export tipset keys.
+    pub fn with_tipset_keys(mut self, tipset_keys: bool) -> Self {
+        self.tipset_keys = tipset_keys;
         self
     }
 
@@ -224,6 +231,7 @@ pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
         fail_on_dead_links: true,
         message_receipts: false,
         events: false,
+        tipset_keys: false,
         track_progress: false,
     }
 }
@@ -246,6 +254,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
 
+        let export_tipset_keys = self.tipset_keys;
         let fail_on_dead_links = self.fail_on_dead_links;
         let stateroot_limit_exclusive = self.stateroot_limit_exclusive;
         let this = self.project();
@@ -326,6 +335,13 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
             // enclosing loop is processing the queue. Once the desired depth has been reached -
             // yield the block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.next() {
+                // Tipset key cid can be convert from and to eth hash, which is useful for Eth APIs
+                if export_tipset_keys
+                    && let Ok(CarBlock { cid, data }) = tipset.borrow().key().car_block()
+                {
+                    this.dfs.push_back(Emit(cid, Some(data)));
+                }
+
                 for block in tipset.borrow().block_headers() {
                     let (cid, data) = block.car_block()?;
                     if this.seen.insert(cid) {
