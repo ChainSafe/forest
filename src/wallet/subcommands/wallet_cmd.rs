@@ -503,41 +503,22 @@ impl WalletCommands {
                     .into()
                 };
 
-                let (mut to, is_0x_recipient) = match StrictAddress::from_str(&target_address) {
-                    Ok(addr) => (addr.into(), false),
-                    Err(_) => {
-                        let eth_addr = EthAddress::from_str(&target_address).context(
-                            "target address must be a valid FIL address or ETH address (0x...)",
-                        )?;
-                        let addr = eth_addr.to_filecoin_address()?;
-                        if addr.protocol() != Protocol::ID && addr.protocol() != Protocol::Delegated
-                        {
-                            bail!(
-                                "ETH addresses can only map to FIL addresses starting with f410f/t410f or f0/t0"
-                            );
-                        }
-                        (addr, true)
-                    }
-                };
+                let (mut to, is_0x_recipient) = resolve_target_address(&target_address)?;
 
-                let method_num = if is_eth_address(&from) || is_0x_recipient {
-                    if to.protocol() != Protocol::ID && to.protocol() != Protocol::Delegated {
-                        to = StateLookupID::call(&backend.remote, (to, ApiTipsetKey(None)))
-                            .await
-                            .map_err(|_| {
-                                anyhow::anyhow!(
-                                    "addresses starting with f410f can only send to other addresses starting with f410f, or id addresses. could not find id address for {to}"
-                                )
-                            })?;
-                    }
-                    if to == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
-                        EAMMethod::CreateExternal as u64
-                    } else {
-                        EVMMethod::InvokeContract as u64
-                    }
-                } else {
-                    METHOD_SEND
-                };
+                // Resolve to ID address when sending from delegated address to non-ID/non-Delegated address.
+                if is_eth_address(&from)
+                    && to.protocol() != Protocol::ID
+                    && to.protocol() != Protocol::Delegated
+                {
+                    to = StateLookupID::call(&backend.remote, (to.clone(), ApiTipsetKey(None)))
+                        .await
+                        .map_err(|_| {
+                            anyhow::anyhow!(
+                                "addresses starting with f410f can only send to other addresses starting with f410f, or id addresses. could not find id address for {to}"
+                            )
+                        })?;
+                }
+                let method_num = resolve_method_num(&from, &to, is_0x_recipient)?;
 
                 let message = Message {
                     from,
@@ -654,5 +635,157 @@ fn format_balance(balance: &TokenAmount, no_round: bool, no_abbrev: bool) -> Str
         (false, true) => format!("{:#.4}", balance.pretty()),
         // round, relative
         (false, false) => format!("{:.4}", balance.pretty()),
+    }
+}
+
+fn resolve_target_address(target_address: &str) -> anyhow::Result<(Address, bool)> {
+    match StrictAddress::from_str(target_address) {
+        Ok(addr) => Ok((addr.into(), false)),
+        Err(_) => {
+            let eth_addr = EthAddress::from_str(target_address)
+                .context("target address must be a valid FIL address or ETH address (0x...)")?;
+            let addr = eth_addr.to_filecoin_address()?;
+            Ok((addr, true))
+        }
+    }
+}
+
+fn resolve_method_num(from: &Address, to: &Address, is_0x_recipient: bool) -> anyhow::Result<u64> {
+    if !is_eth_address(from) && !is_0x_recipient {
+        return Ok(METHOD_SEND);
+    }
+    if *to == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+        Ok(EAMMethod::CreateExternal as u64)
+    } else {
+        Ok(EVMMethod::InvokeContract as u64)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use crate::eth::{EAMMethod, EVMMethod};
+    use crate::rpc::eth::types::EthAddress;
+    use crate::shim::address::{Address, CurrentNetwork, Network};
+    use crate::shim::message::METHOD_SEND;
+
+    use super::{resolve_method_num, resolve_target_address};
+
+    #[test]
+    fn test_resolve_target_address_id() {
+        CurrentNetwork::with(Network::Mainnet, || {
+            let (addr, is_0x) = resolve_target_address("f01234").unwrap();
+            assert!(!is_0x);
+            let expected_addr = Address::new_id(1234);
+            assert_eq!(addr, expected_addr);
+        });
+        CurrentNetwork::with(Network::Testnet, || {
+            let (addr, is_0x) = resolve_target_address("t01234").unwrap();
+            assert!(!is_0x);
+            let expected_addr = Address::new_id(1234);
+            assert_eq!(addr, expected_addr);
+        });
+    }
+
+    #[test]
+    fn test_resolve_target_address_masked_id() {
+        CurrentNetwork::with(Network::Mainnet, || {
+            let (addr, is_0x) =
+                resolve_target_address("0xff000000000000000000000000000000000004d2").unwrap();
+            assert!(is_0x);
+            let expected_addr = Address::new_id(1234);
+            assert_eq!(addr, expected_addr);
+        });
+        CurrentNetwork::with(Network::Testnet, || {
+            let (addr, is_0x) =
+                resolve_target_address("0xff000000000000000000000000000000000004d2").unwrap();
+            assert!(is_0x);
+            let expected_addr = Address::new_id(1234);
+            assert_eq!(addr, expected_addr);
+        });
+    }
+
+    #[test]
+    fn test_resolve_target_address_eth() {
+        CurrentNetwork::with(Network::Mainnet, || {
+            let (addr, is_0x) =
+                resolve_target_address("0x6cb414224f0b91de5c3b616e700e34a5172c149f").unwrap();
+            assert!(is_0x);
+            let expected_addr =
+                Address::from_str("f410fns2biispboi54xb3mfxhadruuulsyfe73avfmey").unwrap();
+            assert_eq!(addr, expected_addr);
+        });
+        CurrentNetwork::with(Network::Testnet, || {
+            let (addr, is_0x) =
+                resolve_target_address("0x6cb414224f0b91de5c3b616e700e34a5172c149f").unwrap();
+            assert!(is_0x);
+            let expected_addr =
+                Address::from_str("t410fns2biispboi54xb3mfxhadruuulsyfe73avfmey").unwrap();
+            assert_eq!(addr, expected_addr);
+        });
+    }
+
+    #[test]
+    fn test_resolve_target_address_invalid() {
+        let err = resolve_target_address("0xInvalidAddress").unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("target address must be a valid FIL address or ETH address")
+        );
+    }
+
+    #[test]
+    fn test_resolve_method_num_send() {
+        let from = Address::from_str("f01234").unwrap();
+        let to = Address::from_str("f01234").unwrap();
+        let method = resolve_method_num(&from, &to, false).unwrap();
+        assert_eq!(method, METHOD_SEND);
+    }
+
+    #[test]
+    fn test_resolve_method_num_create_external() {
+        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let to = Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR;
+        let method = resolve_method_num(&from, &to, false).unwrap();
+        assert_eq!(method, EAMMethod::CreateExternal as u64);
+    }
+
+    #[test]
+    fn test_resolve_method_num_invoke_contract() {
+        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let to = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let method = resolve_method_num(&from, &to, false).unwrap();
+        assert_eq!(method, EVMMethod::InvokeContract as u64);
+    }
+
+    #[test]
+    fn test_resolve_method_num_invoke_contract_eth() {
+        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let to = EthAddress::from_str("0x6cb414224f0b91de5c3b616e700e34a5172c149f")
+            .unwrap()
+            .to_filecoin_address()
+            .unwrap();
+        let method = resolve_method_num(&from, &to, true).unwrap();
+        assert_eq!(method, EVMMethod::InvokeContract as u64);
+    }
+
+    #[test]
+    fn test_resolve_method_num_send_to_delegated() {
+        let from = Address::from_str("f01234").unwrap();
+        let to = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let method = resolve_method_num(&from, &to, false).unwrap();
+        assert_eq!(method, METHOD_SEND);
+    }
+
+    #[test]
+    fn test_resolve_method_num_send_to_eth() {
+        let from = Address::from_str("f01234").unwrap();
+        let to = EthAddress::from_str("0x6cb414224f0b91de5c3b616e700e34a5172c149f")
+            .unwrap()
+            .to_filecoin_address()
+            .unwrap();
+        let method = resolve_method_num(&from, &to, true).unwrap();
+        assert_eq!(method, EVMMethod::InvokeContract as u64);
     }
 }
