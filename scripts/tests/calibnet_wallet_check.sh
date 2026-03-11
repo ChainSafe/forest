@@ -7,22 +7,7 @@ set -euxo pipefail
 
 source "$(dirname "$0")/harness.sh"
 
-usage() {
-  echo "Usage: $0 <PRELOADED_WALLET_STRING>"
-  exit 1
-}
-
-if [ -z "$1" ]
-  then
-    usage
-fi
-
-echo "$1" > preloaded_wallet.key
-
-forest_init "$@"
-
-$FOREST_WALLET_PATH import preloaded_wallet.key
-$FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key
+forest_wallet_init "$@"
 
 # Test commented out due to it being flaky. See the tracking issue: https://github.com/ChainSafe/forest/issues/4849
 # : Begin Filecoin.MarketAddBalance test

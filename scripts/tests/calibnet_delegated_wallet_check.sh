@@ -6,7 +6,7 @@ set -euxo pipefail
 
 source "$(dirname "$0")/harness.sh"
 
-forest_init "$@"
+forest_wallet_init "$@"
 
 # Amount to send (note: `send` command defaults to FIL if no units are specified)
 FIL_AMT="500 atto FIL"
