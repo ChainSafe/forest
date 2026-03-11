@@ -512,8 +512,8 @@ impl WalletCommands {
                 {
                     to = StateLookupID::call(&backend.remote, (to.clone(), ApiTipsetKey(None)))
                         .await
-                        .map_err(|_| {
-                            anyhow::anyhow!(
+                        .with_context(|| {
+                            format!(
                                 "addresses starting with f410f can only send to other addresses starting with f410f, or id addresses. could not find id address for {to}"
                             )
                         })?;
