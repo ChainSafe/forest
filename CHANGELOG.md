@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6710](https://github.com/ChainSafe/forest/pull/6710): Added support for f4 addresses in forest-wallet.
+
 ### Changed
 
 ### Removed
@@ -44,8 +46,6 @@ This is a non-mandatory release for all node operators. It enables F3 finality r
 - [#6680](https://github.com/ChainSafe/forest/pull/6680): Made the `tokio-console` feature optional and disabled by default. Users relying on this feature must now explicitly compile Forest with `--features tokio-console` to enable it.
 
 ### Added
-
-- [#6710](https://github.com/ChainSafe/forest/pull/6710): Added support for f4 addresses in forest-wallet.
 
 ### Changed
 
