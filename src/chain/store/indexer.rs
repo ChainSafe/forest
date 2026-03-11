@@ -367,7 +367,7 @@ where
     }
 
     /// verifies that the indexed data for a tipset is correct by comparing the number of messages and events
-    /// in the chainstore to the number of messages and events indexed.
+    /// in the chain store to the number of messages and events indexed.
     async fn verify_indexed_data(
         &self,
         ts: &Tipset,
