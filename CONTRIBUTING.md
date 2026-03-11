@@ -225,7 +225,7 @@ eternally grateful and hope you will continue to contribute to the project.
 ### 📚 Improving The Documentation
 
 The documentation is currently hosted on
-[docs.forest.chainsafe.io](https://docs.forest.chainsafe.io/). If you find any
+[Forest Documentation](https://docs.forest.chainsafe.io/). If you find any
 issues with the documentation, please create an issue or contribute to the [docs directory](docs).
 
 ## Style Guides

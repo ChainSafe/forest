@@ -22,6 +22,10 @@ transform_regex = [
   "^.{1,2}$",
   # Version references like NV17, NV23, v21, FVM2
   "^[a-zA-Z]+[0-9]+$",
+  # Placeholder tokens like FIPXX, NVXX, FIPZZ
+  "^[A-Z]+XX$",
+  "^[A-Z]+YY$",
+  "^[A-Z]+ZZ$",
   # @-prefixed tokens (e.g., @theme imports in MDX)
   "^@",
   # Approximate values like ~14, ~80

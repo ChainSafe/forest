@@ -277,7 +277,7 @@ confirmed, we will take all necessary precautions to ensure a statement and
 patch release is made in a timely manner.
 
 Please email a description of the flaw and any related information (e.g.
-reproduction steps, version) to [security at chainsafe dot io].
+reproduction steps, version) to `security (at) chainsafe (dot) io`.
 
 ## License
 
@@ -290,6 +290,5 @@ Forest is dual licensed under [MIT] + [Apache 2.0].
 [Forest Q&A]: https://github.com/ChainSafe/forest/discussions/categories/forest-q-a
 [CONTRIBUTING.md]: CONTRIBUTING.md
 [Forest IaC]: https://github.com/ChainSafe/forest-iac
-[security at chainsafe dot io]: mailto:security@chainsafe.io
 [MIT]: https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT
 [Apache 2.0]: https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE
