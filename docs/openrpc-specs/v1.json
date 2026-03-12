@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.32.3"
+    "version": "0.32.4"
   },
   "methods": [
     {
@@ -9923,6 +9923,10 @@
             "default": false
           },
           "include_receipts": {
+            "type": "boolean",
+            "default": false
+          },
+          "include_tipset_keys": {
             "type": "boolean",
             "default": false
           },

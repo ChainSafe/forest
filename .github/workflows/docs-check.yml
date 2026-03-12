@@ -12,6 +12,8 @@ on:
     paths:
       - "**.md"
       - "docs/**"
+      - ".config/forest.dic"
+      - ".config/spellcheck.toml"
       - ".github/workflows/docs-check.yml"
   merge_group:
   pull_request:
@@ -20,6 +22,8 @@ on:
     paths:
       - "**.md"
       - "docs/**"
+      - ".config/forest.dic"
+      - ".config/spellcheck.toml"
       - ".github/workflows/docs-check.yml"
 
 jobs:
@@ -32,6 +36,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
-      - run: mise run docs:format-spellcheck-dictionary-check
+      - name: Check spellcheck dictionary format
+        working-directory: .
+        run: mise run format-spellcheck-dictionary-check
+      - name: Install cargo-spellcheck
+        working-directory: .
+        run: |
+          sudo apt-get install -y libclang-dev
+          cargo binstall --no-confirm cargo-spellcheck@0.15.7
+      - name: Spellcheck Markdown files
+        working-directory: .
+        run: mise run lint:spellcheck-markdown
       - run: mise run docs:lint
       - run: mise run docs:build

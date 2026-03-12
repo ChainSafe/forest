@@ -30,7 +30,7 @@ Actively-maintained repositories that are part of the Forest project are:
 
 ## Forest Explorer Faucet
 
-Forest Explorer Faucet is a serverless application that allows users to request FIL on both mainnet and calibnet. The faucet is available at [forest-explorer.chainsafe.dev/faucet](https://forest-explorer.chainsafe.dev/faucet). The code is open source and available at [github.com/ChainSafe/forest-explorer](https://github.com/ChainSafe/forest-explorer).
+Forest Explorer Faucet is a serverless application that allows users to request FIL on both mainnet and calibnet. The faucet is available at [Forest Explorer](https://forest-explorer.chainsafe.dev/faucet). The code is open source and available at [GitHub](https://github.com/ChainSafe/forest-explorer).
 
 ## Bootstrap Nodes
 
@@ -77,14 +77,14 @@ To download the latest snapshots (`v2` by default, as outlined in [`FRC-108`](ht
 
 ## Filecoin Archive
 
-Filecoin Archive is a collection of Filecoin snapshots aiming to provide a historical record of the Filecoin network. The archive is available at [forest-archive.chainsafe.dev](https://forest-archive.chainsafe.dev).
+Filecoin Archive is a collection of Filecoin snapshots aiming to provide a historical record of the Filecoin network. The archive is available at [Forest Archive](https://forest-archive.chainsafe.dev).
 
 ## Calibnet FIL and Datacap Faucet
 
 [Lotus Fountain](https://github.com/filecoin-project/lotus/blob/master/cmd/lotus-fountain/main.go)-based faucet for calibnet FIL and datacap. The faucet is available at [faucet.calibnet.chainsafe-fil.io](https://faucet.calibnet.chainsafe-fil.io).
 
 :::tip
-You can check the status of many ChainSafe services at [status.chainsafe.dev](https://status.chainsafe.dev).
+You can check the status of many ChainSafe services at [ChainSafe Status](https://status.chainsafe.dev).
 :::
 
 :::info
