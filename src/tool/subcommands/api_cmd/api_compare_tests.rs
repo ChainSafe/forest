@@ -2083,6 +2083,27 @@ fn eth_tests_with_tipset<DB: Blockstore>(
                 .with_api_path(api_path),
             ),
             RpcTest::identity(
+                EthTraceReplayBlockTransactions::request((
+                    BlockNumberOrHash::PredefinedBlock(Predefined::Latest),
+                    vec!["trace".to_string()],
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthTraceReplayBlockTransactions::request((
+                    BlockNumberOrHash::PredefinedBlock(Predefined::Safe),
+                    vec!["trace".to_string()],
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthTraceReplayBlockTransactions::request((
+                    BlockNumberOrHash::PredefinedBlock(Predefined::Finalized),
+                    vec!["trace".to_string()],
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
                 EthTraceFilter::request((EthTraceFilterCriteria {
                     from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
                     to_block: Some(format!(

@@ -1,0 +1,321 @@
+.calculator {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+}
+
+.row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-800);
+}
+
+.epochInput {
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border: 2px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  font-family: var(--ifm-font-family-monospace);
+  width: 200px;
+}
+
+.epochInput:focus {
+  outline: none;
+  border-color: var(--ifm-color-primary);
+}
+
+.networkSelect {
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border: 2px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+  min-width: 140px;
+}
+
+.networkSelect:focus {
+  outline: none;
+  border-color: var(--ifm-color-primary);
+}
+
+.modeToggle {
+  display: flex;
+  gap: 0;
+  border: 2px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.modeButton {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border: none;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.modeButton:not(:last-child) {
+  border-right: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.modeButtonActive {
+  background: var(--ifm-color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.modeDescription {
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-600);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.results {
+  margin-top: 1.5rem;
+}
+
+.segmentTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.75rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+}
+
+.segmentNote {
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-600);
+  margin: 0 0 0.75rem 0;
+  font-style: italic;
+}
+
+.snapshotList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.snapshotItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 6px;
+  background: var(--ifm-background-surface-color);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.snapshotBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.badgeLite {
+  background: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary-darkest);
+  border: 1px solid var(--ifm-color-primary);
+}
+
+.badgeDiff {
+  background: var(--ifm-color-success-contrast-background);
+  color: var(--ifm-color-success-contrast-foreground);
+  border: 1px solid var(--ifm-color-success);
+}
+
+.snapshotLink {
+  flex: 1;
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.snapshotLink:hover {
+  color: var(--ifm-color-primary-dark);
+  text-decoration: underline;
+}
+
+.snapshotMissingName {
+  flex: 1;
+  color: var(--ifm-color-emphasis-600);
+  font-style: italic;
+}
+
+.statusIndicator {
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.statusAvailable {
+  color: var(--ifm-color-success);
+  font-weight: 700;
+}
+
+.statusMissing {
+  color: var(--ifm-color-danger);
+  font-weight: 700;
+}
+
+.snapshotMissing {
+  border-color: var(--ifm-color-warning);
+  background: var(--ifm-color-warning-contrast-background);
+}
+
+.warningBanner {
+  padding: 0.75rem 1rem;
+  background: var(--ifm-color-warning-contrast-background);
+  color: var(--ifm-color-warning-contrast-foreground);
+  border: 1px solid var(--ifm-color-warning);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.missingLabel {
+  color: var(--ifm-color-danger);
+  font-weight: 600;
+}
+
+.checkingLabel {
+  color: var(--ifm-color-emphasis-600);
+  font-style: italic;
+}
+
+.summary {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--ifm-color-emphasis-100);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.summary p {
+  margin: 0.25rem 0;
+}
+
+.summaryLabel {
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-800);
+}
+
+.copyBlock {
+  margin-top: 1rem;
+}
+
+.copyButton {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--ifm-color-emphasis-400);
+  border-radius: 6px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copyButton:hover {
+  background: var(--ifm-color-emphasis-200);
+  border-color: var(--ifm-color-emphasis-600);
+}
+
+.downloadTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+}
+
+.codeBlock {
+  padding: 1rem;
+  background: var(--ifm-code-background);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  overflow-x: auto;
+  white-space: pre;
+  margin: 0 0 0.75rem 0;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.error {
+  color: var(--ifm-color-danger);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0 0;
+}
+
+@media (max-width: 768px) {
+  .controls {
+    padding: 1rem;
+  }
+
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .epochInput,
+  .networkSelect {
+    width: 100%;
+  }
+
+  .modeToggle {
+    flex-direction: column;
+  }
+
+  .modeButton:not(:last-child) {
+    border-right: none;
+    border-bottom: 1px solid var(--ifm-color-emphasis-300);
+  }
+
+  .snapshotItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}

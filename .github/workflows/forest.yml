@@ -163,6 +163,9 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
@@ -268,6 +271,33 @@ jobs:
         run: |
           if [[ "$CALIBNET_WALLET" != "" ]]; then
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+          fi
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+  calibnet-delegated-wallet-check:
+    needs:
+      - build-ubuntu
+    name: Delegated wallet tests
+    runs-on: ubuntu-24.04
+    steps:
+      - run: lscpu
+      - uses: actions/cache@v5
+        with:
+          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
+          key: proof-params-keys
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: "forest-${{ runner.os }}"
+          path: ~/.cargo/bin
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Delegated wallet commands check
+        env:
+          CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
+        run: |
+          if [[ "$CALIBNET_WALLET" != "" ]]; then
+            ./scripts/tests/calibnet_delegated_wallet_check.sh "$CALIBNET_WALLET"
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v1:

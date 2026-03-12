@@ -16,8 +16,9 @@ use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{ChainMessage, Message, SignedMessage, valid_for_block_inclusion};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
+use crate::rpc::eth::types::EthAddress;
 use crate::shim::{
-    address::Address,
+    address::{Address, Protocol},
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     gas::{Gas, price_list_by_network_version},
@@ -264,6 +265,12 @@ where
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
         if to_vec(msg)?.len() > MAX_MESSAGE_SIZE {
             return Err(Error::MessageTooBig);
+        }
+        let to = msg.message().to();
+        if to.protocol() == Protocol::Delegated {
+            EthAddress::from_filecoin_address(&to).context(format!(
+                "message recipient {to} is a delegated address but not a valid Eth Address"
+            ))?;
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
         if msg.value() > *crate::shim::econ::TOTAL_FILECOIN {

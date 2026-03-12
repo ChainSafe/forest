@@ -113,6 +113,7 @@ pnpm yaml-check
 
 [tasks.format]
 description = "Format all supported code."
+depends = ["docs:format"]
 run = '''
 cargo fmt --all
 taplo fmt
@@ -240,5 +241,5 @@ tail -n +2 .config/forest.dic | diff - "$TMPFILE"
 [tools]
 cargo-binstall = "1.17"
 go = "1.26"
-node = "20"
+node = "24"
 pnpm = "10"
