@@ -95,7 +95,7 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
                     Ok(block) => {
                         if let Err(e) = sender.send(ApiHeaders(block)) {
                             tracing::error!("Failed to send headers: {}", e);
-                            break;
+                            return;
                         }
                     }
                     Err(e) => {
