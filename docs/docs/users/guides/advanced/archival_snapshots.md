@@ -75,6 +75,13 @@ There are 10 diff snapshots between consecutive lite snapshots (30,000 / 3,000
 
 ## Figuring out which snapshots you need
 
+:::tip
+
+Use the interactive [Snapshot Calculator](./snapshot_calculator.mdx) to
+automatically determine which snapshots you need and generate download commands.
+
+:::
+
 Given a target epoch `E` and a network, follow these steps:
 
 1. **Find the base lite snapshot.** Take the largest lite epoch that is `≤ E`.
