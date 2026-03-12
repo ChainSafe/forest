@@ -8,8 +8,8 @@ import SnapshotCalculator from "@site/src/components/SnapshotCalculator";
 # Snapshot Calculator
 
 Use this tool to figure out which archival snapshots you need to download for a
-given epoch. It generates download links and a script based on the snapshot
-naming conventions.
+given epoch. It checks the [Forest Archive](https://forest-archive.chainsafe.dev/list)
+for availability and generates a download script.
 
 For background on how lite and diff snapshots work together, see the
 [Archival Snapshots guide](./archival_snapshots.md).
@@ -24,14 +24,5 @@ Needs the base lite snapshot and diffs up to the target epoch.
 lite snapshots only contain 900 epochs of state. When the target is close to
 the base lite, the calculator adds the previous segment to cover the full
 lookback. See [the validation caveat](./archival_snapshots.md#step-4-validate-optional).
-
-:::note Verify availability
-Not all snapshots may be available yet — the archive may lag behind the chain
-head. Check the listing pages before downloading:
-[mainnet lite](https://forest-archive.chainsafe.dev/list/mainnet/lite) ·
-[mainnet diff](https://forest-archive.chainsafe.dev/list/mainnet/diff) ·
-[calibnet lite](https://forest-archive.chainsafe.dev/list/calibnet/lite) ·
-[calibnet diff](https://forest-archive.chainsafe.dev/list/calibnet/diff)
-:::
 
 <SnapshotCalculator />
