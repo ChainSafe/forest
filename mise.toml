@@ -113,6 +113,7 @@ pnpm yaml-check
 
 [tasks.format]
 description = "Format all supported code."
+depends = ["docs:format"]
 run = '''
 cargo fmt --all
 taplo fmt
