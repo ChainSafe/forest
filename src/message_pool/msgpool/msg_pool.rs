@@ -9,7 +9,7 @@
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use crate::blocks::{CachingBlockHeader, Tipset};
-use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
+use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
 use crate::eth::is_valid_eth_tx_for_sending;
@@ -558,11 +558,7 @@ where
         services.spawn(async move {
             loop {
                 match subscriber.recv().await {
-                    Ok(change) => {
-                        let (reverts, applies) = match change {
-                            HeadChange::Apply(ts) => (vec![], vec![ts]),
-                            HeadChange::Revert(ts) => (vec![ts], vec![]),
-                        };
+                    Ok(HeadChanges { reverts, applies }) => {
                         head_change(
                             api.as_ref(),
                             bls_sig_cache.as_ref(),

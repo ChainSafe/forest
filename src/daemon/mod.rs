@@ -7,7 +7,6 @@ pub mod db_util;
 pub mod main;
 
 use crate::blocks::Tipset;
-use crate::chain::HeadChange;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::chain_sync::{ChainFollower, SyncStatus};
@@ -505,7 +504,7 @@ fn maybe_start_indexer_service(
 
             // Continuously listen for head changes
             loop {
-                if let HeadChange::Apply(ts) = receiver.recv().await? {
+                for ts in receiver.recv().await?.applies {
                     tracing::debug!("Indexing tipset {}", ts.key());
                     let delegated_messages =
                         chain_store.headers_delegated_messages(ts.block_headers().iter())?;

@@ -87,8 +87,8 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
     let mut subscriber = data.chain_store().publisher().subscribe();
 
     let handle = tokio::spawn(async move {
-        while let Ok(v) = subscriber.recv().await {
-            if let HeadChange::Apply(ts) = v {
+        while let Ok(changes) = subscriber.recv().await {
+            for ts in changes.applies {
                 // Convert the tipset to an Ethereum block with full transaction info
                 // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
                 match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
@@ -126,28 +126,21 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     let ctx = ctx.clone();
 
     let handle = tokio::spawn(async move {
-        while let Ok(v) = subscriber.recv().await {
-            match v {
-                HeadChange::Apply(ts) => {
-                    match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
-                        Ok(logs) => {
-                            if !logs.is_empty()
-                                && let Err(e) = sender.send(logs)
-                            {
-                                tracing::error!(
-                                    "Failed to send logs for tipset {}: {}",
-                                    ts.key(),
-                                    e
-                                );
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
+        while let Ok(changes) = subscriber.recv().await {
+            for ts in changes.applies {
+                match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
+                    Ok(logs) => {
+                        if !logs.is_empty()
+                            && let Err(e) = sender.send(logs)
+                        {
+                            tracing::error!("Failed to send logs for tipset {}: {}", ts.key(), e);
+                            break;
                         }
                     }
+                    Err(e) => {
+                        tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
+                    }
                 }
-                HeadChange::Revert(_) => {}
             }
         }
     });
@@ -849,11 +842,11 @@ impl RpcMethod<2> for ChainGetPath {
         (from, to): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        chain_get_path(ctx.chain_store(), &from, &to).map_err(Into::into)
+        Ok(chain_get_path(ctx.chain_store(), &from, &to)?.into_change_vec())
     }
 }
 
-/// Find the path between two tipsets, as a series of [`PathChange`]s.
+/// Find the path between two tipsets, as [`PathChanges`].
 ///
 /// ```text
 /// 0 - A - B - C - D
@@ -874,7 +867,7 @@ pub fn chain_get_path(
     chain_store: &ChainStore<impl Blockstore>,
     from: &TipsetKey,
     to: &TipsetKey,
-) -> anyhow::Result<Vec<PathChange>> {
+) -> anyhow::Result<PathChanges> {
     let mut to_revert = chain_store
         .load_required_tipset_or_heaviest(from)
         .context("couldn't load `from`")?;
@@ -882,8 +875,8 @@ pub fn chain_get_path(
         .load_required_tipset_or_heaviest(to)
         .context("couldn't load `to`")?;
 
-    let mut all_reverts = vec![];
-    let mut all_applies = vec![];
+    let mut reverts = vec![];
+    let mut applies = vec![];
 
     // This loop is guaranteed to terminate if the blockstore contain no cycles.
     // This is currently computationally infeasible.
@@ -892,22 +885,18 @@ pub fn chain_get_path(
             let next = chain_store
                 .load_required_tipset_or_heaviest(to_revert.parents())
                 .context("couldn't load ancestor of `from`")?;
-            all_reverts.push(to_revert);
+            reverts.push(to_revert);
             to_revert = next;
         } else {
             let next = chain_store
                 .load_required_tipset_or_heaviest(to_apply.parents())
                 .context("couldn't load ancestor of `to`")?;
-            all_applies.push(to_apply);
+            applies.push(to_apply);
             to_apply = next;
         }
     }
-
-    Ok(all_reverts
-        .into_iter()
-        .map(PathChange::Revert)
-        .chain(all_applies.into_iter().rev().map(PathChange::Apply))
-        .collect())
+    applies.reverse();
+    Ok(PathChanges { reverts, applies })
 }
 
 /// Get tipset at epoch. Pick younger tipset if epoch points to a
@@ -1329,14 +1318,15 @@ pub(crate) fn chain_notify<DB: Blockstore>(
         // Skip first message
         let _ = subscriber.recv().await;
 
-        while let Ok(v) = subscriber.recv().await {
-            let (change, tipset) = match v {
-                HeadChange::Apply(ts) => ("apply".into(), ts),
-                HeadChange::Revert(ts) => ("revert".into(), ts),
-            };
-
-            if sender.send(vec![ApiHeadChange { change, tipset }]).is_err() {
-                break;
+        while let Ok(changes) = subscriber.recv().await {
+            for change in changes.into_change_vec() {
+                let (change, tipset) = match change {
+                    HeadChange::Apply(ts) => ("apply".into(), ts),
+                    HeadChange::Revert(ts) => ("revert".into(), ts),
+                };
+                if sender.send(vec![ApiHeadChange { change, tipset }]).is_err() {
+                    break;
+                }
             }
         }
     });
@@ -1561,6 +1551,33 @@ impl HasLotusJson for PathChange {
             PathChange::Revert(it) => PathChange::Revert(Tipset::from_lotus_json(it)),
             PathChange::Apply(it) => PathChange::Apply(Tipset::from_lotus_json(it)),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct PathChanges<T = Tipset> {
+    pub reverts: Vec<T>,
+    pub applies: Vec<T>,
+}
+
+impl<T: Clone> Clone for PathChanges<T> {
+    fn clone(&self) -> Self {
+        let Self { reverts, applies } = self;
+        Self {
+            reverts: reverts.clone(),
+            applies: applies.clone(),
+        }
+    }
+}
+
+impl<T> PathChanges<T> {
+    pub fn into_change_vec(self) -> Vec<PathChange<T>> {
+        let Self { reverts, applies } = self;
+        reverts
+            .into_iter()
+            .map(PathChange::Revert)
+            .chain(applies.into_iter().map(PathChange::Apply))
+            .collect()
     }
 }
 
@@ -1791,8 +1808,9 @@ mod tests {
             )
         }
 
-        let actual =
-            chain_get_path(store, from.make_tipset().key(), to.make_tipset().key()).unwrap();
+        let actual = chain_get_path(store, from.make_tipset().key(), to.make_tipset().key())
+            .unwrap()
+            .into_change_vec();
         let expected = expected
             .into_iter()
             .map(|change| match change {

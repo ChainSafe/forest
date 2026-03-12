@@ -6,7 +6,6 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::interpreter::{BlockMessages, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::{ChainConfig, Height};
@@ -27,6 +26,10 @@ use crate::{
     rpc::chain::PathChange,
 };
 use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
+use crate::{
+    interpreter::{BlockMessages, VMTrace},
+    rpc::chain::PathChanges,
+};
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
@@ -52,12 +55,14 @@ pub type ChainEpochDelta = ChainEpoch;
 /// contained in message type.
 pub type HeadChange = PathChange<Tipset>;
 
+pub type HeadChanges = PathChanges<Tipset>;
+
 /// Stores chain data such as heaviest tipset and cached tipset info at each
 /// epoch. This structure is thread-safe, and all caches are wrapped in a mutex
 /// to allow a consistent `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
     /// Publisher for head change events
-    publisher: Publisher<HeadChange>,
+    publisher: Publisher<HeadChanges>,
 
     /// key-value `datastore`.
     db: Arc<DB>,
@@ -125,7 +130,9 @@ where
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let validated_blocks = Mutex::new(HashSet::default());
         let head = if let Ok(head_tsk) = heaviest_tipset_key_provider.heaviest_tipset_key()
-            && let Ok(head) = chain_index.load_required_tipset(&head_tsk)
+            && let Some(head) = chain_index
+                .load_tipset(&head_tsk)
+                .context("failed to load head tipset")?
         {
             head
         } else {
@@ -156,17 +163,8 @@ where
 
         match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key()) {
             Ok(changes) => {
-                for change in changes {
-                    let change_text = match &change {
-                        HeadChange::Apply(ts) => format!("apply@{}: {}", ts.epoch(), ts.key()),
-                        HeadChange::Revert(ts) => {
-                            format!("revert@{}: {}", ts.epoch(), ts.key())
-                        }
-                    };
-                    tracing::info!("head change: {change_text}");
-                    if self.publisher.send(change).is_err() {
-                        debug!("did not publish change, no active receivers");
-                    }
+                if self.publisher.send(changes).is_err() {
+                    debug!("did not publish changes, no active receivers");
                 }
             }
             Err(e) => {
@@ -233,7 +231,7 @@ where
     }
 
     /// Returns a reference to the publisher of head changes.
-    pub fn publisher(&self) -> &Publisher<HeadChange> {
+    pub fn publisher(&self) -> &Publisher<HeadChanges> {
         &self.publisher
     }
 
