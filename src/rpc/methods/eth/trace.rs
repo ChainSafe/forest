@@ -676,15 +676,13 @@ fn trace_evm_private(
 }
 
 /// Returns the effective nonce for an actor: EVM nonce for EVM actors, sequence otherwise.
-fn actor_nonce<DB: Blockstore>(store: &DB, actor: &ActorState) -> EthUint64 {
+fn actor_nonce<DB: Blockstore>(store: &DB, actor: &ActorState) -> anyhow::Result<EthUint64> {
     if is_evm_actor(&actor.code) {
-        EthUint64::from(
-            evm::State::load(store, actor.code, actor.state)
-                .map(|s| s.nonce())
-                .unwrap_or(actor.sequence),
-        )
+        let evm_state = evm::State::load(store, actor.code, actor.state)
+            .context("failed to load EVM state for nonce")?;
+        Ok(EthUint64::from(evm_state.nonce()))
     } else {
-        EthUint64::from(actor.sequence)
+        Ok(EthUint64::from(actor.sequence))
     }
 }
 
@@ -745,8 +743,8 @@ fn build_account_diff<DB: Blockstore>(
     diff.balance = Delta::from_comparison(pre_balance, post_balance);
 
     // Compare nonce
-    let pre_nonce = pre_actor.map(|a| actor_nonce(store, a));
-    let post_nonce = post_actor.map(|a| actor_nonce(store, a));
+    let pre_nonce = pre_actor.map(|a| actor_nonce(store, a)).transpose()?;
+    let post_nonce = post_actor.map(|a| actor_nonce(store, a)).transpose()?;
     diff.nonce = Delta::from_comparison(pre_nonce, post_nonce);
 
     // Compare code (bytecode for EVM actors)
@@ -1480,7 +1478,7 @@ mod tests {
     fn test_actor_nonce_non_evm() {
         let store = MemoryDB::default();
         let actor = create_test_actor(1000, 42);
-        let nonce = actor_nonce(&store, &actor);
+        let nonce = actor_nonce(&store, &actor).unwrap();
         assert_eq!(nonce.0, 42);
     }
 
@@ -1488,7 +1486,7 @@ mod tests {
     fn test_actor_nonce_evm() {
         let store = Arc::new(MemoryDB::default());
         if let Some(actor) = create_evm_actor_with_bytecode(&store, 1000, 0, 7, Some(&[0x60])) {
-            let nonce = actor_nonce(store.as_ref(), &actor);
+            let nonce = actor_nonce(store.as_ref(), &actor).unwrap();
             // EVM actors use the EVM nonce field, not the actor sequence
             assert_eq!(nonce.0, 7);
         }
