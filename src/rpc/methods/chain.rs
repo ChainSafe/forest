@@ -1319,14 +1319,13 @@ pub(crate) fn chain_notify<DB: Blockstore>(
         let _ = subscriber.recv().await;
 
         while let Ok(changes) = subscriber.recv().await {
-            for change in changes.into_change_vec() {
-                let (change, tipset) = match change {
-                    HeadChange::Apply(ts) => ("apply".into(), ts),
-                    HeadChange::Revert(ts) => ("revert".into(), ts),
-                };
-                if sender.send(vec![ApiHeadChange { change, tipset }]).is_err() {
-                    break;
-                }
+            let api_changes = changes
+                .into_change_vec()
+                .into_iter()
+                .map(From::from)
+                .collect();
+            if sender.send(api_changes).is_err() {
+                break;
             }
         }
     });
@@ -1496,6 +1495,21 @@ pub struct ApiHeadChange {
     pub tipset: Tipset,
 }
 lotus_json_with_self!(ApiHeadChange);
+
+impl From<HeadChange> for ApiHeadChange {
+    fn from(change: HeadChange) -> Self {
+        match change {
+            HeadChange::Apply(tipset) => Self {
+                change: "apply".into(),
+                tipset,
+            },
+            HeadChange::Revert(tipset) => Self {
+                change: "revert".into(),
+                tipset,
+            },
+        }
+    }
+}
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(tag = "Type", content = "Val", rename_all = "snake_case")]
