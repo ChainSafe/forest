@@ -559,7 +559,7 @@ where
             loop {
                 match subscriber.recv().await {
                     Ok(HeadChanges { reverts, applies }) => {
-                        head_change(
+                        if let Err(e) = head_change(
                             api.as_ref(),
                             bls_sig_cache.as_ref(),
                             repub_trigger.clone(),
@@ -570,10 +570,12 @@ where
                             applies,
                         )
                         .await
-                        .context("Error changing head")?;
+                        {
+                            tracing::warn!("Error changing head: {e}");
+                        }
                     }
                     Err(RecvError::Lagged(e)) => {
-                        warn!("Head change subscriber lagged: skipping {} events", e);
+                        warn!("Head change subscriber lagged: skipping {e} events");
                     }
                     Err(RecvError::Closed) => {
                         break Ok(());
