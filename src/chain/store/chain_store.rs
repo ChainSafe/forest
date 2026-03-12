@@ -66,7 +66,7 @@ pub struct ChainStore<DB> {
     heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
 
     /// Heaviest tipset cache
-    heaviest_tipset_cache: Arc<RwLock<Option<Tipset>>>,
+    heaviest_tipset_cache: Arc<RwLock<Tipset>>,
 
     /// Used as a cache for tipset `lookbacks`.
     chain_index: Arc<ChainIndex<Arc<DB>>>,
@@ -124,14 +124,20 @@ where
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let validated_blocks = Mutex::new(HashSet::default());
-
+        let head = if let Ok(head_tsk) = heaviest_tipset_key_provider.heaviest_tipset_key()
+            && let Ok(head) = chain_index.load_required_tipset(&head_tsk)
+        {
+            head
+        } else {
+            Tipset::from(&genesis_block_header)
+        };
         let cs = Self {
             publisher,
             chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,
             heaviest_tipset_key_provider,
-            heaviest_tipset_cache: Default::default(),
+            heaviest_tipset_cache: Arc::new(RwLock::new(head)),
             genesis_block_header,
             validated_blocks,
             eth_mappings,
@@ -145,24 +151,26 @@ where
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(head.key())?;
-        let old_head = (*self.heaviest_tipset_cache.write()).replace(head.clone());
+        let old_head = std::mem::replace(&mut *self.heaviest_tipset_cache.write(), head.clone());
         head.key().save(self.blockstore())?;
-        if let Some(old_head) = old_head {
-            match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key()) {
-                Ok(changes) => {
-                    for change in changes {
-                        if self.publisher.send(change).is_err() {
-                            debug!("did not publish change, no active receivers");
+
+        match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key()) {
+            Ok(changes) => {
+                for change in changes {
+                    let change_text = match &change {
+                        HeadChange::Apply(ts) => format!("apply@{}: {}", ts.epoch(), ts.key()),
+                        HeadChange::Revert(ts) => {
+                            format!("revert@{}: {}", ts.epoch(), ts.key())
                         }
+                    };
+                    tracing::info!("head change: {change_text}");
+                    if self.publisher.send(change).is_err() {
+                        debug!("did not publish change, no active receivers");
                     }
                 }
-                Err(e) => {
-                    warn!("failed to get chain path changes: {e}")
-                }
             }
-        } else {
-            if self.publisher.send(HeadChange::Apply(head)).is_err() {
-                debug!("did not publish head change, no active receivers");
+            Err(e) => {
+                warn!("failed to get chain path changes: {e}")
             }
         }
 
@@ -216,16 +224,7 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Tipset {
-        if let Some(ts) = &*self.heaviest_tipset_cache.read() {
-            return ts.clone();
-        }
-        let tsk = self
-            .heaviest_tipset_key_provider
-            .heaviest_tipset_key()
-            .unwrap_or_else(|_| TipsetKey::from(nunny::vec![*self.genesis_block_header.cid()]));
-        self.chain_index
-            .load_required_tipset(&tsk)
-            .expect("failed to load heaviest tipset")
+        self.heaviest_tipset_cache.read().clone()
     }
 
     /// Returns the genesis tipset.
