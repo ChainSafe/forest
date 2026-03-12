@@ -32,3 +32,4 @@
 !eth_getTransactionByBlockNumberAndIndex
 !Filecoin.ChainSetHead
 !Filecoin.EthTraceFilter
+!Filecoin.EthTraceReplayBlockTransactions
