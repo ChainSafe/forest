@@ -868,12 +868,20 @@ pub fn chain_get_path(
     from: &TipsetKey,
     to: &TipsetKey,
 ) -> anyhow::Result<PathChanges> {
+    let finality = chain_store.chain_config().policy.chain_finality;
     let mut to_revert = chain_store
         .load_required_tipset_or_heaviest(from)
         .context("couldn't load `from`")?;
     let mut to_apply = chain_store
         .load_required_tipset_or_heaviest(to)
         .context("couldn't load `to`")?;
+
+    anyhow::ensure!(
+        (to_apply.epoch() - to_revert.epoch()).abs() <= finality,
+        "the gap between the new head ({}) and the old head ({}) is larger than chain finality ({finality})",
+        to_apply.epoch(),
+        to_revert.epoch()
+    );
 
     let mut reverts = vec![];
     let mut applies = vec![];
