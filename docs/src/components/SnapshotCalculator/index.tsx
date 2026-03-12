@@ -106,7 +106,7 @@ function computeRequired(epoch: number, mode: Mode): SnapshotSpec[] {
 
 function generateDownloadScript(snapshots: ResolvedSnapshot[]): string {
   const available = snapshots.filter((s) => s.downloadUrl !== null);
-  const missing = snapshots.filter((s) => s.downloadUrl === null);
+  const missing = snapshots.filter((s) => s.availability === "missing");
 
   const lines = ["#!/usr/bin/env bash", "set -euo pipefail", ""];
 
@@ -174,7 +174,9 @@ async function fetchSnapshotIndex(
   const responses = await Promise.all(
     endpoints.map(async (ep) => {
       const resp = await fetch(ep.url, { signal });
-      if (!resp.ok) return { type: ep.type, items: [] as ListingItem[] };
+      if (!resp.ok) {
+        throw new Error(`${ep.url}: ${resp.status} ${resp.statusText}`);
+      }
       const data: ListingResponse = await resp.json();
       return { type: ep.type, items: data.items ?? [] };
     }),
@@ -212,6 +214,7 @@ function useSnapshotIndex(network: Network): {
     const cached = cacheRef.current[network];
     if (cached !== null) {
       setIndex(cached);
+      setError(false);
       return;
     }
 
