@@ -30,7 +30,7 @@ $FOREST_WALLET_PATH export "$DELEGATE_ADDR_ONE" > delegated_wallet.key
 $FOREST_WALLET_PATH --remote-wallet import delegated_wallet.key
 
 # Fund delegated wallet from preloaded wallet
-DELEGATE_FUND_AMT="3 micro FIL"
+DELEGATE_FUND_AMT="2 micro FIL"
 $FOREST_WALLET_PATH set-default "$ADDR_ONE"
 MSG_DELEGATE_FUND=$($FOREST_WALLET_PATH send "$DELEGATE_ADDR_ONE" "$DELEGATE_FUND_AMT")
 : "$MSG_DELEGATE_FUND"
