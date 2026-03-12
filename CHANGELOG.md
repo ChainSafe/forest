@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6710](https://github.com/ChainSafe/forest/pull/6710): Added support for f4 addresses in forest-wallet.
+
 ### Changed
 
 ### Removed

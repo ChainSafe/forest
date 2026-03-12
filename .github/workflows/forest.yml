@@ -273,6 +273,33 @@ jobs:
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+  calibnet-delegated-wallet-check:
+    needs:
+      - build-ubuntu
+    name: Delegated wallet tests
+    runs-on: ubuntu-24.04
+    steps:
+      - run: lscpu
+      - uses: actions/cache@v5
+        with:
+          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
+          key: proof-params-keys
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: "forest-${{ runner.os }}"
+          path: ~/.cargo/bin
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Delegated wallet commands check
+        env:
+          CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
+        run: |
+          if [[ "$CALIBNET_WALLET" != "" ]]; then
+            ./scripts/tests/calibnet_delegated_wallet_check.sh "$CALIBNET_WALLET"
+          fi
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v1:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'Release')) }}
     needs:
