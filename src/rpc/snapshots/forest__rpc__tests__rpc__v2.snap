@@ -2024,6 +2024,10 @@ components:
           anyOf:
             - $ref: "#/components/schemas/EthBigInt"
             - type: "null"
+        input:
+          anyOf:
+            - $ref: "#/components/schemas/EthBytes"
+            - type: "null"
         to:
           anyOf:
             - $ref: "#/components/schemas/EthAddress"
@@ -2211,27 +2215,32 @@ components:
         - blockHash
         - blockNumber
     EthReplayBlockTransactionTrace:
+      description: "Result payload returned by `trace_call`."
       type: object
       properties:
         output:
+          description: Output bytes from the transaction execution.
           $ref: "#/components/schemas/EthBytes"
         stateDiff:
-          type:
-            - string
-            - "null"
+          description: State diff showing all account changes.
+          anyOf:
+            - $ref: "#/components/schemas/StateDiff"
+            - type: "null"
         trace:
+          description: Call trace hierarchy (empty when not requested).
           type: array
+          default: []
           items:
             $ref: "#/components/schemas/EthTrace"
         transactionHash:
           $ref: "#/components/schemas/EthHash"
         vmTrace:
+          description: "`None` because FVM does not support opcode-level VM traces."
           type:
             - string
             - "null"
       required:
         - output
-        - trace
         - transactionHash
     EthSyncingResultLotusJson:
       anyOf:

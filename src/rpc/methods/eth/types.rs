@@ -317,13 +317,20 @@ pub struct EthCallMessage {
     pub gas_price: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<EthBigInt>,
-    // Some clients use `input`, others use `data`. We have to support both.
-    #[serde(alias = "input", skip_serializing_if = "Option::is_none", default)]
+    // Some clients use `input`, others use `data`; both accepted, `input` takes precedence.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub data: Option<EthBytes>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub input: Option<EthBytes>,
 }
 lotus_json_with_self!(EthCallMessage);
 
 impl EthCallMessage {
+    /// Returns the effective calldata, preferring `input` over `data` when both are set.
+    pub fn effective_input(&self) -> Option<&EthBytes> {
+        self.input.as_ref().or(self.data.as_ref())
+    }
+
     pub fn convert_data_to_message_params(data: EthBytes) -> anyhow::Result<RawBytes> {
         if data.0.is_empty() {
             Ok(RawBytes::new(data.0))
@@ -353,7 +360,8 @@ impl TryFrom<EthCallMessage> for Message {
             }
         };
         let params = tx
-            .data
+            .effective_input()
+            .cloned()
             .map(EthCallMessage::convert_data_to_message_params)
             .transpose()?
             .unwrap_or_default();
@@ -638,6 +646,54 @@ impl Default for TraceResult {
     }
 }
 
+/// Selects which trace outputs to include in the `trace_call` response.
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum EthTraceType {
+    /// Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
+    /// with details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`.
+    Trace,
+    /// Requests a state difference object, detailing changes to account states (e.g., `balance`, `nonce`, `storage`, `code`)
+    /// caused by the simulated transaction.
+    ///
+    /// It shows `"from"` and `"to"` values for modified fields, using `"+"`, `"-"`, or `"="` for code changes.
+    StateDiff,
+}
+
+lotus_json_with_self!(EthTraceType);
+
+/// Result payload returned by `trace_call`.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthTraceResults {
+    /// Output bytes from the transaction execution.
+    pub output: EthBytes,
+    /// State diff showing all account changes.
+    pub state_diff: Option<StateDiff>,
+    /// Call trace hierarchy (empty when not requested).
+    #[serde(default)]
+    pub trace: Vec<EthTrace>,
+}
+
+lotus_json_with_self!(EthTraceResults);
+
+impl EthTraceResults {
+    /// Constructs from Parity traces, extracting output from the root trace.
+    pub fn from_parity_traces(traces: Vec<EthTrace>) -> Self {
+        let output = traces
+            .first()
+            .map_or_else(EthBytes::default, |trace| match &trace.result {
+                TraceResult::Call(r) => r.output.clone(),
+                TraceResult::Create(r) => r.code.clone(),
+            });
+        Self {
+            output,
+            state_diff: None,
+            trace: traces,
+        }
+    }
+}
+
 #[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTrace {
@@ -675,10 +731,10 @@ impl EthBlockTrace {
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthReplayBlockTransactionTrace {
-    pub output: EthBytes,
-    pub state_diff: Option<String>,
-    pub trace: Vec<EthTrace>,
+    #[serde(flatten)]
+    pub full_trace: EthTraceResults,
     pub transaction_hash: EthHash,
+    /// `None` because FVM does not support opcode-level VM traces.
     pub vm_trace: Option<String>,
 }
 lotus_json_with_self!(EthReplayBlockTransactionTrace);

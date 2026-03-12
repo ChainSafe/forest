@@ -33,6 +33,18 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use tracing::debug;
 
+/// Error string used in Parity-format traces.
+pub(crate) const PARITY_TRACE_REVERT_ERROR: &str = "Reverted";
+
+const PARITY_EVM_INVALID_INSTRUCTION: &str = "invalid instruction";
+const PARITY_EVM_UNDEFINED_INSTRUCTION: &str = "undefined instruction";
+const PARITY_EVM_STACK_UNDERFLOW: &str = "stack underflow";
+const PARITY_EVM_STACK_OVERFLOW: &str = "stack overflow";
+const PARITY_EVM_ILLEGAL_MEMORY_ACCESS: &str = "illegal memory access";
+const PARITY_EVM_BAD_JUMPDEST: &str = "invalid jump destination";
+const PARITY_EVM_SELFDESTRUCT_FAILED: &str = "self destruct failed";
+const PARITY_EVM_OUT_OF_GAS: &str = "out of gas";
+
 /// KAMT configuration matching the EVM actor in builtin-actors.
 // Code is taken from: https://github.com/filecoin-project/builtin-actors/blob/v17.0.0/actors/evm/src/interpreter/system.rs#L47
 fn evm_kamt_config() -> KamtConfig {
@@ -112,7 +124,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
 
     // EVM tools often expect this literal string.
     if code == ExitCode::SYS_OUT_OF_GAS {
-        return Some("out of gas".into());
+        return Some(PARITY_EVM_OUT_OF_GAS.into());
     }
 
     // indicate when we have a "system" error.
@@ -123,18 +135,22 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
     // handle special exit codes from the EVM/EAM.
     if trace_is_evm_or_eam(trace) {
         match code.into() {
-            evm12::EVM_CONTRACT_REVERTED => return Some("Reverted".into()), // capitalized for compatibility
-            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => return Some("invalid instruction".into()),
+            evm12::EVM_CONTRACT_REVERTED => return Some(PARITY_TRACE_REVERT_ERROR.into()), // capitalized for compatibility
+            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => {
+                return Some(PARITY_EVM_INVALID_INSTRUCTION.into());
+            }
             evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => {
-                return Some("undefined instruction".into());
+                return Some(PARITY_EVM_UNDEFINED_INSTRUCTION.into());
             }
-            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some("stack underflow".into()),
-            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some("stack overflow".into()),
+            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some(PARITY_EVM_STACK_UNDERFLOW.into()),
+            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some(PARITY_EVM_STACK_OVERFLOW.into()),
             evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => {
-                return Some("illegal memory access".into());
+                return Some(PARITY_EVM_ILLEGAL_MEMORY_ACCESS.into());
             }
-            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some("invalid jump destination".into()),
-            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => return Some("self destruct failed".into()),
+            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some(PARITY_EVM_BAD_JUMPDEST.into()),
+            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => {
+                return Some(PARITY_EVM_SELFDESTRUCT_FAILED.into());
+            }
             _ => (),
         }
     }
@@ -659,6 +675,32 @@ fn trace_evm_private(
     }
 }
 
+/// Returns the effective nonce for an actor: EVM nonce for EVM actors, sequence otherwise.
+fn actor_nonce<DB: Blockstore>(store: &DB, actor: &ActorState) -> EthUint64 {
+    if is_evm_actor(&actor.code) {
+        EthUint64::from(
+            evm::State::load(store, actor.code, actor.state)
+                .map(|s| s.nonce())
+                .unwrap_or(actor.sequence),
+        )
+    } else {
+        EthUint64::from(actor.sequence)
+    }
+}
+
+/// Returns the deployed bytecode of an EVM actor, or `None` for non-EVM actors.
+fn actor_bytecode<DB: Blockstore>(store: &DB, actor: &ActorState) -> Option<EthBytes> {
+    if !is_evm_actor(&actor.code) {
+        return None;
+    }
+    let evm_state = evm::State::load(store, actor.code, actor.state).ok()?;
+    store
+        .get(&evm_state.bytecode())
+        .ok()
+        .flatten()
+        .map(EthBytes)
+}
+
 /// Build state diff by comparing pre and post-execution states for touched addresses.
 pub(crate) fn build_state_diff<S: Blockstore, T: Blockstore>(
     store: &S,
@@ -702,41 +744,14 @@ fn build_account_diff<DB: Blockstore>(
     let post_balance = post_actor.map(|a| EthBigInt(a.balance.atto().clone()));
     diff.balance = Delta::from_comparison(pre_balance, post_balance);
 
-    // Helper to get nonce from actor (uses EVM nonce for EVM actors)
-    let get_nonce = |actor: &ActorState| -> EthUint64 {
-        if is_evm_actor(&actor.code) {
-            EthUint64::from(
-                evm::State::load(store, actor.code, actor.state)
-                    .map(|s| s.nonce())
-                    .unwrap_or(actor.sequence),
-            )
-        } else {
-            EthUint64::from(actor.sequence)
-        }
-    };
-
-    // Helper to get bytecode from an EVM actor
-    let get_bytecode = |actor: &ActorState| -> Option<EthBytes> {
-        if !is_evm_actor(&actor.code) {
-            return None;
-        }
-
-        let evm_state = evm::State::load(store, actor.code, actor.state).ok()?;
-        store
-            .get(&evm_state.bytecode())
-            .ok()
-            .flatten()
-            .map(EthBytes)
-    };
-
     // Compare nonce
-    let pre_nonce = pre_actor.map(get_nonce);
-    let post_nonce = post_actor.map(get_nonce);
+    let pre_nonce = pre_actor.map(|a| actor_nonce(store, a));
+    let post_nonce = post_actor.map(|a| actor_nonce(store, a));
     diff.nonce = Delta::from_comparison(pre_nonce, post_nonce);
 
     // Compare code (bytecode for EVM actors)
-    let pre_code = pre_actor.and_then(get_bytecode);
-    let post_code = post_actor.and_then(get_bytecode);
+    let pre_code = pre_actor.and_then(|a| actor_bytecode(store, a));
+    let post_code = post_actor.and_then(|a| actor_bytecode(store, a));
     diff.code = Delta::from_comparison(pre_code, post_code);
 
     // Compare storage slots for EVM actors
@@ -1459,5 +1474,50 @@ mod tests {
 
         // Code should be unchanged (None -> None for non-EVM actors)
         assert!(diff.code.is_unchanged());
+    }
+
+    #[test]
+    fn test_actor_nonce_non_evm() {
+        let store = MemoryDB::default();
+        let actor = create_test_actor(1000, 42);
+        let nonce = actor_nonce(&store, &actor);
+        assert_eq!(nonce.0, 42);
+    }
+
+    #[test]
+    fn test_actor_nonce_evm() {
+        let store = Arc::new(MemoryDB::default());
+        if let Some(actor) = create_evm_actor_with_bytecode(&store, 1000, 0, 7, Some(&[0x60])) {
+            let nonce = actor_nonce(store.as_ref(), &actor);
+            // EVM actors use the EVM nonce field, not the actor sequence
+            assert_eq!(nonce.0, 7);
+        }
+    }
+
+    #[test]
+    fn test_actor_bytecode_non_evm() {
+        let store = MemoryDB::default();
+        let actor = create_test_actor(1000, 0);
+        assert!(actor_bytecode(&store, &actor).is_none());
+    }
+
+    #[test]
+    fn test_actor_bytecode_evm() {
+        let store = Arc::new(MemoryDB::default());
+        let bytecode = &[0x60, 0x80, 0x60, 0x40, 0x52];
+        if let Some(actor) = create_evm_actor_with_bytecode(&store, 1000, 0, 1, Some(bytecode)) {
+            let result = actor_bytecode(store.as_ref(), &actor);
+            assert_eq!(result, Some(EthBytes(bytecode.to_vec())));
+        }
+    }
+
+    #[test]
+    fn test_actor_bytecode_evm_no_bytecode() {
+        let store = Arc::new(MemoryDB::default());
+        if let Some(actor) = create_evm_actor_with_bytecode(&store, 1000, 0, 1, None) {
+            // No bytecode stored => None (Cid::default() won't resolve to raw data)
+            let result = actor_bytecode(store.as_ref(), &actor);
+            assert!(result.is_none());
+        }
     }
 }
