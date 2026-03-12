@@ -9545,6 +9545,10 @@
             "type": "boolean",
             "default": false
           },
+          "include_tipset_keys": {
+            "type": "boolean",
+            "default": false
+          },
           "output_path": {
             "type": "string"
           },
