@@ -349,7 +349,7 @@ where
             .headers_delegated_messages(ts.block_headers().iter())?,
     );
     tracing::trace!("Indexing tipset @{}: {}", epoch, &tsk);
-    state_manager.chain_store().put_tipset_key(&tsk)?;
+    tsk.save(state_manager.blockstore())?;
 
     Ok(())
 }

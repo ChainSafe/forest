@@ -23,7 +23,7 @@ This guide walks you through exporting a Forest wallet (`f4` address) to MetaMas
 
 :::info
 
-You can list your wallets and their balances using `forest-wallet list`. Make sure to identify the correct `f4` address you want to export. Refer to the [wallets guide](./interacting_with_wallets.md) for more details on managing wallets in Forest.
+You can list your wallets and their balances using `forest-wallet list`. Make sure to identify the correct `f4` address you want to export. Refer to the [wallets guide](./interacting_with_wallets) for more details on managing wallets in Forest.
 
 :::
 
@@ -97,5 +97,5 @@ MetaMask displays addresses in Ethereum format (`0x...`). This is normal - it's 
 
 ## Related Resources
 
-- [Interacting with Wallets](./interacting_with_wallets.md)
+- [Interacting with Wallets](./interacting_with_wallets)
 - [Filecoin Address Types](https://docs.filecoin.io/smart-contracts/filecoin-evm-runtime/address-types)

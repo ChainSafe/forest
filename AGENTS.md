@@ -113,9 +113,9 @@ mise clean
 - **`chain_sync/`** - Chain synchronization, consensus (`ChainFollower`, `ChainMuxer`)
 - **`state_manager/`** - State tree management and FVM execution coordinator
 - **`rpc/`** - JSON-RPC API server with authentication and filtering middleware
-- **`libp2p/`** - P2P networking (peer discovery, chain exchange, gossipsub)
+- **`libp2p/`** - P2P networking (peer discovery, chain exchange, `gossipsub`)
 - **`message_pool/`** - Transaction pool for pending messages
-- **`db/`** - Database abstraction layer (ParityDb, MemoryDB, CAR format)
+- **`db/`** - Database abstraction layer (ParityDb, `MemoryDB`, CAR format)
 - **`interpreter/`** - Filecoin Virtual Machine (FVM) integration (multi-version)
 - **`blocks/`** - Block and tipset structures
 - **`shim/`** - Filecoin protocol primitives (actors, crypto, addresses, state tree)
@@ -136,7 +136,7 @@ pub struct ChainStore<DB> where DB: Blockstore { ... }
 
 **State Management**: `StateManager` is the central coordinator for state transitions, actor queries, and FVM execution. It caches state roots and receipts in `TipsetStateCache`.
 
-**Multi-version FVM**: Supports FVM2, FVM3, and FVM4 for different network versions. Stack size management with `stacker::grow()` is required for WASM execution.
+**Multi-version FVM**: Supports `FVM2`, `FVM3`, and `FVM4` for different network versions. Stack size management with `stacker::grow()` is required for WASM execution.
 
 ### Daemon Startup Flow
 
@@ -152,7 +152,7 @@ pub struct ChainStore<DB> where DB: Blockstore { ... }
 
 ### Chain Synchronization
 
-**ChainFollower** orchestrates synchronization:
+**`ChainFollower`** orchestrates synchronization:
 
 - Receives tipsets from network peers
 - Validates blocks via `TipsetSyncer` and `TipsetValidator`
@@ -174,7 +174,7 @@ Major RPC namespaces: `auth::`, `chain::`, `state::`, `mpool::`, `eth::`, `net::
 
 ### FVM Integration
 
-**Version Selection**: Network version determines FVM version (FVM2 for v1-v15, FVM3 for v16-v20, FVM4 for v21+)
+**Version Selection**: Network version determines FVM version (`FVM2` for v1-v15, `FVM3` for v16-v20, `FVM4` for v21+)
 
 **VM Execution Flow**:
 
@@ -200,10 +200,10 @@ Libp2p protocols:
 
 - **Chain Exchange** - Fetch blocks and messages during sync
 - **Hello** - Exchange peer info and genesis CID
-- **Gossipsub** - Broadcast new blocks and messages
+- **`Gossipsub`** - Broadcast new blocks and messages
 - **Bitswap** - IPLD block exchange (legacy)
 - **Kademlia DHT** - Peer discovery
-- **mDNS** - Local network discovery
+- **`mDNS`** - Local network discovery
 
 **Peer Manager** tracks peer quality, manages connections, and scores peers based on message validity.
 
@@ -232,7 +232,7 @@ Special stores:
 
 Supports legacy transactions, EIP-155, and EIP-1559. Provides standard Ethereum RPC methods (`eth_call`, `eth_sendTransaction`, `eth_getTransactionReceipt`, `eth_subscribe`, etc.)
 
-**Address Mapping**: EVM addresses map to Filecoin f4 (delegated) addresses. Precompiles provide Filecoin-specific operations.
+**Address Mapping**: EVM addresses map to Filecoin f4 (delegated) addresses. `Precompiles` provide Filecoin-specific operations.
 
 ## Project-Specific Patterns
 
@@ -246,9 +246,9 @@ some_operation().context("Failed to execute VM")?
 
 ### Async/Await
 
-- Tokio runtime for async execution
+- `Tokio` runtime for async execution
 - Use `tokio::task::spawn_blocking` for CPU-intensive work (VM execution, cryptography)
-- Channel-based communication between tasks (flume, tokio channels)
+- Channel-based communication between tasks (flume, `tokio` channels)
 
 ### Module Organization
 
@@ -262,7 +262,7 @@ Each module has:
 
 - **No indexing** - Use `.get()` instead of `[index]` (enforced by clippy)
 - **No unwrap in production** - Use `?` or `expect()` with descriptive messages
-- **No dbg! or todo!** - Enforced in non-test code
+- **No `dbg!` or `todo!`** - Enforced in non-test code
 - Use `strum` for enum string conversions
 - Use `derive_more` for common trait implementations
 
@@ -354,23 +354,6 @@ lldb target/debugging/forest
 - `RUST_LOG` - Logging configuration (e.g., `debug`, `forest=trace`)
 - `FULLNODE_API_INFO` - RPC endpoint and authentication token
 - `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT` - Disable F3 sidecar build (for debugging profile)
-
-## Cargo Features
-
-- **`default`** - `jemalloc`, `tokio-console`, `tracing-loki`, `tracing-chrome`
-- **`test`** - Default feature set for unit tests
-- **`slim`** - Minimal feature set (uses rustalloc)
-- **`jemalloc`** - Use jemalloc allocator (production default)
-- **`rustalloc`** - Use Rust standard allocator
-- **`system-alloc`** - Use system allocator (for memory profiling)
-- **`tokio-console`** - Enable tokio-console integration
-- **`tracing-loki`** - Send telemetry to Loki
-- **`tracing-chrome`** - Chrome tracing support
-- **`no-f3-sidecar`** - Disable F3 sidecar build
-- **`cargo-test`** - Group of tests that is recommended to run with `cargo test` instead of `nextest`
-- **`doctest-private`** - Enable doctests for private items
-- **`benchmark-private`** - Enable benchmark suite
-- **`interop-tests-private`** - Enable interop tests
 
 ## Build Profiles
 

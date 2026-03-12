@@ -29,7 +29,7 @@ use ahash::HashMap;
 use anyhow::Context as _;
 use enumflags2::{BitFlags, bitflags, make_bitflags};
 use fvm_ipld_blockstore::Blockstore;
-use http::Uri;
+use http::{Extensions, Uri};
 use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
@@ -80,6 +80,7 @@ pub trait RpcMethod<const ARITY: usize> {
     fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
+        ext: &Extensions,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
     /// If it a subscription method. Defaults to false.
     const SUBSCRIPTION: bool = false;
@@ -270,10 +271,10 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             {
                 module.register_async_method(
                     Self::NAME,
-                    move |params, ctx, _extensions| async move {
+                    move |params, ctx, extensions| async move {
                         let params = Self::parse_params(params.as_str(), calling_convention)
                             .map_err(|e| Error::invalid_params(e, None))?;
-                        let ok = Self::handle(ctx, params).await?;
+                        let ok = Self::handle(ctx, params, &extensions).await?;
                         Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
                     },
                 )?;
@@ -285,19 +286,20 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         Ok(())
     }
     /// Returns [`Err`] if any of the parameters fail to serialize.
-    fn request(params: Self::Params) -> Result<crate::rpc::Request<Self::Ok>, serde_json::Error> {
+    fn request(params: Self::Params) -> serde_json::Result<crate::rpc::Request<Self::Ok>> {
         // hardcode calling convention because lotus is by-position only
         let params = Self::request_params(params)?;
         Ok(crate::rpc::Request {
             method_name: Self::NAME.into(),
             params,
             result_type: std::marker::PhantomData,
-            api_paths: Self::API_PATHS,
+            api_path: crate::rpc::Request::<Self::Ok>::max_api_path(Self::API_PATHS)
+                .map_err(serde_json::Error::custom)?,
             timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
         })
     }
 
-    fn request_params(params: Self::Params) -> Result<serde_json::Value, serde_json::Error> {
+    fn request_params(params: Self::Params) -> serde_json::Result<serde_json::Value> {
         // hardcode calling convention because lotus is by-position only
         Ok(
             match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
@@ -334,7 +336,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             method_name: name.into(),
             params,
             result_type: std::marker::PhantomData,
-            api_paths: Self::API_PATHS,
+            api_path: crate::rpc::Request::<Self::Ok>::max_api_path(Self::API_PATHS)?,
             timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
         })
     }
@@ -360,6 +362,12 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 .await
                 .map(Self::Ok::from_lotus_json)
         }
+    }
+
+    fn api_path(ext: &http::Extensions) -> anyhow::Result<ApiPaths> {
+        ext.get::<ApiPaths>()
+            .copied()
+            .context("failed to resolve api path")
     }
 }
 impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> {}

@@ -1,11 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain_sync::SyncStatusReport;
 use crate::{
     KeyStore, KeyStoreConfig,
     chain::ChainStore,
-    chain_sync::network_context::SyncNetworkContext,
+    chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
     db::{
         MemoryDB,
         car::{AnyCar, ManyCar},
@@ -102,13 +101,14 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
             s if s.is_empty() => None,
             s => Some(s),
         };
-
+    let mut ext = http::Extensions::new();
+    ext.insert(api_path);
     macro_rules! run_test {
         ($ty:ty) => {
             if method_name.as_str() == <$ty>::NAME && <$ty>::API_PATHS.contains(api_path) {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)
                     .context("failed to parse params")?;
-                let result = <$ty>::handle(ctx.clone(), params)
+                let result = <$ty>::handle(ctx.clone(), params, &ext)
                     .await
                     .map(|r| r.into_lotus_json())
                     .map_err(|e| e.inner().to_string());
@@ -116,7 +116,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
                     Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
                     Err(e) => Err(e),
                 };
-                assert_eq!(result, expected);
+                pretty_assertions::assert_eq!(result, expected);
                 run = true;
             }
         };

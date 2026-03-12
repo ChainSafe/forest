@@ -2,7 +2,7 @@
 description = "Installs all Forest binaries with a specified profile."
 usage = '''
 arg "<profile>" help="Installation profile (quick, release, etc.)" default="release" {
-   choices "quick" "release" "release-lto-fat" "dev" "debugging" "profiling"
+   choices "quick" "quick-test" "release" "release-lto-fat" "dev" "debugging" "profiling"
 }
 flag "--slim" help="Install a slim version"
 flag "-v --verbose" help="Enable verbose output"
@@ -21,7 +21,7 @@ alias = 'i'
 [tasks.install-lint-tools]
 description = "Installs linting tools for CI"
 tools.cargo-binstall = "latest"
-run = "cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-deny"
+run = "cargo binstall --no-confirm taplo-cli cargo-spellcheck@0.15.7 cargo-deny"
 
 [tasks."lint:deny"]
 description = "Run cargo-deny to check for license and security issues."
@@ -30,7 +30,7 @@ cargo deny check bans licenses sources || (echo "See deny.toml"; false)
 '''
 
 [tasks."lint:spellcheck"]
-description = "Run cargo-spellcheck to check for spelling errors."
+description = "Run cargo-spellcheck to check for spelling errors in Rust code."
 run = '''
 cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
 '''
@@ -135,9 +135,17 @@ description = "Lint documentation files."
 dir = "docs"
 run = '''
 pnpm i --frozen-lockfile
+pnpm generate:rpc-reference
 pnpm typecheck
-pnpm spellcheck
 pnpm format-check
+'''
+
+[tasks."docs:build"]
+description = "Build documentation site."
+dir = "docs"
+run = '''
+pnpm i --frozen-lockfile
+pnpm build
 '''
 
 [tasks.clean]
@@ -152,8 +160,8 @@ rm -rf node_modules
 # We need to run them separately.
 description = "Run doctests."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
@@ -163,8 +171,8 @@ cargo test --doc --profile ${usage_profile?} --no-default-features --features "t
 [tasks."test:nextest"]
 description = "Run Rust unit and integration tests except `cargo-test` group with nextest."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
@@ -175,8 +183,8 @@ cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-default-fea
 [tasks."test:cargo"]
 description = "Run Rust unit, integration and doc tests of `cargo-test` group with cargo test."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
@@ -187,8 +195,8 @@ cargo test --lib --profile ${usage_profile?} --workspace --no-default-features -
 [tasks.test]
 description = "Run all tests."
 usage = '''
-arg "<profile>" help="Build profile (quick, release, etc.)" default="quick" {
-   choices "quick" "release" "dev"
+arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
+   choices "quick" "quick-test" "release" "dev"
 }
 '''
 run = '''
@@ -203,27 +211,34 @@ run = '''
 cargo llvm-cov -p forest-filecoin --codecov --no-default-features --features "test cargo-test" --output-path lcov.info
 '''
 
-[tasks."docs:format-spellcheck-dictionary"]
+[tasks."format-spellcheck-dictionary"]
 description = "Format and deduplicate the spellcheck dictionary."
-dir = "docs"
 run = '''
 TMPFILE=$(mktemp)
-cat dictionary.txt | sort --ignore-case | uniq > "$TMPFILE"
-mv "$TMPFILE" dictionary.txt
+# Skip first line (word count), sort, deduplicate, then re-add count
+tail -n +2 .config/forest.dic | sort --ignore-case | uniq > "$TMPFILE"
+COUNT=$(wc -l < "$TMPFILE")
+{ echo "$COUNT"; cat "$TMPFILE"; } > .config/forest.dic
+rm "$TMPFILE"
 '''
 
-[tasks."docs:format-spellcheck-dictionary-check"]
+[tasks."format-spellcheck-dictionary-check"]
 description = "Check if spellcheck dictionary is properly formatted."
-dir = "docs"
 run = '''
 TMPFILE=$(mktemp)
 trap "rm -f $TMPFILE" EXIT
-cat dictionary.txt | sort --ignore-case | uniq > "$TMPFILE"
-diff dictionary.txt "$TMPFILE"
+tail -n +2 .config/forest.dic | sort --ignore-case | uniq > "$TMPFILE"
+COUNT=$(wc -l < "$TMPFILE")
+EXPECTED=$(head -1 .config/forest.dic)
+if [ "$COUNT" != "$EXPECTED" ]; then
+  echo "Word count mismatch: expected $EXPECTED, got $COUNT"
+  exit 1
+fi
+tail -n +2 .config/forest.dic | diff - "$TMPFILE"
 '''
 
 [tools]
-cargo-binstall = "1.16.6"
-go = "1.26.0"
+cargo-binstall = "1.17"
+go = "1.26"
 node = "20"
 pnpm = "10"

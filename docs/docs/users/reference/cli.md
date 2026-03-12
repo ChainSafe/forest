@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.32.0
+forest-filecoin 0.32.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.32.0
+forest-filecoin 0.32.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.32.0
+forest-filecoin 0.32.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1022,7 +1022,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.32.0
+forest-filecoin 0.32.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1781,7 +1781,7 @@ Options:
       --filter <FILTER>
           Filter which tests to run according to method name. Case sensitive
 
-          [default: ]
+          [default: ""]
 
       --filter-file <FILTER_FILE>
           Filter file which tests to run according to method name. Case sensitive. The file should contain one entry per line. Lines starting with `!` are considered as rejected methods, while the others are allowed. Empty lines and lines starting with `#` are ignored
@@ -2115,7 +2115,7 @@ Options:
 ## `forest-dev`
 
 ```
-forest-filecoin 0.32.0
+forest-filecoin 0.32.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2125,6 +2125,7 @@ USAGE:
 SUBCOMMANDS:
   fetch-test-snapshots  Fetch test snapshots to the local cache
   state                 Interact with Filecoin chain state
+  update-checkpoints    Update known blocks (checkpoints), normally in `build/known_blocks.yaml`, by querying RPC endpoints
   help                  Print this message or the help of the given subcommand(s)
 
 OPTIONS:

@@ -71,13 +71,14 @@ mod tests {
     #[test]
     fn read_config_with_path() {
         let default_config = Config::default();
-        let path: PathBuf = "config.toml".into();
+        let temp_dir = tempfile::tempdir().expect("couldn't create temp dir");
+        let config_file = temp_dir.path().join("config.toml");
         let serialized_config = toml::to_string(&default_config).unwrap();
-        std::fs::write(path.clone(), serialized_config).unwrap();
+        std::fs::write(&config_file, serialized_config).unwrap();
 
-        let (config_path, config) = read_config(Some(&path), None).unwrap();
+        let (config_path, config) = read_config(Some(&config_file), None).unwrap();
 
-        assert_eq!(config_path.unwrap(), ConfigPath::Cli(path));
+        assert_eq!(config_path.unwrap(), ConfigPath::Cli(config_file));
         assert_eq!(config.chain(), &NetworkChain::Mainnet);
         assert_eq!(config, default_config);
     }

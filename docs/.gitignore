@@ -8,6 +8,9 @@
 # Docusaurus Build Directory
 /build/
 
+# Generated RPC reference data
+/src/data/rpc-methods.json
+
 ### Docusaurus.Node Stack ###
 # Logs
 logs

@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.32.1"
+version = "0.32.4"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -57,6 +57,7 @@ clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 colored = "3"
 criterion = { version = "0.8", default-features = false, features = ["async_tokio"], optional = true }
+crossbeam-utils = "0.8"
 crypto_secretbox = "0.1"
 data-encoding = "2"
 data-encoding-macro = "0.1"
@@ -94,6 +95,7 @@ fvm4 = { package = "fvm", version = "~4.7", default-features = false, features =
 fvm_actor_utils = "14"
 fvm_ipld_blockstore = "0.3.1"
 fvm_ipld_encoding = "0.5.3"
+fvm_ipld_kamt = "0.4.5"
 fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["proofs"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["proofs"] }
@@ -106,8 +108,7 @@ hashlink = { workspace = true }
 hex = { version = "0.4", features = ["serde"] }
 hickory-resolver = { version = "0.25", default-features = false, features = ["system-config", "tokio"] }
 http = "1"
-human-repr = "1"
-human_bytes = "0.4"
+human-repr = { version = "1", features = ["iec", "space"] }
 humantime = "2"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.18", features = ["tokio"] }
@@ -202,8 +203,7 @@ spire_enum = "1"
 stacker = "0.1"
 static_assertions = "1"
 statrs = "0.18"
-strum = { version = "0.27", features = ["derive"] }
-strum_macros = "0.27"
+strum = { version = "0.28", features = ["derive", "strum_macros"] }
 tabled = { version = "0.20", default-features = false, features = ["std"] }
 tap = "1"
 tar = "0.4"
@@ -230,7 +230,6 @@ zstd = "0.13"
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
 sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
 tikv-jemallocator = { version = "0.6", optional = true }
-tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -258,8 +257,9 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.319"
+ra_ap_syntax = "0.0.323"
 regex-automata = "0.4"
+rstest = "0.26"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
@@ -296,6 +296,10 @@ lto = "off"
 incremental = true
 codegen-units = 256
 
+[profile.quick-test]
+inherits = "quick"
+panic = "unwind"
+
 [profile.profiling]
 inherits = "dev"
 opt-level = 0
@@ -316,13 +320,13 @@ lto = "fat"
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome", "sqlite"]
-test = []                                                                           # default feature set for unit tests
+default = ["jemalloc", "tracing-loki", "sqlite"]
+test = []                                        # default feature set for unit tests
 slim = ["rustalloc"]
-cargo-test = []                                                                     # group of tests that is recommended to run with `cargo test` instead of `nextest`
-doctest-private = []                                                                # see lib.rs::doctest_private
-benchmark-private = ["dep:criterion"]                                               # see lib.rs::benchmark_private
-interop-tests-private = []                                                          # see lib.rs::interop_tests_private
+cargo-test = []                                  # group of tests that is recommended to run with `cargo test` instead of `nextest`
+doctest-private = []                             # see lib.rs::doctest_private
+benchmark-private = ["dep:criterion"]            # see lib.rs::benchmark_private
+interop-tests-private = []                       # see lib.rs::interop_tests_private
 sqlite = ["dep:sqlx"]
 
 # Allocator. Use at most one of these.
@@ -332,7 +336,6 @@ system-alloc = []                    # Use the platform allocator (for memory pr
 
 tokio-console = ["dep:console-subscriber"]
 tracing-loki = ["dep:tracing-loki"]
-tracing-chrome = ["dep:tracing-chrome"]
 
 no-f3-sidecar = []
 

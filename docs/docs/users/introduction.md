@@ -40,18 +40,18 @@ Forest consists of multiple binaries:
 - `forest-tool` - Utilities for maintaining and debugging Forest
 - `forest-wallet` - Manage the built-in wallet
 
-Check out the [CLI docs](./reference/cli.md) for more details.
+Check out the [CLI docs](./reference/cli) for more details.
 
 ## Roadmap Updates
 
-Checkout [Github Discussions](https://github.com/ChainSafe/forest/discussions/categories/announcements) for monthly updates and roadmap announcements.
+Checkout [GitHub Discussions](https://github.com/ChainSafe/forest/discussions/categories/announcements) for monthly updates and roadmap announcements.
 
 ## Connect with Us
 
-- Bug reports and feature requests: [Open an issue on Github](https://github.com/ChainSafe/forest/issues/new/choose)
+- Bug reports and feature requests: [Open an issue on GitHub](https://github.com/ChainSafe/forest/issues/new/choose)
 - Questions, Comments, Feedback:
   - [Filecoin Slack](https://filecoin.io/slack): `#fil-forest-help`, `#fil-forest-dev` or `#fil-forest-announcements`
-  - [Forest Github Discussions](https://github.com/ChainSafe/forest/discussions)
+  - [Forest GitHub Discussions](https://github.com/ChainSafe/forest/discussions)
 - Partnerships or Hand-on Support: forest (at) chainsafe [dot] io
 
 ## Contributing

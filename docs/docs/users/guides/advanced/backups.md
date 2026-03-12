@@ -59,4 +59,4 @@ recommended outside development.
 
 ### CLI reference
 
-Details on the `forest-tool backup` command and its subcommands can be found at the [CLI reference](../../reference/cli.md#forest-tool-backup).
+Details on the `forest-tool backup` command and its subcommands can be found at the [CLI reference](../../reference/cli#forest-tool-backup).

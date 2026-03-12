@@ -15,7 +15,7 @@ use crate::shim::{
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
-use crate::state_manager::StateLookupPolicy;
+use crate::state_manager::{StateLookupPolicy, VMFlush};
 use anyhow::{Context, Result};
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
@@ -43,6 +43,7 @@ impl RpcMethod<3> for GasEstimateFeeCap {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (msg, max_queue_blks, tsk): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         estimate_fee_cap(&ctx, &msg, max_queue_blks, &tsk).map(|n| TokenAmount::to_string(&n))
     }
@@ -90,6 +91,7 @@ impl RpcMethod<4> for GasEstimateGasPremium {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (nblocksincl, _sender, _gas_limit, tsk): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         estimate_gas_premium(&ctx, nblocksincl, &tsk)
             .await
@@ -207,6 +209,7 @@ impl RpcMethod<2> for GasEstimateGasLimit {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (msg, tsk): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(Self::estimate_gas_limit(&ctx, msg, &tsk).await?)
     }
@@ -255,7 +258,7 @@ impl GasEstimateGasLimit {
             _ => ChainMessage::Unsigned(msg),
         };
 
-        let (invoc_res, apply_ret, _) = data
+        let (invoc_res, apply_ret, _, _) = data
             .state_manager
             .call_with_gas(
                 &mut chain_msg,
@@ -263,6 +266,7 @@ impl GasEstimateGasLimit {
                 Some(ts.clone()),
                 trace_config,
                 StateLookupPolicy::Enabled,
+                VMFlush::Skip,
             )
             .await?;
         Ok((invoc_res, apply_ret, prior_messages, ts))
@@ -310,6 +314,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (msg, spec, tsk): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let message = estimate_message_gas(&ctx, msg, spec, tsk).await?;
         let cid = message.cid();

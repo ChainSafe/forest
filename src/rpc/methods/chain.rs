@@ -68,7 +68,7 @@ const HEAD_CHANNEL_CAPACITY: usize = 10;
 /// Discussion on this current value and a tracking item to document the
 /// probabilistic impact of various values is in
 /// https://github.com/filecoin-project/go-f3/issues/944
-const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
+pub const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
 
 static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
     LazyLock::new(|| Mutex::new(None));
@@ -172,6 +172,7 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let head = ctx.chain_store().heaviest_tipset();
         let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
@@ -201,7 +202,7 @@ async fn get_f3_finality_tipset<DB: Blockstore + Sync + Send + 'static>(
     ctx: &Ctx<DB>,
     ec_finality_epoch: ChainEpoch,
 ) -> Result<Tipset> {
-    let f3_finalized_cert = crate::rpc::f3::F3GetLatestCertificate::handle(ctx.clone(), ())
+    let f3_finalized_cert = crate::rpc::f3::F3GetLatestCertificate::get()
         .await
         .map_err(|e| anyhow::anyhow!("Failed to get F3 certificate: {}", e))?;
 
@@ -239,6 +240,7 @@ impl RpcMethod<1> for ChainGetMessage {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (message_cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let chain_message: ChainMessage = ctx
             .store()
@@ -270,6 +272,7 @@ impl RpcMethod<1> for ChainGetEvents {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (root_cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let events = EthEventHandler::get_events_by_event_root(&ctx, &root_cid)?;
         Ok(events)
@@ -291,6 +294,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.store();
         let block_header: CachingBlockHeader = store
@@ -320,6 +324,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (block_cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.store();
         let block_header: CachingBlockHeader = store
@@ -365,6 +370,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tipset_key),): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx
             .chain_store()
@@ -386,6 +392,7 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     async fn handle(
         _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (blocking,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         if let Some(gc) = crate::daemon::GLOBAL_SNAPSHOT_GC.get() {
             let progress_rx = gc.trigger()?;
@@ -401,7 +408,7 @@ pub enum ForestChainExport {}
 impl RpcMethod<1> for ForestChainExport {
     const NAME: &'static str = "Forest.ChainExport";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ForestChainExportParams,);
@@ -410,6 +417,7 @@ impl RpcMethod<1> for ForestChainExport {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (params,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ForestChainExportParams {
             version,
@@ -417,6 +425,9 @@ impl RpcMethod<1> for ForestChainExport {
             recent_roots,
             output_path,
             tipset_keys: ApiTipsetKey(tsk),
+            include_receipts,
+            include_events,
+            include_tipset_keys,
             skip_checksum,
             dry_run,
         } = params;
@@ -440,6 +451,9 @@ impl RpcMethod<1> for ForestChainExport {
 
         let options = Some(ExportOptions {
             skip_checksum,
+            include_receipts,
+            include_events,
+            include_tipset_keys,
             seen: Default::default(),
         });
         let writer = if dry_run {
@@ -526,13 +540,17 @@ pub enum ForestChainExportStatus {}
 impl RpcMethod<0> for ForestChainExportStatus {
     const NAME: &'static str = "Forest.ChainExportStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = ApiExportStatus;
 
-    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let mutex = CHAIN_EXPORT_STATUS.lock();
 
         let progress = if mutex.initial_epoch == 0 {
@@ -563,13 +581,17 @@ pub enum ForestChainExportCancel {}
 impl RpcMethod<0> for ForestChainExportCancel {
     const NAME: &'static str = "Forest.ChainExportCancel";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = bool;
 
-    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         if let Some(token) = CHAIN_EXPORT_LOCK.lock().await.as_ref() {
             token.cancel();
             return Ok(true);
@@ -583,7 +605,7 @@ pub enum ForestChainExportDiff {}
 impl RpcMethod<1> for ForestChainExportDiff {
     const NAME: &'static str = "Forest.ChainExportDiff";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ForestChainExportDiffParams,);
@@ -592,6 +614,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (params,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ForestChainExportDiffParams {
             from,
@@ -655,6 +678,7 @@ impl RpcMethod<1> for ChainExport {
             skip_checksum,
             dry_run,
         },): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         ForestChainExport::handle(
             ctx,
@@ -664,9 +688,13 @@ impl RpcMethod<1> for ChainExport {
                 recent_roots,
                 output_path,
                 tipset_keys,
+                include_receipts: false,
+                include_events: false,
+                include_tipset_keys: false,
                 skip_checksum,
                 dry_run,
             },),
+            ext,
         )
         .await
     }
@@ -688,6 +716,7 @@ impl RpcMethod<1> for ChainReadObj {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let bytes = ctx
             .store()
@@ -712,6 +741,7 @@ impl RpcMethod<1> for ChainHasObj {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.store().get(&cid)?.is_some())
     }
@@ -732,6 +762,7 @@ impl RpcMethod<2> for ChainStatObj {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (obj_cid, base_cid): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut stats = ObjStat::default();
         let mut seen = CidHashSet::default();
@@ -785,6 +816,7 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (block_cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let blk: CachingBlockHeader = ctx.store().get_cbor_required(&block_cid)?;
         let (unsigned_cids, signed_cids) = crate::chain::read_msg_cids(ctx.store(), &blk)?;
@@ -816,6 +848,7 @@ impl RpcMethod<2> for ChainGetPath {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (from, to): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         impl_chain_get_path(ctx.chain_store(), &from, &to).map_err(Into::into)
     }
@@ -894,6 +927,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (height, ApiTipsetKey(tipset_key)): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .chain_store()
@@ -923,6 +957,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (height, ApiTipsetKey(tipset_key)): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .chain_store()
@@ -944,7 +979,11 @@ impl RpcMethod<0> for ChainGetGenesis {
     type Params = ();
     type Ok = Option<Tipset>;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let genesis = ctx.chain_store().genesis_block_header();
         Ok(Some(Tipset::from(genesis)))
     }
@@ -961,7 +1000,11 @@ impl RpcMethod<0> for ChainHead {
     type Params = ();
     type Ok = Tipset;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let heaviest = ctx.chain_store().heaviest_tipset();
         Ok(heaviest)
     }
@@ -981,6 +1024,7 @@ impl RpcMethod<1> for ChainGetBlock {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (block_cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let blk: CachingBlockHeader = ctx.store().get_cbor_required(&block_cid)?;
         Ok(blk)
@@ -988,6 +1032,7 @@ impl RpcMethod<1> for ChainGetBlock {
 }
 
 pub enum ChainGetTipSet {}
+
 impl RpcMethod<1> for ChainGetTipSet {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
@@ -1001,6 +1046,7 @@ impl RpcMethod<1> for ChainGetTipSet {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (ApiTipsetKey(tsk),): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         if let Some(tsk) = &tsk {
             let ts = ctx.chain_index().load_required_tipset(tsk)?;
@@ -1021,13 +1067,13 @@ impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_anchor(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         anchor: &Option<TipsetAnchor>,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         if let Some(anchor) = anchor {
             match (&anchor.key.0, &anchor.tag) {
                 // Anchor is zero-valued. Fall back to heaviest tipset.
-                (None, None) => Ok(Some(ctx.state_manager.heaviest_tipset())),
+                (None, None) => Ok(ctx.state_manager.heaviest_tipset()),
                 // Get tipset at the specified key.
-                (Some(tsk), None) => Ok(Some(ctx.chain_index().load_required_tipset(tsk)?)),
+                (Some(tsk), None) => Ok(ctx.chain_index().load_required_tipset(tsk)?),
                 (None, Some(tag)) => Self::get_tipset_by_tag(ctx, *tag).await,
                 _ => {
                     anyhow::bail!("invalid anchor")
@@ -1042,11 +1088,11 @@ impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_tag(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         tag: TipsetTag,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         match tag {
-            TipsetTag::Latest => Ok(Some(ctx.state_manager.heaviest_tipset())),
+            TipsetTag::Latest => Ok(ctx.state_manager.heaviest_tipset()),
             TipsetTag::Finalized => Self::get_latest_finalized_tipset(ctx).await,
-            TipsetTag::Safe => Some(Self::get_latest_safe_tipset(ctx).await).transpose(),
+            TipsetTag::Safe => Self::get_latest_safe_tipset(ctx).await,
         }
     }
 
@@ -1056,9 +1102,7 @@ impl ChainGetTipSetV2 {
         let finalized = Self::get_latest_finalized_tipset(ctx).await?;
         let head = ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        if let Some(finalized) = finalized
-            && finalized.epoch() >= safe_height
-        {
+        if finalized.epoch() >= safe_height {
             Ok(finalized)
         } else {
             Ok(ctx.chain_index().tipset_by_height(
@@ -1071,10 +1115,8 @@ impl ChainGetTipSetV2 {
 
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-    ) -> anyhow::Result<Option<Tipset>> {
-        let Ok(f3_finalized_cert) =
-            crate::rpc::f3::F3GetLatestCertificate::handle(ctx.clone(), ()).await
-        else {
+    ) -> anyhow::Result<Tipset> {
+        let Ok(f3_finalized_cert) = crate::rpc::f3::F3GetLatestCertificate::get().await else {
             return Self::get_ec_finalized_tipset(ctx);
         };
 
@@ -1095,43 +1137,38 @@ impl ChainGetTipSetV2 {
                     f3_finalized_head.key,
                 )
             })?;
-        Ok(Some(ts))
+        Ok(ts)
     }
 
-    pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Option<Tipset>> {
+    pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
         let head = ctx.chain_store().heaviest_tipset();
-        let ec_finality_epoch = head.epoch() - ctx.chain_config().policy.chain_finality;
-        if ec_finality_epoch >= 0 {
-            let ts = ctx.chain_index().tipset_by_height(
-                ec_finality_epoch,
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?;
-            Ok(Some(ts))
-        } else {
-            Ok(None)
-        }
+        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
+        Ok(ctx.chain_index().tipset_by_height(
+            ec_finality_epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?)
     }
 
     pub async fn get_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         selector: &TipsetSelector,
-    ) -> anyhow::Result<Option<Tipset>> {
+    ) -> anyhow::Result<Tipset> {
         selector.validate()?;
         // Get tipset by key.
         if let ApiTipsetKey(Some(tsk)) = &selector.key {
             let ts = ctx.chain_index().load_required_tipset(tsk)?;
-            return Ok(Some(ts));
+            return Ok(ts);
         }
         // Get tipset by height.
         if let Some(height) = &selector.height {
             let anchor = Self::get_tipset_by_anchor(ctx, &height.anchor).await?;
             let ts = ctx.chain_index().tipset_by_height(
                 height.at,
-                anchor.unwrap_or_else(|| ctx.chain_store().heaviest_tipset()),
+                anchor,
                 height.resolve_null_tipset_policy(),
             )?;
-            return Ok(Some(ts));
+            return Ok(ts);
         }
         // Get tipset by tag, either latest or finalized.
         if let Some(tag) = &selector.tag {
@@ -1139,15 +1176,6 @@ impl ChainGetTipSetV2 {
             return Ok(ts);
         }
         anyhow::bail!("no tipset found for selector")
-    }
-
-    pub async fn get_required_tipset(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        selector: &TipsetSelector,
-    ) -> anyhow::Result<Tipset> {
-        Self::get_tipset(ctx, selector)
-            .await?
-            .context("failed to select a tipset")
     }
 }
 
@@ -1159,11 +1187,12 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
     type Params = (TipsetSelector,);
-    type Ok = Option<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (selector,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(Self::get_tipset(&ctx, &selector).await?)
     }
@@ -1182,6 +1211,7 @@ impl RpcMethod<1> for ChainSetHead {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (tsk,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // This is basically a port of the reference implementation at
         // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
@@ -1214,6 +1244,7 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (lookback,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut current = ctx.chain_store().heaviest_tipset();
         let mut min_base_fee = current.block_headers().first().parent_base_fee.clone();
@@ -1244,6 +1275,7 @@ impl RpcMethod<1> for ChainTipSetWeight {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (ApiTipsetKey(tipset_key),): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .chain_store()
@@ -1266,6 +1298,7 @@ impl RpcMethod<1> for ChainGetTipsetByParentState {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (parent_state,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx
             .chain_store()
@@ -1429,6 +1462,12 @@ pub struct ForestChainExportParams {
     #[schemars(with = "LotusJson<ApiTipsetKey>")]
     #[serde(with = "crate::lotus_json")]
     pub tipset_keys: ApiTipsetKey,
+    #[serde(default)]
+    pub include_receipts: bool,
+    #[serde(default)]
+    pub include_events: bool,
+    #[serde(default)]
+    pub include_tipset_keys: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }

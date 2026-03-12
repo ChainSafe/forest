@@ -30,6 +30,7 @@ impl RpcMethod<1> for WalletBalance {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let heaviest_ts = ctx.chain_store().heaviest_tipset();
         let cid = heaviest_ts.parent_state();
@@ -51,7 +52,11 @@ impl RpcMethod<0> for WalletDefaultAddress {
     type Params = ();
     type Ok = Option<Address>;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read();
         Ok(crate::key_management::get_default(&keystore)?)
     }
@@ -70,6 +75,7 @@ impl RpcMethod<1> for WalletExport {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read();
         let key_info = crate::key_management::export_key_info(&address, &keystore)?;
@@ -92,6 +98,7 @@ impl RpcMethod<1> for WalletHas {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read();
         Ok(crate::key_management::find_key(&address, &keystore).is_ok())
@@ -111,6 +118,7 @@ impl RpcMethod<1> for WalletImport {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (key_info,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let key = Key::try_from(key_info)?;
 
@@ -134,7 +142,11 @@ impl RpcMethod<0> for WalletList {
     type Params = ();
     type Ok = Vec<Address>;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read();
         Ok(crate::key_management::list_addrs(&keystore)?)
     }
@@ -153,6 +165,7 @@ impl RpcMethod<1> for WalletNew {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (signature_type,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut keystore = ctx.keystore.write();
         let key = crate::key_management::generate_key(signature_type)?;
@@ -181,6 +194,7 @@ impl RpcMethod<1> for WalletSetDefault {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut keystore = ctx.keystore.write();
         let addr_string = format!("wallet-{address}");
@@ -206,6 +220,7 @@ impl RpcMethod<2> for WalletSign {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, message): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
@@ -246,6 +261,7 @@ impl RpcMethod<2> for WalletSignMessage {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, message): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
@@ -288,7 +304,11 @@ impl RpcMethod<1> for WalletValidateAddress {
     type Params = (String,);
     type Ok = Address;
 
-    async fn handle(_: Ctx<impl Any>, (s,): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _: Ctx<impl Any>,
+        (s,): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(s.parse()?)
     }
 }
@@ -306,6 +326,7 @@ impl RpcMethod<3> for WalletVerify {
     async fn handle(
         _: Ctx<impl Any>,
         (address, message, signature): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(signature.verify(&message, &address).is_ok())
     }
@@ -324,6 +345,7 @@ impl RpcMethod<1> for WalletDelete {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut keystore = ctx.keystore.write();
         crate::key_management::remove_key(&address, &mut keystore)?;

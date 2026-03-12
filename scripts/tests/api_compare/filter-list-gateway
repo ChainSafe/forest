@@ -39,8 +39,10 @@
 !Filecoin.StateMinerAllocated
 !Filecoin.StateMinerAvailableBalance
 !Filecoin.StateMinerFaults
+!Filecoin.StateMinerInitialPledgeCollateral
 !Filecoin.StateMinerInitialPledgeForSector
 !Filecoin.StateMinerPartitions
+!Filecoin.StateMinerPreCommitDepositForPower
 !Filecoin.StateMinerRecoveries
 !Filecoin.StateMinerSectorAllocated
 !Filecoin.StateMinerSectors
@@ -54,7 +56,3 @@
 !Filecoin.WalletSignMessage
 !Filecoin.WalletValidateAddress
 !Filecoin.WalletVerify
-
-# broken
-!Filecoin.EthCall
-!Filecoin.EthSyncing

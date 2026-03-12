@@ -36,7 +36,6 @@ env:
   CXX: sccache clang++
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   SHELL_IMAGE: busybox
-  FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH: /var/tmp/forest_snapshot_calibnet_latest.forest.car.zst
 jobs:
   build-macos:
     name: Build MacOS
@@ -60,6 +59,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
       - name: Cargo Check
         run: cargo check
   build-ubuntu:
@@ -84,6 +84,10 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
       - uses: jdx/mise-action@v3
       - name: Go tests
         run: |
@@ -93,7 +97,7 @@ jobs:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
         run: mise run install --slim quick
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: "forest-${{ runner.os }}"
           path: |
@@ -122,7 +126,7 @@ jobs:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -144,11 +148,11 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -158,6 +162,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
@@ -177,11 +182,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -203,11 +208,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -228,7 +233,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -250,7 +255,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -278,7 +283,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -300,7 +305,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -322,7 +327,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -344,7 +349,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -365,7 +370,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -387,11 +392,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -417,11 +422,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -446,7 +451,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -480,7 +485,7 @@ jobs:
             $SHELL_IMAGE \
             sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
@@ -527,7 +532,7 @@ jobs:
             $SHELL_IMAGE \
             sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
@@ -564,7 +569,7 @@ jobs:
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
       - name: Run bootstrap tests
@@ -583,7 +588,7 @@ jobs:
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
       - run: ./scripts/optimize_disk_space_gh_worker.sh
@@ -610,7 +615,7 @@ jobs:
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
       - name: Run api compare tests

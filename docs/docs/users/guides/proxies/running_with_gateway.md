@@ -30,7 +30,7 @@ That's it! Forest should now be available only through the Lotus Gateway. You ca
 curl http://localhost:5432/rpc/v1 -X POST -H "Content-Type: application/json" --data '{"method":"Filecoin.ChainHead","params":[], "id":1,"jsonrpc":"2.0"}'
 ```
 
-## 🌲Forest + 🪷 Lotus Gateway + 🐳 Docker Compose = ❤️
+## 🌲 Forest + 🪷 Lotus Gateway + 🐳 Docker Compose = ❤️
 
 If you want to run Forest and Lotus Gateway in a Docker container, you can use Docker Compose. Ensure you have [docker](https://www.docker.com/) installed. This will:
 

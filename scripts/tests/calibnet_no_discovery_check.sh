@@ -11,7 +11,6 @@ function shutdown {
 
 trap shutdown EXIT
 
-handle_auto_download_snapshot_env
 $FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --exit-after-init
 $FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --log-dir "$LOG_DIRECTORY" &
 FOREST_NODE_PID=$!

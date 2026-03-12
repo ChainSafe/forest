@@ -9,7 +9,7 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "build": "docusaurus build",
+    "build": "pnpm generate:rpc-reference && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
@@ -17,17 +17,17 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "spellcheck": "spellchecker -f \"./docs/**/*.md\" -l en-US -q  -d ./dictionary.txt",
     "format-check": "prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "generate:rpc-reference": "tsx scripts/generate-rpc-reference.ts"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
     "@docusaurus/preset-classic": "^3.9.2",
     "@docusaurus/theme-mermaid": "^3.9.2",
-    "@easyops-cn/docusaurus-search-local": "^0.54.1",
+    "@easyops-cn/docusaurus-search-local": "^0.55.1",
     "mdx-mermaid": "^2.0.3",
-    "mermaid": "^11.12.2",
+    "mermaid": "^11.12.3",
     "prettier": "^3.8.1",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.2.4",
@@ -38,7 +38,8 @@
     "@docusaurus/module-type-aliases": "^3.9.2",
     "@docusaurus/tsconfig": "^3.9.2",
     "@docusaurus/types": "^3.9.2",
-    "spellchecker-cli": "^7.0.2",
+    "@types/node": "^25.3.5",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "browserslist": {

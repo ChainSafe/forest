@@ -6,6 +6,8 @@ updates:
   - package-ecosystem: "cargo"
     directory: "/" # Location of package manifests
     open-pull-requests-limit: 1
+    cooldown:
+      default-days: 5
     schedule:
       interval: "weekly"
     # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuring-dependabot-version-updates#example-disabling-version-updates-for-some-dependencies
@@ -39,10 +41,20 @@ updates:
     open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    groups:
+      artifact:
+        patterns:
+          - "actions/upload-artifact"
+          - "actions/download-artifact"
+      docker:
+        patterns:
+          - "docker/*"
 
   - package-ecosystem: "npm"
     directory: "/docs" # Location of package manifests
     open-pull-requests-limit: 1
+    cooldown:
+      default-days: 5
     schedule:
       interval: "weekly"
     # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups

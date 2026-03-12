@@ -46,7 +46,6 @@ ChainSafe also operates an **archival bootstrap node** which maintains a full se
 /dns/bootstrap-calibnet-0.chainsafe-fil.io/tcp/34000/p2p/12D3KooWABQ5gTDHPWyvhJM7jPhtNwNJruzTEo32Lo4gcS5ABAMm
 /dns/bootstrap-calibnet-1.chainsafe-fil.io/tcp/34000/p2p/12D3KooWS3ZRhMYL67b4bD5XQ6fcpTyVQXnDe8H89LvwrDqaSbiT
 /dns/bootstrap-calibnet-2.chainsafe-fil.io/tcp/34000/p2p/12D3KooWEiBN8jBX8EBoM3M47pVRLRWV812gDRUJhMxgyVkUoR48
-/dns/bootstrap-archive-calibnet-0.chainsafe-fil.io/tcp/1347/p2p/12D3KooWLcRpEfmUq1fC8vfcLnKc1s161C92rUewEze3ALqCd9yJ
 ```
 
 </p>
@@ -89,7 +88,7 @@ You can check the status of many ChainSafe services at [status.chainsafe.dev](ht
 :::
 
 :::info
-Questions? Issues? Feedback? [Connect with the Forest team](./introduction.md#connect-with-us).
+Questions? Issues? Feedback? [Connect with the Forest team](/#connect-with-us).
 
 We are also active on the following channels on the [Filecoin Slack](https://filecoin.io/slack). Reach out to us for any questions or issues:
 

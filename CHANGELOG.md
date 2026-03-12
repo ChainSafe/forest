@@ -35,7 +35,59 @@
 
 ### Fixed
 
+## Forest v0.32.4 "Mild Inconvenience"
+
+This is a non-mandatory release for all node operators. It enables F3 finality resolution on ETH v1 RPC methods.
+
+### Breaking
+
+- [#6680](https://github.com/ChainSafe/forest/pull/6680): Made the `tokio-console` feature optional and disabled by default. Users relying on this feature must now explicitly compile Forest with `--features tokio-console` to enable it.
+
+### Added
+
+### Changed
+
+- [#6631](https://github.com/ChainSafe/forest/issues/6631): Backported F3 finality resolution to ETH v1 RPC methods.
+
+### Removed
+
+- [#6681](https://github.com/ChainSafe/forest/pull/6681): Removed `tracing-chrome` feature and all related code as it was deemed unused. If you didn't set `CHROME_TRACE_FILE` manually before, you shouldn't be affected by this change. If you were using this feature, reach out.
+
+### Fixed
+
+## Forest v0.32.3 "Unimpressive Serenity"
+
+### Added
+
+- [#6522](https://github.com/ChainSafe/forest/pull/6522): Implemented `Filecoin.EthTraceFilter` for API v2.
+
+### Changed
+
+- [#6655](https://github.com/ChainSafe/forest/issues/6655): Updated garbage collector to keep message receipts and events.
+
+- [#6522](https://github.com/ChainSafe/forest/pull/6522): `Filecoin.EthTraceFilter` filter options `from_block` and `to_block` now default to `latest` tag when omitted for v1 and v2 API.
+
+## Forest v0.32.2 "Phagun"
+
+This is a non-mandatory release for all node operators. It brings significant performance improvements for snapshot downloads, implements the much-requested trace call API and includes bug fixes.
+
+### Breaking
+
+### Added
+
+- [#3715](https://github.com/ChainSafe/forest/issues/3715): Implemented parallel HTTP downloads for snapshots with 5 concurrent connections by default (configurable via `FOREST_DOWNLOAD_CONNECTIONS`), bringing significant performance improvements for snapshot downloads (on par with a manual `aria2c -x5`).
+
+- [#6185](https://github.com/ChainSafe/forest/issues/6185): Implemented `Forest.TraceCall` RPC method for API v1 and v2.
+
+### Changed
+
+### Removed
+
+### Fixed
+
 - [#6613](https://github.com/ChainSafe/forest/pull/6613): Fixed chain sync getting stuck when encountering time-travelling blocks by not marking the corresponding tipsets as permanently bad.
+
+- [#6594](https://github.com/ChainSafe/forest/issues/6594): Added random GC delay to avoid a cluster of nodes run GC and reboot RPC services at the same time.
 
 ## Forest v0.32.1 "Malfoy"
 
@@ -2077,7 +2129,7 @@ Notable updates:
 
 ### Changed
 
-- Replace async_std with tokio.
+- Replace async_std with `tokio`.
 - Significantly improve tracked performance metrics.
 - Gracefully shutdown the database on sigterm and sighup.
 - Fix gas charging issue that caused state-root mismatches on mainnet.
@@ -2912,7 +2964,7 @@ All initial change sets:
   ([#732](https://github.com/ChainSafe/forest/pull/732)) (Eric Tu)
 - `ef2583db` Use concrete implementations
   ([#842](https://github.com/ChainSafe/forest/pull/842)) (Volker Mische)
-- `3c8a57b7` Fix gossipsub handling to process only when in follow state
+- `3c8a57b7` Fix `gossipsub` handling to process only when in follow state
   ([#845](https://github.com/ChainSafe/forest/pull/845)) (Austin Abell)
 - `c53a5b82` Fix bug with import and cleanup
   ([#844](https://github.com/ChainSafe/forest/pull/844)) (Austin Abell)
@@ -2930,7 +2982,7 @@ All initial change sets:
   ([#834](https://github.com/ChainSafe/forest/pull/834)) (Austin Abell)
 - `a86f0056` CircleCI updates, removal of github actions
   ([#813](https://github.com/ChainSafe/forest/pull/813)) (Dustin Brickwood)
-- `d74b34ee` Add Gossipsub chain messages to MPool in the ChainSyncer instead of
+- `d74b34ee` Add `Gossipsub` chain messages to MPool in the ChainSyncer instead of
   Libp2p Service ([#833](https://github.com/ChainSafe/forest/pull/833)) (Eric
   Tu)
 - `bbdddf9d` Fix block messages generation for sequence edge case

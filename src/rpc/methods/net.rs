@@ -27,7 +27,11 @@ impl RpcMethod<0> for NetAddrsListen {
     type Params = ();
     type Ok = AddrInfo;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::AddrsListen(tx),
@@ -51,7 +55,11 @@ impl RpcMethod<0> for NetPeers {
     type Params = ();
     type Ok = Vec<AddrInfo>;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::Peers(tx),
@@ -82,6 +90,7 @@ impl RpcMethod<1> for NetFindPeer {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (peer_id,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&peer_id)?;
         let (tx, rx) = flume::bounded(1);
@@ -109,7 +118,11 @@ impl RpcMethod<0> for NetListening {
     type Params = ();
     type Ok = bool;
 
-    async fn handle(_: Ctx<impl Any>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _: Ctx<impl Any>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(true)
     }
 }
@@ -124,7 +137,11 @@ impl RpcMethod<0> for NetInfo {
     type Params = ();
     type Ok = NetInfoResult;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::Info(tx),
@@ -149,6 +166,7 @@ impl RpcMethod<1> for NetConnect {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (AddrInfo { id, addrs },): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
         let peer_id = PeerId::from_bytes(&id)?;
@@ -183,6 +201,7 @@ impl RpcMethod<1> for NetDisconnect {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (peer_id,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&peer_id)?;
 
@@ -212,6 +231,7 @@ impl RpcMethod<1> for NetAgentVersion {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (peer_id,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&peer_id)?;
         let (tx, rx) = flume::bounded(1);
@@ -234,7 +254,11 @@ impl RpcMethod<0> for NetAutoNatStatus {
     type Params = ();
     type Ok = NatStatusResult;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::AutoNATStatus(tx),
@@ -256,7 +280,11 @@ impl RpcMethod<0> for NetVersion {
     type Params = ();
     type Ok = String;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.chain_config().eth_chain_id.to_string())
     }
 }
@@ -281,6 +309,7 @@ impl RpcMethod<1> for NetProtectAdd {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (peer_ids,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let peer_ids = peer_ids
             .iter()
@@ -308,7 +337,11 @@ impl RpcMethod<0> for NetProtectList {
 
     type Params = ();
     type Ok = Vec<String>;
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let (tx, rx) = flume::bounded(1);
         ctx.network_send()
             .send_async(NetworkMessage::JSONRPCRequest {
@@ -335,6 +368,7 @@ impl RpcMethod<1> for NetProtectRemove {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (peer_ids,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let peer_ids = peer_ids
             .iter()

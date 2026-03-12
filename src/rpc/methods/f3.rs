@@ -63,7 +63,11 @@ impl RpcMethod<0> for GetRawNetworkName {
     type Params = ();
     type Ok = String;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.chain_config().network.genesis_name().into())
     }
 }
@@ -81,6 +85,7 @@ impl RpcMethod<1> for GetTipsetByEpoch {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (epoch,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_index().tipset_by_height(
             epoch,
@@ -104,6 +109,7 @@ impl RpcMethod<1> for GetTipset {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (f3_tsk,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tsk = f3_tsk.try_into()?;
         let ts = ctx.chain_index().load_required_tipset(&tsk)?;
@@ -121,7 +127,11 @@ impl RpcMethod<0> for GetHead {
     type Params = ();
     type Ok = F3TipSet;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        _: Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.chain_store().heaviest_tipset().into())
     }
 }
@@ -139,6 +149,7 @@ impl RpcMethod<1> for GetParent {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (f3_tsk,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tsk = f3_tsk.try_into()?;
         let ts = ctx.chain_index().load_required_tipset(&tsk)?;
@@ -430,6 +441,7 @@ impl RpcMethod<1> for GetPowerTable {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (f3_tsk,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tsk = f3_tsk.try_into()?;
         let start = std::time::Instant::now();
@@ -453,6 +465,7 @@ impl RpcMethod<1> for ProtectPeer {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (peer_id,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&peer_id)?;
         let (tx, rx) = flume::bounded(1);
@@ -477,7 +490,11 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     type Params = ();
     type Ok = Vec<u64>;
 
-    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        _: Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let participants = F3ListParticipants::run().await?;
         let mut ids: HashSet<u64> = participants.into_iter().map(|p| p.miner_id).collect();
         if let Some(permanent_miner_ids) = (*F3_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
@@ -500,6 +517,7 @@ impl RpcMethod<1> for Finalize {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (f3_tsk,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // Respect the environment variable when set, and fallback to chain config when not set.
         let enabled = is_env_set_and_truthy("FOREST_F3_CONSENSUS_ENABLED")
@@ -576,10 +594,11 @@ impl RpcMethod<2> for SignMessage {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (pubkey, message): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let addr = Address::new_bls(&pubkey)?;
         // Signing can be delegated to curio, we will follow how lotus does it once the feature lands.
-        WalletSign::handle(ctx, (addr, message)).await
+        WalletSign::handle(ctx, (addr, message), ext).await
     }
 }
 
@@ -611,6 +630,7 @@ impl RpcMethod<1> for F3ExportLatestSnapshot {
     async fn handle(
         _ctx: Ctx<impl Blockstore>,
         (path,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(Self::run(path).await?)
     }
@@ -630,6 +650,7 @@ impl RpcMethod<1> for F3GetCertificate {
     async fn handle(
         _: Ctx<impl Blockstore>,
         (instance,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let client = get_rpc_http_client()?;
         let mut params = ArrayParams::new();
@@ -641,6 +662,18 @@ impl RpcMethod<1> for F3GetCertificate {
 
 /// returns the latest finality certificate
 pub enum F3GetLatestCertificate {}
+
+impl F3GetLatestCertificate {
+    /// Fetches the latest finality certificate via RPC.
+    pub async fn get() -> anyhow::Result<FinalityCertificate> {
+        let client = get_rpc_http_client()?;
+        let response: LotusJson<FinalityCertificate> = client
+            .request(<Self as RpcMethod<0>>::NAME, ArrayParams::new())
+            .await?;
+        Ok(response.into_inner())
+    }
+}
+
 impl RpcMethod<0> for F3GetLatestCertificate {
     const NAME: &'static str = "Filecoin.F3GetLatestCertificate";
     const PARAM_NAMES: [&'static str; 0] = [];
@@ -653,10 +686,9 @@ impl RpcMethod<0> for F3GetLatestCertificate {
     async fn handle(
         _: Ctx<impl Blockstore + Send + Sync + 'static>,
         _: Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let client = get_rpc_http_client()?;
-        let response: LotusJson<Self::Ok> = client.request(Self::NAME, ArrayParams::new()).await?;
-        Ok(response.into_inner())
+        Ok(Self::get().await?)
     }
 }
 
@@ -673,9 +705,10 @@ impl RpcMethod<1> for F3GetECPowerTable {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk_opt),): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tsk = tsk_opt.unwrap_or_else(|| ctx.chain_store().heaviest_tipset().key().clone());
-        GetPowerTable::handle(ctx, (tsk.into(),)).await
+        GetPowerTable::handle(ctx, (tsk.into(),), ext).await
     }
 }
 
@@ -692,6 +725,7 @@ impl RpcMethod<1> for F3GetF3PowerTable {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (ApiTipsetKey(tsk_opt),): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tsk: F3TipSetKey = tsk_opt
             .unwrap_or_else(|| ctx.chain_store().heaviest_tipset().key().clone())
@@ -719,6 +753,7 @@ impl RpcMethod<1> for F3GetF3PowerTableByInstance {
     async fn handle(
         _ctx: Ctx<impl Blockstore>,
         (instance,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let client = get_rpc_http_client()?;
         let mut params = ArrayParams::new();
@@ -747,7 +782,11 @@ impl RpcMethod<0> for F3IsRunning {
     type Params = ();
     type Ok = bool;
 
-    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(Self::is_f3_running().await?)
     }
 }
@@ -773,7 +812,11 @@ impl RpcMethod<0> for F3GetProgress {
     type Params = ();
     type Ok = F3InstanceProgress;
 
-    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)
     }
 }
@@ -799,7 +842,11 @@ impl RpcMethod<0> for F3GetManifest {
     type Params = ();
     type Ok = F3Manifest;
 
-    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)
     }
 }
@@ -815,7 +862,11 @@ impl RpcMethod<0> for F3ListParticipants {
     type Params = ();
     type Ok = Vec<F3Participant>;
 
-    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        _: Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)
     }
 }
@@ -848,6 +899,7 @@ impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
     async fn handle(
         _: Ctx<impl Blockstore>,
         (miner, previous_lease_ticket, instances): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let id = miner.id()?;
         let previous_lease = if previous_lease_ticket.is_empty() {
@@ -883,6 +935,7 @@ impl RpcMethod<1> for F3Participate {
     async fn handle(
         _: Ctx<impl Blockstore>,
         (lease_ticket,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let lease: F3ParticipationLease =
             fvm_ipld_encoding::from_slice(&lease_ticket).context("invalid lease ticket")?;

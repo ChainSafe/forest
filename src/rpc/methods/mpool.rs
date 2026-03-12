@@ -32,6 +32,7 @@ impl RpcMethod<1> for MpoolGetNonce {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.mpool.get_sequence(&address)?)
     }
@@ -53,6 +54,7 @@ impl RpcMethod<1> for MpoolPending {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tipset_key),): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut ts = ctx
             .chain_store()
@@ -126,6 +128,7 @@ impl RpcMethod<2> for MpoolSelect {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tipset_key), ticket_quality): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .chain_store()
@@ -149,6 +152,7 @@ impl RpcMethod<1> for MpoolPush {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (message,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let cid = ctx.mpool.as_ref().push(message).await?;
         Ok(cid)
@@ -171,6 +175,7 @@ impl RpcMethod<1> for MpoolBatchPush {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (messages,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut cids = vec![];
         for msg in messages {
@@ -196,6 +201,7 @@ impl RpcMethod<1> for MpoolPushUntrusted {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (message,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // Lotus implements a few extra sanity checks that we skip. We skip them
         // because those checks aren't used for messages received from peers and
@@ -221,9 +227,10 @@ impl RpcMethod<1> for MpoolBatchPushUntrusted {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (messages,): Self::Params,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // Alias of MpoolBatchPush.
-        MpoolBatchPush::handle(ctx, (messages,)).await
+        MpoolBatchPush::handle(ctx, (messages,), ext).await
     }
 }
 
@@ -243,6 +250,7 @@ impl RpcMethod<2> for MpoolPushMessage {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (message, send_spec): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let from = message.from;
 

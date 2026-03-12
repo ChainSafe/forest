@@ -41,6 +41,7 @@ use crate::ipld::{stream_chain, stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
+use crate::shim::executor::{Receipt, StampedEvent};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{NO_CALLBACK, StateOutput, apply_block_messages};
@@ -54,6 +55,7 @@ use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
+use human_repr::HumanCount as _;
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use multihash_derive::MultihashDigest as _;
@@ -308,9 +310,11 @@ pub struct ArchiveInfo {
     epoch: ChainEpoch,
     tipsets: ChainEpoch,
     messages: ChainEpoch,
+    message_receipts: usize,
+    events: usize,
     head: Tipset,
     snapshot_version: FilecoinSnapshotVersion,
-    index_size_bytes: Option<u32>,
+    index_size_bytes: Option<u64>,
 }
 
 impl std::fmt::Display for ArchiveInfo {
@@ -321,6 +325,8 @@ impl std::fmt::Display for ArchiveInfo {
         writeln!(f, "Epoch:            {}", self.epoch)?;
         writeln!(f, "State-roots:      {}", self.epoch - self.tipsets + 1)?;
         writeln!(f, "Messages sets:    {}", self.epoch - self.messages + 1)?;
+        writeln!(f, "Message receipts: {}", self.message_receipts)?;
+        writeln!(f, "Events:           {}", self.events)?;
         let head_tipset_key_string = self
             .head
             .cids()
@@ -333,7 +339,7 @@ impl std::fmt::Display for ArchiveInfo {
             write!(
                 f,
                 "Index size:       {}",
-                human_bytes::human_bytes(index_size_bytes)
+                index_size_bytes.human_count_bytes()
             )?;
         }
         Ok(())
@@ -348,7 +354,7 @@ impl ArchiveInfo {
         variant: String,
         heaviest_tipset: Tipset,
         snapshot_version: FilecoinSnapshotVersion,
-        index_size_bytes: Option<u32>,
+        index_size_bytes: Option<u64>,
     ) -> anyhow::Result<Self> {
         Self::from_store_with(
             store,
@@ -368,7 +374,7 @@ impl ArchiveInfo {
         variant: String,
         heaviest_tipset: Tipset,
         snapshot_version: FilecoinSnapshotVersion,
-        index_size_bytes: Option<u32>,
+        index_size_bytes: Option<u64>,
         progress: bool,
     ) -> anyhow::Result<Self> {
         let head = heaviest_tipset;
@@ -381,11 +387,23 @@ impl ArchiveInfo {
         let mut network: String = "unknown".into();
         let mut lowest_stateroot_epoch = root_epoch;
         let mut lowest_message_epoch = root_epoch;
+        let mut message_receipts_count = 0;
+        let mut events_count = 0;
 
         let iter = if progress {
             itertools::Either::Left(windowed.progress_count(root_epoch as u64))
         } else {
             itertools::Either::Right(windowed)
+        };
+
+        let mut update_network_name = |block_cid: &Cid| {
+            if block_cid == &*calibnet::GENESIS_CID {
+                network = calibnet::NETWORK_COMMON_NAME.into();
+            } else if block_cid == &*mainnet::GENESIS_CID {
+                network = mainnet::NETWORK_COMMON_NAME.into();
+            } else if block_cid == &*butterflynet::GENESIS_CID {
+                network = butterflynet::NETWORK_COMMON_NAME.into();
+            }
         };
 
         for (parent, tipset) in iter {
@@ -409,15 +427,16 @@ impl ArchiveInfo {
                 lowest_message_epoch = tipset.epoch();
             }
 
-            let mut update_network_name = |block_cid: &Cid| {
-                if block_cid == &*calibnet::GENESIS_CID {
-                    network = calibnet::NETWORK_COMMON_NAME.into();
-                } else if block_cid == &*mainnet::GENESIS_CID {
-                    network = mainnet::NETWORK_COMMON_NAME.into();
-                } else if block_cid == &*butterflynet::GENESIS_CID {
-                    network = butterflynet::NETWORK_COMMON_NAME.into();
+            if let Ok(receipts) = Receipt::get_receipts(store, *tipset.parent_message_receipts()) {
+                message_receipts_count += 1;
+                for receipt in receipts {
+                    if let Some(events_root) = receipt.events_root()
+                        && let Ok(e) = StampedEvent::get_events(store, &events_root)
+                    {
+                        events_count += e.len();
+                    }
                 }
-            };
+            }
 
             if tipset.epoch() == 0 {
                 let block_cid = tipset.min_ticket_block().cid();
@@ -442,6 +461,8 @@ impl ArchiveInfo {
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
+            message_receipts: message_receipts_count,
+            events: events_count,
             head,
             snapshot_version,
             index_size_bytes,
@@ -607,6 +628,9 @@ pub async fn do_export(
         writer,
         Some(ExportOptions {
             skip_checksum: true,
+            include_receipts: false,
+            include_events: false,
+            include_tipset_keys: false,
             seen,
         }),
     )

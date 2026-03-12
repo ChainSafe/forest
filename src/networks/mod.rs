@@ -11,9 +11,7 @@ use itertools::Itertools;
 use libp2p::Multiaddr;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
-use strum_macros::Display;
-use strum_macros::EnumIter;
+use strum::{Display, EnumIter, IntoEnumIterator};
 use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
@@ -50,7 +48,7 @@ pub mod mainnet;
 pub mod metrics;
 
 /// Newest network version for all networks
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V25;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V27;
 
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
@@ -178,6 +176,7 @@ pub enum Height {
     Tock,
     TockFix,
     GoldenWeek,
+    Xxx,
 }
 
 impl From<Height> for NetworkVersion {
@@ -218,6 +217,7 @@ impl From<Height> for NetworkVersion {
             Height::Tock => NetworkVersion::V26,
             Height::TockFix => NetworkVersion::V26,
             Height::GoldenWeek => NetworkVersion::V27,
+            Height::Xxx => NetworkVersion::V28,
         }
     }
 }
@@ -641,7 +641,7 @@ mod tests {
     fn heights_are_present(height_infos: &HashMap<Height, HeightInfo>) {
         /// These are required heights that need to be defined for all networks, for, e.g., conformance
         /// with `Filecoin.StateGetNetworkParams` RPC method.
-        const REQUIRED_HEIGHTS: [Height; 30] = [
+        const REQUIRED_HEIGHTS: [Height; 31] = [
             Height::Breeze,
             Height::Smoke,
             Height::Ignition,
@@ -672,6 +672,7 @@ mod tests {
             Height::TukTuk,
             Height::Teep,
             Height::GoldenWeek,
+            Height::Xxx,
         ];
 
         for height in &REQUIRED_HEIGHTS {

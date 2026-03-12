@@ -5,7 +5,7 @@ expression: spec
 openrpc: 1.3.2
 info:
   title: forest
-  version: 0.32.1
+  version: 0.32.4
 methods:
   - name: Filecoin.ChainGetTipSet
     description: Returns the tipset with the specified CID.
@@ -16,11 +16,49 @@ methods:
           $ref: "#/components/schemas/TipsetSelector"
     result:
       name: Filecoin.ChainGetTipSet.Result
-      required: false
+      required: true
       schema:
-        anyOf:
-          - $ref: "#/components/schemas/Tipset"
-          - type: "null"
+        $ref: "#/components/schemas/Tipset"
+    paramStructure: by-position
+  - name: Forest.ChainExport
+    params:
+      - name: params
+        required: true
+        schema:
+          $ref: "#/components/schemas/ForestChainExportParams"
+    result:
+      name: Forest.ChainExport.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/ApiExportResult"
+    paramStructure: by-position
+  - name: Forest.ChainExportDiff
+    params:
+      - name: params
+        required: true
+        schema:
+          $ref: "#/components/schemas/ForestChainExportDiffParams"
+    result:
+      name: Forest.ChainExportDiff.Result
+      required: true
+      schema:
+        type: "null"
+    paramStructure: by-position
+  - name: Forest.ChainExportStatus
+    params: []
+    result:
+      name: Forest.ChainExportStatus.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/ApiExportStatus"
+    paramStructure: by-position
+  - name: Forest.ChainExportCancel
+    params: []
+    result:
+      name: Forest.ChainExportCancel.Result
+      required: true
+      schema:
+        type: boolean
     paramStructure: by-position
   - name: Filecoin.EthAccounts
     params: []
@@ -103,7 +141,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthCall.Result
       required: true
@@ -119,7 +157,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_call.Result
       required: true
@@ -152,7 +190,7 @@ methods:
         required: true
         schema:
           anyOf:
-            - $ref: "#/components/schemas/ExtBlockNumberOrHash"
+            - $ref: "#/components/schemas/BlockNumberOrHash"
             - type: "null"
     result:
       name: Filecoin.EthEstimateGas.Result
@@ -170,7 +208,7 @@ methods:
         required: true
         schema:
           anyOf:
-            - $ref: "#/components/schemas/ExtBlockNumberOrHash"
+            - $ref: "#/components/schemas/BlockNumberOrHash"
             - type: "null"
     result:
       name: eth_estimateGas.Result
@@ -187,7 +225,7 @@ methods:
       - name: newestBlockNumber
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrPredefined"
       - name: rewardPercentiles
         required: true
         schema:
@@ -212,7 +250,7 @@ methods:
       - name: newestBlockNumber
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrPredefined"
       - name: rewardPercentiles
         required: true
         schema:
@@ -256,7 +294,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetBalance.Result
       required: true
@@ -273,7 +311,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getBalance.Result
       required: true
@@ -352,7 +390,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetBlockReceipts.Result
       required: false
@@ -369,7 +407,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getBlockReceipts.Result
       required: false
@@ -386,7 +424,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: limit
         required: true
         schema:
@@ -408,7 +446,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: limit
         required: true
         schema:
@@ -484,7 +522,7 @@ methods:
       - name: blockNumberOrHash
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetCode.Result
       required: true
@@ -501,7 +539,7 @@ methods:
       - name: blockNumberOrHash
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getCode.Result
       required: true
@@ -624,7 +662,7 @@ methods:
       - name: blockNumberOrHash
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetStorageAt.Result
       required: true
@@ -645,7 +683,7 @@ methods:
       - name: blockNumberOrHash
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getStorageAt.Result
       required: true
@@ -727,7 +765,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetTransactionCount.Result
       required: true
@@ -743,7 +781,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getTransactionCount.Result
       required: true
@@ -1084,7 +1122,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthTraceBlock.Result
       required: false
@@ -1101,9 +1139,89 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: trace_block.Result
+      required: false
+      schema:
+        type:
+          - array
+          - "null"
+        items:
+          $ref: "#/components/schemas/EthBlockTrace"
+    paramStructure: by-position
+  - name: Forest.EthTraceCall
+    description: Returns parity style trace results for the given transaction.
+    params:
+      - name: tx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthCallMessage"
+      - name: traceTypes
+        required: true
+        schema:
+          $ref: "#/components/schemas/NonEmpty_Array_of_EthTraceType"
+      - name: blockParam
+        required: false
+        schema:
+          anyOf:
+            - $ref: "#/components/schemas/BlockNumberOrHash"
+            - type: "null"
+    result:
+      name: Forest.EthTraceCall.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthTraceResults"
+    paramStructure: by-position
+  - name: trace_call
+    description: Returns parity style trace results for the given transaction.
+    params:
+      - name: tx
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthCallMessage"
+      - name: traceTypes
+        required: true
+        schema:
+          $ref: "#/components/schemas/NonEmpty_Array_of_EthTraceType"
+      - name: blockParam
+        required: false
+        schema:
+          anyOf:
+            - $ref: "#/components/schemas/BlockNumberOrHash"
+            - type: "null"
+    result:
+      name: trace_call.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthTraceResults"
+    paramStructure: by-position
+  - name: Filecoin.EthTraceFilter
+    description: Returns the traces for transactions matching the filter criteria.
+    params:
+      - name: filter
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthTraceFilterCriteria"
+    result:
+      name: Filecoin.EthTraceFilter.Result
+      required: false
+      schema:
+        type:
+          - array
+          - "null"
+        items:
+          $ref: "#/components/schemas/EthBlockTrace"
+    paramStructure: by-position
+  - name: trace_filter
+    description: Returns the traces for transactions matching the filter criteria.
+    params:
+      - name: filter
+        required: true
+        schema:
+          $ref: "#/components/schemas/EthTraceFilterCriteria"
+    result:
+      name: trace_filter.Result
       required: false
       schema:
         type:
@@ -1152,7 +1270,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: traceTypes
         required: true
         schema:
@@ -1177,7 +1295,7 @@ methods:
       - name: blockParam
         required: true
         schema:
-          $ref: "#/components/schemas/ExtBlockNumberOrHash"
+          $ref: "#/components/schemas/BlockNumberOrHash"
       - name: traceTypes
         required: true
         schema:
@@ -1330,6 +1448,26 @@ methods:
     paramStructure: by-position
 components:
   schemas:
+    AccountDiff:
+      description: "Account state diff after transaction execution.\nTracks changes to balance, nonce, code, and storage."
+      type: object
+      properties:
+        balance:
+          $ref: "#/components/schemas/Delta"
+        code:
+          $ref: "#/components/schemas/Delta2"
+        nonce:
+          $ref: "#/components/schemas/Delta3"
+        storage:
+          description: All touched/changed storage values (key -> delta)
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Delta4"
+      required:
+        - balance
+        - code
+        - nonce
+        - storage
     ActorState:
       type: object
       properties:
@@ -1364,7 +1502,7 @@ components:
         blockHash:
           $ref: "#/components/schemas/EthHash"
         blockNumber:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         chainId:
           $ref: "#/components/schemas/EthUint64"
         from:
@@ -1420,6 +1558,39 @@ components:
         - v
         - r
         - s
+    ApiExportResult:
+      oneOf:
+        - type: string
+          enum:
+            - Cancelled
+        - type: object
+          properties:
+            Done:
+              type:
+                - string
+                - "null"
+          additionalProperties: false
+          required:
+            - Done
+    ApiExportStatus:
+      type: object
+      properties:
+        cancelled:
+          type: boolean
+        exporting:
+          type: boolean
+        progress:
+          type: number
+          format: double
+        start_time:
+          type:
+            - string
+            - "null"
+          format: date-time
+      required:
+        - progress
+        - exporting
+        - cancelled
     Base64String:
       type:
         - string
@@ -1462,7 +1633,7 @@ components:
         nonce:
           $ref: "#/components/schemas/Nonce"
         number:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         parentHash:
           $ref: "#/components/schemas/EthHash"
         receiptsRoot:
@@ -1577,12 +1748,71 @@ components:
           $ref: "#/components/schemas/EthInt64"
       required:
         - blockNumber
+    BlockNumberOrHash:
+      anyOf:
+        - type: string
+        - $ref: "#/components/schemas/EthInt64"
+        - $ref: "#/components/schemas/EthHash"
+        - $ref: "#/components/schemas/BlockNumber"
+        - $ref: "#/components/schemas/BlockHash"
     BlockNumberOrPredefined:
       anyOf:
         - type: string
         - $ref: "#/components/schemas/EthInt64"
     Bloom:
       type: string
+    ChangedType:
+      description: Represents a changed value with before and after states.
+      type: object
+      properties:
+        from:
+          description: Value before the change
+          $ref: "#/components/schemas/EthBigInt"
+        to:
+          description: Value after the change
+          $ref: "#/components/schemas/EthBigInt"
+      required:
+        - from
+        - to
+    ChangedType2:
+      description: Represents a changed value with before and after states.
+      type: object
+      properties:
+        from:
+          description: Value before the change
+          $ref: "#/components/schemas/EthBytes"
+        to:
+          description: Value after the change
+          $ref: "#/components/schemas/EthBytes"
+      required:
+        - from
+        - to
+    ChangedType3:
+      description: Represents a changed value with before and after states.
+      type: object
+      properties:
+        from:
+          description: Value before the change
+          $ref: "#/components/schemas/EthUint64"
+        to:
+          description: Value after the change
+          $ref: "#/components/schemas/EthUint64"
+      required:
+        - from
+        - to
+    ChangedType4:
+      description: Represents a changed value with before and after states.
+      type: object
+      properties:
+        from:
+          description: Value before the change
+          $ref: "#/components/schemas/EthHash"
+        to:
+          description: Value after the change
+          $ref: "#/components/schemas/EthHash"
+      required:
+        - from
+        - to
     Cid:
       type: object
       properties:
@@ -1590,6 +1820,126 @@ components:
           type: string
       required:
         - /
+    Delta:
+      description: Represents how a value changed during transaction execution.
+      oneOf:
+        - description: "Existing value didn't change."
+          type: string
+          const: "="
+        - description: A new value was added (account/storage created).
+          type: object
+          properties:
+            +:
+              $ref: "#/components/schemas/EthBigInt"
+          additionalProperties: false
+          required:
+            - +
+        - description: The existing value was removed (account/storage deleted).
+          type: object
+          properties:
+            "-":
+              $ref: "#/components/schemas/EthBigInt"
+          additionalProperties: false
+          required:
+            - "-"
+        - description: The existing value changed from one value to another.
+          type: object
+          properties:
+            "*":
+              $ref: "#/components/schemas/ChangedType"
+          additionalProperties: false
+          required:
+            - "*"
+    Delta2:
+      description: Represents how a value changed during transaction execution.
+      oneOf:
+        - description: "Existing value didn't change."
+          type: string
+          const: "="
+        - description: A new value was added (account/storage created).
+          type: object
+          properties:
+            +:
+              $ref: "#/components/schemas/EthBytes"
+          additionalProperties: false
+          required:
+            - +
+        - description: The existing value was removed (account/storage deleted).
+          type: object
+          properties:
+            "-":
+              $ref: "#/components/schemas/EthBytes"
+          additionalProperties: false
+          required:
+            - "-"
+        - description: The existing value changed from one value to another.
+          type: object
+          properties:
+            "*":
+              $ref: "#/components/schemas/ChangedType2"
+          additionalProperties: false
+          required:
+            - "*"
+    Delta3:
+      description: Represents how a value changed during transaction execution.
+      oneOf:
+        - description: "Existing value didn't change."
+          type: string
+          const: "="
+        - description: A new value was added (account/storage created).
+          type: object
+          properties:
+            +:
+              $ref: "#/components/schemas/EthUint64"
+          additionalProperties: false
+          required:
+            - +
+        - description: The existing value was removed (account/storage deleted).
+          type: object
+          properties:
+            "-":
+              $ref: "#/components/schemas/EthUint64"
+          additionalProperties: false
+          required:
+            - "-"
+        - description: The existing value changed from one value to another.
+          type: object
+          properties:
+            "*":
+              $ref: "#/components/schemas/ChangedType3"
+          additionalProperties: false
+          required:
+            - "*"
+    Delta4:
+      description: Represents how a value changed during transaction execution.
+      oneOf:
+        - description: "Existing value didn't change."
+          type: string
+          const: "="
+        - description: A new value was added (account/storage created).
+          type: object
+          properties:
+            +:
+              $ref: "#/components/schemas/EthHash"
+          additionalProperties: false
+          required:
+            - +
+        - description: The existing value was removed (account/storage deleted).
+          type: object
+          properties:
+            "-":
+              $ref: "#/components/schemas/EthHash"
+          additionalProperties: false
+          required:
+            - "-"
+        - description: The existing value changed from one value to another.
+          type: object
+          properties:
+            "*":
+              $ref: "#/components/schemas/ChangedType4"
+          additionalProperties: false
+          required:
+            - "*"
     ElectionProof:
       type: object
       properties:
@@ -1932,13 +2282,75 @@ components:
         - traceAddress
         - action
         - result
+    EthTraceFilterCriteria:
+      type: object
+      properties:
+        after:
+          description: "After specifies the offset for pagination of trace results. The number of traces to skip before returning results.\nOptional, default: None."
+          anyOf:
+            - $ref: "#/components/schemas/EthUint64"
+            - type: "null"
+        count:
+          description: "Limits the number of traces returned.\nOptional, default: all traces."
+          anyOf:
+            - $ref: "#/components/schemas/EthUint64"
+            - type: "null"
+        fromAddress:
+          description: "Actor address or a list of addresses from which transactions that generate traces should originate.\nOptional, default: None.\nThe JSON decoding must treat a string as equivalent to an array with one value, for example\n\"0x8888f1f195afa192cfee86069858\" must be decoded as [ \"0x8888f1f195afa192cfee86069858\" ]"
+          anyOf:
+            - $ref: "#/components/schemas/EthAddressList"
+            - type: "null"
+        fromBlock:
+          description: "Interpreted as an epoch (in hex) or one of \"latest\" for last mined block, \"pending\" for not yet committed messages.\nOptional, default: \"latest\".\nNote: \"earliest\" is not a permitted value."
+          type:
+            - string
+            - "null"
+        toAddress:
+          description: "Actor address or a list of addresses to which transactions that generate traces are sent.\nOptional, default: None.\nThe JSON decoding must treat a string as equivalent to an array with one value, for example\n\"0x8888f1f195afa192cfee86069858\" must be decoded as [ \"0x8888f1f195afa192cfee86069858\" ]"
+          anyOf:
+            - $ref: "#/components/schemas/EthAddressList"
+            - type: "null"
+        toBlock:
+          description: "Interpreted as an epoch (in hex) or one of \"latest\" for last mined block, \"pending\" for not yet committed messages.\nOptional, default: \"latest\".\nNote: \"earliest\" is not a permitted value."
+          type:
+            - string
+            - "null"
+    EthTraceResults:
+      description: "Result payload returned by `trace_call`."
+      type: object
+      properties:
+        output:
+          description: Output bytes from the transaction execution.
+          $ref: "#/components/schemas/EthBytes"
+        stateDiff:
+          description: State diff showing all account changes.
+          anyOf:
+            - $ref: "#/components/schemas/StateDiff"
+            - type: "null"
+        trace:
+          description: Call trace hierarchy (empty when not requested).
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/EthTrace"
+      required:
+        - output
+    EthTraceType:
+      description: "Selects which trace outputs to include in the `trace_call` response."
+      oneOf:
+        - description: "Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)\nwith details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`."
+          type: string
+          const: trace
+        - description: "Requests a state difference object, detailing changes to account states (e.g., `balance`, `nonce`, `storage`, `code`)\ncaused by the simulated transaction.\n\nIt shows `\"from\"` and `\"to\"` values for modified fields, using `\"+\"`, `\"-\"`, or `\"=\"` for code changes."
+          type: string
+          const: stateDiff
     EthTxReceipt:
       type: object
       properties:
         blockHash:
           $ref: "#/components/schemas/EthHash"
         blockNumber:
-          $ref: "#/components/schemas/EthUint64"
+          $ref: "#/components/schemas/EthInt64"
         contractAddress:
           anyOf:
             - $ref: "#/components/schemas/EthAddress"
@@ -1987,15 +2399,68 @@ components:
         - type
     EthUint64:
       type: string
-    ExtBlockNumberOrHash:
-      anyOf:
-        - type: string
-        - $ref: "#/components/schemas/EthInt64"
-        - $ref: "#/components/schemas/EthHash"
-        - $ref: "#/components/schemas/BlockNumber"
-        - $ref: "#/components/schemas/BlockHash"
+    FilecoinSnapshotVersion:
+      type: string
+      enum:
+        - V1
+        - V2
     FilterID:
       $ref: "#/components/schemas/EthHash"
+    ForestChainExportDiffParams:
+      type: object
+      properties:
+        depth:
+          type: integer
+          format: int64
+        from:
+          type: integer
+          format: int64
+        output_path:
+          type: string
+        to:
+          type: integer
+          format: int64
+      required:
+        - from
+        - to
+        - depth
+        - output_path
+    ForestChainExportParams:
+      type: object
+      properties:
+        dry_run:
+          type: boolean
+        epoch:
+          type: integer
+          format: int64
+        include_events:
+          type: boolean
+          default: false
+        include_receipts:
+          type: boolean
+          default: false
+        include_tipset_keys:
+          type: boolean
+          default: false
+        output_path:
+          type: string
+        recent_roots:
+          type: integer
+          format: int64
+        skip_checksum:
+          type: boolean
+        tipset_keys:
+          $ref: "#/components/schemas/Nullable_Array_of_Cid"
+        version:
+          $ref: "#/components/schemas/FilecoinSnapshotVersion"
+      required:
+        - version
+        - epoch
+        - recent_roots
+        - output_path
+        - tipset_keys
+        - skip_checksum
+        - dry_run
     NonEmpty_Array_of_BlockHeader:
       type: array
       items:
@@ -2005,6 +2470,11 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/Cid"
+      minItems: 1
+    NonEmpty_Array_of_EthTraceType:
+      type: array
+      items:
+        $ref: "#/components/schemas/EthTraceType"
       minItems: 1
     Nonce:
       type: string
@@ -2018,6 +2488,12 @@ components:
         - "null"
       items:
         $ref: "#/components/schemas/BeaconEntry"
+    Nullable_Array_of_Cid:
+      type:
+        - array
+        - "null"
+      items:
+        $ref: "#/components/schemas/Cid"
     Nullable_Array_of_PoStProof:
       type:
         - array
@@ -2070,6 +2546,11 @@ components:
           maximum: 255
           minimum: 0
         - $ref: "#/components/schemas/SignatureType"
+    StateDiff:
+      description: State diff containing all account changes from a transaction.
+      type: object
+      additionalProperties:
+        $ref: "#/components/schemas/AccountDiff"
     Ticket:
       type: object
       properties:

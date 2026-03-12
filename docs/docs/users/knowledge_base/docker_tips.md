@@ -3,7 +3,7 @@ title: Docker Tips & Tricks
 sidebar_position: 3
 ---
 
-# Forest in Docker🌲❤️🐋
+# Forest in Docker 🌲 ❤️ 🐋
 
 ## Prerequisites
 
@@ -70,7 +70,7 @@ docker run --init -it --rm --entrypoint forest-tool ghcr.io/chainsafe/forest:lat
 docker run --init -it --rm --entrypoint forest-wallet ghcr.io/chainsafe/forest:latest --help
 ```
 
-Also see the [CLI documentation](../reference/cli.md) for more details about commands and
+Also see the [CLI documentation](../reference/cli) for more details about commands and
 their usage.
 
 ### Run a Forest node with custom environment variables
@@ -79,7 +79,7 @@ their usage.
 docker run --init -it --rm --name forest --env <key>=<value> ghcr.io/chainsafe/forest:latest --chain calibnet --auto-download-snapshot
 ```
 
-Check [Forest environment variables documentation](../reference/env_variables.md) for more details.
+Check [Forest environment variables documentation](../reference/env_variables) for more details.
 
 ### Create a Forest node running calibration network. Then list all connected peers.
 

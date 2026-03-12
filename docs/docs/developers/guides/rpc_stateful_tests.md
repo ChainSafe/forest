@@ -50,9 +50,8 @@ The goal is to ensure that Forest now passes all the existing scenarios. These s
 
 To extend test coverage for another RPC method or cover more semantics:
 
-1. Add the RPC method to Forest if not yet implemented, following the guidance in [RPC compatibility guide](./rpc_api_compatibility.md).
-2. Create a new test scenario in:
-   [`stateful_tests.rs`](../../../../src/tool/subcommands/api_cmd/stateful_tests.rs)
+1. Add the RPC method to Forest if not yet implemented, following the guidance in [RPC compatibility guide](./rpc_api_compatibility).
+2. Create a new test scenario in the `src/tool/subcommands/api_cmd/stateful_tests.rs` file
 3. Your internal test function should return `Ok(())` on success. Use `anyhow::Result` for error handling.
 
    Ensure the test behaves consistently on both Lotus and Forest nodes.

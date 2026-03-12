@@ -44,7 +44,7 @@ pnpm typecheck  # Validate typescript files
 
 ### Deployment
 
-The documentation site is continuously deployed to CloudFlare Pages, triggered on every commit to `main`. [This workflow](/.github/workflows/docs-deploy.yml) defines the deployment process.
+The documentation site is continuously deployed to Cloudflare Pages, triggered on every commit to `main`. [This workflow](/.github/workflows/docs-deploy.yml) defines the deployment process.
 
 ## Site Structure
 
@@ -59,10 +59,6 @@ Follows the [Diátaxis](https://diataxis.fr/) framework for structuring document
 #### CLI Docs
 
 These docs are automatically generated from the Forest CLI. See [script](/docs/docs/users/reference/cli.sh).
-
-#### JSON-RPC Docs
-
-We use the OpenRPC document from Forest to populate the documentation for each method. For this we use `@metamask/docusaurus-openrpc`.
 
 ### Developer Docs
 
@@ -80,7 +76,7 @@ Available at `/developers`, source code is located in `docs/developers`. Compris
 
 ### Useful Features
 
-- Admonitions (eg. Info, Warning, etc): https://docusaurus.io/docs/markdown-features/admonitions
+- Admonitions (e.g. Info, Warning, etc): https://docusaurus.io/docs/markdown-features/admonitions
 - Mermaid Diagrams: https://docusaurus.io/docs/markdown-features/diagrams
 - MDX (embedding JavaScript): https://docusaurus.io/docs/markdown-features/react
 - Code Blocks: https://docusaurus.io/docs/markdown-features/code-blocks

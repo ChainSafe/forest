@@ -29,6 +29,7 @@ impl RpcMethod<1> for SyncCheckBad {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx
             .bad_blocks
@@ -53,6 +54,7 @@ impl RpcMethod<1> for SyncMarkBad {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         ctx.bad_blocks
             .as_ref()
@@ -74,7 +76,11 @@ impl RpcMethod<0> for SyncSnapshotProgress {
     type Params = ();
     type Ok = SnapshotProgressState;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.get_snapshot_progress_tracker())
     }
 }
@@ -90,7 +96,11 @@ impl RpcMethod<0> for SyncStatus {
     type Params = ();
     type Ok = SyncStatusReport;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
         let sync_status = ctx.sync_status.as_ref().read().clone();
         Ok(sync_status)
     }
@@ -112,6 +122,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (block_msg,): Self::Params,
+        _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         if !matches!(ctx.sync_status.read().status, NodeSyncStatus::Synced) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
@@ -248,13 +259,19 @@ mod tests {
             .parse::<Cid>()
             .unwrap();
 
-        let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid,), &Default::default())
+            .await
+            .unwrap();
         assert_eq!(reason, "");
 
         // Mark that block as bad manually and check again to verify
-        SyncMarkBad::handle(ctx.clone(), (cid,)).await.unwrap();
+        SyncMarkBad::handle(ctx.clone(), (cid,), &Default::default())
+            .await
+            .unwrap();
 
-        let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid,), &Default::default())
+            .await
+            .unwrap();
         assert_eq!(reason, "bad");
     }
 
@@ -264,14 +281,18 @@ mod tests {
 
         let st_copy = ctx.sync_status.clone();
 
-        let sync_status = SyncStatus::handle(ctx.clone(), ()).await.unwrap();
+        let sync_status = SyncStatus::handle(ctx.clone(), (), &Default::default())
+            .await
+            .unwrap();
         assert_eq!(sync_status, st_copy.as_ref().read().clone());
 
         // update cloned state
         st_copy.write().status = NodeSyncStatus::Syncing;
         st_copy.write().current_head_epoch = 4;
 
-        let sync_status = SyncStatus::handle(ctx.clone(), ()).await.unwrap();
+        let sync_status = SyncStatus::handle(ctx.clone(), (), &Default::default())
+            .await
+            .unwrap();
 
         assert_eq!(sync_status, st_copy.as_ref().read().clone());
     }

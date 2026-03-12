@@ -15,7 +15,7 @@ const config = {
   url: "https://forest.chainsafe.io",
   baseUrl: "/",
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "throw",
+  onBrokenAnchors: "throw",
   favicon: "img/logo.png",
   organizationName: "ChainSafe", // Usually your GitHub org/user name.
   projectName: "forest", // Usually your repo name.
@@ -97,6 +97,9 @@ const config = {
   ],
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: "throw",
+    },
   },
   themes: [
     [

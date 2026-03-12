@@ -105,40 +105,28 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::FilecoinAddressToEthAddress);
         $callback!($crate::rpc::eth::EthBlockNumber);
         $callback!($crate::rpc::eth::EthCall);
-        $callback!($crate::rpc::eth::EthCallV2);
         $callback!($crate::rpc::eth::EthChainId);
         $callback!($crate::rpc::eth::EthEstimateGas);
-        $callback!($crate::rpc::eth::EthEstimateGasV2);
         $callback!($crate::rpc::eth::EthFeeHistory);
-        $callback!($crate::rpc::eth::EthFeeHistoryV2);
         $callback!($crate::rpc::eth::EthGasPrice);
         $callback!($crate::rpc::eth::EthGetBalance);
-        $callback!($crate::rpc::eth::EthGetBalanceV2);
         $callback!($crate::rpc::eth::EthGetBlockByHash);
         $callback!($crate::rpc::eth::EthGetBlockByNumber);
-        $callback!($crate::rpc::eth::EthGetBlockByNumberV2);
         $callback!($crate::rpc::eth::EthGetBlockReceipts);
-        $callback!($crate::rpc::eth::EthGetBlockReceiptsV2);
         $callback!($crate::rpc::eth::EthGetBlockReceiptsLimited);
-        $callback!($crate::rpc::eth::EthGetBlockReceiptsLimitedV2);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumber);
-        $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumberV2);
         $callback!($crate::rpc::eth::EthGetCode);
-        $callback!($crate::rpc::eth::EthGetCodeV2);
         $callback!($crate::rpc::eth::EthGetLogs);
         $callback!($crate::rpc::eth::EthGetFilterLogs);
         $callback!($crate::rpc::eth::EthGetFilterChanges);
         $callback!($crate::rpc::eth::EthGetMessageCidByTransactionHash);
         $callback!($crate::rpc::eth::EthGetStorageAt);
-        $callback!($crate::rpc::eth::EthGetStorageAtV2);
         $callback!($crate::rpc::eth::EthGetTransactionByHash);
         $callback!($crate::rpc::eth::EthGetTransactionByHashLimited);
         $callback!($crate::rpc::eth::EthGetTransactionCount);
-        $callback!($crate::rpc::eth::EthGetTransactionCountV2);
         $callback!($crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndex);
-        $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndexV2);
         $callback!($crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);
         $callback!($crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!($crate::rpc::eth::EthProtocolVersion);
@@ -152,11 +140,10 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthSubscribe);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
-        $callback!($crate::rpc::eth::EthTraceBlockV2);
+        $callback!($crate::rpc::eth::EthTraceCall);
         $callback!($crate::rpc::eth::EthTraceFilter);
         $callback!($crate::rpc::eth::EthTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
-        $callback!($crate::rpc::eth::EthTraceReplayBlockTransactionsV2);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
         $callback!($crate::rpc::eth::EthSendRawTransactionUntrusted);
@@ -829,8 +816,21 @@ mod tests {
         insta::assert_yaml_snapshot!(path.path(), spec);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_rpc_server() {
+    #[test]
+    fn test_rpc_server() {
+        const TIMEOUT: Duration = Duration::from_secs(5);
+        let (done_tx, done_rx) = flume::bounded(1);
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async move { test_rpc_server_inner(done_tx).await });
+        done_rx.recv().unwrap();
+        // To mitigate the transient timeout issue
+        rt.shutdown_timeout(TIMEOUT);
+    }
+
+    async fn test_rpc_server_inner(done_tx: flume::Sender<()>) {
         let chain = NetworkChain::Calibnet;
         let db = Arc::new(MemoryDB::default());
         let mut services = JoinSet::new();
@@ -857,7 +857,7 @@ mod tests {
 
         let handle = tokio::spawn(start_rpc(state, rpc_listener, stop_handle, None));
 
-        // Send a few http requests
+        println!("sending a few http requests");
 
         let client = Client::from_url(
             format!("http://{}:{}/", rpc_address.ip(), rpc_address.port())
@@ -880,7 +880,9 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
-        // Send a few websocket requests
+        drop(client);
+
+        println!("sending a few websocket requests");
 
         let client = Client::from_url(
             format!("ws://{}:{}/", rpc_address.ip(), rpc_address.port())
@@ -893,10 +895,18 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
+        drop(client);
+
         // Gracefully shutdown the RPC server
+        println!("sending shutdown signal");
         shutdown_send.send(()).await.unwrap();
+        println!("waiting on shutdown receiver");
         shutdown_recv.recv().await;
+        println!("sending server stop signal");
         server_handle.stop().unwrap();
+        println!("waiting on graceful shutdown");
         handle.await.unwrap().unwrap();
+        println!("done");
+        done_tx.send(()).unwrap();
     }
 }
