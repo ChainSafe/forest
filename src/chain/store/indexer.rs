@@ -361,7 +361,7 @@ where
     }
 
     async fn get_and_verify_indexed_data(&self, ts: &Tipset) -> anyhow::Result<IndexedTipsetData> {
-        let indexed_tipset_data = self.get_indexed_tipset_data(&ts).await?;
+        let indexed_tipset_data = self.get_indexed_tipset_data(ts).await?;
         self.verify_indexed_data(ts, &indexed_tipset_data).await?;
         Ok(indexed_tipset_data)
     }

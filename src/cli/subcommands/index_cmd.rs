@@ -6,7 +6,7 @@ use crate::{
         self, RpcMethodExt as _,
         chain::{ChainHead, ChainValidateIndex},
     },
-    shim::clock::{ChainEpoch, EPOCHS_IN_DAY},
+    shim::clock::ChainEpoch,
 };
 use clap::Subcommand;
 use std::time::Instant;
