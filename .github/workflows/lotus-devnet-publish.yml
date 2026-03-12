@@ -35,7 +35,7 @@ jobs:
       # - date+sha, e.g. 2023-01-19-da4692d,
       - name: Docker Meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/chainsafe/lotus-devnet
           tags: |
@@ -43,7 +43,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build image and push to GitHub Container Registry
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           file: ./scripts/devnet/lotus.dockerfile
           context: ./scripts/devnet
