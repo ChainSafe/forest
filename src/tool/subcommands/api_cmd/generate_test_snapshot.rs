@@ -223,7 +223,7 @@ where
 }
 
 impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for ReadOpsTrackingStore<T> {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
         self.inner.heaviest_tipset_key()
     }
 

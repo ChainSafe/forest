@@ -129,7 +129,9 @@ where
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let validated_blocks = Mutex::new(HashSet::default());
-        let head = if let Ok(head_tsk) = heaviest_tipset_key_provider.heaviest_tipset_key()
+        let head = if let Some(head_tsk) = heaviest_tipset_key_provider
+            .heaviest_tipset_key()
+            .context("failed to load head tipset key")?
             && let Some(head) = chain_index
                 .load_tipset(&head_tsk)
                 .context("failed to load head tipset")?
@@ -156,10 +158,10 @@ where
 
     /// Sets heaviest tipset
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
+        head.key().save(self.blockstore())?;
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(head.key())?;
         let old_head = std::mem::replace(&mut *self.heaviest_tipset_cache.write(), head.clone());
-        head.key().save(self.blockstore())?;
 
         match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key()) {
             Ok(changes) => {

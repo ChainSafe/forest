@@ -173,9 +173,8 @@ impl SettingsStore for ParityDb {
 }
 
 impl super::HeaviestTipsetKeyProvider for ParityDb {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
-        super::SettingsStoreExt::read_obj::<TipsetKey>(self, super::setting_keys::HEAD_KEY)?
-            .context("head key not found")
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
+        super::SettingsStoreExt::read_obj::<TipsetKey>(self, super::setting_keys::HEAD_KEY)
     }
 
     fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
