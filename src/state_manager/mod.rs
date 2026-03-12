@@ -1211,6 +1211,15 @@ where
             loop {
                 match subscriber.recv().await {
                     Ok(head_changes) => {
+                        for tipset in head_changes.reverts {
+                            if candidate_tipset
+                                .as_ref()
+                                .is_some_and(|candidate| candidate.key() == tipset.key())
+                            {
+                                candidate_tipset = None;
+                                candidate_receipt = None;
+                            }
+                        }
                         for tipset in head_changes.applies {
                             if candidate_tipset
                                 .as_ref()

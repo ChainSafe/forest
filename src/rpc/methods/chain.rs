@@ -1317,7 +1317,6 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     tokio::spawn(async move {
         // Skip first message
         let _ = subscriber.recv().await;
-
         while let Ok(changes) = subscriber.recv().await {
             let api_changes = changes
                 .into_change_vec()
