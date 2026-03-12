@@ -121,9 +121,7 @@ function generateDownloadScript(snapshots: ResolvedSnapshot[]): string {
   }
 
   if (available.length > 0) {
-    lines.push(
-      "# Write URL list to a temporary file and download with aria2c",
-    );
+    lines.push("# Write URL list to a temporary file and download with aria2c");
     lines.push("URLS=$(mktemp)");
     lines.push("trap 'rm -f \"$URLS\"' EXIT");
     lines.push("cat > \"$URLS\" <<'EOF'");
