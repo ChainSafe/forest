@@ -226,15 +226,25 @@ where
     let mut repub = false;
     let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
     for ts in revert {
-        let pts = api.load_tipset(ts.parents())?;
+        let Ok(pts) = api.load_tipset(ts.parents()) else {
+            tracing::error!("error loading reverted tipset parent");
+            continue;
+        };
         *cur_tipset.write() = pts;
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.block_headers() {
-            let (umsg, smsgs) = api.messages_for_block(block)?;
+            let Ok((umsg, smsgs)) = api.messages_for_block(block) else {
+                tracing::error!("error retrieving messages for reverted block");
+                continue;
+            };
             msgs.extend(smsgs);
             for msg in umsg {
-                let smsg = recover_sig(bls_sig_cache, msg)?;
+                let msg_cid = msg.cid();
+                let Ok(smsg) = recover_sig(bls_sig_cache, msg) else {
+                    tracing::debug!("could not recover signature for bls message {}", msg_cid);
+                    continue;
+                };
                 msgs.push(smsg)
             }
         }
@@ -246,7 +256,10 @@ where
 
     for ts in apply {
         for b in ts.block_headers() {
-            let (msgs, smsgs) = api.messages_for_block(b)?;
+            let Ok((msgs, smsgs)) = api.messages_for_block(b) else {
+                tracing::error!("error retrieving messages for block");
+                continue;
+            };
 
             for msg in smsgs {
                 remove_from_selected_msgs(
