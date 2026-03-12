@@ -52,7 +52,7 @@ Checkout [GitHub Discussions](https://github.com/ChainSafe/forest/discussions/ca
 - Questions, Comments, Feedback:
   - [Filecoin Slack](https://filecoin.io/slack): `#fil-forest-help`, `#fil-forest-dev` or `#fil-forest-announcements`
   - [Forest GitHub Discussions](https://github.com/ChainSafe/forest/discussions)
-- Partnerships or Hand-on Support: forest (at) chainsafe [dot] io
+- Partnerships or Hand-on Support: `forest (at) chainsafe [dot] io`
 
 ## Contributing
 
