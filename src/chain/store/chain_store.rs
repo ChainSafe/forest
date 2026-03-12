@@ -6,7 +6,6 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::db::{EthMappingsStore, EthMappingsStoreExt};
 use crate::interpreter::{BlockMessages, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
@@ -22,6 +21,10 @@ use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
     db::HeaviestTipsetKeyProvider,
+};
+use crate::{
+    db::{EthMappingsStore, EthMappingsStoreExt},
+    rpc::chain::PathChange,
 };
 use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
 use ahash::{HashMap, HashMapExt, HashSet};
@@ -47,10 +50,7 @@ pub type ChainEpochDelta = ChainEpoch;
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
-#[derive(Clone, Debug)]
-pub enum HeadChange {
-    Apply(Tipset),
-}
+pub type HeadChange = PathChange<Tipset>;
 
 /// Stores chain data such as heaviest tipset and cached tipset info at each
 /// epoch. This structure is thread-safe, and all caches are wrapped in a mutex
@@ -142,14 +142,30 @@ where
     }
 
     /// Sets heaviest tipset
-    pub fn set_heaviest_tipset(&self, ts: Tipset) -> Result<(), Error> {
+    pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
         self.heaviest_tipset_key_provider
-            .set_heaviest_tipset_key(ts.key())?;
-        *self.heaviest_tipset_cache.write() = Some(ts.clone());
-        ts.key().save(self.blockstore())?;
-        if self.publisher.send(HeadChange::Apply(ts)).is_err() {
-            debug!("did not publish head change, no active receivers");
+            .set_heaviest_tipset_key(head.key())?;
+        let old_head = (*self.heaviest_tipset_cache.write()).replace(head.clone());
+        head.key().save(self.blockstore())?;
+        if let Some(old_head) = old_head {
+            match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key()) {
+                Ok(changes) => {
+                    for change in changes {
+                        if self.publisher.send(change).is_err() {
+                            debug!("did not publish change, no active receivers");
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("failed to get chain path changes: {e}")
+                }
+            }
+        } else {
+            if self.publisher.send(HeadChange::Apply(head)).is_err() {
+                debug!("did not publish head change, no active receivers");
+            }
         }
+
         Ok(())
     }
 

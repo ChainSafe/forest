@@ -505,14 +505,12 @@ fn maybe_start_indexer_service(
 
             // Continuously listen for head changes
             loop {
-                let HeadChange::Apply(ts) = receiver.recv().await?;
-
-                tracing::debug!("Indexing tipset {}", ts.key());
-
-                let delegated_messages =
-                    chain_store.headers_delegated_messages(ts.block_headers().iter())?;
-
-                chain_store.process_signed_messages(&delegated_messages)?;
+                if let HeadChange::Apply(ts) = receiver.recv().await? {
+                    tracing::debug!("Indexing tipset {}", ts.key());
+                    let delegated_messages =
+                        chain_store.headers_delegated_messages(ts.block_headers().iter())?;
+                    chain_store.process_signed_messages(&delegated_messages)?;
+                }
             }
         });
 

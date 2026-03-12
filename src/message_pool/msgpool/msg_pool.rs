@@ -551,18 +551,17 @@ where
         let pending = mp.pending.clone();
         let republished = mp.republished.clone();
 
-        let cur_tipset = mp.cur_tipset.clone();
+        let current_ts = mp.cur_tipset.clone();
         let repub_trigger = mp.repub_trigger.clone();
 
         // Reacts to new HeadChanges
         services.spawn(async move {
             loop {
                 match subscriber.recv().await {
-                    Ok(ts) => {
-                        let (cur, rev, app) = match ts {
-                            HeadChange::Apply(tipset) => {
-                                (cur_tipset.clone(), Vec::new(), vec![tipset])
-                            }
+                    Ok(change) => {
+                        let (reverts, applies) = match change {
+                            HeadChange::Apply(ts) => (vec![], vec![ts]),
+                            HeadChange::Revert(ts) => (vec![ts], vec![]),
                         };
                         head_change(
                             api.as_ref(),
@@ -570,9 +569,9 @@ where
                             repub_trigger.clone(),
                             republished.as_ref(),
                             pending.as_ref(),
-                            cur.as_ref(),
-                            rev,
-                            app,
+                            &current_ts,
+                            reverts,
+                            applies,
                         )
                         .await
                         .context("Error changing head")?;

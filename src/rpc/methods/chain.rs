@@ -88,22 +88,20 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
 
     let handle = tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
-            let headers = match v {
-                HeadChange::Apply(ts) => {
-                    // Convert the tipset to an Ethereum block with full transaction info
-                    // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
-                    match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
-                        Ok(block) => ApiHeaders(block),
-                        Err(e) => {
-                            tracing::error!("Failed to convert tipset to eth block: {}", e);
-                            continue;
+            if let HeadChange::Apply(ts) = v {
+                // Convert the tipset to an Ethereum block with full transaction info
+                // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
+                match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
+                    Ok(block) => {
+                        if let Err(e) = sender.send(ApiHeaders(block)) {
+                            tracing::error!("Failed to send headers: {}", e);
+                            break;
                         }
                     }
+                    Err(e) => {
+                        tracing::error!("Failed to convert tipset to eth block: {}", e);
+                    }
                 }
-            };
-            if let Err(e) = sender.send(headers) {
-                tracing::error!("Failed to send headers: {}", e);
-                break;
             }
         }
     });
@@ -149,6 +147,7 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
                         }
                     }
                 }
+                HeadChange::Revert(_) => {}
             }
         }
     });
@@ -850,7 +849,7 @@ impl RpcMethod<2> for ChainGetPath {
         (from, to): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        impl_chain_get_path(ctx.chain_store(), &from, &to).map_err(Into::into)
+        chain_get_path(ctx.chain_store(), &from, &to).map_err(Into::into)
     }
 }
 
@@ -871,7 +870,7 @@ impl RpcMethod<2> for ChainGetPath {
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-fn impl_chain_get_path(
+pub fn chain_get_path(
     chain_store: &ChainStore<impl Blockstore>,
     from: &TipsetKey,
     to: &TipsetKey,
@@ -903,6 +902,7 @@ fn impl_chain_get_path(
             to_apply = next;
         }
     }
+
     Ok(all_reverts
         .into_iter()
         .map(PathChange::Revert)
@@ -1332,6 +1332,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
         while let Ok(v) = subscriber.recv().await {
             let (change, tipset) = match v {
                 HeadChange::Apply(ts) => ("apply".into(), ts),
+                HeadChange::Revert(ts) => ("revert".into(), ts),
             };
 
             if sender.send(vec![ApiHeadChange { change, tipset }]).is_err() {
@@ -1791,7 +1792,7 @@ mod tests {
         }
 
         let actual =
-            impl_chain_get_path(store, from.make_tipset().key(), to.make_tipset().key()).unwrap();
+            chain_get_path(store, from.make_tipset().key(), to.make_tipset().key()).unwrap();
         let expected = expected
             .into_iter()
             .map(|change| match change {

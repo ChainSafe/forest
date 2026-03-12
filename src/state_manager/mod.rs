@@ -1210,7 +1210,7 @@ where
         let mut subscriber_poll = tokio::task::spawn(async move {
             loop {
                 match subscriber.recv().await {
-                    Ok(subscriber) => match subscriber {
+                    Ok(head_change) => match head_change {
                         HeadChange::Apply(tipset) => {
                             if candidate_tipset
                                 .as_ref()
@@ -1237,6 +1237,7 @@ where
                                 candidate_receipt = Some(receipt)
                             }
                         }
+                        HeadChange::Revert(_) => {}
                     },
                     Err(RecvError::Lagged(i)) => {
                         warn!(
