@@ -25,6 +25,12 @@ Archival snapshots are publicly available at:
 - Calibnet lite: https://forest-archive.chainsafe.dev/list/calibnet/lite
 - Calibnet diff: https://forest-archive.chainsafe.dev/list/calibnet/diff
 
+:::tip
+
+You most likely don't need to download every snapshot and merge it into a single file. Read on to understand how to use the snapshots together and only download the ones you need for your period of interest.
+
+:::
+
 ## How lite and diff snapshots work together
 
 :::warning
