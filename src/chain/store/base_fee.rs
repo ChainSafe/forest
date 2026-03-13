@@ -54,13 +54,13 @@ pub fn compute_base_fee<DB>(
     db: &DB,
     ts: &Tipset,
     smoke_height: ChainEpoch,
-    next_upgrade_height: ChainEpoch,
+    xxx_height: ChainEpoch,
 ) -> Result<TokenAmount, crate::chain::Error>
 where
     DB: Blockstore,
 {
     // FIP-0115: https://github.com/filecoin-project/FIPs/pull/1233
-    if ts.epoch() >= next_upgrade_height {
+    if ts.epoch() >= xxx_height {
         return compute_next_base_fee_from_premiums(db, ts);
     }
 
