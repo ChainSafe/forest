@@ -274,6 +274,8 @@ jobs:
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-delegated-wallet-check:
+    # Disabling this job until message pool nonce calculation is fixed. See: https://github.com/ChainSafe/forest/issues/4899
+    if: false
     needs:
       - build-ubuntu
     name: Delegated wallet tests
