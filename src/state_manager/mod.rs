@@ -2065,6 +2065,7 @@ where
     // 4. execute block messages
     // 5. write the state-tree to the DB and return the CID
 
+    // step 1: special case for genesis block
     if tipset.epoch() == 0 {
         // NB: This is here because the process that executes blocks requires that the
         // block miner reference a valid miner in the state tree. Unless we create some
@@ -2087,6 +2088,8 @@ where
         tipset.clone(),
     );
 
+    // step 2: running cron for any null-tipsets
+    // step 3: run migrations
     let (parent_state, epoch, block_messages) =
         exec.prepare_parent_state(genesis_timestamp, enable_tracing, &mut callback)?;
 
@@ -2095,11 +2098,14 @@ where
     stacker::grow(64 << 20, || -> anyhow::Result<StateOutput> {
         let mut vm = exec.create_vm(parent_state, epoch, tipset.min_timestamp(), enable_tracing)?;
 
+        // step 4: apply tipset messages
         let (receipts, events, events_roots) =
             vm.apply_block_messages(&block_messages, epoch, callback)?;
 
+        // step 5: construct receipt root from receipts
         let receipt_root = Amtv0::new_from_iter(chain_index.db(), receipts)?;
 
+        // step 6: store events AMTs in the blockstore
         for (msg_events, events_root) in events.iter().zip(events_roots.iter()) {
             if let Some(event_root) = events_root {
                 // Store the events AMT - the root CID should match the one computed by FVM

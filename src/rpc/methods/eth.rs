@@ -7,13 +7,14 @@ pub mod filter;
 pub mod pubsub;
 pub(crate) mod pubsub_trait;
 mod tipset_resolver;
-mod trace;
+pub(crate) mod trace;
 pub mod types;
 mod utils;
 pub use tipset_resolver::TipsetResolver;
 
 use self::eth_tx::*;
 use self::filter::hex_str_to_epoch;
+use self::trace::types::*;
 use self::types::*;
 use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
@@ -33,7 +34,6 @@ use crate::rpc::{
     eth::{
         errors::EthErrors,
         filter::{SkipEvent, event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter},
-        types::EthBlockTrace,
         utils::decode_revert_reason,
     },
     methods::chain::ChainGetTipSetV2,
@@ -3365,37 +3365,12 @@ impl RpcMethod<1> for EthTraceBlock {
     }
 }
 
-struct TipsetTraceEntry {
-    tx_hash: EthHash,
-    msg_position: i64,
-    invoc_result: ApiInvocResult,
-}
-
-impl TipsetTraceEntry {
-    /// Builds Parity-style traces for this entry using the given state tree.
-    fn build_parity_traces<DB: Blockstore + Send + Sync>(
-        &self,
-        state: &StateTree<DB>,
-    ) -> Result<Vec<EthTrace>, ServerError> {
-        let mut env = trace::base_environment(state, &self.invoc_result.msg.from).map_err(|e| {
-            format!(
-                "when processing message {}: {}",
-                self.invoc_result.msg_cid, e
-            )
-        })?;
-        if let Some(ref execution_trace) = self.invoc_result.execution_trace {
-            trace::build_traces(&mut env, &[], execution_trace.clone())?;
-        }
-        Ok(env.traces)
-    }
-}
-
-/// Replays a tipset and resolves every non-system transaction into a [`TipsetTraceEntry`].
+/// Replays a tipset and resolves every non-system transaction into a [`trace::TipsetTraceEntry`].
 async fn execute_tipset_traces<DB>(
     ctx: &Ctx<DB>,
     ts: &Tipset,
     ext: &http::Extensions,
-) -> Result<(StateTree<DB>, Vec<TipsetTraceEntry>), ServerError>
+) -> Result<(StateTree<DB>, Vec<trace::TipsetTraceEntry>), ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -3419,7 +3394,7 @@ where
         let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
         let tx_hash = tx_hash
             .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
-        entries.push(TipsetTraceEntry {
+        entries.push(trace::TipsetTraceEntry {
             tx_hash,
             msg_position: msg_idx,
             invoc_result: ir,
