@@ -1949,6 +1949,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
                         self.create_vm(parent_state, epoch_i, timestamp, null_epoch_trace)?;
                     if let Err(e) = vm.run_cron(epoch_i, cron_callback.as_mut()) {
                         error!("Beginning of epoch cron failed to run: {e}");
+                        return Err(e);
                     }
                     vm.flush()
                 })?;

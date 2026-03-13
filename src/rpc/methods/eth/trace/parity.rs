@@ -50,7 +50,7 @@ pub fn base_environment<BS: Blockstore + Send + Sync>(
     from: &Address,
 ) -> anyhow::Result<Environment> {
     let sender = lookup_eth_address(from, state)?
-        .with_context(|| format!("top-level message sender {from} s could not be found"))?;
+        .with_context(|| format!("top-level message sender {from} could not be found"))?;
     Ok(Environment {
         caller: sender,
         ..Environment::default()
@@ -513,10 +513,11 @@ fn trace_eth_create(
             // Reverted, parse the revert message.
             // If we managed to call the constructor, parse/return its revert message. If we
             // fail, we just return no output.
-            decode_payload(&sub_trace.msg_rct.r#return, sub_trace.msg_rct.return_codec).unwrap_or_else(|err| {
-                debug!("failed to decode create revert payload: {err}");
-                EthBytes::default()
-            })
+            decode_payload(&sub_trace.msg_rct.r#return, sub_trace.msg_rct.return_codec)
+                .unwrap_or_else(|err| {
+                    debug!("failed to decode create revert payload: {err}");
+                    EthBytes::default()
+                })
         }
         _ => EthBytes::default(),
     };
