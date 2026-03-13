@@ -513,7 +513,10 @@ fn trace_eth_create(
             // Reverted, parse the revert message.
             // If we managed to call the constructor, parse/return its revert message. If we
             // fail, we just return no output.
-            decode_payload(&sub_trace.msg_rct.r#return, sub_trace.msg_rct.return_codec)?
+            decode_payload(&sub_trace.msg_rct.r#return, sub_trace.msg_rct.return_codec).unwrap_or_else(|err| {
+                debug!("failed to decode create revert payload: {err}");
+                EthBytes::default()
+            })
         }
         _ => EthBytes::default(),
     };
