@@ -56,7 +56,9 @@ pub struct PreparedStatements {
     pub insert_eth_tx_hash: &'static str,
     pub insert_tipset_message: &'static str,
     pub update_tipset_to_non_reverted: &'static str,
+    pub update_tipset_to_reverted: &'static str,
     pub update_events_to_non_reverted: &'static str,
+    pub update_events_to_reverted: &'static str,
     pub get_msg_id_for_msg_cid_and_tipset: &'static str,
     pub insert_event: &'static str,
     pub insert_event_entry: &'static str,
@@ -81,7 +83,10 @@ impl Default for PreparedStatements {
         let insert_tipset_message = "INSERT INTO tipset_message (tipset_key_cid, height, reverted, message_cid, message_index) VALUES (?, ?, ?, ?, ?) ON CONFLICT (tipset_key_cid, message_cid) DO UPDATE SET reverted = 0";
         let update_tipset_to_non_reverted =
             "UPDATE tipset_message SET reverted = 0 WHERE tipset_key_cid = ?";
+        let update_tipset_to_reverted =
+            "UPDATE tipset_message SET reverted = 1 WHERE tipset_key_cid = ?";
         let update_events_to_non_reverted = "UPDATE event SET reverted = 0 WHERE message_id IN (SELECT id FROM tipset_message WHERE tipset_key_cid = ?)";
+        let update_events_to_reverted = "UPDATE event SET reverted = 1 WHERE message_id IN (SELECT id FROM tipset_message WHERE height >= ?)";
         let get_msg_id_for_msg_cid_and_tipset = "SELECT id FROM tipset_message WHERE tipset_key_cid = ? AND message_cid = ? AND reverted = 0";
         let insert_event = "INSERT INTO event (message_id, event_index, emitter_id, emitter_addr, reverted) VALUES (?, ?, ?, ?, ?)";
         let insert_event_entry = "INSERT INTO event_entry (event_id, indexed, flags, key, codec, value) VALUES (?, ?, ?, ?, ?, ?)";
@@ -102,7 +107,9 @@ impl Default for PreparedStatements {
             insert_eth_tx_hash,
             insert_tipset_message,
             update_tipset_to_non_reverted,
+            update_tipset_to_reverted,
             update_events_to_non_reverted,
+            update_events_to_reverted,
             get_msg_id_for_msg_cid_and_tipset,
             insert_event,
             insert_event_entry,

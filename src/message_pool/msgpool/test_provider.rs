@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 use crate::blocks::{
     CachingBlockHeader, ElectionProof, RawBlockHeader, Ticket, Tipset, TipsetKey, VRFProof,
 };
-use crate::chain::HeadChange;
+use crate::chain::HeadChanges;
 use crate::cid_collections::CidHashMap;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::message_pool::{Error, provider::Provider};
@@ -25,7 +25,7 @@ use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 /// pool
 pub struct TestApi {
     pub inner: Mutex<TestApiInner>,
-    pub publisher: Publisher<HeadChange>,
+    pub publisher: Publisher<HeadChanges>,
 }
 
 #[derive(Default)]
@@ -81,7 +81,12 @@ impl TestApi {
 
     /// Set the heaviest tipset for `TestApi`
     pub fn set_heaviest_tipset(&self, ts: Tipset) {
-        self.publisher.send(HeadChange::Apply(ts)).unwrap();
+        self.publisher
+            .send(HeadChanges {
+                applies: vec![ts],
+                reverts: vec![],
+            })
+            .unwrap();
     }
 
     pub fn next_block(&self) -> CachingBlockHeader {
@@ -119,7 +124,7 @@ impl TestApiInner {
 
 #[async_trait]
 impl Provider for TestApi {
-    fn subscribe_head_changes(&self) -> Subscriber<HeadChange> {
+    fn subscribe_head_changes(&self) -> Subscriber<HeadChanges> {
         self.publisher.subscribe()
     }
 

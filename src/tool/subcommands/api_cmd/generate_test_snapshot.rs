@@ -195,7 +195,10 @@ where
             SettingsStoreExt::write_obj(
                 &self.tracker,
                 crate::db::setting_keys::HEAD_KEY,
-                &self.inner.heaviest_tipset_key()?,
+                &self
+                    .inner
+                    .heaviest_tipset_key()?
+                    .context("heaviest tipset key not found")?,
             )?;
         }
 
@@ -224,7 +227,7 @@ where
 }
 
 impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for ReadOpsTrackingStore<T> {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
         self.inner.heaviest_tipset_key()
     }
 

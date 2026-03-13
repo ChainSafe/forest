@@ -14,7 +14,7 @@ use sqlx::Row as _;
 
 use crate::{
     blocks::Tipset,
-    chain::{ChainStore, HeadChange, index::ResolveNullTipset},
+    chain::{ChainStore, HeadChanges, index::ResolveNullTipset},
     message::{ChainMessage, SignedMessage},
     rpc::{
         chain::types::ChainIndexValidation,
@@ -122,18 +122,18 @@ where
 
     pub async fn index_loop(
         &self,
-        mut head_change_subscriber: tokio::sync::broadcast::Receiver<HeadChange>,
+        mut head_change_subscriber: tokio::sync::broadcast::Receiver<HeadChanges>,
     ) -> anyhow::Result<()> {
         loop {
-            match head_change_subscriber.recv().await? {
-                HeadChange::Apply(ts) => {
-                    if let Err(e) = self.index_tipset(&ts).await {
-                        tracing::warn!(
-                            "failed to index new head@{}({}): {e}",
-                            ts.epoch(),
-                            ts.key()
-                        );
-                    }
+            let HeadChanges { reverts, applies } = head_change_subscriber.recv().await?;
+            for ts in reverts {
+                if let Err(e) = self.revert_tipset(&ts).await {
+                    tracing::warn!("failed to index new head@{}({}): {e}", ts.epoch(), ts.key());
+                }
+            }
+            for ts in applies {
+                if let Err(e) = self.index_tipset(&ts).await {
+                    tracing::warn!("failed to index new head@{}({}): {e}", ts.epoch(), ts.key());
                 }
             }
         }
@@ -553,6 +553,27 @@ where
             "successfully populated chain index with {total_indexed} tipsets, took {}",
             humantime::format_duration(start.elapsed())
         );
+        Ok(())
+    }
+
+    pub async fn revert_tipset(&self, ts: &Tipset) -> anyhow::Result<()> {
+        let tsk_cid_bytes = ts.key().cid()?.to_bytes();
+        // Because of deferred execution in Filecoin, events at tipset T are reverted when a tipset T+1 is reverted.
+        // However, the tipet `T` itself is not reverted.
+        let pts = Tipset::load_required(self.cs.blockstore(), ts.parents())?;
+        let events_tsk_cid_bytes = pts.key().cid()?.to_bytes();
+        let mut tx = self.db.begin().await?;
+        sqlx::query(self.stmts.update_events_to_reverted)
+            .bind(&tsk_cid_bytes)
+            .execute(tx.deref_mut())
+            .await?;
+        // events are indexed against the message inclusion tipset, not the message execution tipset.
+        // So we need to revert the events for the message inclusion tipset
+        sqlx::query(self.stmts.update_events_to_reverted)
+            .bind(&events_tsk_cid_bytes)
+            .execute(tx.deref_mut())
+            .await?;
+        tx.commit().await?;
         Ok(())
     }
 

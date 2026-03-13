@@ -16,7 +16,7 @@ use self::utils::structured;
 use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
-    ChainStore, HeadChange,
+    ChainStore,
     index::{ChainIndex, ResolveNullTipset},
 };
 use crate::interpreter::{
@@ -1210,8 +1210,17 @@ where
         let mut subscriber_poll = tokio::task::spawn(async move {
             loop {
                 match subscriber.recv().await {
-                    Ok(subscriber) => match subscriber {
-                        HeadChange::Apply(tipset) => {
+                    Ok(head_changes) => {
+                        for tipset in head_changes.reverts {
+                            if candidate_tipset
+                                .as_ref()
+                                .is_some_and(|candidate| candidate.key() == tipset.key())
+                            {
+                                candidate_tipset = None;
+                                candidate_receipt = None;
+                            }
+                        }
+                        for tipset in head_changes.applies {
                             if candidate_tipset
                                 .as_ref()
                                 .map(|s| tipset.epoch() >= s.epoch() + confidence)
@@ -1237,7 +1246,7 @@ where
                                 candidate_receipt = Some(receipt)
                             }
                         }
-                    },
+                    }
                     Err(RecvError::Lagged(i)) => {
                         warn!(
                             "wait for message head change subscriber lagged, skipped {} events",

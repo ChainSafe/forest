@@ -239,14 +239,14 @@ impl<T: PersistentStore> PersistentStore for &Arc<T> {
 
 pub trait HeaviestTipsetKeyProvider {
     /// Returns the currently tracked heaviest tipset.
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey>;
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>>;
 
     /// Sets heaviest tipset.
     fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()>;
 }
 
 impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for Arc<T> {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
         self.as_ref().heaviest_tipset_key()
     }
 

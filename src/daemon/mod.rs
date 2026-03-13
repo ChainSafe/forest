@@ -7,7 +7,6 @@ pub mod db_util;
 pub mod main;
 
 use crate::blocks::Tipset;
-use crate::chain::HeadChange;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::chain_sync::{ChainFollower, SyncStatus};
@@ -507,21 +506,19 @@ fn maybe_start_indexer_service(
     {
         // Old indexer
         {
-            let mut receiver = ctx.state_manager.chain_store().publisher().subscribe();
+            let mut head_changes_subscriber =
+                ctx.state_manager.chain_store().publisher().subscribe();
             let chain_store = ctx.state_manager.chain_store().clone();
             services.spawn(async move {
                 tracing::info!("Starting indexer service");
-
                 // Continuously listen for head changes
                 loop {
-                    let HeadChange::Apply(ts) = receiver.recv().await?;
-
-                    tracing::debug!("Indexing tipset {}", ts.key());
-
-                    let delegated_messages =
-                        chain_store.headers_delegated_messages(ts.block_headers().iter())?;
-
-                    chain_store.process_signed_messages(&delegated_messages)?;
+                    for ts in head_changes_subscriber.recv().await?.applies {
+                        tracing::debug!("Indexing tipset {}", ts.key());
+                        let delegated_messages =
+                            chain_store.headers_delegated_messages(ts.block_headers().iter())?;
+                        chain_store.process_signed_messages(&delegated_messages)?;
+                    }
                 }
             });
 
@@ -544,11 +541,11 @@ fn maybe_start_indexer_service(
         // New SQLITE indexer
         if let Some(indexer) = &ctx.chain_indexer {
             services.spawn({
-                let head_change_subscriber =
+                let head_changes_subscriber =
                     ctx.state_manager.chain_store().publisher().subscribe();
                 let indexer = indexer.clone();
                 async move {
-                    if let Err(e) = indexer.index_loop(head_change_subscriber).await {
+                    if let Err(e) = indexer.index_loop(head_changes_subscriber).await {
                         tracing::warn!("indexer stopped unexpectedly: {e}");
                     }
                     Ok(())

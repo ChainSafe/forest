@@ -6,8 +6,6 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::db::{EthMappingsStore, EthMappingsStoreExt};
-use crate::interpreter::{BlockMessages, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::{ChainConfig, Height};
@@ -23,7 +21,15 @@ use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
     db::HeaviestTipsetKeyProvider,
 };
+use crate::{
+    db::{EthMappingsStore, EthMappingsStoreExt},
+    rpc::chain::PathChange,
+};
 use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
+use crate::{
+    interpreter::{BlockMessages, VMTrace},
+    rpc::chain::PathChanges,
+};
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
@@ -47,17 +53,16 @@ pub type ChainEpochDelta = ChainEpoch;
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
-#[derive(Clone, Debug)]
-pub enum HeadChange {
-    Apply(Tipset),
-}
+pub type HeadChange = PathChange<Tipset>;
+
+pub type HeadChanges = PathChanges<Tipset>;
 
 /// Stores chain data such as heaviest tipset and cached tipset info at each
 /// epoch. This structure is thread-safe, and all caches are wrapped in a mutex
 /// to allow a consistent `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
     /// Publisher for head change events
-    publisher: Publisher<HeadChange>,
+    publisher: Publisher<HeadChanges>,
 
     /// key-value `datastore`.
     db: Arc<DB>,
@@ -66,7 +71,7 @@ pub struct ChainStore<DB> {
     heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
 
     /// Heaviest tipset cache
-    heaviest_tipset_cache: Arc<RwLock<Option<Tipset>>>,
+    heaviest_tipset_cache: Arc<RwLock<Tipset>>,
 
     /// Used as a cache for tipset `lookbacks`.
     chain_index: Arc<ChainIndex<Arc<DB>>>,
@@ -124,14 +129,24 @@ where
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let validated_blocks = Mutex::new(HashSet::default());
-
+        let head = if let Some(head_tsk) = heaviest_tipset_key_provider
+            .heaviest_tipset_key()
+            .context("failed to load head tipset key")?
+            && let Some(head) = chain_index
+                .load_tipset(&head_tsk)
+                .context("failed to load head tipset")?
+        {
+            head
+        } else {
+            Tipset::from(&genesis_block_header)
+        };
         let cs = Self {
             publisher,
             chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,
             heaviest_tipset_key_provider,
-            heaviest_tipset_cache: Default::default(),
+            heaviest_tipset_cache: Arc::new(RwLock::new(head)),
             genesis_block_header,
             validated_blocks,
             eth_mappings,
@@ -142,14 +157,31 @@ where
     }
 
     /// Sets heaviest tipset
-    pub fn set_heaviest_tipset(&self, ts: Tipset) -> Result<(), Error> {
+    pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
+        head.key().save(self.blockstore())?;
         self.heaviest_tipset_key_provider
-            .set_heaviest_tipset_key(ts.key())?;
-        *self.heaviest_tipset_cache.write() = Some(ts.clone());
-        ts.key().save(self.blockstore())?;
-        if self.publisher.send(HeadChange::Apply(ts)).is_err() {
-            debug!("did not publish head change, no active receivers");
+            .set_heaviest_tipset_key(head.key())?;
+        let old_head = std::mem::replace(&mut *self.heaviest_tipset_cache.write(), head.clone());
+
+        let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key()) {
+            Ok(changes) => changes,
+            Err(e) => {
+                // Do not warn when the old head is genesis
+                if old_head.epoch() > 0 {
+                    warn!("failed to get chain path changes: {e}");
+                }
+                // Fallback to single apply
+                PathChanges {
+                    applies: vec![head],
+                    reverts: vec![],
+                }
+            }
+        };
+
+        if self.publisher.send(changes).is_err() {
+            debug!("did not publish changes, no active receivers");
         }
+
         Ok(())
     }
 
@@ -200,16 +232,7 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Tipset {
-        if let Some(ts) = &*self.heaviest_tipset_cache.read() {
-            return ts.clone();
-        }
-        let tsk = self
-            .heaviest_tipset_key_provider
-            .heaviest_tipset_key()
-            .unwrap_or_else(|_| TipsetKey::from(nunny::vec![*self.genesis_block_header.cid()]));
-        self.chain_index
-            .load_required_tipset(&tsk)
-            .expect("failed to load heaviest tipset")
+        self.heaviest_tipset_cache.read().clone()
     }
 
     /// Returns the genesis tipset.
@@ -218,7 +241,7 @@ where
     }
 
     /// Returns a reference to the publisher of head changes.
-    pub fn publisher(&self) -> &Publisher<HeadChange> {
+    pub fn publisher(&self) -> &Publisher<HeadChanges> {
         &self.publisher
     }
 

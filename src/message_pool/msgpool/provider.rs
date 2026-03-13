@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
-use crate::chain::HeadChange;
+use crate::chain::HeadChanges;
 use crate::message::{ChainMessage, SignedMessage};
 use crate::message_pool::msg_pool::{
     MAX_ACTOR_PENDING_MESSAGES, MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES,
@@ -31,7 +31,7 @@ use crate::message_pool::errors::Error;
 #[async_trait]
 pub trait Provider {
     /// Update `Mpool`'s `cur_tipset` whenever there is a change to the provider
-    fn subscribe_head_changes(&self) -> Subscriber<HeadChange>;
+    fn subscribe_head_changes(&self) -> Subscriber<HeadChanges>;
     /// Get the heaviest Tipset in the provider
     fn get_heaviest_tipset(&self) -> Tipset;
     /// Add a message to the `MpoolProvider`, return either Cid or Error
@@ -64,7 +64,7 @@ pub trait Provider {
 /// `mpool` RPC.
 #[derive(derive_more::Constructor)]
 pub struct MpoolRpcProvider<DB> {
-    subscriber: Publisher<HeadChange>,
+    subscriber: Publisher<HeadChanges>,
     sm: Arc<StateManager<DB>>,
 }
 
@@ -73,7 +73,7 @@ impl<DB> Provider for MpoolRpcProvider<DB>
 where
     DB: Blockstore + Sync + Send + 'static,
 {
-    fn subscribe_head_changes(&self) -> Subscriber<HeadChange> {
+    fn subscribe_head_changes(&self) -> Subscriber<HeadChanges> {
         self.subscriber.subscribe()
     }
 
