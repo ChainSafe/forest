@@ -237,11 +237,11 @@ impl MpoolCommands {
                 let tipset = ChainHead::call(&client, ()).await?;
                 let curr_base_fee = tipset.block_headers().first().parent_base_fee.to_owned();
 
-                let atto_str = ChainGetMinBaseFee::call(&client, (basefee_lookback,)).await?;
+                let (atto_str, NotNullVec(messages)) = tokio::try_join!(
+                    ChainGetMinBaseFee::call(&client, (basefee_lookback,)),
+                    MpoolPending::call(&client, (ApiTipsetKey(None),)),
+                )?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
-
-                let NotNullVec(messages) =
-                    MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
 
                 let local_addrs = if local {
                     let response = WalletList::call(&client, ()).await?;
