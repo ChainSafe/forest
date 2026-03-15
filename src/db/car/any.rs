@@ -54,7 +54,7 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
         ))
     }
 
-    pub fn metadata(&self) -> &Option<FilecoinSnapshotMetadata> {
+    pub fn metadata(&self) -> Option<&FilecoinSnapshotMetadata> {
         match self {
             AnyCar::Forest(forest) => forest.metadata(),
             AnyCar::Plain(plain) => plain.metadata(),

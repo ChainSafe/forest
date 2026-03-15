@@ -162,7 +162,7 @@ impl EthLegacyHomesteadTxArgs {
             .append(&format_u64(self.nonce))
             .append(&format_bigint(&self.gas_price)?)
             .append(&format_u64(self.gas_limit))
-            .append(&format_address(&self.to))
+            .append(&format_address(self.to.as_ref()))
             .append(&format_bigint(&self.value)?)
             .append(&self.input);
         Ok(stream)
@@ -195,7 +195,7 @@ impl EthLegacyHomesteadTxArgs {
 
     /// Constructs an unsigned message using legacy homestead transaction args
     pub fn get_unsigned_message(&self, from: Address) -> anyhow::Result<Message> {
-        let method_info = get_filecoin_method_info(&self.to, &self.input)?;
+        let method_info = get_filecoin_method_info(self.to.as_ref(), &self.input)?;
         Ok(Message {
             version: 0,
             from,

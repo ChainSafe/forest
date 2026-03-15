@@ -108,7 +108,7 @@ impl EthEip1559TxArgs {
             .append(&format_bigint(&self.max_priority_fee_per_gas)?)
             .append(&format_bigint(&self.max_fee_per_gas)?)
             .append(&format_u64(self.gas_limit))
-            .append(&format_address(&self.to))
+            .append(&format_address(self.to.as_ref()))
             .append(&format_bigint(&self.value)?)
             .append(&self.input)
             .append_list(access_list);
@@ -156,7 +156,7 @@ impl EthEip1559TxArgs {
             self.chain_id,
             eth_chain_id
         );
-        let method_info = get_filecoin_method_info(&self.to, &self.input)?;
+        let method_info = get_filecoin_method_info(self.to.as_ref(), &self.input)?;
         Ok(Message {
             version: 0,
             from,
