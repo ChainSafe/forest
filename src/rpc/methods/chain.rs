@@ -1066,7 +1066,7 @@ pub enum ChainGetTipSetV2 {}
 impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_anchor(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        anchor: &Option<TipsetAnchor>,
+        anchor: Option<&TipsetAnchor>,
     ) -> anyhow::Result<Tipset> {
         if let Some(anchor) = anchor {
             match (&anchor.key.0, &anchor.tag) {
@@ -1162,7 +1162,7 @@ impl ChainGetTipSetV2 {
         }
         // Get tipset by height.
         if let Some(height) = &selector.height {
-            let anchor = Self::get_tipset_by_anchor(ctx, &height.anchor).await?;
+            let anchor = Self::get_tipset_by_anchor(ctx, height.anchor.as_ref()).await?;
             let ts = ctx.chain_index().tipset_by_height(
                 height.at,
                 anchor,
