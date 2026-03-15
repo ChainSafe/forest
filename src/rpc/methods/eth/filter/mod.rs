@@ -176,7 +176,7 @@ impl EthEventHandler {
 
     fn install_filter(
         &self,
-        filter_manager: &Option<Arc<dyn FilterManager>>,
+        filter_manager: Option<&dyn FilterManager>,
     ) -> Result<FilterID, Error> {
         if let Some(manager) = filter_manager {
             let filter = manager.install().context("Installation error")?;
@@ -194,20 +194,12 @@ impl EthEventHandler {
 
     // Installs an eth block filter
     pub fn eth_new_block_filter(&self) -> Result<FilterID, Error> {
-        let filter_manager: Option<Arc<dyn FilterManager>> = self
-            .tipset_filter_manager
-            .as_ref()
-            .map(|fm| Arc::clone(fm) as Arc<dyn FilterManager>);
-        self.install_filter(&filter_manager)
+        self.install_filter(self.tipset_filter_manager.as_deref().map(|fm| fm as _))
     }
 
     // Installs an eth pending transaction filter
     pub fn eth_new_pending_transaction_filter(&self) -> Result<FilterID, Error> {
-        let filter_manager: Option<Arc<dyn FilterManager>> = self
-            .mempool_filter_manager
-            .as_ref()
-            .map(|fm| Arc::clone(fm) as Arc<dyn FilterManager>);
-        self.install_filter(&filter_manager)
+        self.install_filter(self.mempool_filter_manager.as_deref().map(|fm| fm as _))
     }
 
     fn uninstall_filter(&self, filter: Arc<dyn Filter>) -> Result<(), Error> {

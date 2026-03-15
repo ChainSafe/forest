@@ -2126,6 +2126,7 @@ SUBCOMMANDS:
   fetch-test-snapshots  Fetch test snapshots to the local cache
   state                 Interact with Filecoin chain state
   update-checkpoints    Update known blocks (checkpoints), normally in `build/known_blocks.yaml`, by querying RPC endpoints
+  archive-missing       Find missing archival snapshots on the Forest Archive for a given epoch range
   help                  Print this message or the help of the given subcommand(s)
 
 OPTIONS:

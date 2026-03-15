@@ -191,7 +191,7 @@ impl EthLegacyEip155TxArgs {
             .append(&format_u64(self.nonce))
             .append(&format_bigint(&self.gas_price)?)
             .append(&format_u64(self.gas_limit))
-            .append(&format_address(&self.to))
+            .append(&format_address(self.to.as_ref()))
             .append(&format_bigint(&self.value)?)
             .append(&self.input);
         Ok(stream)
@@ -240,7 +240,7 @@ impl EthLegacyEip155TxArgs {
             validate_eip155_chain_id(eth_chain_id, &self.v).is_ok(),
             "Failed to validate EIP155 chain Id"
         );
-        let method_info = get_filecoin_method_info(&self.to, &self.input)?;
+        let method_info = get_filecoin_method_info(self.to.as_ref(), &self.input)?;
         Ok(Message {
             version: 0,
             from,
