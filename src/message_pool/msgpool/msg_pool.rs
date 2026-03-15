@@ -544,7 +544,7 @@ where
 
         mp.load_local()?;
 
-        let mut subscriber = mp.api.subscribe_head_changes();
+        let mut head_changes_rx = mp.api.subscribe_head_changes();
 
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.clone();
@@ -557,7 +557,7 @@ where
         // Reacts to new HeadChanges
         services.spawn(async move {
             loop {
-                match subscriber.recv().await {
+                match head_changes_rx.recv().await {
                     Ok(HeadChanges { reverts, applies }) => {
                         if let Err(e) = head_change(
                             api.as_ref(),

@@ -14,18 +14,16 @@ use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::message_pool::{Error, provider::Provider};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use ahash::HashMap;
-use async_trait::async_trait;
 use cid::Cid;
 use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
-use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 /// Structure used for creating a provider when writing tests involving message
 /// pool
 pub struct TestApi {
     pub inner: Mutex<TestApiInner>,
-    pub publisher: Publisher<HeadChanges>,
+    pub head_changes_tx: broadcast::Sender<HeadChanges>,
 }
 
 #[derive(Default)]
@@ -40,13 +38,13 @@ pub struct TestApiInner {
 impl Default for TestApi {
     /// Create a new `TestApi`
     fn default() -> Self {
-        let (publisher, _) = broadcast::channel(1);
+        let (head_changes_tx, _) = broadcast::channel(1);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages: 20000,
                 ..TestApiInner::default()
             }),
-            publisher,
+            head_changes_tx,
         }
     }
 }
@@ -60,7 +58,7 @@ impl TestApi {
                 max_actor_pending_messages,
                 ..TestApiInner::default()
             }),
-            publisher,
+            head_changes_tx: publisher,
         }
     }
 
@@ -81,7 +79,7 @@ impl TestApi {
 
     /// Set the heaviest tipset for `TestApi`
     pub fn set_heaviest_tipset(&self, ts: Tipset) {
-        self.publisher
+        self.head_changes_tx
             .send(HeadChanges {
                 applies: vec![ts],
                 reverts: vec![],
@@ -122,10 +120,9 @@ impl TestApiInner {
     }
 }
 
-#[async_trait]
 impl Provider for TestApi {
-    fn subscribe_head_changes(&self) -> Subscriber<HeadChanges> {
-        self.publisher.subscribe()
+    fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
+        self.head_changes_tx.subscribe()
     }
 
     fn get_heaviest_tipset(&self) -> Tipset {
