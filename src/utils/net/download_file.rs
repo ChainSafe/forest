@@ -72,7 +72,7 @@ fn gen_tmp_download_path(dst_path: &Path) -> PathBuf {
 
 /// Call user-provided callback with progress percentage
 fn call_progress_callback(
-    callback: Option<&Arc<dyn Fn(String) + Sync + Send>>,
+    callback: Option<&(dyn Fn(String) + Sync + Send)>,
     downloaded: u64,
     total_size: u64,
 ) {
@@ -388,7 +388,7 @@ async fn download_http_parallel(
                     }
 
                     // Also call user callback if provided (for RPC state tracking)
-                    call_progress_callback(callback.as_ref(), downloaded, total_size);
+                    call_progress_callback(callback.as_deref(), downloaded, total_size);
                 }
 
                 file.flush().await?;
