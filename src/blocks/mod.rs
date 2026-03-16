@@ -6,6 +6,7 @@ use thiserror::Error;
 mod block;
 #[cfg(test)]
 mod chain4u;
+pub mod checkpoints;
 mod election_proof;
 mod gossip_block;
 mod header;

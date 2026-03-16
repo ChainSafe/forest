@@ -19,7 +19,6 @@ use crate::{
         multihash::MultihashCode,
     },
 };
-use ahash::HashMap;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -412,29 +411,20 @@ impl Tipset {
 
     /// Fetch the genesis block header for a given tipset.
     pub fn genesis(&self, store: &impl Blockstore) -> anyhow::Result<CachingBlockHeader> {
-        // Scanning through millions of epochs to find the genesis is quite
-        // slow. Let's use a list of known blocks to short-circuit the search.
-        // The blocks are hash-chained together and known blocks are guaranteed
-        // to have a known genesis.
-        #[derive(Serialize, Deserialize)]
-        struct KnownHeaders {
-            calibnet: HashMap<ChainEpoch, String>,
-            mainnet: HashMap<ChainEpoch, String>,
-        }
-
-        static KNOWN_HEADERS: OnceLock<KnownHeaders> = OnceLock::new();
-        let headers = KNOWN_HEADERS.get_or_init(|| {
-            serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
-        });
-
         for tipset in self.clone().chain(store) {
             // Search for known calibnet and mainnet blocks
             for (genesis_cid, known_blocks) in [
-                (*calibnet::GENESIS_CID, &headers.calibnet),
-                (*mainnet::GENESIS_CID, &headers.mainnet),
+                (
+                    *calibnet::GENESIS_CID,
+                    &super::checkpoints::KNOWN_BLOCKS.calibnet,
+                ),
+                (
+                    *mainnet::GENESIS_CID,
+                    &super::checkpoints::KNOWN_BLOCKS.mainnet,
+                ),
             ] {
                 if let Some(known_block_cid) = known_blocks.get(&tipset.epoch())
-                    && known_block_cid == &tipset.min_ticket_block().cid().to_string()
+                    && known_block_cid == tipset.min_ticket_block().cid()
                 {
                     return store
                         .get_cbor(&genesis_cid)?

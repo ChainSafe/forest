@@ -6,7 +6,6 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::{ChainConfig, Height};
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
@@ -17,6 +16,10 @@ use crate::shim::{
 };
 use crate::state_manager::StateOutput;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
+use crate::{
+    blocks::checkpoints::known_tipsets,
+    libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite},
+};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
     db::HeaviestTipsetKeyProvider,
@@ -240,6 +243,32 @@ where
         Tipset::from(self.genesis_block_header())
     }
 
+    /// Find tipset at epoch `to` in the chain
+    pub fn tipset_by_height(
+        &self,
+        to: ChainEpoch,
+        from: Option<Tipset>,
+        resolve: ResolveNullTipset,
+    ) -> Result<Tipset, Error> {
+        let best_known_from = if let Ok(known_tipsets) =
+            known_tipsets(self.blockstore(), &self.chain_config().network)
+            && let Some(ts) = known_tipsets.iter().find(|ts| ts.epoch() > to).cloned()
+        {
+            Some(ts)
+        } else {
+            None
+        };
+        let from = match (from, best_known_from) {
+            // prefer `b` when `b` is closer to `to`
+            (Some(a), Some(b)) if b.epoch() < a.epoch() => b,
+            // prefer `a` when presents
+            (Some(a), _) => a,
+            (None, Some(b)) => b,
+            // fallback to chain head
+            (None, None) => self.heaviest_tipset(),
+        };
+        self.chain_index().tipset_by_height(to, from, resolve)
+    }
     /// Subscribes head changes.
     pub fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
         self.head_changes_tx.subscribe()

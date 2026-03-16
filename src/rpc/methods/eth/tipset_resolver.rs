@@ -157,9 +157,9 @@ where
     pub fn get_ec_safe_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        Ok(self.ctx.chain_index().tipset_by_height(
+        Ok(self.ctx.chain_store().tipset_by_height(
             safe_height,
-            head,
+            None,
             ResolveNullTipset::TakeOlder,
         )?)
     }
@@ -171,9 +171,9 @@ where
         let head = self.ctx.chain_store().heaviest_tipset();
         let ec_finality_epoch =
             (head.epoch() - self.ctx.chain_config().policy.chain_finality).max(0);
-        Ok(self.ctx.chain_index().tipset_by_height(
+        Ok(self.ctx.chain_store().tipset_by_height(
             ec_finality_epoch,
-            head,
+            None,
             ResolveNullTipset::TakeOlder,
         )?)
     }
