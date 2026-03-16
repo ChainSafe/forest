@@ -68,6 +68,7 @@ impl SqliteIndexerOptions {
 }
 
 pub struct SqliteIndexer<BS> {
+    lock: tokio::sync::Mutex<()>,
     options: SqliteIndexerOptions,
     cs: Arc<ChainStore<BS>>,
     db: sqlx::SqlitePool,
@@ -95,6 +96,7 @@ where
         .await?;
         let stmts = PreparedStatements::default();
         Ok(Self {
+            lock: Default::default(),
             options,
             cs,
             db,
@@ -102,6 +104,12 @@ where
             actor_to_delegated_address_func: None,
             recompute_tipset_state_func: None,
         })
+    }
+
+    /// Acquires write lock. Note that `WAL` (Write-Ahead Logging) mode is enabled to allow
+    /// concurrent reads to occur while a single write transaction is active
+    pub async fn aquire_write_lock(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.lock.lock().await
     }
 
     pub fn with_actor_to_delegated_address_func(mut self, f: ActorToDelegatedAddressFunc) -> Self {
@@ -120,6 +128,7 @@ where
     ) -> anyhow::Result<()> {
         loop {
             let HeadChanges { reverts, applies } = head_changes_rx.recv().await?;
+            let _lock = self.aquire_write_lock().await;
             for ts in reverts {
                 if let Err(e) = self.revert_tipset(&ts).await {
                     tracing::warn!(
@@ -151,6 +160,7 @@ where
     }
 
     async fn gc(&self) {
+        let _lock = self.aquire_write_lock().await;
         tracing::info!("starting index gc");
         let head = self.cs.heaviest_tipset();
         let removal_epoch = head.epoch() - self.options.gc_retention_epochs - 10; // 10 is for some grace period
@@ -207,11 +217,44 @@ where
         }
     }
 
+    pub async fn populate(&self) -> anyhow::Result<()> {
+        let _lock = self.aquire_write_lock().await;
+        let start = Instant::now();
+        let head = self.cs.heaviest_tipset();
+        tracing::info!(
+            "starting to populate chainindex at head epoch {}",
+            head.epoch()
+        );
+        let mut tx = self.db.begin().await?;
+        let mut total_indexed = 0;
+        for ts in head.chain(self.cs.blockstore()) {
+            if let Err(e) = self.index_tipset_with_tx(&mut tx, &ts).await {
+                tracing::info!(
+                    "stopping chainindex population at epoch {}: {e}",
+                    ts.epoch()
+                );
+                break;
+            }
+            total_indexed += 1;
+        }
+        tx.commit().await?;
+        tracing::info!(
+            "successfully populated chain index with {total_indexed} tipsets, took {}",
+            humantime::format_duration(start.elapsed())
+        );
+        Ok(())
+    }
+
     pub async fn validate_index(
         &self,
         epoch: ChainEpoch,
         backfill: bool,
     ) -> anyhow::Result<ChainIndexValidation> {
+        let _lock = if backfill {
+            Some(self.aquire_write_lock().await)
+        } else {
+            None
+        };
         let head = self.cs.heaviest_tipset();
         anyhow::ensure!(
             epoch < head.epoch(),
@@ -604,34 +647,7 @@ where
         Ok(executed)
     }
 
-    pub async fn populate(&self) -> anyhow::Result<()> {
-        let start = Instant::now();
-        let head = self.cs.heaviest_tipset();
-        tracing::info!(
-            "starting to populate chainindex at head epoch {}",
-            head.epoch()
-        );
-        let mut tx = self.db.begin().await?;
-        let mut total_indexed = 0;
-        for ts in head.chain(self.cs.blockstore()) {
-            if let Err(e) = self.index_tipset_with_tx(&mut tx, &ts).await {
-                tracing::info!(
-                    "stopping chainindex population at epoch {}: {e}",
-                    ts.epoch()
-                );
-                break;
-            }
-            total_indexed += 1;
-        }
-        tx.commit().await?;
-        tracing::info!(
-            "successfully populated chain index with {total_indexed} tipsets, took {}",
-            humantime::format_duration(start.elapsed())
-        );
-        Ok(())
-    }
-
-    pub async fn revert_tipset(&self, ts: &Tipset) -> anyhow::Result<()> {
+    async fn revert_tipset(&self, ts: &Tipset) -> anyhow::Result<()> {
         tracing::debug!("reverting tipset@{}[{}]", ts.epoch(), ts.key().terse());
         let tsk_cid_bytes = ts.key().cid()?.to_bytes();
         // Because of deferred execution in Filecoin, events at tipset T are reverted when a tipset T+1 is reverted.
@@ -653,7 +669,7 @@ where
         Ok(())
     }
 
-    pub async fn index_tipset(&self, ts: &Tipset) -> anyhow::Result<()> {
+    async fn index_tipset(&self, ts: &Tipset) -> anyhow::Result<()> {
         tracing::debug!("indexing tipset@{}[{}]", ts.epoch(), ts.key().terse());
         let mut tx = self.db.begin().await?;
         self.index_tipset_and_parent_events_with_tx(&mut tx, ts)
@@ -662,7 +678,7 @@ where
         Ok(())
     }
 
-    pub async fn index_tipset_with_tx<'a>(
+    async fn index_tipset_with_tx<'a>(
         &self,
         tx: &mut sqlx::SqliteTransaction<'a>,
         ts: &Tipset,
@@ -716,7 +732,7 @@ where
         }
     }
 
-    pub async fn index_tipset_and_parent_events_with_tx<'a>(
+    async fn index_tipset_and_parent_events_with_tx<'a>(
         &self,
         tx: &mut sqlx::SqliteTransaction<'a>,
         ts: &Tipset,
@@ -741,7 +757,7 @@ where
             .map_err(|e| anyhow::anyhow!("failed to index events: {e}"))
     }
 
-    pub async fn index_events_with_tx<'a>(
+    async fn index_events_with_tx<'a>(
         &self,
         tx: &mut sqlx::SqliteTransaction<'a>,
         msg_ts: &Tipset,
@@ -841,7 +857,7 @@ where
         Ok(())
     }
 
-    pub async fn restore_tipset_if_exists_with_tx<'a>(
+    async fn restore_tipset_if_exists_with_tx<'a>(
         &self,
         tx: &mut sqlx::SqliteTransaction<'a>,
         tsk_cid_bytes: &[u8],
@@ -866,7 +882,7 @@ where
         }
     }
 
-    pub async fn index_signed_message_with_tx<'a>(
+    async fn index_signed_message_with_tx<'a>(
         &self,
         tx: &mut sqlx::SqliteTransaction<'a>,
         smsg: &SignedMessage,
@@ -882,7 +898,7 @@ where
             .await
     }
 
-    pub async fn index_eth_tx_hash_with_tx<'a>(
+    async fn index_eth_tx_hash_with_tx<'a>(
         &self,
         tx: &mut sqlx::SqliteTransaction<'a>,
         tx_hash: EthHash,

@@ -25,8 +25,8 @@ pub enum IndexCommands {
         #[arg(long, required = true)]
         to: ChainEpoch,
         /// determines whether to backfill missing index entries during validation
-        #[arg(long, default_value_t = true)]
-        backfill: bool,
+        #[arg(long, default_missing_value = "true", default_value = "true")]
+        backfill: Option<bool>,
     },
 }
 
@@ -34,7 +34,7 @@ impl IndexCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::ValidateBackfill { from, to, backfill } => {
-                validate_backfill(&client, from, to, backfill).await
+                validate_backfill(&client, from, to, backfill.unwrap_or_default()).await
             }
         }
     }
