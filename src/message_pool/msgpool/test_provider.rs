@@ -14,7 +14,6 @@ use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::message_pool::{Error, provider::Provider};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use ahash::HashMap;
-use async_trait::async_trait;
 use cid::Cid;
 use num::BigInt;
 use parking_lot::Mutex;
@@ -117,7 +116,6 @@ impl TestApiInner {
     }
 }
 
-#[async_trait]
 impl Provider for TestApi {
     fn subscribe_head_changes(&self) -> Subscriber<HeadChange> {
         self.publisher.subscribe()

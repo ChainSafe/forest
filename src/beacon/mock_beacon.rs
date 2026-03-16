@@ -5,7 +5,6 @@ use super::DrandNetwork;
 use crate::beacon::{Beacon, BeaconEntry};
 use crate::shim::version::NetworkVersion;
 use crate::utils::encoding::blake2b_256;
-use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 
 #[derive(Default)]
@@ -20,7 +19,6 @@ impl MockBeacon {
     }
 }
 
-#[async_trait]
 impl Beacon for MockBeacon {
     fn network(&self) -> DrandNetwork {
         DrandNetwork::Mainnet

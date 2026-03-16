@@ -18,7 +18,6 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::db::CborStoreExt;
-use async_trait::async_trait;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -28,7 +27,6 @@ use crate::message_pool::errors::Error;
 /// Provider Trait. This trait will be used by the message pool to interact with
 /// some medium in order to do the operations that are listed below that are
 /// required for the message pool.
-#[async_trait]
 pub trait Provider {
     /// Update `Mpool`'s `cur_tipset` whenever there is a change to the provider
     fn subscribe_head_changes(&self) -> Subscriber<HeadChange>;
@@ -68,7 +66,6 @@ pub struct MpoolRpcProvider<DB> {
     sm: Arc<StateManager<DB>>,
 }
 
-#[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
     DB: Blockstore + Sync + Send + 'static,
