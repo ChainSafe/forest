@@ -6,11 +6,11 @@
 //! Compares pre- and post-execution actor states to produce per-account diffs
 //! covering balance, nonce, code, and storage.
 
+use super::super::EthBigInt;
 use super::super::types::{EthAddress, EthHash};
 use super::super::utils::ActorStateEthExt as _;
 use super::types::{AccountDiff, ChangedType, Delta, StateDiff};
-use crate::rpc::eth::EthBigInt;
-use crate::rpc::eth::trace::utils::{ZERO_HASH, u256_to_eth_hash};
+use super::utils::{ZERO_HASH, u256_to_eth_hash};
 use crate::shim::actors::{EVMActorStateLoad as _, evm, is_evm_actor};
 use crate::shim::state_tree::{ActorState, StateTree};
 use ahash::{HashMap, HashSet};
@@ -45,7 +45,7 @@ impl AsHashedKey<U256, 32> for EvmStateHashAlgorithm {
 type EvmStorageKamt<BS> = Kamt<BS, U256, U256, EvmStateHashAlgorithm>;
 
 /// Build state diff by comparing pre and post-execution states for touched addresses.
-pub(crate) fn build_state_diff<S: Blockstore, T: Blockstore>(
+pub fn build_state_diff<S: Blockstore, T: Blockstore>(
     store: &S,
     pre_state: &StateTree<T>,
     post_state: &StateTree<T>,
@@ -244,7 +244,7 @@ pub fn extract_evm_storage_entries<DB: Blockstore>(
 }
 
 // Compute the set of storage keys that differ between pre and post actor states.
-pub(crate) fn diff_entry_keys(
+pub fn diff_entry_keys(
     pre_entries: &HashMap<[u8; 32], U256>,
     post_entries: &HashMap<[u8; 32], U256>,
 ) -> HashSet<[u8; 32]> {
@@ -270,172 +270,16 @@ pub(crate) fn diff_entry_keys(
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_helpers::*;
     use super::*;
     use crate::db::MemoryDB;
-    use crate::networks::ACTOR_BUNDLES_METADATA;
     use crate::rpc::eth::EthUint64;
     use crate::rpc::eth::types::EthBytes;
     use crate::shim::address::Address as FilecoinAddress;
-    use crate::shim::econ::TokenAmount;
-    use crate::shim::machine::BuiltinActor;
     use crate::shim::state_tree::StateTreeVersion;
-    use crate::utils::db::CborStoreExt as _;
     use ahash::HashSetExt as _;
-    use cid::Cid;
     use num::BigInt;
     use std::sync::Arc;
-
-    fn create_test_actor(balance_atto: u64, sequence: u64) -> ActorState {
-        ActorState::new(
-            Cid::default(), // Non-EVM actor code CID
-            Cid::default(), // State CID (not used for non-EVM)
-            TokenAmount::from_atto(balance_atto),
-            sequence,
-            None, // No delegated address
-        )
-    }
-
-    fn get_evm_actor_code_cid() -> Option<Cid> {
-        for bundle in ACTOR_BUNDLES_METADATA.values() {
-            if bundle.actor_major_version().ok() == Some(17)
-                && let Ok(cid) = bundle.manifest.get(BuiltinActor::EVM)
-            {
-                return Some(cid);
-            }
-        }
-        None
-    }
-
-    fn create_evm_actor_with_bytecode(
-        store: &MemoryDB,
-        balance_atto: u64,
-        actor_sequence: u64,
-        evm_nonce: u64,
-        bytecode: Option<&[u8]>,
-    ) -> Option<ActorState> {
-        use fvm_ipld_blockstore::Blockstore as _;
-
-        let evm_code_cid = get_evm_actor_code_cid()?;
-
-        // Store bytecode as raw bytes (not CBOR-encoded)
-        let bytecode_cid = if let Some(code) = bytecode {
-            use multihash_codetable::MultihashDigest;
-            let mh = multihash_codetable::Code::Blake2b256.digest(code);
-            let cid = Cid::new_v1(fvm_ipld_encoding::IPLD_RAW, mh);
-            store.put_keyed(&cid, code).ok()?;
-            cid
-        } else {
-            Cid::default()
-        };
-
-        let bytecode_hash = if let Some(code) = bytecode {
-            use keccak_hash::keccak;
-            let hash = keccak(code);
-            fil_actor_evm_state::v17::BytecodeHash::from(hash.0)
-        } else {
-            fil_actor_evm_state::v17::BytecodeHash::EMPTY
-        };
-
-        let evm_state = fil_actor_evm_state::v17::State {
-            bytecode: bytecode_cid,
-            bytecode_hash,
-            contract_state: Cid::default(),
-            transient_data: None,
-            nonce: evm_nonce,
-            tombstone: None,
-        };
-
-        let state_cid = store.put_cbor_default(&evm_state).ok()?;
-
-        Some(ActorState::new(
-            evm_code_cid,
-            state_cid,
-            TokenAmount::from_atto(balance_atto),
-            actor_sequence,
-            None,
-        ))
-    }
-
-    fn create_masked_id_eth_address(actor_id: u64) -> EthAddress {
-        EthAddress::from_actor_id(actor_id)
-    }
-
-    struct TestStateTrees {
-        store: Arc<MemoryDB>,
-        pre_state: StateTree<MemoryDB>,
-        post_state: StateTree<MemoryDB>,
-    }
-
-    impl TestStateTrees {
-        fn new() -> anyhow::Result<Self> {
-            let store = Arc::new(MemoryDB::default());
-            // Use V4 which creates FvmV2 state trees that allow direct set_actor
-            let pre_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-            let post_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-            Ok(Self {
-                store,
-                pre_state,
-                post_state,
-            })
-        }
-
-        /// Create state trees with different actors in pre and post.
-        fn with_changed_actor(
-            actor_id: u64,
-            pre_actor: ActorState,
-            post_actor: ActorState,
-        ) -> anyhow::Result<Self> {
-            let store = Arc::new(MemoryDB::default());
-            let mut pre_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-            let mut post_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-            let addr = FilecoinAddress::new_id(actor_id);
-            pre_state.set_actor(&addr, pre_actor)?;
-            post_state.set_actor(&addr, post_actor)?;
-            Ok(Self {
-                store,
-                pre_state,
-                post_state,
-            })
-        }
-
-        /// Create state trees with actor only in post (creation scenario).
-        fn with_created_actor(actor_id: u64, post_actor: ActorState) -> anyhow::Result<Self> {
-            let store = Arc::new(MemoryDB::default());
-            let pre_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-            let mut post_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-            let addr = FilecoinAddress::new_id(actor_id);
-            post_state.set_actor(&addr, post_actor)?;
-            Ok(Self {
-                store,
-                pre_state,
-                post_state,
-            })
-        }
-
-        /// Create state trees with actor only in pre (deletion scenario).
-        fn with_deleted_actor(actor_id: u64, pre_actor: ActorState) -> anyhow::Result<Self> {
-            let store = Arc::new(MemoryDB::default());
-            let mut pre_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-            let post_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-            let addr = FilecoinAddress::new_id(actor_id);
-            pre_state.set_actor(&addr, pre_actor)?;
-            Ok(Self {
-                store,
-                pre_state,
-                post_state,
-            })
-        }
-
-        /// Build state diff for given touched addresses.
-        fn build_diff(&self, touched_addresses: &HashSet<EthAddress>) -> anyhow::Result<StateDiff> {
-            build_state_diff(
-                self.store.as_ref(),
-                &self.pre_state,
-                &self.post_state,
-                touched_addresses,
-            )
-        }
-    }
 
     #[test]
     fn test_build_state_diff_empty_touched_addresses() {
@@ -894,5 +738,35 @@ mod tests {
         // No bytecode stored => None (Cid::default() won't resolve to raw data)
         let result = actor.eth_bytecode(store.as_ref()).unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_diff_entry_keys_both_empty() {
+        let pre = HashMap::default();
+        let post = HashMap::default();
+        let keys = diff_entry_keys(&pre, &post);
+        assert!(keys.is_empty());
+    }
+
+    #[test]
+    fn test_diff_entry_keys_non_evm_actors() {
+        let store = MemoryDB::default();
+        let pre = create_test_actor(1000, 5);
+        let post = create_test_actor(2000, 6);
+        // Non-EVM actors have no EVM storage, so no changed keys
+        let pre_entries = extract_evm_storage_entries(&store, Some(&pre));
+        let post_entries = extract_evm_storage_entries(&store, Some(&post));
+        let keys = diff_entry_keys(&pre_entries, &post_entries);
+        assert!(keys.is_empty());
+    }
+
+    #[test]
+    fn test_diff_entry_keys_pre_none_post_non_evm() {
+        let store = MemoryDB::default();
+        let post = create_test_actor(1000, 0);
+        let pre_entries = extract_evm_storage_entries(&store, None);
+        let post_entries = extract_evm_storage_entries(&store, Some(&post));
+        let keys = diff_entry_keys(&pre_entries, &post_entries);
+        assert!(keys.is_empty());
     }
 }

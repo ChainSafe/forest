@@ -1,11 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::eth::trace::geth::GETH_TRACE_REVERT_ERROR;
-use crate::rpc::eth::trace::parity::PARITY_TRACE_REVERT_ERROR;
-use crate::rpc::eth::trace::types::{
-    EthTrace, GethCallFrame, GethCallType, TraceAction, TraceResult,
-};
 use crate::rpc::eth::types::{EthAddress, EthBytes, EthHash};
 use crate::rpc::eth::utils::parse_eth_revert;
 use crate::rpc::state::ActorTrace;

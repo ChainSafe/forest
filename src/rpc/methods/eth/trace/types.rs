@@ -9,12 +9,12 @@
 use super::super::types::{EthAddress, EthAddressList, EthBytes, EthHash};
 use super::super::{EthBigInt, EthUint64};
 use crate::lotus_json::lotus_json_with_self;
+use crate::rpc::eth::trace::utils::extract_revert_reason;
+use crate::rpc::eth::trace::{GETH_TRACE_REVERT_ERROR, PARITY_TRACE_REVERT_ERROR};
 use anyhow::{Result, bail};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use crate::rpc::eth::trace::{GETH_TRACE_REVERT_ERROR, PARITY_TRACE_REVERT_ERROR};
-use crate::rpc::eth::trace::utils::extract_revert_reason;
 
 #[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -114,7 +114,7 @@ impl GethDebugTracingOptions {
     /// Extracts and validates the `callTracer` config.
     /// Returns an error if an unsupported flag (e.g. `withLog`) is set to true.
     pub fn call_config(&self) -> anyhow::Result<CallTracerConfig> {
-        let cfg = parse_tracer_config::<CallTracerConfig>(&self.tracer_config);
+        let cfg = parse_tracer_config::<CallTracerConfig>(self.tracer_config.as_ref());
         if cfg.with_log.unwrap_or(false) {
             anyhow::bail!("callTracer: withLog is not yet supported");
         }
@@ -123,14 +123,14 @@ impl GethDebugTracingOptions {
 
     /// Extracts the `prestateTracer` config, defaulting to no-op values when absent.
     pub fn prestate_config(&self) -> PreStateConfig {
-        parse_tracer_config::<PreStateConfig>(&self.tracer_config)
+        parse_tracer_config::<PreStateConfig>(self.tracer_config.as_ref())
     }
 }
 
 /// Parses a tracer-specific config from the opaque [`TracerConfig`] JSON blob.
 /// Returns `T::default()` when the config is absent or null, and logs a warning
 /// if the config is present but fails to deserialize.
-fn parse_tracer_config<T: Default + serde::de::DeserializeOwned>(raw: &Option<TracerConfig>) -> T {
+fn parse_tracer_config<T: Default + serde::de::DeserializeOwned>(raw: Option<&TracerConfig>) -> T {
     let Some(cfg) = raw.as_ref().filter(|c| !c.0.is_null()) else {
         return T::default();
     };
@@ -453,7 +453,7 @@ impl EthTrace {
 
     /// Converts a Parity-style [`EthTrace`] into a Geth-style [`GethCallFrame`].
     // Code taken from https://github.com/paradigmxyz/revm-inspectors/blob/v0.36.0/src/tracing/types.rs#L430
-    pub fn to_geth_frame(self, call_type: GethCallType) -> anyhow::Result<GethCallFrame> {
+    pub fn into_geth_frame(self, call_type: GethCallType) -> anyhow::Result<GethCallFrame> {
         let is_success = self.is_success();
         let is_revert = self.is_reverted();
         let error = self.to_geth_error();
@@ -738,6 +738,7 @@ lotus_json_with_self!(StateDiff);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_bigint::BigInt;
 
     #[test]
     fn test_changed_type_serialization() {
@@ -812,5 +813,395 @@ mod tests {
 
         let changed: Delta<u64> = serde_json::from_str(r#"{"*":{"from":10,"to":20}}"#).unwrap();
         assert_eq!(changed, Delta::Changed(ChangedType { from: 10, to: 20 }));
+    }
+
+    #[test]
+    fn test_account_state_is_empty() {
+        assert!(AccountState::default().is_empty());
+
+        assert!(
+            !AccountState {
+                balance: Some(EthBigInt(BigInt::from(100))),
+                ..Default::default()
+            }
+            .is_empty()
+        );
+
+        assert!(
+            !AccountState {
+                nonce: Some(EthUint64(1)),
+                ..Default::default()
+            }
+            .is_empty()
+        );
+
+        assert!(
+            !AccountState {
+                code: Some(EthBytes(vec![0x60])),
+                ..Default::default()
+            }
+            .is_empty()
+        );
+
+        let mut with_storage = AccountState::default();
+        with_storage.storage.insert(
+            EthHash(ethereum_types::H256::zero()),
+            EthHash(ethereum_types::H256::from_low_u64_be(1)),
+        );
+        assert!(!with_storage.is_empty());
+    }
+
+    #[test]
+    fn test_account_state_retain_changed_strips_identical_fields() {
+        let pre = AccountState {
+            balance: Some(EthBigInt(num::BigInt::from(1000))),
+            nonce: Some(EthUint64(5)),
+            code: Some(EthBytes(vec![0x60])),
+            storage: BTreeMap::new(),
+        };
+
+        // Post identical to pre: everything stripped
+        let mut post = pre.clone();
+        post.retain_changed(&pre);
+        assert!(post.is_empty());
+    }
+
+    #[test]
+    fn test_account_state_retain_changed_keeps_different_fields() {
+        let pre = AccountState {
+            balance: Some(EthBigInt(num::BigInt::from(1000))),
+            nonce: Some(EthUint64(5)),
+            code: Some(EthBytes(vec![0x60])),
+            storage: BTreeMap::new(),
+        };
+
+        let mut post = AccountState {
+            balance: Some(EthBigInt(BigInt::from(2000))), // changed
+            nonce: Some(EthUint64(5)),                    // same
+            code: Some(EthBytes(vec![0x60, 0x80])),       // changed
+            storage: BTreeMap::new(),
+        };
+
+        post.retain_changed(&pre);
+        assert!(
+            post.balance
+                .is_some_and(|b| b.eq(&EthBigInt(BigInt::from(2000))))
+        );
+        assert!(post.nonce.is_none()); // stripped
+        assert!(post.code.is_some_and(|b| b.eq(&EthBytes(vec![0x60, 0x80]))));
+    }
+
+    #[test]
+    fn test_account_state_retain_changed_storage_diff() {
+        let slot = EthHash(ethereum_types::H256::from_low_u64_be(1));
+        let val_a = EthHash(ethereum_types::H256::from_low_u64_be(100));
+        let val_b = EthHash(ethereum_types::H256::from_low_u64_be(200));
+
+        let mut pre_storage = BTreeMap::new();
+        pre_storage.insert(slot, val_a);
+
+        let pre = AccountState {
+            storage: pre_storage,
+            ..Default::default()
+        };
+
+        // Same slot, same value -> stripped
+        let mut post_same = AccountState {
+            storage: {
+                let mut m = BTreeMap::new();
+                m.insert(slot, val_a);
+                m
+            },
+            ..Default::default()
+        };
+        post_same.retain_changed(&pre);
+        assert!(post_same.storage.is_empty());
+
+        // Same slot, different value -> kept
+        let mut post_diff = AccountState {
+            storage: {
+                let mut m = BTreeMap::new();
+                m.insert(slot, val_b);
+                m
+            },
+            ..Default::default()
+        };
+        post_diff.retain_changed(&pre);
+        assert_eq!(post_diff.storage.len(), 1);
+        assert_eq!(post_diff.storage[&slot], val_b);
+    }
+
+    #[test]
+    fn test_account_diff_is_unchanged() {
+        assert!(AccountDiff::default().is_unchanged());
+        assert!(
+            !AccountDiff {
+                balance: Delta::Added(EthBigInt(num::BigInt::from(1))),
+                ..Default::default()
+            }
+            .is_unchanged()
+        );
+        assert!(
+            !AccountDiff {
+                nonce: Delta::Changed(ChangedType {
+                    from: EthUint64(0),
+                    to: EthUint64(1),
+                }),
+                ..Default::default()
+            }
+            .is_unchanged()
+        );
+        let mut with_storage = AccountDiff::default();
+        with_storage.storage.insert(
+            EthHash(ethereum_types::H256::zero()),
+            Delta::Added(EthHash(ethereum_types::H256::from_low_u64_be(1))),
+        );
+        assert!(!with_storage.is_unchanged());
+    }
+    #[test]
+    fn test_state_diff_insert_if_changed() {
+        let mut sd = StateDiff::new();
+        let addr = EthAddress::default();
+        // Unchanged diff is not inserted
+        sd.insert_if_changed(addr, AccountDiff::default());
+        assert!(sd.0.is_empty());
+        // Changed diff is inserted
+        let changed = AccountDiff {
+            balance: Delta::Added(EthBigInt(num::BigInt::from(100))),
+            ..Default::default()
+        };
+        sd.insert_if_changed(addr, changed);
+        assert_eq!(sd.0.len(), 1);
+    }
+    #[test]
+    fn test_prestate_config_defaults() {
+        let cfg = PreStateConfig {
+            diff_mode: None,
+            disable_code: None,
+            disable_storage: None,
+        };
+        assert!(!cfg.is_diff_mode());
+        assert!(!cfg.is_code_disabled());
+        assert!(!cfg.is_storage_disabled());
+    }
+
+    #[test]
+    fn test_prestate_config_enabled() {
+        let cfg = PreStateConfig {
+            diff_mode: Some(true),
+            disable_code: Some(true),
+            disable_storage: Some(true),
+        };
+        assert!(cfg.is_diff_mode());
+        assert!(cfg.is_code_disabled());
+        assert!(cfg.is_storage_disabled());
+    }
+
+    #[test]
+    fn test_prestate_config_explicit_false() {
+        let cfg = PreStateConfig {
+            diff_mode: Some(false),
+            disable_code: Some(false),
+            disable_storage: Some(false),
+        };
+        assert!(!cfg.is_diff_mode());
+        assert!(!cfg.is_code_disabled());
+        assert!(!cfg.is_storage_disabled());
+    }
+
+    #[test]
+    fn test_geth_call_type_from_parity_call_type() {
+        assert_eq!(
+            GethCallType::from_parity_call_type("staticcall"),
+            GethCallType::StaticCall
+        );
+        assert_eq!(
+            GethCallType::from_parity_call_type("delegatecall"),
+            GethCallType::DelegateCall
+        );
+        assert_eq!(
+            GethCallType::from_parity_call_type("call"),
+            GethCallType::Call
+        );
+        // Unknown types default to Call
+        assert_eq!(
+            GethCallType::from_parity_call_type("unknown"),
+            GethCallType::Call
+        );
+        assert_eq!(GethCallType::from_parity_call_type(""), GethCallType::Call);
+    }
+
+    #[test]
+    fn test_geth_call_type_is_static_call() {
+        assert!(GethCallType::StaticCall.is_static_call());
+        assert!(!GethCallType::Call.is_static_call());
+        assert!(!GethCallType::DelegateCall.is_static_call());
+        assert!(!GethCallType::Create.is_static_call());
+        assert!(!GethCallType::Create2.is_static_call());
+    }
+    #[test]
+    fn test_geth_call_type_serialization() {
+        assert_eq!(
+            serde_json::to_string(&GethCallType::Call).unwrap(),
+            r#""CALL""#
+        );
+        assert_eq!(
+            serde_json::to_string(&GethCallType::StaticCall).unwrap(),
+            r#""STATICCALL""#
+        );
+        assert_eq!(
+            serde_json::to_string(&GethCallType::DelegateCall).unwrap(),
+            r#""DELEGATECALL""#
+        );
+        assert_eq!(
+            serde_json::to_string(&GethCallType::Create).unwrap(),
+            r#""CREATE""#
+        );
+        assert_eq!(
+            serde_json::to_string(&GethCallType::Create2).unwrap(),
+            r#""CREATE2""#
+        );
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_successful_call() {
+        let from = EthAddress::default();
+        let to = EthAddress::from_actor_id(100);
+
+        let trace = EthTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type: "call".into(),
+                from,
+                to: Some(to),
+                gas: EthUint64(21000),
+                value: EthBigInt(num::BigInt::from(1000)),
+                input: EthBytes(vec![0x01, 0x02]),
+            }),
+            result: TraceResult::Call(EthCallTraceResult {
+                gas_used: EthUint64(5000),
+                output: EthBytes(vec![0x03]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        };
+
+        let frame = trace.into_geth_frame(GethCallType::Call).unwrap();
+        assert_eq!(frame.r#type, GethCallType::Call);
+        assert_eq!(frame.from, from);
+        assert_eq!(frame.to, Some(to));
+        assert_eq!(frame.gas.0, 21000);
+        assert_eq!(frame.gas_used.0, 5000);
+        assert!(frame.error.is_none());
+        assert!(frame.revert_reason.is_none());
+        assert_eq!(frame.value, Some(EthBigInt(num::BigInt::from(1000))));
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_static_call_no_value() {
+        let trace = EthTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type: "staticcall".into(),
+                from: EthAddress::default(),
+                to: Some(EthAddress::from_actor_id(100)),
+                gas: EthUint64(21000),
+                value: EthBigInt(num::BigInt::from(0)),
+                input: EthBytes(vec![]),
+            }),
+            result: TraceResult::Call(EthCallTraceResult {
+                gas_used: EthUint64(100),
+                output: EthBytes(vec![]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        };
+
+        let frame = trace.into_geth_frame(GethCallType::StaticCall).unwrap();
+        // Static calls omit the value field
+        assert!(frame.value.is_none());
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_reverted_call() {
+        let trace = EthTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type: "call".into(),
+                from: EthAddress::default(),
+                to: Some(EthAddress::from_actor_id(100)),
+                gas: EthUint64(21000),
+                value: EthBigInt(num::BigInt::from(0)),
+                input: EthBytes(vec![]),
+            }),
+            result: TraceResult::Call(EthCallTraceResult {
+                gas_used: EthUint64(100),
+                output: EthBytes(vec![]),
+            }),
+            error: Some(PARITY_TRACE_REVERT_ERROR.into()),
+            ..EthTrace::default()
+        };
+
+        let frame = trace.into_geth_frame(GethCallType::Call).unwrap();
+        assert!(frame.error.is_some());
+        assert_eq!(
+            frame.error.as_deref(),
+            Some(GETH_TRACE_REVERT_ERROR) // to_geth_error converts
+        );
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_successful_create() {
+        let from = EthAddress::default();
+        let created = EthAddress::from_actor_id(200);
+        let init_code = EthBytes(vec![0x60, 0x80]);
+        let trace = EthTrace {
+            r#type: "create".into(),
+            action: TraceAction::Create(EthCreateTraceAction {
+                from,
+                gas: EthUint64(100000),
+                value: EthBigInt(num::BigInt::from(0)),
+                init: init_code.clone(),
+            }),
+            result: TraceResult::Create(EthCreateTraceResult {
+                gas_used: EthUint64(50000),
+                address: Some(created),
+                code: EthBytes(vec![0xFE]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        };
+
+        let frame = trace.into_geth_frame(GethCallType::Create).unwrap();
+        assert_eq!(frame.r#type, GethCallType::Create);
+        assert_eq!(frame.from, from);
+        assert_eq!(frame.to, Some(created));
+        assert_eq!(frame.input.0, init_code.0); // initcode goes to input
+        assert!(frame.error.is_none());
+    }
+
+    #[test]
+    fn test_eth_trace_to_geth_frame_mismatched_action_result() {
+        // Call action with Create result should fail
+        let trace = EthTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type: "call".into(),
+                from: EthAddress::default(),
+                to: None,
+                gas: EthUint64(0),
+                value: EthBigInt(num::BigInt::from(0)),
+                input: EthBytes(vec![]),
+            }),
+            result: TraceResult::Create(EthCreateTraceResult {
+                gas_used: EthUint64(0),
+                address: None,
+                code: EthBytes(vec![]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        };
+
+        assert!(trace.into_geth_frame(GethCallType::Call).is_err());
     }
 }

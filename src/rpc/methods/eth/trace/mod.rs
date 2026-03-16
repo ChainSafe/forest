@@ -6,6 +6,7 @@
 //! Submodules:
 //! - [`parity`] — builds Parity-compatible [`types::EthTrace`] entries from
 //!   FVM execution traces.
+//! - [`geth`] - builds Geth-compatible entries from the FVM execution traces.
 //! - [`state_diff`] — computes account-level state diffs between pre/post
 //!   execution.
 //! - [`types`] — shared type definitions for all `trace_*` RPC responses.
@@ -13,6 +14,8 @@
 mod geth;
 mod parity;
 mod state_diff;
+#[cfg(test)]
+mod test_helpers;
 pub(crate) mod types;
 mod utils;
 
@@ -34,11 +37,11 @@ use crate::shim::{address::Address, state_tree::StateTree};
 /// the current caller, collected traces, and subtrace count.
 #[derive(Default)]
 pub(super) struct Environment {
-    pub(in crate::rpc::methods::eth::trace) caller: EthAddress,
-    pub(in crate::rpc::methods::eth::trace) is_evm: bool,
-    pub(in crate::rpc::methods::eth::trace) subtrace_count: i64,
+    pub(super) caller: EthAddress,
+    pub(super) is_evm: bool,
+    pub(super) subtrace_count: i64,
     pub(super) traces: Vec<EthTrace>,
-    pub(in crate::rpc::methods::eth::trace) last_byte_code: Option<EthAddress>,
+    pub(super) last_byte_code: Option<EthAddress>,
 }
 
 pub(super) fn base_environment<BS: Blockstore + Send + Sync>(

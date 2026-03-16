@@ -9,22 +9,18 @@
 
 use super::super::types::{EthAddress, EthBytes, EthHash};
 use super::super::utils::{decode_params, decode_return};
-use super::super::{
-    decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
-    lookup_eth_address,
-};
+use super::super::{decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi};
 use super::Environment;
 use super::types::{
     EthCallTraceAction, EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult, EthTrace,
     TraceAction, TraceResult,
 };
+use super::utils::trace_to_address;
 use crate::eth::{EAMMethod, EVMMethod};
-use crate::rpc::eth::trace::utils::trace_to_address;
 use crate::rpc::methods::state::ExecutionTrace;
-use crate::rpc::state::ActorTrace;
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
-use anyhow::{Context, bail};
+use anyhow::bail;
 use fil_actor_eam_state::v12 as eam12;
 use fil_actor_evm_state::v15 as evm12;
 use fil_actor_init_state::v12::ExecReturn;
@@ -44,7 +40,7 @@ const PARITY_EVM_BAD_JUMPDEST: &str = "invalid jump destination";
 const PARITY_EVM_SELFDESTRUCT_FAILED: &str = "self destruct failed";
 const PARITY_EVM_OUT_OF_GAS: &str = "out of gas";
 
-/// Returns true if the trace is a call to an EVM or EAM actor.
+/// Returns `true` if the invoked actor is an EVM contract or the Ethereum Account Manager.
 fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
     if let Some(invoked_actor) = &trace.invoked_actor {
         is_evm_actor(&invoked_actor.state.code)
@@ -54,7 +50,8 @@ fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
     }
 }
 
-/// Converts trace error codes into the `parity` errors
+/// Converts a trace's exit code into a human-readable Parity-style error string.
+/// Returns `None` when the trace completed successfully.
 fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
     let code = trace.msg_rct.exit_code;
 
@@ -149,7 +146,7 @@ pub fn build_traces(
 // `build_trace` processes the passed execution trace and updates the environment, if necessary.
 //
 // On success, it returns a trace to add (or `None` to skip) and the trace to recurse into (or `None` to skip).
-pub(crate) fn build_trace(
+pub fn build_trace(
     env: &mut Environment,
     address: &[i64],
     trace: ExecutionTrace,
@@ -618,7 +615,7 @@ fn trace_evm_private(
     }
 }
 
-pub(in crate::rpc::methods::eth) struct TipsetTraceEntry {
+pub struct TipsetTraceEntry {
     pub tx_hash: EthHash,
     pub msg_position: i64,
     pub invoc_result: crate::rpc::state::ApiInvocResult,
