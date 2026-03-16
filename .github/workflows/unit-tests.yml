@@ -76,7 +76,7 @@ jobs:
         run: |
           cargo run --bin forest-dev --no-default-features --profile quick-test -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - run: |
           mise test
         env:

@@ -35,7 +35,7 @@ jobs:
         working-directory: ./docs
     steps:
       - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - name: Check spellcheck dictionary format
         working-directory: .
         run: mise run format-spellcheck-dictionary-check
