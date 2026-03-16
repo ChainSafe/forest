@@ -141,6 +141,11 @@ impl RpcMethod<1> for MinerCreateBlock {
                 .get(&Height::Smoke)
                 .context("Missing Smoke height")?
                 .epoch,
+            ctx.chain_config()
+                .height_infos
+                .get(&Height::Xxx)
+                .context("Missing Xxx height")?
+                .epoch,
         )?;
         let (state, receipts) = ctx
             .state_manager
