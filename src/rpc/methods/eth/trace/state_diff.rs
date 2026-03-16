@@ -10,6 +10,7 @@ use super::super::types::{EthAddress, EthHash};
 use super::super::utils::ActorStateEthExt as _;
 use super::types::{AccountDiff, ChangedType, Delta, StateDiff};
 use crate::rpc::eth::EthBigInt;
+use crate::rpc::eth::trace::utils::{ZERO_HASH, u256_to_eth_hash};
 use crate::shim::actors::{EVMActorStateLoad as _, evm, is_evm_actor};
 use crate::shim::state_tree::{ActorState, StateTree};
 use ahash::{HashMap, HashSet};
@@ -42,12 +43,6 @@ impl AsHashedKey<U256, 32> for EvmStateHashAlgorithm {
 
 /// Type alias for EVM storage KAMT with configuration.
 type EvmStorageKamt<BS> = Kamt<BS, U256, U256, EvmStateHashAlgorithm>;
-
-fn u256_to_eth_hash(value: &U256) -> EthHash {
-    EthHash(ethereum_types::H256(value.to_big_endian()))
-}
-
-const ZERO_HASH: EthHash = EthHash(ethereum_types::H256([0u8; 32]));
 
 /// Build state diff by comparing pre and post-execution states for touched addresses.
 pub(crate) fn build_state_diff<S: Blockstore, T: Blockstore>(
@@ -208,7 +203,7 @@ fn diff_evm_storage_for_actors<DB: Blockstore>(
 
 /// Extract all storage entries from an EVM actor's KAMT.
 /// Returns empty map if actor is None, not an EVM actor, or state cannot be loaded.
-fn extract_evm_storage_entries<DB: Blockstore>(
+pub fn extract_evm_storage_entries<DB: Blockstore>(
     store: &DB,
     actor: Option<&ActorState>,
 ) -> HashMap<[u8; 32], U256> {
@@ -246,6 +241,31 @@ fn extract_evm_storage_entries<DB: Blockstore>(
     }
 
     entries
+}
+
+// Compute the set of storage keys that differ between pre and post actor states.
+pub(crate) fn diff_entry_keys(
+    pre_entries: &HashMap<[u8; 32], U256>,
+    post_entries: &HashMap<[u8; 32], U256>,
+) -> HashSet<[u8; 32]> {
+    let mut changed = HashSet::default();
+
+    for (k, v) in pre_entries {
+        match post_entries.get(k) {
+            Some(pv) if pv == v => {} // unchanged
+            _ => {
+                changed.insert(*k);
+            }
+        }
+    }
+
+    for k in post_entries.keys() {
+        if !pre_entries.contains_key(k) {
+            changed.insert(*k);
+        }
+    }
+
+    changed
 }
 
 #[cfg(test)]

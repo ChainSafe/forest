@@ -13,6 +13,8 @@ use anyhow::{Result, bail};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use crate::rpc::eth::trace::{GETH_TRACE_REVERT_ERROR, PARITY_TRACE_REVERT_ERROR};
+use crate::rpc::eth::trace::utils::extract_revert_reason;
 
 #[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -76,6 +78,294 @@ impl Default for TraceResult {
     }
 }
 
+/// The Available built-in tracer.
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub enum GethDebugBuiltInTracerType {
+    /// The call tracer builds a hierarchical call tree, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
+    #[serde(rename = "callTracer")]
+    Call,
+    /// The flat call tracer builds a flat list of all calls, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
+    #[serde(rename = "flatCallTracer")]
+    FlatCall,
+    /// The prestate tracer builds a state snapshot of the accounts necessary to execute the transaction, and the state after the transaction.
+    #[serde(rename = "prestateTracer")]
+    PreState,
+    /// The noop tracer does not build any traces.
+    #[serde(rename = "noopTracer")]
+    Noop,
+}
+
+/// Options for the `debug_traceTransaction` API.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GethDebugTracingOptions {
+    /// The tracer to use for the transaction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracer: Option<GethDebugBuiltInTracerType>,
+    /// The configuration for the provided tracer.
+    /// The configuration is a JSON object that is specific to the tracer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracer_config: Option<TracerConfig>,
+}
+
+lotus_json_with_self!(GethDebugTracingOptions);
+
+impl GethDebugTracingOptions {
+    /// Extracts and validates the `callTracer` config.
+    /// Returns an error if an unsupported flag (e.g. `withLog`) is set to true.
+    pub fn call_config(&self) -> anyhow::Result<CallTracerConfig> {
+        let cfg = parse_tracer_config::<CallTracerConfig>(&self.tracer_config);
+        if cfg.with_log.unwrap_or(false) {
+            anyhow::bail!("callTracer: withLog is not yet supported");
+        }
+        Ok(cfg)
+    }
+
+    /// Extracts the `prestateTracer` config, defaulting to no-op values when absent.
+    pub fn prestate_config(&self) -> PreStateConfig {
+        parse_tracer_config::<PreStateConfig>(&self.tracer_config)
+    }
+}
+
+/// Parses a tracer-specific config from the opaque [`TracerConfig`] JSON blob.
+/// Returns `T::default()` when the config is absent or null, and logs a warning
+/// if the config is present but fails to deserialize.
+fn parse_tracer_config<T: Default + serde::de::DeserializeOwned>(raw: &Option<TracerConfig>) -> T {
+    let Some(cfg) = raw.as_ref().filter(|c| !c.0.is_null()) else {
+        return T::default();
+    };
+    serde_json::from_value(cfg.0.clone()).unwrap_or_else(|e| {
+        tracing::warn!(
+            error = %e,
+            "invalid tracerConfig — using defaults"
+        );
+        T::default()
+    })
+}
+
+/// Configuration for the `callTracer`.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CallTracerConfig {
+    /// When set to true, only the top call will be returned.
+    /// Otherwise, the call tracer will return the full call tree.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub only_top_call: Option<bool>,
+    /// When set to true, logs emitted during calls will be included in the trace.
+    /// Not yet supported — a request with this flag set to true will return an error.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub with_log: Option<bool>,
+}
+
+lotus_json_with_self!(CallTracerConfig);
+
+/// Configuration for the `prestateTracer`.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L236
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PreStateConfig {
+    /// When set to true, the pre and post state of the accounts will be returned in the trace.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diff_mode: Option<bool>,
+    /// When set to true, the code of the accounts will not be returned in the trace.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disable_code: Option<bool>,
+    /// When set to true, the storage of the accounts will not be returned in the trace.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disable_storage: Option<bool>,
+}
+
+lotus_json_with_self!(PreStateConfig);
+
+impl PreStateConfig {
+    pub fn is_diff_mode(&self) -> bool {
+        self.diff_mode.unwrap_or(false)
+    }
+
+    pub fn is_code_disabled(&self) -> bool {
+        self.disable_code.unwrap_or(false)
+    }
+
+    pub fn is_storage_disabled(&self) -> bool {
+        self.disable_storage.unwrap_or(false)
+    }
+}
+
+/// Opaque JSON blob for per-tracer configuration.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(transparent)]
+pub struct TracerConfig(pub serde_json::Value);
+lotus_json_with_self!(TracerConfig);
+
+/// EVM call/create operation type for Geth-style trace frames.
+///
+/// Maps to the EVM opcodes: CALL, STATICCALL, DELEGATECALL, CREATE, CREATE2.
+/// Used as the `type` field in [`GethCallFrame`].
+#[derive(PartialEq, Eq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+pub enum GethCallType {
+    #[default]
+    #[serde(rename = "CALL")]
+    Call,
+    #[serde(rename = "STATICCALL")]
+    StaticCall,
+    #[serde(rename = "DELEGATECALL")]
+    DelegateCall,
+    #[serde(rename = "CREATE")]
+    Create,
+    #[serde(rename = "CREATE2")]
+    Create2,
+}
+
+impl GethCallType {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Call => "CALL",
+            Self::StaticCall => "STATICCALL",
+            Self::DelegateCall => "DELEGATECALL",
+            Self::Create => "CREATE",
+            Self::Create2 => "CREATE2",
+        }
+    }
+
+    pub const fn is_static_call(&self) -> bool {
+        matches!(self, Self::StaticCall)
+    }
+
+    /// Converts a Parity-style call type string to a [`GethCallType`].
+    pub fn from_parity_call_type(call_type: &str) -> Self {
+        match call_type {
+            "staticcall" => Self::StaticCall,
+            "delegatecall" => Self::DelegateCall,
+            _ => Self::Call,
+        }
+    }
+}
+
+impl std::fmt::Display for GethCallType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Geth-style nested call frame returned by the `callTracer`.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GethCallFrame {
+    pub r#type: GethCallType,
+    pub from: EthAddress,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to: Option<EthAddress>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<EthBigInt>,
+    pub gas: EthUint64,
+    pub gas_used: EthUint64,
+    pub input: EthBytes,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<EthBytes>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revert_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calls: Option<Vec<GethCallFrame>>,
+}
+
+lotus_json_with_self!(GethCallFrame);
+
+/// Empty frame returned by the `noopTracer`.
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+pub struct NoopFrame {}
+
+lotus_json_with_self!(NoopFrame);
+
+/// Snapshot of a single account's state at a point in time.
+/// All fields are optional; absent means "not relevant" or "default".
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L108
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AccountState {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub balance: Option<EthBigInt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<EthBytes>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<EthUint64>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub storage: BTreeMap<EthHash, EthHash>,
+}
+
+impl AccountState {
+    /// Strips fields that are identical in `other`, keeping only changed ones.
+    /// Used to minimize the `post` side of diff-mode output.
+    pub fn retain_changed(&mut self, other: &Self) {
+        if self.balance == other.balance {
+            self.balance = None;
+        }
+        if self.nonce == other.nonce {
+            self.nonce = None;
+        }
+        if self.code == other.code {
+            self.code = None;
+        }
+        self.storage.retain(|k, v| other.storage.get(k) != Some(v));
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.balance.is_none()
+            && self.code.is_none()
+            && self.nonce.is_none()
+            && self.storage.is_empty()
+    }
+}
+
+/// Returns the account states necessary to execute a given transaction.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L72
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(transparent)]
+pub struct PreStateMode(pub BTreeMap<EthAddress, AccountState>);
+
+lotus_json_with_self!(PreStateMode);
+
+/// Account state differences between the transaction's pre and post-state.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L88
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct DiffMode {
+    /// account state before the transaction is executed.
+    pub pre: BTreeMap<EthAddress, AccountState>,
+    /// account state after the transaction is executed.
+    pub post: BTreeMap<EthAddress, AccountState>,
+}
+
+lotus_json_with_self!(DiffMode);
+
+/// Return type for the `prestateTracer`.
+// Taken from https://github.com/alloy-rs/alloy/blob/v1.5.2/crates/rpc-types-trace/src/geth/pre_state.rs#L33
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum PreStateFrame {
+    /// Default mode: returns the accounts necessary to execute a given transaction.
+    Default(PreStateMode),
+    /// Diff mode: returns the differences between the transaction's pre and post-state.
+    Diff(DiffMode),
+}
+
+lotus_json_with_self!(PreStateFrame);
+
+/// Tracing response objects
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum GethTrace {
+    /// Response object for the call tracer.
+    Call(GethCallFrame),
+    /// Response object for the flat call tracer.
+    FlatCall(Vec<EthBlockTrace>),
+    /// Response object for the prestate tracer.
+    PreState(PreStateFrame),
+    /// Response object for the noop tracer.
+    Noop(NoopFrame),
+}
+
+lotus_json_with_self!(GethTrace);
+
 /// Selects which trace outputs to include in the `trace_call` response.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -134,6 +424,102 @@ pub struct EthTrace {
     pub result: TraceResult,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+impl EthTrace {
+    pub fn is_success(&self) -> bool {
+        self.error.is_none()
+    }
+
+    /// Returns true if the trace is a revert error.
+    ///
+    /// This is not a complete check for reverted traces (there are other possible revert reasons).
+    pub fn is_reverted(&self) -> bool {
+        self.error
+            .as_deref()
+            .is_some_and(|e| e == PARITY_TRACE_REVERT_ERROR)
+    }
+
+    /// Converts the Parity-format error stored in this trace to the Geth-format.
+    pub fn to_geth_error(&self) -> Option<String> {
+        self.error.as_deref().map(|error| {
+            if error == PARITY_TRACE_REVERT_ERROR {
+                GETH_TRACE_REVERT_ERROR.into()
+            } else {
+                error.to_string()
+            }
+        })
+    }
+
+    /// Converts a Parity-style [`EthTrace`] into a Geth-style [`GethCallFrame`].
+    // Code taken from https://github.com/paradigmxyz/revm-inspectors/blob/v0.36.0/src/tracing/types.rs#L430
+    pub fn to_geth_frame(self, call_type: GethCallType) -> anyhow::Result<GethCallFrame> {
+        let is_success = self.is_success();
+        let is_revert = self.is_reverted();
+        let error = self.to_geth_error();
+
+        match (self.action, self.result) {
+            (TraceAction::Call(action), TraceResult::Call(result)) => {
+                let mut frame = GethCallFrame {
+                    r#type: call_type.clone(),
+                    from: action.from,
+                    to: action.to,
+                    value: if call_type.is_static_call() {
+                        None
+                    } else {
+                        Some(action.value)
+                    },
+                    gas: action.gas,
+                    gas_used: result.gas_used,
+                    input: action.input,
+                    output: (!result.output.is_empty()).then_some(result.output.clone()),
+                    error: None,
+                    revert_reason: None,
+                    calls: None,
+                };
+
+                if !is_success {
+                    if !is_revert {
+                        frame.gas_used = action.gas;
+                        frame.output = None;
+                    } else {
+                        frame.revert_reason = extract_revert_reason(&result.output);
+                    }
+                    frame.error = error;
+                }
+
+                Ok(frame)
+            }
+            (TraceAction::Create(action), TraceResult::Create(result)) => {
+                let mut frame = GethCallFrame {
+                    r#type: call_type,
+                    from: action.from,
+                    to: result.address,
+                    value: Some(action.value),
+                    gas: action.gas,
+                    gas_used: result.gas_used,
+                    input: action.init,
+                    output: (!result.code.is_empty()).then_some(result.code.clone()),
+                    error: None,
+                    revert_reason: None,
+                    calls: None,
+                };
+
+                if !is_success {
+                    frame.to = None;
+                    if !is_revert {
+                        frame.gas_used = action.gas;
+                        frame.output = None;
+                    } else {
+                        frame.revert_reason = extract_revert_reason(&result.code);
+                    }
+                    frame.error = error;
+                }
+                Ok(frame)
+            }
+            _ => anyhow::bail!("mismatched trace action and result types"),
+        }
+    }
 }
 
 #[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
