@@ -275,6 +275,30 @@ where
         }
     }
 
+    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Tipset, Error> {
+        let head = self.heaviest_tipset();
+        if head.parents() == ts.key() {
+            Ok(head)
+        } else if head.epoch() > ts.epoch() {
+            let maybe_child = self.chain_index().tipset_by_height(
+                ts.epoch() + 1,
+                head,
+                ResolveNullTipset::TakeNewer,
+            )?;
+            if maybe_child.parents() == ts.key() {
+                Ok(maybe_child)
+            } else {
+                Err(Error::NotFound(
+                    format!("child of tipset@{}", ts.epoch()).into(),
+                ))
+            }
+        } else {
+            Err(Error::NotFound(
+                format!("child of tipset@{}", ts.epoch()).into(),
+            ))
+        }
+    }
+
     /// Determines if provided tipset is heavier than existing known heaviest
     /// tipset
     fn update_heaviest(&self, ts: Tipset) -> Result<(), Error> {

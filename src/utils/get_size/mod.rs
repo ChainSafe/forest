@@ -35,10 +35,12 @@ macro_rules! impl_vec_alike_heap_size_helper {
     };
 }
 
+#[allow(dead_code)]
 pub fn vec_with_stack_only_item_heap_size_helper<T>(v: &Vec<T>) -> usize {
     v.capacity() * std::mem::size_of::<T>()
 }
 
+#[allow(dead_code)]
 pub fn vec_heap_size_helper<T: GetSize>(v: &Vec<T>) -> usize {
     impl_vec_alike_heap_size_helper!(v, T)
 }
