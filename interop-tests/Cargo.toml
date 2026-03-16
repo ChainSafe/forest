@@ -8,6 +8,9 @@ license = "MIT OR Apache-2.0"
 description = "Interop tests for Forest."
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 
 [dev-dependencies]

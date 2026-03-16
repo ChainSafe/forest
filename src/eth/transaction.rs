@@ -299,7 +299,7 @@ pub fn format_bigint(value: &BigInt) -> anyhow::Result<Bytes> {
     })
 }
 
-pub fn format_address(value: &Option<EthAddress>) -> Bytes {
+pub fn format_address(value: Option<&EthAddress>) -> Bytes {
     if let Some(addr) = value {
         addr.0.as_bytes().to_vec().into()
     } else {
@@ -470,7 +470,7 @@ pub struct MethodInfo {
 
 /// Retrieves method info
 pub fn get_filecoin_method_info(
-    recipient: &Option<EthAddress>,
+    recipient: Option<&EthAddress>,
     input: &[u8],
 ) -> anyhow::Result<MethodInfo> {
     let params = if !input.is_empty() {

@@ -49,8 +49,8 @@ pub enum MpoolCommands {
 fn filter_messages(
     messages: Vec<SignedMessage>,
     local_addrs: Option<HashSet<Address>>,
-    to: &Option<StrictAddress>,
-    from: &Option<StrictAddress>,
+    to: Option<&StrictAddress>,
+    from: Option<&StrictAddress>,
 ) -> anyhow::Result<Vec<SignedMessage>> {
     use crate::message::Message;
 
@@ -61,8 +61,10 @@ fn filter_messages(
                 .as_ref()
                 .map(|addrs| addrs.contains(&msg.from()))
                 .unwrap_or(true)
-                && to.map(|addr| msg.to() == addr.into()).unwrap_or(true)
-                && from.map(|addr| msg.from() == addr.into()).unwrap_or(true)
+                && to.map(|addr| msg.to() == (*addr).into()).unwrap_or(true)
+                && from
+                    .map(|addr| msg.from() == (*addr).into())
+                    .unwrap_or(true)
         })
         .collect();
 
@@ -218,7 +220,8 @@ impl MpoolCommands {
                     None
                 };
 
-                let filtered_messages = filter_messages(messages, local_addrs, &to, &from)?;
+                let filtered_messages =
+                    filter_messages(messages, local_addrs, to.as_ref(), from.as_ref())?;
 
                 for msg in filtered_messages {
                     if cids {
@@ -237,11 +240,11 @@ impl MpoolCommands {
                 let tipset = ChainHead::call(&client, ()).await?;
                 let curr_base_fee = tipset.block_headers().first().parent_base_fee.to_owned();
 
-                let atto_str = ChainGetMinBaseFee::call(&client, (basefee_lookback,)).await?;
+                let (atto_str, NotNullVec(messages)) = tokio::try_join!(
+                    ChainGetMinBaseFee::call(&client, (basefee_lookback,)),
+                    MpoolPending::call(&client, (ApiTipsetKey(None),)),
+                )?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
-
-                let NotNullVec(messages) =
-                    MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
 
                 let local_addrs = if local {
                     let response = WalletList::call(&client, ()).await?;
@@ -250,7 +253,7 @@ impl MpoolCommands {
                     None
                 };
 
-                let messages: Vec<Message> = filter_messages(messages, local_addrs, &None, &None)?
+                let messages: Vec<Message> = filter_messages(messages, local_addrs, None, None)?
                     .into_iter()
                     .map(|it| it.message)
                     .collect();
@@ -304,7 +307,7 @@ mod tests {
         let smsg_json_vec = smsg_vec.clone().into_iter().collect_vec();
 
         // No filtering is set up
-        let smsg_filtered: Vec<SignedMessage> = filter_messages(smsg_json_vec, None, &None, &None)
+        let smsg_filtered: Vec<SignedMessage> = filter_messages(smsg_json_vec, None, None, None)
             .unwrap()
             .into_iter()
             .collect();
@@ -346,7 +349,7 @@ mod tests {
 
         // Filter local addresses
         let smsg_filtered: Vec<SignedMessage> =
-            filter_messages(smsg_json_vec, Some(local_addrs), &None, &None)
+            filter_messages(smsg_json_vec, Some(local_addrs), None, None)
                 .unwrap()
                 .into_iter()
                 .collect();
@@ -379,7 +382,7 @@ mod tests {
 
         // Filtering messages from sender2
         let smsg_filtered: Vec<SignedMessage> =
-            filter_messages(smsg_json_vec, None, &None, &Some(sender2.into()))
+            filter_messages(smsg_json_vec, None, None, Some(&sender2.into()))
                 .unwrap()
                 .into_iter()
                 .collect();
@@ -412,7 +415,7 @@ mod tests {
 
         // Filtering messages to target2
         let smsg_filtered: Vec<SignedMessage> =
-            filter_messages(smsg_json_vec, None, &Some(target2.into()), &None)
+            filter_messages(smsg_json_vec, None, Some(&target2.into()), None)
                 .unwrap()
                 .into_iter()
                 .collect();

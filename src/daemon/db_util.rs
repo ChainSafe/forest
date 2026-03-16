@@ -243,7 +243,7 @@ pub async fn import_chain_as_forest_car(
 
     let forest_car = ForestCar::try_from(forest_car_db_path.as_path())?;
 
-    if let Some(f3_cid) = forest_car.metadata().as_ref().and_then(|m| m.f3_data) {
+    if let Some(f3_cid) = forest_car.metadata().and_then(|m| m.f3_data) {
         if crate::f3::get_f3_sidecar_params(chain_config)
             .initial_power_table
             .is_none()

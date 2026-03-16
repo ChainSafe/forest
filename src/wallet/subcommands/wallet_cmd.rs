@@ -407,8 +407,8 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let key_pairs = backend.list_addrs().await?;
-                let default = backend.wallet_default_address().await?;
+                let (key_pairs, default) =
+                    tokio::try_join!(backend.list_addrs(), backend.wallet_default_address(),)?;
 
                 let max_addr_len = key_pairs
                     .iter()

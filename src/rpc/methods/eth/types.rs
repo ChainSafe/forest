@@ -728,8 +728,8 @@ lotus_json_with_self!(EthTraceFilterCriteria);
 impl EthTrace {
     pub fn match_filter_criteria(
         &self,
-        from_decoded_addresses: &Option<EthAddressList>,
-        to_decoded_addresses: &Option<EthAddressList>,
+        from_decoded_addresses: Option<&EthAddressList>,
+        to_decoded_addresses: Option<&EthAddressList>,
     ) -> Result<bool> {
         let (trace_to, trace_from) = match &self.action {
             TraceAction::Call(action) => (action.to, action.from),

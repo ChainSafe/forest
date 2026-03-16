@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod archive_missing_cmd;
 mod state_cmd;
 mod update_checkpoints_cmd;
 
@@ -46,6 +47,8 @@ pub enum Subcommand {
     /// Update known blocks (checkpoints), normally in `build/known_blocks.yaml`, by querying RPC
     /// endpoints
     UpdateCheckpoints(update_checkpoints_cmd::UpdateCheckpointsCommand),
+    /// Find missing archival snapshots on the Forest Archive for a given epoch range
+    ArchiveMissing(archive_missing_cmd::ArchiveMissingCommand),
 }
 
 impl Subcommand {
@@ -54,6 +57,7 @@ impl Subcommand {
             Self::FetchTestSnapshots { actor_bundle } => fetch_test_snapshots(actor_bundle).await,
             Self::State(cmd) => cmd.run().await,
             Self::UpdateCheckpoints(cmd) => cmd.run().await,
+            Self::ArchiveMissing(cmd) => cmd.run().await,
         }
     }
 }
