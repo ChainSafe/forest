@@ -56,7 +56,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           filename: .github/RPC_PARITY_REPORT_ISSUE_TEMPLATE.md
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - run: mise add_conformance_report
       - run: mise run docs:format
       # This is needed in order to have the commits signed.

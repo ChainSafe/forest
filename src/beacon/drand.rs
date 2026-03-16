@@ -15,12 +15,12 @@ use crate::shim::version::NetworkVersion;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::net::global_http_client;
 use anyhow::Context as _;
-use async_trait::async_trait;
 use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
 use itertools::Itertools as _;
 use nonzero_ext::nonzero;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
+use spire_enum::prelude::delegated_enum;
 use tracing::debug;
 use url::Url;
 
@@ -124,31 +124,72 @@ impl BeaconSchedule {
         }
     }
 
-    pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &dyn Beacon)> {
+    pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &BeaconImpl)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
         self.0
             .iter()
             .rev()
             .find(|upgrade| epoch >= upgrade.height)
-            .map(|upgrade| (upgrade.height, upgrade.beacon.as_ref()))
+            .map(|upgrade| (upgrade.height, &upgrade.beacon))
             .context("Invalid beacon schedule, no valid beacon")
+    }
+}
+
+#[delegated_enum(impl_conversions)]
+pub enum BeaconImpl {
+    Drand(DrandBeacon),
+    #[cfg(test)]
+    Mock(super::mock_beacon::MockBeacon),
+}
+
+impl Beacon for BeaconImpl {
+    /// Gets the `drand` network
+    fn network(&self) -> DrandNetwork {
+        delegate_beacon_impl!(self.network())
+    }
+
+    /// Verify beacon entries that are sorted by round.
+    fn verify_entries(
+        &self,
+        entries: &[BeaconEntry],
+        prev: &BeaconEntry,
+    ) -> Result<bool, anyhow::Error> {
+        delegate_beacon_impl!(self.verify_entries(entries, prev))
+    }
+
+    /// Returns a `BeaconEntry` given a round. It fetches the `BeaconEntry` from a `Drand` node over [`gRPC`](https://grpc.io/)
+    /// In the future, we will cache values, and support streaming.
+    async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
+        delegate_beacon_impl!(self.entry(round).await)
+    }
+
+    /// Returns the most recent beacon round for the given Filecoin chain epoch.
+    fn max_beacon_round_for_epoch(
+        &self,
+        network_version: NetworkVersion,
+        fil_epoch: ChainEpoch,
+    ) -> u64 {
+        delegate_beacon_impl!(self.max_beacon_round_for_epoch(network_version, fil_epoch))
     }
 }
 
 /// Contains height at which the beacon is activated, as well as the beacon
 /// itself.
 pub struct BeaconPoint {
-    pub height: ChainEpoch,
-    pub beacon: Box<dyn Beacon>,
+    height: ChainEpoch,
+    beacon: BeaconImpl,
 }
 
-#[async_trait]
+impl BeaconPoint {
+    pub fn new(height: ChainEpoch, beacon: impl Into<BeaconImpl>) -> Self {
+        let beacon = beacon.into();
+        Self { height, beacon }
+    }
+}
+
 /// Trait used as the interface to be able to retrieve bytes from a randomness
 /// beacon.
-pub trait Beacon
-where
-    Self: Send + Sync + 'static,
-{
+pub trait Beacon {
     /// Gets the `drand` network
     fn network(&self) -> DrandNetwork;
 
@@ -169,34 +210,6 @@ where
         network_version: NetworkVersion,
         fil_epoch: ChainEpoch,
     ) -> u64;
-}
-
-#[async_trait]
-impl Beacon for Box<dyn Beacon> {
-    fn network(&self) -> DrandNetwork {
-        self.as_ref().network()
-    }
-
-    fn verify_entries(
-        &self,
-        entries: &[BeaconEntry],
-        prev: &BeaconEntry,
-    ) -> Result<bool, anyhow::Error> {
-        self.as_ref().verify_entries(entries, prev)
-    }
-
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
-        self.as_ref().entry(round).await
-    }
-
-    fn max_beacon_round_for_epoch(
-        &self,
-        network_version: NetworkVersion,
-        fil_epoch: ChainEpoch,
-    ) -> u64 {
-        self.as_ref()
-            .max_beacon_round_for_epoch(network_version, fil_epoch)
-    }
 }
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]
@@ -268,7 +281,6 @@ impl DrandBeacon {
     }
 }
 
-#[async_trait]
 impl Beacon for DrandBeacon {
     fn network(&self) -> DrandNetwork {
         self.network

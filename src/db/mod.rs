@@ -25,7 +25,6 @@ use cid::Cid;
 pub use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use std::sync::Arc;
 
 pub const CAR_DB_DIR_NAME: &str = "car_db";
 
@@ -38,6 +37,7 @@ pub mod setting_keys {
 
 /// Interface used to store and retrieve settings from the database.
 /// To store IPLD blocks, use the `BlockStore` trait.
+#[auto_impl::auto_impl(&, Arc)]
 pub trait SettingsStore {
     /// Reads binary field from the Settings store. This should be used for
     /// non-serializable data. For serializable data, use [`SettingsStoreExt::read_obj`].
@@ -53,24 +53,6 @@ pub trait SettingsStore {
     /// Returns all setting keys.
     #[allow(dead_code)]
     fn setting_keys(&self) -> anyhow::Result<Vec<String>>;
-}
-
-impl<T: SettingsStore> SettingsStore for Arc<T> {
-    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
-        SettingsStore::read_bin(self.as_ref(), key)
-    }
-
-    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
-        SettingsStore::write_bin(self.as_ref(), key, value)
-    }
-
-    fn exists(&self, key: &str) -> anyhow::Result<bool> {
-        SettingsStore::exists(self.as_ref(), key)
-    }
-
-    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
-        SettingsStore::setting_keys(self.as_ref())
-    }
 }
 
 /// Extension trait for the [`SettingsStore`] trait. It is implemented for all types that implement
@@ -106,6 +88,7 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
 
 /// Interface used to store and retrieve Ethereum mappings from the database.
 /// To store IPLD blocks, use the `BlockStore` trait.
+#[auto_impl::auto_impl(&, Arc)]
 pub trait EthMappingsStore {
     /// Reads binary field from the `EthMappings` store. This should be used for
     /// non-serializable data. For serializable data, use [`EthMappingsStoreExt::read_obj`].
@@ -124,28 +107,6 @@ pub trait EthMappingsStore {
 
     /// Deletes `keys` if keys exist in store.
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()>;
-}
-
-impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
-    fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
-        EthMappingsStore::read_bin(self.as_ref(), key)
-    }
-
-    fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()> {
-        EthMappingsStore::write_bin(self.as_ref(), key, value)
-    }
-
-    fn exists(&self, key: &EthHash) -> anyhow::Result<bool> {
-        EthMappingsStore::exists(self.as_ref(), key)
-    }
-
-    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
-        EthMappingsStore::get_message_cids(self.as_ref())
-    }
-
-    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
-        EthMappingsStore::delete(self.as_ref(), keys)
-    }
 }
 
 pub struct DummyStore {}
@@ -207,6 +168,7 @@ impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
 }
 
 /// A trait that allows for storing data that is not garbage collected.
+#[auto_impl::auto_impl(&, Arc)]
 pub trait PersistentStore: Blockstore {
     /// Puts a keyed block with pre-computed CID into the database.
     ///
@@ -223,18 +185,7 @@ impl PersistentStore for MemoryBlockstore {
     }
 }
 
-impl<T: PersistentStore> PersistentStore for Arc<T> {
-    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        PersistentStore::put_keyed_persistent(self.as_ref(), k, block)
-    }
-}
-
-impl<T: PersistentStore> PersistentStore for &Arc<T> {
-    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        PersistentStore::put_keyed_persistent(self.as_ref(), k, block)
-    }
-}
-
+#[auto_impl::auto_impl(&, Arc)]
 pub trait HeaviestTipsetKeyProvider {
     /// Returns the currently tracked heaviest tipset.
     fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>>;
@@ -243,30 +194,11 @@ pub trait HeaviestTipsetKeyProvider {
     fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()>;
 }
 
-impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for Arc<T> {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
-        self.as_ref().heaviest_tipset_key()
-    }
-
-    fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
-        self.as_ref().set_heaviest_tipset_key(tsk)
-    }
-}
-
+#[auto_impl::auto_impl(&, Arc)]
 pub trait BlockstoreWriteOpsSubscribable {
     fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)>;
 
     fn unsubscribe_write_ops(&self);
-}
-
-impl<T: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for Arc<T> {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
-        self.as_ref().subscribe_write_ops()
-    }
-
-    fn unsubscribe_write_ops(&self) {
-        self.as_ref().unsubscribe_write_ops()
-    }
 }
 
 pub mod db_engine {
