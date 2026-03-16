@@ -42,7 +42,7 @@ use parking_lot::{Mutex, RwLock};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::broadcast;
-use tracing::{debug, trace, warn};
+use tracing::{debug, error, trace, warn};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -168,7 +168,7 @@ where
             Err(e) => {
                 // Do not warn when the old head is genesis
                 if old_head.epoch() > 0 {
-                    warn!("failed to get chain path changes: {e}");
+                    error!("failed to get chain path changes: {e}");
                 }
                 // Fallback to single apply
                 PathChanges {
