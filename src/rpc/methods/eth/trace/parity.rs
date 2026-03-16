@@ -393,7 +393,7 @@ fn trace_native_create(
     }
 
     let mut output = EthBytes::default();
-    let mut create_addr = EthAddress::default();
+    let mut create_addr = None;
     if trace.msg_rct.exit_code.is_success() {
         // We're supposed to put the "installed bytecode" here. But this
         // isn't an EVM actor, so we just put some invalid bytecode (this is
@@ -404,8 +404,7 @@ fn trace_native_create(
         // Extract the address of the created actor from the return value.
         let init_return: ExecReturn = decode_return(&trace.msg_rct)?;
         let actor_id = init_return.id_address.id()?;
-        let eth_addr = EthAddress::from_actor_id(actor_id);
-        create_addr = eth_addr;
+        create_addr = Some(EthAddress::from_actor_id(actor_id));
     }
 
     Ok((
@@ -422,7 +421,7 @@ fn trace_native_create(
             }),
             result: TraceResult::Create(EthCreateTraceResult {
                 gas_used: trace.sum_gas().total_gas.into(),
-                address: Some(create_addr),
+                address: create_addr,
                 code: output,
             }),
             trace_address: Vec::from(address),
