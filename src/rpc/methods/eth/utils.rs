@@ -3,13 +3,14 @@
 
 use super::types::{EthAddress, EthBytes};
 use crate::rpc::state::{MessageTrace, ReturnTrace};
+use crate::shim::actors::{EVMActorStateLoad as _, evm, is_evm_actor};
 use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::fvm_shared_latest::IDENTITY_HASH;
-use crate::shim::state_tree::StateTree;
+use crate::shim::state_tree::{ActorState, StateTree};
 use ahash::{HashMap, HashMapExt};
 
 use crate::rpc::eth::{EVM_WORD_LENGTH, EthUint64};
-use anyhow::{Result, bail};
+use anyhow::{Context as _, Result, bail};
 use cbor4ii::core::Value;
 use cbor4ii::core::dec::Decode as _;
 use fvm_ipld_blockstore::Blockstore;
@@ -57,6 +58,38 @@ pub fn lookup_eth_address<DB: Blockstore>(
 
     // Otherwise, use the masked address.
     Ok(Some(EthAddress::from_actor_id(id_addr)))
+}
+
+/// Extension trait for querying Ethereum-relevant state from a Filecoin actor.
+pub(crate) trait ActorStateEthExt {
+    /// Returns the effective nonce: EVM nonce for EVM actors, sequence otherwise.
+    fn eth_nonce<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<EthUint64>;
+    /// Returns the deployed bytecode of an EVM actor, or `None` for non-EVM actors.
+    fn eth_bytecode<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<Option<EthBytes>>;
+}
+
+impl ActorStateEthExt for ActorState {
+    fn eth_nonce<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<EthUint64> {
+        if is_evm_actor(&self.code) {
+            let evm_state = evm::State::load(store, self.code, self.state)
+                .context("failed to load EVM state for nonce")?;
+            Ok(EthUint64::from(evm_state.nonce()))
+        } else {
+            Ok(EthUint64::from(self.sequence))
+        }
+    }
+
+    fn eth_bytecode<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<Option<EthBytes>> {
+        if !is_evm_actor(&self.code) {
+            return Ok(None);
+        }
+        let evm_state = evm::State::load(store, self.code, self.state)
+            .context("failed to load EVM state for bytecode")?;
+        let bytecode = store
+            .get(&evm_state.bytecode())
+            .context("failed to read EVM bytecode")?;
+        Ok(bytecode.map(EthBytes))
+    }
 }
 
 /// Decodes the payload using the given codec.
