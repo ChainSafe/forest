@@ -1,6 +1,12 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! Parity-style trace construction from Filecoin execution traces.
+//!
+//! Converts FVM [`ExecutionTrace`] trees into Parity-compatible [`EthTrace`]
+//! entries. Handles EVM calls, delegate calls, and contract creation through
+//! both native (`Init`) and EVM (`EAM`) paths.
+
 use super::super::types::{EthAddress, EthBytes, EthHash};
 use super::super::utils::{decode_params, decode_return};
 use super::super::{

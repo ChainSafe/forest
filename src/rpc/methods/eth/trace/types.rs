@@ -1,6 +1,11 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! Shared type definitions for trace-related RPC responses.
+//!
+//! Trace actions, results, filter criteria, and state-diff primitives used
+//! across the `trace_*` RPC methods.
+
 use super::super::types::{EthAddress, EthAddressList, EthBytes, EthHash};
 use super::super::{EthBigInt, EthUint64};
 use crate::lotus_json::lotus_json_with_self;

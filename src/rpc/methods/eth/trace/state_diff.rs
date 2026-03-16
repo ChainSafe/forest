@@ -1,6 +1,11 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! State diff computation for `trace_call` and related RPC methods.
+//!
+//! Compares pre- and post-execution actor states to produce per-account diffs
+//! covering balance, nonce, code, and storage.
+
 use super::super::types::{EthAddress, EthHash};
 use super::super::utils::ActorStateEthExt as _;
 use super::types::{AccountDiff, ChangedType, Delta, StateDiff};
