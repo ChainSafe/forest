@@ -88,7 +88,7 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - name: Go tests
         run: |
           go test -v ./tools/prometheus_metrics_validator
@@ -112,7 +112,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - run: cargo publish --dry-run
   forest-cli-check:
     needs:
