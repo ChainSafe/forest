@@ -39,6 +39,7 @@ async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-trait = "0.1"
 asynchronous-codec = "0.7"
+auto_impl = "1"
 axum = "0.8"
 backon = "1"
 base64 = "0.22"

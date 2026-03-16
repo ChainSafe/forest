@@ -3,10 +3,11 @@
 
 use super::*;
 use multihash_derive::MultihashDigest;
+use std::marker::PhantomData;
 use std::ops::Deref;
-use std::{marker::PhantomData, sync::Arc};
 
 /// Trait implemented by a block store for reading.
+#[auto_impl::auto_impl(&, Arc)]
 pub trait BitswapStoreRead {
     /// A have query needs to know if the block store contains the block.
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool>;
@@ -16,30 +17,13 @@ pub trait BitswapStoreRead {
 }
 
 /// Trait implemented by a block store for reading and writing.
+#[auto_impl::auto_impl(&, Arc)]
 pub trait BitswapStoreReadWrite: BitswapStoreRead + Send + Sync + 'static {
     /// The hashes parameters.
     type Hashes: MultihashDigest<64>;
 
     /// A block response needs to insert the block into the store.
     fn insert(&self, block: &Block64<Self::Hashes>) -> anyhow::Result<()>;
-}
-
-impl<T: BitswapStoreRead> BitswapStoreRead for Arc<T> {
-    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        BitswapStoreRead::contains(self.as_ref(), cid)
-    }
-
-    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        BitswapStoreRead::get(self.as_ref(), cid)
-    }
-}
-
-impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for Arc<T> {
-    type Hashes = <T as BitswapStoreReadWrite>::Hashes;
-
-    fn insert(&self, block: &Block64<Self::Hashes>) -> anyhow::Result<()> {
-        BitswapStoreReadWrite::insert(self.as_ref(), block)
-    }
 }
 
 pub type Block64<H> = Block<H, 64>;
