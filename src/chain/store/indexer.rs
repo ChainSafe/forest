@@ -71,8 +71,6 @@ impl SqliteIndexerOptions {
 }
 
 pub struct SqliteIndexer<BS> {
-    // ensures writes are serialized so backfilling does not race with index updates
-    mu: tokio::sync::Mutex<()>,
     options: SqliteIndexerOptions,
     cs: Arc<ChainStore<BS>>,
     db: sqlx::SqlitePool,
@@ -100,7 +98,6 @@ where
         .await?;
         let stmts = PreparedStatements::default();
         Ok(Self {
-            mu: tokio::sync::Mutex::const_new(()),
             options,
             cs,
             db,
@@ -128,7 +125,11 @@ where
             let HeadChanges { reverts, applies } = head_change_subscriber.recv().await?;
             for ts in reverts {
                 if let Err(e) = self.revert_tipset(&ts).await {
-                    tracing::warn!("failed to index new head@{}({}): {e}", ts.epoch(), ts.key());
+                    tracing::warn!(
+                        "failed to revert new head@{}({}): {e}",
+                        ts.epoch(),
+                        ts.key()
+                    );
                 }
             }
             for ts in applies {
@@ -557,13 +558,14 @@ where
     }
 
     pub async fn revert_tipset(&self, ts: &Tipset) -> anyhow::Result<()> {
+        tracing::debug!("reverting tipset@{}[{}]", ts.epoch(), ts.key().terse());
         let tsk_cid_bytes = ts.key().cid()?.to_bytes();
         // Because of deferred execution in Filecoin, events at tipset T are reverted when a tipset T+1 is reverted.
         // However, the tipet `T` itself is not reverted.
         let pts = Tipset::load_required(self.cs.blockstore(), ts.parents())?;
         let events_tsk_cid_bytes = pts.key().cid()?.to_bytes();
         let mut tx = self.db.begin().await?;
-        sqlx::query(self.stmts.update_events_to_reverted)
+        sqlx::query(self.stmts.update_tipset_to_reverted)
             .bind(&tsk_cid_bytes)
             .execute(tx.deref_mut())
             .await?;
@@ -578,6 +580,7 @@ where
     }
 
     pub async fn index_tipset(&self, ts: &Tipset) -> anyhow::Result<()> {
+        tracing::debug!("indexing tipset@{}[{}]", ts.epoch(), ts.key().terse());
         let mut tx = self.db.begin().await?;
         self.index_tipset_and_parent_events_with_tx(&mut tx, ts)
             .await?;
