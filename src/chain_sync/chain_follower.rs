@@ -27,7 +27,7 @@ use crate::{
         tipset_syncer::{TipsetSyncerError, validate_tipset},
     },
     libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
-    message_pool::{MessagePool, MpoolRpcProvider},
+    message_pool::MessagePool,
     networks::calculate_expected_epoch,
     shim::clock::ChainEpoch,
     state_manager::StateManager,
@@ -78,7 +78,7 @@ pub struct ChainFollower<DB> {
     stateless_mode: bool,
 
     /// Message pool
-    mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
+    mem_pool: Arc<MessagePool<Arc<ChainStore<DB>>>>,
 }
 
 impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
@@ -88,7 +88,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         genesis: Tipset,
         net_handler: flume::Receiver<NetworkEvent>,
         stateless_mode: bool,
-        mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
+        mem_pool: Arc<MessagePool<Arc<ChainStore<DB>>>>,
     ) -> Self {
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
         let disable_bad_block_cache = is_env_truthy("FOREST_DISABLE_BAD_BLOCK_CACHE");
@@ -135,7 +135,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     network_rx: flume::Receiver<NetworkEvent>,
     tipset_receiver: flume::Receiver<FullTipset>,
     network: SyncNetworkContext<DB>,
-    mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
+    mem_pool: Arc<MessagePool<Arc<ChainStore<DB>>>>,
     sync_status: SyncStatus,
     genesis: Tipset,
     stateless_mode: bool,

@@ -130,12 +130,12 @@ impl<WriterT> ManyCar<WriterT> {
         Ok(())
     }
 
-    pub fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
-        self.read_only
+    pub fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
+        Ok(self
+            .read_only
             .read()
             .peek()
-            .map(|w| AnyCar::heaviest_tipset_key(&w.car))
-            .context("ManyCar store doesn't have a heaviest tipset key")
+            .map(|w| AnyCar::heaviest_tipset_key(&w.car)))
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
@@ -252,9 +252,9 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
 }
 
 impl<T: Blockstore + SettingsStore> super::super::HeaviestTipsetKeyProvider for ManyCar<T> {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
         match SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)? {
-            Some(tsk) => Ok(tsk),
+            Some(tsk) => Ok(Some(tsk)),
             None => self.heaviest_tipset_key(),
         }
     }

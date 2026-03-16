@@ -282,7 +282,7 @@ where
             tracing::warn!("{e}");
         }
 
-        *self.memory_db_head_key.write() = db.heaviest_tipset_key().ok();
+        *self.memory_db_head_key.write() = db.heaviest_tipset_key()?;
         db.unsubscribe_write_ops();
         match joinset.join_next().await {
             Some(Ok(map)) => {

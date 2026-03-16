@@ -9,7 +9,7 @@ mod msgpool;
 pub use self::{
     config::*,
     errors::*,
-    msgpool::{msg_pool::MessagePool, provider::MpoolRpcProvider, *},
+    msgpool::{msg_pool::MessagePool, *},
 };
 
 pub use block_prob::block_probabilities;

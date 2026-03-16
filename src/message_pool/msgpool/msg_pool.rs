@@ -9,7 +9,7 @@
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use crate::blocks::{CachingBlockHeader, Tipset};
-use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
+use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
 use crate::eth::is_valid_eth_tx_for_sending;
@@ -544,41 +544,38 @@ where
 
         mp.load_local()?;
 
-        let mut subscriber = mp.api.subscribe_head_changes();
+        let mut head_changes_rx = mp.api.subscribe_head_changes();
 
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.clone();
         let pending = mp.pending.clone();
         let republished = mp.republished.clone();
 
-        let cur_tipset = mp.cur_tipset.clone();
+        let current_ts = mp.cur_tipset.clone();
         let repub_trigger = mp.repub_trigger.clone();
 
         // Reacts to new HeadChanges
         services.spawn(async move {
             loop {
-                match subscriber.recv().await {
-                    Ok(ts) => {
-                        let (cur, rev, app) = match ts {
-                            HeadChange::Apply(tipset) => {
-                                (cur_tipset.clone(), Vec::new(), vec![tipset])
-                            }
-                        };
-                        head_change(
+                match head_changes_rx.recv().await {
+                    Ok(HeadChanges { reverts, applies }) => {
+                        if let Err(e) = head_change(
                             api.as_ref(),
                             bls_sig_cache.as_ref(),
                             repub_trigger.clone(),
                             republished.as_ref(),
                             pending.as_ref(),
-                            cur.as_ref(),
-                            rev,
-                            app,
+                            &current_ts,
+                            reverts,
+                            applies,
                         )
                         .await
-                        .context("Error changing head")?;
+                        {
+                            tracing::warn!("Error changing head: {e}");
+                        }
                     }
                     Err(RecvError::Lagged(e)) => {
-                        warn!("Head change subscriber lagged: skipping {} events", e);
+                        warn!("Head change subscriber lagged: skipping {e} events");
                     }
                     Err(RecvError::Closed) => {
                         break Ok(());

@@ -471,7 +471,7 @@ const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 pub struct RPCState<DB> {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
-    pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
+    pub mpool: Arc<crate::message_pool::MessagePool<Arc<crate::chain::ChainStore<DB>>>>,
     pub bad_blocks: Option<Arc<crate::chain_sync::BadBlockCache>>,
     pub msgs_in_tipset: Arc<crate::chain::store::MsgsInTipsetCache>,
     pub sync_status: crate::chain_sync::SyncStatus,
