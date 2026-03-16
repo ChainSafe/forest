@@ -6,6 +6,7 @@ use futures::stream::FuturesOrdered;
 pub use types::*;
 
 use super::chain::ChainGetTipSetV2;
+use crate::beacon::Beacon as _;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
