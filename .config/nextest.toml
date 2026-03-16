@@ -1,6 +1,9 @@
 [profile.default]
 slow-timeout = { period = "10s", terminate-after = 3 }
 
+[profile.default.junit]
+path = "junit.xml"
+
 # This test downloads bundles from the network, which can take a while.
 # It is only run on CI, so we can afford to be more patient.
 [[profile.default.overrides]]
