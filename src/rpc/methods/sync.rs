@@ -173,7 +173,7 @@ mod tests {
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::{NetworkMessage, PeerManager};
-    use crate::message_pool::{MessagePool, MpoolRpcProvider};
+    use crate::message_pool::MessagePool;
     use crate::networks::ChainConfig;
     use crate::rpc::RPCState;
     use crate::rpc::eth::filter::EthEventHandler;
@@ -202,7 +202,6 @@ mod tests {
         );
 
         let state_manager = Arc::new(StateManager::new(cs_arc.clone()).unwrap());
-        let state_manager_for_thread = state_manager.clone();
         let cs_for_test = &cs_arc;
         let mpool_network_send = network_send.clone();
         let pool = {
@@ -218,13 +217,11 @@ mod tests {
                 db.put_keyed(&i, &bz2).unwrap();
             }
 
-            let provider =
-                MpoolRpcProvider::new(cs_arc.publisher().clone(), state_manager_for_thread.clone());
             MessagePool::new(
-                provider,
+                cs_arc,
                 mpool_network_send,
                 Default::default(),
-                state_manager_for_thread.chain_config().clone(),
+                state_manager.chain_config().clone(),
                 &mut services,
             )
             .unwrap()

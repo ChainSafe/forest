@@ -41,8 +41,8 @@ use nonzero_ext::nonzero;
 use parking_lot::{Mutex, RwLock};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{num::NonZeroUsize, sync::Arc};
-use tokio::sync::broadcast::{self, Sender as Publisher};
-use tracing::{debug, trace, warn};
+use tokio::sync::broadcast;
+use tracing::{debug, error, trace, warn};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -62,7 +62,7 @@ pub type HeadChanges = PathChanges<Tipset>;
 /// to allow a consistent `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
     /// Publisher for head change events
-    publisher: Publisher<HeadChanges>,
+    head_changes_tx: broadcast::Sender<HeadChanges>,
 
     /// key-value `datastore`.
     db: Arc<DB>,
@@ -126,7 +126,7 @@ where
         chain_config: Arc<ChainConfig>,
         genesis_block_header: CachingBlockHeader,
     ) -> anyhow::Result<Self> {
-        let (publisher, _) = broadcast::channel(SINK_CAP);
+        let (head_changes_tx, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let validated_blocks = Mutex::new(HashSet::default());
         let head = if let Some(head_tsk) = heaviest_tipset_key_provider
@@ -141,7 +141,7 @@ where
             Tipset::from(&genesis_block_header)
         };
         let cs = Self {
-            publisher,
+            head_changes_tx,
             chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,
@@ -168,7 +168,7 @@ where
             Err(e) => {
                 // Do not warn when the old head is genesis
                 if old_head.epoch() > 0 {
-                    warn!("failed to get chain path changes: {e}");
+                    error!("failed to get chain path changes: {e}");
                 }
                 // Fallback to single apply
                 PathChanges {
@@ -178,7 +178,7 @@ where
             }
         };
 
-        if self.publisher.send(changes).is_err() {
+        if self.head_changes_tx.send(changes).is_err() {
             debug!("did not publish changes, no active receivers");
         }
 
@@ -240,9 +240,9 @@ where
         Tipset::from(self.genesis_block_header())
     }
 
-    /// Returns a reference to the publisher of head changes.
-    pub fn publisher(&self) -> &Publisher<HeadChanges> {
-        &self.publisher
+    /// Subscribes head changes.
+    pub fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
+        self.head_changes_tx.subscribe()
     }
 
     /// Returns key-value store instance.

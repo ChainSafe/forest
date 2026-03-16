@@ -116,10 +116,10 @@ where
 
     pub async fn index_loop(
         &self,
-        mut head_change_subscriber: tokio::sync::broadcast::Receiver<HeadChanges>,
+        mut head_changes_rx: tokio::sync::broadcast::Receiver<HeadChanges>,
     ) -> anyhow::Result<()> {
         loop {
-            let HeadChanges { reverts, applies } = head_change_subscriber.recv().await?;
+            let HeadChanges { reverts, applies } = head_changes_rx.recv().await?;
             for ts in reverts {
                 if let Err(e) = self.revert_tipset(&ts).await {
                     tracing::warn!(

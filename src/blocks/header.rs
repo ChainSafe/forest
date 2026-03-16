@@ -8,7 +8,7 @@ use std::sync::{
 
 use super::{ElectionProof, Error, Ticket, TipsetKey};
 use crate::{
-    beacon::{BeaconEntry, BeaconSchedule},
+    beacon::{Beacon as _, BeaconEntry, BeaconSchedule},
     shim::{
         address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
         sector::PoStProof, version::NetworkVersion,
@@ -380,10 +380,7 @@ mod tests {
             miner_address: Address::new_id(0),
             ..Default::default()
         });
-        let beacon_schedule = BeaconSchedule(vec![BeaconPoint {
-            height: 0,
-            beacon: Box::<MockBeacon>::default(),
-        }]);
+        let beacon_schedule = BeaconSchedule(vec![BeaconPoint::new(0, <MockBeacon>::default())]);
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand

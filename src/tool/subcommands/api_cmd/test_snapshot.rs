@@ -12,7 +12,7 @@ use crate::{
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     lotus_json::HasLotusJson,
-    message_pool::{MessagePool, MpoolRpcProvider},
+    message_pool::MessagePool,
     networks::{ChainConfig, NetworkChain},
     rpc::{
         ApiPaths, RPCState, RpcMethod, RpcMethodExt as _,
@@ -150,7 +150,7 @@ async fn ctx(
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
     let message_pool = MessagePool::new(
-        MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
+        chain_store.clone(),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),

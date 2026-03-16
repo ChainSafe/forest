@@ -492,13 +492,11 @@ impl ChainConfig {
 
         BeaconSchedule(
             ds_iter
-                .map(|dc| BeaconPoint {
-                    height: dc.height,
-                    beacon: Box::new(DrandBeacon::new(
-                        genesis_ts,
-                        self.block_delay_secs as u64,
-                        dc.config,
-                    )),
+                .map(|dc| {
+                    BeaconPoint::new(
+                        dc.height,
+                        DrandBeacon::new(genesis_ts, self.block_delay_secs as u64, dc.config),
+                    )
                 })
                 .collect(),
         )

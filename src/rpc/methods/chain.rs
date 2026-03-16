@@ -84,10 +84,10 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
 ) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
-    let mut subscriber = data.chain_store().publisher().subscribe();
+    let mut head_changes_rx = data.chain_store().subscribe_head_changes();
 
     let handle = tokio::spawn(async move {
-        while let Ok(changes) = subscriber.recv().await {
+        while let Ok(changes) = head_changes_rx.recv().await {
             for ts in changes.applies {
                 // Convert the tipset to an Ethereum block with full transaction info
                 // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
@@ -121,12 +121,12 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
 ) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
-    let mut subscriber = ctx.chain_store().publisher().subscribe();
+    let mut head_changes_rx = ctx.chain_store().subscribe_head_changes();
 
     let ctx = ctx.clone();
 
     let handle = tokio::spawn(async move {
-        while let Ok(changes) = subscriber.recv().await {
+        while let Ok(changes) = head_changes_rx.recv().await {
             for ts in changes.applies {
                 match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
                     Ok(logs) => {
@@ -1343,12 +1343,12 @@ pub(crate) fn chain_notify<DB: Blockstore>(
         .send(vec![ApiHeadChange { change, tipset }])
         .expect("receiver is not dropped");
 
-    let mut subscriber = data.chain_store().publisher().subscribe();
+    let mut head_changes_rx = data.chain_store().subscribe_head_changes();
 
     tokio::spawn(async move {
         // Skip first message
-        let _ = subscriber.recv().await;
-        while let Ok(changes) = subscriber.recv().await {
+        let _ = head_changes_rx.recv().await;
+        while let Ok(changes) = head_changes_rx.recv().await {
             let api_changes = changes
                 .into_change_vec()
                 .into_iter()

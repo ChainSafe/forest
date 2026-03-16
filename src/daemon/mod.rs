@@ -7,6 +7,7 @@ pub mod db_util;
 pub mod main;
 
 use crate::blocks::Tipset;
+use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::chain_sync::{ChainFollower, SyncStatus};
@@ -22,7 +23,7 @@ use crate::daemon::{
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
-use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use crate::message_pool::{MessagePool, MpoolConfig};
 use crate::networks::{self, ChainConfig};
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
@@ -297,11 +298,9 @@ fn create_mpool(
     services: &mut JoinSet<anyhow::Result<()>>,
     p2p_service: &Libp2pService<DbType>,
     ctx: &AppContext,
-) -> anyhow::Result<Arc<MessagePool<MpoolRpcProvider<DbType>>>> {
-    let publisher = ctx.state_manager.chain_store().publisher();
-    let provider = MpoolRpcProvider::new(publisher.clone(), ctx.state_manager.clone());
+) -> anyhow::Result<Arc<MessagePool<Arc<ChainStore<DbType>>>>> {
     Ok(MessagePool::new(
-        provider,
+        ctx.state_manager.chain_store().clone(),
         p2p_service.network_sender().clone(),
         MpoolConfig::load_config(ctx.db.writer().as_ref())?,
         ctx.state_manager.chain_config().clone(),
@@ -313,7 +312,7 @@ fn create_mpool(
 fn create_chain_follower(
     opts: &CliOpts,
     p2p_service: &Libp2pService<DbType>,
-    mpool: Arc<MessagePool<MpoolRpcProvider<DbType>>>,
+    mpool: Arc<MessagePool<Arc<ChainStore<DbType>>>>,
     ctx: &AppContext,
 ) -> anyhow::Result<ChainFollower<DbType>> {
     let network_send = p2p_service.network_sender().clone();
@@ -374,7 +373,7 @@ async fn maybe_start_health_check_service(
 fn maybe_start_rpc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    mpool: Arc<MessagePool<MpoolRpcProvider<DbType>>>,
+    mpool: Arc<MessagePool<Arc<ChainStore<DbType>>>>,
     chain_follower: &ChainFollower<DbType>,
     start_time: chrono::DateTime<chrono::Utc>,
     shutdown: mpsc::Sender<()>,
@@ -506,14 +505,13 @@ fn maybe_start_indexer_service(
     {
         // Old indexer
         {
-            let mut head_changes_subscriber =
-                ctx.state_manager.chain_store().publisher().subscribe();
+            let mut head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
             let chain_store = ctx.state_manager.chain_store().clone();
             services.spawn(async move {
                 tracing::info!("Starting indexer service");
                 // Continuously listen for head changes
                 loop {
-                    for ts in head_changes_subscriber.recv().await?.applies {
+                    for ts in head_changes_rx.recv().await?.applies {
                         tracing::debug!("Indexing tipset {}", ts.key());
                         let delegated_messages =
                             chain_store.headers_delegated_messages(ts.block_headers().iter())?;
@@ -541,11 +539,10 @@ fn maybe_start_indexer_service(
         // New SQLITE indexer
         if let Some(indexer) = &ctx.chain_indexer {
             services.spawn({
-                let head_changes_subscriber =
-                    ctx.state_manager.chain_store().publisher().subscribe();
+                let head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
                 let indexer = indexer.clone();
                 async move {
-                    if let Err(e) = indexer.index_loop(head_changes_subscriber).await {
+                    if let Err(e) = indexer.index_loop(head_changes_rx).await {
                         tracing::warn!("indexer stopped unexpectedly: {e}");
                     }
                     Ok(())

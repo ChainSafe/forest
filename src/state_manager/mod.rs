@@ -1171,7 +1171,7 @@ where
         look_back_limit: Option<ChainEpoch>,
         allow_replaced: Option<bool>,
     ) -> Result<(Option<Tipset>, Option<Receipt>), Error> {
-        let mut subscriber = self.cs.publisher().subscribe();
+        let mut head_changes_rx = self.cs.subscribe_head_changes();
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
@@ -1209,7 +1209,7 @@ where
         // Wait for message to be included in head change.
         let mut subscriber_poll = tokio::task::spawn(async move {
             loop {
-                match subscriber.recv().await {
+                match head_changes_rx.recv().await {
                     Ok(head_changes) => {
                         for tipset in head_changes.reverts {
                             if candidate_tipset
