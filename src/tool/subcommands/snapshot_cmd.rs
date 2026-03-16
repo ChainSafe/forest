@@ -414,15 +414,16 @@ where
     // causing out-of-bounds errors when the snapshot contains only 900 recent state roots.
     let last_epoch = ts.epoch() - epochs as i64 + 1;
 
-    // Bundles are required when doing state migrations.
-    load_actor_bundles(&db, &network).await?;
-
-    // Set proof parameter data dir and make sure the proofs are available
+    // Set proof parameter data dir before downloading proofs.
     crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
         &Config::default().client.data_dir,
     );
 
-    ensure_proof_params_downloaded().await?;
+    // independent downloads - fetch in parallel
+    tokio::try_join!(
+        load_actor_bundles(&db, &network),
+        ensure_proof_params_downloaded(),
+    )?;
 
     let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));
 

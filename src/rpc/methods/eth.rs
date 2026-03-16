@@ -3749,7 +3749,7 @@ async fn trace_filter(
         for block_trace in block_traces {
             if block_trace
                 .trace
-                .match_filter_criteria(&filter.from_address, &filter.to_address)?
+                .match_filter_criteria(filter.from_address.as_ref(), filter.to_address.as_ref())?
             {
                 trace_counter += 1;
                 if let Some(after) = filter.after
