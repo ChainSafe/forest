@@ -50,9 +50,6 @@ struct IndexedTipsetData {
 #[derive(Debug, smart_default::SmartDefault)]
 pub struct SqliteIndexerOptions {
     pub gc_retention_epochs: ChainEpoch,
-    pub reconcile_empty_index: bool,
-    #[default(3 * EPOCHS_IN_DAY as u64)]
-    pub max_reconcile_tipsets: u64,
 }
 
 impl SqliteIndexerOptions {
@@ -423,7 +420,32 @@ where
         );
 
         // compare the events AMT root between the indexed events and the events in the chain state
-        for (message, _, _) in executed_messages {}
+        for (message, receipt, _) in executed_messages {
+            let msg_cid = message.cid();
+            let indexed_events_root = self.amt_root_for_events(&tsk_cid, &msg_cid).await?;
+            match (indexed_events_root, receipt.events_root()) {
+                (Some(a), Some(b)) => {
+                    anyhow::ensure!(
+                        a == b,
+                        "index corruption: events AMT root mismatch for message {msg_cid} at height {}. Index root: {a}, Receipt root: {b}",
+                        ts.epoch()
+                    );
+                }
+                (None, None) => continue,
+                (Some(_), None) => {
+                    anyhow::bail!(
+                        "index corruption: events found in index for message {msg_cid} at height {}, but message receipt has no events root",
+                        ts.epoch()
+                    )
+                }
+                (None, Some(b)) => {
+                    anyhow::bail!(
+                        "index corruption: no events found in index for message {msg_cid} at height {}, but message receipt has events root {b}",
+                        ts.epoch()
+                    )
+                }
+            }
+        }
 
         Ok(())
     }
@@ -462,6 +484,58 @@ where
             .fetch_optional(&self.db)
             .await?;
         Ok(row.map(|r| (r.get(0), r.get(1))))
+    }
+
+    async fn amt_root_for_events(
+        &self,
+        tsk_cid: &Cid,
+        msg_cid: &Cid,
+    ) -> anyhow::Result<Option<Cid>> {
+        use crate::state_manager::EVENTS_AMT_BITWIDTH;
+        use fil_actors_shared::fvm_ipld_amt::Amt;
+        use fvm_ipld_blockstore::MemoryBlockstore;
+        use fvm_shared4::event::{ActorEvent, Entry, Flags, StampedEvent};
+
+        let mut tx = self.db.begin().await?;
+        let rows = sqlx::query(self.stmts.get_event_id_and_emitter_id)
+            .bind(tsk_cid.to_bytes())
+            .bind(msg_cid.to_bytes())
+            .fetch_all(tx.deref_mut())
+            .await?;
+        if rows.is_empty() {
+            Ok(None)
+        } else {
+            let mut events = Amt::new_with_bit_width(MemoryBlockstore::new(), EVENTS_AMT_BITWIDTH);
+            for (i, row) in rows.iter().enumerate() {
+                let event_id: i64 = row.get(0);
+                let actor_id: i64 = row.get(1);
+                let mut event = StampedEvent {
+                    emitter: actor_id as _,
+                    event: ActorEvent { entries: vec![] },
+                };
+                let rows2 = sqlx::query(self.stmts.get_event_entries)
+                    .bind(event_id)
+                    .fetch_all(tx.deref_mut())
+                    .await?;
+                for row2 in rows2 {
+                    let flags: Vec<u8> = row2.get(0);
+                    if let Some(&flags) = flags.first() {
+                        let key: String = row2.get(1);
+                        let codec: i64 = row2.get(2);
+                        let value: Vec<u8> = row2.get(3);
+                        event.event.entries.push(Entry {
+                            flags: Flags::from_bits_retain(flags as _),
+                            key,
+                            codec: codec as _,
+                            value,
+                        });
+                    }
+                }
+                events.set(i as _, event)?;
+            }
+
+            Ok(Some(events.flush()?))
+        }
     }
 
     fn load_executed_messages(

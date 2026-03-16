@@ -64,6 +64,8 @@ pub struct PreparedStatements {
     pub insert_event_entry: &'static str,
     pub remove_tipsets_before_height: &'static str,
     pub remove_eth_hashes_older_than: &'static str,
+    pub get_event_entries: &'static str,
+    pub get_event_id_and_emitter_id: &'static str,
 }
 
 impl Default for PreparedStatements {
@@ -93,6 +95,8 @@ impl Default for PreparedStatements {
         let remove_tipsets_before_height = "DELETE FROM tipset_message WHERE height < ?";
         let remove_eth_hashes_older_than =
             "DELETE FROM eth_tx_hash WHERE inserted_at < datetime('now', ?)";
+        let get_event_entries = "SELECT flags, key, codec, value FROM event_entry WHERE event_id=? ORDER BY _rowid_ ASC";
+        let get_event_id_and_emitter_id = "SELECT e.id, e.emitter_id FROM event e JOIN tipset_message tm ON e.message_id = tm.id WHERE tm.tipset_key_cid = ? AND tm.message_cid = ? ORDER BY e.event_index ASC";
 
         Self {
             has_tipset,
@@ -115,6 +119,8 @@ impl Default for PreparedStatements {
             insert_event_entry,
             remove_tipsets_before_height,
             remove_eth_hashes_older_than,
+            get_event_entries,
+            get_event_id_and_emitter_id,
         }
     }
 }
