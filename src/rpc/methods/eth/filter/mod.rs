@@ -270,8 +270,7 @@ impl EthEventHandler {
         let height = tipset.epoch();
         let tipset_key = tipset.key();
         let executed_tipset = ctx.state_manager.load_executed_tipset(tipset).await?;
-        let mut event_idx = 0;
-        let mut is_first_event = true;
+        let mut event_count = 0;
         for (
             msg_idx,
             ExecutedMessage {
@@ -280,14 +279,9 @@ impl EthEventHandler {
         ) in executed_tipset.executed_messages.into_iter().enumerate()
         {
             if let Some(events) = events {
-                for event in events.iter() {
-                    if is_first_event {
-                        // event index should be zero-based.
-                        event_idx = 0;
-                        is_first_event = false;
-                    } else {
-                        event_idx += 1;
-                    }
+                let event_idx_base = u64::try_from(event_count)?;
+                event_count += events.len();
+                for (event_idx, event) in (event_idx_base..).zip(events.iter()) {
                     let id_addr = Address::new_id(event.emitter());
                     let result = ctx
                         .state_manager
