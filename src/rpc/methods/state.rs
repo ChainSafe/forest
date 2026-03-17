@@ -1627,7 +1627,7 @@ impl RpcMethod<3> for StateCompute {
                 msg: ctx.message.message().clone(),
                 msg_rct: Some(ctx.apply_ret.msg_receipt()),
                 error: ctx.apply_ret.failure_info().unwrap_or_default(),
-                duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                duration: ctx.duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
                 gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
                 execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
                     .unwrap_or_default(),
@@ -2116,7 +2116,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     ) -> Result<Self::Ok, ServerError> {
         {
             let genesis_timestamp = ctx.chain_store().genesis_block_header().timestamp as i64;
-            let block_delay = ctx.chain_config().block_delay_secs as i64;
+            let block_delay = i64::from(ctx.chain_config().block_delay_secs);
             // Give it a 1s clock drift buffer
             let epoch_timestamp = genesis_timestamp + block_delay * epoch + 1;
             let now_timestamp = chrono::Utc::now().timestamp();
@@ -3081,7 +3081,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
 
         let params = NetworkParams {
             network_name,
-            block_delay_secs: config.block_delay_secs as u64,
+            block_delay_secs: u64::from(config.block_delay_secs),
             consensus_miner_min_power: policy.minimum_consensus_power.clone(),
             pre_commit_challenge_delay: policy.pre_commit_challenge_delay,
             fork_upgrade_params: ForkUpgradeParams::try_from(config)

@@ -130,7 +130,7 @@ impl ForestBehaviour {
             .with_kademlia(config.kademlia)
             .with_user_defined(config.bootstrap_peers.clone())
             .await?
-            .target_peer_count(config.target_peer_count as u64)
+            .target_peer_count(u64::from(config.target_peer_count))
             .finish()?;
 
         let connection_limits = connection_limits::Behaviour::new(

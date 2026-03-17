@@ -333,7 +333,7 @@ async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: u32) -> anyhow::Re
 where
     DB: Blockstore + Send + Sync,
 {
-    let epoch_limit = ts.epoch() - epochs as i64;
+    let epoch_limit = ts.epoch() - i64::from(epochs);
 
     let pb = validation_spinner("Checking IPLD integrity:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("❌ Invalid IPLD data!".into()),
@@ -412,7 +412,7 @@ where
     // Fix off-by-1 bug: prevent validating more epochs than available in the snapshot.
     // Without +1, specifying --check-stateroots=900 would validate 901 epochs,
     // causing out-of-bounds errors when the snapshot contains only 900 recent state roots.
-    let last_epoch = ts.epoch() - epochs as i64 + 1;
+    let last_epoch = ts.epoch() - i64::from(epochs) + 1;
 
     // Set proof parameter data dir before downloading proofs.
     crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
@@ -574,7 +574,7 @@ mod structured {
                 "TotalCost": (chain_message.message().required_funds() - &apply_ret.refund()).into_lotus_json(),
             },
             "ExecutionTrace": structured::parse_events(apply_ret.exec_trace())?.into_lotus_json(),
-            "Duration": duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+            "Duration": duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
         }))
     }
 }

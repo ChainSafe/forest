@@ -1236,7 +1236,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
         block_hash: tx.block_hash,
         block_number: tx.block_number,
         r#type: tx.r#type,
-        status: (msg_receipt.exit_code().is_success() as u64).into(),
+        status: u64::from(msg_receipt.exit_code().is_success()).into(),
         gas_used: msg_receipt.gas_used().into(),
         ..EthTxReceipt::new()
     };

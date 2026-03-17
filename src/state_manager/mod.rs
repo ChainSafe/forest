@@ -634,7 +634,7 @@ where
             msg_rct: Some(apply_ret.msg_receipt()),
             msg_cid: msg.cid(),
             error: apply_ret.failure_info().unwrap_or_default(),
-            duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+            duration: duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
             gas_cost: MessageGasCost::default(),
             execution_trace: structured::parse_events(apply_ret.exec_trace()).unwrap_or_default(),
         })
@@ -706,7 +706,7 @@ where
                 msg,
                 msg_rct: Some(apply_ret.msg_receipt()),
                 error: apply_ret.failure_info().unwrap_or_default(),
-                duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                duration: duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
                 gas_cost: MessageGasCost::default(),
                 execution_trace: structured::parse_events(apply_ret.exec_trace())
                     .unwrap_or_default(),
@@ -813,7 +813,7 @@ where
                         msg: ctx.message.message().clone(),
                         msg_rct: Some(ctx.apply_ret.msg_receipt()),
                         error: ctx.apply_ret.failure_info().unwrap_or_default(),
-                        duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                        duration: ctx.duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
                         gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
                         execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
                             .unwrap_or_default(),
@@ -1731,7 +1731,7 @@ where
                         msg: ctx.message.message().clone(),
                         msg_rct: Some(ctx.apply_ret.msg_receipt()),
                         error: ctx.apply_ret.failure_info().unwrap_or_default(),
-                        duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                        duration: ctx.duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
                         gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
                         execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
                             .unwrap_or_default(),

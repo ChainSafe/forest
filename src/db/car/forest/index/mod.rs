@@ -208,7 +208,7 @@ impl<R: ReadAt> ZstdSkipFramesEncodedDataReader<R> {
             .read_u32_at::<LittleEndian>(offset + ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER.len() as u64)
         {
             skip_frame_header_offsets.push(offset);
-            offset += ZSTD_SKIP_FRAME_LEN + data_len as u64;
+            offset += ZSTD_SKIP_FRAME_LEN + u64::from(data_len);
         }
         Ok(Self {
             reader,
