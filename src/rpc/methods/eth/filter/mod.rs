@@ -270,9 +270,9 @@ impl EthEventHandler {
         let height = tipset.epoch();
         let tipset_key = tipset.key();
         let executed_tipset = ctx.state_manager.load_executed_tipset(tipset).await?;
-        let mut event_count = 0;
+        let mut event_idx: i64 = -1;
         for (
-            i,
+            msg_idx,
             ExecutedMessage {
                 message, events, ..
             },
@@ -280,6 +280,7 @@ impl EthEventHandler {
         {
             if let Some(events) = events {
                 for event in events.iter() {
+                    event_idx += 1; // initial value is -1 so it's zero-based.
                     let id_addr = Address::new_id(event.emitter());
                     let result = ctx
                         .state_manager
@@ -295,7 +296,6 @@ impl EthEventHandler {
                     let resolved = if let Ok(resolved) = result {
                         resolved
                     } else {
-                        event_count += 1;
                         if let SkipEvent::OnUnresolvedAddress = skip_event {
                             // Skip event
                             continue;
@@ -305,15 +305,8 @@ impl EthEventHandler {
                     };
 
                     let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
-
                     let matched = if let Some(spec) = spec {
-                        let matched = spec.matches(&resolved, &entries)?;
-                        tracing::debug!(
-                            "Event {} {}match filter topics",
-                            event_count,
-                            if matched { "" } else { "do not " }
-                        );
-                        matched
+                        spec.matches(&resolved, &entries)?
                     } else {
                         true
                     };
@@ -334,18 +327,17 @@ impl EthEventHandler {
                         let ce = CollectedEvent {
                             entries,
                             emitter_addr: resolved,
-                            event_idx: event_count,
+                            event_idx: event_idx as _,
                             reverted: false,
                             height,
                             tipset_key: tipset_key.clone(),
-                            msg_idx: i as u64,
+                            msg_idx: msg_idx as u64,
                             msg_cid: message.cid(),
                         };
                         if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
                             bail!("filter matches too many events, try a more restricted filter");
                         }
                         collected_events.push(ce);
-                        event_count += 1;
                     }
                 }
             }
