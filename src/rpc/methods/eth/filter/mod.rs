@@ -286,7 +286,7 @@ impl EthEventHandler {
                         event_idx = 0;
                         is_first_event = false;
                     } else {
-                        event_idx += 1; // initial value is -1 so it's zero-based.
+                        event_idx += 1;
                     }
                     let id_addr = Address::new_id(event.emitter());
                     let result = ctx
