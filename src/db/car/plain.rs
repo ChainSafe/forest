@@ -234,7 +234,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
             .read()
             .get(&k)
             .map(|UncompressedBlockDataLocation { offset, length }| {
-                positioned_io::Cursor::new_pos(&self.reader, *offset).take(*length as u64)
+                positioned_io::Cursor::new_pos(&self.reader, *offset).take(u64::from(*length))
             })
     }
 }

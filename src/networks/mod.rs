@@ -495,7 +495,7 @@ impl ChainConfig {
                 .map(|dc| {
                     BeaconPoint::new(
                         dc.height,
-                        DrandBeacon::new(genesis_ts, self.block_delay_secs as u64, dc.config),
+                        DrandBeacon::new(genesis_ts, u64::from(self.block_delay_secs), dc.config),
                     )
                 })
                 .collect(),
@@ -629,7 +629,7 @@ pub fn calculate_expected_epoch(
     genesis_timestamp: u64,
     block_delay_secs: u32,
 ) -> i64 {
-    (now_timestamp.saturating_sub(genesis_timestamp) / block_delay_secs as u64) as i64
+    (now_timestamp.saturating_sub(genesis_timestamp) / u64::from(block_delay_secs)) as i64
 }
 
 #[cfg(test)]
@@ -735,7 +735,7 @@ mod tests {
         assert_eq!(
             0,
             calculate_expected_epoch(
-                mainnet_genesis + mainnet_block_delay as u64 - 1,
+                mainnet_genesis + u64::from(mainnet_block_delay) - 1,
                 mainnet_genesis,
                 mainnet_block_delay
             )
@@ -744,7 +744,7 @@ mod tests {
         assert_eq!(
             1,
             calculate_expected_epoch(
-                mainnet_genesis + mainnet_block_delay as u64,
+                mainnet_genesis + u64::from(mainnet_block_delay),
                 mainnet_genesis,
                 mainnet_block_delay
             )

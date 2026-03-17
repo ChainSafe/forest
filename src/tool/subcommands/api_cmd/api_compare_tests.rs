@@ -958,22 +958,22 @@ fn state_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(StateMarketDeals::request((tipset.key().into(),))?),
         RpcTest::identity(StateSectorPreCommitInfo::request((
             Default::default(), // invalid address
-            u16::MAX as _,
+            u64::from(u16::MAX),
             tipset.key().into(),
         ))?)
         .policy_on_rejected(PolicyOnRejected::Pass),
         RpcTest::identity(StateSectorGetInfo::request((
-            Default::default(), // invalid address
-            u16::MAX as _,      // invalid sector number
+            Default::default(),  // invalid address
+            u64::from(u16::MAX), // invalid sector number
             tipset.key().into(),
         ))?)
         .policy_on_rejected(PolicyOnRejected::Pass),
         RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
-            u16::MAX as _, // Invalid deal id
+            u64::from(u16::MAX), // Invalid deal id
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateGetAllocationForPendingDeal::request((
-            u16::MAX as _, // Invalid deal id
+            u64::from(u16::MAX), // Invalid deal id
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateCompute::request((
@@ -1104,13 +1104,13 @@ fn state_tests_with_tipset<DB: Blockstore>(
             RpcTest::identity(StateGetAllAllocations::request((tipset.key().into(),))?),
             RpcTest::identity(StateSectorPreCommitInfo::request((
                 block.miner_address,
-                u16::MAX as _, // invalid sector number
+                u64::from(u16::MAX), // invalid sector number
                 tipset.key().into(),
             ))?)
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
             RpcTest::identity(StateSectorGetInfo::request((
                 block.miner_address,
-                u16::MAX as _, // invalid sector number
+                u64::from(u16::MAX), // invalid sector number
                 tipset.key().into(),
             ))?)
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
