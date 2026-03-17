@@ -89,17 +89,28 @@ pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
+/// Result of executing an individual chain message in a tipset.
+///
+/// Includes the executed message itself, the execution receipt, and
+/// optional events emitted by the actor during execution.
 pub struct ExecutedMessage {
     pub message: ChainMessage,
     pub receipt: Receipt,
     pub events: Option<Vec<StampedEvent>>,
 }
 
+/// Aggregated execution result for a tipset.
+///
+/// `state_root` is the resulting state tree root after message execution
+/// and `executed_messages` contains per-message execution details.
 pub struct ExecutedTipset {
     pub state_root: Cid,
     pub executed_messages: Vec<ExecutedMessage>,
 }
 
+/// Options controlling how `load_executed_tipset` fetches extra execution data.
+///
+/// `include_events` toggles whether event logs are loaded from receipts.
 pub struct LoadExecutedTipsetOptions {
     pub include_events: bool,
 }
@@ -460,6 +471,8 @@ where
             .await
     }
 
+    /// Load an executed tipset, including message receipts and state root,
+    /// without loading event logs from receipts.
     pub async fn load_executed_tipset_without_events(
         self: &Arc<Self>,
         ts: &Tipset,
@@ -475,6 +488,8 @@ where
         .await
     }
 
+    /// Load an executed tipset, including message receipts and state root,
+    /// with event logs loaded when available.
     pub async fn load_executed_tipset(
         self: &Arc<Self>,
         ts: &Tipset,
