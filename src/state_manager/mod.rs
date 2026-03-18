@@ -54,7 +54,8 @@ use crate::shim::{
 use crate::state_manager::cache::TipsetStateCache;
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
-use crate::utils::get_size::GetSize;
+use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::get_size::{GetSize, vec_heap_size_helper};
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context as _, bail, ensure};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
@@ -78,6 +79,7 @@ use rayon::prelude::ParallelBridge;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
+use std::sync::LazyLock;
 use std::time::Duration;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{RwLock, broadcast::error::RecvError};
@@ -93,26 +95,40 @@ type CidPair = (Cid, Cid);
 ///
 /// Includes the executed message itself, the execution receipt, and
 /// optional events emitted by the actor during execution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutedMessage {
     pub message: ChainMessage,
     pub receipt: Receipt,
     pub events: Option<Vec<StampedEvent>>,
 }
 
+impl GetSize for ExecutedMessage {
+    fn get_heap_size(&self) -> usize {
+        self.message.get_heap_size()
+            + self.receipt.get_heap_size()
+            + self
+                .events
+                .as_ref()
+                .map(vec_heap_size_helper)
+                .unwrap_or_default()
+    }
+}
+
 /// Aggregated execution result for a tipset.
 ///
 /// `state_root` is the resulting state tree root after message execution
 /// and `executed_messages` contains per-message execution details.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutedTipset {
     pub state_root: Cid,
     pub executed_messages: Vec<ExecutedMessage>,
 }
 
-/// Options controlling how `load_executed_tipset` fetches extra execution data.
-///
-/// `include_events` toggles whether event logs are loaded from receipts.
-pub struct LoadExecutedTipsetOptions {
-    pub include_events: bool,
+impl GetSize for ExecutedTipset {
+    fn get_heap_size(&self) -> usize {
+        // state_root(Cid) has no heap allocation, so we only calculate the heap size of executed_messages
+        vec_heap_size_helper(&self.executed_messages)
+    }
 }
 
 #[derive(Debug, Default, Clone, GetSize)]
@@ -471,38 +487,28 @@ where
             .await
     }
 
-    /// Load an executed tipset, including message receipts and state root,
-    /// without loading event logs from receipts.
-    pub async fn load_executed_tipset_without_events(
-        self: &Arc<Self>,
-        ts: &Tipset,
-    ) -> anyhow::Result<ExecutedTipset> {
-        let receipt_ts = self.chain_store().load_child_tipset(ts).ok();
-        self.load_executed_tipset_inner(
-            ts,
-            receipt_ts.as_ref(),
-            LoadExecutedTipsetOptions {
-                include_events: false,
-            },
-        )
-        .await
-    }
-
-    /// Load an executed tipset, including message receipts and state root,
-    /// with event logs loaded when available.
+    /// Load an executed tipset, including state root, message receipts and events with caching.
     pub async fn load_executed_tipset(
         self: &Arc<Self>,
         ts: &Tipset,
     ) -> anyhow::Result<ExecutedTipset> {
+        // A tipset key should always map to a deterministic state output, so it's safe to cache the entire executed tipset with the same key.
+        static CACHE: LazyLock<SizeTrackingLruCache<TipsetKey, ExecutedTipset>> =
+            LazyLock::new(|| {
+                SizeTrackingLruCache::new_with_metrics(
+                    "executed_tipset".into(),
+                    nonzero!(1024usize),
+                )
+            });
+        if let Some(cached) = CACHE.get_cloned(ts.key()) {
+            return Ok(cached);
+        }
         let receipt_ts = self.chain_store().load_child_tipset(ts).ok();
-        self.load_executed_tipset_inner(
-            ts,
-            receipt_ts.as_ref(),
-            LoadExecutedTipsetOptions {
-                include_events: true,
-            },
-        )
-        .await
+        let result = self
+            .load_executed_tipset_inner(ts, receipt_ts.as_ref())
+            .await?;
+        CACHE.push(ts.key().clone(), result.clone());
+        Ok(result)
     }
 
     async fn load_executed_tipset_inner(
@@ -510,9 +516,7 @@ where
         msg_ts: &Tipset,
         // when `msg_ts` is the current head, `receipt_ts` is `None`
         receipt_ts: Option<&Tipset>,
-        options: LoadExecutedTipsetOptions,
     ) -> anyhow::Result<ExecutedTipset> {
-        let LoadExecutedTipsetOptions { include_events } = options;
         if let Some(receipt_ts) = receipt_ts {
             anyhow::ensure!(
                 msg_ts.key() == receipt_ts.parents(),
@@ -546,7 +550,7 @@ where
         );
         let mut executed_messages = Vec::with_capacity(messages.len());
         for (message, receipt) in messages.into_iter().zip(receipts.into_iter()) {
-            let events = if include_events && let Some(events_root) = receipt.events_root() {
+            let events = if let Some(events_root) = receipt.events_root() {
                 Some(
                     match StampedEvent::get_events(self.cs.blockstore(), &events_root) {
                         Ok(events) => events,

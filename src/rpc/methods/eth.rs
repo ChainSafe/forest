@@ -500,10 +500,7 @@ impl Block {
             let ExecutedTipset {
                 state_root,
                 executed_messages,
-            } = ctx
-                .state_manager
-                .load_executed_tipset_without_events(&tipset)
-                .await?;
+            } = ctx.state_manager.load_executed_tipset(&tipset).await?;
             let has_transactions = !executed_messages.is_empty();
             let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
@@ -1419,10 +1416,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     let ExecutedTipset {
         state_root,
         executed_messages,
-    } = ctx
-        .state_manager
-        .load_executed_tipset_without_events(&ts_ref)
-        .await?;
+    } = ctx.state_manager.load_executed_tipset(&ts_ref).await?;
 
     // Load the state tree
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
@@ -1933,10 +1927,7 @@ async fn eth_fee_history<B: Blockstore + Send + Sync + 'static>(
         let base_fee = &ts.block_headers().first().parent_base_fee;
         let ExecutedTipset {
             executed_messages, ..
-        } = ctx
-            .state_manager
-            .load_executed_tipset_without_events(&ts)
-            .await?;
+        } = ctx.state_manager.load_executed_tipset(&ts).await?;
         let mut tx_gas_rewards = Vec::with_capacity(executed_messages.len());
         for ExecutedMessage {
             message, receipt, ..
