@@ -102,14 +102,3 @@ impl From<EthEip1559TxArgs> for ApiEthTx {
         }
     }
 }
-
-impl From<EthTx> for ApiEthTx {
-    fn from(value: EthTx) -> Self {
-        use EthTx::*;
-        match value {
-            Homestead(tx) => (*tx).into(),
-            Eip1559(tx) => (*tx).into(),
-            Eip155(tx) => (*tx).into(),
-        }
-    }
-}

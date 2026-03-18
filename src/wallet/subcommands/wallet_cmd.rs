@@ -559,7 +559,7 @@ impl WalletCommands {
                             .chain_id(eth_chain_id)
                             .unsigned_message(&message)?
                             .build()?;
-                        let eth_tx = EthTx::Eip1559(Box::new(eth_tx_args));
+                        let eth_tx = EthTx::from(eth_tx_args);
                         let sig = crate::key_management::sign(
                             sig_type,
                             key.key_info.private_key(),

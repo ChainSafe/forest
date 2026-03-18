@@ -3,6 +3,7 @@
 
 use super::{derive_eip_155_chain_id, validate_eip155_chain_id};
 use crate::eth::{LEGACY_V_VALUE_27, LEGACY_V_VALUE_28};
+use crate::rpc::eth::ApiEthTx;
 use crate::shim::crypto::Signature;
 use crate::shim::fvm_shared_latest;
 use anyhow::{Context, bail, ensure};
@@ -13,6 +14,7 @@ use num::{BigInt, Signed as _, bigint::Sign};
 use num_derive::FromPrimitive;
 use num_traits::cast::ToPrimitive;
 use rlp::Rlp;
+use spire_enum::prelude::delegated_enum;
 
 use crate::{
     message::{Message as _, SignedMessage},
@@ -60,11 +62,12 @@ pub enum EVMMethod {
 
 /// Ethereum transaction which can be of different types.
 /// The currently supported types are defined in [FIP-0091](https://github.com/filecoin-project/FIPs/blob/020bcb412ee20a2879b4a710337959c51b938d3b/FIPS/fip-0091.md).
+#[delegated_enum(impl_conversions)]
 #[derive(Debug)]
 pub enum EthTx {
-    Homestead(Box<EthLegacyHomesteadTxArgs>),
-    Eip1559(Box<EthEip1559TxArgs>),
-    Eip155(Box<EthLegacyEip155TxArgs>),
+    Homestead(EthLegacyHomesteadTxArgs),
+    Eip1559(EthEip1559TxArgs),
+    Eip155(EthLegacyEip155TxArgs),
 }
 
 impl EthTx {
@@ -85,33 +88,29 @@ impl EthTx {
         let valid_eip_155_signature_lengths = calc_valid_eip155_sig_len(eth_chain_id);
 
         let tx: Self = if sig_len == EIP_1559_SIG_LEN {
-            let args = EthEip1559TxArgsBuilder::default()
+            EthEip1559TxArgsBuilder::default()
                 .chain_id(eth_chain_id)
                 .unsigned_message(msg.message())?
                 .build()?
-                .with_signature(msg.signature())?;
-            EthTx::Eip1559(Box::new(args))
+                .with_signature(msg.signature())?
+                .into()
         } else if sig_len == HOMESTEAD_SIG_LEN
             || sig_len == valid_eip_155_signature_lengths.0 as usize
             || sig_len == valid_eip_155_signature_lengths.1 as usize
         {
             // process based on the first byte of the signature
             match *msg.signature().bytes().first().expect("infallible") {
-                HOMESTEAD_SIG_PREFIX => {
-                    let args = EthLegacyHomesteadTxArgsBuilder::default()
-                        .unsigned_message(msg.message())?
-                        .build()?
-                        .with_signature(msg.signature())?;
-                    EthTx::Homestead(Box::new(args))
-                }
-                EIP_155_SIG_PREFIX => {
-                    let args = EthLegacyEip155TxArgsBuilder::default()
-                        .chain_id(eth_chain_id)
-                        .unsigned_message(msg.message())?
-                        .build()?
-                        .with_signature(msg.signature())?;
-                    EthTx::Eip155(Box::new(args))
-                }
+                HOMESTEAD_SIG_PREFIX => EthLegacyHomesteadTxArgsBuilder::default()
+                    .unsigned_message(msg.message())?
+                    .build()?
+                    .with_signature(msg.signature())?
+                    .into(),
+                EIP_155_SIG_PREFIX => EthLegacyEip155TxArgsBuilder::default()
+                    .chain_id(eth_chain_id)
+                    .unsigned_message(msg.message())?
+                    .build()?
+                    .with_signature(msg.signature())?
+                    .into(),
                 _ => bail!("unsupported signature prefix"),
             }
         } else {
@@ -128,9 +127,9 @@ impl EthTx {
     pub fn get_signed_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<SignedMessage> {
         let from = self.sender(eth_chain_id)?;
         let msg = match self {
-            Self::Homestead(tx) => (*tx).get_signed_message(from)?,
-            Self::Eip1559(tx) => (*tx).get_signed_message(from, eth_chain_id)?,
-            Self::Eip155(tx) => (*tx).get_signed_message(from, eth_chain_id)?,
+            Self::Homestead(tx) => tx.get_signed_message(from)?,
+            Self::Eip1559(tx) => tx.get_signed_message(from, eth_chain_id)?,
+            Self::Eip155(tx) => tx.get_signed_message(from, eth_chain_id)?,
         };
         Ok(msg)
     }
@@ -141,34 +140,30 @@ impl EthTx {
         eth_chain_id: EthChainId,
     ) -> anyhow::Result<Message> {
         let msg = match self {
-            Self::Homestead(tx) => (*tx).get_unsigned_message(from)?,
-            Self::Eip1559(tx) => (*tx).get_unsigned_message(from, eth_chain_id)?,
-            Self::Eip155(tx) => (*tx).get_unsigned_message(from, eth_chain_id)?,
+            Self::Homestead(tx) => tx.get_unsigned_message(from)?,
+            Self::Eip1559(tx) => tx.get_unsigned_message(from, eth_chain_id)?,
+            Self::Eip155(tx) => tx.get_unsigned_message(from, eth_chain_id)?,
         };
         Ok(msg)
     }
 
     pub fn rlp_unsigned_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Homestead(tx) => (*tx).rlp_unsigned_message(),
-            Self::Eip1559(tx) => (*tx).rlp_unsigned_message(),
-            Self::Eip155(tx) => (*tx).rlp_unsigned_message(eth_chain_id),
+            Self::Homestead(tx) => tx.rlp_unsigned_message(),
+            Self::Eip1559(tx) => tx.rlp_unsigned_message(),
+            Self::Eip155(tx) => tx.rlp_unsigned_message(eth_chain_id),
         }
     }
 
     pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
-        match self {
-            Self::Homestead(tx) => (*tx).rlp_signed_message(),
-            Self::Eip1559(tx) => (*tx).rlp_signed_message(),
-            Self::Eip155(tx) => (*tx).rlp_signed_message(),
-        }
+        delegate_eth_tx!(self.rlp_signed_message())
     }
 
     fn signature(&self, eth_chain_id: EthChainId) -> anyhow::Result<Signature> {
         match self {
-            Self::Homestead(tx) => (*tx).signature(),
-            Self::Eip1559(tx) => (*tx).signature(),
-            Self::Eip155(tx) => (*tx).signature(eth_chain_id),
+            Self::Homestead(tx) => tx.signature(),
+            Self::Eip1559(tx) => tx.signature(),
+            Self::Eip155(tx) => tx.signature(eth_chain_id),
         }
     }
 
@@ -178,9 +173,9 @@ impl EthTx {
         eth_chain_id: EthChainId,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Homestead(tx) => (*tx).to_verifiable_signature(sig),
-            Self::Eip1559(tx) => (*tx).to_verifiable_signature(sig),
-            Self::Eip155(tx) => (*tx).to_verifiable_signature(sig, eth_chain_id),
+            Self::Homestead(tx) => tx.to_verifiable_signature(sig),
+            Self::Eip1559(tx) => tx.to_verifiable_signature(sig),
+            Self::Eip155(tx) => tx.to_verifiable_signature(sig, eth_chain_id),
         }
     }
 
@@ -218,6 +213,12 @@ impl EthTx {
             fvm_shared_latest::crypto::signature::ops::recover_secp_public_key(&hash.0, &sig_data)?;
         let eth_addr = EthAddress::eth_address_from_pub_key(&pubkey)?;
         eth_addr.to_filecoin_address()
+    }
+}
+
+impl From<EthTx> for ApiEthTx {
+    fn from(value: EthTx) -> Self {
+        delegate_eth_tx!(value.into())
     }
 }
 
@@ -388,7 +389,7 @@ fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
         s,
     };
 
-    Ok(EthTx::Eip1559(Box::new(tx_args)))
+    Ok(tx_args.into())
 }
 
 fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
@@ -441,13 +442,13 @@ fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
             r,
             s,
         };
-        return Ok(EthTx::Homestead(Box::new(tx_args)));
+        return Ok(tx_args.into());
     }
 
     // For EIP-155 transactions, validate chain ID protection
     validate_eip155_chain_id(chain_id, &v)?;
 
-    Ok(EthTx::Eip155(Box::new(EthLegacyEip155TxArgs {
+    Ok(EthLegacyEip155TxArgs {
         chain_id,
         nonce,
         gas_price,
@@ -458,7 +459,8 @@ fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
         v,
         r,
         s,
-    })))
+    }
+    .into())
 }
 
 #[derive(Debug)]
@@ -763,7 +765,7 @@ pub(crate) mod tests {
             "7820796778417228639067439047870612492553874254089570360061550763595363987236",
         )
         .unwrap();
-        let tx = EthTx::Eip1559(Box::new(tx_args));
+        let tx = EthTx::from(tx_args);
         let sig = tx.signature(calibnet::ETH_CHAIN_ID);
         assert!(sig.is_ok());
         assert!(
@@ -807,7 +809,7 @@ pub(crate) mod tests {
             16,
         )
         .unwrap();
-        let tx = EthTx::Eip155(Box::new(tx_args));
+        let tx = EthTx::from(tx_args);
         let sig = tx.signature(calibnet::ETH_CHAIN_ID);
         assert!(sig.is_ok());
         assert!(
@@ -852,7 +854,7 @@ pub(crate) mod tests {
             16,
         )
         .unwrap();
-        let tx = EthTx::Homestead(Box::new(tx_args.clone()));
+        let tx = EthTx::from(tx_args.clone());
         let expected_hash = ethereum_types::H256::from_str(
             "0x3ebc897150feeff6caa1b2e5992e347e8409e9e35fa30f7f5f8fcda3f7c965c7",
         )
@@ -860,7 +862,7 @@ pub(crate) mod tests {
         assert_eq!(expected_hash, tx.eth_hash().unwrap());
         // Note: `v` value 27 is for homestead
         tx_args.v = BigInt::from_str_radix("1b", 16).unwrap();
-        let tx = EthTx::Homestead(Box::new(tx_args.clone()));
+        let tx = EthTx::from(tx_args.clone());
         let sig = tx.signature(calibnet::ETH_CHAIN_ID);
         assert!(sig.is_ok());
         assert!(
