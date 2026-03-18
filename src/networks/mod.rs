@@ -281,7 +281,6 @@ pub struct ChainConfig {
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Option<Cid>,
     pub enable_indexer: bool,
-    pub enable_receipt_event_caching: bool,
     pub default_max_fee: TokenAmount,
 }
 
@@ -315,7 +314,6 @@ impl ChainConfig {
                     .expect("invalid f3_initial_power_table"),
             ),
             enable_indexer: false,
-            enable_receipt_event_caching: true,
             default_max_fee: TokenAmount::zero(),
         }
     }
@@ -352,7 +350,6 @@ impl ChainConfig {
                     .expect("invalid f3_initial_power_table"),
             ),
             enable_indexer: false,
-            enable_receipt_event_caching: true,
             default_max_fee: TokenAmount::zero(),
         }
     }
@@ -379,7 +376,6 @@ impl ChainConfig {
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: None,
             enable_indexer: false,
-            enable_receipt_event_caching: true,
             default_max_fee: TokenAmount::zero(),
         }
     }
@@ -412,7 +408,6 @@ impl ChainConfig {
             f3_bootstrap_epoch: 1000,
             f3_initial_power_table: None,
             enable_indexer: false,
-            enable_receipt_event_caching: true,
             default_max_fee: TokenAmount::zero(),
         }
     }
