@@ -365,7 +365,7 @@ rustdoc-args = ["--document-private-items"]
 [workspace.lints.clippy]
 ref_option = "deny"
 ref_option_ref = "deny"
-cast_lossless = "deny" 
+cast_lossless = "deny"
 
 [workspace]
 members = ["interop-tests"]

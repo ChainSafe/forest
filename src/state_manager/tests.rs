@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::{Chain4U, HeaderBuilder, TipsetKey, chain4u};
+use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
 use crate::chain::ChainStore;
 use crate::db::MemoryDB;
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::executor::{Receipt, StampedEvent};
+use crate::shim::executor::StampedEvent;
 use crate::utils::db::CborStoreExt;
 use crate::utils::multihash::MultihashCode;
 use cid::Cid;
-use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
+use fil_actors_shared::fvm_ipld_amt::Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use multihash_derive::MultihashDigest;
@@ -39,9 +39,7 @@ fn dummy_node(db: impl Blockstore, i: ChainEpoch) -> HeaderBuilder {
 
 /// Structure to hold the setup components for chain tests
 struct TestChainSetup {
-    db: Arc<MemoryDB>,
     chain_store: Arc<ChainStore<MemoryDB>>,
-    state_manager: Arc<StateManager<MemoryDB>>,
     chain_builder: Chain4U<Arc<MemoryDB>>,
     state_root: Cid,
     receipt_root: Cid,
@@ -68,8 +66,6 @@ fn setup_chain_with_tipsets() -> TestChainSetup {
         .expect("should create chain store"),
     );
 
-    let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
-
     // Create dummy state and receipt roots and store them in blockstore
     let state_root = create_dummy_cid(1);
     let receipt_root = create_dummy_cid(2);
@@ -83,9 +79,7 @@ fn setup_chain_with_tipsets() -> TestChainSetup {
         .unwrap();
 
     TestChainSetup {
-        db,
         chain_store,
-        state_manager,
         chain_builder, // Assign c4u to the named field
         state_root,
         receipt_root,
@@ -305,131 +299,10 @@ fn test_try_lookup_state_from_next_tipset_missing_state_root() {
     // Should return None since the state root is missing
     assert!(result.is_none());
 }
-#[test]
-fn test_update_receipt_and_events_cache_empty_events() {
-    let TestChainSetup { state_manager, .. } = setup_chain_with_tipsets();
-    let tipset_key = TipsetKey::from(nunny::vec![create_dummy_cid(1)]);
-
-    // Create state output with empty events
-    let state_output = StateOutput {
-        state_root: create_dummy_cid(2),
-        receipt_root: create_dummy_cid(3),
-        events: Vec::new(),
-        events_roots: Vec::new(),
-    };
-
-    state_manager.update_cache_with_state_output(&tipset_key, &state_output);
-
-    // Verify events cache wasn't updated
-    assert!(
-        state_manager
-            .receipt_event_cache_handler
-            .get_events(&tipset_key)
-            .is_none()
-    );
-    assert!(
-        state_manager
-            .receipt_event_cache_handler
-            .get_receipts(&tipset_key)
-            .is_none()
-    );
-}
-
-#[test]
-fn test_update_receipt_and_events_cache_with_events() {
-    let TestChainSetup {
-        db, state_manager, ..
-    } = setup_chain_with_tipsets();
-    let tipset_key = TipsetKey::from(nunny::vec![create_dummy_cid(1)]);
-
-    let mock_event = vec![StampedEvent::V4(fvm_shared4::event::StampedEvent {
-        emitter: 1000,
-        event: fvm_shared4::event::ActorEvent { entries: vec![] },
-    })];
-
-    let events_root = Amtv0::new_from_iter(&db, mock_event.clone()).unwrap();
-
-    // Create state output with non-empty events
-    let state_output = StateOutput {
-        state_root: create_dummy_cid(2),
-        receipt_root: create_dummy_cid(3),
-        events: vec![mock_event],
-        events_roots: vec![Some(events_root)],
-    };
-
-    state_manager.update_cache_with_state_output(&tipset_key, &state_output);
-
-    // Verify events cache was updated
-    let cached_events = state_manager
-        .receipt_event_cache_handler
-        .get_events(&tipset_key);
-    assert!(cached_events.is_some());
-    let events = cached_events.unwrap();
-    assert_eq!(events.events.len(), 1);
-    assert_eq!(events.roots.len(), 1);
-}
-
-#[test]
-fn test_update_receipt_and_events_cache_receipts_success() {
-    let TestChainSetup {
-        db, state_manager, ..
-    } = setup_chain_with_tipsets();
-    let tipset_key = TipsetKey::from(nunny::vec![create_dummy_cid(1)]);
-
-    // Create dummy receipt data
-    let receipt = Receipt::V4(fvm_shared4::receipt::Receipt {
-        exit_code: fvm_shared4::error::ExitCode::new(0),
-        return_data: fvm_ipld_encoding::RawBytes::default(),
-        gas_used: 100,
-        events_root: None,
-    });
-
-    let receipt_root = Amtv0::new_from_iter(&db, vec![receipt]).unwrap();
-
-    let state_output = StateOutput {
-        state_root: create_dummy_cid(2),
-        receipt_root,
-        events: Vec::new(),
-        events_roots: Vec::new(),
-    };
-
-    state_manager.update_cache_with_state_output(&tipset_key, &state_output);
-
-    // Verify the receipt cache was updated
-    let cached_receipts = state_manager
-        .receipt_event_cache_handler
-        .get_receipts(&tipset_key);
-    assert!(cached_receipts.is_some());
-    let receipts = cached_receipts.unwrap();
-    assert_eq!(receipts.len(), 1);
-}
-
-#[test]
-fn test_update_receipt_and_events_cache_receipts_failure() {
-    let TestChainSetup { state_manager, .. } = setup_chain_with_tipsets();
-    let tipset_key = TipsetKey::from(nunny::vec![create_dummy_cid(1)]);
-    let receipt_root = create_dummy_cid(3);
-
-    let state_output = StateOutput {
-        state_root: create_dummy_cid(2),
-        receipt_root,
-        events: Vec::new(),
-        events_roots: Vec::new(),
-    };
-
-    state_manager.update_cache_with_state_output(&tipset_key, &state_output);
-
-    assert!(
-        state_manager
-            .receipt_event_cache_handler
-            .get_receipts(&tipset_key)
-            .is_none()
-    );
-}
 
 #[test]
 fn test_state_output_get_size() {
-    let s = StateOutputValue::default();
+    let s = StateOutput::default();
     assert_eq!(s.get_size(), std::mem::size_of_val(&s));
 }
 
