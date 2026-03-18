@@ -70,7 +70,7 @@ impl Gas {
 impl GasDuration {
     pub fn as_nanos(&self) -> u64 {
         if let Some(duration) = self.0.get() {
-            duration.as_nanos().clamp(0, u64::MAX as u128) as u64
+            duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64
         } else {
             0
         }

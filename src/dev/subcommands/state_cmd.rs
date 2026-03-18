@@ -86,8 +86,7 @@ impl ComputeCommand {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
             let ts = chain_store.tipset_by_height(epoch, None, ResolveNullTipset::TakeOlder)?;
-            let ts_next =
-                chain_store.tipset_by_height(epoch + 1, None, ResolveNullTipset::TakeNewer)?;
+            let ts_next = chain_store.load_child_tipset(&ts)?;
             db.resume_tracking();
             SettingsStoreExt::write_obj(
                 &db.tracker,
@@ -106,7 +105,6 @@ impl ComputeCommand {
         let StateOutput {
             state_root,
             receipt_root,
-            ..
         } = state_manager
             .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
             .await?;

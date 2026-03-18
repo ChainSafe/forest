@@ -52,7 +52,7 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::{StateLookupPolicy, VMFlush};
+use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateLookupPolicy, VMFlush};
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -497,16 +497,28 @@ impl Block {
             let block_number = EthInt64(tipset.epoch());
             let block_hash: EthHash = block_cid.into();
 
-            let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &tipset).await?;
-
+            let ExecutedTipset {
+                state_root,
+                executed_messages,
+            } = ctx
+                .state_manager
+                .load_executed_tipset_without_events(&tipset)
+                .await?;
+            let has_transactions = !executed_messages.is_empty();
             let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
             let mut full_transactions = vec![];
             let mut gas_used = 0;
-            for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
+            for (
+                i,
+                ExecutedMessage {
+                    message, receipt, ..
+                },
+            ) in executed_messages.into_iter().enumerate()
+            {
                 let ti = EthUint64(i as u64);
                 gas_used += receipt.gas_used();
-                let smsg = match msg {
+                let smsg = match message {
                     ChainMessage::Signed(msg) => msg.clone(),
                     ChainMessage::Unsigned(msg) => {
                         let sig = Signature::new_bls(vec![]);
@@ -538,7 +550,7 @@ impl Block {
                     .into(),
                 gas_used: EthUint64(gas_used),
                 transactions: Transactions::Full(full_transactions),
-                ..Block::new(!msgs_and_receipts.is_empty(), tipset.len())
+                ..Block::new(has_transactions, tipset.len())
             };
             ETH_BLOCK_CACHE.push(block_cid.into(), b.clone());
             b
@@ -954,28 +966,6 @@ fn resolve_block_hash_tipset<DB: Blockstore>(
     Ok(ts)
 }
 
-async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
-    data: &Ctx<DB>,
-    tipset: &Tipset,
-) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
-    let msgs = data.chain_store().messages_for_tipset(tipset)?;
-
-    let (state_root, _) = data
-        .state_manager
-        .tipset_state(tipset, StateLookupPolicy::Enabled)
-        .await?;
-    let receipts = data.state_manager.tipset_message_receipts(tipset).await?;
-
-    if msgs.len() != receipts.len() {
-        bail!("receipts and message array lengths didn't match for tipset: {tipset:?}")
-    }
-
-    Ok((
-        state_root,
-        msgs.into_iter().zip(receipts.into_iter()).collect(),
-    ))
-}
-
 pub fn is_eth_address(addr: &VmAddress) -> bool {
     if addr.protocol() != Protocol::Delegated {
         return false;
@@ -1241,7 +1231,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
         block_hash: tx.block_hash,
         block_number: tx.block_number,
         r#type: tx.r#type,
-        status: (msg_receipt.exit_code().is_success() as u64).into(),
+        status: u64::from(msg_receipt.exit_code().is_success()).into(),
         gas_used: msg_receipt.gas_used().into(),
         ..EthTxReceipt::new()
     };
@@ -1421,19 +1411,31 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     let ts_key = ts_ref.key();
 
     // Execute the tipset to get the messages and receipts
-    let (state_root, msgs_and_receipts) = execute_tipset(ctx, &ts_ref).await?;
+    let ExecutedTipset {
+        state_root,
+        executed_messages,
+    } = ctx
+        .state_manager
+        .load_executed_tipset_without_events(&ts_ref)
+        .await?;
 
     // Load the state tree
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
-    let mut eth_receipts = Vec::with_capacity(msgs_and_receipts.len());
-    for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
+    let mut eth_receipts = Vec::with_capacity(executed_messages.len());
+    for (
+        i,
+        ExecutedMessage {
+            message, receipt, ..
+        },
+    ) in executed_messages.into_iter().enumerate()
+    {
         let tx = new_eth_tx(
             ctx,
             &state_tree,
             ts_ref.epoch(),
             &ts_key.cid()?,
-            &msg.cid(),
+            &message.cid(),
             i as u64,
         )?;
 
@@ -1924,9 +1926,17 @@ async fn eth_fee_history<B: Blockstore + Send + Sync + 'static>(
         .take(block_count as _)
     {
         let base_fee = &ts.block_headers().first().parent_base_fee;
-        let (_state_root, messages_and_receipts) = execute_tipset(&ctx, &ts).await?;
-        let mut tx_gas_rewards = Vec::with_capacity(messages_and_receipts.len());
-        for (message, receipt) in messages_and_receipts {
+        let ExecutedTipset {
+            executed_messages, ..
+        } = ctx
+            .state_manager
+            .load_executed_tipset_without_events(&ts)
+            .await?;
+        let mut tx_gas_rewards = Vec::with_capacity(executed_messages.len());
+        for ExecutedMessage {
+            message, receipt, ..
+        } in executed_messages
+        {
             let premium = message.effective_gas_premium(base_fee);
             tx_gas_rewards.push(GasReward {
                 gas_used: receipt.gas_used(),

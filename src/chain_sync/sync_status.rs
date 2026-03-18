@@ -171,7 +171,7 @@ impl SyncStatusReport {
         let status = match stateless_mode {
             true => NodeSyncStatus::Offline,
             false => {
-                if time_diff < seconds_per_epoch as u64 * SYNCED_EPOCH_THRESHOLD {
+                if time_diff < u64::from(seconds_per_epoch) * SYNCED_EPOCH_THRESHOLD {
                     NodeSyncStatus::Synced
                 } else {
                     NodeSyncStatus::Syncing

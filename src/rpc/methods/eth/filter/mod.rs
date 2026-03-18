@@ -38,7 +38,7 @@ use crate::rpc::types::{Event, EventEntry};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::{Entry, StampedEvent};
-use crate::state_manager::StateEvents;
+use crate::state_manager::ExecutedMessage;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Error, anyhow, bail, ensure};
@@ -267,89 +267,79 @@ impl EthEventHandler {
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
-        let tipset_key = tipset.key().clone();
         let height = tipset.epoch();
-
-        let messages = ctx.chain_store().messages_for_tipset(tipset)?;
-
-        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
-
-        ensure!(
-            messages.len() == events.len(),
-            "Length of messages ({}) and events ({}) do not match",
-            messages.len(),
-            events.len(),
-        );
-
+        let tipset_key = tipset.key();
+        let executed_tipset = ctx.state_manager.load_executed_tipset(tipset).await?;
         let mut event_count = 0;
-        for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
-            for event in events.iter() {
-                let id_addr = Address::new_id(event.emitter());
-                let result = ctx
-                    .state_manager
-                    .resolve_to_deterministic_address(id_addr, tipset)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "resolving address {} failed (EPOCH = {})",
-                            id_addr,
-                            tipset.epoch()
-                        )
-                    });
-                let resolved = if let Ok(resolved) = result {
-                    resolved
-                } else {
-                    event_count += 1;
-                    if let SkipEvent::OnUnresolvedAddress = skip_event {
-                        // Skip event
-                        continue;
+        for (
+            msg_idx,
+            ExecutedMessage {
+                message, events, ..
+            },
+        ) in executed_tipset.executed_messages.into_iter().enumerate()
+        {
+            if let Some(events) = events {
+                let event_idx_base = u64::try_from(event_count)?;
+                event_count += events.len();
+                for (event_idx, event) in (event_idx_base..).zip(events.iter()) {
+                    let id_addr = Address::new_id(event.emitter());
+                    let result = ctx
+                        .state_manager
+                        .resolve_to_deterministic_address(id_addr, tipset)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "resolving address {} failed (EPOCH = {})",
+                                id_addr,
+                                tipset.epoch()
+                            )
+                        });
+                    let resolved = if let Ok(resolved) = result {
+                        resolved
                     } else {
-                        id_addr
-                    }
-                };
-
-                let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
-
-                let matched = if let Some(spec) = spec {
-                    let matched = spec.matches(&resolved, &entries)?;
-                    tracing::debug!(
-                        "Event {} {}match filter topics",
-                        event_count,
-                        if matched { "" } else { "do not " }
-                    );
-                    matched
-                } else {
-                    true
-                };
-                if matched {
-                    let entries: Vec<EventEntry> = entries
-                        .into_iter()
-                        .map(|entry| {
-                            let (flags, key, codec, value) = entry.into_parts();
-                            EventEntry {
-                                flags,
-                                key,
-                                codec,
-                                value: value.into(),
-                            }
-                        })
-                        .collect();
-
-                    let ce = CollectedEvent {
-                        entries,
-                        emitter_addr: resolved,
-                        event_idx: event_count,
-                        reverted: false,
-                        height,
-                        tipset_key: tipset_key.clone(),
-                        msg_idx: i as u64,
-                        msg_cid: message.cid(),
+                        if let SkipEvent::OnUnresolvedAddress = skip_event {
+                            // Skip event
+                            continue;
+                        } else {
+                            id_addr
+                        }
                     };
-                    if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
-                        bail!("filter matches too many events, try a more restricted filter");
+
+                    let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
+                    let matched = if let Some(spec) = spec {
+                        spec.matches(&resolved, &entries)?
+                    } else {
+                        true
+                    };
+                    if matched {
+                        let entries: Vec<EventEntry> = entries
+                            .into_iter()
+                            .map(|entry| {
+                                let (flags, key, codec, value) = entry.into_parts();
+                                EventEntry {
+                                    flags,
+                                    key,
+                                    codec,
+                                    value: value.into(),
+                                }
+                            })
+                            .collect();
+
+                        let ce = CollectedEvent {
+                            entries,
+                            emitter_addr: resolved,
+                            event_idx,
+                            reverted: false,
+                            height,
+                            tipset_key: tipset_key.clone(),
+                            msg_idx: msg_idx as u64,
+                            msg_cid: message.cid(),
+                        };
+                        if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
+                            bail!("filter matches too many events, try a more restricted filter");
+                        }
+                        collected_events.push(ce);
                     }
-                    collected_events.push(ce);
-                    event_count += 1;
                 }
             }
         }
@@ -384,7 +374,6 @@ impl EthEventHandler {
         match &pf.tipsets {
             ParsedFilterTipsets::Hash(block_hash) => {
                 let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
-                let tipset = Arc::new(tipset);
                 Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
                     .await?;
             }

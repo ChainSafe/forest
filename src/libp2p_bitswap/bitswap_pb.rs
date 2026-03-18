@@ -94,7 +94,7 @@ impl MessageWrite for Wantlist {
     fn get_size(&self) -> usize {
         0
         + self.entries.iter().map(|s| 1 + sizeof_len((s).get_size())).sum::<usize>()
-        + if self.full == false { 0 } else { 1 + sizeof_varint(*(&self.full) as u64) }
+        + if self.full == false { 0 } else { 1 + sizeof_varint(u64::from(*(&self.full))) }
     }
 
     fn write_message<W: WriterBackend>(&self, w: &mut Writer<W>) -> Result<()> {
@@ -141,9 +141,9 @@ impl MessageWrite for Entry {
         0
         + if self.block.is_empty() { 0 } else { 1 + sizeof_len((&self.block).len()) }
         + if self.priority == 0i32 { 0 } else { 1 + sizeof_varint(*(&self.priority) as u64) }
-        + if self.cancel == false { 0 } else { 1 + sizeof_varint(*(&self.cancel) as u64) }
+        + if self.cancel == false { 0 } else { 1 + sizeof_varint(u64::from(*(&self.cancel))) }
         + if self.wantType == bitswap_pb::mod_Message::mod_Wantlist::WantType::Block { 0 } else { 1 + sizeof_varint(*(&self.wantType) as u64) }
-        + if self.sendDontHave == false { 0 } else { 1 + sizeof_varint(*(&self.sendDontHave) as u64) }
+        + if self.sendDontHave == false { 0 } else { 1 + sizeof_varint(u64::from(*(&self.sendDontHave))) }
     }
 
     fn write_message<W: WriterBackend>(&self, w: &mut Writer<W>) -> Result<()> {

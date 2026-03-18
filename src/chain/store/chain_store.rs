@@ -304,6 +304,18 @@ where
         }
     }
 
+    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Tipset, Error> {
+        let maybe_child =
+            self.tipset_by_height(ts.epoch() + 1, None, ResolveNullTipset::TakeNewer)?;
+        if maybe_child.parents() == ts.key() {
+            Ok(maybe_child)
+        } else {
+            Err(Error::NotFound(
+                format!("child of tipset@{}", ts.epoch()).into(),
+            ))
+        }
+    }
+
     /// Determines if provided tipset is heavier than existing known heaviest
     /// tipset
     fn update_heaviest(&self, ts: Tipset) -> Result<(), Error> {

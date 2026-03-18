@@ -64,7 +64,7 @@ fn estimate_fee_cap<DB: Blockstore>(
         (1.0 + (BASE_FEE_MAX_CHANGE_DENOM as f64).recip()).powf(max_queue_blks as f64);
 
     let fee_in_future = parent_base_fee
-        * BigInt::from_f64(increase_factor * (1 << 8) as f64)
+        * BigInt::from_f64(increase_factor * f64::from(1_i32 << 8))
             .context("failed to convert fee_in_future f64 to bigint")?;
     let out = fee_in_future.div_floor(1 << 8).add(msg.gas_premium());
     Ok(out)

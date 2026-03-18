@@ -83,7 +83,7 @@ impl<S> Auth<S> {
             Ok(false) => {
                 tracing::warn!("Unauthorized access attempt for method {method_name}");
                 Err(ErrorObject::borrowed(
-                    http::StatusCode::UNAUTHORIZED.as_u16() as _,
+                    i32::from(http::StatusCode::UNAUTHORIZED.as_u16()),
                     "Unauthorized",
                     None,
                 ))
