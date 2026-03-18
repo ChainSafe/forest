@@ -31,14 +31,14 @@ use tracing::debug;
 
 /// Error string used in Parity-format traces.
 pub const PARITY_TRACE_REVERT_ERROR: &str = "Reverted";
-const PARITY_EVM_INVALID_INSTRUCTION: &str = "invalid instruction";
-const PARITY_EVM_UNDEFINED_INSTRUCTION: &str = "undefined instruction";
-const PARITY_EVM_STACK_UNDERFLOW: &str = "stack underflow";
-const PARITY_EVM_STACK_OVERFLOW: &str = "stack overflow";
-const PARITY_EVM_ILLEGAL_MEMORY_ACCESS: &str = "illegal memory access";
-const PARITY_EVM_BAD_JUMPDEST: &str = "invalid jump destination";
-const PARITY_EVM_SELFDESTRUCT_FAILED: &str = "self destruct failed";
-const PARITY_EVM_OUT_OF_GAS: &str = "out of gas";
+pub const PARITY_EVM_INVALID_INSTRUCTION: &str = "invalid instruction";
+pub const PARITY_EVM_UNDEFINED_INSTRUCTION: &str = "undefined instruction";
+pub const PARITY_EVM_STACK_UNDERFLOW: &str = "stack underflow";
+pub const PARITY_EVM_STACK_OVERFLOW: &str = "stack overflow";
+pub const PARITY_EVM_ILLEGAL_MEMORY_ACCESS: &str = "illegal memory access";
+pub const PARITY_EVM_BAD_JUMPDEST: &str = "invalid jump destination";
+pub const PARITY_EVM_SELFDESTRUCT_FAILED: &str = "self destruct failed";
+pub const PARITY_EVM_OUT_OF_GAS: &str = "out of gas";
 
 /// Returns `true` if the invoked actor is an EVM contract or the Ethereum Account Manager.
 fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
