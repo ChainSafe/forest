@@ -250,6 +250,15 @@ where
         from: Option<Tipset>,
         resolve: ResolveNullTipset,
     ) -> Result<Tipset, Error> {
+        let head = self.heaviest_tipset();
+        // Fail fast when `to` is too large
+        if to > head.epoch() {
+            return Err(Error::Other(format!(
+                "looking for tipset with height greater than the current chain head, req: {to}, head: {}",
+                head.epoch()
+            )));
+        }
+
         let best_known_from = if let Ok(known_tipsets) =
             known_tipsets(self.blockstore(), &self.chain_config().network)
             && let Some(ts) = known_tipsets.iter().find(|ts| ts.epoch() > to).cloned()
@@ -265,7 +274,7 @@ where
             (Some(a), _) => a,
             (None, Some(b)) => b,
             // fallback to chain head
-            (None, None) => self.heaviest_tipset(),
+            (None, None) => head,
         };
         self.chain_index().tipset_by_height(to, from, resolve)
     }
