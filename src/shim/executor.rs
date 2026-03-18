@@ -22,7 +22,7 @@ use fvm_shared4::receipt::Receipt as Receipt_v4;
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 use fvm4::executor::ApplyRet as ApplyRet_v4;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use spire_enum::prelude::delegated_enum;
 use std::borrow::Borrow as _;
 
@@ -79,7 +79,7 @@ impl ApplyRet {
 // Note: it's impossible to properly derive Deserialize.
 // To deserialize into `Receipt`, refer to `fn get_parent_receipt`
 #[delegated_enum(impl_conversions)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub enum Receipt {
     V2(Receipt_v2),
@@ -225,7 +225,7 @@ impl ActorEvent {
 
 /// Event with extra information stamped by the FVM.
 #[delegated_enum(impl_conversions)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub enum StampedEvent {
     V3(StampedEvent_v3),

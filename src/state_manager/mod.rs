@@ -95,7 +95,7 @@ type CidPair = (Cid, Cid);
 ///
 /// Includes the executed message itself, the execution receipt, and
 /// optional events emitted by the actor during execution.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ExecutedMessage {
     pub message: ChainMessage,
     pub receipt: Receipt,
@@ -118,7 +118,7 @@ impl GetSize for ExecutedMessage {
 ///
 /// `state_root` is the resulting state tree root after message execution
 /// and `executed_messages` contains per-message execution details.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ExecutedTipset {
     pub state_root: Cid,
     pub executed_messages: Vec<ExecutedMessage>,
