@@ -4,7 +4,10 @@
 //! Geth-style trace construction from Filecoin execution traces.
 //!
 //! Builds nested [`GethCallFrame`] trees and [`PreStateFrame`] snapshots
-//! from FVM [`ExecutionTrace`] data.
+//! from FVM [`ExecutionTrace`] data, reusing Parity-style classification
+//! via [`super::parity::build_trace`].
+//!
+//! Tested against go-ethereum (Geth) v1.15.x behaviour.
 
 use super::super::EthBigInt;
 use super::super::types::{EthAddress, EthHash};
@@ -102,7 +105,7 @@ fn build_geth_frame_recursive(
 }
 
 /// Build an [`AccountState`] snapshot from an actor.
-/// Returns `None` when the actor does not exist.
+/// Returns `Ok(None)` when the actor does not exist.
 ///
 /// When `storage_filter` is provided, only storage keys in the filter set are
 /// included. This limits output to slots that actually changed between pre and
@@ -113,14 +116,16 @@ fn build_account_snapshot_from_entries<DB: Blockstore>(
     config: &super::types::PreStateConfig,
     entries: &HashMap<[u8; 32], U256>,
     storage_filter: Option<&HashSet<[u8; 32]>>,
-) -> Option<super::types::AccountState> {
-    let actor = actor?;
+) -> anyhow::Result<Option<super::types::AccountState>> {
+    let Some(actor) = actor else {
+        return Ok(None);
+    };
 
-    let nonce = actor.eth_nonce(store).ok();
+    let nonce = Some(actor.eth_nonce(store)?);
     let code = if config.is_code_disabled() {
         None
     } else {
-        actor.eth_bytecode(store).ok().flatten()
+        actor.eth_bytecode(store)?
     };
     let storage = if config.is_storage_disabled() {
         BTreeMap::new()
@@ -132,12 +137,12 @@ fn build_account_snapshot_from_entries<DB: Blockstore>(
             .collect()
     };
 
-    Some(super::types::AccountState {
+    Ok(Some(super::types::AccountState {
         balance: Some(EthBigInt(actor.balance.atto().clone())),
         code,
         nonce,
         storage,
-    })
+    }))
 }
 
 /// Build a [`PreStateFrame`] for the `prestateTracer`.
@@ -168,9 +173,14 @@ pub fn build_prestate_frame<S: Blockstore, T: Blockstore>(
                 deleted_addrs.insert(*eth_addr);
             }
 
-            let pre_entries = extract_evm_storage_entries(store, pre_actor.as_ref());
-            let post_entries = extract_evm_storage_entries(store, post_actor.as_ref());
-            let changed_keys = diff_entry_keys(&pre_entries, &post_entries);
+            let (pre_entries, post_entries, changed_keys) = if config.is_storage_disabled() {
+                (HashMap::default(), HashMap::default(), HashSet::default())
+            } else {
+                let pre = extract_evm_storage_entries(store, pre_actor.as_ref());
+                let post = extract_evm_storage_entries(store, post_actor.as_ref());
+                let keys = diff_entry_keys(&pre, &post);
+                (pre, post, keys)
+            };
 
             let pre_snap = build_account_snapshot_from_entries(
                 store,
@@ -178,14 +188,14 @@ pub fn build_prestate_frame<S: Blockstore, T: Blockstore>(
                 config,
                 &pre_entries,
                 Some(&changed_keys),
-            );
+            )?;
             let post_snap = build_account_snapshot_from_entries(
                 store,
                 post_actor.as_ref(),
                 config,
                 &post_entries,
                 Some(&changed_keys),
-            );
+            )?;
 
             // Created accounts (pre=None) only appear in post.
             if let Some(ref snap) = pre_snap {
@@ -200,7 +210,10 @@ pub fn build_prestate_frame<S: Blockstore, T: Blockstore>(
                 if let Some(ref pre) = pre_snap {
                     snap.retain_changed(pre);
                 }
-                if !snap.is_empty() {
+                // Insert if any field changed OR if storage keys changed (pure
+                // storage clears leave an empty post snapshot after stripping
+                // zeros, but the account must still appear in the diff).
+                if !snap.is_empty() || !changed_keys.is_empty() {
                     post_map.insert(*eth_addr, snap);
                 }
             }
@@ -224,9 +237,14 @@ pub fn build_prestate_frame<S: Blockstore, T: Blockstore>(
 
             // Extract storage once per actor and derive both changed keys and
             // the snapshot from the cached entries.
-            let pre_entries = extract_evm_storage_entries(store, pre_actor.as_ref());
-            let post_entries = extract_evm_storage_entries(store, post_actor.as_ref());
-            let changed_keys = diff_entry_keys(&pre_entries, &post_entries);
+            let (pre_entries, changed_keys) = if config.is_storage_disabled() {
+                (HashMap::default(), HashSet::default())
+            } else {
+                let pre = extract_evm_storage_entries(store, pre_actor.as_ref());
+                let post = extract_evm_storage_entries(store, post_actor.as_ref());
+                let keys = diff_entry_keys(&pre, &post);
+                (pre, keys)
+            };
 
             if let Some(snap) = build_account_snapshot_from_entries(
                 store,
@@ -234,7 +252,7 @@ pub fn build_prestate_frame<S: Blockstore, T: Blockstore>(
                 config,
                 &pre_entries,
                 Some(&changed_keys),
-            ) {
+            )? {
                 result.insert(*eth_addr, snap);
             }
         }
@@ -409,7 +427,9 @@ mod tests {
                 let addr = create_masked_id_eth_address(actor_id);
                 // Created accounts should only appear in post
                 assert!(!diff.pre.contains_key(&addr));
-                assert!(diff.post.contains_key(&addr));
+                let post_snap = diff.post.get(&addr).unwrap();
+                assert_eq!(post_snap.balance, Some(EthBigInt(BigInt::from(5000))));
+                assert_eq!(post_snap.nonce, Some(EthUint64(0)));
             }
             _ => panic!("Expected Diff mode"),
         }
@@ -441,10 +461,115 @@ mod tests {
             PreStateFrame::Diff(diff) => {
                 let addr = create_masked_id_eth_address(actor_id);
                 // Deleted accounts should only appear in pre
-                assert!(diff.pre.contains_key(&addr));
+                let pre_snap = diff.pre.get(&addr).unwrap();
+                assert_eq!(pre_snap.balance, Some(EthBigInt(BigInt::from(3000))));
+                assert_eq!(pre_snap.nonce, Some(EthUint64(10)));
                 assert!(!diff.post.contains_key(&addr));
             }
             _ => panic!("Expected Diff mode"),
+        }
+    }
+
+    #[test]
+    fn test_build_prestate_frame_diff_mode_disable_storage() {
+        let actor_id = 5006u64;
+        let pre_actor = create_test_actor(1000, 5);
+        let post_actor = create_test_actor(2000, 6);
+        let trees = TestStateTrees::with_changed_actor(actor_id, pre_actor, post_actor).unwrap();
+
+        let config = PreStateConfig {
+            diff_mode: Some(true),
+            disable_storage: Some(true),
+            ..PreStateConfig::default()
+        };
+        let mut touched = HashSet::new();
+        touched.insert(create_masked_id_eth_address(actor_id));
+
+        let frame = build_prestate_frame(
+            trees.store.as_ref(),
+            &trees.pre_state,
+            &trees.post_state,
+            &touched,
+            &config,
+        )
+        .unwrap();
+
+        match frame {
+            PreStateFrame::Diff(diff) => {
+                let addr = create_masked_id_eth_address(actor_id);
+                let pre_snap = diff.pre.get(&addr).unwrap();
+                let post_snap = diff.post.get(&addr).unwrap();
+                // Balance/nonce reflect actual values, storage skipped
+                assert_eq!(pre_snap.balance, Some(EthBigInt(BigInt::from(1000))));
+                assert_eq!(pre_snap.nonce, Some(EthUint64(5)));
+                assert!(pre_snap.storage.is_empty());
+                assert_eq!(post_snap.balance, Some(EthBigInt(BigInt::from(2000))));
+                assert_eq!(post_snap.nonce, Some(EthUint64(6)));
+                assert!(post_snap.storage.is_empty());
+            }
+            _ => panic!("Expected Diff mode"),
+        }
+    }
+
+    #[test]
+    fn test_build_prestate_frame_default_mode_disable_storage() {
+        let actor_id = 5007u64;
+        let pre_actor = create_test_actor(1000, 5);
+        let post_actor = create_test_actor(2000, 6);
+        let trees = TestStateTrees::with_changed_actor(actor_id, pre_actor, post_actor).unwrap();
+
+        let config = PreStateConfig {
+            disable_storage: Some(true),
+            ..PreStateConfig::default()
+        };
+        let mut touched = HashSet::new();
+        let actor_addr = create_masked_id_eth_address(actor_id);
+        touched.insert(actor_addr);
+
+        let frame = build_prestate_frame(
+            trees.store.as_ref(),
+            &trees.pre_state,
+            &trees.post_state,
+            &touched,
+            &config,
+        )
+        .unwrap();
+
+        match frame {
+            PreStateFrame::Default(mode) => {
+                assert_eq!(mode.0.len(), 1);
+                let snap = mode.0.get(&actor_addr).unwrap();
+                assert_eq!(snap.balance, Some(EthBigInt(BigInt::from(1000))));
+                assert_eq!(snap.nonce, Some(EthUint64(5)));
+                assert!(snap.storage.is_empty());
+            }
+            _ => panic!("Expected Default mode"),
+        }
+    }
+
+    #[test]
+    fn test_build_prestate_frame_default_mode_nonexistent_actor() {
+        // Touched address where the actor doesn't exist in either pre or post state.
+        let trees = TestStateTrees::new().unwrap();
+        let config = PreStateConfig::default();
+        let mut touched = HashSet::new();
+        touched.insert(create_masked_id_eth_address(9999));
+
+        let frame = build_prestate_frame(
+            trees.store.as_ref(),
+            &trees.pre_state,
+            &trees.post_state,
+            &touched,
+            &config,
+        )
+        .unwrap();
+
+        match frame {
+            PreStateFrame::Default(mode) => {
+                // Actor doesn't exist, so no snapshot produced
+                assert!(mode.0.is_empty());
+            }
+            _ => panic!("Expected Default mode"),
         }
     }
 }

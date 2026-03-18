@@ -126,11 +126,11 @@ When `diffMode: true`, returns separate `pre` and `post` objects showing the sta
 
 **Diff mode behavior:**
 
-- `pre` contains the state before execution for all touched accounts
-- `post` contains only the fields that changed after execution
+- `pre` contains the pre-execution state for accounts/fields that changed
+- `post` contains only the fields that differ from `pre` after execution
 - Accounts that were deleted appear in `pre` but not in `post`
 - Accounts that were created appear in `post` but not in `pre`
-- Unchanged accounts are omitted from both `pre` and `post`
+- Accounts with no changes are omitted from both `pre` and `post`
 - Zero-value storage entries are stripped from `post`
 
 ### `callTracer`

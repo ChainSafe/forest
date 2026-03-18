@@ -1236,7 +1236,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
         block_hash: tx.block_hash,
         block_number: tx.block_number,
         r#type: tx.r#type,
-        status: u64::from(msg_receipt.exit_code().is_success()).into(),
+        status: (u64::from(msg_receipt.exit_code().is_success())).into(),
         gas_used: msg_receipt.gas_used().into(),
         ..EthTxReceipt::new()
     };
@@ -3509,7 +3509,7 @@ where
     // prestateTracer uses per-message replay for exact state boundaries,
     // so it does not need the full tipset trace.
     if tracer == GethDebugBuiltInTracerType::PreState {
-        let prestate_config = opts.prestate_config();
+        let prestate_config = opts.prestate_config()?;
 
         let message_cid = ctx
             .chain_store()
@@ -3589,7 +3589,10 @@ where
                 .collect();
             Ok(GethTrace::FlatCall(traces))
         }
-        _ => unreachable!("noopTracer and prestateTracer handled above"),
+        _ => Err(anyhow::anyhow!(
+            "unexpected tracer type: noopTracer and prestateTracer should be handled above"
+        )
+        .into()),
     }
 }
 

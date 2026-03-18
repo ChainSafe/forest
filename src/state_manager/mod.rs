@@ -854,18 +854,20 @@ where
     pub async fn replay_for_prestate(
         self: &Arc<Self>,
         ts: Tipset,
-        target_mcid: Cid,
+        target_message_cid: Cid,
     ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
         let this = Arc::clone(self);
-        tokio::task::spawn_blocking(move || this.replay_for_prestate_blocking(ts, target_mcid))
-            .await
-            .map_err(|e| Error::Other(format!("{e}")))?
+        tokio::task::spawn_blocking(move || {
+            this.replay_for_prestate_blocking(ts, target_message_cid)
+        })
+        .await
+        .map_err(|e| Error::Other(format!("{e}")))?
     }
 
     fn replay_for_prestate_blocking(
         self: &Arc<Self>,
         ts: Tipset,
-        target_mcid: Cid,
+        target_msg_cid: Cid,
     ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
         if ts.epoch() == 0 {
             return Err(Error::Other(
@@ -902,7 +904,7 @@ where
 
                     processed.insert(cid);
 
-                    if cid == target_mcid {
+                    if cid == target_msg_cid {
                         let pre_root = vm.flush()?;
                         let mut traced_vm =
                             exec.create_vm(pre_root, epoch, ts.min_timestamp(), VMTrace::Traced)?;
@@ -916,7 +918,7 @@ where
                                 msg: msg.message().clone(),
                                 msg_rct: Some(ret.msg_receipt()),
                                 error: ret.failure_info().unwrap_or_default(),
-                                duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                                duration: duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
                                 gas_cost: MessageGasCost::default(),
                                 execution_trace: structured::parse_events(ret.exec_trace())
                                     .unwrap_or_default(),
@@ -951,7 +953,7 @@ where
                 }
             }
 
-            bail!("message {target_mcid} not found in tipset")
+            bail!("message {target_msg_cid} not found in tipset")
         })?)
     }
 

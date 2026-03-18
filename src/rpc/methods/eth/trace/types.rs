@@ -11,7 +11,7 @@ use super::super::{EthBigInt, EthUint64};
 use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::eth::trace::utils::extract_revert_reason;
 use crate::rpc::eth::trace::{GETH_TRACE_REVERT_ERROR, PARITY_TRACE_REVERT_ERROR};
-use anyhow::{Result, bail};
+use anyhow::{Context as _, Result, bail};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -114,7 +114,7 @@ impl GethDebugTracingOptions {
     /// Extracts and validates the `callTracer` config.
     /// Returns an error if an unsupported flag (e.g. `withLog`) is set to true.
     pub fn call_config(&self) -> anyhow::Result<CallTracerConfig> {
-        let cfg = parse_tracer_config::<CallTracerConfig>(self.tracer_config.as_ref());
+        let cfg = parse_tracer_config::<CallTracerConfig>(self.tracer_config.as_ref())?;
         if cfg.with_log.unwrap_or(false) {
             anyhow::bail!("callTracer: withLog is not yet supported");
         }
@@ -122,25 +122,21 @@ impl GethDebugTracingOptions {
     }
 
     /// Extracts the `prestateTracer` config, defaulting to no-op values when absent.
-    pub fn prestate_config(&self) -> PreStateConfig {
+    pub fn prestate_config(&self) -> anyhow::Result<PreStateConfig> {
         parse_tracer_config::<PreStateConfig>(self.tracer_config.as_ref())
     }
 }
 
 /// Parses a tracer-specific config from the opaque [`TracerConfig`] JSON blob.
-/// Returns `T::default()` when the config is absent or null, and logs a warning
-/// if the config is present but fails to deserialize.
-fn parse_tracer_config<T: Default + serde::de::DeserializeOwned>(raw: Option<&TracerConfig>) -> T {
+/// Returns `T::default()` when the config is absent or null, and returns an
+/// error if the config is present but fails to deserialize.
+fn parse_tracer_config<T: Default + serde::de::DeserializeOwned>(
+    raw: Option<&TracerConfig>,
+) -> anyhow::Result<T> {
     let Some(cfg) = raw.as_ref().filter(|c| !c.0.is_null()) else {
-        return T::default();
+        return Ok(T::default());
     };
-    serde_json::from_value(cfg.0.clone()).unwrap_or_else(|e| {
-        tracing::warn!(
-            error = %e,
-            "invalid tracerConfig — using defaults"
-        );
-        T::default()
-    })
+    serde_json::from_value(cfg.0.clone()).context("invalid tracerConfig")
 }
 
 /// Configuration for the `callTracer`.
@@ -1118,8 +1114,14 @@ mod tests {
         };
 
         let frame = trace.into_geth_frame(GethCallType::StaticCall).unwrap();
+        assert_eq!(frame.r#type, GethCallType::StaticCall);
+        assert_eq!(frame.from, EthAddress::default());
+        assert_eq!(frame.to, Some(EthAddress::from_actor_id(100)));
+        assert_eq!(frame.gas.0, 21000);
+        assert_eq!(frame.gas_used.0, 100);
         // Static calls omit the value field
         assert!(frame.value.is_none());
+        assert!(frame.error.is_none());
     }
 
     #[test]
@@ -1143,11 +1145,12 @@ mod tests {
         };
 
         let frame = trace.into_geth_frame(GethCallType::Call).unwrap();
-        assert!(frame.error.is_some());
         assert_eq!(
             frame.error.as_deref(),
             Some(GETH_TRACE_REVERT_ERROR) // to_geth_error converts
         );
+        // On revert, gas_used stays as the result's value (not overridden to action.gas)
+        assert_eq!(frame.gas_used.0, 100);
     }
 
     #[test]
@@ -1176,7 +1179,11 @@ mod tests {
         assert_eq!(frame.r#type, GethCallType::Create);
         assert_eq!(frame.from, from);
         assert_eq!(frame.to, Some(created));
+        assert_eq!(frame.gas.0, 100000);
+        assert_eq!(frame.gas_used.0, 50000);
+        assert_eq!(frame.value, Some(EthBigInt(num::BigInt::from(0))));
         assert_eq!(frame.input.0, init_code.0); // initcode goes to input
+        assert_eq!(frame.output, Some(EthBytes(vec![0xFE]))); // deployed code
         assert!(frame.error.is_none());
     }
 
