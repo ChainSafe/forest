@@ -129,6 +129,7 @@ impl GetSize for ExecutedMessage {
 #[derive(Debug, Clone)]
 pub struct ExecutedTipset {
     pub state_root: Cid,
+    #[allow(dead_code)]
     pub receipt_root: Cid,
     pub executed_messages: Vec<ExecutedMessage>,
 }
