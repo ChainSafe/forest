@@ -94,6 +94,7 @@ type CidPair = (Cid, Cid);
 fn executed_tipset_cache() -> &'static SizeTrackingLruCache<TipsetKey, ExecutedTipset> {
     // A tipset key should always map to a deterministic state output, so it's safe to cache the entire executed tipset with the same key.
     static CACHE: LazyLock<SizeTrackingLruCache<TipsetKey, ExecutedTipset>> = LazyLock::new(|| {
+        // 100-200MiB on mainet with capacity 1024
         SizeTrackingLruCache::new_with_metrics("executed_tipset".into(), nonzero!(1024usize))
     });
     &CACHE
