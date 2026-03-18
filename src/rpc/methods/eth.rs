@@ -500,6 +500,7 @@ impl Block {
             let ExecutedTipset {
                 state_root,
                 executed_messages,
+                ..
             } = ctx.state_manager.load_executed_tipset(&tipset).await?;
             let has_transactions = !executed_messages.is_empty();
             let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
@@ -1416,6 +1417,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     let ExecutedTipset {
         state_root,
         executed_messages,
+        ..
     } = ctx.state_manager.load_executed_tipset(&ts_ref).await?;
 
     // Load the state tree

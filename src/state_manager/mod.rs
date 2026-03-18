@@ -91,6 +91,14 @@ pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
+fn executed_tipset_cache() -> &'static SizeTrackingLruCache<TipsetKey, ExecutedTipset> {
+    // A tipset key should always map to a deterministic state output, so it's safe to cache the entire executed tipset with the same key.
+    static CACHE: LazyLock<SizeTrackingLruCache<TipsetKey, ExecutedTipset>> = LazyLock::new(|| {
+        SizeTrackingLruCache::new_with_metrics("executed_tipset".into(), nonzero!(1024usize))
+    });
+    &CACHE
+}
+
 /// Result of executing an individual chain message in a tipset.
 ///
 /// Includes the executed message itself, the execution receipt, and
@@ -121,6 +129,7 @@ impl GetSize for ExecutedMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutedTipset {
     pub state_root: Cid,
+    pub receipt_root: Cid,
     pub executed_messages: Vec<ExecutedMessage>,
 }
 
@@ -492,22 +501,15 @@ where
         self: &Arc<Self>,
         ts: &Tipset,
     ) -> anyhow::Result<ExecutedTipset> {
-        // A tipset key should always map to a deterministic state output, so it's safe to cache the entire executed tipset with the same key.
-        static CACHE: LazyLock<SizeTrackingLruCache<TipsetKey, ExecutedTipset>> =
-            LazyLock::new(|| {
-                SizeTrackingLruCache::new_with_metrics(
-                    "executed_tipset".into(),
-                    nonzero!(1024usize),
-                )
-            });
-        if let Some(cached) = CACHE.get_cloned(ts.key()) {
+        let cache = executed_tipset_cache();
+        if let Some(cached) = cache.get_cloned(ts.key()) {
             return Ok(cached);
         }
         let receipt_ts = self.chain_store().load_child_tipset(ts).ok();
         let result = self
             .load_executed_tipset_inner(ts, receipt_ts.as_ref())
             .await?;
-        CACHE.push(ts.key().clone(), result.clone());
+        cache.push(ts.key().clone(), result.clone());
         Ok(result)
     }
 
@@ -525,12 +527,13 @@ where
         }
         let messages = self.chain_store().messages_for_tipset(msg_ts)?;
         let mut recomputed = false;
-        let (state_root, receipts) = match receipt_ts.and_then(|ts| {
-            Receipt::get_receipts(self.cs.blockstore(), *ts.parent_message_receipts())
+        let (state_root, receipt_root, receipts) = match receipt_ts.and_then(|ts| {
+            let receipt_root = *ts.parent_message_receipts();
+            Receipt::get_receipts(self.cs.blockstore(), receipt_root)
                 .ok()
-                .map(|r| (*ts.parent_state(), r))
+                .map(|r| (*ts.parent_state(), receipt_root, r))
         }) {
-            Some((state_root, receipts)) => (state_root, receipts),
+            Some((state_root, receipt_root, receipts)) => (state_root, receipt_root, receipts),
             None => {
                 let state_output = self
                     .compute_tipset_state(msg_ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
@@ -538,6 +541,7 @@ where
                 recomputed = true;
                 (
                     state_output.state_root,
+                    state_output.receipt_root,
                     Receipt::get_receipts(self.cs.blockstore(), state_output.receipt_root)?,
                 )
             }
@@ -578,6 +582,7 @@ where
         }
         Ok(ExecutedTipset {
             state_root,
+            receipt_root,
             executed_messages,
         })
     }
@@ -2094,28 +2099,55 @@ where
             vm.apply_block_messages(&block_messages, epoch, callback)?;
 
         // step 5: construct receipt root from receipts
-        let receipt_root = Amtv0::new_from_iter(chain_index.db(), receipts)?;
+        let receipt_root = Amtv0::new_from_iter(chain_index.db(), receipts.iter())?;
 
         // step 6: store events AMTs in the blockstore
-        for (msg_events, events_root) in events.iter().zip(events_roots.iter()) {
-            if let Some(event_root) = events_root {
+        for (events, events_root) in events.iter().zip(events_roots.iter()) {
+            if let Some(events) = events {
+                let event_root =
+                    events_root.context("events root should be present when events present")?;
                 // Store the events AMT - the root CID should match the one computed by FVM
                 let derived_event_root = Amt::new_from_iter_with_bit_width(
                     chain_index.db(),
                     EVENTS_AMT_BITWIDTH,
-                    msg_events.iter(),
+                    events.iter(),
                 )
                 .map_err(|e| Error::Other(format!("failed to store events AMT: {e}")))?;
 
                 // Verify the stored root matches the FVM-computed root
                 ensure!(
-                    derived_event_root.eq(event_root),
+                    derived_event_root == event_root,
                     "Events AMT root mismatch: derived={derived_event_root}, actual={event_root}."
                 );
             }
         }
 
         let state_root = vm.flush()?;
+
+        // Update executed tipset cache
+        let messages: Vec<ChainMessage> = block_messages
+            .into_iter()
+            .flat_map(|bm| bm.messages)
+            .collect_vec();
+        anyhow::ensure!(
+            messages.len() == receipts.len() && messages.len() == events.len(),
+            "length of messages, receipts, and events should match",
+        );
+        let executed_tipset = ExecutedTipset {
+            state_root,
+            receipt_root,
+            executed_messages: messages
+                .into_iter()
+                .zip(receipts)
+                .zip(events)
+                .map(|((message, receipt), events)| ExecutedMessage {
+                    message,
+                    receipt,
+                    events,
+                })
+                .collect(),
+        };
+        executed_tipset_cache().push(tipset.key().clone(), executed_tipset);
 
         Ok(StateOutput {
             state_root,
