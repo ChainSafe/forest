@@ -137,7 +137,7 @@ pub struct ExecutedTipset {
 
 impl GetSize for ExecutedTipset {
     fn get_heap_size(&self) -> usize {
-        // state_root(Cid) has no heap allocation, so we only calculate the heap size of executed_messages
+        // state_root (Cid) and receipt_root (Cid) have no heap allocation, so we only calculate the heap size of executed_messages
         vec_heap_size_helper(&self.executed_messages)
     }
 }
