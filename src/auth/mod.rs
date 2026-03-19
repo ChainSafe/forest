@@ -88,7 +88,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            Duration::try_hours(1).expect("Infallible"),
+            Duration::hours(1),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
@@ -98,7 +98,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            -Duration::try_hours(1).expect("Infallible"),
+            -Duration::hours(1),
         )
         .unwrap();
         assert!(verify_token(&token, key.private_key()).is_err());
@@ -108,7 +108,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            -Duration::try_seconds(10).expect("Infallible"),
+            -Duration::seconds(10),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
@@ -138,7 +138,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            -Duration::try_hours(1).expect("Infallible"),
+            -Duration::hours(1),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();

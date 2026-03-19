@@ -130,7 +130,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
             SizeTrackingLruCache::new_with_metrics(
                 "tipset_by_height".into(),
                 // 20480 * 900 = 18432000 which is sufficient for mainnet
-                20480.try_into().expect("infallible"),
+                nonzero!(20480_usize),
             )
         });
 
