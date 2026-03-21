@@ -6,10 +6,9 @@ use crate::blocks::TipsetKey;
 use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
-use crate::utils::multihash::prelude::*;
+use crate::utils::{broadcast::has_subscribers, multihash::prelude::*};
 use anyhow::{Context as _, anyhow};
 use cid::Cid;
-use futures::FutureExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
@@ -218,10 +217,6 @@ impl EthMappingsStore for ParityDb {
             (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
         }))?)
     }
-}
-
-fn has_subscribers<T>(tx: &tokio::sync::broadcast::Sender<T>) -> bool {
-    tx.closed().now_or_never().is_none()
 }
 
 impl Blockstore for ParityDb {

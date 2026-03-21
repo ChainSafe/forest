@@ -2,89 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
-use crate::chain::ChainStore;
 use crate::db::MemoryDB;
-use crate::networks::ChainConfig;
-use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::StampedEvent;
-use crate::utils::db::CborStoreExt;
-use crate::utils::multihash::MultihashCode;
-use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amt;
-use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::DAG_CBOR;
-use multihash_derive::MultihashDigest;
-use num_bigint::BigInt;
-use std::sync::Arc;
-
-fn create_dummy_cid(i: u64) -> Cid {
-    let bytes = i.to_le_bytes().to_vec();
-    Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&bytes))
-}
-
-fn dummy_state(db: impl Blockstore, i: ChainEpoch) -> Cid {
-    db.put_cbor_default(&i).unwrap()
-}
-
-fn dummy_node(db: impl Blockstore, i: ChainEpoch) -> HeaderBuilder {
-    HeaderBuilder {
-        state_root: dummy_state(db, i).into(),
-        weight: BigInt::from(i).into(),
-        epoch: i.into(),
-        timestamp: 100.into(),
-        ..Default::default()
-    }
-}
-
-/// Structure to hold the setup components for chain tests
-struct TestChainSetup {
-    chain_store: Arc<ChainStore<MemoryDB>>,
-    chain_builder: Chain4U<Arc<MemoryDB>>,
-    state_root: Cid,
-    receipt_root: Cid,
-}
-
-fn setup_chain_with_tipsets() -> TestChainSetup {
-    let db = Arc::new(MemoryDB::default());
-    let chain_config = Arc::new(ChainConfig::default());
-
-    let chain_builder = Chain4U::with_blockstore(db.clone());
-    chain4u! {
-        in chain_builder;
-        [genesis_header = dummy_node(&db, 0)]
-    }
-
-    let chain_store = Arc::new(
-        ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config.clone(),
-            genesis_header.clone().into(),
-        )
-        .expect("should create chain store"),
-    );
-
-    // Create dummy state and receipt roots and store them in blockstore
-    let state_root = create_dummy_cid(1);
-    let receipt_root = create_dummy_cid(2);
-
-    db.put_keyed(&state_root, "dummy_state".as_bytes()).unwrap();
-    db.put_keyed(&receipt_root, "dummy_receipt".as_bytes())
-        .unwrap();
-
-    chain_store
-        .set_heaviest_tipset(chain_store.genesis_tipset())
-        .unwrap();
-
-    TestChainSetup {
-        chain_store,
-        chain_builder, // Assign c4u to the named field
-        state_root,
-        receipt_root,
-    }
-}
 
 fn create_raw_event_v4(emitter: u64, key: &str) -> fvm_shared4::event::StampedEvent {
     fvm_shared4::event::StampedEvent {

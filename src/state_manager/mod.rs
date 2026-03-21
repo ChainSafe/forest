@@ -113,19 +113,13 @@ impl GetSize for ExecutedMessage {
 ///
 /// `state_root` is the resulting state tree root after message execution
 /// and `executed_messages` contains per-message execution details.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, GetSize)]
 pub struct ExecutedTipset {
+    #[get_size(ignore)]
     pub state_root: Cid,
-    #[allow(dead_code)]
+    #[get_size(ignore)]
     pub receipt_root: Cid,
     pub executed_messages: Vec<ExecutedMessage>,
-}
-
-impl GetSize for ExecutedTipset {
-    fn get_heap_size(&self) -> usize {
-        // state_root (Cid) and receipt_root (Cid) have no heap allocation, so we only calculate the heap size of executed_messages
-        vec_heap_size_helper(&self.executed_messages)
-    }
 }
 
 /// External format for returning market balance from state.
@@ -618,7 +612,7 @@ where
         };
 
         let (_invoc_res, apply_ret, duration, state_root) = self
-            .call_with_gas(&mut chain_msg, &[], Some(ts), VMTrace::Traced, vm_flush)
+            .call_with_gas(&mut chain_msg, &[], Some(ts), vm_flush)
             .await?;
 
         Ok((
@@ -643,7 +637,6 @@ where
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
-        trace_config: VMTrace,
         vm_flush: VMFlush,
     ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
@@ -677,7 +670,7 @@ where
                     timestamp: ts.min_timestamp(),
                 },
                 &self.engine,
-                trace_config,
+                VMTrace::NotTraced,
             )?;
 
             for msg in prior_messages {
