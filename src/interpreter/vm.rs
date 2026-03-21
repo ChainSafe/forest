@@ -521,7 +521,7 @@ where
         Ok((ret, duration))
     }
 
-    fn reward_message(
+    pub(crate) fn reward_message(
         &self,
         epoch: ChainEpoch,
         miner: Address,
