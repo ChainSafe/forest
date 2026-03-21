@@ -8,6 +8,7 @@ use crate::blocks::{ElectionProof, RawBlockHeader};
 use crate::chain::{ChainStore, compute_base_fee};
 
 use crate::fil_cns::weight;
+use crate::interpreter::VMTrace;
 use crate::key_management::{Key, KeyStore};
 use crate::lotus_json::lotus_json_with_self;
 
@@ -21,7 +22,7 @@ use crate::rpc::{ApiPaths, Ctx, RpcMethod, ServerError};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::crypto::{Signature, SignatureType};
-use crate::state_manager::StateLookupPolicy;
+use crate::state_manager::ExecutedTipset;
 use enumflags2::BitFlags;
 
 use crate::shim::sector::PoStProof;
@@ -147,9 +148,17 @@ impl RpcMethod<1> for MinerCreateBlock {
                 .context("Missing Xxx height")?
                 .epoch,
         )?;
-        let (state, receipts) = ctx
+        let ExecutedTipset {
+            state_root,
+            receipt_root,
+            ..
+        } = ctx
             .state_manager
-            .tipset_state(&parent_tipset, StateLookupPolicy::Disabled)
+            .compute_tipset_state(
+                parent_tipset,
+                crate::state_manager::NO_CALLBACK,
+                VMTrace::NotTraced,
+            )
             .await?;
 
         let network_version = ctx.state_manager.get_network_version(block_template.epoch);
@@ -211,8 +220,8 @@ impl RpcMethod<1> for MinerCreateBlock {
             parents: block_template.parents,
             weight: parent_weight,
             epoch: block_template.epoch,
-            state_root: state,
-            message_receipts: receipts,
+            state_root,
+            message_receipts: receipt_root,
             messages: message_meta_cid,
             bls_aggregate: bls_aggregate.into(),
             timestamp: block_template.timestamp,

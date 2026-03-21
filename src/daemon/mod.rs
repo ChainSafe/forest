@@ -626,7 +626,6 @@ pub(super) async fn start_services(
     }
     on_app_context_and_db_initialized(&ctx, chain_follower.sync_status.clone());
     warmup_in_background(&ctx);
-    ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_f3_service(opts, &config, &ctx)?;
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
