@@ -511,7 +511,7 @@ impl Block {
                 ExecutedMessage {
                     message, receipt, ..
                 },
-            ) in executed_messages.into_iter().enumerate()
+            ) in executed_messages.iter().enumerate()
             {
                 let ti = EthUint64(i as u64);
                 gas_used += receipt.gas_used();
@@ -1425,7 +1425,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
         ExecutedMessage {
             message, receipt, ..
         },
-    ) in executed_messages.into_iter().enumerate()
+    ) in executed_messages.iter().enumerate()
     {
         let tx = new_eth_tx(
             ctx,
@@ -1436,7 +1436,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
             i as u64,
         )?;
 
-        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, &receipt).await?;
+        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, receipt).await?;
         eth_receipts.push(receipt);
     }
     Ok(eth_receipts)
@@ -1921,7 +1921,7 @@ async fn eth_fee_history<B: Blockstore + Send + Sync + 'static>(
         let mut tx_gas_rewards = Vec::with_capacity(executed_messages.len());
         for ExecutedMessage {
             message, receipt, ..
-        } in executed_messages
+        } in executed_messages.iter()
         {
             let premium = message.effective_gas_premium(base_fee);
             tx_gas_rewards.push(GasReward {

@@ -119,7 +119,8 @@ pub struct ExecutedTipset {
     #[get_size(ignore)]
     pub receipt_root: Cid,
     /// Per-message execution details.
-    pub executed_messages: Vec<ExecutedMessage>,
+    /// Wrapped in an `Arc` to reduce cloning cost, as this can be quite large.
+    pub executed_messages: Arc<Vec<ExecutedMessage>>,
 }
 
 /// Basic execution result for a tipset.
@@ -539,7 +540,7 @@ where
         Ok(ExecutedTipset {
             state_root,
             receipt_root,
-            executed_messages,
+            executed_messages: Arc::new(executed_messages),
         })
     }
 
@@ -2002,7 +2003,7 @@ where
         return Ok(ExecutedTipset {
             state_root: *tipset.parent_state(),
             receipt_root: message_receipts,
-            executed_messages: vec![],
+            executed_messages: vec![].into(),
         });
     }
 
@@ -2075,7 +2076,8 @@ where
                     receipt,
                     events,
                 })
-                .collect(),
+                .collect_vec()
+                .into(),
         })
     })
 }

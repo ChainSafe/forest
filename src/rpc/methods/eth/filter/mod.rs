@@ -278,7 +278,7 @@ impl EthEventHandler {
             ExecutedMessage {
                 message, events, ..
             },
-        ) in executed_messages.into_iter().enumerate()
+        ) in executed_messages.iter().enumerate()
         {
             if let Some(events) = events {
                 let event_idx_base = u64::try_from(event_count)?;
