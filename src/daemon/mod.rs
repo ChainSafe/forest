@@ -493,21 +493,25 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) -> 
                 {
                     Ok(f3_finalized_cert) => {
                         let f3_finalized_head = f3_finalized_cert.chain_head();
-                        if let Ok(ts) = chain_store
+                        match chain_store
                             .chain_index()
                             .load_required_tipset(&f3_finalized_head.key)
                         {
-                            chain_store.set_f3_finalized_tipset(ts);
-                            tracing::info!(
-                                "Set F3 finalized tipset to epoch {} and key {}",
-                                f3_finalized_head.epoch,
-                                f3_finalized_head.key,
-                            );
-                        } else {
-                            tracing::error!(
-                                "Failed to get F3 finalized tipset for head {}: ",
-                                f3_finalized_head.key
-                            );
+                            Ok(ts) => {
+                                chain_store.set_f3_finalized_tipset(ts);
+                                tracing::info!(
+                                    "Set F3 finalized tipset to epoch {} and key {}",
+                                    f3_finalized_head.epoch,
+                                    f3_finalized_head.key,
+                                );
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to get F3 finalized tipset epoch {} and key {}: {e}",
+                                    f3_finalized_head.epoch,
+                                    f3_finalized_head.key
+                                );
+                            }
                         }
                     }
                     Err(e) => {
