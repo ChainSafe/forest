@@ -166,7 +166,7 @@ arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test
 }
 '''
 run = '''
-cargo test --doc --profile ${usage_profile?} --no-default-features --features "test doctest-private" --no-fail-fast
+cargo test --doc --profile ${usage_profile?} --no-default-features --features "test doctest-private cargo-test" --no-fail-fast
 '''
 
 [tasks."test:nextest"]
@@ -190,7 +190,7 @@ arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test
 '''
 run = '''
 echo "Running tests with profile: ${usage_profile?}" 
-cargo test --lib --profile ${usage_profile?} --workspace --no-default-features --features "test cargo-test" --no-fail-fast -- --test "cargo_test_"
+cargo test --lib --profile ${usage_profile?} --no-default-features --features "test doctest-private cargo-test" --no-fail-fast -- --test "cargo_test_"
 '''
 
 [tasks.test]
