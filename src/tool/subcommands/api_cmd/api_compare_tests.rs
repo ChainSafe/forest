@@ -7,7 +7,7 @@ use crate::chain::ChainStore;
 use crate::db::car::ManyCar;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
-use crate::message::{Message as _, SignedMessage};
+use crate::message::{MessageRead as _, SignedMessage};
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{

@@ -14,7 +14,7 @@ use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 use crate::db::SettingsStore;
 use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
-use crate::message::{ChainMessage, Message, SignedMessage, valid_for_block_inclusion};
+use crate::message::{ChainMessage, MessageRead as _, SignedMessage, valid_for_block_inclusion};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use crate::rpc::eth::types::EthAddress;
 use crate::shim::{
@@ -640,8 +640,8 @@ where
         bls_sig_cache.push(msg.cid().into(), msg.signature().clone());
     }
 
-    api.put_message(&ChainMessage::Signed(msg.clone()))?;
-    api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
+    api.put_message(&ChainMessage::Signed(msg.clone().into()))?;
+    api.put_message(&ChainMessage::Unsigned(msg.message().clone().into()))?;
 
     let mut pending = pending.write();
     let from = msg.from();

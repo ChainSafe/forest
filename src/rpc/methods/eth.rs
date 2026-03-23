@@ -27,7 +27,7 @@ use crate::eth::{
 };
 use crate::interpreter::VMTrace;
 use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
-use crate::message::{ChainMessage, Message as _, SignedMessage};
+use crate::message::{ChainMessage, Message as _, MessageRead as _, SignedMessage};
 use crate::rpc::{
     ApiPaths, Ctx, EthEventHandler, LOOKBACK_NO_LIMIT, Permission, RpcMethod, RpcMethodExt as _,
     error::ServerError,
@@ -519,10 +519,10 @@ impl Block {
                 let ti = EthUint64(i as u64);
                 gas_used += receipt.gas_used();
                 let smsg = match message {
-                    ChainMessage::Signed(msg) => msg.clone(),
+                    ChainMessage::Signed(msg) => msg,
                     ChainMessage::Unsigned(msg) => {
                         let sig = Signature::new_bls(vec![]);
-                        SignedMessage::new_unchecked(msg.clone(), sig)
+                        SignedMessage::new_unchecked(Arc::unwrap_or_clone(msg), sig).into()
                     }
                 };
 

@@ -24,7 +24,7 @@ use crate::interpreter::{
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
-use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use crate::message::{ChainMessage, Message as _, MessageRead as _, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
@@ -545,7 +545,7 @@ where
             receipts.len()
         );
         let mut executed_messages = Vec::with_capacity(messages.len());
-        for (message, receipt) in messages.into_iter().zip(receipts.into_iter()) {
+        for (message, receipt) in messages.iter().cloned().zip(receipts.into_iter()) {
             let events = if include_events && let Some(events_root) = receipt.events_root() {
                 Some(
                     match StampedEvent::get_events(self.cs.blockstore(), &events_root) {
@@ -691,17 +691,19 @@ where
         // cost. We obviously can't generate a valid signature. Instead, we just
         // fill the signature with zeros. The validity is not checked.
         let mut chain_msg = match from_a.protocol() {
-            Protocol::Secp256k1 => ChainMessage::Signed(SignedMessage::new_unchecked(
+            Protocol::Secp256k1 => SignedMessage::new_unchecked(
                 msg.clone(),
                 Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
-            )),
-            Protocol::Delegated => ChainMessage::Signed(SignedMessage::new_unchecked(
+            )
+            .into(),
+            Protocol::Delegated => SignedMessage::new_unchecked(
                 msg.clone(),
                 // In Lotus, delegated signatures have the same length as SECP256k1.
                 // This may or may not change in the future.
                 Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
-            )),
-            _ => ChainMessage::Unsigned(msg.clone()),
+            )
+            .into(),
+            _ => msg.clone().into(),
         };
 
         let (_invoc_res, apply_ret, duration, state_root) = self

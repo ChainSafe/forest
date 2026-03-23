@@ -529,7 +529,7 @@ mod structured {
     use crate::state_manager::utils::structured;
     use crate::{
         interpreter::CalledAt,
-        message::{ChainMessage, Message as _},
+        message::{ChainMessage, MessageRead as _},
         shim::executor::ApplyRet,
     };
     use std::time::Duration;
