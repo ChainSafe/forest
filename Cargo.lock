@@ -3438,6 +3438,7 @@ dependencies = [
  "url",
  "uuid",
  "walkdir",
+ "zerocopy",
  "zstd",
 ]
 
