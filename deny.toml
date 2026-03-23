@@ -17,7 +17,6 @@ allow = [
   "CC0-1.0",
   "ISC",
   "MIT",
-  "OpenSSL",
   "Unicode-3.0",
   "Unlicense",
   "Zlib",
