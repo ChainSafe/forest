@@ -174,6 +174,10 @@ impl Address {
         self.0.protocol()
     }
 
+    pub fn is_delegated(&self) -> bool {
+        self.protocol() == Protocol::Delegated
+    }
+
     pub fn into_payload(self) -> Payload {
         self.0.into_payload()
     }

@@ -27,6 +27,8 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 pub const CAR_DB_DIR_NAME: &str = "car_db";
+pub const INDEX_DB_DIR_NAME: &str = "index_db";
+pub const INDEX_DB_FILE_NAME: &str = "chainindex.db";
 
 pub mod setting_keys {
     /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKey`]s

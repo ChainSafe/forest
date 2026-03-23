@@ -126,7 +126,7 @@ where
         chain_config: Arc<ChainConfig>,
         genesis_block_header: CachingBlockHeader,
     ) -> anyhow::Result<Self> {
-        let (publisher, _) = broadcast::channel(SINK_CAP);
+        let (head_changes_tx, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let validated_blocks = Mutex::new(HashSet::default());
         let head = if let Some(head_tsk) = heaviest_tipset_key_provider
@@ -141,7 +141,7 @@ where
             Tipset::from(&genesis_block_header)
         };
         let cs = Self {
-            head_changes_tx: publisher,
+            head_changes_tx,
             chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,

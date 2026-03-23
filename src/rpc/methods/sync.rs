@@ -235,6 +235,7 @@ mod tests {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
+            chain_indexer: Default::default(),
             bad_blocks: Some(Default::default()),
             msgs_in_tipset: Default::default(),
             sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),

@@ -147,6 +147,7 @@ async fn ctx(
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: Arc::new(message_pool),
+        chain_indexer: Default::default(),
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
         sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),

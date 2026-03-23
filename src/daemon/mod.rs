@@ -128,7 +128,7 @@ async fn maybe_import_snapshot(
             chain_config,
             ctx.state_manager.chain_store().heaviest_tipset().epoch(),
             opts.auto_download_snapshot,
-            &ctx.db_meta_data.get_root_dir(),
+            ctx.db_meta_data.root_dir(),
         )
         .await?;
     }
@@ -140,7 +140,7 @@ async fn maybe_import_snapshot(
     {
         let (car_db_path, ts) = import_chain_as_forest_car(
             path,
-            &ctx.db_meta_data.get_forest_car_db_dir(),
+            ctx.db_meta_data.forest_car_db_dir(),
             config.client.import_mode,
             config.client.rpc_v1_endpoint()?,
             &crate::f3::get_f3_root(config),
@@ -158,6 +158,12 @@ async fn maybe_import_snapshot(
             "Loaded car DB at {} and set current head to epoch {ts_epoch}",
             car_db_path.display(),
         );
+        // populate chain index if enabled
+        if let Some(chain_indexer) = &ctx.chain_indexer
+            && let Err(e) = chain_indexer.populate().await
+        {
+            tracing::warn!("failed to populate chain index from snapshot: {e}");
+        }
     }
 
     // If the snapshot progress state is not completed,
@@ -185,7 +191,6 @@ async fn maybe_import_snapshot(
                 .validate_range(validate_from..=current_height)?,
         }
     }
-
     Ok(())
 }
 
@@ -392,6 +397,7 @@ fn maybe_start_rpc_service(
         }
         services.spawn({
             let state_manager = ctx.state_manager.clone();
+            let chain_indexer = ctx.chain_indexer.clone();
             let bad_blocks = chain_follower.bad_blocks.clone();
             let sync_status = chain_follower.sync_status.clone();
             let sync_network_context = chain_follower.network.clone();
@@ -411,6 +417,7 @@ fn maybe_start_rpc_service(
                         state_manager,
                         keystore,
                         mpool,
+                        chain_indexer,
                         bad_blocks,
                         msgs_in_tipset,
                         sync_status,
@@ -496,34 +503,57 @@ fn maybe_start_indexer_service(
         && !opts.stateless
         && !ctx.state_manager.chain_config().is_devnet()
     {
-        let mut head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
-        let chain_store = ctx.state_manager.chain_store().clone();
-        services.spawn(async move {
-            tracing::info!("Starting indexer service");
-
-            // Continuously listen for head changes
-            loop {
-                for ts in head_changes_rx.recv().await?.applies {
-                    tracing::debug!("Indexing tipset {}", ts.key());
-                    let delegated_messages =
-                        chain_store.headers_delegated_messages(ts.block_headers().iter())?;
-                    chain_store.process_signed_messages(&delegated_messages)?;
-                }
-            }
-        });
-
-        // Run the collector only if chain indexer is enabled
-        if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
+        // Old indexer
+        {
+            let mut head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
             let chain_store = ctx.state_manager.chain_store().clone();
-            let chain_config = ctx.state_manager.chain_config().clone();
             services.spawn(async move {
-                tracing::info!("Starting collector for eth_mappings");
-                let mut collector = EthMappingCollector::new(
-                    chain_store.blockstore().clone(),
-                    chain_config.eth_chain_id,
-                    retention_epochs.into(),
-                );
-                collector.run().await
+                tracing::info!("Starting indexer service");
+                // Continuously listen for head changes
+                loop {
+                    for ts in head_changes_rx.recv().await?.applies {
+                        tracing::debug!("Indexing tipset {}", ts.key());
+                        let delegated_messages =
+                            chain_store.headers_delegated_messages(ts.block_headers().iter())?;
+                        chain_store.process_signed_messages(&delegated_messages)?;
+                    }
+                }
+            });
+
+            // Run the collector only if chain indexer is enabled
+            if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
+                let chain_store = ctx.state_manager.chain_store().clone();
+                let chain_config = ctx.state_manager.chain_config().clone();
+                services.spawn(async move {
+                    tracing::info!("Starting collector for eth_mappings");
+                    let mut collector = EthMappingCollector::new(
+                        chain_store.blockstore().clone(),
+                        chain_config.eth_chain_id,
+                        retention_epochs.into(),
+                    );
+                    collector.run().await
+                });
+            }
+        }
+
+        // New SQLITE indexer
+        if let Some(indexer) = &ctx.chain_indexer {
+            services.spawn({
+                let head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
+                let indexer = indexer.clone();
+                async move {
+                    if let Err(e) = indexer.index_loop(head_changes_rx).await {
+                        tracing::warn!("indexer stopped unexpectedly: {e}");
+                    }
+                    Ok(())
+                }
+            });
+            services.spawn({
+                let indexer = indexer.clone();
+                async move {
+                    indexer.gc_loop().await;
+                    Ok(())
+                }
             });
         }
     }

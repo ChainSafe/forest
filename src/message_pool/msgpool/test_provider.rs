@@ -52,13 +52,13 @@ impl Default for TestApi {
 impl TestApi {
     /// Constructor for a `TestApi` with custom number of max pending messages
     pub fn with_max_actor_pending_messages(max_actor_pending_messages: u64) -> Self {
-        let (publisher, _) = broadcast::channel(1);
+        let (head_changes_tx, _) = broadcast::channel(1);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages,
                 ..TestApiInner::default()
             }),
-            head_changes_tx: publisher,
+            head_changes_tx,
         }
     }
 
