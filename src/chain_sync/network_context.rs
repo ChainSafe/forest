@@ -28,6 +28,7 @@ use crate::{
 };
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
+use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::future::Future;
 use tokio::sync::Semaphore;
@@ -152,13 +153,7 @@ where
         ts: &Tipset,
     ) -> Result<FullTipset, String> {
         let mut bundles: Vec<TipsetBundle> = self
-            .handle_chain_exchange_request(
-                peer_id,
-                ts.key(),
-                NonZeroU64::new(1).expect("Infallible"),
-                MESSAGES,
-                |_| true,
-            )
+            .handle_chain_exchange_request(peer_id, ts.key(), nonzero!(1_u64), MESSAGES, |_| true)
             .await?;
 
         if bundles.len() != 1 {
@@ -184,7 +179,7 @@ where
             .handle_chain_exchange_request(
                 peer_id,
                 tsk,
-                NonZeroU64::new(1).expect("Infallible"),
+                nonzero!(1_u64),
                 HEADERS | MESSAGES,
                 |_| true,
             )
@@ -207,7 +202,7 @@ where
         self.handle_chain_exchange_request(
             peer_id,
             tsk,
-            NonZeroU64::new(16).expect("Infallible"),
+            nonzero!(16_u64),
             HEADERS | MESSAGES,
             |_| true,
         )

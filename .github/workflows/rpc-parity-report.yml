@@ -60,7 +60,7 @@ jobs:
       - run: mise add_conformance_report
       - run: mise run docs:format
       # This is needed in order to have the commits signed.
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: generate-token
         with:
           app-id: ${{ secrets.LESHY_APP_ID }}
