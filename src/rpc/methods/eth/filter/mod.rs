@@ -38,7 +38,7 @@ use crate::rpc::types::{Event, EventEntry};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::{Entry, StampedEvent};
-use crate::state_manager::ExecutedMessage;
+use crate::state_manager::{ExecutedMessage, ExecutedTipset};
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Error, anyhow, bail, ensure};
@@ -269,14 +269,16 @@ impl EthEventHandler {
     ) -> anyhow::Result<()> {
         let height = tipset.epoch();
         let tipset_key = tipset.key();
-        let executed_tipset = ctx.state_manager.load_executed_tipset(tipset).await?;
+        let ExecutedTipset {
+            executed_messages, ..
+        } = ctx.state_manager.load_executed_tipset(tipset).await?;
         let mut event_count = 0;
         for (
             msg_idx,
             ExecutedMessage {
                 message, events, ..
             },
-        ) in executed_tipset.executed_messages.into_iter().enumerate()
+        ) in executed_messages.into_iter().enumerate()
         {
             if let Some(events) = events {
                 let event_idx_base = u64::try_from(event_count)?;

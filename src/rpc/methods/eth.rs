@@ -51,7 +51,7 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::{ExecutedMessage, ExecutedTipset, VMFlush};
+use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -912,7 +912,7 @@ async fn eth_get_balance<DB: Blockstore + Send + Sync + 'static>(
     ts: &Tipset,
 ) -> Result<EthBigInt> {
     let fil_addr = address.to_filecoin_address()?;
-    let ExecutedTipset { state_root, .. } = ctx.state_manager.load_executed_tipset(ts).await?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     match state_tree.get_actor(&fil_addr)? {
         Some(actor) => Ok(EthBigInt(actor.balance.atto().clone())),
@@ -2044,7 +2044,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let to_address = FilecoinAddress::try_from(eth_address)?;
-    let ExecutedTipset { state_root, .. } = ctx.state_manager.load_executed_tipset(ts).await?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     let Some(actor) = state_tree
         .get_actor(&to_address)
@@ -2137,7 +2137,7 @@ async fn get_storage_at<DB: Blockstore + Send + Sync + 'static>(
     position: EthBytes,
 ) -> Result<EthBytes, ServerError> {
     let to_address = FilecoinAddress::try_from(&eth_address)?;
-    let ExecutedTipset { state_root, .. } = ctx.state_manager.load_executed_tipset(&ts).await?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(&ts).await?;
     let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
     let Some(actor) = ctx
         .state_manager
@@ -2235,7 +2235,7 @@ async fn eth_get_transaction_count<B>(
 where
     B: Blockstore + Send + Sync + 'static,
 {
-    let ExecutedTipset { state_root, .. } = ctx.state_manager.load_executed_tipset(ts).await?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
 
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     let actor = match state_tree.get_actor(&addr)? {
@@ -3447,12 +3447,12 @@ impl RpcMethod<3> for EthTraceCall {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
 
-        let ExecutedTipset {
+        let TipsetState {
             state_root: pre_state_root,
             ..
         } = ctx
             .state_manager
-            .load_executed_tipset(&ts)
+            .load_tipset_state(&ts)
             .await
             .map_err(|e| anyhow::anyhow!("failed to get tipset state: {e}"))?;
         let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_state_root)?;

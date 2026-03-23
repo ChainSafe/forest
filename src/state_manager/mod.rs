@@ -110,16 +110,42 @@ impl GetSize for ExecutedMessage {
 }
 
 /// Aggregated execution result for a tipset.
-///
-/// `state_root` is the resulting state tree root after message execution
-/// and `executed_messages` contains per-message execution details.
 #[derive(Debug, Clone, GetSize)]
 pub struct ExecutedTipset {
+    /// Resulting state tree root after message execution
     #[get_size(ignore)]
     pub state_root: Cid,
+    /// Resulting message receipts root after message execution
     #[get_size(ignore)]
     pub receipt_root: Cid,
+    /// Per-message execution details.
     pub executed_messages: Vec<ExecutedMessage>,
+}
+
+/// Basic execution result for a tipset.
+#[derive(Debug, Clone, GetSize)]
+pub struct TipsetState {
+    /// Resulting state tree root after message execution
+    #[get_size(ignore)]
+    pub state_root: Cid,
+    /// Resulting message receipts root after message execution
+    #[get_size(ignore)]
+    pub receipt_root: Cid,
+}
+
+impl From<ExecutedTipset> for TipsetState {
+    fn from(
+        ExecutedTipset {
+            state_root,
+            receipt_root,
+            ..
+        }: ExecutedTipset,
+    ) -> Self {
+        Self {
+            state_root,
+            receipt_root,
+        }
+    }
 }
 
 /// External format for returning market balance from state.
@@ -398,6 +424,22 @@ impl<DB> StateManager<DB>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
+    /// Load the state of a tipset, including state root, message receipts
+    pub async fn load_tipset_state(self: &Arc<Self>, ts: &Tipset) -> anyhow::Result<TipsetState> {
+        if let Some(cached) = self.cache.get(ts.key()) {
+            Ok(cached.into())
+        } else {
+            if let Ok(receipt_ts) = self.chain_store().load_child_tipset(ts) {
+                Ok(TipsetState {
+                    state_root: *receipt_ts.parent_state(),
+                    receipt_root: *receipt_ts.parent_message_receipts(),
+                })
+            } else {
+                Ok(self.load_executed_tipset(ts).await?.into())
+            }
+        }
+    }
+
     /// Load an executed tipset, including state root, message receipts and events with caching.
     pub async fn load_executed_tipset(
         self: &Arc<Self>,
@@ -424,7 +466,6 @@ where
                 "message tipset should be the parent of message receipt tipset"
             );
         }
-        let messages = self.chain_store().messages_for_tipset(msg_ts)?;
         let mut recomputed = false;
         let (state_root, receipt_root, receipts) = match receipt_ts.and_then(|ts| {
             let receipt_root = *ts.parent_message_receipts();
@@ -445,6 +486,8 @@ where
                 )
             }
         };
+
+        let messages = self.chain_store().messages_for_tipset(msg_ts)?;
         anyhow::ensure!(
             messages.len() == receipts.len(),
             "mismatching message and receipt counts ({} messages, {} receipts)",
@@ -640,8 +683,8 @@ where
         vm_flush: VMFlush,
     ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
-        let ExecutedTipset { state_root, .. } = self
-            .load_executed_tipset(&ts)
+        let TipsetState { state_root, .. } = self
+            .load_tipset_state(&ts)
             .await
             .map_err(|e| Error::Other(format!("Could not load tipset state: {e}")))?;
         let chain_rand = self.chain_rand(ts.clone());
@@ -1369,7 +1412,7 @@ where
         }
 
         // If that fails, compute the tip-set and try again.
-        let ExecutedTipset { state_root, .. } = self.load_executed_tipset(ts).await?;
+        let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
         let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
 
         resolve_to_key_addr(&state, self.blockstore(), addr)
@@ -1627,7 +1670,7 @@ where
                 }
 
                 // If that fails, compute the tip-set and try again.
-                let ExecutedTipset { state_root, .. } = self.load_executed_tipset(ts).await?;
+                let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
                 let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
