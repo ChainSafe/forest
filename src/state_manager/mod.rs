@@ -427,17 +427,13 @@ where
 {
     /// Load the state of a tipset, including state root, message receipts
     pub async fn load_tipset_state(self: &Arc<Self>, ts: &Tipset) -> anyhow::Result<TipsetState> {
-        if let Some(cached) = self.cache.get(ts.key()) {
-            Ok(cached.into())
+        if let Ok(receipt_ts) = self.chain_store().load_child_tipset(ts) {
+            Ok(TipsetState {
+                state_root: *receipt_ts.parent_state(),
+                receipt_root: *receipt_ts.parent_message_receipts(),
+            })
         } else {
-            if let Ok(receipt_ts) = self.chain_store().load_child_tipset(ts) {
-                Ok(TipsetState {
-                    state_root: *receipt_ts.parent_state(),
-                    receipt_root: *receipt_ts.parent_message_receipts(),
-                })
-            } else {
-                Ok(self.load_executed_tipset(ts).await?.into())
-            }
+            Ok(self.load_executed_tipset(ts).await?.into())
         }
     }
 
