@@ -149,6 +149,21 @@ impl From<ExecutedTipset> for TipsetState {
     }
 }
 
+impl From<&ExecutedTipset> for TipsetState {
+    fn from(
+        ExecutedTipset {
+            state_root,
+            receipt_root,
+            ..
+        }: &ExecutedTipset,
+    ) -> Self {
+        Self {
+            state_root: *state_root,
+            receipt_root: *receipt_root,
+        }
+    }
+}
+
 /// External format for returning market balance from state.
 #[derive(
     Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema,
@@ -427,7 +442,9 @@ where
 {
     /// Load the state of a tipset, including state root, message receipts
     pub async fn load_tipset_state(self: &Arc<Self>, ts: &Tipset) -> anyhow::Result<TipsetState> {
-        if let Ok(receipt_ts) = self.chain_store().load_child_tipset(ts) {
+        if let Some(state) = self.cache.get_map(ts.key(), |et| et.into()) {
+            Ok(state)
+        } else if let Ok(receipt_ts) = self.chain_store().load_child_tipset(ts) {
             Ok(TipsetState {
                 state_root: *receipt_ts.parent_state(),
                 receipt_root: *receipt_ts.parent_message_receipts(),
