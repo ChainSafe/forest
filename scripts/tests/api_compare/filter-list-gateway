@@ -56,6 +56,3 @@
 !Filecoin.WalletSignMessage
 !Filecoin.WalletValidateAddress
 !Filecoin.WalletVerify
-
-# broken
-!Filecoin.EthGetFilterLogs
