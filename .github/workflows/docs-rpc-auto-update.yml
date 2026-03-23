@@ -16,7 +16,7 @@ jobs:
           cd docs/scripts
           ./generate-openrpc-specs.sh docker
       # This is needed in order to have the commits signed.
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: generate-token
         with:
           app-id: ${{ secrets.LESHY_APP_ID }}
