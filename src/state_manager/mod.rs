@@ -205,9 +205,9 @@ where
             let bundle_metadata = state.get_actor_bundle_metadata()?;
             if expected_bundle_metadata != bundle_metadata {
                 let current_epoch = head.epoch();
-                let target_head = self.chain_index().tipset_by_height(
+                let target_head = self.chain_store().tipset_by_height(
                     (expected_height_info.epoch - 1).max(0),
-                    head,
+                    None,
                     ResolveNullTipset::TakeOlder,
                 )?;
                 let target_epoch = target_head.epoch();
@@ -1602,8 +1602,8 @@ where
         let heaviest = self.heaviest_tipset();
         let heaviest_epoch = heaviest.epoch();
         let end = self
-            .chain_index()
-            .tipset_by_height(*epochs.end(), heaviest, ResolveNullTipset::TakeOlder)
+            .chain_store()
+            .tipset_by_height(*epochs.end(), None, ResolveNullTipset::TakeOlder)
             .with_context(|| {
                 format!(
             "couldn't get a tipset at height {} behind heaviest tipset at height {heaviest_epoch}",
@@ -1775,7 +1775,6 @@ where
     /// This is a performance optimization to avoid recomputing the state and receipt root by checking the blockstore.
     /// It only checks the immediate next epoch, as this is the most likely place to find a child.
     fn try_lookup_state_from_next_tipset(&self, ts: &Tipset) -> Option<StateOutput> {
-        // Check if the next tipset has the same parent
         if let Ok(child_ts) = self.chain_store().load_child_tipset(ts) {
             let state_root = *child_ts.parent_state();
             let receipt_root = *child_ts.parent_message_receipts();

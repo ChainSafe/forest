@@ -1536,19 +1536,17 @@ impl RpcMethod<2> for ForestStateCompute {
     ) -> Result<Self::Ok, ServerError> {
         let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
         let to_epoch = from_epoch + n_epochs - 1;
-        let to_ts = ctx.chain_index().tipset_by_height(
-            to_epoch,
-            ctx.chain_store().heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let to_ts =
+            ctx.chain_store()
+                .tipset_by_height(to_epoch, None, ResolveNullTipset::TakeOlder)?;
         let from_ts = if from_epoch >= to_ts.epoch() {
             // When `from_epoch` is a null epoch or `n_epochs` is 1,
             // `to_ts.epoch()` could be less than or equal to `from_epoch`
             to_ts.clone()
         } else {
-            ctx.chain_index().tipset_by_height(
+            ctx.chain_store().tipset_by_height(
                 from_epoch,
-                to_ts.clone(),
+                Some(to_ts.clone()),
                 ResolveNullTipset::TakeOlder,
             )?
         };

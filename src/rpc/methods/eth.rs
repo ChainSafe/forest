@@ -944,9 +944,7 @@ fn resolve_block_number_tipset<DB: Blockstore>(
     if height > head.epoch() - 1 {
         bail!("requested a future epoch (beyond \"latest\")");
     }
-    Ok(chain
-        .chain_index()
-        .tipset_by_height(height, head, resolve)?)
+    Ok(chain.tipset_by_height(height, None, resolve)?)
 }
 
 fn resolve_block_hash_tipset<DB: Blockstore>(
@@ -959,10 +957,7 @@ fn resolve_block_hash_tipset<DB: Blockstore>(
     // verify that the tipset is in the canonical chain
     if require_canonical {
         // walk up the current chain (our head) until we reach ts.epoch()
-        let walk_ts =
-            chain
-                .chain_index()
-                .tipset_by_height(ts.epoch(), chain.heaviest_tipset(), resolve)?;
+        let walk_ts = chain.tipset_by_height(ts.epoch(), None, resolve)?;
         // verify that it equals the expected tipset
         if walk_ts != ts {
             bail!("tipset is not canonical");
