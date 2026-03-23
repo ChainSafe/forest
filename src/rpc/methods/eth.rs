@@ -57,7 +57,7 @@ use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
-use crate::utils::misc::env::{env_or_default, is_env_truthy};
+use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
 use anyhow::{Context, Error, Result, anyhow, bail, ensure};

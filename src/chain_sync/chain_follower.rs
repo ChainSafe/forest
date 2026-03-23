@@ -31,7 +31,6 @@ use crate::{
     networks::calculate_expected_epoch,
     shim::clock::ChainEpoch,
     state_manager::StateManager,
-    utils::misc::env::is_env_truthy,
 };
 use ahash::{HashMap, HashSet};
 use chrono::Utc;
@@ -40,10 +39,7 @@ use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::PeerId;
 use parking_lot::{Mutex, RwLock};
-use std::{
-    sync::{Arc, LazyLock},
-    time::Instant,
-};
+use std::{sync::Arc, time::Instant};
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
@@ -93,15 +89,14 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         stateless_mode: bool,
         mem_pool: Arc<MessagePool<Arc<ChainStore<DB>>>>,
     ) -> Self {
-        static DISABLE_BAD_BLOCK_CACHE: LazyLock<bool> =
-            LazyLock::new(|| is_env_truthy("FOREST_DISABLE_BAD_BLOCK_CACHE"));
+        crate::def_is_env_truthy!(cache_disabled, "FOREST_DISABLE_BAD_BLOCK_CACHE");
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
         Self {
             sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
             state_manager,
             network,
             genesis,
-            bad_blocks: if *DISABLE_BAD_BLOCK_CACHE {
+            bad_blocks: if cache_disabled() {
                 tracing::warn!("bad block cache is disabled by `FOREST_DISABLE_BAD_BLOCK_CACHE`");
                 None
             } else {

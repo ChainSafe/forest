@@ -1,12 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fs, io, path::Path, sync::LazyLock};
+use std::{fs, io, path::Path};
 
 use memmap2::MmapAsRawDesc;
 use positioned_io::{RandomAccessFile, ReadAt, Size};
-
-use crate::utils::misc::env::is_env_truthy;
 
 /// Wrapper type of [`memmap2::Mmap`] that implements [`ReadAt`] and [`Size`]
 pub struct Mmap(memmap2::Mmap);
@@ -82,12 +80,8 @@ impl Size for EitherMmapOrRandomAccessFile {
     }
 }
 
-fn should_use_file_io() -> bool {
-    // Use mmap by default, switch to file-io when `FOREST_CAR_LOADER_FILE_IO` is set to `1` or `true`
-    static USE_FILE_IO: LazyLock<bool> =
-        LazyLock::new(|| is_env_truthy("FOREST_CAR_LOADER_FILE_IO"));
-    *USE_FILE_IO
-}
+// Use mmap by default, switch to file-io when `FOREST_CAR_LOADER_FILE_IO` is set to `1` or `true`
+crate::def_is_env_truthy!(should_use_file_io, "FOREST_CAR_LOADER_FILE_IO");
 
 #[cfg(test)]
 mod tests {

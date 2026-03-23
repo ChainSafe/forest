@@ -10,7 +10,6 @@ use crate::chain::Error;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::cache::SizeTrackingLruCache;
-use crate::utils::misc::env::is_env_truthy;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
@@ -52,9 +51,10 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
     /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Tipset>, Error> {
-        static CACHE_ENABLED: LazyLock<bool> =
-            LazyLock::new(|| !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED"));
-        if *CACHE_ENABLED && let Some(ts) = self.ts_cache.get_cloned(tsk) {
+        crate::def_is_env_truthy!(cache_disabled, "FOREST_TIPSET_CACHE_DISABLED");
+        if !cache_disabled()
+            && let Some(ts) = self.ts_cache.get_cloned(tsk)
+        {
             metrics::LRU_CACHE_HIT
                 .get_or_create(&metrics::values::TIPSET)
                 .inc();
@@ -62,7 +62,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         let ts_opt = Tipset::load(&self.db, tsk)?;
-        if *CACHE_ENABLED && let Some(ts) = &ts_opt {
+        if !cache_disabled()
+            && let Some(ts) = &ts_opt
+        {
             self.ts_cache.push(tsk.clone(), ts.clone());
             metrics::LRU_CACHE_MISS
                 .get_or_create(&metrics::values::TIPSET)

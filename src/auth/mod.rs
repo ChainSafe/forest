@@ -1,11 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::LazyLock;
-
 use crate::key_management::KeyInfo;
 use crate::shim::crypto::SignatureType;
-use crate::utils::misc::env::is_env_truthy;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, decode, encode, errors::Result as JWTResult};
 use rand::Rng;
@@ -44,11 +41,9 @@ pub fn create_token(perms: Vec<String>, key: &[u8], token_exp: Duration) -> JWTR
 
 /// Verify JWT Token and return the allowed permissions from token
 pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
-    static DISABLE_EXP_VALIDATION: LazyLock<bool> =
-        LazyLock::new(|| is_env_truthy("FOREST_JWT_DISABLE_EXP_VALIDATION"));
-
+    crate::def_is_env_truthy!(disable_exp_validation, "FOREST_JWT_DISABLE_EXP_VALIDATION");
     let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
-    if *DISABLE_EXP_VALIDATION {
+    if disable_exp_validation() {
         let mut claims = validation.required_spec_claims.clone();
         claims.remove("exp");
         let buff: Vec<_> = claims.iter().collect();
