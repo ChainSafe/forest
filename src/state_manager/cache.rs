@@ -121,8 +121,12 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
         }
     }
 
+    pub fn get_map<T>(&self, key: &TipsetKey, mapper: impl Fn(&V) -> T) -> Option<T> {
+        self.with_inner(|inner| inner.values.get_map(key, mapper))
+    }
+
     pub fn get(&self, key: &TipsetKey) -> Option<V> {
-        self.with_inner(|inner| inner.values.get_cloned(key))
+        self.get_map(key, Clone::clone)
     }
 
     pub fn insert(&self, key: TipsetKey, value: V) {
