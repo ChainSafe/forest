@@ -129,6 +129,7 @@ pub struct TipsetState {
     #[get_size(ignore)]
     pub state_root: Cid,
     /// Resulting message receipts root after message execution
+    #[allow(dead_code)]
     #[get_size(ignore)]
     pub receipt_root: Cid,
 }
