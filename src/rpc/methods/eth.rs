@@ -931,7 +931,7 @@ fn get_tipset_from_hash<DB: Blockstore>(
     block_hash: &EthHash,
 ) -> anyhow::Result<Tipset> {
     let tsk = chain_store.get_required_tipset_key(block_hash)?;
-    Tipset::load_required(chain_store.blockstore(), &tsk)
+    Ok(chain_store.chain_index().load_required_tipset(&tsk)?)
 }
 
 fn resolve_block_number_tipset<DB: Blockstore>(

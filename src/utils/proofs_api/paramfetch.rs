@@ -135,6 +135,9 @@ async fn fetch_verify_params(
     name: &str,
     info: Arc<ParameterData>,
 ) -> Result<(), anyhow::Error> {
+    static FORCE_IPFS_GATEWAY: LazyLock<bool> =
+        LazyLock::new(|| is_env_truthy(PROOFS_ONLY_IPFS_GATEWAY_ENV));
+
     let path: PathBuf = param_dir(data_dir).join(name);
 
     match check_parameter_file(&path, &info).await {
@@ -150,7 +153,7 @@ async fn fetch_verify_params(
         }
     }
 
-    if is_env_truthy(PROOFS_ONLY_IPFS_GATEWAY_ENV) {
+    if *FORCE_IPFS_GATEWAY {
         fetch_params_ipfs_gateway(&path, &info).await?;
     } else if let Err(e) = fetch_params_cloudflare(name, &path).await {
         warn!("Failed to fetch param file from Cloudflare R2: {e:?}. Falling back to IPFS gateway",);

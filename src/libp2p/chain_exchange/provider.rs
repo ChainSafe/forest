@@ -44,9 +44,8 @@ where
             }
         };
 
-        let chain: Vec<_> = cs
-            .chain_index()
-            .chain(root)
+        let chain: Vec<_> = root
+            .chain(cs.blockstore())
             .take(request.request_len as _)
             .map(|tipset| {
                 let mut tipset_bundle: TipsetBundle = TipsetBundle::default();

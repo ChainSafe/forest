@@ -519,8 +519,9 @@ impl RpcMethod<1> for Finalize {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // Respect the environment variable when set, and fallback to chain config when not set.
-        let enabled = is_env_set_and_truthy("FOREST_F3_CONSENSUS_ENABLED")
-            .unwrap_or(ctx.chain_config().f3_consensus);
+        static ENV_ENABLED: LazyLock<Option<bool>> =
+            LazyLock::new(|| is_env_set_and_truthy("FOREST_F3_CONSENSUS_ENABLED"));
+        let enabled = ENV_ENABLED.unwrap_or(ctx.chain_config().f3_consensus);
         if !enabled {
             return Ok(());
         }

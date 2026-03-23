@@ -40,7 +40,10 @@ use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::PeerId;
 use parking_lot::{Mutex, RwLock};
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::{Arc, LazyLock},
+    time::Instant,
+};
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
@@ -90,14 +93,15 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         stateless_mode: bool,
         mem_pool: Arc<MessagePool<Arc<ChainStore<DB>>>>,
     ) -> Self {
+        static DISABLE_BAD_BLOCK_CACHE: LazyLock<bool> =
+            LazyLock::new(|| is_env_truthy("FOREST_DISABLE_BAD_BLOCK_CACHE"));
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
-        let disable_bad_block_cache = is_env_truthy("FOREST_DISABLE_BAD_BLOCK_CACHE");
         Self {
             sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
             state_manager,
             network,
             genesis,
-            bad_blocks: if disable_bad_block_cache {
+            bad_blocks: if *DISABLE_BAD_BLOCK_CACHE {
                 tracing::warn!("bad block cache is disabled by `FOREST_DISABLE_BAD_BLOCK_CACHE`");
                 None
             } else {

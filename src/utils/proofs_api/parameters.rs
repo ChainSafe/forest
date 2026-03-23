@@ -9,6 +9,7 @@ use std::{
     fs::File as SyncFile,
     io::{self, BufReader as SyncBufReader, copy as sync_copy},
     path::{Path, PathBuf},
+    sync::LazyLock,
 };
 
 use ahash::HashMap;
@@ -52,7 +53,10 @@ pub(super) struct ParameterData {
 /// Ensures the parameter file is downloaded and has the correct checksum.
 /// This behavior can be disabled by setting the [`FOREST_FORCE_TRUST_PARAMS_ENV`] environment variable to 1.
 pub(super) async fn check_parameter_file(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
-    if is_env_truthy(FOREST_FORCE_TRUST_PARAMS_ENV) {
+    static FORCE_TRUST_PARAMS: LazyLock<bool> =
+        LazyLock::new(|| is_env_truthy(FOREST_FORCE_TRUST_PARAMS_ENV));
+
+    if *FORCE_TRUST_PARAMS {
         warn!("Assuming parameter files are okay. Do not use in production!");
         return Ok(());
     }
