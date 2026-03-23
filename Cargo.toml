@@ -228,6 +228,7 @@ unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 walkdir = "2"
+zerocopy = "0.8"
 zstd = "0.13"
 
 # optional dependencies

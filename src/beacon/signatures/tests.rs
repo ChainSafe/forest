@@ -1,11 +1,33 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::*;
 use crate::beacon::BeaconEntry;
 use bls_signatures::Serialize as _;
 use itertools::Itertools;
+use rstest::rstest;
 
-use super::*;
+#[rstest]
+#[case("")]
+#[case("aa")]
+#[case(
+    "a7b0877eaea7a0222f4c39a2c03434c34f5fe3ea47c533d24b88e5c3053b84775ccb78e984addcb55173f40428513f280cc6e0fccc3c89bb1625c7c0b477deb6faae43fc6ec036f09233bf38da16586b3042dd01a7e9ed97c8bafa343cc6071eaa"
+)]
+fn signature_from_bytes_invalid(#[case] sig_hex: &str) {
+    let err = SignatureOnG2::from_bytes(&hex::decode(sig_hex).unwrap()).unwrap_err();
+    assert!(matches!(err, Error::SizeMismatch));
+}
+
+#[rstest]
+#[case("")]
+#[case("aa")]
+#[case(
+    "a7b0877eaea7a0222f4c39a2c03434c34f5fe3ea47c533d24b88e5c3053b84775ccb78e984addcb55173f40428513f280cc6e0fccc3c89bb1625c7c0b477deb6faae43fc6ec036f09233bf38da16586b3042dd01a7e9ed97c8bafa343cc6071eaa"
+)]
+fn pk_from_bytes_invalid(#[case] sig_hex: &str) {
+    let err = SignatureOnG1::from_bytes(&hex::decode(sig_hex).unwrap()).unwrap_err();
+    assert!(matches!(err, Error::SizeMismatch));
+}
 
 mod quicknet {
     use super::*;
