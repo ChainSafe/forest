@@ -163,23 +163,25 @@ where
             .set_heaviest_tipset_key(head.key())?;
         let old_head = std::mem::replace(&mut *self.heaviest_tipset_cache.write(), head.clone());
 
-        let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key()) {
-            Ok(changes) => changes,
-            Err(e) => {
-                // Do not warn when the old head is genesis
-                if old_head.epoch() > 0 {
-                    error!("failed to get chain path changes: {e}");
+        if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
+            let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
+            {
+                Ok(changes) => changes,
+                Err(e) => {
+                    // Do not warn when the old head is genesis
+                    if old_head.epoch() > 0 {
+                        error!("failed to get chain path changes: {e}");
+                    }
+                    // Fallback to single apply
+                    PathChanges {
+                        applies: vec![head],
+                        reverts: vec![],
+                    }
                 }
-                // Fallback to single apply
-                PathChanges {
-                    applies: vec![head],
-                    reverts: vec![],
-                }
+            };
+            if self.head_changes_tx.send(changes).is_err() {
+                debug!("did not publish changes, no active receivers");
             }
-        };
-
-        if self.head_changes_tx.send(changes).is_err() {
-            debug!("did not publish changes, no active receivers");
         }
 
         Ok(())

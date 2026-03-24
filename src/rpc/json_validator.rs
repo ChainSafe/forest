@@ -10,24 +10,7 @@ use ahash::HashSet;
 
 pub const STRICT_JSON_ENV: &str = "FOREST_STRICT_JSON";
 
-#[cfg(not(test))]
-use std::sync::LazyLock;
-
-#[cfg(not(test))]
-static STRICT_MODE: LazyLock<bool> =
-    LazyLock::new(|| crate::utils::misc::env::is_env_truthy(STRICT_JSON_ENV));
-
-#[inline]
-pub fn is_strict_mode() -> bool {
-    #[cfg(test)]
-    {
-        crate::utils::misc::env::is_env_truthy(STRICT_JSON_ENV)
-    }
-    #[cfg(not(test))]
-    {
-        *STRICT_MODE
-    }
-}
+crate::def_is_env_truthy!(is_strict_mode, STRICT_JSON_ENV);
 
 /// validates JSON for duplicate keys by parsing at the token level.
 pub fn validate_json_for_duplicates(json_str: &str) -> Result<(), String> {

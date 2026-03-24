@@ -41,8 +41,10 @@ use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
+use nonzero_ext::nonzero;
 use num::Signed as _;
 use parking_lot::RwLock;
+use std::num::NonZeroUsize;
 use std::{
     borrow::Cow,
     fmt::Display,
@@ -166,12 +168,9 @@ impl GetPowerTable {
         ts: &Tipset,
     ) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
-        const BLOCKSTORE_CACHE_CAP: usize = 65536;
+        const BLOCKSTORE_CACHE_CAP: NonZeroUsize = nonzero!(65536_usize);
         static BLOCKSTORE_CACHE: LazyLock<LruBlockstoreReadCache> = LazyLock::new(|| {
-            LruBlockstoreReadCache::new_with_metrics(
-                "get_powertable".into(),
-                BLOCKSTORE_CACHE_CAP.try_into().expect("Infallible"),
-            )
+            LruBlockstoreReadCache::new_with_metrics("get_powertable".into(), BLOCKSTORE_CACHE_CAP)
         });
         let db = BlockstoreWithReadCache::new(
             ctx.store_owned(),
@@ -520,8 +519,9 @@ impl RpcMethod<1> for Finalize {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // Respect the environment variable when set, and fallback to chain config when not set.
-        let enabled = is_env_set_and_truthy("FOREST_F3_CONSENSUS_ENABLED")
-            .unwrap_or(ctx.chain_config().f3_consensus);
+        static ENV_ENABLED: LazyLock<Option<bool>> =
+            LazyLock::new(|| is_env_set_and_truthy("FOREST_F3_CONSENSUS_ENABLED"));
+        let enabled = ENV_ENABLED.unwrap_or(ctx.chain_config().f3_consensus);
         if !enabled {
             return Ok(());
         }
@@ -531,7 +531,7 @@ impl RpcMethod<1> for Finalize {
             Some(ts) => ts,
             None => ctx
                 .sync_network_context
-                .chain_exchange_headers(None, &tsk, 1.try_into().expect("Infallible"))
+                .chain_exchange_headers(None, &tsk, nonzero!(1_u64))
                 .await?
                 .first()
                 .cloned()

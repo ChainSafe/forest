@@ -57,7 +57,7 @@ use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
-use crate::utils::misc::env::{env_or_default, is_env_truthy};
+use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
 use anyhow::{Context, Error, Result, anyhow, bail, ensure};
@@ -931,7 +931,7 @@ fn get_tipset_from_hash<DB: Blockstore>(
     block_hash: &EthHash,
 ) -> anyhow::Result<Tipset> {
     let tsk = chain_store.get_required_tipset_key(block_hash)?;
-    Tipset::load_required(chain_store.blockstore(), &tsk)
+    Ok(chain_store.chain_index().load_required_tipset(&tsk)?)
 }
 
 fn resolve_block_number_tipset<DB: Blockstore>(
