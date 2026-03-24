@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas::estimate_message_gas;
+use crate::eth::{EthEip1559TxArgsBuilder, EthTx};
 use crate::lotus_json::NotNullVec;
 use crate::message::SignedMessage;
 use crate::rpc::error::ServerError;
@@ -9,6 +10,7 @@ use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::{
     address::{Address, Protocol},
+    crypto::SignatureType,
     message::Message,
 };
 use ahash::{HashSet, HashSetExt as _};
@@ -39,8 +41,8 @@ impl RpcMethod<1> for MpoolGetNonce {
             .state_manager
             .resolve_to_key_addr(&address, &heaviest_tipset)
             .await?;
-        let n_pool = ctx.mpool.get_sequence(&key_addr)?;
-        Ok(ctx.nonce_store.next_nonce(&key_addr, n_pool)?)
+        let seq = ctx.mpool.get_sequence(&key_addr)?;
+        Ok(ctx.nonce_store.next_nonce(&key_addr, seq)?)
     }
 }
 
@@ -287,23 +289,39 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         let _push_guard = ctx.nonce_store.lock_sender(&key_addr).await;
 
-        let n_pool = ctx.mpool.get_sequence(&key_addr)?;
-        let nonce = ctx.nonce_store.next_nonce(&key_addr, n_pool)?;
+        let seq = ctx.mpool.get_sequence(&key_addr)?;
+        let nonce = ctx.nonce_store.next_nonce(&key_addr, seq)?;
         message.sequence = nonce;
         let key = crate::key_management::Key::try_from(crate::key_management::try_find(
             &key_addr,
             &mut ctx.keystore.as_ref().write(),
         )?)?;
-        let sig = crate::key_management::sign(
-            *key.key_info.key_type(),
-            key.key_info.private_key(),
-            message.cid().to_bytes().as_slice(),
-        )?;
-
-        let smsg = SignedMessage::new_from_parts(message, sig)?;
+        let sig_type = *key.key_info.key_type();
+        let smsg = if sig_type == SignatureType::Delegated {
+            let eth_chain_id = ctx.chain_config().eth_chain_id;
+            let eth_tx_args = EthEip1559TxArgsBuilder::default()
+                .chain_id(eth_chain_id)
+                .unsigned_message(&message)?
+                .build()
+                .map_err(anyhow::Error::from)?;
+            let eth_tx = EthTx::from(eth_tx_args);
+            let sig = crate::key_management::sign(
+                sig_type,
+                key.key_info.private_key(),
+                &eth_tx.rlp_unsigned_message(eth_chain_id)?,
+            )?;
+            let unsigned_msg = eth_tx.get_unsigned_message(from, eth_chain_id)?;
+            SignedMessage::new_unchecked(unsigned_msg, sig)
+        } else {
+            let sig = crate::key_management::sign(
+                sig_type,
+                key.key_info.private_key(),
+                message.cid().to_bytes().as_slice(),
+            )?;
+            SignedMessage::new_from_parts(message, sig)?
+        };
 
         ctx.mpool.as_ref().push(smsg.clone()).await?;
-
         ctx.nonce_store.save_nonce(&key_addr, nonce + 1)?;
 
         Ok(smsg)
