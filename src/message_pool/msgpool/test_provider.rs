@@ -10,7 +10,7 @@ use crate::blocks::{
 };
 use crate::chain::HeadChanges;
 use crate::cid_collections::CidHashMap;
-use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use crate::message::{ChainMessage, MessageRead as _, SignedMessage};
 use crate::message_pool::{Error, provider::Provider};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use ahash::HashMap;

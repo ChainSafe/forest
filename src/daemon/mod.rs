@@ -399,7 +399,6 @@ fn maybe_start_rpc_service(
             let tipset_send = chain_follower.tipset_sender.clone();
             let keystore = ctx.keystore.clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
-            let msgs_in_tipset = Arc::new(crate::chain::MsgsInTipsetCache::default());
             async move {
                 let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
                     .await
@@ -413,7 +412,6 @@ fn maybe_start_rpc_service(
                         keystore,
                         mpool,
                         bad_blocks,
-                        msgs_in_tipset,
                         sync_status,
                         eth_event_handler,
                         sync_network_context,

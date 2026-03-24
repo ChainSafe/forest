@@ -12,9 +12,10 @@ use fvm_ipld_encoding::RawBytes;
 use num::Zero;
 pub use signed_message::SignedMessage;
 
-/// Message interface to interact with Signed and unsigned messages in a generic
+/// Message interface to make read-only interactions with Signed and unsigned messages in a generic
 /// context.
-pub trait Message {
+#[auto_impl::auto_impl(&, Arc)]
+pub trait MessageRead {
     /// Returns the from address of the message.
     fn from(&self) -> Address;
     /// Returns the destination address of the message.
@@ -27,10 +28,6 @@ pub trait Message {
     fn method_num(&self) -> MethodNum;
     /// Returns the encoded parameters for the method call.
     fn params(&self) -> &RawBytes;
-    /// sets the gas limit for the message.
-    fn set_gas_limit(&mut self, amount: u64);
-    /// sets a new sequence to the message.
-    fn set_sequence(&mut self, sequence: u64);
     /// Returns the gas limit for the message.
     fn gas_limit(&self) -> u64;
     /// Returns the required funds for the message.
@@ -39,10 +36,6 @@ pub trait Message {
     fn gas_fee_cap(&self) -> TokenAmount;
     /// gets gas premium for the message.
     fn gas_premium(&self) -> TokenAmount;
-    /// sets the gas fee cap.
-    fn set_gas_fee_cap(&mut self, cap: TokenAmount);
-    /// sets the gas premium.
-    fn set_gas_premium(&mut self, prem: TokenAmount);
     /// This method returns the effective gas premium claimable by the miner
     /// given the supplied base fee. This method is not used anywhere except the `Eth` API.
     ///
@@ -56,7 +49,20 @@ pub trait Message {
     }
 }
 
-impl Message for ShimMessage {
+/// Message interface to interact with Signed and unsigned messages in a generic
+/// context.
+pub trait Message: MessageRead {
+    /// sets the gas limit for the message.
+    fn set_gas_limit(&mut self, amount: u64);
+    /// sets a new sequence to the message.
+    fn set_sequence(&mut self, sequence: u64);
+    /// sets the gas fee cap.
+    fn set_gas_fee_cap(&mut self, cap: TokenAmount);
+    /// sets the gas premium.
+    fn set_gas_premium(&mut self, prem: TokenAmount);
+}
+
+impl MessageRead for ShimMessage {
     fn from(&self) -> Address {
         self.from
     }
@@ -78,12 +84,6 @@ impl Message for ShimMessage {
     fn gas_limit(&self) -> u64 {
         self.gas_limit
     }
-    fn set_gas_limit(&mut self, token_amount: u64) {
-        self.gas_limit = token_amount;
-    }
-    fn set_sequence(&mut self, new_sequence: u64) {
-        self.sequence = new_sequence;
-    }
     fn required_funds(&self) -> TokenAmount {
         &self.gas_fee_cap * self.gas_limit
     }
@@ -93,11 +93,18 @@ impl Message for ShimMessage {
     fn gas_premium(&self) -> TokenAmount {
         self.gas_premium.clone()
     }
+}
 
+impl Message for ShimMessage {
+    fn set_gas_limit(&mut self, token_amount: u64) {
+        self.gas_limit = token_amount;
+    }
+    fn set_sequence(&mut self, new_sequence: u64) {
+        self.sequence = new_sequence;
+    }
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
         self.gas_fee_cap = cap;
     }
-
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         self.gas_premium = prem;
     }

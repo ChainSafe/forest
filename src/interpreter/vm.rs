@@ -12,7 +12,7 @@ use crate::interpreter::{
     fvm4::ForestExterns as ForestExternsV4,
 };
 use crate::message::ChainMessage;
-use crate::message::Message as MessageTrait;
+use crate::message::MessageRead as _;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::actors::{AwardBlockRewardParams, cron, reward};
 use crate::shim::{
@@ -115,14 +115,8 @@ impl BlockMessages {
                 let (usm, sm) = block_messages(db, b)?;
 
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
-                messages.extend(
-                    usm.into_iter()
-                        .filter_map(|m| select_msg(ChainMessage::Unsigned(m))),
-                );
-                messages.extend(
-                    sm.into_iter()
-                        .filter_map(|m| select_msg(ChainMessage::Signed(m))),
-                );
+                messages.extend(usm.into_iter().filter_map(|m| select_msg(m.into())));
+                messages.extend(sm.into_iter().filter_map(|m| select_msg(m.into())));
 
                 Ok(BlockMessages {
                     miner: b.miner_address,
@@ -336,7 +330,7 @@ where
         if let Some(mut callback) = callback {
             callback(MessageCallbackCtx {
                 cid: cron_msg.cid(),
-                message: &ChainMessage::Unsigned(cron_msg),
+                message: &cron_msg.into(),
                 apply_ret: &ret,
                 at: CalledAt::Cron,
                 duration,
@@ -421,7 +415,7 @@ where
                 if let Some(callback) = &mut callback {
                     callback(MessageCallbackCtx {
                         cid: rew_msg.cid(),
-                        message: &ChainMessage::Unsigned(rew_msg),
+                        message: &rew_msg.into(),
                         apply_ret: &ret,
                         at: CalledAt::Reward,
                         duration,
