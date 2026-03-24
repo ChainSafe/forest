@@ -735,6 +735,7 @@ lotus_json_with_self!(StateDiff);
 mod tests {
     use super::*;
     use num_bigint::BigInt;
+    use rstest::rstest;
 
     #[test]
     fn test_changed_type_serialization() {
@@ -1005,58 +1006,40 @@ mod tests {
         assert!(!cfg.is_storage_disabled());
     }
 
-    #[test]
-    fn test_geth_call_type_from_parity_call_type() {
-        assert_eq!(
-            GethCallType::from_parity_call_type("staticcall"),
-            GethCallType::StaticCall
-        );
-        assert_eq!(
-            GethCallType::from_parity_call_type("delegatecall"),
-            GethCallType::DelegateCall
-        );
-        assert_eq!(
-            GethCallType::from_parity_call_type("call"),
-            GethCallType::Call
-        );
-        // Unknown types default to Call
-        assert_eq!(
-            GethCallType::from_parity_call_type("unknown"),
-            GethCallType::Call
-        );
-        assert_eq!(GethCallType::from_parity_call_type(""), GethCallType::Call);
+    #[rstest]
+    #[case("staticcall", GethCallType::StaticCall)]
+    #[case("delegatecall", GethCallType::DelegateCall)]
+    #[case("call", GethCallType::Call)]
+    #[case("unknown", GethCallType::Call)]
+    #[case("", GethCallType::Call)]
+    fn test_geth_call_type_from_parity_call_type(
+        #[case] input: &str,
+        #[case] expected: GethCallType,
+    ) {
+        assert_eq!(GethCallType::from_parity_call_type(input), expected);
     }
 
-    #[test]
-    fn test_geth_call_type_is_static_call() {
-        assert!(GethCallType::StaticCall.is_static_call());
-        assert!(!GethCallType::Call.is_static_call());
-        assert!(!GethCallType::DelegateCall.is_static_call());
-        assert!(!GethCallType::Create.is_static_call());
-        assert!(!GethCallType::Create2.is_static_call());
+    #[rstest]
+    #[case(GethCallType::StaticCall, true)]
+    #[case(GethCallType::Call, false)]
+    #[case(GethCallType::DelegateCall, false)]
+    #[case(GethCallType::Create, false)]
+    #[case(GethCallType::Create2, false)]
+    fn test_geth_call_type_is_static_call(#[case] call_type: GethCallType, #[case] expected: bool) {
+        assert_eq!(call_type.is_static_call(), expected);
     }
-    #[test]
-    fn test_geth_call_type_serialization() {
-        assert_eq!(
-            serde_json::to_string(&GethCallType::Call).unwrap(),
-            r#""CALL""#
-        );
-        assert_eq!(
-            serde_json::to_string(&GethCallType::StaticCall).unwrap(),
-            r#""STATICCALL""#
-        );
-        assert_eq!(
-            serde_json::to_string(&GethCallType::DelegateCall).unwrap(),
-            r#""DELEGATECALL""#
-        );
-        assert_eq!(
-            serde_json::to_string(&GethCallType::Create).unwrap(),
-            r#""CREATE""#
-        );
-        assert_eq!(
-            serde_json::to_string(&GethCallType::Create2).unwrap(),
-            r#""CREATE2""#
-        );
+
+    #[rstest]
+    #[case(GethCallType::Call, r#""CALL""#)]
+    #[case(GethCallType::StaticCall, r#""STATICCALL""#)]
+    #[case(GethCallType::DelegateCall, r#""DELEGATECALL""#)]
+    #[case(GethCallType::Create, r#""CREATE""#)]
+    #[case(GethCallType::Create2, r#""CREATE2""#)]
+    fn test_geth_call_type_serialization(
+        #[case] call_type: GethCallType,
+        #[case] expected_json: &str,
+    ) {
+        assert_eq!(serde_json::to_string(&call_type).unwrap(), expected_json);
     }
 
     #[test]
