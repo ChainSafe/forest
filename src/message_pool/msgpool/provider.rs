@@ -84,7 +84,10 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
     fn get_state_nonce(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error> {
         let state = StateTree::new_from_root(self.blockstore().clone(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
-        let mut next = state.get_required_actor(addr)?.sequence;
+        let Some(actor) = state.get_actor(addr)? else {
+            return Ok(0);
+        };
+        let mut next = actor.sequence;
         let sender_id = state
             .lookup_required_id(addr)
             .map_err(|e| Error::Other(e.to_string()))?;

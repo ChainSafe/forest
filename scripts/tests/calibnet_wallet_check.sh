@@ -18,7 +18,7 @@ forest_wallet_init "$@"
 # MARKET_FIL_AMT="23"
 # 
 # # The preloaded address
-# REMOTE_ADDR=$($FOREST_WALLET_PATH --remote-wallet list | tail -1 | cut -d ' ' -f1)
+# REMOTE_ADDR=$($FOREST_WALLET_PATH --remote-wallet list | tail -1 | cut -d ' ' -f2)
 # 
 # JSON=$(curl -s -X POST "$FOREST_URL" \
 #   --header 'Accept: application/json' \
@@ -73,7 +73,7 @@ FIL_AMT="500 atto FIL"
 FIL_ZERO="0 FIL"
 
 # The preloaded address
-ADDR_ONE=$($FOREST_WALLET_PATH list | tail -1 | cut -d ' ' -f1)
+ADDR_ONE=$($FOREST_WALLET_PATH list | tail -1 | cut -d ' ' -f2)
 
 sleep 5s
 

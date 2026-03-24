@@ -15,7 +15,7 @@ FIL_AMT="500 atto FIL"
 FIL_ZERO="0 FIL"
 
 # The preloaded address
-ADDR_ONE=$($FOREST_WALLET_PATH list | tail -1 | cut -d ' ' -f1)
+ADDR_ONE=$($FOREST_WALLET_PATH list | tail -1 | cut -d ' ' -f2)
 
 sleep 5s
 
