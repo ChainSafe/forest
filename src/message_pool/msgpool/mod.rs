@@ -28,7 +28,7 @@ use utils::{get_base_fee_lower_bound, recover_sig};
 use super::errors::Error;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
-    msg_pool::{MsgSet, TrustPolicy, add_helper, remove, resolve_to_key},
+    msg_pool::{MsgSet, TrustPolicy, add_helper, get_state_sequence, remove, resolve_to_key},
     provider::Provider,
 };
 
@@ -39,18 +39,6 @@ const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const MIN_GAS: u64 = 1298450;
-
-/// Get the state of the `base_sequence` for a given address in the current
-/// Tipset
-fn get_state_sequence<T>(api: &T, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error>
-where
-    T: Provider,
-{
-    let actor = api.get_actor_after(addr, cur_ts)?;
-    let base_sequence = actor.sequence;
-
-    Ok(base_sequence)
-}
 
 #[allow(clippy::too_many_arguments)]
 async fn republish_pending_messages<T>(
@@ -306,7 +294,7 @@ where
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
             let cur_ts = cur_tipset.read().clone();
-            let sequence = get_state_sequence(api, &msg.from(), &cur_ts)?;
+            let sequence = get_state_sequence(api, key_cache, &msg.from(), &cur_ts)?;
             if let Err(e) = add_helper(
                 api,
                 bls_sig_cache,

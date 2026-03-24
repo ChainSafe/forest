@@ -275,6 +275,30 @@ pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
     Ok(resolved)
 }
 
+/// Get the state nonce for an address, accounting for messages already included in `cur_ts`.
+pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
+    api: &T,
+    key_cache: &SizeTrackingLruCache<Address, Address>,
+    addr: &Address,
+    cur_ts: &Tipset,
+) -> Result<u64, Error> {
+    let actor = api.get_actor_after(addr, cur_ts)?;
+    let mut next_nonce = actor.sequence;
+
+    let resolved = resolve_to_key(api, key_cache, addr, cur_ts)?;
+    let messages = api.messages_for_tipset(cur_ts)?;
+    for msg in &messages {
+        let from = resolve_to_key(api, key_cache, &msg.from(), cur_ts).unwrap_or(msg.from());
+        if from == resolved {
+            let n = msg.sequence() + 1;
+            if n > next_nonce {
+                next_nonce = n;
+            }
+        }
+    }
+    Ok(next_nonce)
+}
+
 impl<T> MessagePool<T>
 where
     T: Provider,
@@ -475,8 +499,7 @@ where
 
     /// Get the state of the sequence for a given address in `cur_ts`.
     fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        let actor = self.api.get_actor_after(addr, cur_ts)?;
-        Ok(actor.sequence)
+        get_state_sequence(self.api.as_ref(), self.key_cache.as_ref(), addr, cur_ts)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied
@@ -816,10 +839,12 @@ mod tests {
     use super::*;
     use crate::shim::message::Message as ShimMessage;
 
-    fn make_smsg(seq: u64, premium: u64) -> SignedMessage {
+    fn make_smsg(from: Address, seq: u64, premium: u64) -> SignedMessage {
         SignedMessage::mock_bls_signed_message(ShimMessage {
+            from: from.into(),
             sequence: seq,
             gas_premium: TokenAmount::from_atto(premium),
+            gas_limit: 1_000_000,
             ..ShimMessage::default()
         })
     }
@@ -862,17 +887,17 @@ mod tests {
 
         // Fill up to capacity (10 messages)
         for i in 0..10 {
-            let res = mset.add_trusted(&api, make_smsg(i, 100), false);
+            let res = mset.add_trusted(&api, make_smsg(Address::default(), i, 100), false);
             assert!(res.is_ok(), "Failed to add message {}: {:?}", i, res);
         }
 
         // Should reject adding a NEW message (sequence 10) when at capacity
-        let res = mset.add_trusted(&api, make_smsg(10, 100), false);
+        let res = mset.add_trusted(&api, make_smsg(Address::default(), 10, 100), false);
         assert!(matches!(res, Err(Error::TooManyPendingMessages(_, _))));
 
         // Should ALLOW replacing an existing message (RBF) even when at capacity
         // Replace message with sequence 5 with higher gas premium
-        let res = mset.add_trusted(&api, make_smsg(5, 200), false);
+        let res = mset.add_trusted(&api, make_smsg(Address::default(), 5, 200), false);
         assert!(res.is_ok(), "RBF should be allowed at capacity: {:?}", res);
     }
 
@@ -1013,13 +1038,16 @@ mod tests {
         let api = TestApi::default();
         let mut mset = MsgSet::new(0);
 
-        mset.add_trusted(&api, make_smsg(0, 100), false).unwrap();
+        mset.add_trusted(&api, make_smsg(Address::default(), 0, 100), false)
+            .unwrap();
         assert_eq!(mset.next_sequence, 1);
 
-        mset.add_trusted(&api, make_smsg(2, 100), false).unwrap();
+        mset.add_trusted(&api, make_smsg(Address::default(), 2, 100), false)
+            .unwrap();
         assert_eq!(mset.next_sequence, 1, "gap at 1, so next_sequence stays");
 
-        mset.add_trusted(&api, make_smsg(1, 100), false).unwrap();
+        mset.add_trusted(&api, make_smsg(Address::default(), 1, 100), false)
+            .unwrap();
         assert_eq!(
             mset.next_sequence, 3,
             "filling the gap should advance past all consecutive messages"
@@ -1031,8 +1059,9 @@ mod tests {
         let api = TestApi::default();
         let mut mset = MsgSet::new(0);
 
-        mset.add_trusted(&api, make_smsg(0, 100), false).unwrap();
-        let res = mset.add_trusted(&api, make_smsg(10, 100), false);
+        mset.add_trusted(&api, make_smsg(Address::default(), 0, 100), false)
+            .unwrap();
+        let res = mset.add_trusted(&api, make_smsg(Address::default(), 10, 100), false);
         assert!(
             res.is_ok(),
             "trusted adds skip nonce gap enforcement (strict=false)"
@@ -1045,8 +1074,9 @@ mod tests {
         let mut mset = MsgSet::new(0);
 
         // strict=true, trusted=true -> max_nonce_gap=4 (gossipsub path)
-        mset.add(&api, make_smsg(0, 100), true, true).unwrap();
-        let res = mset.add(&api, make_smsg(3, 100), true, true);
+        mset.add(&api, make_smsg(Address::default(), 0, 100), true, true)
+            .unwrap();
+        let res = mset.add(&api, make_smsg(Address::default(), 3, 100), true, true);
         assert!(
             res.is_ok(),
             "strict+trusted: gap of 2 (within MAX_NONCE_GAP=4) should succeed"
@@ -1059,8 +1089,9 @@ mod tests {
         let mut mset = MsgSet::new(0);
 
         // strict=true, trusted=true -> max_nonce_gap=4
-        mset.add(&api, make_smsg(0, 100), true, true).unwrap();
-        let res = mset.add(&api, make_smsg(6, 100), true, true);
+        mset.add(&api, make_smsg(Address::default(), 0, 100), true, true)
+            .unwrap();
+        let res = mset.add(&api, make_smsg(Address::default(), 6, 100), true, true);
         assert_eq!(
             res,
             Err(Error::NonceGap),
@@ -1074,8 +1105,9 @@ mod tests {
         let mut mset = MsgSet::new(0);
 
         // strict=true, trusted=false -> max_nonce_gap=0
-        mset.add(&api, make_smsg(0, 100), true, false).unwrap();
-        let res = mset.add(&api, make_smsg(2, 100), true, false);
+        mset.add(&api, make_smsg(Address::default(), 0, 100), true, false)
+            .unwrap();
+        let res = mset.add(&api, make_smsg(Address::default(), 2, 100), true, false);
         assert_eq!(
             res,
             Err(Error::NonceGap),
@@ -1089,8 +1121,9 @@ mod tests {
         let mut mset = MsgSet::new(0);
 
         // strict=false, trusted=false -> gap check skipped (PushUntrusted path)
-        mset.add_untrusted(&api, make_smsg(0, 100), false).unwrap();
-        let res = mset.add_untrusted(&api, make_smsg(5, 100), false);
+        mset.add_untrusted(&api, make_smsg(Address::default(), 0, 100), false)
+            .unwrap();
+        let res = mset.add_untrusted(&api, make_smsg(Address::default(), 5, 100), false);
         assert!(
             res.is_ok(),
             "non-strict untrusted (PushUntrusted) skips gap enforcement"
@@ -1103,11 +1136,13 @@ mod tests {
         let mut mset = MsgSet::new(0);
 
         // Set up a gap using non-strict trusted (local push path)
-        mset.add_trusted(&api, make_smsg(0, 100), false).unwrap();
-        mset.add_trusted(&api, make_smsg(2, 100), false).unwrap();
+        mset.add_trusted(&api, make_smsg(Address::default(), 0, 100), false)
+            .unwrap();
+        mset.add_trusted(&api, make_smsg(Address::default(), 2, 100), false)
+            .unwrap();
 
         // Strict RBF at nonce 2 should be rejected due to gap at nonce 1
-        let res = mset.add(&api, make_smsg(2, 200), true, true);
+        let res = mset.add(&api, make_smsg(Address::default(), 2, 200), true, true);
         assert_eq!(
             res,
             Err(Error::NonceGap),
@@ -1120,11 +1155,74 @@ mod tests {
         let api = TestApi::default();
         let mut mset = MsgSet::new(0);
 
-        mset.add_trusted(&api, make_smsg(0, 100), false).unwrap();
-        mset.add_trusted(&api, make_smsg(1, 100), false).unwrap();
-        mset.add_trusted(&api, make_smsg(2, 100), false).unwrap();
+        mset.add_trusted(&api, make_smsg(Address::default(), 0, 100), false)
+            .unwrap();
+        mset.add_trusted(&api, make_smsg(Address::default(), 1, 100), false)
+            .unwrap();
+        mset.add_trusted(&api, make_smsg(Address::default(), 2, 100), false)
+            .unwrap();
 
-        let res = mset.add_trusted(&api, make_smsg(1, 200), false);
+        let res = mset.add_trusted(&api, make_smsg(Address::default(), 1, 200), false);
         assert!(res.is_ok(), "RBF without a nonce gap should succeed");
+    }
+
+    #[test]
+    fn test_get_state_sequence_accounts_for_tipset_messages() {
+        use crate::message_pool::test_provider::mock_block;
+
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+
+        let sender = Address::new_bls(&[3u8; 48]).unwrap();
+        api.set_state_sequence(&sender, 5);
+
+        let block = mock_block(1, 1);
+        api.inner.lock().set_block_messages(
+            &block,
+            vec![make_smsg(sender, 5, 100), make_smsg(sender, 7, 100)],
+        );
+        let ts = Tipset::from(block);
+
+        let nonce = get_state_sequence(&api, &key_cache, &sender, &ts).unwrap();
+        assert_eq!(
+            nonce, 8,
+            "should account for non-consecutive tipset message at nonce 7"
+        );
+    }
+
+    #[test]
+    fn test_get_state_sequence_ignores_other_addresses() {
+        use crate::message_pool::test_provider::mock_block;
+
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+
+        let addr_a = Address::new_bls(&[4u8; 48]).unwrap();
+        let addr_b = Address::new_bls(&[5u8; 48]).unwrap();
+        api.set_state_sequence(&addr_a, 0);
+        api.set_state_sequence(&addr_b, 0);
+
+        let block = mock_block(1, 1);
+        api.inner.lock().set_block_messages(
+            &block,
+            vec![
+                make_smsg(addr_b, 0, 100),
+                make_smsg(addr_b, 1, 100),
+                make_smsg(addr_b, 2, 100),
+            ],
+        );
+        let ts = Tipset::from(block);
+
+        let nonce_a = get_state_sequence(&api, &key_cache, &addr_a, &ts).unwrap();
+        assert_eq!(
+            nonce_a, 0,
+            "addr_a nonce should be unaffected by addr_b's messages"
+        );
+
+        let nonce_b = get_state_sequence(&api, &key_cache, &addr_b, &ts).unwrap();
+        assert_eq!(
+            nonce_b, 3,
+            "addr_b nonce should reflect its tipset messages"
+        );
     }
 }

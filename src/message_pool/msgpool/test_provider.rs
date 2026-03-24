@@ -4,6 +4,7 @@
 //! Contains mock implementations for testing internal `MessagePool` APIs
 
 use std::convert::TryFrom;
+use std::sync::Arc;
 
 use crate::blocks::{
     CachingBlockHeader, ElectionProof, RawBlockHeader, Ticket, Tipset, TipsetKey, VRFProof,
@@ -227,6 +228,19 @@ impl Provider for TestApi {
 
     fn resolve_to_key(&self, addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
         Ok(self.inner.lock().resolve_addr(addr))
+    }
+
+    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
+        let inner = self.inner.lock();
+        let mut msgs = Vec::new();
+        for b in ts.block_headers() {
+            if let Some(ms) = inner.bmsgs.get(b.cid()) {
+                for m in ms {
+                    msgs.push(ChainMessage::Signed(Arc::new(m.clone())));
+                }
+            }
+        }
+        Ok(msgs)
     }
 
     fn max_actor_pending_messages(&self) -> u64 {

@@ -48,6 +48,8 @@ pub trait Provider {
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
     /// Resolve an address to its key form using the tipset's parent state.
     fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>;
+    /// Return all messages included in the given tipset.
+    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     // Get max number of messages per actor in the pool
     fn max_actor_pending_messages(&self) -> u64 {
         MAX_ACTOR_PENDING_MESSAGES
@@ -105,5 +107,9 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
         state
             .resolve_to_deterministic_addr(self.blockstore(), *addr)
             .map_err(|e| Error::Other(e.to_string()))
+    }
+
+    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
+        Ok((*ChainStore::messages_for_tipset(self, ts)?).clone())
     }
 }
