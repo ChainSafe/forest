@@ -42,7 +42,7 @@ pub const DEFAULT_BYZANTINE_FRACTION: f64 = 0.3;
 pub const DEFAULT_SAFETY_EXPONENT: i64 = -30;
 
 /// Computes the upper-bound probability that a confirmed
-/// tipset could be reorganized out of the canonical chain. This is a Go port
+/// tipset could be reorganized out of the canonical chain. This is a port
 /// of the Python reference implementation from `FRC-0089`(`finality_calc_validator.py`).
 #[allow(dead_code)]
 pub fn calc_validator_prob(
