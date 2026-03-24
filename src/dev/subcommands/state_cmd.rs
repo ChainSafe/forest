@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{
-    blocks::Tipset,
     chain::{ChainStore, index::ResolveNullTipset},
     chain_sync::{load_full_tipset, tipset_syncer::validate_tipset},
     cli_shared::{chain_path, read_config},
@@ -82,10 +81,11 @@ impl ComputeCommand {
             chain_config,
             genesis_header,
         )?);
+        let chain_index = chain_store.chain_index();
         let (ts, ts_next) = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_store.chain_index().tipset_by_height(
+            let ts = chain_index.tipset_by_height(
                 epoch,
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,
@@ -99,8 +99,8 @@ impl ComputeCommand {
             )?;
             // Only track the desired tipsets
             (
-                Tipset::load_required(&db, ts.key())?,
-                Tipset::load_required(&db, ts_next.key())?,
+                chain_index.load_required_tipset(ts.key())?,
+                chain_index.load_required_tipset(ts_next.key())?,
             )
         };
         let epoch = ts.epoch();
@@ -208,10 +208,11 @@ impl ValidateCommand {
             chain_config,
             genesis_header,
         )?);
+        let chain_index = chain_store.chain_index();
         let ts = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_store.chain_index().tipset_by_height(
+            let ts = chain_index.tipset_by_height(
                 epoch,
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,
@@ -219,7 +220,7 @@ impl ValidateCommand {
             db.resume_tracking();
             SettingsStoreExt::write_obj(&db.tracker, crate::db::setting_keys::HEAD_KEY, ts.key())?;
             // Only track the desired tipset
-            Tipset::load_required(&db, ts.key())?
+            chain_index.load_required_tipset(ts.key())?
         };
         let epoch = ts.epoch();
         let fts = load_full_tipset(&chain_store, ts.key())?;

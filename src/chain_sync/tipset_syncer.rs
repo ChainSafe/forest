@@ -23,7 +23,7 @@ use crate::{
 };
 use crate::{
     eth::is_valid_eth_tx_for_sending,
-    message::{Message as MessageTrait, valid_for_block_inclusion},
+    message::{MessageRead as _, valid_for_block_inclusion},
 };
 use ahash::HashMap;
 use cid::Cid;

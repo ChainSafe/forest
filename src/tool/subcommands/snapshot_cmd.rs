@@ -428,8 +428,8 @@ where
     let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));
 
     // Prepare tipsets for validation
-    let tipsets = chain_index
-        .chain(ts)
+    let tipsets = ts
+        .chain(&db)
         .take_while(|tipset| tipset.epoch() >= last_epoch)
         .inspect(|tipset| {
             pb.set_message(format!("epoch queue: {}", tipset.epoch() - last_epoch));
@@ -529,7 +529,7 @@ mod structured {
     use crate::state_manager::utils::structured;
     use crate::{
         interpreter::CalledAt,
-        message::{ChainMessage, Message as _},
+        message::{ChainMessage, MessageRead as _},
         shim::executor::ApplyRet,
     };
     use std::time::Duration;

@@ -104,14 +104,6 @@ where
         self.cache.write().insert(k, v)
     }
 
-    pub fn contains<Q>(&self, k: &Q) -> bool
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq + ?Sized,
-    {
-        self.cache.read().contains_key(k)
-    }
-
     pub fn get_map<Q, T>(&self, k: &Q, mapper: impl Fn(&V) -> T) -> Option<T>
     where
         K: Borrow<Q>,

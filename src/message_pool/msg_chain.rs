@@ -7,7 +7,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use crate::message::{Message, SignedMessage};
+use crate::message::{MessageRead as _, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{
     address::Address,

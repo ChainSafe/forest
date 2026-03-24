@@ -166,7 +166,6 @@ async fn ctx(
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
-        msgs_in_tipset: Default::default(),
         sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,

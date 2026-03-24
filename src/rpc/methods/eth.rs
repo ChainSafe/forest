@@ -26,7 +26,7 @@ use crate::eth::{
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
 };
 use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
-use crate::message::{ChainMessage, Message as _, SignedMessage};
+use crate::message::{ChainMessage, Message as _, MessageRead as _, SignedMessage};
 use crate::rpc::{
     ApiPaths, Ctx, EthEventHandler, LOOKBACK_NO_LIMIT, Permission, RpcMethod, RpcMethodExt as _,
     error::ServerError,
@@ -56,7 +56,7 @@ use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
-use crate::utils::misc::env::{env_or_default, is_env_truthy};
+use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
 use anyhow::{Context, Error, Result, anyhow, bail, ensure};
@@ -515,19 +515,24 @@ impl Block {
             {
                 let ti = EthUint64(i as u64);
                 gas_used += receipt.gas_used();
-                let smsg = match message {
-                    ChainMessage::Signed(msg) => msg.clone(),
+                let mut tx = match message {
+                    ChainMessage::Signed(smsg) => new_eth_tx_from_signed_message(
+                        smsg,
+                        &state_tree,
+                        ctx.chain_config().eth_chain_id,
+                    )?,
                     ChainMessage::Unsigned(msg) => {
-                        let sig = Signature::new_bls(vec![]);
-                        SignedMessage::new_unchecked(msg.clone(), sig)
+                        let tx = eth_tx_from_native_message(
+                            msg,
+                            &state_tree,
+                            ctx.chain_config().eth_chain_id,
+                        )?;
+                        ApiEthTx {
+                            hash: msg.cid().into(),
+                            ..tx
+                        }
                     }
                 };
-
-                let mut tx = new_eth_tx_from_signed_message(
-                    &smsg,
-                    &state_tree,
-                    ctx.chain_config().eth_chain_id,
-                )?;
                 tx.block_hash = block_hash;
                 tx.block_number = block_number;
                 tx.transaction_index = ti;
@@ -925,7 +930,7 @@ fn get_tipset_from_hash<DB: Blockstore>(
     block_hash: &EthHash,
 ) -> anyhow::Result<Tipset> {
     let tsk = chain_store.get_required_tipset_key(block_hash)?;
-    Tipset::load_required(chain_store.blockstore(), &tsk)
+    Ok(chain_store.chain_index().load_required_tipset(&tsk)?)
 }
 
 fn resolve_block_number_tipset<DB: Blockstore>(

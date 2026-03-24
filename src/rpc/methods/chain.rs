@@ -45,6 +45,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::fs::File;
+use std::sync::Arc;
 use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
 use tokio::sync::{
     Mutex,
@@ -239,8 +240,8 @@ impl RpcMethod<1> for ChainGetMessage {
             .get_cbor(&message_cid)?
             .with_context(|| format!("can't find message with cid {message_cid}"))?;
         let message = match chain_message {
-            ChainMessage::Signed(m) => m.into_message(),
-            ChainMessage::Unsigned(m) => m,
+            ChainMessage::Signed(m) => Arc::unwrap_or_clone(m).into_message(),
+            ChainMessage::Unsigned(m) => Arc::unwrap_or_clone(m),
         };
 
         let cid = message.cid();
@@ -295,7 +296,9 @@ impl RpcMethod<1> for ChainGetParentMessages {
         if block_header.epoch == 0 {
             Ok(vec![])
         } else {
-            let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
+            let parent_tipset = ctx
+                .chain_index()
+                .load_required_tipset(&block_header.parents)?;
             load_api_messages_from_tipset(&ctx, parent_tipset.key()).await
         }
     }

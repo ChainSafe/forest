@@ -1,21 +1,36 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Message as MessageTrait;
+use super::{Message as MessageTrait, MessageRead};
 use crate::message::signed_message::SignedMessage;
 use crate::shim::message::MethodNum;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::RawBytes;
 use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
+use spire_enum::prelude::delegated_enum;
+use std::sync::Arc;
 
 /// `Enum` to encapsulate signed and unsigned messages. Useful when working with
 /// both types
+#[delegated_enum]
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq, GetSize, derive_more::From)]
 #[serde(untagged)]
 pub enum ChainMessage {
-    Unsigned(Message),
-    Signed(SignedMessage),
+    Unsigned(Arc<Message>),
+    Signed(Arc<SignedMessage>),
+}
+
+impl From<Message> for ChainMessage {
+    fn from(msg: Message) -> Self {
+        Arc::new(msg).into()
+    }
+}
+
+impl From<SignedMessage> for ChainMessage {
+    fn from(msg: SignedMessage) -> Self {
+        Arc::new(msg).into()
+    }
 }
 
 impl ChainMessage {
@@ -27,10 +42,7 @@ impl ChainMessage {
     }
 
     pub fn cid(&self) -> cid::Cid {
-        match self {
-            ChainMessage::Unsigned(msg) => msg.cid(),
-            ChainMessage::Signed(msg) => msg.cid(),
-        }
+        delegate_chain_message!(self.cid())
     }
 
     /// Tests if a message is equivalent to another replacing message.
@@ -41,93 +53,62 @@ impl ChainMessage {
     pub fn equal_call(&self, other: &Self) -> bool {
         self.message().equal_call(other.message())
     }
+
+    pub fn set_sequence(&mut self, new_sequence: u64) {
+        match self {
+            Self::Unsigned(m) => Arc::make_mut(m).set_sequence(new_sequence),
+            Self::Signed(sm) => Arc::make_mut(sm).set_sequence(new_sequence),
+        }
+    }
+}
+
+impl MessageRead for ChainMessage {
+    fn from(&self) -> Address {
+        delegate_chain_message!(self.from())
+    }
+    fn to(&self) -> Address {
+        delegate_chain_message!(self.to())
+    }
+    fn sequence(&self) -> u64 {
+        delegate_chain_message!(self.sequence())
+    }
+    fn value(&self) -> TokenAmount {
+        delegate_chain_message!(self.value())
+    }
+    fn method_num(&self) -> MethodNum {
+        delegate_chain_message!(self.method_num())
+    }
+    fn params(&self) -> &RawBytes {
+        delegate_chain_message!(self.params())
+    }
+    fn gas_limit(&self) -> u64 {
+        delegate_chain_message!(self.gas_limit())
+    }
+    fn required_funds(&self) -> TokenAmount {
+        delegate_chain_message!(self.required_funds())
+    }
+    fn gas_fee_cap(&self) -> TokenAmount {
+        delegate_chain_message!(self.gas_fee_cap())
+    }
+    fn gas_premium(&self) -> TokenAmount {
+        delegate_chain_message!(self.gas_premium())
+    }
 }
 
 impl MessageTrait for ChainMessage {
-    fn from(&self) -> Address {
-        match self {
-            Self::Signed(t) => t.from(),
-            Self::Unsigned(t) => t.from,
-        }
+    fn set_gas_limit(&mut self, amount: u64) {
+        delegate_chain_message!(self => |i| Arc::make_mut(i).set_gas_limit(amount))
     }
-    fn to(&self) -> Address {
-        match self {
-            Self::Signed(t) => t.to(),
-            Self::Unsigned(t) => t.to,
-        }
-    }
-    fn sequence(&self) -> u64 {
-        match self {
-            Self::Signed(t) => t.sequence(),
-            Self::Unsigned(t) => t.sequence,
-        }
-    }
-    fn value(&self) -> TokenAmount {
-        match self {
-            Self::Signed(t) => t.value(),
-            Self::Unsigned(t) => t.value.clone(),
-        }
-    }
-    fn method_num(&self) -> MethodNum {
-        match self {
-            Self::Signed(t) => t.method_num(),
-            Self::Unsigned(t) => t.method_num,
-        }
-    }
-    fn params(&self) -> &RawBytes {
-        match self {
-            Self::Signed(t) => t.params(),
-            Self::Unsigned(t) => t.params(),
-        }
-    }
-    fn gas_limit(&self) -> u64 {
-        match self {
-            Self::Signed(t) => t.gas_limit(),
-            Self::Unsigned(t) => t.gas_limit(),
-        }
-    }
-    fn set_gas_limit(&mut self, token_amount: u64) {
-        match self {
-            Self::Signed(t) => t.set_gas_limit(token_amount),
-            Self::Unsigned(t) => t.set_gas_limit(token_amount),
-        }
-    }
-    fn set_sequence(&mut self, new_sequence: u64) {
-        match self {
-            Self::Signed(t) => t.set_sequence(new_sequence),
-            Self::Unsigned(t) => t.set_sequence(new_sequence),
-        }
-    }
-    fn required_funds(&self) -> TokenAmount {
-        match self {
-            Self::Signed(t) => t.required_funds(),
-            Self::Unsigned(t) => &t.gas_fee_cap * t.gas_limit + &t.value,
-        }
-    }
-    fn gas_fee_cap(&self) -> TokenAmount {
-        match self {
-            Self::Signed(t) => t.gas_fee_cap(),
-            Self::Unsigned(t) => t.gas_fee_cap.clone(),
-        }
-    }
-    fn gas_premium(&self) -> TokenAmount {
-        match self {
-            Self::Signed(t) => t.gas_premium(),
-            Self::Unsigned(t) => t.gas_premium.clone(),
-        }
+
+    fn set_sequence(&mut self, sequence: u64) {
+        delegate_chain_message!(self => |i| Arc::make_mut(i).set_sequence(sequence))
     }
 
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
-        match self {
-            Self::Signed(t) => t.set_gas_fee_cap(cap),
-            Self::Unsigned(t) => t.set_gas_fee_cap(cap),
-        }
+        delegate_chain_message!(self => |i| Arc::make_mut(i).set_gas_fee_cap(cap))
     }
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
-        match self {
-            Self::Signed(t) => t.set_gas_premium(prem),
-            Self::Unsigned(t) => t.set_gas_premium(prem),
-        }
+        delegate_chain_message!(self => |i| Arc::make_mut(i).set_gas_premium(prem))
     }
 }

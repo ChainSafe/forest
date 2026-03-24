@@ -89,10 +89,13 @@ where
     async fn resolve_predefined_tipset_v1(&self, tag: Predefined) -> anyhow::Result<Tipset> {
         const ETH_V1_DISABLE_F3_FINALITY_RESOLUTION_ENV_KEY: &str =
             "FOREST_ETH_V1_DISABLE_F3_FINALITY_RESOLUTION";
-        static ETH_V1_F3_FINALITY_RESOLUTION_DISABLED: LazyLock<bool> =
-            LazyLock::new(|| is_env_truthy(ETH_V1_DISABLE_F3_FINALITY_RESOLUTION_ENV_KEY));
 
-        if *ETH_V1_F3_FINALITY_RESOLUTION_DISABLED {
+        crate::def_is_env_truthy!(
+            f3_finality_disabled,
+            ETH_V1_DISABLE_F3_FINALITY_RESOLUTION_ENV_KEY
+        );
+
+        if f3_finality_disabled() {
             if let Some(ts) = self.resolve_common_predefined_tipset(tag)? {
                 Ok(ts)
             } else {

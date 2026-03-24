@@ -3,7 +3,7 @@
 
 use crate::blocks::TipsetKey;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
-use crate::message::Message as _;
+use crate::message::MessageRead as _;
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::Address,

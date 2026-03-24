@@ -18,8 +18,6 @@ use cid::Cid;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
-use crate::utils::misc::env::is_env_truthy;
-
 const PROOF_DIGEST_LEN: usize = 16;
 
 /// Environment variable that allows skipping checksum verification of the parameter files.
@@ -52,7 +50,9 @@ pub(super) struct ParameterData {
 /// Ensures the parameter file is downloaded and has the correct checksum.
 /// This behavior can be disabled by setting the [`FOREST_FORCE_TRUST_PARAMS_ENV`] environment variable to 1.
 pub(super) async fn check_parameter_file(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
-    if is_env_truthy(FOREST_FORCE_TRUST_PARAMS_ENV) {
+    crate::def_is_env_truthy!(force_trust_params, FOREST_FORCE_TRUST_PARAMS_ENV);
+
+    if force_trust_params() {
         warn!("Assuming parameter files are okay. Do not use in production!");
         return Ok(());
     }

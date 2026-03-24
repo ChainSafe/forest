@@ -4,19 +4,18 @@
 use std::num::NonZeroUsize;
 use std::sync::LazyLock;
 
-use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
+use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::cache::SizeTrackingLruCache;
-use crate::utils::misc::env::is_env_truthy;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use num::Integer;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize);
 
 type TipsetCache = SizeTrackingLruCache<TipsetKey, Tipset>;
 
@@ -52,8 +51,10 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
     /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Tipset>, Error> {
-        let cache_enabled = !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED");
-        if cache_enabled && let Some(ts) = self.ts_cache.get_cloned(tsk) {
+        crate::def_is_env_truthy!(cache_disabled, "FOREST_TIPSET_CACHE_DISABLED");
+        if !cache_disabled()
+            && let Some(ts) = self.ts_cache.get_cloned(tsk)
+        {
             metrics::LRU_CACHE_HIT
                 .get_or_create(&metrics::values::TIPSET)
                 .inc();
@@ -61,7 +62,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         let ts_opt = Tipset::load(&self.db, tsk)?;
-        if cache_enabled && let Some(ts) = &ts_opt {
+        if !cache_disabled()
+            && let Some(ts) = &ts_opt
+        {
             self.ts_cache.push(tsk.clone(), ts.clone());
             metrics::LRU_CACHE_MISS
                 .get_or_create(&metrics::values::TIPSET)
@@ -162,7 +165,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
             )));
         }
 
-        for (child, parent) in self.chain(from).tuple_windows() {
+        for (child, parent) in from.chain(&self.db).tuple_windows() {
             // use `child.epoch() + CHAIN_FINALITY <= from_epoch`
             // to ensure the cached child is finalized(not on a fork).
             if child.epoch() % CHAIN_FINALITY == 0 && child.epoch() + CHAIN_FINALITY <= from_epoch {
@@ -185,18 +188,6 @@ impl<DB: Blockstore> ChainIndex<DB> {
         )))
     }
 
-    /// Iterate from the given tipset to genesis. Missing tipsets cut the chain
-    /// short. Semantically identical to [`Tipset::chain`] but the results are
-    /// cached.
-    pub fn chain(&self, from: Tipset) -> impl Iterator<Item = Tipset> + '_ {
-        let mut tipset = Some(from);
-        std::iter::from_fn(move || {
-            let child = tipset.take()?;
-            tipset = self.load_required_tipset(child.parents()).ok();
-            Some(child)
-        })
-    }
-
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
     pub fn latest_beacon_entry(&self, tipset: Tipset) -> Result<BeaconEntry, Error> {
         for ts in tipset.chain(&self.db).take(20) {
@@ -210,7 +201,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
             }
         }
 
-        if is_env_truthy(IGNORE_DRAND_VAR) {
+        if *IGNORE_DRAND {
             return Ok(BeaconEntry::new(0, vec![9; 16]));
         }
 

@@ -2657,7 +2657,7 @@ impl RpcMethod<3> for StateListMessages {
         while cur_ts.epoch() >= max_height {
             let msgs = ctx.chain_store().messages_for_tipset(&cur_ts)?;
 
-            for msg in msgs {
+            for msg in msgs.iter() {
                 if from_to.matches(msg.message()) {
                     out.push(msg.cid());
                 }
