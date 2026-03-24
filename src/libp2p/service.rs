@@ -78,9 +78,7 @@ pub(in crate::libp2p) mod metrics {
     }
 }
 
-fn libp2p_metrics_enabled() -> bool {
-    crate::utils::misc::env::is_env_truthy("FOREST_LIBP2P_METRICS_ENABLED")
-}
+crate::def_is_env_truthy!(libp2p_metrics_enabled, "FOREST_LIBP2P_METRICS_ENABLED");
 
 /// `Gossipsub` Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";

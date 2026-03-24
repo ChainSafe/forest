@@ -26,6 +26,24 @@ pub fn is_env_set_and_truthy(env: &str) -> Option<bool> {
         .map(|var| matches!(var.to_lowercase().as_str(), "1" | "true" | "yes" | "_yes_"))
 }
 
+#[macro_export]
+macro_rules! def_is_env_truthy {
+    ($fn_name:ident, $env: expr) => {
+        #[inline]
+        pub fn $fn_name() -> bool {
+            cfg_if::cfg_if! {
+                if #[cfg(test)] {
+                    $crate::utils::misc::env::is_env_truthy($env)
+                } else{
+                    static ENV: std::sync::LazyLock<bool> =
+                        std::sync::LazyLock::new(|| $crate::utils::misc::env::is_env_truthy($env));
+                    *ENV
+                }
+            }
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
