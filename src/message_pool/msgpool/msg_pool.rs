@@ -348,7 +348,7 @@ where
         local: bool,
         trust_policy: TrustPolicy,
     ) -> Result<bool, Error> {
-        let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
+        let sequence = self.get_cached_state_nonce(&msg.from(), cur_ts)?;
 
         if sequence > msg.message().sequence {
             return Err(Error::SequenceTooLow);
@@ -397,7 +397,7 @@ where
     pub fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
         let cur_ts = self.current_tipset();
 
-        let sequence = self.get_state_sequence(addr, &cur_ts)?;
+        let sequence = self.get_cached_state_nonce(addr, &cur_ts)?;
 
         let pending = self.pending.read();
 
@@ -413,8 +413,8 @@ where
         }
     }
 
-    /// Get the state of the sequence for a given address in `cur_ts`.
-    fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
+    /// Get the next assignable nonce for `addr` in `cur_ts`, using cache when available.
+    fn get_cached_state_nonce(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         // Check if the sequence is already cached
         let key = StateNonceCacheKey {
             tipset_key: cur_ts.key().clone(),

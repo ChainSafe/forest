@@ -81,6 +81,9 @@ while [[ $i != 20 && $DELEGATE_ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; do
   DELEGATE_ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$DELEGATE_ADDR_THREE" --exact-balance)
 done
 
+$FOREST_WALLET_PATH list
+$FOREST_WALLET_PATH --remote-wallet list
+
 MSG_DELEGATE_FOUR=$($FOREST_WALLET_PATH --remote-wallet send "$DELEGATE_ADDR_THREE" "$FIL_AMT")
 : "$MSG_DELEGATE_FOUR"
 
