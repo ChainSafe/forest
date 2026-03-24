@@ -13,7 +13,7 @@ use std::{borrow::BorrowMut, cmp::Ordering};
 
 use crate::blocks::Tipset;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
-use crate::message::{Message as MessageTrait, SignedMessage};
+use crate::message::{MessageRead as _, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
 use crate::utils::cache::SizeTrackingLruCache;

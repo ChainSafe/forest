@@ -5,7 +5,7 @@ pub use super::fvm_shared_latest::{
 };
 use super::version::NetworkVersion;
 use crate::eth::{EthChainId, EthTx};
-use crate::message::{Message, SignedMessage};
+use crate::message::{MessageRead as _, SignedMessage};
 use anyhow::{Context, ensure};
 use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
