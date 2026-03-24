@@ -107,7 +107,7 @@ mod tests {
     /// computes the Skellam PMF from its definition as a
     /// convolution of two Poisson distributions:
     ///
-    /// P(K=k) = sum_{j=max(0,-k)}^{inf} Poisson(j+k, mu1) * Poisson(j, mu2)
+    /// `P(K=k) = sum_{j=max(0,-k)}^{inf} Poisson(j+k, mu1) * Poisson(j, mu2)`
     ///
     /// This is numerically reliable for moderate parameters and serves as an
     /// independent reference implementation (no Bessel functions involved).

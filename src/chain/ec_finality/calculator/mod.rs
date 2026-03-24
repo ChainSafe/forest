@@ -57,7 +57,7 @@ pub fn calc_validator_prob(
         return Ok(1.0);
     }
 
-    const NELIGIBLE_THRESHOLD: f64 = 1e-25;
+    const NEGLIGIBLE_THRESHOLD: f64 = 1e-25;
 
     let mut max_k_l = 400;
     let mut max_k_b = ((current_epoch - target_epoch) * (blocks_per_epoch as i64)) as usize;
@@ -89,7 +89,7 @@ pub fn calc_validator_prob(
             );
             *pr_l_k = prl_i.max(*pr_l_k);
         }
-        if k > 1 && *pr_l_k < NELIGIBLE_THRESHOLD && *pr_l_k < pr_l_k_prev {
+        if k > 1 && *pr_l_k < NEGLIGIBLE_THRESHOLD && *pr_l_k < pr_l_k_prev {
             max_k_l = k;
             pr_l.truncate(k + 1);
             break;
@@ -110,7 +110,7 @@ pub fn calc_validator_prob(
             k as f64,
         );
 
-        if k > 1 && *pr_b_k < NELIGIBLE_THRESHOLD && *pr_b_k < pr_b_k_prev {
+        if k > 1 && *pr_b_k < NEGLIGIBLE_THRESHOLD && *pr_b_k < pr_b_k_prev {
             max_k_b = k;
             pr_b.truncate(k + 1);
             break;
@@ -138,13 +138,13 @@ pub fn calc_validator_prob(
                 f64::from(i) * rate_malicious_blocks,
                 f64::from(i) * rate_public_chain,
             );
-            if prob_m_i < NELIGIBLE_THRESHOLD && prob_m_i < *pr_m_k {
+            if prob_m_i < NEGLIGIBLE_THRESHOLD && prob_m_i < *pr_m_k {
                 break;
             }
             *pr_m_k = prob_m_i.max(*pr_m_k);
         }
 
-        if k > 1 && *pr_m_k < NELIGIBLE_THRESHOLD && *pr_m_k < pr_m_k_prev {
+        if k > 1 && *pr_m_k < NEGLIGIBLE_THRESHOLD && *pr_m_k < pr_m_k_prev {
             max_k_m = k;
             pr_m.truncate(k + 1);
             break;
