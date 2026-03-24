@@ -202,6 +202,10 @@ impl Provider for TestApi {
         Ok(TokenAmount::from_atto(100))
     }
 
+    fn resolve_to_key(&self, addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
+        Ok(*addr)
+    }
+
     fn max_actor_pending_messages(&self) -> u64 {
         self.inner.lock().max_actor_pending_messages
     }

@@ -19,6 +19,8 @@ use parking_lot::RwLock;
 use rand::prelude::SliceRandom;
 use tracing::{debug, error, warn};
 
+use crate::utils::cache::SizeTrackingLruCache;
+
 use super::{msg_pool::MessagePool, provider::Provider};
 use crate::message_pool::{
     Error, add_to_selected_msgs,
@@ -663,6 +665,7 @@ where
         run_head_change(
             self.api.as_ref(),
             &self.pending,
+            self.key_cache.as_ref(),
             cur_ts.clone(),
             ts.clone(),
             &mut result,
@@ -814,6 +817,7 @@ fn merge_and_trim(
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     pending: &RwLock<HashMap<Address, MsgSet>>,
+    key_cache: &SizeTrackingLruCache<Address, Address>,
     from: Tipset,
     to: Tipset,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
@@ -821,6 +825,7 @@ pub(in crate::message_pool) fn run_head_change<T>(
 where
     T: Provider,
 {
+    let resolve_ts = to.clone();
     let mut left = from;
     let mut right = to;
     let mut left_chain = Vec::new();
@@ -853,6 +858,9 @@ where
 
             for msg in smsgs {
                 remove_from_selected_msgs(
+                    api,
+                    key_cache,
+                    &resolve_ts,
                     &msg.from(),
                     pending,
                     msg.sequence(),
@@ -860,7 +868,15 @@ where
                 )?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    api,
+                    key_cache,
+                    &resolve_ts,
+                    &msg.from,
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                )?;
             }
         }
     }
@@ -904,6 +920,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
+        let key_cache = mpool.key_cache.clone();
 
         head_change(
             api.as_ref(),
@@ -912,6 +929,7 @@ mod test_selection {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
+            key_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(b1)],
         )
@@ -942,6 +960,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
+        let key_cache = mpool.key_cache.clone();
 
         head_change(
             api.as_ref(),
@@ -950,6 +969,7 @@ mod test_selection {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
+            key_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(b1)],
         )
@@ -1007,6 +1027,7 @@ mod test_selection {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
+            key_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(b2)],
         )

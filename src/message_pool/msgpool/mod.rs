@@ -28,7 +28,7 @@ use utils::{get_base_fee_lower_bound, recover_sig};
 use super::errors::Error;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
-    msg_pool::{MsgSet, TrustPolicy, add_helper, remove},
+    msg_pool::{MsgSet, TrustPolicy, add_helper, remove, resolve_to_key},
     provider::Provider,
 };
 
@@ -60,6 +60,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &SyncRwLock<Tipset>,
     republished: &SyncRwLock<HashSet<Cid>>,
     local_addrs: &SyncRwLock<Vec<Address>>,
+    key_cache: &SizeTrackingLruCache<Address, Address>,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
@@ -73,7 +74,8 @@ where
     // Only republish messages from local addresses, ie. transactions which were
     // sent to this node directly.
     for actor in local_addrs.read().iter() {
-        if let Some(mset) = pending.read().get(actor) {
+        let resolved = resolve_to_key(api, key_cache, actor, &ts)?;
+        if let Some(mset) = pending.read().get(&resolved) {
             if mset.msgs.is_empty() {
                 continue;
             }
@@ -81,7 +83,7 @@ where
             for (nonce, m) in mset.msgs.clone().into_iter() {
                 pend.insert(nonce, m);
             }
-            pending_map.insert(*actor, pend);
+            pending_map.insert(resolved, pend);
         }
     }
 
@@ -217,6 +219,7 @@ pub async fn head_change<T>(
     republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &SyncRwLock<Tipset>,
+    key_cache: &SizeTrackingLruCache<Address, Address>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -262,7 +265,11 @@ where
             };
 
             for msg in smsgs {
+                let cur_ts = cur_tipset.read().clone();
                 remove_from_selected_msgs(
+                    api,
+                    key_cache,
+                    &cur_ts,
                     &msg.from(),
                     pending,
                     msg.sequence(),
@@ -273,7 +280,16 @@ where
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                let cur_ts = cur_tipset.read().clone();
+                remove_from_selected_msgs(
+                    api,
+                    key_cache,
+                    &cur_ts,
+                    &msg.from,
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                )?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
@@ -289,11 +305,14 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.read().clone())?;
+            let cur_ts = cur_tipset.read().clone();
+            let sequence = get_state_sequence(api, &msg.from(), &cur_ts)?;
             if let Err(e) = add_helper(
                 api,
                 bls_sig_cache,
                 pending,
+                key_cache,
+                &cur_ts,
                 msg,
                 sequence,
                 TrustPolicy::Trusted,
@@ -308,7 +327,10 @@ where
 /// This is a helper function for `head_change`. This method will remove a
 /// sequence for a from address from the messages selected by priority hash-map.
 /// It also removes the 'from' address and sequence from the `MessagePool`.
-pub(in crate::message_pool) fn remove_from_selected_msgs(
+pub(in crate::message_pool) fn remove_from_selected_msgs<T: Provider>(
+    api: &T,
+    key_cache: &SizeTrackingLruCache<Address, Address>,
+    cur_ts: &Tipset,
     from: &Address,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
@@ -318,10 +340,12 @@ pub(in crate::message_pool) fn remove_from_selected_msgs(
         if temp.get_mut(&sequence).is_some() {
             temp.remove(&sequence);
         } else {
-            remove(from, pending, sequence, true)?;
+            let resolved = resolve_to_key(api, key_cache, from, cur_ts)?;
+            remove(&resolved, pending, sequence, true)?;
         }
     } else {
-        remove(from, pending, sequence, true)?;
+        let resolved = resolve_to_key(api, key_cache, from, cur_ts)?;
+        remove(&resolved, pending, sequence, true)?;
     }
     Ok(())
 }
@@ -492,6 +516,7 @@ pub mod tests {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
+        let key_cache = mpool.key_cache.clone();
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -499,6 +524,7 @@ pub mod tests {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
+            key_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(a)],
         )
@@ -559,6 +585,7 @@ pub mod tests {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
+        let key_cache = mpool.key_cache.clone();
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -566,6 +593,7 @@ pub mod tests {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
+            key_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(a)],
         )
@@ -588,6 +616,7 @@ pub mod tests {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
+            key_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(&b)],
         )
@@ -605,6 +634,7 @@ pub mod tests {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
+            key_cache.as_ref(),
             vec![Tipset::from(b)],
             Vec::new(),
         )

@@ -46,6 +46,8 @@ pub trait Provider {
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Tipset, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
+    /// Resolve an address to its key form using the tipset's parent state.
+    fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>;
     // Get max number of messages per actor in the pool
     fn max_actor_pending_messages(&self) -> u64 {
         MAX_ACTOR_PENDING_MESSAGES
@@ -95,5 +97,13 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
         let xxx_height = self.chain_config().epoch(Height::Xxx);
         crate::chain::compute_base_fee(self.blockstore(), ts, smoke_height, xxx_height)
             .map_err(|err| err.into())
+    }
+
+    fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+        let state = StateTree::new_from_root(self.blockstore().clone(), ts.parent_state())
+            .map_err(|e| Error::Other(e.to_string()))?;
+        state
+            .resolve_to_deterministic_addr(self.blockstore(), *addr)
+            .map_err(|e| Error::Other(e.to_string()))
     }
 }

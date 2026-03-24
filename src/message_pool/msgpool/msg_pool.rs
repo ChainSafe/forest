@@ -52,6 +52,7 @@ use crate::message_pool::{
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
+const KEY_CACHE_SIZE: NonZeroUsize = nonzero!(1_048_576usize);
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
@@ -186,7 +187,7 @@ impl MsgSet {
 pub struct MessagePool<T> {
     /// The local address of the client
     local_addrs: Arc<SyncRwLock<Vec<Address>>>,
-    /// A map of pending messages where the key is the address
+    /// A map of pending messages where the key is the resolved key address
     pub pending: Arc<SyncRwLock<HashMap<Address, MsgSet>>>,
     /// The current tipset (a set of blocks)
     pub cur_tipset: Arc<SyncRwLock<Tipset>>,
@@ -198,6 +199,8 @@ pub struct MessagePool<T> {
     pub bls_sig_cache: Arc<SizeTrackingLruCache<CidWrapper, Signature>>,
     /// A cache for BLS signature keyed by Cid
     pub sig_val_cache: Arc<SizeTrackingLruCache<CidWrapper, ()>>,
+    /// Cache for ID address to key address resolution.
+    pub key_cache: Arc<SizeTrackingLruCache<Address, Address>>,
     /// A set of republished messages identified by their Cid
     pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of
@@ -210,6 +213,25 @@ pub struct MessagePool<T> {
     pub chain_config: Arc<ChainConfig>,
 }
 
+/// Resolve an address to its key form, checking the cache first.
+/// Non-ID addresses are returned unchanged.
+pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
+    api: &T,
+    key_cache: &SizeTrackingLruCache<Address, Address>,
+    addr: &Address,
+    cur_ts: &Tipset,
+) -> Result<Address, Error> {
+    if addr.protocol() != Protocol::ID {
+        return Ok(*addr);
+    }
+    if let Some(resolved) = key_cache.get_cloned(addr) {
+        return Ok(resolved);
+    }
+    let resolved = api.resolve_to_key(addr, cur_ts)?;
+    key_cache.push(*addr, resolved);
+    Ok(resolved)
+}
+
 impl<T> MessagePool<T>
 where
     T: Provider,
@@ -219,9 +241,15 @@ where
         self.cur_tipset.read().clone()
     }
 
+    pub fn resolve_to_key(&self, addr: &Address, cur_ts: &Tipset) -> Result<Address, Error> {
+        resolve_to_key(self.api.as_ref(), self.key_cache.as_ref(), addr, cur_ts)
+    }
+
     /// Add a signed message to the pool and its address.
     fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
-        self.local_addrs.write().push(m.from());
+        let cur_ts = self.current_tipset();
+        let resolved = self.resolve_to_key(&m.from(), &cur_ts)?;
+        self.local_addrs.write().push(resolved);
         self.local_msgs.write().insert(m);
         Ok(())
     }
@@ -366,6 +394,8 @@ where
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
             self.pending.as_ref(),
+            self.key_cache.as_ref(),
+            &cur_ts,
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
             trust_policy,
@@ -379,9 +409,10 @@ where
 
         let sequence = self.get_state_sequence(addr, &cur_ts)?;
 
+        let resolved = self.resolve_to_key(addr, &cur_ts)?;
         let pending = self.pending.read();
 
-        let msgset = pending.get(addr);
+        let msgset = pending.get(&resolved);
         match msgset {
             Some(mset) => {
                 if sequence > mset.next_sequence {
@@ -429,8 +460,10 @@ where
     /// will be sorted by each `message`'s sequence. If no corresponding
     /// messages found, return None result type.
     pub fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
+        let cur_ts = self.current_tipset();
+        let resolved = self.resolve_to_key(a, &cur_ts).ok()?;
         let pending = self.pending.read();
-        let mset = pending.get(a)?;
+        let mset = pending.get(&resolved)?;
         if mset.msgs.is_empty() {
             return None;
         }
@@ -522,6 +555,10 @@ where
             "sig_val".into(),
             SIG_VAL_CACHE_SIZE,
         ));
+        let key_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
+            "mpool_key".into(),
+            KEY_CACHE_SIZE,
+        ));
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
         let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
@@ -534,6 +571,7 @@ where
             api: Arc::new(api),
             bls_sig_cache,
             sig_val_cache,
+            key_cache,
             local_msgs,
             republished,
             config,
@@ -550,6 +588,7 @@ where
         let bls_sig_cache = mp.bls_sig_cache.clone();
         let pending = mp.pending.clone();
         let republished = mp.republished.clone();
+        let key_cache = mp.key_cache.clone();
 
         let current_ts = mp.cur_tipset.clone();
         let repub_trigger = mp.repub_trigger.clone();
@@ -566,6 +605,7 @@ where
                             republished.as_ref(),
                             pending.as_ref(),
                             &current_ts,
+                            key_cache.as_ref(),
                             reverts,
                             applies,
                         )
@@ -589,6 +629,7 @@ where
         let cur_tipset = mp.cur_tipset.clone();
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
+        let key_cache = mp.key_cache.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
         let republish_interval = u64::from(10 * block_delay + chain_config.propagation_delay_secs);
         // Reacts to republishing requests
@@ -607,6 +648,7 @@ where
                     cur_tipset.as_ref(),
                     republished.as_ref(),
                     local_addrs.as_ref(),
+                    key_cache.as_ref(),
                     &chain_config,
                 )
                 .await
@@ -625,10 +667,13 @@ where
 /// hash-map. If an entry in the hash-map does not yet exist, create a new
 /// `mset` that will correspond to the from message and push it to the pending
 /// hash-map.
+#[allow(clippy::too_many_arguments)]
 pub(in crate::message_pool) fn add_helper<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
+    key_cache: &SizeTrackingLruCache<Address, Address>,
+    cur_ts: &Tipset,
     msg: SignedMessage,
     sequence: u64,
     trust_policy: TrustPolicy,
@@ -643,9 +688,11 @@ where
     api.put_message(&ChainMessage::Signed(msg.clone().into()))?;
     api.put_message(&ChainMessage::Unsigned(msg.message().clone().into()))?;
 
+    let resolved_from = resolve_to_key(api, key_cache, &msg.from(), cur_ts)?;
     let mut pending = pending.write();
-    let from = msg.from();
-    let mset = pending.entry(from).or_insert_with(|| MsgSet::new(sequence));
+    let mset = pending
+        .entry(resolved_from)
+        .or_insert_with(|| MsgSet::new(sequence));
     match trust_policy {
         TrustPolicy::Untrusted => mset.add_untrusted(api, msg)?,
         TrustPolicy::Trusted => mset.add_trusted(api, msg)?,
@@ -688,6 +735,7 @@ fn verify_msg_before_add(
 }
 
 /// Remove a message from pending given the from address and sequence.
+/// The `from` address should already be resolved to its key form.
 pub fn remove(
     from: &Address,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
@@ -723,7 +771,9 @@ mod tests {
     fn add_helper_message_gas_limit_test() {
         let api = TestApi::default();
         let bls_sig_cache = SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingLruCache::new_mocked();
         let pending = SyncRwLock::new(HashMap::new());
+        let cur_ts = api.get_heaviest_tipset();
         let message = ShimMessage {
             gas_limit: 666_666_666,
             ..ShimMessage::default()
@@ -734,6 +784,8 @@ mod tests {
             &api,
             &bls_sig_cache,
             &pending,
+            &key_cache,
+            &cur_ts,
             msg,
             sequence,
             TrustPolicy::Trusted,
