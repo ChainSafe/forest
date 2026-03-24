@@ -47,7 +47,7 @@ forest-wallet list
 Should output:
 
 ```console
-Address                                   Default Balance
+Address                                                   Balance             Nonce
 ```
 
 Let's create a new address and inspects its balance:
@@ -64,6 +64,12 @@ t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy
 
 Listing the accounts shows the new account with a balance of `0 FIL`:
 
+:::note
+
+`forest-wallet list` shows **Address**, **Balance**, and **Nonce** (the next nonce the node would use for that address, from the message pool). The default wallet is the address suffixed with **`(default)`**. When there are several addresses, the **default is listed first**; the rest keep their relative order.
+
+:::
+
 ```shell
 forest-wallet list
 ```
@@ -71,8 +77,8 @@ forest-wallet list
 Sample output:
 
 ```console
-Address                                   Default Balance
-t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        0 FIL
+Address                                                   Balance             Nonce
+t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy (default)       0 FIL               0
 ```
 
 You can make sure you are using testnet addresses by checking their prefix. They start with a `t` whereas mainnet ones start with a `f`.
@@ -95,8 +101,8 @@ forest-wallet list
 Sample output:
 
 ```console
-Address                                   Default Balance
-t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        100 FIL
+Address                                                   Balance             Nonce
+t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy (default)       100 FIL             0
 ```
 
 ## Sending FIL tokens from your wallet
@@ -122,9 +128,9 @@ forest-wallet list
 Sample output:
 
 ```console
-Address                                   Default Balance
-t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq           0 FIL
-t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        100 FIL
+Address                                                   Balance             Nonce
+t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy (default)       100 FIL             0
+t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq                 0 FIL               0
 ```
 
 We can transfer FIL to this new account from our default account:
@@ -148,9 +154,9 @@ forest-wallet list
 Sample output:
 
 ```console
-Address                                   Default Balance
-t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq           1200 milliFIL
-t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        ~98800 milliFIL
+Address                                                   Balance             Nonce
+t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy (default)       ~98800 milliFIL     1
+t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq                 1200 milliFIL       0
 ```
 
 :::tip
