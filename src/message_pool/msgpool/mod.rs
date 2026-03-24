@@ -648,6 +648,185 @@ pub mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_sequence_resolves_id_address() {
+        let tma = TestApi::default();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let key_addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let id_addr = Address::new_id(999);
+
+        tma.set_key_address_mapping(&id_addr, &key_addr);
+        tma.set_state_sequence(&key_addr, 0);
+
+        let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
+        let mpool = MessagePool::new(
+            tma,
+            tx,
+            Default::default(),
+            Default::default(),
+            &mut services,
+        )
+        .unwrap();
+
+        // Add messages using the key address
+        let target = Address::new_id(1001);
+        for i in 0..3 {
+            let msg = create_smsg(&target, &key_addr, wallet.borrow_mut(), i, 1000000, 1);
+            mpool.add(msg).unwrap();
+        }
+
+        // get_sequence with ID address should see the same pending messages
+        assert_eq!(mpool.get_sequence(&id_addr).unwrap(), 3);
+        assert_eq!(mpool.get_sequence(&key_addr).unwrap(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_pending_for_resolves_id_address() {
+        let tma = TestApi::default();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let key_addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let id_addr = Address::new_id(888);
+
+        tma.set_key_address_mapping(&id_addr, &key_addr);
+        tma.set_state_sequence(&key_addr, 0);
+
+        let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
+        let mpool = MessagePool::new(
+            tma,
+            tx,
+            Default::default(),
+            Default::default(),
+            &mut services,
+        )
+        .unwrap();
+
+        let target = Address::new_id(1001);
+        for i in 0..2 {
+            let msg = create_smsg(&target, &key_addr, wallet.borrow_mut(), i, 1000000, 1);
+            mpool.add(msg).unwrap();
+        }
+
+        // pending_for with ID address should find messages added under key address
+        let msgs = mpool
+            .pending_for(&id_addr)
+            .expect("should find pending messages");
+        assert_eq!(msgs.len(), 2);
+
+        // pending_for with key address should also work
+        let msgs2 = mpool
+            .pending_for(&key_addr)
+            .expect("should find pending messages");
+        assert_eq!(msgs2.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_add_with_id_from_resolves_to_key_in_pending() {
+        let tma = TestApi::default();
+        let key_addr = Address::new_bls(&[11u8; 48]).unwrap();
+        let id_addr = Address::new_id(777);
+
+        tma.set_key_address_mapping(&id_addr, &key_addr);
+        tma.set_state_sequence(&key_addr, 0);
+
+        let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
+        let mpool = MessagePool::new(
+            tma,
+            tx,
+            Default::default(),
+            Default::default(),
+            &mut services,
+        )
+        .unwrap();
+
+        // Create a message with the ID address as sender and a fake signature
+        let msg = create_fake_smsg(&mpool, &Address::new_id(1001), &id_addr, 0, 1000000, 1);
+        mpool.add(msg).unwrap();
+
+        // Pending map should be keyed by key_addr, not id_addr
+        let pending = mpool.pending.read();
+        assert!(
+            pending.get(&key_addr).is_some(),
+            "pending should be keyed by resolved key address"
+        );
+        assert!(
+            pending.get(&id_addr).is_none(),
+            "pending should NOT have entry under raw ID address"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_head_change_removes_via_resolved_address() {
+        let tma = TestApi::default();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let key_addr = wallet.generate_addr(SignatureType::Bls).unwrap();
+        let id_addr = Address::new_id(555);
+
+        tma.set_key_address_mapping(&id_addr, &key_addr);
+        tma.set_state_sequence(&key_addr, 0);
+
+        let a = mock_block(1, 1);
+
+        let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
+        let mpool = MessagePool::new(
+            tma,
+            tx,
+            Default::default(),
+            Default::default(),
+            &mut services,
+        )
+        .unwrap();
+
+        let target = Address::new_id(1001);
+        let msg0 = create_smsg(&target, &key_addr, wallet.borrow_mut(), 0, 1000000, 1);
+        let msg1 = create_smsg(&target, &key_addr, wallet.borrow_mut(), 1, 1000000, 1);
+        mpool.add(msg0.clone()).unwrap();
+        mpool.add(msg1).unwrap();
+        assert_eq!(mpool.get_sequence(&key_addr).unwrap(), 2);
+
+        // Block messages are stored under the key_addr (as would appear on chain).
+        // The head_change remove path resolves addresses before touching pending.
+        mpool.api.inner.lock().set_block_messages(&a, vec![msg0]);
+
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
+        let repub_trigger = mpool.repub_trigger.clone();
+        let republished = mpool.republished.clone();
+        let key_cache = mpool.key_cache.clone();
+
+        mpool.api.set_state_sequence(&key_addr, 1);
+
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger,
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            key_cache.as_ref(),
+            Vec::new(),
+            vec![Tipset::from(a)],
+        )
+        .await
+        .unwrap();
+
+        // msg0 was applied on chain, msg1 remains pending
+        assert_eq!(mpool.get_sequence(&id_addr).unwrap(), 2);
+        let msgs = mpool
+            .pending_for(&key_addr)
+            .expect("should have remaining msg");
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].sequence(), 1);
+    }
+
+    #[tokio::test]
     async fn test_async_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);

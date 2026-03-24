@@ -839,4 +839,134 @@ mod tests {
             res_rbf
         );
     }
+
+    #[test]
+    fn test_resolve_to_key_returns_non_id_unchanged() {
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let ts = api.get_heaviest_tipset();
+
+        let bls_addr = Address::new_bls(&[1u8; 48]).unwrap();
+        let result = resolve_to_key(&api, &key_cache, &bls_addr, &ts).unwrap();
+        assert_eq!(result, bls_addr);
+        assert_eq!(
+            key_cache.len(),
+            0,
+            "cache should not be populated for non-ID addresses"
+        );
+    }
+
+    #[test]
+    fn test_resolve_to_key_resolves_id_and_caches() {
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let ts = api.get_heaviest_tipset();
+
+        let id_addr = Address::new_id(100);
+        let key_addr = Address::new_bls(&[5u8; 48]).unwrap();
+        api.set_key_address_mapping(&id_addr, &key_addr);
+
+        let result = resolve_to_key(&api, &key_cache, &id_addr, &ts).unwrap();
+        assert_eq!(result, key_addr);
+        assert_eq!(
+            key_cache.len(),
+            1,
+            "cache should have one entry after resolution"
+        );
+
+        // Second call should hit the cache (no API call needed)
+        let result2 = resolve_to_key(&api, &key_cache, &id_addr, &ts).unwrap();
+        assert_eq!(result2, key_addr);
+    }
+
+    #[test]
+    fn test_add_helper_keys_pending_by_resolved_address() {
+        let api = TestApi::default();
+        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let pending = SyncRwLock::new(HashMap::new());
+        let cur_ts = api.get_heaviest_tipset();
+
+        let id_addr = Address::new_id(200);
+        let key_addr = Address::new_bls(&[7u8; 48]).unwrap();
+        api.set_key_address_mapping(&id_addr, &key_addr);
+        api.set_state_sequence(&key_addr, 0);
+
+        let message = ShimMessage {
+            from: id_addr.into(),
+            gas_limit: 1_000_000,
+            ..ShimMessage::default()
+        };
+        let msg = SignedMessage::mock_bls_signed_message(message);
+
+        add_helper(
+            &api,
+            &bls_sig_cache,
+            &pending,
+            &key_cache,
+            &cur_ts,
+            msg,
+            0,
+            TrustPolicy::Trusted,
+        )
+        .unwrap();
+
+        let pending_read = pending.read();
+        assert!(
+            pending_read.get(&key_addr).is_some(),
+            "pending should be keyed by the resolved key address"
+        );
+        assert!(
+            pending_read.get(&id_addr).is_none(),
+            "pending should NOT have an entry under the raw ID address"
+        );
+    }
+
+    #[test]
+    fn test_get_sequence_works_with_both_address_forms() {
+        use crate::message_pool::provider::Provider;
+
+        let api = TestApi::default();
+        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let pending = SyncRwLock::new(HashMap::new());
+        let cur_ts = api.get_heaviest_tipset();
+
+        let id_addr = Address::new_id(300);
+        let key_addr = Address::new_bls(&[9u8; 48]).unwrap();
+        api.set_key_address_mapping(&id_addr, &key_addr);
+        api.set_state_sequence(&key_addr, 0);
+
+        // Add two messages from the ID address
+        for seq in 0..2 {
+            let message = ShimMessage {
+                from: id_addr.into(),
+                sequence: seq,
+                gas_limit: 1_000_000,
+                ..ShimMessage::default()
+            };
+            let msg = SignedMessage::mock_bls_signed_message(message);
+            add_helper(
+                &api,
+                &bls_sig_cache,
+                &pending,
+                &key_cache,
+                &cur_ts,
+                msg,
+                0,
+                TrustPolicy::Trusted,
+            )
+            .unwrap();
+        }
+
+        let state_seq = api.get_actor_after(&id_addr, &cur_ts).unwrap().sequence;
+        let resolved_for_id = resolve_to_key(&api, &key_cache, &id_addr, &cur_ts).unwrap();
+        let resolved_for_key = resolve_to_key(&api, &key_cache, &key_addr, &cur_ts).unwrap();
+        assert_eq!(resolved_for_id, resolved_for_key);
+
+        let mset = pending.read();
+        let next_seq = mset.get(&resolved_for_id).unwrap().next_sequence;
+        let expected = std::cmp::max(state_seq, next_seq);
+        assert_eq!(expected, 2, "should reflect both pending messages");
+    }
 }
