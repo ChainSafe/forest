@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod ec_finality;
 mod snapshot_format;
 pub mod store;
 #[cfg(test)]

@@ -125,6 +125,7 @@ jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 keccak-hash = "0.12"
 kubert-prometheus-process = "0.2"
 lazy-regex = "3"
+libm = "0.2"
 libp2p = { workspace = true, features = [
   'autonat',
   'gossipsub',
@@ -173,6 +174,7 @@ pin-project-lite = "0.2"
 positioned-io = "0.3"
 pretty_assertions = "1"
 prometheus-client = "0.23"
+puruspe = "0.4"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.3"
 rand = "0.8"
@@ -241,6 +243,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 termios = "0.3"
 
 [dev-dependencies]
+all_asserts = "2"
 ariadne = "0.6"
 assert_cmd = "2"
 bimap = "0.6"

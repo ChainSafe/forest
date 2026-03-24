@@ -75,6 +75,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "all_asserts"
+version = "2.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "514ce16346f9fc96702fd52f2ae7e383b185516ee6f556efd7c3176be8fe7bea"
+
+[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3244,6 +3250,7 @@ name = "forest-filecoin"
 version = "0.32.4"
 dependencies = [
  "ahash",
+ "all_asserts",
  "anes 0.2.1",
  "anyhow",
  "argon2",
@@ -3345,6 +3352,7 @@ dependencies = [
  "keccak-hash",
  "kubert-prometheus-process",
  "lazy-regex",
+ "libm",
  "libp2p",
  "libp2p-swarm-test",
  "libsecp256k1",
@@ -3375,6 +3383,7 @@ dependencies = [
  "pretty_assertions",
  "proc-macro2",
  "prometheus-client",
+ "puruspe",
  "quick-protobuf",
  "quick-protobuf-codec",
  "quickcheck",
@@ -5367,6 +5376,16 @@ dependencies = [
  "procfs",
  "prometheus-client",
  "tracing",
+]
+
+[[package]]
+name = "lambert_w"
+version = "1.2.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5f0846ee4f0299ca4c5b9ca06ff55cf88b3430a763bf591474cc734479c9b24"
+dependencies = [
+ "num-complex",
+ "num-traits",
 ]
 
 [[package]]
@@ -7490,6 +7509,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "puruspe"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c9d62b4ad8b456f2ac8a171567bd475cae8cecd53ff5a46fce4f261eef17648"
+dependencies = [
+ "lambert_w",
+ "num-complex",
 ]
 
 [[package]]

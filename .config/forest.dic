@@ -1,4 +1,4 @@
-267
+269
 Algorand/M
 API's
 API/SM
@@ -179,6 +179,7 @@ ParityDb
 parsable
 peerstore/S
 performant
+PMF
 pnpm
 PoC
 pointer/SM
@@ -208,6 +209,7 @@ semver
 serializable
 serializer/SM
 serverless
+Skellam
 skippable
 Sqlx
 statediff
