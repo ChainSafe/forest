@@ -219,11 +219,11 @@ impl TryFrom<&[u8]> for EthAddress {
     type Error = anyhow::Error;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        if value.len() != ADDRESS_LENGTH {
-            bail!("cannot parse bytes into an Ethereum address: incorrect input length")
-        }
-        let mut payload = ethereum_types::H160::default();
-        payload.as_bytes_mut().copy_from_slice(value);
+        anyhow::ensure!(
+            value.len() == ADDRESS_LENGTH,
+            "cannot parse bytes into an Ethereum address: incorrect input length"
+        );
+        let payload = ethereum_types::H160::from_slice(value);
         Ok(EthAddress(payload))
     }
 }
