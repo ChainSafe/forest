@@ -278,17 +278,8 @@ impl RpcMethod<2> for WalletSignMessage {
             }
         };
 
-        let sig = crate::key_management::sign(
-            *key.key_info.key_type(),
-            key.key_info.private_key(),
-            message.cid().to_bytes().as_slice(),
-        )?;
-
-        // Could use `SignedMessage::new_unchecked` here but let's make sure
-        // we're actually signing the message as expected.
-        let smsg = SignedMessage::new_from_parts(message, sig).expect(
-            "This is infallible. We just generated the signature, so it cannot be invalid.",
-        );
+        let eth_chain_id = ctx.chain_config().eth_chain_id;
+        let smsg = crate::key_management::sign_message(&key, &message, eth_chain_id)?;
 
         Ok(smsg)
     }

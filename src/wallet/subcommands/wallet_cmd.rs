@@ -12,8 +12,7 @@ use crate::key_management::{Key, KeyInfo};
 use crate::{
     ENCRYPTED_KEYSTORE_NAME,
     cli::humantoken,
-    eth::{EAMMethod, EVMMethod, EthEip1559TxArgsBuilder, EthTx},
-    message::SignedMessage,
+    eth::{EAMMethod, EVMMethod},
     rpc::{
         eth::{EthChainId, is_eth_address, types::EthAddress},
         mpool::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
@@ -547,34 +546,13 @@ impl WalletCommands {
                     message.sequence = MpoolGetNonce::call(&backend.remote, (from,)).await?;
 
                     let key = crate::key_management::find_key(&from, keystore)?;
-                    let sig_type = *key.key_info.key_type();
-                    let smsg = if sig_type == SignatureType::Delegated {
-                        let eth_chain_id = u64::from_str_radix(
-                            EthChainId::call(&backend.remote, ())
-                                .await?
-                                .trim_start_matches("0x"),
-                            16,
-                        )?;
-                        let eth_tx_args = EthEip1559TxArgsBuilder::default()
-                            .chain_id(eth_chain_id)
-                            .unsigned_message(&message)?
-                            .build()?;
-                        let eth_tx = EthTx::from(eth_tx_args);
-                        let sig = crate::key_management::sign(
-                            sig_type,
-                            key.key_info.private_key(),
-                            &eth_tx.rlp_unsigned_message(eth_chain_id)?,
-                        )?;
-                        let unsigned_msg = eth_tx.get_unsigned_message(from, eth_chain_id)?;
-                        SignedMessage::new_unchecked(unsigned_msg, sig)
-                    } else {
-                        let sig = crate::key_management::sign(
-                            sig_type,
-                            key.key_info.private_key(),
-                            message.cid().to_bytes().as_slice(),
-                        )?;
-                        SignedMessage::new_from_parts(message, sig)?
-                    };
+                    let eth_chain_id = u64::from_str_radix(
+                        EthChainId::call(&backend.remote, ())
+                            .await?
+                            .trim_start_matches("0x"),
+                        16,
+                    )?;
+                    let smsg = crate::key_management::sign_message(&key, &message, eth_chain_id)?;
 
                     MpoolPush::call(&backend.remote, (smsg.clone(),)).await?;
                     smsg

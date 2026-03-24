@@ -284,13 +284,8 @@ impl RpcMethod<2> for MpoolPushMessage {
             &key_addr,
             &mut ctx.keystore.as_ref().write(),
         )?)?;
-        let sig = crate::key_management::sign(
-            *key.key_info.key_type(),
-            key.key_info.private_key(),
-            message.cid().to_bytes().as_slice(),
-        )?;
-
-        let smsg = SignedMessage::new_from_parts(message, sig)?;
+        let eth_chain_id = ctx.chain_config().eth_chain_id;
+        let smsg = crate::key_management::sign_message(&key, &message, eth_chain_id)?;
 
         ctx.mpool.as_ref().push(smsg.clone()).await?;
 
