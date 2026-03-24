@@ -316,6 +316,7 @@ where
                 msg,
                 sequence,
                 TrustPolicy::Trusted,
+                false,
             ) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }

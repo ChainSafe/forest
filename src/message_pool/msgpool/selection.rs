@@ -1052,6 +1052,10 @@ mod test_selection {
         let ts3 = Tipset::from(&b3);
         mpool.api.set_block_messages(&b3, msgs);
 
+        // Set state sequence to 20 so that nonces 20..30 don't exceed the nonce gap.
+        mpool.api.set_state_sequence(&a1, 20);
+        mpool.api.set_state_sequence(&a2, 20);
+
         // now create another set of messages and add them to the mpool
         for i in 20..30 {
             mpool
