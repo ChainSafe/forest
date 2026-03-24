@@ -34,7 +34,13 @@ impl RpcMethod<1> for MpoolGetNonce {
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.mpool.get_sequence(&address)?)
+        let heaviest_tipset = ctx.chain_store().heaviest_tipset();
+        let key_addr = ctx
+            .state_manager
+            .resolve_to_key_addr(&address, &heaviest_tipset)
+            .await?;
+        let n_pool = ctx.mpool.get_sequence(&key_addr)?;
+        Ok(ctx.nonce_store.next_nonce(&key_addr, n_pool)?)
     }
 }
 
@@ -278,7 +284,11 @@ impl RpcMethod<2> for MpoolPushMessage {
         if from.protocol() == Protocol::ID {
             message.from = key_addr;
         }
-        let nonce = ctx.mpool.get_sequence(&from)?;
+
+        let _push_guard = ctx.nonce_store.lock_sender(&key_addr).await;
+
+        let n_pool = ctx.mpool.get_sequence(&key_addr)?;
+        let nonce = ctx.nonce_store.next_nonce(&key_addr, n_pool)?;
         message.sequence = nonce;
         let key = crate::key_management::Key::try_from(crate::key_management::try_find(
             &key_addr,
@@ -293,6 +303,8 @@ impl RpcMethod<2> for MpoolPushMessage {
         let smsg = SignedMessage::new_from_parts(message, sig)?;
 
         ctx.mpool.as_ref().push(smsg.clone()).await?;
+
+        ctx.nonce_store.save_nonce(&key_addr, nonce + 1)?;
 
         Ok(smsg)
     }

@@ -15,6 +15,7 @@ mod segregation_layer;
 mod set_extension_layer;
 mod validation_layer;
 
+use crate::message_pool::NonceStore;
 use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::shim::clock::ChainEpoch;
 use clap::ValueEnum as _;
@@ -481,6 +482,7 @@ pub struct RPCState<DB> {
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
     pub shutdown: mpsc::Sender<()>,
+    pub nonce_store: Arc<NonceStore>,
 }
 
 impl<DB: Blockstore> RPCState<DB> {

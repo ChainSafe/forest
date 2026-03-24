@@ -133,31 +133,14 @@ impl Provider for TestApi {
         Ok(Cid::default())
     }
 
-    fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
+    fn get_actor_after(&self, addr: &Address, _ts: &Tipset) -> Result<ActorState, Error> {
         let inner = self.inner.lock();
-        let mut msgs: Vec<SignedMessage> = Vec::new();
-        for b in ts.block_headers() {
-            if let Some(ms) = inner.bmsgs.get(b.cid()) {
-                for m in ms {
-                    if &m.from() == addr {
-                        msgs.push(m.clone());
-                    }
-                }
-            }
-        }
-        let balance = match inner.balances.get(addr) {
-            Some(b) => b.clone(),
-            None => TokenAmount::from_atto(10_000_000_000_u64),
-        };
-
-        msgs.sort_by_key(|m| m.sequence());
-        let mut sequence: u64 = inner.state_sequence.get(addr).copied().unwrap_or_default();
-        for m in msgs {
-            if m.sequence() != sequence {
-                break;
-            }
-            sequence += 1;
-        }
+        let balance = inner
+            .balances
+            .get(addr)
+            .cloned()
+            .unwrap_or_else(|| TokenAmount::from_atto(10_000_000_000_u64));
+        let sequence = inner.state_sequence.get(addr).copied().unwrap_or_default();
         let actor = ActorState::new(
             // Account Actor code (v10, calibnet)
             Cid::try_from("bafk2bzacebhfuz3sv7duvk653544xsxhdn4lsmy7ol7k6gdgancyctvmd7lnq")
@@ -169,6 +152,21 @@ impl Provider for TestApi {
         );
 
         Ok(actor)
+    }
+
+    fn get_state_nonce(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error> {
+        let inner = self.inner.lock();
+        let mut next = inner.state_sequence.get(addr).copied().unwrap_or_default();
+        for b in ts.block_headers() {
+            if let Some(ms) = inner.bmsgs.get(b.cid()) {
+                for m in ms {
+                    if &m.from() == addr {
+                        next = next.max(m.sequence() + 1);
+                    }
+                }
+            }
+        }
+        Ok(next)
     }
 
     fn messages_for_block(

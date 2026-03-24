@@ -6,9 +6,9 @@
 // inclusion in the chain. Messages are added either directly for locally
 // published messages or through pubsub propagation.
 
-use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{cmp::Ordering, num::NonZeroUsize, sync::Arc, time::Duration};
 
-use crate::blocks::{CachingBlockHeader, Tipset};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
@@ -31,6 +31,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
+use get_size2::GetSize;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
@@ -55,9 +56,20 @@ const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+
+/// Maximum nonce gap allowed for a message to be added to the message pool.
+const MAX_NONCE_GAP: u64 = 4;
 /// Maximum size of a serialized message in bytes. This is an anti-DOS measure to prevent
 /// large messages from being added to the message pool.
 const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
+
+const CHAIN_SEQUENCE_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
+
+#[derive(Clone, Hash, PartialEq, Eq, Debug, GetSize)]
+struct StateNonceCacheKey {
+    tipset_key: TipsetKey,
+    addr: Address,
+}
 
 /// Trust policy for whether a message is from a trusted or untrusted source.
 /// Untrusted sources are subject to stricter limits.
@@ -88,38 +100,52 @@ impl MsgSet {
     /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
     /// message has a sequence greater than any existing message sequence.
     /// Use this method when pushing a message coming from trusted sources.
-    pub fn add_trusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
+    pub fn add_trusted<T>(&mut self, api: &T, m: SignedMessage, strict: bool) -> Result<(), Error>
     where
         T: Provider,
     {
-        self.add(api, m, true)
+        self.add(api, m, strict, true)
     }
 
     /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
     /// message has a sequence greater than any existing message sequence.
     /// Use this method when pushing a message coming from untrusted sources.
-    pub fn add_untrusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
+    pub fn add_untrusted<T>(&mut self, api: &T, m: SignedMessage, strict: bool) -> Result<(), Error>
     where
         T: Provider,
     {
-        self.add(api, m, false)
+        self.add(api, m, strict, false)
     }
 
-    fn add<T>(&mut self, api: &T, m: SignedMessage, trusted: bool) -> Result<(), Error>
+    fn add<T>(&mut self, api: &T, m: SignedMessage, strict: bool, trust: bool) -> Result<(), Error>
     where
         T: Provider,
     {
-        let max_actor_pending_messages = if trusted {
-            api.max_actor_pending_messages()
-        } else {
-            api.max_untrusted_actor_pending_messages()
+        let (max_actor_pending_messages, max_nonce_gap) = match trust {
+            true => (api.max_actor_pending_messages(), MAX_NONCE_GAP),
+            false => (api.max_untrusted_actor_pending_messages(), 0),
         };
 
-        if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
-            self.next_sequence = m.sequence() + 1;
+        let seq = m.sequence();
+        let mut next_nonce = self.next_sequence;
+        let mut has_forward_gap = false;
+
+        if seq == next_nonce {
+            next_nonce += 1;
+            while self.msgs.contains_key(&next_nonce) {
+                next_nonce += 1;
+            }
+        } else if seq > next_nonce {
+            if strict && seq > next_nonce.saturating_add(max_nonce_gap) {
+                return Err(Error::NonceGap);
+            }
+            has_forward_gap = true;
         }
 
-        let has_existing = if let Some(exms) = self.msgs.get(&m.sequence()) {
+        let has_existing = if let Some(exms) = self.msgs.get(&seq) {
+            if strict && has_forward_gap {
+                return Err(Error::NonceGap);
+            }
             if m.cid() != exms.cid() {
                 let premium = &exms.message().gas_premium;
                 let min_price = premium.clone()
@@ -139,11 +165,13 @@ impl MsgSet {
         // Only check the limit when adding a new message, not when replacing an existing one (RBF)
         if !has_existing && self.msgs.len() as u64 >= max_actor_pending_messages {
             return Err(Error::TooManyPendingMessages(
-                m.message.from().to_string(),
-                trusted,
+                m.message().from().to_string(),
+                trust,
             ));
         }
-        if self.msgs.insert(m.sequence(), m).is_none() {
+
+        self.next_sequence = next_nonce;
+        if self.msgs.insert(seq, m).is_none() {
             metrics::MPOOL_MESSAGE_TOTAL.inc();
         }
         Ok(())
@@ -208,6 +236,7 @@ pub struct MessagePool<T> {
     pub config: MpoolConfig,
     /// Chain configuration
     pub chain_config: Arc<ChainConfig>,
+    state_nonce_cache: Arc<SizeTrackingLruCache<StateNonceCacheKey, u64>>,
 }
 
 impl<T> MessagePool<T>
@@ -351,25 +380,16 @@ where
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
-        self.add_helper(msg, trust_policy)?;
-        Ok(publish)
-    }
-
-    /// Finish verifying signed message before adding it to the pending `mset`
-    /// hash-map. If an entry in the hash-map does not yet exist, create a
-    /// new `mset` that will correspond to the from message and push it to
-    /// the pending hash-map.
-    fn add_helper(&self, msg: SignedMessage, trust_policy: TrustPolicy) -> Result<(), Error> {
-        let from = msg.from();
-        let cur_ts = self.current_tipset();
         add_helper(
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
             self.pending.as_ref(),
             msg,
-            self.get_state_sequence(&from, &cur_ts)?,
+            sequence,
             trust_policy,
-        )
+            !local,
+        )?;
+        Ok(publish)
     }
 
     /// Get the sequence for a given address, return Error if there is a failure
@@ -395,8 +415,17 @@ where
 
     /// Get the state of the sequence for a given address in `cur_ts`.
     fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        let actor = self.api.get_actor_after(addr, cur_ts)?;
-        Ok(actor.sequence)
+        // Check if the sequence is already cached
+        let key = StateNonceCacheKey {
+            tipset_key: cur_ts.key().clone(),
+            addr: *addr,
+        };
+        if let Some(v) = self.state_nonce_cache.get_cloned(&key) {
+            return Ok(v);
+        }
+        let v = self.api.get_state_nonce(addr, cur_ts)?;
+        self.state_nonce_cache.push(key, v);
+        Ok(v)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied
@@ -522,6 +551,10 @@ where
             "sig_val".into(),
             SIG_VAL_CACHE_SIZE,
         ));
+        let state_nonce_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
+            "mpool_chain_seq".into(),
+            CHAIN_SEQUENCE_CACHE_SIZE,
+        ));
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
         let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
@@ -540,6 +573,7 @@ where
             network_sender,
             repub_trigger,
             chain_config: Arc::clone(&chain_config),
+            state_nonce_cache,
         };
 
         mp.load_local()?;
@@ -550,6 +584,7 @@ where
         let bls_sig_cache = mp.bls_sig_cache.clone();
         let pending = mp.pending.clone();
         let republished = mp.republished.clone();
+        let state_nonce_cache = mp.state_nonce_cache.clone();
 
         let current_ts = mp.cur_tipset.clone();
         let repub_trigger = mp.repub_trigger.clone();
@@ -559,6 +594,7 @@ where
             loop {
                 match head_changes_rx.recv().await {
                     Ok(HeadChanges { reverts, applies }) => {
+                        state_nonce_cache.clear();
                         if let Err(e) = head_change(
                             api.as_ref(),
                             bls_sig_cache.as_ref(),
@@ -632,6 +668,7 @@ pub(in crate::message_pool) fn add_helper<T>(
     msg: SignedMessage,
     sequence: u64,
     trust_policy: TrustPolicy,
+    strict: bool,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -647,8 +684,8 @@ where
     let from = msg.from();
     let mset = pending.entry(from).or_insert_with(|| MsgSet::new(sequence));
     match trust_policy {
-        TrustPolicy::Untrusted => mset.add_untrusted(api, msg)?,
-        TrustPolicy::Trusted => mset.add_trusted(api, msg)?,
+        TrustPolicy::Untrusted => mset.add_untrusted(api, msg, strict)?,
+        TrustPolicy::Trusted => mset.add_trusted(api, msg, strict)?,
     }
 
     Ok(())
@@ -737,8 +774,59 @@ mod tests {
             msg,
             sequence,
             TrustPolicy::Trusted,
+            false,
         );
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn msg_set_add_helper_untrusted_local_non_strict_allows_large_gap() {
+        let api = TestApi::default();
+        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
+        let pending = SyncRwLock::new(HashMap::new());
+
+        let message = ShimMessage {
+            sequence: 10,
+            gas_limit: 666_666_666,
+            ..ShimMessage::default()
+        };
+        let msg = SignedMessage::mock_bls_signed_message(message);
+        let res = add_helper(
+            &api,
+            &bls_sig_cache,
+            &pending,
+            msg,
+            0,
+            TrustPolicy::Untrusted,
+            false,
+        );
+
+        assert!(res.is_ok(), "{res:?}");
+    }
+
+    #[test]
+    fn msg_set_add_helper_untrusted_remote_strict_rejects_nonce_gap() {
+        let api = TestApi::default();
+        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
+        let pending = SyncRwLock::new(HashMap::new());
+
+        let message = ShimMessage {
+            sequence: 10,
+            gas_limit: 666_666_666,
+            ..ShimMessage::default()
+        };
+        let msg = SignedMessage::mock_bls_signed_message(message);
+        let res = add_helper(
+            &api,
+            &bls_sig_cache,
+            &pending,
+            msg,
+            0,
+            TrustPolicy::Untrusted,
+            true,
+        );
+
+        assert!(matches!(res, Err(Error::NonceGap)));
     }
 
     // Test that RBF (Replace By Fee) is allowed even when at max_actor_pending_messages capacity
@@ -758,7 +846,7 @@ mod tests {
                 ..ShimMessage::default()
             };
             let msg = SignedMessage::mock_bls_signed_message(message);
-            let res = mset.add_trusted(&api, msg);
+            let res = mset.add_trusted(&api, msg, true);
             assert!(res.is_ok(), "Failed to add message {}: {:?}", i, res);
         }
 
@@ -769,7 +857,7 @@ mod tests {
             ..ShimMessage::default()
         };
         let msg_new = SignedMessage::mock_bls_signed_message(message_new);
-        let res_new = mset.add_trusted(&api, msg_new);
+        let res_new = mset.add_trusted(&api, msg_new, true);
         assert!(matches!(res_new, Err(Error::TooManyPendingMessages(_, _))));
 
         // Should ALLOW replacing an existing message (RBF) even when at capacity
@@ -780,11 +868,78 @@ mod tests {
             ..ShimMessage::default()
         };
         let msg_rbf = SignedMessage::mock_bls_signed_message(message_rbf);
-        let res_rbf = mset.add_trusted(&api, msg_rbf);
+        let res_rbf = mset.add_trusted(&api, msg_rbf, true);
         assert!(
             res_rbf.is_ok(),
             "RBF should be allowed at capacity: {:?}",
             res_rbf
         );
+    }
+
+    #[test]
+    fn msg_set_strict_rejects_excessive_nonce_gap() {
+        let api = TestApi::default();
+        let mut mset = MsgSet::new(0);
+        let message0 = ShimMessage {
+            sequence: 0,
+            ..ShimMessage::default()
+        };
+        mset.add_trusted(&api, SignedMessage::mock_bls_signed_message(message0), true)
+            .unwrap();
+        let message_far = ShimMessage {
+            sequence: 6,
+            ..ShimMessage::default()
+        };
+        let res = mset.add_trusted(
+            &api,
+            SignedMessage::mock_bls_signed_message(message_far),
+            true,
+        );
+        assert!(matches!(res, Err(Error::NonceGap)));
+    }
+
+    #[test]
+    fn msg_set_non_strict_allows_large_gap() {
+        let api = TestApi::default();
+        let mut mset = MsgSet::new(0);
+        let message_skip = ShimMessage {
+            sequence: 10,
+            ..ShimMessage::default()
+        };
+        let res = mset.add_trusted(
+            &api,
+            SignedMessage::mock_bls_signed_message(message_skip),
+            false,
+        );
+        assert!(res.is_ok(), "{res:?}");
+    }
+
+    #[test]
+    fn msg_set_untrusted_non_strict_allows_large_gap() {
+        let api = TestApi::default();
+        let mut mset = MsgSet::new(0);
+        let message_skip = ShimMessage {
+            sequence: 10,
+            ..ShimMessage::default()
+        };
+
+        let res = mset.add_untrusted(
+            &api,
+            SignedMessage::mock_bls_signed_message(message_skip),
+            false,
+        );
+        assert!(res.is_ok(), "{res:?}");
+    }
+
+    #[test]
+    fn msg_set_untrusted_enforces_zero_gap() {
+        let api = TestApi::default();
+        let mut mset = MsgSet::new(0);
+        let m1 = ShimMessage {
+            sequence: 1,
+            ..ShimMessage::default()
+        };
+        let res = mset.add_untrusted(&api, SignedMessage::mock_bls_signed_message(m1), true);
+        assert!(matches!(res, Err(Error::NonceGap)));
     }
 }

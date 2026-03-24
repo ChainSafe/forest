@@ -89,6 +89,7 @@ where
         state_manager.chain_config().clone(),
         services,
     )?;
+    let nonce_store = crate::message_pool::NonceStore::new();
 
     let (shutdown, shutdown_recv) = mpsc::channel(1);
 
@@ -129,6 +130,7 @@ where
             shutdown,
             tipset_send,
             snapshot_progress_tracker: Default::default(),
+            nonce_store,
         },
         shutdown_recv,
     ))

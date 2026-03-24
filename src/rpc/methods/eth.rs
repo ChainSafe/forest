@@ -2233,7 +2233,13 @@ impl RpcMethod<2> for EthGetTransactionCount {
         let addr = sender.to_filecoin_address()?;
         match block_param {
             BlockNumberOrHash::PredefinedBlock(Predefined::Pending) => {
-                Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
+                let heaviest_tipset = ctx.chain_store().heaviest_tipset();
+                let key_addr = ctx
+                    .state_manager
+                    .resolve_to_key_addr(&addr, &heaviest_tipset)
+                    .await?;
+                let seq = ctx.mpool.get_sequence(&key_addr)?;
+                Ok(EthUint64(ctx.nonce_store.next_nonce(&key_addr, seq)?))
             }
             _ => {
                 let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);

@@ -40,18 +40,6 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const MIN_GAS: u64 = 1298450;
 
-/// Get the state of the `base_sequence` for a given address in the current
-/// Tipset
-fn get_state_sequence<T>(api: &T, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error>
-where
-    T: Provider,
-{
-    let actor = api.get_actor_after(addr, cur_ts)?;
-    let base_sequence = actor.sequence;
-
-    Ok(base_sequence)
-}
-
 #[allow(clippy::too_many_arguments)]
 async fn republish_pending_messages<T>(
     api: &T,
@@ -289,7 +277,7 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.read().clone())?;
+            let sequence = api.get_state_nonce(&msg.from(), &cur_tipset.read().clone())?;
             if let Err(e) = add_helper(
                 api,
                 bls_sig_cache,
@@ -297,6 +285,7 @@ where
                 msg,
                 sequence,
                 TrustPolicy::Trusted,
+                false,
             ) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
@@ -363,7 +352,47 @@ pub mod tests {
     use crate::message_pool::{
         msg_chain::{Chains, create_message_chains},
         msg_pool::MessagePool,
+        provider::Provider,
     };
+
+    #[tokio::test]
+    async fn get_state_nonce_accounts_for_messages_in_head_tipset() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::default();
+        tma.set_state_sequence(&sender, 0);
+
+        let header_a = mock_block(1, 1);
+        let tipset = Tipset::from(&header_a);
+        tma.inner.lock().set_block_messages(
+            &header_a,
+            vec![create_smsg(&target, &sender, &mut wallet, 0, 1000000, 1)],
+        );
+
+        let n = tma.get_state_nonce(&sender, &tipset).unwrap();
+        assert_eq!(n, 1);
+    }
+
+    #[tokio::test]
+    async fn get_state_nonce_uses_max_over_tipset_nonces() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::default();
+        tma.set_state_sequence(&sender, 0);
+
+        let header_a = mock_block(1, 1);
+        let tipset = Tipset::from(&header_a);
+        let m0 = create_smsg(&target, &sender, &mut wallet, 0, 1000000, 1);
+        let m2 = create_smsg(&target, &sender, &mut wallet, 2, 1000000, 1);
+        tma.inner.lock().set_block_messages(&header_a, vec![m0, m2]);
+
+        let n = tma.get_state_nonce(&sender, &tipset).unwrap();
+        assert_eq!(n, 3);
+    }
 
     #[tokio::test]
     async fn test_per_actor_limit() {

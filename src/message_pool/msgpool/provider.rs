@@ -37,6 +37,8 @@ pub trait Provider {
     /// `StateTree` will be rooted at. Return `ActorState` or Error
     /// depending on whether or not `ActorState` is found
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error>;
+    /// Next assignable sequence: parent-state actor sequence merged with messages in `ts` blocks.
+    fn get_state_nonce(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error>;
     /// Return the signed messages for given block header
     fn messages_for_block(
         &self,
@@ -77,6 +79,38 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
         let state = StateTree::new_from_root(self.blockstore().clone(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
         Ok(state.get_required_actor(addr)?)
+    }
+
+    fn get_state_nonce(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error> {
+        let state = StateTree::new_from_root(self.blockstore().clone(), ts.parent_state())
+            .map_err(|e| Error::Other(e.to_string()))?;
+        let mut next = state.get_required_actor(addr)?.sequence;
+        let sender_id = state
+            .lookup_required_id(addr)
+            .map_err(|e| Error::Other(e.to_string()))?;
+        for bh in ts.block_headers() {
+            let (unsigned, signed) =
+                crate::chain::block_messages(self.blockstore(), bh).map_err(Error::from)?;
+            for m in &signed {
+                if state
+                    .lookup_id(&m.message().from)
+                    .map_err(|e| Error::Other(e.to_string()))?
+                    == Some(sender_id)
+                {
+                    next = next.max(m.message().sequence + 1);
+                }
+            }
+            for m in &unsigned {
+                if state
+                    .lookup_id(&m.from)
+                    .map_err(|e| Error::Other(e.to_string()))?
+                    == Some(sender_id)
+                {
+                    next = next.max(m.sequence + 1);
+                }
+            }
+        }
+        Ok(next)
     }
 
     fn messages_for_block(

@@ -198,7 +198,14 @@ mod tests {
         });
 
         let cs_arc = Arc::new(
-            ChainStore::new(db.clone(), db.clone(), db, chain_config, genesis_header).unwrap(),
+            ChainStore::new(
+                db.clone(),
+                db.clone(),
+                db.clone(),
+                chain_config,
+                genesis_header,
+            )
+            .unwrap(),
         );
 
         let state_manager = Arc::new(StateManager::new(cs_arc.clone()).unwrap());
@@ -226,6 +233,7 @@ mod tests {
             )
             .unwrap()
         };
+        let nonce_store = crate::message_pool::NonceStore::new();
         let start_time = chrono::Utc::now();
 
         let peer_manager = Arc::new(PeerManager::default());
@@ -244,6 +252,7 @@ mod tests {
             shutdown: mpsc::channel(1).0, // dummy for tests
             tipset_send,
             snapshot_progress_tracker: Default::default(),
+            nonce_store,
         });
         (state, network_rx)
     }

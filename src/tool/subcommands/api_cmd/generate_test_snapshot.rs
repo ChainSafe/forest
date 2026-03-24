@@ -138,6 +138,7 @@ async fn ctx(
         state_manager.chain_config().clone(),
         &mut JoinSet::new(),
     )?;
+    let nonce_store = crate::message_pool::NonceStore::new();
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
@@ -156,6 +157,7 @@ async fn ctx(
         shutdown,
         tipset_send,
         snapshot_progress_tracker: Default::default(),
+        nonce_store,
     });
     Ok((rpc_state, network_rx, shutdown_recv))
 }

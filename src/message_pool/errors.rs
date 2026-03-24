@@ -28,6 +28,9 @@ pub enum Error {
     InvalidFromAddr,
     #[error("Message with sequence already in mempool")]
     DuplicateSequence,
+    /// Nonce too far ahead of the expected next nonce.
+    #[error("Unfulfilled nonce gap")]
+    NonceGap,
     #[error("Validation Error: {0}")]
     SoftValidationFailure(String),
     #[error("Too many pending messages from actor {0} (trusted: {1})")]
