@@ -3,7 +3,7 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
+use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND};
 use crate::blocks::{Block, CachingBlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
@@ -22,7 +22,6 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::encoding::prover_id_from_u64;
-use crate::utils::misc::env::is_env_truthy;
 use cid::Cid;
 use fil_actors_shared::filecoin_proofs_api::{PublicReplicaInfo, SectorId, post};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
@@ -127,7 +126,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     });
 
     // Beacon values check
-    if !is_env_truthy(IGNORE_DRAND_VAR) {
+    if !*IGNORE_DRAND {
         validations.spawn({
             let block = block.clone();
             let parent_epoch = base_tipset.epoch();

@@ -238,8 +238,8 @@ where
     // validation, and it prevents duplicate migrations.
     pub fn populate_cache(&self) {
         for (child, parent) in self
-            .chain_index()
-            .chain(self.heaviest_tipset())
+            .heaviest_tipset()
+            .chain(self.blockstore())
             .tuple_windows()
             .take(DEFAULT_TIPSET_CACHE_SIZE.into())
         {
@@ -1612,10 +1612,9 @@ where
             })?;
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
-        let tipsets = self
-            .chain_index()
-            .chain(end)
-            .take_while(|tipset| tipset.epoch() >= *epochs.start());
+        let tipsets = end
+            .chain(self.blockstore())
+            .take_while(|ts| ts.epoch() >= *epochs.start());
 
         self.validate_tipsets(tipsets)
     }
@@ -1925,8 +1924,10 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
         use crate::shim::clock::EPOCH_DURATION_SECONDS;
 
         let mut parent_state = *self.tipset.parent_state();
-        let parent_epoch =
-            Tipset::load_required(self.chain_index.db(), self.tipset.parents())?.epoch();
+        let parent_epoch = self
+            .chain_index
+            .load_required_tipset(self.tipset.parents())?
+            .epoch();
         let epoch = self.tipset.epoch();
 
         for epoch_i in parent_epoch..epoch {

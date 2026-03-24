@@ -378,7 +378,7 @@ impl EthEventHandler {
                     .await?;
             }
             ParsedFilterTipsets::Key(tsk) => {
-                let tipset = Arc::new(Tipset::load_required(ctx.store(), tsk)?);
+                let tipset = ctx.chain_index().load_required_tipset(tsk)?;
                 Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
                     .await?;
             }

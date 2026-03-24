@@ -295,7 +295,9 @@ impl RpcMethod<1> for ChainGetParentMessages {
         if block_header.epoch == 0 {
             Ok(vec![])
         } else {
-            let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
+            let parent_tipset = ctx
+                .chain_index()
+                .load_required_tipset(&block_header.parents)?;
             load_api_messages_from_tipset(&ctx, parent_tipset.key()).await
         }
     }

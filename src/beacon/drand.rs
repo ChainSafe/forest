@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::LazyLock;
 use std::time::Duration;
 use std::{borrow::Cow, num::NonZeroUsize};
 
@@ -13,6 +14,7 @@ use super::{
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::misc::env::is_env_truthy;
 use crate::utils::net::global_http_client;
 use anyhow::Context as _;
 use backon::{ExponentialBuilder, Retryable};
@@ -27,6 +29,9 @@ use url::Url;
 /// Environmental Variable to ignore `Drand`. Lotus parallel is
 /// `LOTUS_IGNORE_DRAND`
 pub const IGNORE_DRAND_VAR: &str = "FOREST_IGNORE_DRAND";
+
+/// Whether to ignore `Drand`.
+pub static IGNORE_DRAND: LazyLock<bool> = LazyLock::new(|| is_env_truthy(IGNORE_DRAND_VAR));
 
 /// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained.
 /// For the details, see <https://github.com/filecoin-project/FIPs/blob/1bd887028ac1b50b6f2f94913e07ede73583da5b/FIPS/fip-0063.md#specification>
