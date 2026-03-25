@@ -250,7 +250,7 @@ impl RpcMethod<2> for MpoolPushMessage {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (message, send_spec): Self::Params,
-        _: &http::Extensions,
+        extensions: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let from = message.from;
 
@@ -280,6 +280,18 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         if from.protocol() == Protocol::ID {
             message.from = key_addr;
+        }
+
+        let balance =
+            super::wallet::WalletBalance::handle(ctx.clone(), (message.from,), extensions).await?;
+        let required_funds = &message.value + &message.gas_fee_cap * message.gas_limit;
+        if balance < required_funds {
+            return Err(anyhow::anyhow!(
+                "mpool push: not enough funds: {} < {}",
+                balance,
+                required_funds
+            )
+            .into());
         }
 
         let key = crate::key_management::Key::try_from(crate::key_management::try_find(

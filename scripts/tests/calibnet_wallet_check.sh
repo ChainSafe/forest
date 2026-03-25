@@ -114,6 +114,12 @@ $FOREST_WALLET_PATH --remote-wallet set-default "$ADDR_ONE"
 $FOREST_WALLET_PATH list
 $FOREST_WALLET_PATH --remote-wallet list
 
+# Attempt send from empty ADDR_TWO to ADDR_THREE via --remote-wallet (uses MpoolPushMessage)
+if $FOREST_WALLET_PATH --remote-wallet send --from "$ADDR_TWO" "$ADDR_THREE" "$FIL_AMT" 2>&1; then
+  echo "Expected send from empty wallet to fail with 'not enough funds'"
+  exit 1
+fi
+
 MSG=$($FOREST_WALLET_PATH send "$ADDR_TWO" "$FIL_AMT")
 : "$MSG"
 
