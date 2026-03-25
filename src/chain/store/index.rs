@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::num::NonZeroUsize;
-use std::sync::Arc;
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
@@ -21,7 +20,7 @@ type TipsetCache = SizeTrackingLruCache<TipsetKey, Tipset>;
 
 type TipsetHeightCache = SizeTrackingLruCache<ChainEpoch, TipsetKey>;
 
-type IsTipsetFinalizedFn = Arc<dyn Fn(&Tipset) -> bool + Send + Sync>;
+type IsTipsetFinalizedFn = Box<dyn Fn(&Tipset) -> bool + Send + Sync>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.

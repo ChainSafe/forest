@@ -143,7 +143,7 @@ where
         let heaviest_tipset = Arc::new(RwLock::new(head));
         let f3_finalized_tipset: Arc<RwLock<Option<Tipset>>> = Default::default();
         let chain_index = Arc::new(
-            ChainIndex::new(db.clone()).with_is_tipset_finalized(Arc::new({
+            ChainIndex::new(db.clone()).with_is_tipset_finalized(Box::new({
                 let chain_finality = chain_config.policy.chain_finality;
                 let heaviest_tipset = heaviest_tipset.clone();
                 let f3_finalized_tipset = f3_finalized_tipset.clone();
