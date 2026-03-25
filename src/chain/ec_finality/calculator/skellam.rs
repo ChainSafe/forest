@@ -131,9 +131,7 @@ mod tests {
     }
 
     fn poisson_log_pmf(k: f64, lambda: f64) -> f64 {
-        if k < 0. {
-            return f64::NEG_INFINITY;
-        }
+        assert!(k >= 0., "k should not be negative");
         let lg = libm::lgamma(k + 1.);
         k * libm::log(lambda) - lambda - lg
     }

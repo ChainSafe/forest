@@ -61,6 +61,10 @@ const PYTHON_REFERENCE_CHAIN: [i64; 905] = [
 #[case(50, 1.37790735432279053542e-20)]
 #[case(75, 2.40782990048672131651e-24)]
 #[case(100, 3.21616912956779552478e-24)]
+#[case(905, 1.)]
+#[case(906, 1.)]
+#[case(0, 1.)]
+#[case(-1, 1.)]
 fn test_calc_validator_prob_python_reference(#[case] depth: i64, #[case] want: f64) {
     let chain = PYTHON_REFERENCE_CHAIN.as_slice();
     let current_epoch = chain.len() as i64 - 1;
@@ -213,4 +217,49 @@ fn test_find_threshold_depth_mildly_degraded_chain() {
         BISECT_HIGH,
         "mildly degraded chain should still find a threshold"
     );
+}
+
+#[rstest]
+#[case(4)]
+#[case(3)]
+#[case(2)]
+#[case(1)]
+fn test_find_threshold_depth_too_short_chain(#[case] chain_len: usize) {
+    let chain = vec![3; chain_len];
+    let guarantee = 2_f64.powi(-30);
+    let depth = find_threshold_depth(
+        &chain,
+        TEST_FINALITY,
+        DEFAULT_BLOCKS_PER_EPOCH,
+        DEFAULT_BYZANTINE_FRACTION,
+        guarantee,
+    )
+    .unwrap();
+    assert_eq!(depth, -1, "input chain is too short");
+}
+
+#[test]
+fn test_find_threshold_depth_too_large_guarantee() {
+    let chain = vec![3; 200];
+    let guarantee = 2_f64;
+    let depth = find_threshold_depth(
+        &chain,
+        TEST_FINALITY,
+        DEFAULT_BLOCKS_PER_EPOCH,
+        DEFAULT_BYZANTINE_FRACTION,
+        guarantee,
+    )
+    .unwrap();
+    assert_eq!(depth, BISECT_LOW, "guarantee is too large");
+}
+
+#[rstest]
+#[case(0., -0.1, f64::NEG_INFINITY)]
+#[case(0., -1., f64::NEG_INFINITY)]
+#[case(0., 1., f64::NEG_INFINITY)]
+#[case(0., 0.1, f64::NEG_INFINITY)]
+#[case(0., 0., 0.)]
+fn poisson_log_prob_tests(#[case] lambda: f64, #[case] x: f64, #[case] want: f64) {
+    let got = poisson_log_prob(lambda, x);
+    assert_eq!(got, want);
 }
