@@ -266,6 +266,9 @@ impl RpcMethod<2> for MpoolPushMessage {
             )
             .into());
         }
+
+        let _sender_guard = ctx.mpool_locker.take_lock(key_addr).await;
+
         let mut message =
             estimate_message_gas(&ctx, message, send_spec, Default::default()).await?;
         if message.gas_premium > message.gas_fee_cap {
@@ -278,16 +281,17 @@ impl RpcMethod<2> for MpoolPushMessage {
         if from.protocol() == Protocol::ID {
             message.from = key_addr;
         }
-        let nonce = ctx.mpool.get_sequence(&from)?;
-        message.sequence = nonce;
+
         let key = crate::key_management::Key::try_from(crate::key_management::try_find(
             &key_addr,
             &mut ctx.keystore.as_ref().write(),
         )?)?;
         let eth_chain_id = ctx.chain_config().eth_chain_id;
-        let smsg = crate::key_management::sign_message(&key, &message, eth_chain_id)?;
 
-        ctx.mpool.as_ref().push(smsg.clone()).await?;
+        let smsg = ctx
+            .nonce_tracker
+            .sign_and_push(ctx.mpool.as_ref(), message, &key, eth_chain_id)
+            .await?;
 
         Ok(smsg)
     }

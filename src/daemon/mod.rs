@@ -398,6 +398,7 @@ fn maybe_start_rpc_service(
             let tipset_send = chain_follower.tipset_sender.clone();
             let keystore = ctx.keystore.clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
+            let nonce_tracker = crate::message_pool::NonceTracker::new(ctx.db.clone());
             async move {
                 let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
                     .await
@@ -418,6 +419,8 @@ fn maybe_start_rpc_service(
                         shutdown,
                         tipset_send,
                         snapshot_progress_tracker,
+                        mpool_locker: crate::message_pool::MpoolLocker::new(),
+                        nonce_tracker,
                     },
                     rpc_listener,
                     rpc_stop_handle,

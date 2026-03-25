@@ -115,6 +115,7 @@ where
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
 
+    let nonce_tracker = crate::message_pool::NonceTracker::new(state_manager.blockstore_owned());
     Ok((
         RPCState {
             state_manager,
@@ -128,6 +129,8 @@ where
             shutdown,
             tipset_send,
             snapshot_progress_tracker: Default::default(),
+            mpool_locker: crate::message_pool::MpoolLocker::new(),
+            nonce_tracker,
         },
         shutdown_recv,
     ))
