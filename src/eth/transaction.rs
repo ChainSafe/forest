@@ -17,7 +17,7 @@ use rlp::Rlp;
 use spire_enum::prelude::delegated_enum;
 
 use crate::{
-    message::{Message as _, SignedMessage},
+    message::{MessageRead as _, SignedMessage},
     rpc::eth::types::EthAddress,
     shim::{address::Address, crypto::SignatureType, message::Message, version::NetworkVersion},
 };

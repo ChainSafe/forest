@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Message as MessageTrait;
+use super::{Message as MessageTrait, MessageRead};
 use crate::eth::EthChainId;
 use crate::shim::message::MethodNum;
 use crate::shim::{
@@ -108,7 +108,7 @@ impl SignedMessage {
     }
 }
 
-impl MessageTrait for SignedMessage {
+impl MessageRead for SignedMessage {
     fn from(&self) -> Address {
         self.message.from()
     }
@@ -130,12 +130,6 @@ impl MessageTrait for SignedMessage {
     fn gas_limit(&self) -> u64 {
         self.message.gas_limit()
     }
-    fn set_gas_limit(&mut self, token_amount: u64) {
-        self.message.set_gas_limit(token_amount);
-    }
-    fn set_sequence(&mut self, new_sequence: u64) {
-        self.message.set_sequence(new_sequence);
-    }
     fn required_funds(&self) -> TokenAmount {
         self.message.required_funds()
     }
@@ -145,11 +139,18 @@ impl MessageTrait for SignedMessage {
     fn gas_premium(&self) -> TokenAmount {
         self.message.gas_premium()
     }
+}
 
+impl MessageTrait for SignedMessage {
+    fn set_gas_limit(&mut self, token_amount: u64) {
+        self.message.set_gas_limit(token_amount);
+    }
+    fn set_sequence(&mut self, new_sequence: u64) {
+        self.message.set_sequence(new_sequence);
+    }
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
         self.message.set_gas_fee_cap(cap)
     }
-
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         self.message.set_gas_premium(prem)
     }

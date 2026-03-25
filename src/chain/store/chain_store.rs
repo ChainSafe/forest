@@ -7,14 +7,11 @@ use super::{
     tipset_tracker::TipsetTracker,
 };
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use crate::message::{ChainMessage, SignedMessage};
 use crate::networks::{ChainConfig, Height};
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::ChainEpoch;
-use crate::shim::{
-    address::Address, econ::TokenAmount, executor::Receipt, message::Message,
-    state_tree::StateTree, version::NetworkVersion,
-};
+use crate::shim::{executor::Receipt, message::Message, version::NetworkVersion};
 use crate::state_manager::StateOutput;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
@@ -30,7 +27,7 @@ use crate::{
     interpreter::{BlockMessages, VMTrace},
     rpc::chain::PathChanges,
 };
-use ahash::{HashMap, HashMapExt, HashSet};
+use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
@@ -89,6 +86,9 @@ pub struct ChainStore<DB> {
 
     /// Needed by the Ethereum mapping.
     chain_config: Arc<ChainConfig>,
+
+    /// Cache for messages in tipsets, keyed by tipset key.
+    messages_in_tipset_cache: MessagesInTipsetCache,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -151,9 +151,15 @@ where
             validated_blocks,
             eth_mappings,
             chain_config,
+            messages_in_tipset_cache: Default::default(),
         };
 
         Ok(cs)
+    }
+
+    /// Cache for messages in tipsets, keyed by tipset key.
+    pub fn messages_in_tipset_cache(&self) -> &MessagesInTipsetCache {
+        &self.messages_in_tipset_cache
     }
 
     /// Sets heaviest tipset
@@ -338,9 +344,13 @@ where
 
     /// Retrieves ordered valid messages from a `Tipset`. This will only include
     /// messages that will be passed through the VM.
-    pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let bmsgs = BlockMessages::for_tipset(&self.db, ts)?;
-        Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
+    pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error> {
+        Ok(self
+            .messages_in_tipset_cache()
+            .get_or_insert_with(ts.key(), || {
+                let bmsgs = BlockMessages::for_tipset(&self.db, ts)?;
+                Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect_vec())
+            })?)
     }
 
     /// Gets look-back tipset (and state-root of that tipset) for block
@@ -596,43 +606,47 @@ where
 /// on performance measurements, is resource-intensive and can be a bottleneck for certain
 /// use-cases. This cache is intended to be used with a complementary function;
 /// [`messages_for_tipset_with_cache`].
-pub struct MsgsInTipsetCache {
-    cache: SizeTrackingLruCache<TipsetKey, Vec<ChainMessage>>,
+pub struct MessagesInTipsetCache {
+    cache: SizeTrackingLruCache<TipsetKey, Arc<Vec<ChainMessage>>>,
 }
 
-impl MsgsInTipsetCache {
+impl MessagesInTipsetCache {
     pub fn new(capacity: NonZeroUsize) -> Self {
         Self {
             cache: SizeTrackingLruCache::new_with_metrics("msg_in_tipset".into(), capacity),
         }
     }
 
-    pub fn get(&self, key: &TipsetKey) -> Option<Vec<ChainMessage>> {
+    pub fn get(&self, key: &TipsetKey) -> Option<Arc<Vec<ChainMessage>>> {
         self.cache.get_cloned(key)
     }
 
-    pub fn get_or_insert_with<F>(&self, key: &TipsetKey, f: F) -> anyhow::Result<Vec<ChainMessage>>
+    pub fn get_or_insert_with<F>(
+        &self,
+        key: &TipsetKey,
+        f: F,
+    ) -> anyhow::Result<Arc<Vec<ChainMessage>>>
     where
         F: FnOnce() -> anyhow::Result<Vec<ChainMessage>>,
     {
-        if self.cache.contains(key) {
-            Ok(self.get(key).expect("cache entry disappeared!"))
+        if let Some(cached) = self.get(key) {
+            Ok(cached)
         } else {
-            let v = f()?;
-            self.insert(key.clone(), v.clone());
-            Ok(v)
+            Ok(self.insert(key.clone(), f()?))
         }
     }
 
-    pub fn insert(&self, key: TipsetKey, mut value: Vec<ChainMessage>) {
+    pub fn insert(&self, key: TipsetKey, mut value: Vec<ChainMessage>) -> Arc<Vec<ChainMessage>> {
         value.shrink_to_fit();
-        self.cache.push(key, value);
+        let value = Arc::new(value);
+        self.cache.push(key, value.clone());
+        value
     }
 
     /// Reads the intended cache size for this process from the environment or uses the default.
     fn read_cache_size() -> NonZeroUsize {
         // Arbitrary number, can be adjusted
-        const DEFAULT: NonZeroUsize = nonzero!(100usize);
+        const DEFAULT: NonZeroUsize = nonzero!(1024usize);
         std::env::var("FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE")
             .ok()
             .and_then(|s| s.parse().ok())
@@ -640,87 +654,10 @@ impl MsgsInTipsetCache {
     }
 }
 
-impl Default for MsgsInTipsetCache {
+impl Default for MessagesInTipsetCache {
     fn default() -> Self {
         Self::new(Self::read_cache_size())
     }
-}
-
-/// Same as [`messages_for_tipset`] but uses a cache to store messages for each tipset.
-pub fn messages_for_tipset_with_cache<DB>(
-    db: &Arc<DB>,
-    ts: &Tipset,
-    cache: &MsgsInTipsetCache,
-) -> Result<Vec<ChainMessage>, Error>
-where
-    DB: Blockstore,
-{
-    let key = ts.key();
-    cache
-        .get_or_insert_with(key, || {
-            messages_for_tipset(db, ts).context("failed to get messages for tipset")
-        })
-        .map_err(Into::into)
-}
-
-/// Given a tipset this function will return all unique messages in that tipset.
-/// Note: This function is resource-intensive and can be a bottleneck for certain use-cases.
-/// Consider using [`messages_for_tipset_with_cache`] for better performance.
-pub fn messages_for_tipset<DB>(db: &Arc<DB>, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
-where
-    DB: Blockstore,
-{
-    let mut applied: HashMap<Address, u64> = HashMap::new();
-    let mut balances: HashMap<Address, TokenAmount> = HashMap::new();
-    let state = StateTree::new_from_tipset(Arc::clone(db), ts)?;
-
-    // message to get all messages for block_header into a single iterator
-    let mut get_message_for_block_header =
-        |b: &CachingBlockHeader| -> Result<Vec<ChainMessage>, Error> {
-            let (unsigned, signed) = block_messages(db, b)?;
-            let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
-            let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
-            let signed_box = signed.into_iter().map(ChainMessage::Signed);
-
-            for message in unsigned_box.chain(signed_box) {
-                let from_address = &message.from();
-                if !applied.contains_key(from_address) {
-                    let actor_state = state
-                        .get_actor(from_address)?
-                        .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
-                    applied.insert(*from_address, actor_state.sequence);
-                    balances.insert(*from_address, actor_state.balance.clone().into());
-                }
-                if let Some(seq) = applied.get_mut(from_address) {
-                    if *seq != message.sequence() {
-                        continue;
-                    }
-                    *seq += 1;
-                } else {
-                    continue;
-                }
-                if let Some(bal) = balances.get_mut(from_address) {
-                    if *bal < message.required_funds() {
-                        continue;
-                    }
-                    *bal -= message.required_funds();
-                } else {
-                    continue;
-                }
-
-                messages.push(message)
-            }
-
-            Ok(messages)
-        };
-
-    ts.block_headers()
-        .iter()
-        .try_fold(Vec::new(), |mut message_vec, b| {
-            let mut messages = get_message_for_block_header(b)?;
-            message_vec.append(&mut messages);
-            Ok(message_vec)
-        })
 }
 
 /// Returns messages from key-value store based on a slice of [`Cid`]s.
@@ -803,16 +740,16 @@ mod tests {
 
     #[test]
     fn test_messages_in_tipset_cache() {
-        let cache = MsgsInTipsetCache::new(2.try_into().unwrap());
+        let cache = MessagesInTipsetCache::new(nonzero!(2_usize));
         let key1 = TipsetKey::from(nunny::vec![Cid::new_v1(
             DAG_CBOR,
             MultihashCode::Blake2b256.digest(&[1])
         )]);
         assert!(cache.get(&key1).is_none());
 
-        let msgs = vec![ChainMessage::Unsigned(Message::default())];
+        let msgs = vec![Message::default().into()];
         cache.insert(key1.clone(), msgs.clone());
-        assert_eq!(msgs, cache.get(&key1).unwrap());
+        assert_eq!(&msgs, &*cache.get(&key1).unwrap());
 
         let inserter_executed: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
@@ -821,7 +758,10 @@ mod tests {
             Ok(msgs.clone())
         };
 
-        assert_eq!(msgs, cache.get_or_insert_with(&key1, key_inserter).unwrap());
+        assert_eq!(
+            &msgs,
+            &*cache.get_or_insert_with(&key1, key_inserter).unwrap()
+        );
         assert!(!inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
 
         let key2 = TipsetKey::from(nunny::vec![Cid::new_v1(
@@ -830,7 +770,10 @@ mod tests {
         )]);
 
         assert!(cache.get(&key2).is_none());
-        assert_eq!(msgs, cache.get_or_insert_with(&key2, key_inserter).unwrap());
+        assert_eq!(
+            &msgs,
+            &*cache.get_or_insert_with(&key2, key_inserter).unwrap()
+        );
         assert!(inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
     }
 }
