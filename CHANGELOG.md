@@ -37,6 +37,8 @@
 
 ### Fixed
 
+- [#6788](https://github.com/ChainSafe/forest/pull/6788): Fixed message pool nonce calculation to align with Lotus.
+
 ## Forest v0.32.4 "Mild Inconvenience"
 
 This is a non-mandatory release for all node operators. It enables F3 finality resolution on ETH v1 RPC methods.
