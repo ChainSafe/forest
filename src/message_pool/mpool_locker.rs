@@ -3,7 +3,8 @@
 
 use crate::shim::address::Address;
 use ahash::HashMap;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 use tokio::sync::OwnedMutexGuard;
 
 /// Per-address async lock for serializing `MpoolPushMessage` RPC calls.
@@ -24,7 +25,7 @@ impl MpoolLocker {
     /// held for the duration of the nonce-assign + sign + push critical section.
     pub async fn take_lock(&self, addr: Address) -> OwnedMutexGuard<()> {
         let mutex = {
-            let mut map = self.inner.lock().expect("MpoolLocker poisoned");
+            let mut map = self.inner.lock();
             map.entry(addr)
                 .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
                 .clone()

@@ -168,10 +168,10 @@ mod tests {
         Message {
             from,
             to: Address::new_id(1),
-            value: TokenAmount::from_whole(1).into(),
+            value: TokenAmount::from_whole(1),
             gas_limit: 10_000_000,
-            gas_fee_cap: TokenAmount::from_nano(1500).into(),
-            gas_premium: TokenAmount::from_nano(1500).into(),
+            gas_fee_cap: TokenAmount::from_nano(1500),
+            gas_premium: TokenAmount::from_nano(1500),
             ..Message::default()
         }
     }
@@ -182,11 +182,11 @@ mod tests {
         Message {
             from,
             to,
-            value: TokenAmount::from_whole(1).into(),
+            value: TokenAmount::from_whole(1),
             method_num: EVMMethod::InvokeContract as u64,
             gas_limit: 10_000_000,
-            gas_fee_cap: TokenAmount::from_nano(1500).into(),
-            gas_premium: TokenAmount::from_nano(1500).into(),
+            gas_fee_cap: TokenAmount::from_nano(1500),
+            gas_premium: TokenAmount::from_nano(1500),
             ..Message::default()
         }
     }

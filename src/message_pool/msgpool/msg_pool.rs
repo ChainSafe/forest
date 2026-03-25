@@ -146,10 +146,8 @@ impl MsgSet {
                 "message nonce has too big a gap from expected nonce"
             );
             return Err(Error::NonceGap);
-        } else if m.sequence() > next_nonce {
-            true
         } else {
-            false
+            m.sequence() > next_nonce
         };
 
         let has_existing = if let Some(exms) = self.msgs.get(&m.sequence()) {
@@ -876,7 +874,7 @@ mod tests {
 
     fn make_smsg(from: Address, seq: u64, premium: u64) -> SignedMessage {
         SignedMessage::mock_bls_signed_message(ShimMessage {
-            from: from.into(),
+            from,
             sequence: seq,
             gas_premium: TokenAmount::from_atto(premium),
             gas_limit: 1_000_000,
@@ -989,7 +987,7 @@ mod tests {
         api.set_state_sequence(&key_addr, 0);
 
         let message = ShimMessage {
-            from: id_addr.into(),
+            from: id_addr,
             gas_limit: 1_000_000,
             ..ShimMessage::default()
         };
@@ -1037,7 +1035,7 @@ mod tests {
         // Add two messages from the ID address
         for seq in 0..2 {
             let message = ShimMessage {
-                from: id_addr.into(),
+                from: id_addr,
                 sequence: seq,
                 gas_limit: 1_000_000,
                 ..ShimMessage::default()
