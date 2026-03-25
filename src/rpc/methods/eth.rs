@@ -25,7 +25,6 @@ use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
 };
-use crate::interpreter::VMTrace;
 use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
 use crate::message::{ChainMessage, Message as _, MessageRead as _, SignedMessage};
 use crate::rpc::{
@@ -52,7 +51,7 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateLookupPolicy, VMFlush};
+use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -500,10 +499,8 @@ impl Block {
             let ExecutedTipset {
                 state_root,
                 executed_messages,
-            } = ctx
-                .state_manager
-                .load_executed_tipset_without_events(&tipset)
-                .await?;
+                ..
+            } = ctx.state_manager.load_executed_tipset(&tipset).await?;
             let has_transactions = !executed_messages.is_empty();
             let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
@@ -514,19 +511,19 @@ impl Block {
                 ExecutedMessage {
                     message, receipt, ..
                 },
-            ) in executed_messages.into_iter().enumerate()
+            ) in executed_messages.iter().enumerate()
             {
                 let ti = EthUint64(i as u64);
                 gas_used += receipt.gas_used();
                 let mut tx = match message {
                     ChainMessage::Signed(smsg) => new_eth_tx_from_signed_message(
-                        &smsg,
+                        smsg,
                         &state_tree,
                         ctx.chain_config().eth_chain_id,
                     )?,
                     ChainMessage::Unsigned(msg) => {
                         let tx = eth_tx_from_native_message(
-                            &msg,
+                            msg,
                             &state_tree,
                             ctx.chain_config().eth_chain_id,
                         )?;
@@ -920,11 +917,8 @@ async fn eth_get_balance<DB: Blockstore + Send + Sync + 'static>(
     ts: &Tipset,
 ) -> Result<EthBigInt> {
     let fil_addr = address.to_filecoin_address()?;
-    let (state_cid, _) = ctx
-        .state_manager
-        .tipset_state(ts, StateLookupPolicy::Enabled)
-        .await?;
-    let state_tree = ctx.state_manager.get_state_tree(&state_cid)?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
+    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     match state_tree.get_actor(&fil_addr)? {
         Some(actor) => Ok(EthBigInt(actor.balance.atto().clone())),
         None => Ok(EthBigInt::default()), // Balance is 0 if the actor doesn't exist
@@ -1424,10 +1418,8 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     let ExecutedTipset {
         state_root,
         executed_messages,
-    } = ctx
-        .state_manager
-        .load_executed_tipset_without_events(&ts_ref)
-        .await?;
+        ..
+    } = ctx.state_manager.load_executed_tipset(&ts_ref).await?;
 
     // Load the state tree
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
@@ -1438,7 +1430,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
         ExecutedMessage {
             message, receipt, ..
         },
-    ) in executed_messages.into_iter().enumerate()
+    ) in executed_messages.iter().enumerate()
     {
         let tx = new_eth_tx(
             ctx,
@@ -1449,7 +1441,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
             i as u64,
         )?;
 
-        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, &receipt).await?;
+        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, receipt).await?;
         eth_receipts.push(receipt);
     }
     Ok(eth_receipts)
@@ -1756,7 +1748,7 @@ where
 {
     let (invoc_res, _) = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg, StateLookupPolicy::Enabled, VMFlush::Skip)
+        .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
         .await
         .map_err(|e| anyhow::anyhow!("failed to apply on state with gas: {e}"))?;
 
@@ -1790,8 +1782,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let (_invoc_res, apply_ret, prior_messages, ts) =
-        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk, VMTrace::Traced)
-            .await?;
+        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk).await?;
     if apply_ret.msg_receipt().exit_code().is_success() {
         return Ok(msg.gas_limit());
     }
@@ -1847,14 +1838,7 @@ where
         msg.gas_limit = limit;
         let (_invoc_res, apply_ret, _, _) = data
             .state_manager
-            .call_with_gas(
-                &mut msg.into(),
-                prior_messages,
-                Some(ts),
-                VMTrace::NotTraced,
-                StateLookupPolicy::Enabled,
-                VMFlush::Skip,
-            )
+            .call_with_gas(&mut msg.into(), prior_messages, Some(ts), VMFlush::Skip)
             .await?;
         Ok(apply_ret.msg_receipt().exit_code().is_success())
     }
@@ -1938,14 +1922,11 @@ async fn eth_fee_history<B: Blockstore + Send + Sync + 'static>(
         let base_fee = &ts.block_headers().first().parent_base_fee;
         let ExecutedTipset {
             executed_messages, ..
-        } = ctx
-            .state_manager
-            .load_executed_tipset_without_events(&ts)
-            .await?;
+        } = ctx.state_manager.load_executed_tipset(&ts).await?;
         let mut tx_gas_rewards = Vec::with_capacity(executed_messages.len());
         for ExecutedMessage {
             message, receipt, ..
-        } in executed_messages
+        } in executed_messages.iter()
         {
             let premium = message.effective_gas_premium(base_fee);
             tx_gas_rewards.push(GasReward {
@@ -2068,11 +2049,8 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let to_address = FilecoinAddress::try_from(eth_address)?;
-    let (state, _) = ctx
-        .state_manager
-        .tipset_state(ts, StateLookupPolicy::Enabled)
-        .await?;
-    let state_tree = ctx.state_manager.get_state_tree(&state)?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
+    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     let Some(actor) = state_tree
         .get_actor(&to_address)
         .with_context(|| format!("failed to lookup contract {}", eth_address.0))?
@@ -2096,7 +2074,10 @@ where
 
     let api_invoc_result = 'invoc: {
         for ts in ts.clone().chain(ctx.store()) {
-            match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
+            match ctx
+                .state_manager
+                .call_on_state(state_root, &message, Some(ts))
+            {
                 Ok(res) => {
                     break 'invoc res;
                 }
@@ -2161,14 +2142,11 @@ async fn get_storage_at<DB: Blockstore + Send + Sync + 'static>(
     position: EthBytes,
 ) -> Result<EthBytes, ServerError> {
     let to_address = FilecoinAddress::try_from(&eth_address)?;
-    let (state, _) = ctx
-        .state_manager
-        .tipset_state(&ts, StateLookupPolicy::Enabled)
-        .await?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(&ts).await?;
     let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
     let Some(actor) = ctx
         .state_manager
-        .get_actor(&to_address, state)
+        .get_actor(&to_address, state_root)
         .with_context(|| format!("failed to lookup contract {}", eth_address.0))?
     else {
         return Ok(make_empty_result());
@@ -2189,7 +2167,10 @@ async fn get_storage_at<DB: Blockstore + Send + Sync + 'static>(
     };
     let api_invoc_result = 'invoc: {
         for ts in ts.chain(ctx.store()) {
-            match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
+            match ctx
+                .state_manager
+                .call_on_state(state_root, &message, Some(ts))
+            {
                 Ok(res) => {
                     break 'invoc res;
                 }
@@ -2259,12 +2240,9 @@ async fn eth_get_transaction_count<B>(
 where
     B: Blockstore + Send + Sync + 'static,
 {
-    let (state_cid, _) = ctx
-        .state_manager
-        .tipset_state(ts, StateLookupPolicy::Enabled)
-        .await?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
 
-    let state_tree = ctx.state_manager.get_state_tree(&state_cid)?;
+    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     let actor = match state_tree.get_actor(&addr)? {
         Some(actor) => actor,
         None => return Ok(EthUint64(0)),
@@ -3474,21 +3452,19 @@ impl RpcMethod<3> for EthTraceCall {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
 
-        let (pre_state_root, _) = ctx
+        let TipsetState {
+            state_root: pre_state_root,
+            ..
+        } = ctx
             .state_manager
-            .tipset_state(&ts, StateLookupPolicy::Enabled)
+            .load_tipset_state(&ts)
             .await
             .map_err(|e| anyhow::anyhow!("failed to get tipset state: {e}"))?;
         let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_state_root)?;
 
         let (invoke_result, post_state_root) = ctx
             .state_manager
-            .apply_on_state_with_gas(
-                Some(ts.clone()),
-                msg.clone(),
-                StateLookupPolicy::Enabled,
-                VMFlush::Flush,
-            )
+            .apply_on_state_with_gas(Some(ts.clone()), msg.clone(), VMFlush::Flush)
             .await
             .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;
         let post_state_root =

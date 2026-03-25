@@ -77,8 +77,11 @@ type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
 pub type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
-pub type ApplyBlockResult =
-    anyhow::Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>, Vec<Option<Cid>>), anyhow::Error>;
+pub type ApplyBlockResult = anyhow::Result<(
+    Vec<Receipt>,
+    Vec<Option<Vec<StampedEvent>>>,
+    Vec<Option<Cid>>,
+)>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
@@ -381,7 +384,11 @@ where
                 receipts.push(msg_receipt.clone());
 
                 events_roots.push(ret.msg_receipt().events_root());
-                events.push(ret.events());
+                if ret.msg_receipt().events_root().is_some() {
+                    events.push(Some(ret.events()));
+                } else {
+                    events.push(None);
+                }
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
