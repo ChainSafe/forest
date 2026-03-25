@@ -42,6 +42,7 @@ use clap::Subcommand;
 use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
 use num::Zero as _;
+use tabled::{builder::Builder, settings::Style};
 
 // Abstraction over local and remote wallets. A connection to a running Filecoin
 // node is always required for balance queries and for sending messages. When a
@@ -409,41 +410,49 @@ impl WalletCommands {
                 let (key_pairs, default) =
                     tokio::try_join!(backend.list_addrs(), backend.wallet_default_address(),)?;
 
-                let max_addr_len = key_pairs
-                    .iter()
-                    .map(|addr| addr.to_string().len())
-                    .max()
-                    .unwrap_or(42);
+                let default_address = default
+                    .as_deref()
+                    .and_then(|s| StrictAddress::from_str(s).ok().map(Into::into));
 
-                println!(
-                    "{:<width_addr$} {:<width_default$} Balance",
-                    "Address",
-                    "Default",
-                    width_addr = max_addr_len,
-                    width_default = 7,
-                );
+                let remote = &backend.remote;
+                let results =
+                    futures::future::join_all(key_pairs.iter().copied().map(|a| async move {
+                        let result = StateGetActor::call(remote, (a, ApiTipsetKey(None))).await;
+                        (a, result)
+                    }))
+                    .await;
+                let mut rows: Vec<_> = results
+                    .into_iter()
+                    .map(|(a, result)| {
+                        if let Err(e) = &result {
+                            tracing::warn!(%a, %e, "failed to get actor state for wallet list");
+                        }
+                        let actor = result.ok().flatten();
+                        let balance: TokenAmount = actor
+                            .as_ref()
+                            .map(|s| s.balance.clone().into())
+                            .unwrap_or_default();
+                        let nonce = actor.as_ref().map(|s| s.sequence).unwrap_or_default();
+                        (a, balance, nonce)
+                    })
+                    .collect();
+                rows.sort_by_key(|(a, _, _)| default_address != Some(*a));
 
-                for address in key_pairs {
-                    let default_address_mark = if default.as_ref() == Some(&address.to_string()) {
-                        "X"
+                let mut builder = Builder::default();
+                builder.push_record(["Address", "Balance", "Nonce"]);
+                for (addr, balance, nonce) in &rows {
+                    let addr_str = if default_address == Some(*addr) {
+                        format!("{addr} (default)")
                     } else {
-                        ""
+                        addr.to_string()
                     };
-
-                    let balance_token_amount =
-                        WalletBalance::call(&backend.remote, (address,)).await?;
-
-                    let balance_string = format_balance(&balance_token_amount, no_round, no_abbrev);
-
-                    println!(
-                        "{:<width_addr$} {:<width_default$} {}",
-                        address.to_string(),
-                        default_address_mark,
-                        balance_string,
-                        width_addr = max_addr_len,
-                        width_default = 7,
-                    );
+                    let balance = format_balance(balance, no_round, no_abbrev);
+                    builder.push_record([&addr_str, &balance, &nonce.to_string()]);
                 }
+
+                let mut list = builder.build();
+                list.with(Style::blank());
+                println!("{list}");
                 Ok(())
             }
             Self::SetDefault { key } => {
