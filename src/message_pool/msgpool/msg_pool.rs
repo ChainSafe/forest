@@ -303,14 +303,18 @@ pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
     let actor = api.get_actor_after(addr, cur_ts)?;
     let mut next_nonce = actor.sequence;
 
-    let resolved = resolve_to_key(api, key_cache, addr, cur_ts)?;
-    let messages = api.messages_for_tipset(cur_ts)?;
-    for msg in &messages {
-        let from = resolve_to_key(api, key_cache, &msg.from(), cur_ts)?;
-        if from == resolved {
-            let n = msg.sequence() + 1;
-            if n > next_nonce {
-                next_nonce = n;
+    if let (Ok(resolved), Ok(messages)) = (
+        resolve_to_key(api, key_cache, addr, cur_ts),
+        api.messages_for_tipset(cur_ts),
+    ) {
+        for msg in &messages {
+            if let Ok(from) = resolve_to_key(api, key_cache, &msg.from(), cur_ts)
+                && from == resolved
+            {
+                let n = msg.sequence() + 1;
+                if n > next_nonce {
+                    next_nonce = n;
+                }
             }
         }
     }
@@ -502,10 +506,12 @@ where
 
         let sequence = self.get_state_sequence(addr, &cur_ts)?;
 
-        let resolved = self.resolve_to_key(addr, &cur_ts)?;
         let pending = self.pending.read();
-
-        let msgset = pending.get(&resolved);
+        let msgset = self
+            .resolve_to_key(addr, &cur_ts)
+            .ok()
+            .and_then(|resolved| pending.get(&resolved))
+            .or_else(|| pending.get(addr));
         match msgset {
             Some(mset) => {
                 if sequence > mset.next_sequence {
