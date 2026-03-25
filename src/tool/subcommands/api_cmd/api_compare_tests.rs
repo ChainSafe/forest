@@ -272,8 +272,8 @@ pub(super) enum SortPolicy {
 
 pub(super) struct RpcTest {
     pub request: rpc::Request,
-    pub check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
-    pub check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
+    pub check_syntax: Box<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
+    pub check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     pub ignore: Option<&'static str>,
     pub policy_on_rejected: PolicyOnRejected,
     pub sort_policy: Option<SortPolicy>,
@@ -318,14 +318,14 @@ impl RpcTest {
     fn basic_raw<T: DeserializeOwned>(request: rpc::Request<T>) -> Self {
         Self {
             request: request.map_ty(),
-            check_syntax: Arc::new(|it| match serde_json::from_value::<T>(it) {
+            check_syntax: Box::new(|it| match serde_json::from_value::<T>(it) {
                 Ok(_) => true,
                 Err(e) => {
                     debug!(?e);
                     false
                 }
             }),
-            check_semantics: Arc::new(|_, _| true),
+            check_semantics: Box::new(|_, _| true),
             ignore: None,
             policy_on_rejected: PolicyOnRejected::Fail,
             sort_policy: None,
@@ -348,14 +348,14 @@ impl RpcTest {
     ) -> Self {
         Self {
             request: request.map_ty(),
-            check_syntax: Arc::new(|value| match serde_json::from_value::<T>(value) {
+            check_syntax: Box::new(|value| match serde_json::from_value::<T>(value) {
                 Ok(_) => true,
                 Err(e) => {
                     debug!("{e}");
                     false
                 }
             }),
-            check_semantics: Arc::new(move |forest_json, lotus_json| {
+            check_semantics: Box::new(move |forest_json, lotus_json| {
                 match (
                     serde_json::from_value::<T>(forest_json),
                     serde_json::from_value::<T>(lotus_json),
