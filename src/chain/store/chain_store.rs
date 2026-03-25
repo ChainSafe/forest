@@ -70,7 +70,10 @@ pub struct ChainStore<DB> {
     heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
 
     /// Heaviest tipset cache
-    heaviest_tipset_cache: Arc<RwLock<Tipset>>,
+    heaviest_tipset: Arc<RwLock<Tipset>>,
+
+    /// F3 finalized tipset cache
+    f3_finalized_tipset: Arc<RwLock<Option<Tipset>>>,
 
     /// Used as a cache for tipset `lookbacks`.
     chain_index: Arc<ChainIndex<Arc<DB>>>,
@@ -129,26 +132,42 @@ where
         genesis_block_header: CachingBlockHeader,
     ) -> anyhow::Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let validated_blocks = Mutex::new(HashSet::default());
         let head = if let Some(head_tsk) = heaviest_tipset_key_provider
             .heaviest_tipset_key()
             .context("failed to load head tipset key")?
-            && let Some(head) = chain_index
-                .load_tipset(&head_tsk)
-                .context("failed to load head tipset")?
         {
-            head
+            Tipset::load_required(&db, &head_tsk)
+                .with_context(|| format!("failed to load head tipset with key {head_tsk}"))?
         } else {
             Tipset::from(&genesis_block_header)
         };
+        let heaviest_tipset = Arc::new(RwLock::new(head));
+        let f3_finalized_tipset: Arc<RwLock<Option<Tipset>>> = Default::default();
+        let chain_index = Arc::new(
+            ChainIndex::new(db.clone()).with_is_tipset_finalized(Box::new({
+                let chain_finality = chain_config.policy.chain_finality;
+                let heaviest_tipset = heaviest_tipset.clone();
+                let f3_finalized_tipset = f3_finalized_tipset.clone();
+                move |ts| {
+                    let finalized = f3_finalized_tipset
+                        .read()
+                        .as_ref()
+                        .map(|ts| ts.epoch())
+                        .unwrap_or_default()
+                        .max(heaviest_tipset.read().epoch() - chain_finality);
+                    ts.epoch() <= finalized
+                }
+            })),
+        );
         let cs = Self {
             head_changes_tx: publisher,
             chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,
             heaviest_tipset_key_provider,
-            heaviest_tipset_cache: Arc::new(RwLock::new(head)),
+            heaviest_tipset,
+            f3_finalized_tipset,
             genesis_block_header,
             validated_blocks,
             eth_mappings,
@@ -157,6 +176,16 @@ where
         };
 
         Ok(cs)
+    }
+
+    /// Sets F3 finalized tipset
+    pub fn set_f3_finalized_tipset(&self, ts: Tipset) {
+        self.f3_finalized_tipset.write().replace(ts);
+    }
+
+    /// Gets F3 finalized tipset
+    pub fn f3_finalized_tipset(&self) -> Option<Tipset> {
+        self.f3_finalized_tipset.read().clone()
     }
 
     /// Cache for messages in tipsets, keyed by tipset key.
@@ -169,7 +198,7 @@ where
         head.key().save(self.blockstore())?;
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(head.key())?;
-        let old_head = std::mem::replace(&mut *self.heaviest_tipset_cache.write(), head.clone());
+        let old_head = std::mem::replace(&mut *self.heaviest_tipset.write(), head.clone());
 
         if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
@@ -242,7 +271,7 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Tipset {
-        self.heaviest_tipset_cache.read().clone()
+        self.heaviest_tipset.read().clone()
     }
 
     /// Returns the genesis tipset.

@@ -1116,28 +1116,16 @@ impl ChainGetTipSetV2 {
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {
-        let Ok(f3_finalized_cert) = crate::rpc::f3::F3GetLatestCertificate::get().await else {
+        let Some(f3_finalized_head) = ctx.chain_store().f3_finalized_tipset() else {
             return Self::get_ec_finalized_tipset(ctx);
         };
-
-        let f3_finalized_head = f3_finalized_cert.chain_head();
         let head = ctx.chain_store().heaviest_tipset();
         // Latest F3 finalized tipset is older than EC finality, falling back to EC finality
-        if head.epoch() > f3_finalized_head.epoch + ctx.chain_config().policy.chain_finality {
-            return Self::get_ec_finalized_tipset(ctx);
+        if head.epoch() > f3_finalized_head.epoch() + ctx.chain_config().policy.chain_finality {
+            Self::get_ec_finalized_tipset(ctx)
+        } else {
+            Ok(f3_finalized_head)
         }
-
-        let ts = ctx
-            .chain_index()
-            .load_required_tipset(&f3_finalized_head.key)
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to load F3 finalized tipset at epoch {} with key {}: {e}",
-                    f3_finalized_head.epoch,
-                    f3_finalized_head.key,
-                )
-            })?;
-        Ok(ts)
     }
 
     pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
