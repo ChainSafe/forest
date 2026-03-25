@@ -14,7 +14,7 @@ use tracing::warn;
 
 /// Serializes nonce assignment globally and persists the next expected nonce
 /// per address. The global mutex prevents concurrent nonce assignment across
-/// all senders, while persistence ensures in-flight nonces survive restarts.
+/// all senders, while persistence ensures in-flight `nonces` survive restarts.
 pub struct NonceTracker {
     lock: Mutex<()>,
     store: Arc<dyn SettingsStore + Send + Sync>,
@@ -32,8 +32,8 @@ impl NonceTracker {
         format!("/mpool/nonces/{addr}")
     }
 
-    /// Return `max(mpool_nonce, persisted_nonce)`. Warns if the mpool nonce
-    /// exceeds the persisted nonce, which indicates a possible desync.
+    /// Return `max(mpool_nonce, persisted_nonce)`.
+    /// Warns if the `mpool` nonce exceeds the persisted nonce.
     pub fn next_nonce<T: Provider>(
         &self,
         mpool: &MessagePool<T>,
@@ -64,7 +64,7 @@ impl NonceTracker {
         self.store.write_obj(&key, &(nonce + 1))
     }
 
-    /// Acquire the global lock, assign a nonce, sign, push to mpool, and
+    /// Acquire the global lock, assign a nonce, sign, push to `mpool`, and
     /// persist the nonce. If the push fails the nonce is NOT persisted.
     pub async fn sign_and_push<T: Provider + Send + Sync>(
         &self,

@@ -250,7 +250,7 @@ pub struct MessagePool<T> {
     pub sig_val_cache: Arc<SizeTrackingLruCache<CidWrapper, ()>>,
     /// Cache for ID address to key address resolution.
     pub key_cache: Arc<SizeTrackingLruCache<Address, Address>>,
-    /// Cache for state nonce lookups keyed by (TipsetKey, Address).
+    /// Cache for state nonce lookups keyed by (`TipsetKey`, `Address`).
     pub state_nonce_cache: Arc<SizeTrackingLruCache<StateNonceCacheKey, u64>>,
     /// A set of republished messages identified by their Cid
     pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
