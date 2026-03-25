@@ -15,6 +15,7 @@ pub struct MpoolLocker {
 }
 
 impl MpoolLocker {
+    /// Create a new `MpoolLocker`.
     pub fn new() -> Self {
         Self {
             inner: Mutex::new(HashMap::default()),

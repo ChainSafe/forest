@@ -124,7 +124,6 @@ ADDR_TWO_BALANCE=$FIL_ZERO
 i=0
 while [[ $i != 20 && $ADDR_TWO_BALANCE == "$FIL_ZERO" ]]; do
   i=$((i+1))
-
   : "Checking balance $i/20"
   sleep 30s
   ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO" --exact-balance)
