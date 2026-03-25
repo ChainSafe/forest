@@ -1,7 +1,7 @@
 # Nonce Handling
 
-This guide documents how Forest calculates, assigns, and manages message nonces
-(sequence numbers).
+This guide documents how Forest calculates, assigns, and manages message
+`nonces` (sequence numbers).
 
 ## What is a nonce?
 
@@ -45,7 +45,7 @@ When a message arrives:
   `strict`, reject with `NonceGap`.
 - If its nonce is above `next_sequence` but within the gap limit, accept it and
   mark a nonce gap.
-- Replace-by-fee (RBF) for an existing nonce is rejected when `strict` and a
+- Replace-by-fee (`RBF`) for an existing nonce is rejected when `strict` and a
   nonce gap is present.
 
 The `strict` and `trusted` parameters are independent:
@@ -107,8 +107,8 @@ On restart, `next_nonce` returns `max(mpool_nonce, persisted_nonce)`:
 
 - If a message was pushed and persisted but not yet included on-chain, the
   persisted nonce prevents reuse.
-- If the mpool nonce is higher (e.g., messages arrived via gossip), the mpool
-  value is used and a warning is logged.
+- If the `mpool` nonce is higher (e.g., messages arrived via gossip), the
+  `mpool` value is used and a warning is logged.
 
 The nonce is only persisted **after** a successful push. If signing or pushing
 fails, the nonce is not consumed and can be reused.
