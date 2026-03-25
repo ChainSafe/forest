@@ -98,14 +98,14 @@ impl<E: std::error::Error + RpcErrorData + 'static> From<E> for ServerError {
 
 // Default implementation for anyhow::Error to handle downcasting once
 impl From<anyhow::Error> for ServerError {
-    fn from(error: anyhow::Error) -> Self {
+    fn from(e: anyhow::Error) -> Self {
         // Try to downcast to known RpcErrorData implementations
-        if let Some(eth_error) = error.downcast_ref::<EthErrors>() {
+        if let Some(eth_error) = e.downcast_ref::<EthErrors>() {
             return eth_error.clone().into();
         }
 
         // Default fallback
-        Self::internal_error(error.to_string(), None)
+        Self::internal_error(format!("{e:#}"), None)
     }
 }
 

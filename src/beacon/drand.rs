@@ -78,7 +78,7 @@ impl BeaconSchedule {
         epoch: ChainEpoch,
         parent_epoch: ChainEpoch,
         prev: &BeaconEntry,
-    ) -> Result<Vec<BeaconEntry>, anyhow::Error> {
+    ) -> anyhow::Result<Vec<BeaconEntry>> {
         let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
         // Before quicknet upgrade, we had "chained" beacons, and so required two entries at a fork
         if curr_beacon.network().is_chained() {
@@ -154,11 +154,7 @@ impl Beacon for BeaconImpl {
     }
 
     /// Verify beacon entries that are sorted by round.
-    fn verify_entries(
-        &self,
-        entries: &[BeaconEntry],
-        prev: &BeaconEntry,
-    ) -> Result<bool, anyhow::Error> {
+    fn verify_entries(&self, entries: &[BeaconEntry], prev: &BeaconEntry) -> anyhow::Result<bool> {
         delegate_beacon_impl!(self.verify_entries(entries, prev))
     }
 
@@ -199,11 +195,7 @@ pub trait Beacon {
     fn network(&self) -> DrandNetwork;
 
     /// Verify beacon entries that are sorted by round.
-    fn verify_entries(
-        &self,
-        entries: &[BeaconEntry],
-        prev: &BeaconEntry,
-    ) -> Result<bool, anyhow::Error>;
+    fn verify_entries(&self, entries: &[BeaconEntry], prev: &BeaconEntry) -> anyhow::Result<bool>;
 
     /// Returns a `BeaconEntry` given a round. It fetches the `BeaconEntry` from a `Drand` node over [`gRPC`](https://grpc.io/)
     /// In the future, we will cache values, and support streaming.
@@ -295,7 +287,7 @@ impl Beacon for DrandBeacon {
         &self,
         entries: &'a [BeaconEntry],
         prev: &'a BeaconEntry,
-    ) -> Result<bool, anyhow::Error> {
+    ) -> anyhow::Result<bool> {
         let mut validated = vec![];
         let is_valid = if self.network.is_unchained() {
             let mut messages = vec![];
@@ -404,7 +396,7 @@ impl Beacon for DrandBeacon {
                     .retry(ExponentialBuilder::default())
                     .notify(|err, dur| {
                         debug!(
-                            "retrying fetch_entry {err} after {}",
+                            "retrying fetch_entry after {}: {err:#}",
                             humantime::format_duration(dur)
                         );
                     })

@@ -1750,7 +1750,7 @@ where
         .state_manager
         .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
         .await
-        .map_err(|e| anyhow::anyhow!("failed to apply on state with gas: {e}"))?;
+        .context("failed to apply on state with gas")?;
 
     // Extract receipt or return early if none
     match &invoc_res.msg_rct {
@@ -3459,14 +3459,14 @@ impl RpcMethod<3> for EthTraceCall {
             .state_manager
             .load_tipset_state(&ts)
             .await
-            .map_err(|e| anyhow::anyhow!("failed to get tipset state: {e}"))?;
+            .context("failed to get tipset state")?;
         let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_state_root)?;
 
         let (invoke_result, post_state_root) = ctx
             .state_manager
             .apply_on_state_with_gas(Some(ts.clone()), msg.clone(), VMFlush::Flush)
             .await
-            .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;
+            .context("failed to apply message")?;
         let post_state_root =
             post_state_root.context("post-execution state root required for trace call")?;
         let post_state = StateTree::new_from_root(ctx.store_owned(), &post_state_root)?;
@@ -3488,7 +3488,7 @@ impl RpcMethod<3> for EthTraceCall {
             && let Some(exec_trace) = invoke_result.execution_trace
         {
             let mut env = trace::base_environment(&post_state, &msg.from())
-                .map_err(|e| anyhow::anyhow!("failed to create trace environment: {e}"))?;
+                .context("failed to create trace environment")?;
             trace::build_traces(&mut env, &[], exec_trace)?;
             trace_results.trace = env.traces;
         }
@@ -3529,10 +3529,7 @@ fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Result<Eth
         return Ok(EthBytes::default());
     }
 
-    match decode_payload(&return_data, CBOR) {
-        Ok(payload) => Ok(payload),
-        Err(e) => Err(anyhow::anyhow!("failed to decode return data: {e}")),
-    }
+    decode_payload(&return_data, CBOR).context("failed to decode return data")
 }
 
 /// Extract all unique Ethereum addresses touched during execution from the trace.

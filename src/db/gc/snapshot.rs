@@ -161,7 +161,7 @@ where
                 self.running.store(true, Ordering::Relaxed);
                 if let Err(e) = self.export_snapshot().await {
                     self.running.store(false, Ordering::Relaxed);
-                    tracing::warn!("{e}");
+                    tracing::warn!("{e:#}");
                 }
             }
         }
@@ -301,7 +301,7 @@ where
     pub async fn cleanup_before_reboot(&self) {
         drop(self.progress_tx.write().take());
         if let Err(e) = self.cleanup_before_reboot_inner().await {
-            tracing::warn!("{e}");
+            tracing::warn!("{e:#}");
         }
         self.running.store(false, Ordering::Relaxed);
     }
@@ -373,7 +373,7 @@ where
                     };
                     let start = Instant::now();
                     if let Err(e) = db.put_many_keyed(mem_db) {
-                        tracing::warn!("{e}");
+                        tracing::warn!("{e:#}");
                     }
                     tracing::info!(
                         "backfilled {count} new db records since snapshot epoch, approximate heap size: {}, took {}",

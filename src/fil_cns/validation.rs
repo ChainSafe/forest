@@ -425,7 +425,7 @@ fn verify_winning_post(
     proofs: &[PoStProof],
     challenge_sectors: &[SectorInfo],
     prover: u64,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     // Necessary to be valid bls12 381 element.
     if let Some(b31) = rand.0.get_mut(31) {
         *b31 &= 0x3f;

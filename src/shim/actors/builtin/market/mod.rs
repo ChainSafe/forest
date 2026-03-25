@@ -367,7 +367,7 @@ where
 {
     pub fn for_each(
         &self,
-        mut f: impl FnMut(u64, Result<DealProposal, anyhow::Error>) -> anyhow::Result<(), anyhow::Error>,
+        mut f: impl FnMut(u64, anyhow::Result<DealProposal>) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         delegate_deal_proposals!(self => |deal_array| Ok(deal_array
                 .for_each(|key, deal_proposal| f(key, deal_proposal.try_into()))?))

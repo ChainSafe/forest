@@ -23,7 +23,7 @@ pub fn resolve_to_key_addr<BS, S>(
     st: &StateTree<S>,
     store: &BS,
     addr: &Address,
-) -> Result<Address, anyhow::Error>
+) -> anyhow::Result<Address>
 where
     BS: Blockstore,
     S: Blockstore,

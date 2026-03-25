@@ -185,7 +185,7 @@ where
         }: ExecutionContext<DB>,
         multi_engine: &MultiEngine,
         enable_tracing: VMTrace,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> anyhow::Result<Self> {
         let network_version = chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V21 {
             let mut config = NetworkConfig_v4::new(network_version.into());
@@ -275,7 +275,7 @@ where
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
-    pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, anyhow::Error> {
+    pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
         match self {
             VM::VM2(fvm_executor) => Ok(fvm_executor
                 .state_tree()
@@ -359,7 +359,7 @@ where
             let mut penalty = TokenAmount::zero();
             let mut gas_reward = TokenAmount::zero();
 
-            let mut process_msg = |message: &ChainMessage| -> Result<(), anyhow::Error> {
+            let mut process_msg = |message: &ChainMessage| -> anyhow::Result<()> {
                 let cid = message.cid();
                 // Ensure no duplicate processing of a message
                 if processed.contains(&cid) {
@@ -529,7 +529,7 @@ where
         win_count: i64,
         penalty: TokenAmount,
         gas_reward: TokenAmount,
-    ) -> Result<Option<Message>, anyhow::Error> {
+    ) -> anyhow::Result<Option<Message>> {
         let params = RawBytes::serialize(AwardBlockRewardParams {
             miner: miner.into(),
             penalty: penalty.into(),

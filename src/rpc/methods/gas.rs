@@ -277,7 +277,7 @@ impl GasEstimateGasLimit {
     {
         let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk)
             .await
-            .map_err(|e| anyhow::anyhow!("gas estimation failed: {e}"))?;
+            .context("gas estimation failed")?;
         match res.msg_rct {
             Some(rct) => {
                 anyhow::ensure!(

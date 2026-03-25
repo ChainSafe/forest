@@ -1573,11 +1573,9 @@ impl RpcMethod<2> for ForestStateCompute {
                                 Err(_) => continue,
                             }
                         }
-                        Err("unreachable chain exchange error in ForestStateCompute".into())
+                        anyhow::bail!("unreachable chain exchange error in ForestStateCompute")
                     }
-                    .map_err(|e| {
-                        anyhow::anyhow!("failed to download messages@{}: {e}", ts.epoch())
-                    })?;
+                    .with_context(|| format!("failed to download messages@{}", ts.epoch()))?;
                     fts.persist(chain_store.blockstore())?;
                 }
                 anyhow::Ok(ts)
@@ -3272,7 +3270,7 @@ fn get_pledge_ramp_params(
     ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     height: ChainEpoch,
     ts: &Tipset,
-) -> Result<(ChainEpoch, u64), anyhow::Error> {
+) -> anyhow::Result<(ChainEpoch, u64)> {
     let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
 
     let power_state: power::State = state_tree
