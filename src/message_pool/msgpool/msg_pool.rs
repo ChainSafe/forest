@@ -8,7 +8,7 @@
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use crate::blocks::{CachingBlockHeader, Tipset};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
@@ -31,6 +31,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
+use get_size2::GetSize;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
@@ -53,6 +54,13 @@ use crate::message_pool::{
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 const KEY_CACHE_SIZE: NonZeroUsize = nonzero!(1_048_576usize);
+const STATE_NONCE_CACHE_SIZE: NonZeroUsize = nonzero!(32768usize);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, GetSize)]
+pub(crate) struct StateNonceCacheKey {
+    tipset_key: TipsetKey,
+    addr: Address,
+}
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
@@ -244,6 +252,8 @@ pub struct MessagePool<T> {
     pub sig_val_cache: Arc<SizeTrackingLruCache<CidWrapper, ()>>,
     /// Cache for ID address to key address resolution.
     pub key_cache: Arc<SizeTrackingLruCache<Address, Address>>,
+    /// Cache for state nonce lookups keyed by (TipsetKey, Address).
+    pub state_nonce_cache: Arc<SizeTrackingLruCache<StateNonceCacheKey, u64>>,
     /// A set of republished messages identified by their Cid
     pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of
@@ -279,9 +289,19 @@ pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
 pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
     api: &T,
     key_cache: &SizeTrackingLruCache<Address, Address>,
+    state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
     addr: &Address,
     cur_ts: &Tipset,
 ) -> Result<u64, Error> {
+    let nk = StateNonceCacheKey {
+        tipset_key: cur_ts.key().clone(),
+        addr: *addr,
+    };
+
+    if let Some(cached) = state_nonce_cache.get_cloned(&nk) {
+        return Ok(cached);
+    }
+
     let actor = api.get_actor_after(addr, cur_ts)?;
     let mut next_nonce = actor.sequence;
 
@@ -296,6 +316,8 @@ pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
             }
         }
     }
+
+    state_nonce_cache.push(nk, next_nonce);
     Ok(next_nonce)
 }
 
@@ -499,7 +521,13 @@ where
 
     /// Get the state of the sequence for a given address in `cur_ts`.
     fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        get_state_sequence(self.api.as_ref(), self.key_cache.as_ref(), addr, cur_ts)
+        get_state_sequence(
+            self.api.as_ref(),
+            self.key_cache.as_ref(),
+            self.state_nonce_cache.as_ref(),
+            addr,
+            cur_ts,
+        )
     }
 
     /// Get the state balance for the actor that corresponds to the supplied
@@ -631,6 +659,10 @@ where
             "mpool_key".into(),
             KEY_CACHE_SIZE,
         ));
+        let state_nonce_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
+            "state_nonce".into(),
+            STATE_NONCE_CACHE_SIZE,
+        ));
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
         let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
@@ -644,6 +676,7 @@ where
             bls_sig_cache,
             sig_val_cache,
             key_cache,
+            state_nonce_cache,
             local_msgs,
             republished,
             config,
@@ -661,6 +694,7 @@ where
         let pending = mp.pending.clone();
         let republished = mp.republished.clone();
         let key_cache = mp.key_cache.clone();
+        let state_nonce_cache = mp.state_nonce_cache.clone();
 
         let current_ts = mp.cur_tipset.clone();
         let repub_trigger = mp.repub_trigger.clone();
@@ -678,6 +712,7 @@ where
                             pending.as_ref(),
                             &current_ts,
                             key_cache.as_ref(),
+                            state_nonce_cache.as_ref(),
                             reverts,
                             applies,
                         )
@@ -1172,6 +1207,7 @@ mod tests {
 
         let api = TestApi::default();
         let key_cache = SizeTrackingLruCache::new_mocked();
+        let state_nonce_cache = SizeTrackingLruCache::new_mocked();
 
         let sender = Address::new_bls(&[3u8; 48]).unwrap();
         api.set_state_sequence(&sender, 5);
@@ -1183,7 +1219,7 @@ mod tests {
         );
         let ts = Tipset::from(block);
 
-        let nonce = get_state_sequence(&api, &key_cache, &sender, &ts).unwrap();
+        let nonce = get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts).unwrap();
         assert_eq!(
             nonce, 8,
             "should account for non-consecutive tipset message at nonce 7"
@@ -1196,6 +1232,7 @@ mod tests {
 
         let api = TestApi::default();
         let key_cache = SizeTrackingLruCache::new_mocked();
+        let state_nonce_cache = SizeTrackingLruCache::new_mocked();
 
         let addr_a = Address::new_bls(&[4u8; 48]).unwrap();
         let addr_b = Address::new_bls(&[5u8; 48]).unwrap();
@@ -1213,16 +1250,82 @@ mod tests {
         );
         let ts = Tipset::from(block);
 
-        let nonce_a = get_state_sequence(&api, &key_cache, &addr_a, &ts).unwrap();
+        let nonce_a =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &addr_a, &ts).unwrap();
         assert_eq!(
             nonce_a, 0,
             "addr_a nonce should be unaffected by addr_b's messages"
         );
 
-        let nonce_b = get_state_sequence(&api, &key_cache, &addr_b, &ts).unwrap();
+        let nonce_b =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &addr_b, &ts).unwrap();
         assert_eq!(
             nonce_b, 3,
             "addr_b nonce should reflect its tipset messages"
+        );
+    }
+
+    #[test]
+    fn test_get_state_sequence_cache_hit() {
+        use crate::message_pool::test_provider::mock_block;
+
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64> =
+            SizeTrackingLruCache::new_mocked();
+
+        let sender = Address::new_bls(&[6u8; 48]).unwrap();
+        api.set_state_sequence(&sender, 5);
+
+        let block = mock_block(1, 1);
+        api.inner
+            .lock()
+            .set_block_messages(&block, vec![make_smsg(sender, 5, 100)]);
+        let ts = Tipset::from(block);
+
+        let nonce1 =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts).unwrap();
+        assert_eq!(nonce1, 6);
+
+        // Mutate the underlying state; the cache should still return the old value.
+        api.set_state_sequence(&sender, 99);
+        let nonce2 =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts).unwrap();
+        assert_eq!(
+            nonce2, 6,
+            "second call should return the cached value, not re-read state"
+        );
+    }
+
+    #[test]
+    fn test_get_state_sequence_cache_miss_on_different_tipset() {
+        use crate::message_pool::test_provider::mock_block;
+
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64> =
+            SizeTrackingLruCache::new_mocked();
+
+        let sender = Address::new_bls(&[7u8; 48]).unwrap();
+        api.set_state_sequence(&sender, 10);
+
+        let block_a = mock_block(1, 1);
+        let ts_a = Tipset::from(&block_a);
+
+        let nonce_a =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts_a).unwrap();
+        assert_eq!(nonce_a, 10);
+
+        // Different tipset should be a cache miss and re-read state.
+        api.set_state_sequence(&sender, 20);
+        let block_b = mock_block(2, 2);
+        let ts_b = Tipset::from(&block_b);
+
+        let nonce_b =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts_b).unwrap();
+        assert_eq!(
+            nonce_b, 20,
+            "different tipset should miss the cache and read fresh state"
         );
     }
 }

@@ -921,6 +921,7 @@ mod test_selection {
         let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
         let key_cache = mpool.key_cache.clone();
+        let state_nonce_cache = mpool.state_nonce_cache.clone();
 
         head_change(
             api.as_ref(),
@@ -930,6 +931,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             key_cache.as_ref(),
+            state_nonce_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(b1)],
         )
@@ -961,6 +963,7 @@ mod test_selection {
         let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
         let key_cache = mpool.key_cache.clone();
+        let state_nonce_cache = mpool.state_nonce_cache.clone();
 
         head_change(
             api.as_ref(),
@@ -970,6 +973,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             key_cache.as_ref(),
+            state_nonce_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(b1)],
         )
@@ -1028,6 +1032,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             key_cache.as_ref(),
+            state_nonce_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(b2)],
         )

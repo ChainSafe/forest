@@ -28,7 +28,10 @@ use utils::{get_base_fee_lower_bound, recover_sig};
 use super::errors::Error;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
-    msg_pool::{MsgSet, TrustPolicy, add_helper, get_state_sequence, remove, resolve_to_key},
+    msg_pool::{
+        MsgSet, StateNonceCacheKey, TrustPolicy, add_helper, get_state_sequence, remove,
+        resolve_to_key,
+    },
     provider::Provider,
 };
 
@@ -208,6 +211,7 @@ pub async fn head_change<T>(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &SyncRwLock<Tipset>,
     key_cache: &SizeTrackingLruCache<Address, Address>,
+    state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -294,7 +298,8 @@ where
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
             let cur_ts = cur_tipset.read().clone();
-            let sequence = get_state_sequence(api, key_cache, &msg.from(), &cur_ts)?;
+            let sequence =
+                get_state_sequence(api, key_cache, state_nonce_cache, &msg.from(), &cur_ts)?;
             if let Err(e) = add_helper(
                 api,
                 bls_sig_cache,
@@ -506,6 +511,7 @@ pub mod tests {
         let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
         let key_cache = mpool.key_cache.clone();
+        let state_nonce_cache = mpool.state_nonce_cache.clone();
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -514,6 +520,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             key_cache.as_ref(),
+            state_nonce_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(a)],
         )
@@ -575,6 +582,7 @@ pub mod tests {
         let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
         let key_cache = mpool.key_cache.clone();
+        let state_nonce_cache = mpool.state_nonce_cache.clone();
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -583,6 +591,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             key_cache.as_ref(),
+            state_nonce_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(a)],
         )
@@ -606,6 +615,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             key_cache.as_ref(),
+            state_nonce_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(&b)],
         )
@@ -624,6 +634,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             key_cache.as_ref(),
+            state_nonce_cache.as_ref(),
             vec![Tipset::from(b)],
             Vec::new(),
         )
@@ -789,6 +800,7 @@ pub mod tests {
         let repub_trigger = mpool.repub_trigger.clone();
         let republished = mpool.republished.clone();
         let key_cache = mpool.key_cache.clone();
+        let state_nonce_cache = mpool.state_nonce_cache.clone();
 
         mpool.api.set_state_sequence(&key_addr, 1);
 
@@ -800,6 +812,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             key_cache.as_ref(),
+            state_nonce_cache.as_ref(),
             Vec::new(),
             vec![Tipset::from(a)],
         )
