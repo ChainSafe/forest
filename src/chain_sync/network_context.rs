@@ -221,7 +221,7 @@ where
     ) -> anyhow::Result<Vec<T>>
     where
         T: TryFrom<TipsetBundle> + Send + Sync + 'static,
-        <T as TryFrom<TipsetBundle>>::Error: std::fmt::Display,
+        <T as TryFrom<TipsetBundle>>::Error: Into<anyhow::Error>,
         F: Fn(&Vec<T>) -> bool,
     {
         let request = ChainExchangeRequest {

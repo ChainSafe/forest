@@ -127,7 +127,7 @@ impl ChainExchangeResponse {
     pub fn into_result<T>(self) -> anyhow::Result<Vec<T>>
     where
         T: TryFrom<TipsetBundle>,
-        <T as TryFrom<TipsetBundle>>::Error: std::fmt::Display,
+        <T as TryFrom<TipsetBundle>>::Error: Into<anyhow::Error>,
     {
         if self.status != ChainExchangeResponseStatus::Success
             && self.status != ChainExchangeResponseStatus::PartialResponse
@@ -138,8 +138,7 @@ impl ChainExchangeResponse {
         self.chain
             .into_iter()
             .map(|i| {
-                T::try_from(i)
-                    .map_err(|e| anyhow::anyhow!("failed to convert from tipset bundle: {e}"))
+                T::try_from(i).map_err(|e| e.into().context("failed to convert from tipset bundle"))
             })
             .collect()
     }
@@ -170,19 +169,18 @@ pub struct TipsetBundle {
 }
 
 impl TryFrom<TipsetBundle> for Tipset {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(tsb: TipsetBundle) -> Result<Self, Self::Error> {
-        Tipset::new(tsb.blocks).map_err(|e| e.to_string())
+        Ok(Tipset::new(tsb.blocks)?)
     }
 }
 
 impl TryFrom<TipsetBundle> for CompactedMessages {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(tsb: TipsetBundle) -> Result<Self, Self::Error> {
-        tsb.messages
-            .ok_or_else(|| "Request contained no messages".to_string())
+        tsb.messages.context("Request contained no messages")
     }
 }
 
