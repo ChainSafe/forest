@@ -66,7 +66,7 @@ Pre-deployed Tracer contracts for quick testing:
 
 | Network  | Contract Address                                                                                                                      |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Calibnet | [`0x73a43475aa2ccb14246613708b399f4b2ba546c7`](https://calibration.filfox.info/en/address/0x73a43475aa2ccb14246613708b399f4b2ba546c7) |
+| Calibnet | [`0x1112da864d5b3a9e23bbdb543699351a694f814d`](https://calibration.filfox.info/en/address/0x1112da864d5b3a9e23bbdb543699351a694f814d) |
 | Mainnet  | [`0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2`](https://filecoin.blockscout.com/address/0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2)    |
 
 ## Comparison Testing with Anvil
