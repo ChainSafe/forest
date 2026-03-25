@@ -35,12 +35,13 @@ use crate::utils;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
+use backon::{ExponentialBuilder, Retryable};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::{
     net::TcpListener,
     signal::{
@@ -480,6 +481,44 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) -> 
                     chain_finality,
                     f3_root.display().to_string(),
                 );
+            }
+        });
+        tokio::task::spawn({
+            let chain_store = ctx.chain_store().clone();
+            async move {
+                // wait 1s to let F3 RPC server start
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                match (|| crate::rpc::f3::F3GetLatestCertificate::get())
+                    .retry(ExponentialBuilder::default())
+                    .await
+                {
+                    Ok(f3_finalized_cert) => {
+                        let f3_finalized_head = f3_finalized_cert.chain_head();
+                        match chain_store
+                            .chain_index()
+                            .load_required_tipset(&f3_finalized_head.key)
+                        {
+                            Ok(ts) => {
+                                chain_store.set_f3_finalized_tipset(ts);
+                                tracing::info!(
+                                    "Set F3 finalized tipset to epoch {} and key {}",
+                                    f3_finalized_head.epoch,
+                                    f3_finalized_head.key,
+                                );
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to get F3 finalized tipset epoch {} and key {}: {e}",
+                                    f3_finalized_head.epoch,
+                                    f3_finalized_head.key
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to get F3 latest certificate: {e}");
+                    }
+                }
             }
         });
     }

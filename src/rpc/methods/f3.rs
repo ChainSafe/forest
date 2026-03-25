@@ -574,8 +574,10 @@ impl RpcMethod<1> for Finalize {
                 )?;
                 let ts = Arc::new(Tipset::from(fts));
                 ctx.chain_store().put_tipset(&ts)?;
-                ctx.chain_store().set_heaviest_tipset(finalized_ts)?;
+                ctx.chain_store()
+                    .set_heaviest_tipset(finalized_ts.clone())?;
             }
+            ctx.chain_store().set_f3_finalized_tipset(finalized_ts);
         }
         Ok(())
     }

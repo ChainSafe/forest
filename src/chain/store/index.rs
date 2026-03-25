@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::num::NonZeroUsize;
-use std::sync::LazyLock;
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
@@ -19,13 +18,21 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize);
 
 type TipsetCache = SizeTrackingLruCache<TipsetKey, Tipset>;
 
+type TipsetHeightCache = SizeTrackingLruCache<ChainEpoch, TipsetKey>;
+
+type IsTipsetFinalizedFn = Box<dyn Fn(&Tipset) -> bool + Send + Sync>;
+
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
 pub struct ChainIndex<DB> {
-    /// `Arc` reference tipset cache.
+    /// tipset key to tipset mappings.
     ts_cache: TipsetCache,
+    /// epoch to tipset key mappings.
+    ts_height_cache: TipsetHeightCache,
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     db: DB,
+    /// check whether a tipset is finalized
+    is_tipset_finalized: Option<IsTipsetFinalizedFn>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -41,7 +48,23 @@ impl<DB: Blockstore> ChainIndex<DB> {
     pub fn new(db: DB) -> Self {
         let ts_cache =
             SizeTrackingLruCache::new_with_metrics("tipset".into(), DEFAULT_TIPSET_CACHE_SIZE);
-        Self { ts_cache, db }
+        let ts_height_cache: SizeTrackingLruCache<ChainEpoch, TipsetKey> =
+            SizeTrackingLruCache::new_with_metrics(
+                "tipset_by_height".into(),
+                // 20480 * 900 = 18432000 which is sufficient for mainnet
+                nonzero!(20480_usize),
+            );
+        Self {
+            ts_cache,
+            ts_height_cache,
+            db,
+            is_tipset_finalized: None,
+        }
+    }
+
+    pub fn with_is_tipset_finalized(mut self, f: IsTipsetFinalizedFn) -> Self {
+        self.is_tipset_finalized = Some(f);
+        self
     }
 
     pub fn db(&self) -> &DB {
@@ -129,24 +152,21 @@ impl<DB: Blockstore> ChainIndex<DB> {
     ) -> Result<Tipset, Error> {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
-        static CACHE: LazyLock<SizeTrackingLruCache<ChainEpoch, TipsetKey>> = LazyLock::new(|| {
-            SizeTrackingLruCache::new_with_metrics(
-                "tipset_by_height".into(),
-                // 20480 * 900 = 18432000 which is sufficient for mainnet
-                nonzero!(20480_usize),
-            )
-        });
-
         // use `CHAIN_FINALITY` as checkpoint interval
+        const CHECKPOINT_INTERVAL: ChainEpoch = CHAIN_FINALITY;
         fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
-            epoch - epoch.mod_floor(&CHAIN_FINALITY) + CHAIN_FINALITY
+            epoch - epoch.mod_floor(&CHECKPOINT_INTERVAL) + CHECKPOINT_INTERVAL
+        }
+        fn is_checkpoint(epoch: ChainEpoch) -> bool {
+            epoch.mod_floor(&CHECKPOINT_INTERVAL) == 0
         }
 
         let from_epoch = from.epoch();
 
         let mut checkpoint_from_epoch = to;
         while checkpoint_from_epoch < from_epoch {
-            if let Some(checkpoint_from_key) = CACHE.get_cloned(&checkpoint_from_epoch)
+            if let Some(checkpoint_from_key) =
+                self.ts_height_cache.get_cloned(&checkpoint_from_epoch)
                 && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)
             {
                 from = checkpoint_from;
@@ -165,11 +185,19 @@ impl<DB: Blockstore> ChainIndex<DB> {
             )));
         }
 
+        let from_epoch = from.epoch();
+        let is_finalized = |ts: &Tipset| {
+            if let Some(is_finalized_fn) = &self.is_tipset_finalized {
+                is_finalized_fn(ts)
+            } else {
+                ts.epoch() <= from_epoch - CHAIN_FINALITY
+            }
+        };
         for (child, parent) in from.chain(&self.db).tuple_windows() {
-            // use `child.epoch() + CHAIN_FINALITY <= from_epoch`
-            // to ensure the cached child is finalized(not on a fork).
-            if child.epoch() % CHAIN_FINALITY == 0 && child.epoch() + CHAIN_FINALITY <= from_epoch {
-                CACHE.push(child.epoch(), child.key().clone());
+            // update cache only when child is finalized.
+            if is_checkpoint(child.epoch()) && is_finalized(&child) {
+                self.ts_height_cache
+                    .push(child.epoch(), child.key().clone());
             }
 
             if to == child.epoch() {
