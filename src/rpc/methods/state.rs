@@ -41,8 +41,9 @@ use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
+use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{
-    MarketBalance, StateManager, StateOutput, circulating_supply::GenesisInfo, utils::structured,
+    MarketBalance, StateManager, circulating_supply::GenesisInfo, utils::structured,
 };
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
@@ -1587,7 +1588,7 @@ impl RpcMethod<2> for ForestStateCompute {
         while let Some(ts) = futures.try_next().await? {
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
-            let StateOutput { state_root, .. } = ctx
+            let ExecutedTipset { state_root, .. } = ctx
                 .state_manager
                 .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
                 .await?;
@@ -1634,7 +1635,7 @@ impl RpcMethod<3> for StateCompute {
             })?;
             Ok(())
         };
-        let StateOutput { state_root, .. } = ctx
+        let ExecutedTipset { state_root, .. } = ctx
             .state_manager
             .compute_state(height, messages, ts, Some(callback), VMTrace::Traced)
             .await?;

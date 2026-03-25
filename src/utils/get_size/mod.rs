@@ -35,6 +35,10 @@ macro_rules! impl_vec_alike_heap_size_helper {
     };
 }
 
+pub fn vec_heap_size_helper<T: GetSize>(v: &Vec<T>) -> usize {
+    impl_vec_alike_heap_size_helper!(v, T)
+}
+
 pub fn vec_heap_size_with_fn_helper<T>(v: &Vec<T>, get_heap_size: impl Fn(&T) -> usize) -> usize {
     impl_vec_alike_heap_size_with_fn_helper!(v, T, std::mem::size_of::<T>, get_heap_size)
 }

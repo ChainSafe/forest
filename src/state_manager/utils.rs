@@ -190,7 +190,7 @@ pub mod state_compute {
         genesis::read_genesis_header,
         interpreter::VMTrace,
         networks::{ChainConfig, NetworkChain},
-        state_manager::{StateManager, StateOutput},
+        state_manager::{ExecutedTipset, StateManager},
         utils::net::{DownloadFileOption, download_file_with_cache},
     };
     use directories::ProjectDirs;
@@ -310,9 +310,10 @@ pub mod state_compute {
         let expected_state_root = *ts_next.parent_state();
         let expected_receipt_root = *ts_next.parent_message_receipts();
         let start = Instant::now();
-        let StateOutput {
+        let ExecutedTipset {
             state_root,
             receipt_root,
+            ..
         } = state_manager
             .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
             .await?;

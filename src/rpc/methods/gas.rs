@@ -4,7 +4,6 @@
 use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
-use crate::interpreter::VMTrace;
 use crate::message::{ChainMessage, Message as _, MessageRead as _, SignedMessage};
 use crate::rpc::chain::FlattenedApiMessage;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
@@ -15,7 +14,7 @@ use crate::shim::{
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
-use crate::state_manager::{StateLookupPolicy, VMFlush};
+use crate::state_manager::VMFlush;
 use anyhow::{Context, Result};
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
@@ -218,7 +217,6 @@ impl GasEstimateGasLimit {
         data: &Ctx<DB>,
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
-        trace_config: VMTrace,
     ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Tipset)>
     where
         DB: Blockstore + Send + Sync + 'static,
@@ -263,8 +261,6 @@ impl GasEstimateGasLimit {
                 &mut chain_msg,
                 &prior_messages,
                 Some(ts.clone()),
-                trace_config,
-                StateLookupPolicy::Enabled,
                 VMFlush::Skip,
             )
             .await?;
@@ -279,7 +275,7 @@ impl GasEstimateGasLimit {
     where
         DB: Blockstore + Send + Sync + 'static,
     {
-        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk, VMTrace::NotTraced)
+        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk)
             .await
             .map_err(|e| anyhow::anyhow!("gas estimation failed: {e}"))?;
         match res.msg_rct {

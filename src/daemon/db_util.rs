@@ -6,11 +6,10 @@ use crate::db::car::forest::{
     FOREST_CAR_FILE_EXTENSION, TEMP_FOREST_CAR_FILE_EXTENSION, new_forest_car_temp_path_in,
 };
 use crate::db::car::{ForestCar, ManyCar};
-use crate::interpreter::VMTrace;
 use crate::networks::ChainConfig;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
-use crate::state_manager::{NO_CALLBACK, StateManager};
+use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::net::{DownloadFileOption, download_to};
@@ -339,9 +338,7 @@ where
     let epoch = ts.epoch();
     let tsk = ts.key().clone();
 
-    state_manager
-        .compute_tipset_state(ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
-        .await?;
+    state_manager.load_executed_tipset(ts).await?;
 
     delegated_messages.append(
         &mut state_manager
