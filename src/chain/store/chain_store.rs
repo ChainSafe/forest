@@ -6,13 +6,11 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::networks::{ChainConfig, Height};
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{executor::Receipt, message::Message, version::NetworkVersion};
-use crate::state_manager::StateOutput;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
@@ -26,6 +24,10 @@ use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
 use crate::{
     interpreter::{BlockMessages, VMTrace},
     rpc::chain::PathChanges,
+};
+use crate::{
+    libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite},
+    state_manager::ExecutedTipset,
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
@@ -413,7 +415,7 @@ where
             // state-root without caching.
             let genesis_timestamp = heaviest_tipset.genesis(chain_index.db())?.timestamp;
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
-            let StateOutput { state_root, .. } = crate::state_manager::apply_block_messages(
+            let ExecutedTipset { state_root, .. } = crate::state_manager::apply_block_messages(
                 genesis_timestamp,
                 Arc::clone(chain_index),
                 Arc::clone(chain_config),

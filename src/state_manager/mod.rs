@@ -54,7 +54,7 @@ use crate::shim::{
 use crate::state_manager::cache::TipsetStateCache;
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
-use crate::utils::get_size::GetSize;
+use crate::utils::get_size::{GetSize, vec_heap_size_helper};
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context as _, bail, ensure};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
@@ -81,46 +81,88 @@ use std::ops::RangeInclusive;
 use std::time::Duration;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{RwLock, broadcast::error::RecvError};
-use tracing::{error, info, instrument, trace, warn};
+use tracing::{error, info, instrument, warn};
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
-
-/// Intermediary for retrieving state objects and updating actor states.
-type CidPair = (Cid, Cid);
 
 /// Result of executing an individual chain message in a tipset.
 ///
 /// Includes the executed message itself, the execution receipt, and
 /// optional events emitted by the actor during execution.
+#[derive(Debug, Clone)]
 pub struct ExecutedMessage {
     pub message: ChainMessage,
     pub receipt: Receipt,
     pub events: Option<Vec<StampedEvent>>,
 }
 
+impl GetSize for ExecutedMessage {
+    fn get_heap_size(&self) -> usize {
+        self.message.get_heap_size()
+            + self.receipt.get_heap_size()
+            + self
+                .events
+                .as_ref()
+                .map(vec_heap_size_helper)
+                .unwrap_or_default()
+    }
+}
+
 /// Aggregated execution result for a tipset.
-///
-/// `state_root` is the resulting state tree root after message execution
-/// and `executed_messages` contains per-message execution details.
+#[derive(Debug, Clone, GetSize)]
 pub struct ExecutedTipset {
-    pub state_root: Cid,
-    pub executed_messages: Vec<ExecutedMessage>,
-}
-
-/// Options controlling how `load_executed_tipset` fetches extra execution data.
-///
-/// `include_events` toggles whether event logs are loaded from receipts.
-pub struct LoadExecutedTipsetOptions {
-    pub include_events: bool,
-}
-
-#[derive(Debug, Default, Clone, GetSize)]
-pub struct StateOutput {
+    /// Resulting state tree root after message execution
     #[get_size(ignore)]
     pub state_root: Cid,
+    /// Resulting message receipts root after message execution
     #[get_size(ignore)]
     pub receipt_root: Cid,
+    /// Per-message execution details.
+    /// Wrapped in an `Arc` to reduce cloning cost, as this can be quite large.
+    pub executed_messages: Arc<Vec<ExecutedMessage>>,
+}
+
+/// Basic execution result for a tipset.
+#[derive(Debug, Clone, GetSize)]
+pub struct TipsetState {
+    /// Resulting state tree root after message execution
+    #[get_size(ignore)]
+    pub state_root: Cid,
+    /// Resulting message receipts root after message execution
+    #[allow(dead_code)]
+    #[get_size(ignore)]
+    pub receipt_root: Cid,
+}
+
+impl From<ExecutedTipset> for TipsetState {
+    fn from(
+        ExecutedTipset {
+            state_root,
+            receipt_root,
+            ..
+        }: ExecutedTipset,
+    ) -> Self {
+        Self {
+            state_root,
+            receipt_root,
+        }
+    }
+}
+
+impl From<&ExecutedTipset> for TipsetState {
+    fn from(
+        ExecutedTipset {
+            state_root,
+            receipt_root,
+            ..
+        }: &ExecutedTipset,
+    ) -> Self {
+        Self {
+            state_root: *state_root,
+            receipt_root: *receipt_root,
+        }
+    }
 }
 
 /// External format for returning market balance from state.
@@ -147,7 +189,7 @@ pub struct StateManager<DB> {
     /// Chain store
     cs: Arc<ChainStore<DB>>,
     /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
-    cache: TipsetStateCache<StateOutput>,
+    cache: TipsetStateCache<ExecutedTipset>,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
 }
@@ -172,7 +214,7 @@ where
 
         Ok(Self {
             cs,
-            cache: TipsetStateCache::new("state_output"), // For StateOutput
+            cache: TipsetStateCache::new("executed_tipset"), // For StateOutput
             beacon,
             engine,
         })
@@ -230,30 +272,6 @@ where
             }
         }
         Ok(false)
-    }
-
-    // Given the assumption that the heaviest tipset must always be validated,
-    // we can populate our state cache by walking backwards through the
-    // block-chain. A warm cache cuts 10-20 seconds from the first state
-    // validation, and it prevents duplicate migrations.
-    pub fn populate_cache(&self) {
-        for (child, parent) in self
-            .heaviest_tipset()
-            .chain(self.blockstore())
-            .tuple_windows()
-            .take(DEFAULT_TIPSET_CACHE_SIZE.into())
-        {
-            let key = parent.key();
-            let state_root = child.min_ticket_block().state_root;
-            let receipt_root = child.min_ticket_block().message_receipts;
-            self.cache.insert(
-                key.clone(),
-                StateOutput {
-                    state_root,
-                    receipt_root,
-                },
-            );
-        }
     }
 
     pub fn beacon_schedule(&self) -> &Arc<BeaconSchedule> {
@@ -423,86 +441,32 @@ impl<DB> StateManager<DB>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    /// Returns the pair of (state root, message receipt root). This will
-    /// either be cached or will be calculated and fill the cache. Tipset
-    /// state for a given tipset is guaranteed not to be computed twice.
-    pub async fn tipset_state(
-        self: &Arc<Self>,
-        tipset: &Tipset,
-        state_lookup: StateLookupPolicy,
-    ) -> anyhow::Result<CidPair> {
-        let StateOutput {
-            state_root,
-            receipt_root,
-        } = self.tipset_state_output(tipset, state_lookup).await?;
-        Ok((state_root, receipt_root))
-    }
-
-    pub async fn tipset_state_output(
-        self: &Arc<Self>,
-        tipset: &Tipset,
-        state_lookup: StateLookupPolicy,
-    ) -> anyhow::Result<StateOutput> {
-        let key = tipset.key();
-        self.cache
-            .get_or_else(key, || async move {
-                info!(
-                    "Evaluating tipset: EPOCH={}, blocks={}, tsk={}",
-                    tipset.epoch(),
-                    tipset.len(),
-                    tipset.key(),
-                );
-
-                // First, try to look up the state and receipt if not found in the blockstore
-                // compute it
-                if matches!(state_lookup, StateLookupPolicy::Enabled)
-                    && let Some(state_from_child) = self.try_lookup_state_from_next_tipset(tipset)
-                {
-                    return Ok(state_from_child);
-                }
-
-                trace!("Computing state for tipset at epoch {}", tipset.epoch());
-                let state_output = self
-                    .compute_tipset_state(tipset.clone(), NO_CALLBACK, VMTrace::NotTraced)
-                    .await?;
-
-                Ok(state_output)
+    /// Load the state of a tipset, including state root, message receipts
+    pub async fn load_tipset_state(self: &Arc<Self>, ts: &Tipset) -> anyhow::Result<TipsetState> {
+        if let Some(state) = self.cache.get_map(ts.key(), |et| et.into()) {
+            Ok(state)
+        } else if let Ok(receipt_ts) = self.chain_store().load_child_tipset(ts) {
+            Ok(TipsetState {
+                state_root: *receipt_ts.parent_state(),
+                receipt_root: *receipt_ts.parent_message_receipts(),
             })
-            .await
+        } else {
+            Ok(self.load_executed_tipset(ts).await?.into())
+        }
     }
 
-    /// Load an executed tipset, including message receipts and state root,
-    /// without loading event logs from receipts.
-    pub async fn load_executed_tipset_without_events(
-        self: &Arc<Self>,
-        ts: &Tipset,
-    ) -> anyhow::Result<ExecutedTipset> {
-        let receipt_ts = self.chain_store().load_child_tipset(ts).ok();
-        self.load_executed_tipset_inner(
-            ts,
-            receipt_ts.as_ref(),
-            LoadExecutedTipsetOptions {
-                include_events: false,
-            },
-        )
-        .await
-    }
-
-    /// Load an executed tipset, including message receipts and state root,
-    /// with event logs loaded when available.
+    /// Load an executed tipset, including state root, message receipts and events with caching.
     pub async fn load_executed_tipset(
         self: &Arc<Self>,
         ts: &Tipset,
     ) -> anyhow::Result<ExecutedTipset> {
-        let receipt_ts = self.chain_store().load_child_tipset(ts).ok();
-        self.load_executed_tipset_inner(
-            ts,
-            receipt_ts.as_ref(),
-            LoadExecutedTipsetOptions {
-                include_events: true,
-            },
-        )
-        .await
+        self.cache
+            .get_or_else(ts.key(), || async move {
+                let receipt_ts = self.chain_store().load_child_tipset(ts).ok();
+                self.load_executed_tipset_inner(ts, receipt_ts.as_ref())
+                    .await
+            })
+            .await
     }
 
     async fn load_executed_tipset_inner(
@@ -510,23 +474,21 @@ where
         msg_ts: &Tipset,
         // when `msg_ts` is the current head, `receipt_ts` is `None`
         receipt_ts: Option<&Tipset>,
-        options: LoadExecutedTipsetOptions,
     ) -> anyhow::Result<ExecutedTipset> {
-        let LoadExecutedTipsetOptions { include_events } = options;
         if let Some(receipt_ts) = receipt_ts {
             anyhow::ensure!(
                 msg_ts.key() == receipt_ts.parents(),
                 "message tipset should be the parent of message receipt tipset"
             );
         }
-        let messages = self.chain_store().messages_for_tipset(msg_ts)?;
         let mut recomputed = false;
-        let (state_root, receipts) = match receipt_ts.and_then(|ts| {
-            Receipt::get_receipts(self.cs.blockstore(), *ts.parent_message_receipts())
+        let (state_root, receipt_root, receipts) = match receipt_ts.and_then(|ts| {
+            let receipt_root = *ts.parent_message_receipts();
+            Receipt::get_receipts(self.cs.blockstore(), receipt_root)
                 .ok()
-                .map(|r| (*ts.parent_state(), r))
+                .map(|r| (*ts.parent_state(), receipt_root, r))
         }) {
-            Some((state_root, receipts)) => (state_root, receipts),
+            Some((state_root, receipt_root, receipts)) => (state_root, receipt_root, receipts),
             None => {
                 let state_output = self
                     .compute_tipset_state(msg_ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
@@ -534,10 +496,13 @@ where
                 recomputed = true;
                 (
                     state_output.state_root,
+                    state_output.receipt_root,
                     Receipt::get_receipts(self.cs.blockstore(), state_output.receipt_root)?,
                 )
             }
         };
+
+        let messages = self.chain_store().messages_for_tipset(msg_ts)?;
         anyhow::ensure!(
             messages.len() == receipts.len(),
             "mismatching message and receipt counts ({} messages, {} receipts)",
@@ -546,7 +511,7 @@ where
         );
         let mut executed_messages = Vec::with_capacity(messages.len());
         for (message, receipt) in messages.iter().cloned().zip(receipts.into_iter()) {
-            let events = if include_events && let Some(events_root) = receipt.events_root() {
+            let events = if let Some(events_root) = receipt.events_root() {
                 Some(
                     match StampedEvent::get_events(self.cs.blockstore(), &events_root) {
                         Ok(events) => events,
@@ -574,7 +539,8 @@ where
         }
         Ok(ExecutedTipset {
             state_root,
-            executed_messages,
+            receipt_root,
+            executed_messages: Arc::new(executed_messages),
         })
     }
 
@@ -680,7 +646,6 @@ where
         self: &Arc<Self>,
         tipset: Option<Tipset>,
         msg: Message,
-        state_lookup: StateLookupPolicy,
         vm_flush: VMFlush,
     ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
@@ -707,14 +672,7 @@ where
         };
 
         let (_invoc_res, apply_ret, duration, state_root) = self
-            .call_with_gas(
-                &mut chain_msg,
-                &[],
-                Some(ts),
-                VMTrace::Traced,
-                state_lookup,
-                vm_flush,
-            )
+            .call_with_gas(&mut chain_msg, &[], Some(ts), vm_flush)
             .await?;
 
         Ok((
@@ -739,13 +697,11 @@ where
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
-        trace_config: VMTrace,
-        state_lookup: StateLookupPolicy,
         vm_flush: VMFlush,
     ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
-        let (st, _) = self
-            .tipset_state(&ts, state_lookup)
+        let TipsetState { state_root, .. } = self
+            .load_tipset_state(&ts)
             .await
             .map_err(|e| Error::Other(format!("Could not load tipset state: {e}")))?;
         let chain_rand = self.chain_rand(ts.clone());
@@ -760,21 +716,21 @@ where
             let mut vm = VM::new(
                 ExecutionContext {
                     heaviest_tipset: ts.clone(),
-                    state_tree_root: st,
+                    state_tree_root: state_root,
                     epoch,
                     rand: Box::new(chain_rand),
                     base_fee: ts.block_headers().first().parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
                         self.blockstore(),
-                        &st,
+                        &state_root,
                     )?,
                     chain_config: self.chain_config().clone(),
                     chain_index: self.chain_index().clone(),
                     timestamp: ts.min_timestamp(),
                 },
                 &self.engine,
-                trace_config,
+                VMTrace::NotTraced,
             )?;
 
             for msg in prior_messages {
@@ -926,13 +882,12 @@ where
     ///
     /// For details, see the documentation for [`apply_block_messages`].
     ///
-    #[instrument(skip_all)]
     pub async fn compute_tipset_state(
         self: &Arc<Self>,
         tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
-    ) -> Result<StateOutput, Error> {
+    ) -> Result<ExecutedTipset, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
             this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
@@ -941,15 +896,19 @@ where
     }
 
     /// Blocking version of `compute_tipset_state`
-    #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking(
         &self,
         tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
-    ) -> Result<StateOutput, Error> {
+    ) -> Result<ExecutedTipset, Error> {
         let epoch = tipset.epoch();
         let has_callback = callback.is_some();
+        info!(
+            "Evaluating tipset: EPOCH={epoch}, blocks={}, tsk={}",
+            tipset.len(),
+            tipset.key(),
+        );
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(self.chain_index()),
@@ -977,7 +936,7 @@ where
         tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
-    ) -> Result<StateOutput, Error> {
+    ) -> Result<ExecutedTipset, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
             this.compute_state_blocking(height, messages, tipset, callback, enable_tracing)
@@ -994,7 +953,7 @@ where
         tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
-    ) -> Result<StateOutput, Error> {
+    ) -> Result<ExecutedTipset, Error> {
         Ok(compute_state(
             height,
             messages,
@@ -1470,8 +1429,8 @@ where
         }
 
         // If that fails, compute the tip-set and try again.
-        let (st, _) = self.tipset_state(ts, StateLookupPolicy::Enabled).await?;
-        let state = StateTree::new_from_root(self.blockstore_owned(), &st)?;
+        let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
 
         resolve_to_key_addr(&state, self.blockstore(), addr)
     }
@@ -1727,7 +1686,7 @@ where
                 }
 
                 // If that fails, compute the tip-set and try again.
-                let (state_root, _) = self.tipset_state(ts, StateLookupPolicy::Enabled).await?;
+                let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
                 let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
@@ -1758,7 +1717,7 @@ where
             }
         };
 
-        let StateOutput { state_root, .. } = apply_block_messages(
+        let ExecutedTipset { state_root, .. } = apply_block_messages(
             genesis_timestamp,
             self.chain_index().clone(),
             self.chain_config().clone(),
@@ -1770,27 +1729,6 @@ where
         )?;
 
         Ok((state_root, invoc_trace))
-    }
-
-    /// Attempts to lookup the state and receipt root of the next tipset.
-    /// This is a performance optimization to avoid recomputing the state and receipt root by checking the blockstore.
-    /// It only checks the immediate next epoch, as this is the most likely place to find a child.
-    fn try_lookup_state_from_next_tipset(&self, ts: &Tipset) -> Option<StateOutput> {
-        // Check if the next tipset has the same parent
-        if let Ok(child_ts) = self.chain_store().load_child_tipset(ts) {
-            let state_root = *child_ts.parent_state();
-            let receipt_root = *child_ts.parent_message_receipts();
-            if self.blockstore().has(&state_root).unwrap_or(false)
-                && self.blockstore().has(&receipt_root).unwrap_or(false)
-            {
-                return Some(StateOutput {
-                    state_root,
-                    receipt_root,
-                });
-            }
-        }
-
-        None
     }
 }
 
@@ -1812,9 +1750,10 @@ where
         .par_bridge()
         .try_for_each(|(child, parent)| {
             info!(height = parent.epoch(), "compute parent state");
-            let StateOutput {
+            let ExecutedTipset {
                 state_root: actual_state,
                 receipt_root: actual_receipt,
+                ..
             } = apply_block_messages(
                 genesis_timestamp,
                 chain_index.clone(),
@@ -2046,7 +1985,7 @@ pub fn apply_block_messages<DB>(
     tipset: Tipset,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
-) -> anyhow::Result<StateOutput>
+) -> anyhow::Result<ExecutedTipset>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -2064,9 +2003,10 @@ where
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
         let message_receipts = tipset.min_ticket_block().message_receipts;
-        return Ok(StateOutput {
+        return Ok(ExecutedTipset {
             state_root: *tipset.parent_state(),
             receipt_root: message_receipts,
+            executed_messages: vec![].into(),
         });
     }
 
@@ -2085,7 +2025,7 @@ where
 
     // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
     // FVM, but that introduces some constraints, and possible deadlocks.
-    stacker::grow(64 << 20, || -> anyhow::Result<StateOutput> {
+    stacker::grow(64 << 20, || -> anyhow::Result<ExecutedTipset> {
         let mut vm = exec.create_vm(parent_state, epoch, tipset.min_timestamp(), enable_tracing)?;
 
         // step 4: apply tipset messages
@@ -2093,22 +2033,24 @@ where
             vm.apply_block_messages(&block_messages, epoch, callback)?;
 
         // step 5: construct receipt root from receipts
-        let receipt_root = Amtv0::new_from_iter(chain_index.db(), receipts)?;
+        let receipt_root = Amtv0::new_from_iter(chain_index.db(), receipts.iter())?;
 
         // step 6: store events AMTs in the blockstore
-        for (msg_events, events_root) in events.iter().zip(events_roots.iter()) {
-            if let Some(event_root) = events_root {
+        for (events, events_root) in events.iter().zip(events_roots.iter()) {
+            if let Some(events) = events {
+                let event_root =
+                    events_root.context("events root should be present when events present")?;
                 // Store the events AMT - the root CID should match the one computed by FVM
                 let derived_event_root = Amt::new_from_iter_with_bit_width(
                     chain_index.db(),
                     EVENTS_AMT_BITWIDTH,
-                    msg_events.iter(),
+                    events.iter(),
                 )
                 .map_err(|e| Error::Other(format!("failed to store events AMT: {e}")))?;
 
                 // Verify the stored root matches the FVM-computed root
                 ensure!(
-                    derived_event_root.eq(event_root),
+                    derived_event_root == event_root,
                     "Events AMT root mismatch: derived={derived_event_root}, actual={event_root}."
                 );
             }
@@ -2116,9 +2058,29 @@ where
 
         let state_root = vm.flush()?;
 
-        Ok(StateOutput {
+        // Update executed tipset cache
+        let messages: Vec<ChainMessage> = block_messages
+            .into_iter()
+            .flat_map(|bm| bm.messages)
+            .collect_vec();
+        anyhow::ensure!(
+            messages.len() == receipts.len() && messages.len() == events.len(),
+            "length of messages, receipts, and events should match",
+        );
+        Ok(ExecutedTipset {
             state_root,
             receipt_root,
+            executed_messages: messages
+                .into_iter()
+                .zip(receipts)
+                .zip(events)
+                .map(|((message, receipt), events)| ExecutedMessage {
+                    message,
+                    receipt,
+                    events,
+                })
+                .collect_vec()
+                .into(),
         })
     })
 }
@@ -2135,7 +2097,7 @@ pub fn compute_state<DB>(
     engine: &MultiEngine,
     callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
-) -> anyhow::Result<StateOutput>
+) -> anyhow::Result<ExecutedTipset>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -2155,14 +2117,6 @@ where
     )?;
 
     Ok(output)
-}
-
-/// Whether or not to lookup the state output from the next tipset before computing a state
-#[derive(Debug, Copy, Clone, Default)]
-pub enum StateLookupPolicy {
-    #[default]
-    Enabled,
-    Disabled,
 }
 
 /// Controls whether the VM should flush its state after execution

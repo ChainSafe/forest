@@ -10,7 +10,7 @@ use crate::{
     interpreter::VMTrace,
     networks::{ChainConfig, NetworkChain},
     shim::clock::ChainEpoch,
-    state_manager::{StateManager, StateOutput},
+    state_manager::{ExecutedTipset, StateManager},
     tool::subcommands::api_cmd::generate_test_snapshot,
 };
 use human_repr::HumanCount as _;
@@ -106,9 +106,10 @@ impl ComputeCommand {
         let epoch = ts.epoch();
         let state_manager = Arc::new(StateManager::new(chain_store)?);
 
-        let StateOutput {
+        let ExecutedTipset {
             state_root,
             receipt_root,
+            ..
         } = state_manager
             .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
             .await?;
