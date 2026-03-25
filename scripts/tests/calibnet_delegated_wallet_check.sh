@@ -43,6 +43,10 @@ while [[ $i != 20 && $DELEGATE_ADDR_ONE_BALANCE == "$FIL_ZERO" ]]; do
   sleep 30s
   DELEGATE_ADDR_ONE_BALANCE=$($FOREST_WALLET_PATH balance "$DELEGATE_ADDR_ONE" --exact-balance)
 done
+if [[ $DELEGATE_ADDR_ONE_BALANCE == "$FIL_ZERO" ]]; then
+  echo "Timed out waiting for $DELEGATE_ADDR_ONE balance to update after 20 retries"
+  exit 1
+fi
 
 echo "Creating delegated wallet DELEGATE_ADDR_TWO"
 DELEGATE_ADDR_TWO=$($FOREST_WALLET_PATH new delegated)
@@ -71,6 +75,10 @@ while [[ $i != 20 && $DELEGATE_ADDR_TWO_BALANCE == "$FIL_ZERO" ]]; do
   sleep 30s
   DELEGATE_ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$DELEGATE_ADDR_TWO" --exact-balance)
 done
+if [[ $DELEGATE_ADDR_TWO_BALANCE == "$FIL_ZERO" ]]; then
+  echo "Timed out waiting for $DELEGATE_ADDR_TWO balance to update after 20 retries"
+  exit 1
+fi
 
 DELEGATE_ADDR_THREE_BALANCE=$FIL_ZERO
 i=0
@@ -80,6 +88,10 @@ while [[ $i != 20 && $DELEGATE_ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; do
   sleep 30s
   DELEGATE_ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$DELEGATE_ADDR_THREE" --exact-balance)
 done
+if [[ $DELEGATE_ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; then
+  echo "Timed out waiting for $DELEGATE_ADDR_THREE balance to update after 20 retries"
+  exit 1
+fi
 
 $FOREST_WALLET_PATH list
 $FOREST_WALLET_PATH --remote-wallet list
@@ -95,6 +107,10 @@ while [[ $i != 20 && $DELEGATE_ADDR_REMOTE_THREE_BALANCE == "$DELEGATE_ADDR_THRE
   sleep 30s
   DELEGATE_ADDR_REMOTE_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$DELEGATE_ADDR_THREE" --exact-balance)
 done
+if [[ $DELEGATE_ADDR_REMOTE_THREE_BALANCE == "$DELEGATE_ADDR_THREE_BALANCE" ]]; then
+  echo "Timed out waiting for $DELEGATE_ADDR_THREE balance to update after 20 retries"
+  exit 1
+fi
 
 $FOREST_WALLET_PATH list
 $FOREST_WALLET_PATH --remote-wallet list

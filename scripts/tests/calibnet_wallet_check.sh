@@ -124,11 +124,15 @@ ADDR_TWO_BALANCE=$FIL_ZERO
 i=0
 while [[ $i != 20 && $ADDR_TWO_BALANCE == "$FIL_ZERO" ]]; do
   i=$((i+1))
-  
+
   : "Checking balance $i/20"
   sleep 30s
   ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO" --exact-balance)
 done
+if [[ $ADDR_TWO_BALANCE == "$FIL_ZERO" ]]; then
+  echo "Timed out waiting for $ADDR_TWO balance to update after 20 retries"
+  exit 1
+fi
 
 ADDR_THREE_BALANCE=$FIL_ZERO
 i=0
@@ -139,6 +143,10 @@ while [[ $i != 20 && $ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; do
   sleep 30s
   ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_THREE" --exact-balance)
 done
+if [[ $ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; then
+  echo "Timed out waiting for $ADDR_THREE balance to update after 20 retries"
+  exit 1
+fi
 
 ETH_ADDR_TWO=$(curl -s -X POST "$FOREST_URL" \
   -H 'Content-Type: application/json' \
@@ -169,6 +177,10 @@ while [[ $i != 20 && $ETH_ADDR_TWO_BALANCE == "$ADDR_TWO_BALANCE" ]]; do
   sleep 30s
   ETH_ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO" --exact-balance)
 done
+if [[ $ETH_ADDR_TWO_BALANCE == "$ADDR_TWO_BALANCE" ]]; then
+  echo "Timed out waiting for $ETH_ADDR_TWO balance to update after 20 retries"
+  exit 1
+fi
 
 ETH_ADDR_THREE_BALANCE=$ADDR_THREE_BALANCE
 i=0
@@ -179,6 +191,10 @@ while [[ $i != 20 && $ETH_ADDR_THREE_BALANCE == "$ADDR_THREE_BALANCE" ]]; do
   sleep 30s
   ETH_ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_THREE" --exact-balance)
 done
+if [[ $ETH_ADDR_THREE_BALANCE == "$ADDR_THREE_BALANCE" ]]; then
+  echo "Timed out waiting for $ETH_ADDR_THREE balance to update after 20 retries"
+  exit 1
+fi
 
 # wallet list should contain address two with transferred FIL amount
 $FOREST_WALLET_PATH list

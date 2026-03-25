@@ -306,7 +306,7 @@ pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
     let resolved = resolve_to_key(api, key_cache, addr, cur_ts)?;
     let messages = api.messages_for_tipset(cur_ts)?;
     for msg in &messages {
-        let from = resolve_to_key(api, key_cache, &msg.from(), cur_ts).unwrap_or(msg.from());
+        let from = resolve_to_key(api, key_cache, &msg.from(), cur_ts)?;
         if from == resolved {
             let n = msg.sequence() + 1;
             if n > next_nonce {

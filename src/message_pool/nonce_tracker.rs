@@ -10,7 +10,7 @@ use crate::shim::address::Address;
 use crate::shim::message::Message;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::warn;
+use tracing::{error, warn};
 
 /// Serializes nonce assignment globally and persists the next expected nonce
 /// per address. The global mutex prevents concurrent nonce assignment across
@@ -82,7 +82,13 @@ impl NonceTracker {
 
         mpool.push(smsg.clone()).await?;
 
-        self.save_nonce(&message.from, nonce)?;
+        if let Err(err) = self.save_nonce(&message.from, nonce) {
+            error!(
+                from = %message.from,
+                nonce,
+                "message pushed but failed to persist next nonce: {err}"
+            );
+        }
 
         Ok(smsg)
     }
