@@ -807,6 +807,114 @@ where
         api_invoc_result.ok_or_else(|| Error::Other("failed to replay".into()))
     }
 
+    /// Replays a tipset up to a target message, capturing the state root before
+    /// and after execution.
+    pub async fn replay_for_prestate(
+        self: &Arc<Self>,
+        ts: Tipset,
+        target_message_cid: Cid,
+    ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || {
+            this.replay_for_prestate_blocking(ts, target_message_cid)
+        })
+        .await
+        .map_err(|e| Error::Other(format!("{e}")))?
+    }
+
+    fn replay_for_prestate_blocking(
+        self: &Arc<Self>,
+        ts: Tipset,
+        target_msg_cid: Cid,
+    ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
+        if ts.epoch() == 0 {
+            return Err(Error::Other(
+                "cannot trace messages in the genesis block".into(),
+            ));
+        }
+
+        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
+        let exec = TipsetExecutor::new(
+            self.chain_index().clone(),
+            self.chain_config().clone(),
+            self.beacon_schedule().clone(),
+            &self.engine,
+            ts.clone(),
+        );
+        let mut no_cb = NO_CALLBACK;
+        let (parent_state, epoch, block_messages) =
+            exec.prepare_parent_state(genesis_timestamp, VMTrace::NotTraced, &mut no_cb)?;
+
+        Ok(stacker::grow(64 << 20, || {
+            let mut vm =
+                exec.create_vm(parent_state, epoch, ts.min_timestamp(), VMTrace::NotTraced)?;
+            let mut processed = ahash::HashSet::default();
+
+            for block in block_messages.iter() {
+                let mut penalty = TokenAmount::zero();
+                let mut gas_reward = TokenAmount::zero();
+
+                for msg in block.messages.iter() {
+                    let cid = msg.cid();
+                    if processed.contains(&cid) {
+                        continue;
+                    }
+
+                    processed.insert(cid);
+
+                    if cid == target_msg_cid {
+                        let pre_root = vm.flush()?;
+                        let mut traced_vm =
+                            exec.create_vm(pre_root, epoch, ts.min_timestamp(), VMTrace::Traced)?;
+                        let (ret, duration) = traced_vm.apply_message(msg)?;
+                        let post_root = traced_vm.flush()?;
+
+                        return Ok((
+                            pre_root,
+                            ApiInvocResult {
+                                msg_cid: cid,
+                                msg: msg.message().clone(),
+                                msg_rct: Some(ret.msg_receipt()),
+                                error: ret.failure_info().unwrap_or_default(),
+                                duration: duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
+                                gas_cost: MessageGasCost::default(),
+                                execution_trace: structured::parse_events(ret.exec_trace())
+                                    .unwrap_or_default(),
+                            },
+                            post_root,
+                        ));
+                    }
+
+                    let (ret, _) = vm.apply_message(msg)?;
+                    gas_reward += ret.miner_tip();
+                    penalty += ret.penalty();
+                }
+
+                if let Some(rew_msg) =
+                    vm.reward_message(epoch, block.miner, block.win_count, penalty, gas_reward)?
+                {
+                    let (ret, _) = vm.apply_implicit_message(&rew_msg)?;
+                    if let Some(err) = ret.failure_info() {
+                        bail!(
+                            "failed to apply reward message for miner {}: {err}",
+                            block.miner
+                        );
+                    }
+
+                    // This is more of a sanity check, this should not be able to be hit.
+                    if !ret.msg_receipt().exit_code().is_success() {
+                        bail!(
+                            "reward application message failed (exit: {:?})",
+                            ret.msg_receipt().exit_code()
+                        );
+                    }
+                }
+            }
+
+            bail!("message {target_msg_cid} not found in tipset")
+        })?)
+    }
+
     /// Checks the eligibility of the miner. This is used in the validation that
     /// a block's miner has the requirements to mine a block.
     pub fn eligible_to_mine(
