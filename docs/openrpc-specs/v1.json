@@ -5837,6 +5837,41 @@
       "paramStructure": "by-position"
     },
     {
+      "name": "Forest.EthDebugTraceTransaction",
+      "description": "Replays a transaction and returns execution traces in Geth-compatible format.",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "opts",
+          "required": true,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GethDebugTracingOptions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "name": "Forest.EthDebugTraceTransaction.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/GethTrace"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
       "name": "Forest.EthTraceCall",
       "description": "Returns parity style trace results for the given transaction.",
       "params": [
@@ -6014,6 +6049,41 @@
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/SyncStatusReport"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "debug_traceTransaction",
+      "description": "Replays a transaction and returns execution traces in Geth-compatible format.",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "opts",
+          "required": true,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GethDebugTracingOptions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "name": "debug_traceTransaction.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/GethTrace"
         }
       },
       "paramStructure": "by-position"
@@ -7152,6 +7222,48 @@
           "nonce",
           "storage"
         ]
+      },
+      "AccountState": {
+        "description": "Snapshot of a single account's state at a point in time.\nAll fields are optional; absent means \"not relevant\" or \"default\".",
+        "type": "object",
+        "properties": {
+          "balance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBytes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nonce": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthUint64"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "storage": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EthHash"
+            }
+          }
+        }
       },
       "ActorEvent": {
         "type": "object",
@@ -8671,6 +8783,30 @@
               "*"
             ]
           }
+        ]
+      },
+      "DiffMode": {
+        "description": "Account state differences between the transaction's pre and post-state.",
+        "type": "object",
+        "properties": {
+          "post": {
+            "description": "account state after the transaction is executed.",
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AccountState"
+            }
+          },
+          "pre": {
+            "description": "account state before the transaction is executed.",
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AccountState"
+            }
+          }
+        },
+        "required": [
+          "pre",
+          "post"
         ]
       },
       "ECTipSet": {
@@ -10275,6 +10411,173 @@
           "tt"
         ]
       },
+      "GethCallFrame": {
+        "description": "Geth-style nested call frame returned by the `callTracer`.",
+        "type": "object",
+        "properties": {
+          "calls": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/GethCallFrame"
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "from": {
+            "$ref": "#/components/schemas/EthAddress"
+          },
+          "gas": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "gasUsed": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "input": {
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBytes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revertReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/GethCallType"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "from",
+          "gas",
+          "gasUsed",
+          "input"
+        ]
+      },
+      "GethCallType": {
+        "description": "EVM call/create operation type for Geth-style trace frames.\n\nMaps to the EVM opcodes: CALL, STATICCALL, DELEGATECALL, CREATE, CREATE2.\nUsed as the `type` field in [`GethCallFrame`].",
+        "type": "string",
+        "enum": [
+          "CALL",
+          "STATICCALL",
+          "DELEGATECALL",
+          "CREATE",
+          "CREATE2"
+        ]
+      },
+      "GethDebugBuiltInTracerType": {
+        "description": "The Available built-in tracer.",
+        "oneOf": [
+          {
+            "description": "The call tracer builds a hierarchical call tree, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)",
+            "type": "string",
+            "const": "callTracer"
+          },
+          {
+            "description": "The flat call tracer builds a flat list of all calls, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)",
+            "type": "string",
+            "const": "flatCallTracer"
+          },
+          {
+            "description": "The prestate tracer builds a state snapshot of the accounts necessary to execute the transaction, and the state after the transaction.",
+            "type": "string",
+            "const": "prestateTracer"
+          },
+          {
+            "description": "The noop tracer does not build any traces.",
+            "type": "string",
+            "const": "noopTracer"
+          }
+        ]
+      },
+      "GethDebugTracingOptions": {
+        "description": "Options for the `debug_traceTransaction` API.",
+        "type": "object",
+        "properties": {
+          "tracer": {
+            "description": "The tracer to use for the transaction.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GethDebugBuiltInTracerType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tracerConfig": {
+            "description": "The configuration for the provided tracer.\nThe configuration is a JSON object that is specific to the tracer.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TracerConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "GethTrace": {
+        "description": "Tracing response objects",
+        "anyOf": [
+          {
+            "description": "Response object for the call tracer.",
+            "$ref": "#/components/schemas/GethCallFrame"
+          },
+          {
+            "description": "Response object for the flat call tracer.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthBlockTrace"
+            }
+          },
+          {
+            "description": "Response object for the prestate tracer.",
+            "$ref": "#/components/schemas/PreStateFrame"
+          },
+          {
+            "description": "Response object for the noop tracer.",
+            "$ref": "#/components/schemas/NoopFrame"
+          }
+        ]
+      },
       "GossipBlock": {
         "type": "object",
         "properties": {
@@ -11036,6 +11339,10 @@
       "Nonce": {
         "type": "string"
       },
+      "NoopFrame": {
+        "description": "Empty frame returned by the `noopTracer`.",
+        "type": "object"
+      },
       "Nullable_Address": {
         "anyOf": [
           {
@@ -11402,6 +11709,26 @@
           "PowerDelta",
           "SigningKey"
         ]
+      },
+      "PreStateFrame": {
+        "description": "Return type for the `prestateTracer`.",
+        "anyOf": [
+          {
+            "description": "Default mode: returns the accounts necessary to execute a given transaction.",
+            "$ref": "#/components/schemas/PreStateMode"
+          },
+          {
+            "description": "Diff mode: returns the differences between the transaction's pre and post-state.",
+            "$ref": "#/components/schemas/DiffMode"
+          }
+        ]
+      },
+      "PreStateMode": {
+        "description": "Returns the account states necessary to execute a given transaction.",
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/AccountState"
+        }
       },
       "PubSubConfig": {
         "type": "object",
@@ -11943,6 +12270,9 @@
             "$ref": "#/components/schemas/EthCreateTraceResult"
           }
         ]
+      },
+      "TracerConfig": {
+        "description": "Opaque JSON blob for per-tracer configuration."
       },
       "Transaction": {
         "type": "object",
