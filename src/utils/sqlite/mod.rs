@@ -92,7 +92,7 @@ pub async fn init_db<'q>(
     if sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name='_meta';")
         .fetch_optional(db)
         .await
-        .map_err(|e| anyhow::anyhow!("error looking for {name} database _meta table: {e}"))?
+        .with_context(|| format!("error looking for {name} database _meta table"))?
         .is_none()
     {
         init(db, schema_version).await?;

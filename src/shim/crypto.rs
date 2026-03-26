@@ -95,7 +95,7 @@ impl Signature {
     }
 
     /// Creates a signature from bytes.
-    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, anyhow::Error> {
+    pub fn from_bytes(bytes: Vec<u8>) -> anyhow::Result<Self> {
         if bytes.is_empty() {
             anyhow::bail!("Empty signature bytes");
         }

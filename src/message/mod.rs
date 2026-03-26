@@ -115,7 +115,7 @@ pub fn valid_for_block_inclusion(
     msg: &ShimMessage,
     min_gas: Gas,
     version: NetworkVersion,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     use crate::shim::address::ZERO_ADDRESS;
     use crate::shim::econ::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
     if msg.version != 0 {

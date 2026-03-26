@@ -415,7 +415,7 @@ impl Encoder {
                     // Pass errors through
                     Some(Err(e)) => {
                         return Poll::Ready(Some(Err(anyhow::anyhow!(
-                            "error polling CarBlock from stream: {e}"
+                            "error polling CarBlock from stream: {e:#}"
                         ))));
                     }
                     // Got element, add to encoder and emit block position

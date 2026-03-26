@@ -132,7 +132,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
 
                         let job_output = job.run(store, prior_epoch, cache_clone).unwrap_or_else(|e| {
                             panic!(
-                                "failed executing job for address: {address}, Reason: {e}"
+                                "failed executing job for address: {address}, Reason: {e:#}"
                             )
                         });
 
@@ -153,7 +153,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                         .set_actor(&address, actor_state)
                         .unwrap_or_else(|e| {
                             panic!(
-                                "Failed setting new actor state at given address: {address}, Reason: {e}"
+                                "Failed setting new actor state at given address: {address}, Reason: {e:#}"
                             )
                         });
                     job_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -197,7 +197,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                     .set_actor(&address, actor_state)
                     .unwrap_or_else(|e| {
                         panic!(
-                            "Failed setting new actor state at given address: {address}, Reason: {e}"
+                            "Failed setting new actor state at given address: {address}, Reason: {e:#}"
                         )
                     });
             }

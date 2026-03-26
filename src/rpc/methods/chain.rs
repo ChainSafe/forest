@@ -445,7 +445,7 @@ impl RpcMethod<1> for ForestChainExport {
                     {
                         Ok(cid) => Some((cid, File::open(&f3_snap_tmp_path)?)),
                         Err(e) => {
-                            tracing::error!("Failed to export F3 snapshot: {e}");
+                            tracing::error!("Failed to export F3 snapshot: {e:#}");
                             None
                         }
                     }

@@ -263,7 +263,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         let weight = header.weight.clone();
         move || {
             let calc_weight = fil_cns::weight(&block_store, &base_tipset).map_err(|e| {
-                TipsetSyncerError::Calculation(format!("Error calculating weight: {e}"))
+                TipsetSyncerError::Calculation(format!("Error calculating weight: {e:#}"))
             })?;
             if weight != calc_weight {
                 return Err(TipsetSyncerError::Validation(format!(
@@ -288,7 +288,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
                 .load_executed_tipset(&base_tipset)
                 .await
                 .map_err(|e| {
-                    TipsetSyncerError::Calculation(format!("Failed to calculate state: {e}"))
+                    TipsetSyncerError::Calculation(format!("Failed to calculate state: {e:#}"))
                 })?;
 
             if state_root != header.state_root {
@@ -402,7 +402,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
                          tree: &StateTree<DB>|
-     -> Result<(), anyhow::Error> {
+     -> anyhow::Result<()> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(to_vec(msg).unwrap().len());
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
@@ -448,11 +448,11 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     let ExecutedTipset { state_root, .. } = state_manager
         .load_executed_tipset(&base_tipset)
         .await
-        .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e}")))?;
+        .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e:#}")))?;
     let tree =
         StateTree::new_from_root(state_manager.blockstore_owned(), &state_root).map_err(|e| {
             TipsetSyncerError::Calculation(format!(
-                "Could not load from new state root in state manager: {e}"
+                "Could not load from new state root in state manager: {e:#}"
             ))
         })?;
 
@@ -460,7 +460,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     for (i, msg) in block.bls_msgs().iter().enumerate() {
         check_msg(msg, &mut account_sequences, &tree).map_err(|e| {
             TipsetSyncerError::Validation(format!(
-                "Block had invalid BLS message at index {i}: {e}"
+                "Block had invalid BLS message at index {i}: {e:#}"
             ))
         })?;
     }
@@ -476,7 +476,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetSyncerError::Validation(format!(
-                "block had an invalid secp message at index {i}: {e}"
+                "block had an invalid secp message at index {i}: {e:#}"
             ))
         })?;
         // Resolve key address for signature verification

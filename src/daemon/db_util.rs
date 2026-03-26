@@ -270,7 +270,7 @@ pub async fn import_chain_as_forest_car(
                 temp_f3_snap.path().display().to_string(),
             ) {
                 // Do not make it a hard error if anything is wrong with F3 snapshot
-                tracing::error!("Failed to import F3 snapshot: {e}");
+                tracing::error!("Failed to import F3 snapshot: {e:#}");
             }
         }
     }

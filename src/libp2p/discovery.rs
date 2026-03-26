@@ -269,9 +269,9 @@ impl DiscoveryBehaviour {
     }
 
     /// Bootstrap Kademlia network
-    pub fn bootstrap(&mut self) -> Result<kad::QueryId, String> {
+    pub fn bootstrap(&mut self) -> anyhow::Result<kad::QueryId> {
         if let Some(active_kad) = self.discovery.kademlia.as_mut() {
-            active_kad.bootstrap().map_err(|e| e.to_string())
+            Ok(active_kad.bootstrap()?)
         } else {
             // Manually dial to seed peers when kademlia is disabled
             for (peer_id, address) in &self.custom_seed_peers {
@@ -282,7 +282,7 @@ impl DiscoveryBehaviour {
                         .build(),
                 );
             }
-            Err("Kademlia is not activated".to_string())
+            anyhow::bail!("Kademlia is not activated")
         }
     }
 

@@ -92,7 +92,7 @@ pub async fn fetch_state_tests() -> anyhow::Result<()> {
     }
     for result in joinset.join_all().await {
         if let Err(e) = result {
-            tracing::warn!("{e}");
+            tracing::warn!("{e:#}");
         }
     }
     Ok(())
@@ -112,7 +112,7 @@ async fn fetch_rpc_tests() -> anyhow::Result<()> {
     }
     for result in joinset.join_all().await {
         if let Err(e) = result {
-            tracing::warn!("{e}");
+            tracing::warn!("{e:#}");
         }
     }
     Ok(())
@@ -135,7 +135,7 @@ pub async fn fetch_rpc_test_snapshot<'a>(name: Cow<'a, str>) -> anyhow::Result<P
         || download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable),
     )
     .await
-    .map_err(|e| anyhow::anyhow!("failed to fetch rpc test snapshot {name} :{e}"))?
+    .with_context(|| format!("failed to fetch rpc test snapshot {name}"))?
     .path;
     Ok(path)
 }

@@ -14,6 +14,7 @@ use super::utils::{ZERO_HASH, u256_to_eth_hash};
 use crate::shim::actors::{EVMActorStateLoad as _, evm, is_evm_actor};
 use crate::shim::state_tree::{ActorState, StateTree};
 use ahash::{HashMap, HashSet};
+use anyhow::Context as _;
 use fil_actor_evm_state::evm_shared::v17::uints::U256;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_kamt::{AsHashedKey, Config as KamtConfig, HashedKey, Kamt};
@@ -59,11 +60,11 @@ pub fn build_state_diff<S: Blockstore, T: Blockstore>(
         // Get actor state before and after
         let pre_actor = pre_state
             .get_actor(&fil_addr)
-            .map_err(|e| anyhow::anyhow!("failed to get actor state: {e}"))?;
+            .context("failed to get actor state")?;
 
         let post_actor = post_state
             .get_actor(&fil_addr)
-            .map_err(|e| anyhow::anyhow!("failed to get actor state: {e}"))?;
+            .context("failed to get actor state")?;
 
         let account_diff = build_account_diff(store, pre_actor.as_ref(), post_actor.as_ref())?;
 
@@ -215,7 +216,7 @@ pub fn extract_evm_storage_entries<DB: Blockstore>(
     let evm_state = match evm::State::load(store, actor.code, actor.state) {
         Ok(state) => state,
         Err(e) => {
-            debug!("failed to load EVM state for storage extraction: {e}");
+            debug!("failed to load EVM state for storage extraction: {e:#}");
             return HashMap::default();
         }
     };

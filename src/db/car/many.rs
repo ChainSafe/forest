@@ -136,7 +136,7 @@ impl<WriterT> ManyCar<WriterT> {
                 file.as_ref(),
             )?)?)
         })()
-        .map_err(|e| anyhow::anyhow!("failed to load CAR at {}: {e}", file.as_ref().display()))
+        .with_context(|| format!("failed to load CAR at {}", file.as_ref().display()))
     }
 
     pub fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {

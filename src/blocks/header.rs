@@ -85,11 +85,11 @@ impl RawBlockHeader {
         let signature = self
             .signature
             .as_ref()
-            .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".to_owned()))?;
+            .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".into()))?;
 
-        signature
-            .verify(&self.signing_bytes(), addr)
-            .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {e}")))?;
+        signature.verify(&self.signing_bytes(), addr).map_err(|e| {
+            Error::InvalidSignature(format!("Block signature invalid: {e:#}").into())
+        })?;
 
         Ok(())
     }
@@ -105,7 +105,7 @@ impl RawBlockHeader {
     ) -> Result<(), Error> {
         let (cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
-            .map_err(|e| Error::Validation(e.to_string()))?;
+            .map_err(|e| Error::Validation(format!("{e:#}").into()))?;
         tracing::trace!(
             "beacon network at {}: {:?}, is_chained: {}",
             self.epoch,
@@ -116,20 +116,23 @@ impl RawBlockHeader {
         if curr_beacon.network().is_chained() {
             let (pb_epoch, _) = b_schedule
                 .beacon_for_epoch(parent_epoch)
-                .map_err(|e| Error::Validation(e.to_string()))?;
+                .map_err(|e| Error::Validation(format!("{e:#}").into()))?;
             if cb_epoch != pb_epoch {
                 // Fork logic
                 if self.beacon_entries.len() != 2 {
-                    return Err(Error::Validation(format!(
-                        "Expected two beacon entries at beacon fork, got {}",
-                        self.beacon_entries.len()
-                    )));
+                    return Err(Error::Validation(
+                        format!(
+                            "Expected two beacon entries at beacon fork, got {}",
+                            self.beacon_entries.len()
+                        )
+                        .into(),
+                    ));
                 }
 
                 #[allow(clippy::indexing_slicing)]
                 curr_beacon
                     .verify_entries(&self.beacon_entries[1..], &self.beacon_entries[0])
-                    .map_err(|e| Error::Validation(e.to_string()))?;
+                    .map_err(|e| Error::Validation(format!("{e:#}").into()))?;
 
                 return Ok(());
             }
@@ -139,10 +142,13 @@ impl RawBlockHeader {
         // We don't expect to ever actually meet this condition
         if max_round == prev_entry.round() {
             if !self.beacon_entries.is_empty() {
-                return Err(Error::Validation(format!(
-                    "expected not to have any beacon entries in this block, got: {}",
-                    self.beacon_entries.len()
-                )));
+                return Err(Error::Validation(
+                    format!(
+                        "expected not to have any beacon entries in this block, got: {}",
+                        self.beacon_entries.len()
+                    )
+                    .into(),
+                ));
             }
             return Ok(());
         }
@@ -158,22 +164,25 @@ impl RawBlockHeader {
             Some(last) => last,
             None => {
                 return Err(Error::Validation(
-                    "Block must include at least 1 beacon entry".to_string(),
+                    "Block must include at least 1 beacon entry".into(),
                 ));
             }
         };
 
         if last.round() != max_round {
-            return Err(Error::Validation(format!(
-                "expected final beacon entry in block to be at round {}, got: {}",
-                max_round,
-                last.round()
-            )));
+            return Err(Error::Validation(
+                format!(
+                    "expected final beacon entry in block to be at round {}, got: {}",
+                    max_round,
+                    last.round()
+                )
+                .into(),
+            ));
         }
 
         if !curr_beacon
             .verify_entries(&self.beacon_entries, prev_entry)
-            .map_err(|e| Error::Validation(e.to_string()))?
+            .map_err(|e| Error::Validation(format!("{e:#}").into()))?
         {
             return Err(Error::Validation("beacon entry was invalid".into()));
         }

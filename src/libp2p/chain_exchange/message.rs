@@ -6,6 +6,7 @@ use std::convert::TryFrom;
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, CachingBlockHeader, FullTipset, Tipset};
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
+use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_encoding::tuple::*;
 use nunny::Vec as NonEmpty;
@@ -123,20 +124,22 @@ impl ChainExchangeResponse {
     /// Returns an error if the response status is not `Ok`.
     /// Tipset bundle is converted into generic return type with `TryFrom` trait
     /// implementation.
-    pub fn into_result<T>(self) -> Result<Vec<T>, String>
+    pub fn into_result<T>(self) -> anyhow::Result<Vec<T>>
     where
         T: TryFrom<TipsetBundle>,
-        <T as TryFrom<TipsetBundle>>::Error: std::fmt::Display,
+        <T as TryFrom<TipsetBundle>>::Error: Into<anyhow::Error>,
     {
         if self.status != ChainExchangeResponseStatus::Success
             && self.status != ChainExchangeResponseStatus::PartialResponse
         {
-            return Err(format!("Status {:?}: {}", self.status, self.message));
+            anyhow::bail!("Status {:?}: {}", self.status, self.message);
         }
 
         self.chain
             .into_iter()
-            .map(|i| T::try_from(i).map_err(|e| e.to_string()))
+            .map(|i| {
+                T::try_from(i).map_err(|e| e.into().context("failed to convert from tipset bundle"))
+            })
             .collect()
     }
 }
@@ -166,24 +169,23 @@ pub struct TipsetBundle {
 }
 
 impl TryFrom<TipsetBundle> for Tipset {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(tsb: TipsetBundle) -> Result<Self, Self::Error> {
-        Tipset::new(tsb.blocks).map_err(|e| e.to_string())
+        Ok(Tipset::new(tsb.blocks)?)
     }
 }
 
 impl TryFrom<TipsetBundle> for CompactedMessages {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(tsb: TipsetBundle) -> Result<Self, Self::Error> {
-        tsb.messages
-            .ok_or_else(|| "Request contained no messages".to_string())
+        tsb.messages.context("Request contained no messages")
     }
 }
 
 impl TryFrom<TipsetBundle> for FullTipset {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(tsb: TipsetBundle) -> Result<FullTipset, Self::Error> {
         fts_from_bundle_parts(tsb.blocks, tsb.messages.as_ref())
@@ -191,7 +193,7 @@ impl TryFrom<TipsetBundle> for FullTipset {
 }
 
 impl TryFrom<&TipsetBundle> for FullTipset {
-    type Error = String;
+    type Error = anyhow::Error;
 
     fn try_from(tsb: &TipsetBundle) -> Result<FullTipset, Self::Error> {
         fts_from_bundle_parts(tsb.blocks.clone(), tsb.messages.as_ref())
@@ -203,35 +205,35 @@ impl TryFrom<&TipsetBundle> for FullTipset {
 fn fts_from_bundle_parts(
     headers: Vec<CachingBlockHeader>,
     messages: Option<&CompactedMessages>,
-) -> Result<FullTipset, String> {
+) -> anyhow::Result<FullTipset> {
     let CompactedMessages {
         bls_msgs,
         bls_msg_includes,
         secp_msg_includes,
         secp_msgs,
-    } = messages.ok_or("Tipset bundle did not contain message bundle")?;
+    } = messages.context("Tipset bundle did not contain message bundle")?;
 
     if headers.len() != bls_msg_includes.len() || headers.len() != secp_msg_includes.len() {
-        return Err(format!(
+        anyhow::bail!(
             "Invalid formed Tipset bundle, lengths of includes does not match blocks. Header len: {}, bls_msg len: {}, secp_msg len: {}",
             headers.len(),
             bls_msg_includes.len(),
             secp_msg_includes.len()
-        ));
+        );
     }
     let zipped = headers
         .into_iter()
         .zip(bls_msg_includes.iter())
         .zip(secp_msg_includes.iter());
 
-    fn values_from_indexes<T: Clone>(indexes: &[u64], values: &[T]) -> Result<Vec<T>, String> {
+    fn values_from_indexes<T: Clone>(indexes: &[u64], values: &[T]) -> anyhow::Result<Vec<T>> {
         indexes
             .iter()
             .map(|idx| {
                 values
                     .get(*idx as usize)
                     .cloned()
-                    .ok_or_else(|| "Invalid message index".to_string())
+                    .context("Invalid message index")
             })
             .collect()
     }
@@ -241,9 +243,9 @@ fn fts_from_bundle_parts(
         .map(|(i, ((header, bls_msg_include), secp_msg_include))| {
             let message_count = bls_msg_include.len() + secp_msg_include.len();
             if message_count > BLOCK_MESSAGE_LIMIT {
-                return Err(format!(
+                anyhow::bail!(
                     "Block {i} in bundle has too many messages ({message_count} > {BLOCK_MESSAGE_LIMIT})"
-                ));
+                );
             }
             let bls_messages = values_from_indexes(bls_msg_include, bls_msgs)?;
             let secp_messages = values_from_indexes(secp_msg_include, secp_msgs)?;
@@ -256,7 +258,7 @@ fn fts_from_bundle_parts(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    FullTipset::new(blocks).map_err(|e| e.to_string())
+    Ok(FullTipset::new(blocks)?)
 }
 
 #[cfg(test)]

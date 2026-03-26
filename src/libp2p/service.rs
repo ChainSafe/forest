@@ -280,7 +280,7 @@ where
 
         // Bootstrap with Kademlia
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
-            warn!("Failed to bootstrap with Kademlia: {e}");
+            warn!("Failed to bootstrap with Kademlia: {e:#}");
         }
 
         let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
@@ -647,7 +647,7 @@ async fn handle_gossip_event(
                     .await;
                 }
                 Err(e) => {
-                    warn!("Gossip Block from peer {source:?} could not be deserialized: {e}",);
+                    warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
                 }
             }
         } else if topic == pubsub_msg_str {
@@ -662,7 +662,7 @@ async fn handle_gossip_event(
                     .await;
                 }
                 Err(e) => {
-                    warn!("Gossip Message from peer {source:?} could not be deserialized: {e}");
+                    warn!("Gossip Message from peer {source:?} could not be deserialized: {e:#}");
                 }
             }
         } else {
@@ -908,7 +908,7 @@ async fn handle_forest_behaviour_event<DB>(
                 db.blockstore(),
                 event,
             ) {
-                warn!("bitswap: {e}");
+                warn!("bitswap: {e:#}");
             }
         }
         ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event).await,
