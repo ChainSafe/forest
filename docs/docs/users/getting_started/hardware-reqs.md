@@ -13,6 +13,8 @@ Forest is designed to be lightweight enough to run on consumer hardware. Below a
 | Memory     | 2 GiB   | 4 GiB       | Stateless nodes don't need migrations so no spikes |
 | Disk Space | 3 GiB   | 3 GiB       | State is not stored, snapshots are not required    |
 
+To properly serve the network, a bootstrap node should ensure at least 6 Mbps upload and 2 Mbps download bandwidth.
+
 ## Regular Node (stateful)
 
 General-purpose node that participates in the network, validates blocks, and maintains the state. Memory and CPU depend highly on the expected load. Disk space depends on the required historical state to retain.
