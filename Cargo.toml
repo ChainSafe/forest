@@ -14,6 +14,13 @@ workspace = true
 [lib]
 name = "forest"
 
+[patch.crates-io]
+fvm4 = { package = "fvm", path = "../ref-fvm/fvm" }
+fvm_shared4 = { package = "fvm_shared", path = "../ref-fvm/shared" }
+fvm_sdk = { path = "../ref-fvm/sdk" }
+fvm_ipld_blockstore = { path = "../ref-fvm/ipld/blockstore" }
+fvm_ipld_encoding = { path = "../ref-fvm/ipld/encoding" }
+
 [workspace.dependencies]
 ahash = "0.8"
 anyhow = "1"
