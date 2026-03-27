@@ -10245,6 +10245,10 @@
             "type": "integer",
             "format": "int64"
           },
+          "UpgradeGoldenWeekHeight": {
+            "type": "integer",
+            "format": "int64"
+          },
           "UpgradeHyggeHeight": {
             "type": "integer",
             "format": "int64"
@@ -10373,7 +10377,8 @@
           "UpgradeWaffleHeight",
           "UpgradeTuktukHeight",
           "UpgradeTeepHeight",
-          "UpgradeTockHeight"
+          "UpgradeTockHeight",
+          "UpgradeGoldenWeekHeight"
         ]
       },
       "GasTrace": {
