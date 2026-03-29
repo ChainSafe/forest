@@ -19,27 +19,26 @@ mod skellam;
 mod tests;
 
 use anyhow::Context as _;
+use std::sync::LazyLock;
 
 // `BISECT_LOW` and `BISECT_HIGH` define the search range for the bisect algorithm
 // that finds the epoch depth at which the finality guarantee is met. A low
 // bound of 3 avoids evaluating trivially shallow depths; a high bound of
 // 200 accommodates degraded chains that take longer to finalize.
-#[allow(dead_code)]
 pub const BISECT_LOW: i64 = 3;
-#[allow(dead_code)]
 pub const BISECT_HIGH: i64 = 200;
 
 // the Filecoin mainnet expected block production rate.
-#[allow(dead_code)]
 pub const DEFAULT_BLOCKS_PER_EPOCH: f64 = 5.0;
 
 // the standard Filecoin security assumption for adversarial mining power.
-#[allow(dead_code)]
 pub const DEFAULT_BYZANTINE_FRACTION: f64 = 0.3;
 
 // the target reorg probability as a power of 2. 2^-30 (~one-in-a-billion) is the standard Filecoin finality guarantee.
-#[allow(dead_code)]
-pub const DEFAULT_SAFETY_EXPONENT: i64 = -30;
+pub const DEFAULT_SAFETY_EXPONENT: i32 = -30;
+
+pub static DEFAULT_GUARANTEE: LazyLock<f64> =
+    LazyLock::new(|| f64::powi(2., DEFAULT_SAFETY_EXPONENT));
 
 /// Computes the upper-bound probability that a confirmed
 /// tipset could be reorganized out of the canonical chain. This is a port

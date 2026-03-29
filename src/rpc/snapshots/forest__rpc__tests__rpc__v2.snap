@@ -20,6 +20,15 @@ methods:
       schema:
         $ref: "#/components/schemas/Tipset"
     paramStructure: by-position
+  - name: Filecoin.ChainGetTipSetFinalityStatus
+    description: Returns a breakdown of how the node is currently determining finality.
+    params: []
+    result:
+      name: Filecoin.ChainGetTipSetFinalityStatus.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/ChainFinalityStatus"
+    paramStructure: by-position
   - name: Forest.ChainExport
     params:
       - name: params
@@ -1819,6 +1828,32 @@ components:
         - $ref: "#/components/schemas/EthInt64"
     Bloom:
       type: string
+    ChainFinalityStatus:
+      description: "Describes how the node is currently determining finality,"
+      type: object
+      properties:
+        ecFinalityThresholdDepth:
+          description: "The shallowest epoch depth at which the\nprobability of a chain reorganization drops below 2^-30 (~one in a\nbillion). A value of -1 indicates the threshold was not met within the\nsearch range, which suggests degraded chain health."
+          type: integer
+          format: int64
+        ecFinalizedTipSet:
+          description: "The most recent tipset where the reorg probability\nis below 2^-30, based on observed block production. Nil if the\nthreshold is not met."
+          $ref: "#/components/schemas/Nullable_Tipset"
+        f3FinalizedTipSet:
+          description: "The tipset finalized by F3 (Fast Finality), if F3\nis running and has issued a certificate. Nil if F3 is not available."
+          $ref: "#/components/schemas/Nullable_Tipset"
+        finalizedTipSet:
+          description: "The overall finalized tipset used by the node,\ntaking the most recent of F3 and EC calculator results."
+          $ref: "#/components/schemas/Nullable_Tipset"
+        head:
+          description: The current chain head used for the computation.
+          $ref: "#/components/schemas/Tipset"
+      required:
+        - ecFinalityThresholdDepth
+        - ecFinalizedTipSet
+        - f3FinalizedTipSet
+        - finalizedTipSet
+        - head
     ChangedType:
       description: Represents a changed value with before and after states.
       type: object
@@ -2695,6 +2730,10 @@ components:
     Nullable_Ticket:
       anyOf:
         - $ref: "#/components/schemas/Ticket"
+        - type: "null"
+    Nullable_Tipset:
+      anyOf:
+        - $ref: "#/components/schemas/Tipset"
         - type: "null"
     PoStProof:
       type: object
