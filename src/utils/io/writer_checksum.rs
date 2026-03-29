@@ -137,10 +137,8 @@ mod test {
         let checksum = temp_file_writer.finalize().unwrap();
 
         let file_hash = {
-            let mut hasher = Sha256::default();
             let bytes = std::fs::read(temp_file_path.path()).unwrap();
-            hasher.update(&bytes);
-            Some(hasher.finalize())
+            Some(Sha256::digest(&bytes))
         };
 
         assert_eq!(checksum, file_hash);
