@@ -641,7 +641,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet RPC checks
-    runs-on: warp-ubuntu-2204-x64-8x
+    runs-on: warp-ubuntu-2404-x64-8x
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
