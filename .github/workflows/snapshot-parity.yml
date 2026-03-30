@@ -6,7 +6,7 @@ on:
 jobs:
   snapshot-parity:
     name: Snapshot parity test
-    runs-on: warp-ubuntu-2204-x64-8x
+    runs-on: warp-ubuntu-2404-x64-8x
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v6
