@@ -73,7 +73,7 @@ impl GenesisInfo {
         height: ChainEpoch,
         db: &Arc<DB>,
         root: &Cid,
-    ) -> Result<TokenAmount, anyhow::Error> {
+    ) -> anyhow::Result<TokenAmount> {
         let detailed = self.get_vm_circulating_supply_detailed(height, db, root)?;
 
         Ok(detailed.fil_circulating)
@@ -124,7 +124,7 @@ impl GenesisInfo {
         height: ChainEpoch,
         db: &Arc<DB>,
         root: &Cid,
-    ) -> Result<TokenAmount, anyhow::Error> {
+    ) -> anyhow::Result<TokenAmount> {
         let mut circ = TokenAmount::default();
         let mut un_circ = TokenAmount::default();
 
@@ -228,7 +228,7 @@ impl GenesisInfoVesting {
 fn get_actor_state<DB: Blockstore>(
     state_tree: &StateTree<DB>,
     addr: &Address,
-) -> Result<ActorState, anyhow::Error> {
+) -> anyhow::Result<ActorState> {
     state_tree
         .get_actor(addr)?
         .with_context(|| format!("Failed to get Actor for address {addr}"))
@@ -265,14 +265,14 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
     return_value
 }
 
-fn get_fil_mined<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
+fn get_fil_mined<DB: Blockstore>(state_tree: &StateTree<DB>) -> anyhow::Result<TokenAmount> {
     let state: reward::State = state_tree.get_actor_state()?;
     Ok(state.into_total_storage_power_reward())
 }
 
 fn get_fil_market_locked<DB: Blockstore>(
     state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, anyhow::Error> {
+) -> anyhow::Result<TokenAmount> {
     let actor = state_tree
         .get_actor(&Address::MARKET_ACTOR)?
         .ok_or_else(|| Error::state("Market actor address could not be resolved"))?;
@@ -281,9 +281,7 @@ fn get_fil_market_locked<DB: Blockstore>(
     Ok(state.total_locked())
 }
 
-fn get_fil_power_locked<DB: Blockstore>(
-    state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, anyhow::Error> {
+fn get_fil_power_locked<DB: Blockstore>(state_tree: &StateTree<DB>) -> anyhow::Result<TokenAmount> {
     let actor = state_tree
         .get_actor(&Address::POWER_ACTOR)?
         .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
@@ -295,7 +293,7 @@ fn get_fil_reserve_disbursed<DB: Blockstore>(
     chain_config: &ChainConfig,
     height: ChainEpoch,
     state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, anyhow::Error> {
+) -> anyhow::Result<TokenAmount> {
     // FIP-0100 introduced a different hard-coded reserved amount for testnets.
     // See <https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0100.md#special-handling-for-calibration-network>
     // for details.
@@ -309,7 +307,7 @@ fn get_fil_reserve_disbursed<DB: Blockstore>(
 fn get_fil_locked<DB: Blockstore>(
     state_tree: &StateTree<DB>,
     network_version: NetworkVersion,
-) -> Result<TokenAmount, anyhow::Error> {
+) -> anyhow::Result<TokenAmount> {
     let total = if network_version >= NetworkVersion::V23 {
         get_fil_power_locked(state_tree)?
     } else {
@@ -319,7 +317,7 @@ fn get_fil_locked<DB: Blockstore>(
     Ok(total)
 }
 
-fn get_fil_burnt<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
+fn get_fil_burnt<DB: Blockstore>(state_tree: &StateTree<DB>) -> anyhow::Result<TokenAmount> {
     let burnt_actor = get_actor_state(state_tree, &Address::BURNT_FUNDS_ACTOR)?;
 
     Ok(TokenAmount::from(&burnt_actor.balance))

@@ -205,15 +205,15 @@ impl F3Commands {
                         }
                         Err(e) => {
                             if !wait {
-                                anyhow::bail!("Failed to check F3 sync status: {e}");
+                                return Err(e.context("Failed to check F3 sync status"));
                             }
 
                             num_consecutive_fetch_failtures += 1;
                             if num_consecutive_fetch_failtures >= 3 {
-                                eprintln!("Warning: Failed to fetch heads: {e}. Exiting...");
+                                eprintln!("Warning: Failed to fetch heads: {e:#}. Exiting...");
                                 std::process::exit(EXIT_CODE_F3_FAIL_TO_FETCH_HEAD);
                             } else {
-                                eprintln!("Warning: Failed to fetch heads: {e}. Retrying...");
+                                eprintln!("Warning: Failed to fetch heads: {e:#}. Retrying...");
                             }
                         }
                     }

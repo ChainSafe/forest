@@ -45,7 +45,7 @@ impl Default for MpoolConfig {
 impl MpoolConfig {
     #[cfg(test)]
     /// Saves message pool `config` to the database, to easily reload.
-    pub fn save_config<DB: SettingsStore>(&self, store: &DB) -> Result<(), anyhow::Error> {
+    pub fn save_config<DB: SettingsStore>(&self, store: &DB) -> anyhow::Result<()> {
         store.write_bin(MPOOL_CONFIG_KEY, &fvm_ipld_encoding::to_vec(&self)?)
     }
 
@@ -63,7 +63,7 @@ impl MpoolConfig {
 impl MpoolConfig {
     /// Load `config` from store, if exists. If there is no `config`, uses
     /// default.
-    pub fn load_config<DB: SettingsStore>(store: &DB) -> Result<Self, anyhow::Error> {
+    pub fn load_config<DB: SettingsStore>(store: &DB) -> anyhow::Result<Self> {
         match store.read_bin(MPOOL_CONFIG_KEY)? {
             Some(v) => Ok(from_slice_with_fallback(&v)?),
             None => Ok(Default::default()),

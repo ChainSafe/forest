@@ -31,7 +31,7 @@ where
         nv: NetworkVersion,
         miner_address: &Address,
         rand: Randomness,
-    ) -> Result<Vec<ExtendedSectorInfo>, anyhow::Error> {
+    ) -> anyhow::Result<Vec<ExtendedSectorInfo>> {
         let store = self.blockstore();
 
         let actor = self
@@ -162,7 +162,7 @@ fn generate_winning_post_sector_challenge(
     prover_id: u64,
     mut rand: Randomness,
     eligible_sector_count: u64,
-) -> Result<Vec<u64>, anyhow::Error> {
+) -> anyhow::Result<Vec<u64>> {
     // Necessary to be valid bls12 381 element.
     if let Some(b31) = rand.0.get_mut(31) {
         *b31 &= 0x3f;

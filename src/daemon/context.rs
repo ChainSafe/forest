@@ -174,7 +174,7 @@ fn maybe_migrate_db(config: &Config) {
     // to avoid breaking the node.
     let db_migration = crate::db::migration::DbMigration::new(config);
     if let Err(e) = db_migration.migrate() {
-        warn!("Failed to migrate database: {e}");
+        warn!("Failed to migrate database: {e:#}");
     }
 }
 

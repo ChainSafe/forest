@@ -1235,7 +1235,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
         block_hash: tx.block_hash,
         block_number: tx.block_number,
         r#type: tx.r#type,
-        status: u64::from(msg_receipt.exit_code().is_success()).into(),
+        status: (u64::from(msg_receipt.exit_code().is_success())).into(),
         gas_used: msg_receipt.gas_used().into(),
         ..EthTxReceipt::new()
     };
@@ -1750,7 +1750,7 @@ where
         .state_manager
         .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
         .await
-        .map_err(|e| anyhow::anyhow!("failed to apply on state with gas: {e}"))?;
+        .context("failed to apply on state with gas")?;
 
     // Extract receipt or return early if none
     match &invoc_res.msg_rct {
@@ -3423,6 +3423,162 @@ where
     Ok(all_traces)
 }
 
+pub enum EthDebugTraceTransaction {}
+impl RpcMethod<2> for EthDebugTraceTransaction {
+    const N_REQUIRED_PARAMS: usize = 1;
+    const NAME: &'static str = "Forest.EthDebugTraceTransaction";
+    const NAME_ALIAS: Option<&'static str> = Some("debug_traceTransaction");
+    const PARAM_NAMES: [&'static str; 2] = ["txHash", "opts"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V1 | V2 });
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Replays a transaction and returns execution traces in Geth-compatible format.");
+
+    type Params = (String, Option<GethDebugTracingOptions>);
+    type Ok = GethTrace;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash, opts): Self::Params,
+        ext: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let opts = opts.unwrap_or_default();
+        debug_trace_transaction(ctx, ext, Self::api_path(ext)?, tx_hash, opts).await
+    }
+}
+
+async fn debug_trace_transaction<DB>(
+    ctx: Ctx<DB>,
+    ext: &http::Extensions,
+    api_path: ApiPaths,
+    tx_hash: String,
+    opts: GethDebugTracingOptions,
+) -> Result<GethTrace, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let tracer = match &opts.tracer {
+        Some(t) => t.clone(),
+        None => {
+            tracing::debug!(
+                "no tracer specified for debug_traceTransaction; defaulting to callTracer (struct logger not supported)"
+            );
+            GethDebugBuiltInTracerType::Call
+        }
+    };
+
+    let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
+    let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
+        .await?
+        .ok_or(ServerError::internal_error("transaction not found", None))?;
+
+    // Mempool/pending transactions cannot be traced — they have no containing tipset.
+    if eth_txn.block_hash == EthHash::default() {
+        return Err(ServerError::invalid_params(
+            "no trace for pending transactions",
+            None,
+        ));
+    }
+
+    if tracer == GethDebugBuiltInTracerType::Noop {
+        return Ok(GethTrace::Noop(NoopFrame {}));
+    }
+
+    let resolver = TipsetResolver::new(&ctx, api_path);
+    let ts = resolver
+        .tipset_by_block_number_or_hash(eth_txn.block_number, ResolveNullTipset::TakeOlder)
+        .await?;
+
+    // prestateTracer uses per-message replay for exact state boundaries,
+    // so it does not need the full tipset trace.
+    if tracer == GethDebugBuiltInTracerType::PreState {
+        let prestate_config = opts.prestate_config()?;
+
+        let message_cid = ctx
+            .chain_store()
+            .get_mapping(&eth_hash)?
+            .unwrap_or_else(|| eth_hash.to_cid());
+
+        let (pre_root, invoc_result, post_root) = ctx
+            .state_manager
+            .replay_for_prestate(ts.clone(), message_cid)
+            .await
+            .map_err(|e| anyhow::anyhow!("replay for prestate failed: {e}"))?;
+
+        let execution_trace = invoc_result
+            .execution_trace
+            .context("no execution trace for transaction")?;
+
+        let mut touched = extract_touched_eth_addresses(&execution_trace);
+        if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.from()) {
+            touched.insert(addr);
+        }
+
+        if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.to()) {
+            touched.insert(addr);
+        }
+
+        let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_root)?;
+        let post_state = StateTree::new_from_root(ctx.store_owned(), &post_root)?;
+
+        let frame = trace::build_prestate_frame(
+            ctx.store(),
+            &pre_state,
+            &post_state,
+            &touched,
+            &prestate_config,
+        )?;
+
+        return Ok(GethTrace::PreState(frame));
+    }
+
+    let (state, entries) = execute_tipset_traces(&ctx, &ts, ext).await?;
+    let entry = entries
+        .into_iter()
+        .find(|e| e.tx_hash == eth_hash)
+        .ok_or_else(|| ServerError::internal_error("transaction trace not found in block", None))?;
+
+    let execution_trace = entry
+        .invoc_result
+        .execution_trace
+        .context("no execution trace for transaction")?;
+
+    let mut env = trace::base_environment(&state, &entry.invoc_result.msg.from).map_err(|e| {
+        anyhow::anyhow!(
+            "when processing message {}: {e}",
+            entry.invoc_result.msg_cid
+        )
+    })?;
+
+    match tracer {
+        GethDebugBuiltInTracerType::Call => {
+            let call_config = opts.call_config()?;
+            let frame = trace::build_geth_call_frame(&mut env, execution_trace, &call_config)?;
+            Ok(GethTrace::Call(frame.unwrap_or_default()))
+        }
+        GethDebugBuiltInTracerType::FlatCall => {
+            trace::build_traces(&mut env, &[], execution_trace)?;
+            let block_hash: EthHash = ts.key().cid()?.into();
+            let traces = env
+                .traces
+                .into_iter()
+                .map(|t| EthBlockTrace {
+                    trace: t,
+                    block_hash,
+                    block_number: ts.epoch(),
+                    transaction_hash: eth_hash,
+                    transaction_position: entry.msg_position,
+                })
+                .collect();
+            Ok(GethTrace::FlatCall(traces))
+        }
+        _ => Err(anyhow::anyhow!(
+            "unexpected tracer type: noopTracer and prestateTracer should be handled above"
+        )
+        .into()),
+    }
+}
+
 pub enum EthTraceCall {}
 impl RpcMethod<3> for EthTraceCall {
     const NAME: &'static str = "Forest.EthTraceCall";
@@ -3459,14 +3615,14 @@ impl RpcMethod<3> for EthTraceCall {
             .state_manager
             .load_tipset_state(&ts)
             .await
-            .map_err(|e| anyhow::anyhow!("failed to get tipset state: {e}"))?;
+            .context("failed to get tipset state")?;
         let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_state_root)?;
 
         let (invoke_result, post_state_root) = ctx
             .state_manager
             .apply_on_state_with_gas(Some(ts.clone()), msg.clone(), VMFlush::Flush)
             .await
-            .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;
+            .context("failed to apply message")?;
         let post_state_root =
             post_state_root.context("post-execution state root required for trace call")?;
         let post_state = StateTree::new_from_root(ctx.store_owned(), &post_state_root)?;
@@ -3488,7 +3644,7 @@ impl RpcMethod<3> for EthTraceCall {
             && let Some(exec_trace) = invoke_result.execution_trace
         {
             let mut env = trace::base_environment(&post_state, &msg.from())
-                .map_err(|e| anyhow::anyhow!("failed to create trace environment: {e}"))?;
+                .context("failed to create trace environment")?;
             trace::build_traces(&mut env, &[], exec_trace)?;
             trace_results.trace = env.traces;
         }
@@ -3529,10 +3685,7 @@ fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Result<Eth
         return Ok(EthBytes::default());
     }
 
-    match decode_payload(&return_data, CBOR) {
-        Ok(payload) => Ok(payload),
-        Err(e) => Err(anyhow::anyhow!("failed to decode return data: {e}")),
-    }
+    decode_payload(&return_data, CBOR).context("failed to decode return data")
 }
 
 /// Extract all unique Ethereum addresses touched during execution from the trace.

@@ -63,7 +63,7 @@ impl<DB: Blockstore> BlockstoreWithWriteBuffer<DB> {
 impl<DB: Blockstore> Drop for BlockstoreWithWriteBuffer<DB> {
     fn drop(&mut self) {
         if let Err(e) = self.flush_buffer() {
-            tracing::warn!("{e}");
+            tracing::warn!("{e:#}");
         }
     }
 }

@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::borrow::Cow;
 use thiserror::Error;
 
 mod block;
@@ -29,10 +30,10 @@ pub use vrf_proof::VRFProof;
 pub enum Error {
     /// Invalid signature
     #[error("Invalid signature: {0}")]
-    InvalidSignature(String),
+    InvalidSignature(Cow<'static, str>),
     /// Error in validating arbitrary data
     #[error("Error validating data: {0}")]
-    Validation(String),
+    Validation(Cow<'static, str>),
 }
 
 #[cfg(test)]

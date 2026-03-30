@@ -173,7 +173,7 @@ A [Tracer](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c57eba39a
 
 | Network  | Contract Address                                                                                                                      |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Calibnet | [`0x73a43475aa2ccb14246613708b399f4b2ba546c7`](https://calibration.filfox.info/en/address/0x73a43475aa2ccb14246613708b399f4b2ba546c7) |
+| Calibnet | [`0x1112da864d5b3a9e23bbdb543699351a694f814d`](https://calibration.filfox.info/en/address/0x1112da864d5b3a9e23bbdb543699351a694f814d) |
 | Mainnet  | [`0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2`](https://filecoin.blockscout.com/address/0x9BB686Ba6a50D1CF670a98f522a59555d4977fb2)    |
 
 > **Note:** Contract availability depends on network state. Verify the contract exists before testing:
@@ -181,7 +181,7 @@ A [Tracer](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c57eba39a
 > ```bash
 > curl -s -X POST "http://localhost:2345/rpc/v1" \
 >     -H "Content-Type: application/json" \
->     -d '{"jsonrpc":"2.0","id":1,"method":"eth_getCode","params":["0x73a43475aa2ccb14246613708b399f4b2ba546c7","latest"]}' \
+>     -d '{"jsonrpc":"2.0","id":1,"method":"eth_getCode","params":["0x1112da864d5b3a9e23bbdb543699351a694f814d","latest"]}' \
 >     | jq -r '.result | length'
 > ```
 >

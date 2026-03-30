@@ -516,7 +516,7 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) -> 
                         }
                     }
                     Err(e) => {
-                        tracing::error!("Failed to get F3 latest certificate: {e}");
+                        tracing::error!("Failed to get F3 latest certificate: {e:#}");
                     }
                 }
             }
@@ -641,7 +641,7 @@ pub(super) async fn start_services(
         && !opts.skip_load_actors
         && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset()
     {
-        tracing::warn!("error in maybe_rewind_heaviest_tipset: {e}");
+        tracing::warn!("error in maybe_rewind_heaviest_tipset: {e:#}");
     }
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
@@ -799,7 +799,7 @@ async fn maybe_set_snapshot_path(
 /// returns the first error with which any of the services end, or never returns at all
 // This should return anyhow::Result<!> once the `Never` type is stabilized
 async fn propagate_error(
-    services: &mut JoinSet<Result<(), anyhow::Error>>,
+    services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<std::convert::Infallible> {
     while let Some(result) = services.join_next().await {
         if let Ok(Err(error_message)) = result {

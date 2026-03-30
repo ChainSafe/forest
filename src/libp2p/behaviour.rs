@@ -179,7 +179,7 @@ impl ForestBehaviour {
     }
 
     /// Bootstrap Kademlia network
-    pub fn bootstrap(&mut self) -> Result<QueryId, String> {
+    pub fn bootstrap(&mut self) -> anyhow::Result<QueryId> {
         self.discovery.bootstrap()
     }
 

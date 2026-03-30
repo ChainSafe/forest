@@ -28,7 +28,7 @@ impl Beacon for MockBeacon {
         &self,
         entries: &'a [BeaconEntry],
         mut prev: &'a BeaconEntry,
-    ) -> Result<bool, anyhow::Error> {
+    ) -> anyhow::Result<bool> {
         for curr in entries.iter() {
             let oe = Self::entry_for_index(prev.round());
             if oe.signature() != curr.signature() {
@@ -41,7 +41,7 @@ impl Beacon for MockBeacon {
         Ok(true)
     }
 
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
+    async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
         Ok(Self::entry_for_index(round))
     }
 

@@ -84,7 +84,7 @@ pub async fn get_params(
     param_json: &str,
     storage_size: SectorSizeOpt,
     dry_run: bool,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     // Just print out the parameters download directory path and exit.
     if dry_run {
         println!("{}", param_dir(data_dir).to_string_lossy());
@@ -123,7 +123,7 @@ pub async fn get_params_default(
     data_dir: &Path,
     storage_size: SectorSizeOpt,
     dry_run: bool,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     get_params(data_dir, DEFAULT_PARAMETERS, storage_size, dry_run).await
 }
 
@@ -131,7 +131,7 @@ async fn fetch_verify_params(
     data_dir: &Path,
     name: &str,
     info: Arc<ParameterData>,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     crate::def_is_env_truthy!(force_ipfs_gateway, PROOFS_ONLY_IPFS_GATEWAY_ENV);
 
     let path: PathBuf = param_dir(data_dir).join(name);

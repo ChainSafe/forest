@@ -207,7 +207,7 @@ where
                 Err(e) => {
                     // Do not warn when the old head is genesis
                     if old_head.epoch() > 0 {
-                        error!("failed to get chain path changes: {e}");
+                        error!("failed to get chain path changes: {e:#}");
                     }
                     // Fallback to single apply
                     PathChanges {

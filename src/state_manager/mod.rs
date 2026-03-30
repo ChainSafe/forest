@@ -201,14 +201,14 @@ impl<DB> StateManager<DB>
 where
     DB: Blockstore,
 {
-    pub fn new(cs: Arc<ChainStore<DB>>) -> Result<Self, anyhow::Error> {
+    pub fn new(cs: Arc<ChainStore<DB>>) -> anyhow::Result<Self> {
         Self::new_with_engine(cs, GLOBAL_MULTI_ENGINE.clone())
     }
 
     pub fn new_with_engine(
         cs: Arc<ChainStore<DB>>,
         engine: Arc<MultiEngine>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> anyhow::Result<Self> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(cs.chain_config().get_beacon_schedule(genesis.timestamp));
 
@@ -703,7 +703,7 @@ where
         let TipsetState { state_root, .. } = self
             .load_tipset_state(&ts)
             .await
-            .map_err(|e| Error::Other(format!("Could not load tipset state: {e}")))?;
+            .map_err(|e| Error::Other(format!("Could not load tipset state: {e:#}")))?;
         let chain_rand = self.chain_rand(ts.clone());
 
         // Since we're simulating a future message, pretend we're applying it in the
@@ -738,7 +738,7 @@ where
             }
             let from_actor = vm
                 .get_actor(&message.from())
-                .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
+                .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
                 .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
 
             message.set_sequence(from_actor.sequence);
@@ -762,9 +762,7 @@ where
     /// indicated message, assuming it was executed in the indicated tipset.
     pub async fn replay(self: &Arc<Self>, ts: Tipset, mcid: Cid) -> Result<ApiInvocResult, Error> {
         let this = Arc::clone(self);
-        tokio::task::spawn_blocking(move || this.replay_blocking(ts, mcid))
-            .await
-            .map_err(|e| Error::Other(format!("{e}")))?
+        tokio::task::spawn_blocking(move || this.replay_blocking(ts, mcid)).await?
     }
 
     /// Blocking version of `replay`
@@ -805,6 +803,114 @@ where
             )));
         }
         api_invoc_result.ok_or_else(|| Error::Other("failed to replay".into()))
+    }
+
+    /// Replays a tipset up to a target message, capturing the state root before
+    /// and after execution.
+    pub async fn replay_for_prestate(
+        self: &Arc<Self>,
+        ts: Tipset,
+        target_message_cid: Cid,
+    ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || {
+            this.replay_for_prestate_blocking(ts, target_message_cid)
+        })
+        .await
+        .map_err(|e| Error::Other(format!("{e}")))?
+    }
+
+    fn replay_for_prestate_blocking(
+        self: &Arc<Self>,
+        ts: Tipset,
+        target_msg_cid: Cid,
+    ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
+        if ts.epoch() == 0 {
+            return Err(Error::Other(
+                "cannot trace messages in the genesis block".into(),
+            ));
+        }
+
+        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
+        let exec = TipsetExecutor::new(
+            self.chain_index().clone(),
+            self.chain_config().clone(),
+            self.beacon_schedule().clone(),
+            &self.engine,
+            ts.clone(),
+        );
+        let mut no_cb = NO_CALLBACK;
+        let (parent_state, epoch, block_messages) =
+            exec.prepare_parent_state(genesis_timestamp, VMTrace::NotTraced, &mut no_cb)?;
+
+        Ok(stacker::grow(64 << 20, || {
+            let mut vm =
+                exec.create_vm(parent_state, epoch, ts.min_timestamp(), VMTrace::NotTraced)?;
+            let mut processed = ahash::HashSet::default();
+
+            for block in block_messages.iter() {
+                let mut penalty = TokenAmount::zero();
+                let mut gas_reward = TokenAmount::zero();
+
+                for msg in block.messages.iter() {
+                    let cid = msg.cid();
+                    if processed.contains(&cid) {
+                        continue;
+                    }
+
+                    processed.insert(cid);
+
+                    if cid == target_msg_cid {
+                        let pre_root = vm.flush()?;
+                        let mut traced_vm =
+                            exec.create_vm(pre_root, epoch, ts.min_timestamp(), VMTrace::Traced)?;
+                        let (ret, duration) = traced_vm.apply_message(msg)?;
+                        let post_root = traced_vm.flush()?;
+
+                        return Ok((
+                            pre_root,
+                            ApiInvocResult {
+                                msg_cid: cid,
+                                msg: msg.message().clone(),
+                                msg_rct: Some(ret.msg_receipt()),
+                                error: ret.failure_info().unwrap_or_default(),
+                                duration: duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
+                                gas_cost: MessageGasCost::default(),
+                                execution_trace: structured::parse_events(ret.exec_trace())
+                                    .unwrap_or_default(),
+                            },
+                            post_root,
+                        ));
+                    }
+
+                    let (ret, _) = vm.apply_message(msg)?;
+                    gas_reward += ret.miner_tip();
+                    penalty += ret.penalty();
+                }
+
+                if let Some(rew_msg) =
+                    vm.reward_message(epoch, block.miner, block.win_count, penalty, gas_reward)?
+                {
+                    let (ret, _) = vm.apply_implicit_message(&rew_msg)?;
+                    if let Some(err) = ret.failure_info() {
+                        bail!(
+                            "failed to apply reward message for miner {}: {err}",
+                            block.miner
+                        );
+                    }
+
+                    // This is more of a sanity check, this should not be able to be hit.
+                    if !ret.msg_receipt().exit_code().is_success() {
+                        bail!(
+                            "reward application message failed (exit: {:?})",
+                            ret.msg_receipt().exit_code()
+                        );
+                    }
+                }
+            }
+
+            bail!("message {target_msg_cid} not found in tipset")
+        })?)
     }
 
     /// Checks the eligibility of the miner. This is used in the validation that
@@ -923,7 +1029,7 @@ where
             if has_callback {
                 e
             } else {
-                anyhow::anyhow!("Failed to compute tipset state@{epoch}: {e}")
+                e.context(format!("Failed to compute tipset state@{epoch}"))
             }
         })?)
     }
@@ -1283,12 +1389,13 @@ where
     ) -> Result<BlsPublicKey, Error> {
         let state = StateTree::new_from_root(Arc::clone(db), &state_cid)
             .map_err(|e| Error::Other(e.to_string()))?;
-        let kaddr = resolve_to_key_addr(&state, db, addr)
-            .map_err(|e| format!("Failed to resolve key address, error: {e}"))?;
+        let kaddr =
+            resolve_to_key_addr(&state, db, addr).context("Failed to resolve key address")?;
 
         match kaddr.into_payload() {
             Payload::BLS(key) => BlsPublicKey::from_bytes(&key)
-                .map_err(|e| Error::Other(format!("Failed to construct bls public key: {e}"))),
+                .context("Failed to construct bls public key")
+                .map_err(Error::from),
             _ => Err(Error::state(
                 "Address must be BLS address to load bls public key",
             )),
@@ -1409,7 +1516,7 @@ where
         self: &Arc<Self>,
         addr: &Address,
         ts: &Tipset,
-    ) -> Result<Address, anyhow::Error> {
+    ) -> anyhow::Result<Address> {
         match addr.protocol() {
             Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated => return Ok(*addr),
             Protocol::Actor => {
@@ -1764,7 +1871,7 @@ where
                 NO_CALLBACK,
                 VMTrace::NotTraced,
             )
-            .map_err(|e| anyhow::anyhow!("couldn't compute tipset state: {e}"))?;
+            .context("couldn't compute tipset state")?;
             let expected_receipt = child.min_ticket_block().message_receipts;
             let expected_state = child.parent_state();
             match (expected_state, expected_receipt) == (&actual_state, actual_receipt) {
@@ -1878,7 +1985,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
                     let mut vm =
                         self.create_vm(parent_state, epoch_i, timestamp, null_epoch_trace)?;
                     if let Err(e) = vm.run_cron(epoch_i, cron_callback.as_mut()) {
-                        error!("Beginning of epoch cron failed to run: {e}");
+                        error!("Beginning of epoch cron failed to run: {e:#}");
                         return Err(e);
                     }
                     vm.flush()

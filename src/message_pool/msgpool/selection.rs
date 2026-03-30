@@ -513,7 +513,7 @@ where
                     continue;
                 }
                 Err(e) => {
-                    debug!("Failed to add message chain with dependencies: {e}");
+                    debug!("Failed to add message chain with dependencies: {e:#}");
                 }
             }
 
@@ -572,7 +572,7 @@ where
 
                 match selected_msgs.try_to_add_with_deps(i, &mut chains, &base_fee) {
                     Ok(_) => continue,
-                    Err(e) => debug!("Failed to add message chain with dependencies: {e}"),
+                    Err(e) => debug!("Failed to add message chain with dependencies: {e:#}"),
                 }
 
                 continue 'tail_loop;

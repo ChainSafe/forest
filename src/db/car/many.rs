@@ -26,6 +26,7 @@ use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use std::cmp::Ord;
 use std::collections::BinaryHeap;
+use std::path::Path;
 use std::{path::PathBuf, sync::Arc};
 
 struct WithHeaviestEpoch {
@@ -124,10 +125,18 @@ impl<WriterT> ManyCar<WriterT> {
 
     pub fn read_only_files(&self, files: impl Iterator<Item = PathBuf>) -> anyhow::Result<()> {
         for file in files {
-            self.read_only(AnyCar::new(EitherMmapOrRandomAccessFile::open(file)?)?)?;
+            self.read_only_file(file)?;
         }
-
         Ok(())
+    }
+
+    pub fn read_only_file(&self, file: impl AsRef<Path>) -> anyhow::Result<()> {
+        (|| {
+            self.read_only(AnyCar::new(EitherMmapOrRandomAccessFile::open(
+                file.as_ref(),
+            )?)?)
+        })()
+        .with_context(|| format!("failed to load CAR at {}", file.as_ref().display()))
     }
 
     pub fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {

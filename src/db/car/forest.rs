@@ -104,7 +104,14 @@ pub struct ForestCar<ReaderT> {
 
 impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     pub fn new(reader: ReaderT) -> io::Result<ForestCar<ReaderT>> {
-        let (header, index_start_pos, index_size_bytes) = Self::validate_car(&reader)?;
+        let validation_result = Self::validate_car(&reader)?;
+        Self::new_from_validation_result(reader, validation_result)
+    }
+
+    pub(super) fn new_from_validation_result(
+        reader: ReaderT,
+        (header, index_start_pos, index_size_bytes): (CarV1Header, u64, u64),
+    ) -> io::Result<ForestCar<ReaderT>> {
         let indexed = index::Reader::new(index::ZstdSkipFramesEncodedDataReader::new(
             positioned_io::Slice::new(reader, index_start_pos, Some(index_size_bytes)),
         )?)?;
@@ -138,7 +145,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         Self::validate_car(reader).is_ok()
     }
 
-    fn validate_car(reader: &ReaderT) -> io::Result<(CarV1Header, u64, u64)> {
+    pub(super) fn validate_car(reader: &ReaderT) -> io::Result<(CarV1Header, u64, u64)> {
         let mut cursor = SizeCursor::new(&reader);
         cursor.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
         let index_end_pos = cursor.position();
@@ -408,7 +415,7 @@ impl Encoder {
                     // Pass errors through
                     Some(Err(e)) => {
                         return Poll::Ready(Some(Err(anyhow::anyhow!(
-                            "error polling CarBlock from stream: {e}"
+                            "error polling CarBlock from stream: {e:#}"
                         ))));
                     }
                     // Got element, add to encoder and emit block position

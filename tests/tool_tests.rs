@@ -21,8 +21,8 @@ fn export_empty_archive() {
         .arg(&temp_file)
         .assert()
         .failure()
-        .stderr(predicate::eq(
-            "Error: input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)\n",
+        .stderr(predicate::str::contains(
+            "input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)",
         ));
 }
 
