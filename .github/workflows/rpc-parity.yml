@@ -11,7 +11,7 @@ on:
 jobs:
   rpc-parity:
     name: RPC parity tests
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-8x
     steps:
       - name: Relocate docker volumes folder
         run: |
