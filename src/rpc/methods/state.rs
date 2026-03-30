@@ -1267,11 +1267,12 @@ impl RpcMethod<4> for StateSearchMsg {
         ["tipsetKey", "messageCid", "lookBackLimit", "allowReplaced"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the receipt and tipset the specified message was included in.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the receipt and tipset the specified message was included in, or null if the message was not found.",
+    );
 
     type Params = (ApiTipsetKey, Cid, i64, bool);
-    type Ok = MessageLookup;
+    type Ok = Option<MessageLookup>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1281,7 +1282,7 @@ impl RpcMethod<4> for StateSearchMsg {
         let from = tsk
             .map(|k| ctx.chain_index().load_required_tipset(&k))
             .transpose()?;
-        let (tipset, receipt) = ctx
+        let Some((tipset, receipt)) = ctx
             .state_manager
             .search_for_message(
                 from,
@@ -1290,15 +1291,17 @@ impl RpcMethod<4> for StateSearchMsg {
                 Some(allow_replaced),
             )
             .await?
-            .with_context(|| format!("message {message_cid} not found."))?;
+        else {
+            return Ok(None);
+        };
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-        Ok(MessageLookup {
+        Ok(Some(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
             height: tipset.epoch(),
             message: message_cid,
             return_dec: ipld,
-        })
+        }))
     }
 }
 
@@ -1311,31 +1314,31 @@ impl RpcMethod<2> for StateSearchMsgLimited {
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Not supported in V1
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
-        "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.",
+        "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed, or null if it was not found.",
     );
     type Params = (Cid, i64);
-    type Ok = MessageLookup;
+    type Ok = Option<MessageLookup>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (message_cid, look_back_limit): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let (tipset, receipt) = ctx
+        let Some((tipset, receipt)) = ctx
             .state_manager
             .search_for_message(None, message_cid, Some(look_back_limit), None)
             .await?
-            .with_context(|| {
-                format!("message {message_cid} not found within the last {look_back_limit} epochs")
-            })?;
+        else {
+            return Ok(None);
+        };
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-        Ok(MessageLookup {
+        Ok(Some(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
             height: tipset.epoch(),
             message: message_cid,
             return_dec: ipld,
-        })
+        }))
     }
 }
 

@@ -265,7 +265,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.324"
+ra_ap_syntax = "0.0.325"
 regex-automata = "0.4"
 rstest = "0.26"
 serial_test = "3"
