@@ -1235,11 +1235,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([
                 RpcTest::identity(StateReplay::request((tipset.key().into(), msg_cid))?),
-                validate_message_lookup(
+                validate_message_wait(
                     StateWaitMsg::request((msg_cid, 0, 10101, true))?
                         .with_timeout(Duration::from_secs(15)),
                 ),
-                validate_message_lookup(
+                validate_message_wait(
                     StateWaitMsg::request((msg_cid, 0, 10101, false))?
                         .with_timeout(Duration::from_secs(15)),
                 ),
@@ -2789,11 +2789,24 @@ fn dump_test_data(dump_dir: &Path, success: bool, test_dump: &TestDump) -> anyho
     Ok(())
 }
 
-fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
+fn validate_message_wait(req: rpc::Request<MessageLookup>) -> RpcTest {
     RpcTest::validate(req, |mut forest, mut lotus| {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
+        forest == lotus
+    })
+}
+
+fn validate_message_lookup(req: rpc::Request<Option<MessageLookup>>) -> RpcTest {
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
+        if let Some(forest) = &mut forest {
+            forest.return_dec = Ipld::Null;
+        }
+        if let Some(lotus) = &mut lotus {
+            lotus.return_dec = Ipld::Null;
+        }
         forest == lotus
     })
 }

@@ -45,6 +45,7 @@ use crate::shim::executor::{Receipt, StampedEvent};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages};
+use crate::tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
 use crate::utils::multihash::MultihashCode;
 use anyhow::{Context as _, bail};
@@ -311,7 +312,9 @@ pub struct ArchiveInfo {
     tipsets: ChainEpoch,
     messages: ChainEpoch,
     message_receipts: usize,
+    message_receipts_size: usize,
     events: usize,
+    events_size: usize,
     head: Tipset,
     snapshot_version: FilecoinSnapshotVersion,
     index_size_bytes: Option<u64>,
@@ -325,8 +328,18 @@ impl std::fmt::Display for ArchiveInfo {
         writeln!(f, "Epoch:            {}", self.epoch)?;
         writeln!(f, "State-roots:      {}", self.epoch - self.tipsets + 1)?;
         writeln!(f, "Messages sets:    {}", self.epoch - self.messages + 1)?;
-        writeln!(f, "Message receipts: {}", self.message_receipts)?;
+        writeln!(f, "Receipts:         {}", self.message_receipts)?;
+        writeln!(
+            f,
+            "Receipts size:    {}",
+            self.message_receipts_size.human_count_bytes()
+        )?;
         writeln!(f, "Events:           {}", self.events)?;
+        writeln!(
+            f,
+            "Events size:      {}",
+            self.events_size.human_count_bytes()
+        )?;
         let head_tipset_key_string = self
             .head
             .cids()
@@ -387,7 +400,7 @@ impl ArchiveInfo {
         let mut network: String = "unknown".into();
         let mut lowest_stateroot_epoch = root_epoch;
         let mut lowest_message_epoch = root_epoch;
-        let mut message_receipts_count = 0;
+        let mut message_receipt_count = 0;
         let mut events_count = 0;
 
         let iter = if progress {
@@ -405,7 +418,8 @@ impl ArchiveInfo {
                 network = butterflynet::NETWORK_COMMON_NAME.into();
             }
         };
-
+        let receipt_tracking_store = ReadOpsTrackingStore::new(store);
+        let event_tracking_store = ReadOpsTrackingStore::new(store);
         for (parent, tipset) in iter {
             if tipset.epoch() >= parent.epoch() && parent.epoch() != root_epoch {
                 bail!("Broken invariant: non-sequential epochs");
@@ -427,11 +441,13 @@ impl ArchiveInfo {
                 lowest_message_epoch = tipset.epoch();
             }
 
-            if let Ok(receipts) = Receipt::get_receipts(store, *tipset.parent_message_receipts()) {
-                message_receipts_count += 1;
+            if let Ok(receipts) =
+                Receipt::get_receipts(&receipt_tracking_store, *tipset.parent_message_receipts())
+            {
                 for receipt in receipts {
+                    message_receipt_count += 1;
                     if let Some(events_root) = receipt.events_root()
-                        && let Ok(e) = StampedEvent::get_events(store, &events_root)
+                        && let Ok(e) = StampedEvent::get_events(&event_tracking_store, &events_root)
                     {
                         events_count += e.len();
                     }
@@ -461,8 +477,10 @@ impl ArchiveInfo {
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
-            message_receipts: message_receipts_count,
+            message_receipts: message_receipt_count,
+            message_receipts_size: receipt_tracking_store.tracker.blockstore_size_bytes(),
             events: events_count,
+            events_size: event_tracking_store.tracker.blockstore_size_bytes(),
             head,
             snapshot_version,
             index_size_bytes,

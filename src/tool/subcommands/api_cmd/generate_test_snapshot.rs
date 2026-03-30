@@ -204,10 +204,7 @@ where
     }
 }
 
-impl<T> ReadOpsTrackingStore<T>
-where
-    T: Blockstore + SettingsStore,
-{
+impl<T> ReadOpsTrackingStore<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,

@@ -7,7 +7,7 @@
 
 use std::{
     fs::File as SyncFile,
-    io::{self, BufReader as SyncBufReader, copy as sync_copy},
+    io,
     path::{Path, PathBuf},
 };
 
@@ -59,10 +59,10 @@ pub(super) async fn check_parameter_file(path: &Path, info: &ParameterData) -> a
 
     let hash = tokio::task::spawn_blocking({
         let file = SyncFile::open(path)?;
-        move || -> Result<Hash, io::Error> {
-            let mut reader = SyncBufReader::new(file);
+        move || -> io::Result<Hash> {
+            let mut reader = std::io::BufReader::new(file);
             let mut hasher = Blake2b::new();
-            sync_copy(&mut reader, &mut hasher)?;
+            std::io::copy(&mut reader, &mut hasher)?;
             Ok(hasher.finalize())
         }
     })

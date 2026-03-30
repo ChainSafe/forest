@@ -24,6 +24,15 @@ pub struct MemoryDB {
 }
 
 impl MemoryDB {
+    pub fn blockstore_size_bytes(&self) -> usize {
+        self.blockchain_db
+            .read()
+            .iter()
+            .chain(self.blockchain_persistent_db.read().iter())
+            .map(|(k, v)| k.to_bytes().len() + v.len())
+            .sum()
+    }
+
     pub async fn export_forest_car<W: tokio::io::AsyncWrite + Unpin>(
         &self,
         writer: &mut W,
