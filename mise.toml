@@ -241,8 +241,7 @@ tail -n +2 .config/forest.dic | diff - "$TMPFILE"
 [tasks.insta]
 description = "Update insta snapshots."
 run = '''
-cargo test --lib -- rpc::tests::openrpc
-cargo insta accept
+cargo test --lib -- rpc::tests::openrpc || cargo insta accept
 '''
 tools.cargo-insta = "1.46"
 

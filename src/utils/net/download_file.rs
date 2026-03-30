@@ -161,11 +161,9 @@ pub async fn download_file_with_cache(
 }
 
 fn get_file_md5_hash(path: &Path) -> Option<Vec<u8>> {
-    std::fs::read(path).ok().map(|bytes| {
-        let mut hasher = Md5::new();
-        hasher.update(bytes.as_slice());
-        hasher.finalize().to_vec()
-    })
+    std::fs::read(path)
+        .ok()
+        .map(|bytes| Md5::digest(bytes.as_slice()).to_vec())
 }
 
 async fn get_content_md5_hash_from_url(url: Url) -> anyhow::Result<Option<Vec<u8>>> {
@@ -575,9 +573,7 @@ mod test {
 
     /// MD5 hash of `TEST_FILE_CONTENT` (binary)
     fn test_file_md5() -> Vec<u8> {
-        let mut hasher = Md5::new();
-        hasher.update(TEST_FILE_CONTENT);
-        hasher.finalize().to_vec()
+        Md5::digest(TEST_FILE_CONTENT).to_vec()
     }
 
     /// Test server that supports range requests
@@ -616,9 +612,7 @@ mod test {
                     get(move |req: Request| async move {
                         let mut response = handle_file_request(req, content).await;
                         // Add MD5 hash as ETag (like filecoin-actors.chainsafe.dev)
-                        let mut hasher = Md5::new();
-                        hasher.update(content);
-                        let md5_hex = hex::encode(hasher.finalize());
+                        let md5_hex = hex::encode(Md5::digest(content));
                         response
                             .headers_mut()
                             .insert(header::ETAG, format!("\"{md5_hex}\"").parse().unwrap());
@@ -630,9 +624,7 @@ mod test {
                     get(move |req: Request| async move {
                         let mut response = handle_file_request(req, content).await;
                         // Add MD5 hash as x-ms-blob-content-md5 (like GitHub releases)
-                        let mut hasher = Md5::new();
-                        hasher.update(content);
-                        let md5 = hasher.finalize();
+                        let md5 = Md5::digest(content);
                         let md5_base64 = BASE64_STANDARD.encode(md5);
                         response
                             .headers_mut()
