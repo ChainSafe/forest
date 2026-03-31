@@ -603,12 +603,20 @@ impl EthTrace {
             TraceAction::Call(action) => (action.to, action.from),
             TraceAction::Create(action) => {
                 let address = match &self.result {
-                    TraceResult::Create(result) => result
-                        .address
-                        .ok_or_else(|| anyhow::anyhow!("address is nil in create trace result"))?,
+                    TraceResult::Create(result) => match result.address {
+                        Some(addr) => Some(addr),
+                        None => {
+                            // Failed contract creations have no result address
+                            // and cannot match a toAddress filter.
+                            if to_decoded_addresses.is_some_and(|addr| !addr.is_empty()) {
+                                return Ok(false);
+                            }
+                            None
+                        }
+                    },
                     _ => bail!("invalid create trace result"),
                 };
-                (Some(address), action.from)
+                (address, action.from)
             }
         };
 
@@ -1193,5 +1201,158 @@ mod tests {
         };
 
         assert!(trace.into_geth_frame(GethCallType::Call).is_err());
+    }
+
+    /// Helper to build a call trace with the given from/to addresses.
+    fn call_trace(from: EthAddress, to: Option<EthAddress>) -> EthTrace {
+        EthTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type: "call".into(),
+                from,
+                to,
+                gas: EthUint64(21000),
+                value: EthBigInt(num::BigInt::from(0)),
+                input: EthBytes(vec![]),
+            }),
+            result: TraceResult::Call(EthCallTraceResult {
+                gas_used: EthUint64(5000),
+                output: EthBytes(vec![]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        }
+    }
+
+    /// Helper to build a create trace with the given result address.
+    fn create_trace(from: EthAddress, result_address: Option<EthAddress>) -> EthTrace {
+        EthTrace {
+            r#type: "create".into(),
+            action: TraceAction::Create(EthCreateTraceAction {
+                from,
+                gas: EthUint64(100000),
+                value: EthBigInt(num::BigInt::from(0)),
+                init: EthBytes(vec![0x60, 0x80]),
+            }),
+            result: TraceResult::Create(EthCreateTraceResult {
+                gas_used: EthUint64(50000),
+                address: result_address,
+                code: EthBytes(vec![]),
+            }),
+            error: if result_address.is_none() {
+                Some("ErrForbidden".into())
+            } else {
+                None
+            },
+            ..EthTrace::default()
+        }
+    }
+
+    /// Converts actor IDs to an `EthAddressList`.
+    fn addr_list(ids: &[u64]) -> EthAddressList {
+        EthAddressList::List(
+            ids.iter()
+                .map(|&id| EthAddress::from_actor_id(id))
+                .collect(),
+        )
+    }
+
+    // Actor ID constants
+    const FROM_ID: u64 = 1;
+    const TO_ID: u64 = 2;
+    const CREATED_ID: u64 = 200;
+    const OTHER_ID: u64 = 999;
+
+    #[rstest]
+    // No filters
+    #[case::no_filters(Some(TO_ID), None, None, true)]
+    // FromAddress filtering
+    #[case::from_match(Some(TO_ID), Some(vec![FROM_ID]), None, true)]
+    #[case::from_no_match(Some(TO_ID), Some(vec![OTHER_ID]), None, false)]
+    // ToAddress filtering
+    #[case::to_match(Some(TO_ID), None, Some(vec![TO_ID]), true)]
+    #[case::to_no_match(Some(TO_ID), None, Some(vec![OTHER_ID]), false)]
+    // to=None on the trace itself
+    #[case::to_none_with_filter(None, None, Some(vec![TO_ID]), false)]
+    #[case::to_none_no_filter(None, None, None, true)]
+    // Both filters
+    #[case::both_match(Some(TO_ID), Some(vec![FROM_ID]), Some(vec![TO_ID]), true)]
+    #[case::both_from_no_match(Some(TO_ID), Some(vec![OTHER_ID]), Some(vec![TO_ID]), false)]
+    #[case::both_to_no_match(Some(TO_ID), Some(vec![FROM_ID]), Some(vec![OTHER_ID]), false)]
+    // Empty filters are equivalent to no filter
+    #[case::empty_filters(Some(TO_ID), Some(vec![]), Some(vec![]), true)]
+    // Multi-address filter lists
+    #[case::multi_addr_list(Some(TO_ID), Some(vec![OTHER_ID, FROM_ID]), Some(vec![TO_ID, OTHER_ID]), true)]
+    fn test_match_filter_call(
+        #[case] to_id: Option<u64>,
+        #[case] from_filter_ids: Option<Vec<u64>>,
+        #[case] to_filter_ids: Option<Vec<u64>>,
+        #[case] expected: bool,
+    ) {
+        let trace = call_trace(
+            EthAddress::from_actor_id(FROM_ID),
+            to_id.map(EthAddress::from_actor_id),
+        );
+        let from_list = from_filter_ids.map(|ids| addr_list(&ids));
+        let to_list = to_filter_ids.map(|ids| addr_list(&ids));
+        assert_eq!(
+            trace
+                .match_filter_criteria(from_list.as_ref(), to_list.as_ref())
+                .unwrap(),
+            expected,
+        );
+    }
+
+    #[rstest]
+    // Failed create (result_address=None)
+    #[case::failed_with_to_filter(None, None, Some(vec![OTHER_ID]), false)]
+    #[case::failed_no_filters(None, None, None, true)]
+    #[case::failed_empty_to_filter(None, None, Some(vec![]), true)]
+    #[case::failed_from_match_no_to(None, Some(vec![FROM_ID]), None, true)]
+    #[case::failed_from_and_to_filter(None, Some(vec![FROM_ID]), Some(vec![OTHER_ID]), false)]
+    // Successful create (result_address=Some)
+    #[case::success_to_match(Some(CREATED_ID), None, Some(vec![CREATED_ID]), true)]
+    #[case::success_to_no_match(Some(CREATED_ID), None, Some(vec![OTHER_ID]), false)]
+    #[case::success_from_match(Some(CREATED_ID), Some(vec![FROM_ID]), None, true)]
+    #[case::success_from_no_match(Some(CREATED_ID), Some(vec![OTHER_ID]), None, false)]
+    fn test_match_filter_create(
+        #[case] result_addr_id: Option<u64>,
+        #[case] from_filter_ids: Option<Vec<u64>>,
+        #[case] to_filter_ids: Option<Vec<u64>>,
+        #[case] expected: bool,
+    ) {
+        let trace = create_trace(
+            EthAddress::from_actor_id(FROM_ID),
+            result_addr_id.map(EthAddress::from_actor_id),
+        );
+        let from_list = from_filter_ids.map(|ids| addr_list(&ids));
+        let to_list = to_filter_ids.map(|ids| addr_list(&ids));
+        assert_eq!(
+            trace
+                .match_filter_criteria(from_list.as_ref(), to_list.as_ref())
+                .unwrap(),
+            expected,
+        );
+    }
+
+    #[test]
+    fn test_match_filter_create_with_mismatched_result_errors() {
+        // Create action paired with a Call result is invalid.
+        let trace = EthTrace {
+            r#type: "create".into(),
+            action: TraceAction::Create(EthCreateTraceAction {
+                from: EthAddress::default(),
+                gas: EthUint64(100000),
+                value: EthBigInt(num::BigInt::from(0)),
+                init: EthBytes(vec![]),
+            }),
+            result: TraceResult::Call(EthCallTraceResult {
+                gas_used: EthUint64(0),
+                output: EthBytes(vec![]),
+            }),
+            error: None,
+            ..EthTrace::default()
+        };
+        assert!(trace.match_filter_criteria(None, None).is_err());
     }
 }
