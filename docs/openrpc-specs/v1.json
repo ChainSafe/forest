@@ -4935,7 +4935,7 @@
     },
     {
       "name": "Filecoin.StateSearchMsg",
-      "description": "Returns the receipt and tipset the specified message was included in.",
+      "description": "Returns the receipt and tipset the specified message was included in, or null if the message was not found.",
       "params": [
         {
           "name": "tipsetKey",
@@ -4975,9 +4975,16 @@
       ],
       "result": {
         "name": "Filecoin.StateSearchMsg.Result",
-        "required": true,
+        "required": false,
         "schema": {
-          "$ref": "#/components/schemas/MessageLookup"
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/MessageLookup"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "paramStructure": "by-position"
