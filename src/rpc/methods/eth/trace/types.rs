@@ -1317,7 +1317,7 @@ mod tests {
                 code: EthBytes(vec![]),
             }),
             error: if result_address.is_none() {
-                Some("ErrForbidden".into())
+                Some(TraceError::Reverted)
             } else {
                 None
             },
