@@ -25,6 +25,12 @@ Archival snapshots are publicly available at:
 - Calibnet lite: https://forest-archive.chainsafe.dev/list/calibnet/lite
 - Calibnet diff: https://forest-archive.chainsafe.dev/list/calibnet/diff
 
+:::tip
+
+You most likely don't need to download every snapshot and merge it into a single file. Read on to understand how to use the snapshots together and only download the ones you need for your period of interest.
+
+:::
+
 ## How lite and diff snapshots work together
 
 :::warning
@@ -74,6 +80,13 @@ There are 10 diff snapshots between consecutive lite snapshots (30,000 / 3,000
 = 10).
 
 ## Figuring out which snapshots you need
+
+:::tip
+
+Use the interactive [Snapshot Calculator](./snapshot_calculator.mdx) to
+automatically determine which snapshots you need and generate download commands.
+
+:::
 
 Given a target epoch `E` and a network, follow these steps:
 

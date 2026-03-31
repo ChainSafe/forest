@@ -45,6 +45,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::fs::File;
+use std::sync::Arc;
 use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
 use tokio::sync::{
     Mutex,
@@ -84,26 +85,24 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
 ) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
-    let mut subscriber = data.chain_store().publisher().subscribe();
+    let mut head_changes_rx = data.chain_store().subscribe_head_changes();
 
     let handle = tokio::spawn(async move {
-        while let Ok(v) = subscriber.recv().await {
-            let headers = match v {
-                HeadChange::Apply(ts) => {
-                    // Convert the tipset to an Ethereum block with full transaction info
-                    // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
-                    match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
-                        Ok(block) => ApiHeaders(block),
-                        Err(e) => {
-                            tracing::error!("Failed to convert tipset to eth block: {}", e);
-                            continue;
+        while let Ok(changes) = head_changes_rx.recv().await {
+            for ts in changes.applies {
+                // Convert the tipset to an Ethereum block with full transaction info
+                // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
+                match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
+                    Ok(block) => {
+                        if let Err(e) = sender.send(ApiHeaders(block)) {
+                            tracing::error!("Failed to send headers: {}", e);
+                            return;
                         }
                     }
+                    Err(e) => {
+                        tracing::error!("Failed to convert tipset to eth block: {}", e);
+                    }
                 }
-            };
-            if let Err(e) = sender.send(headers) {
-                tracing::error!("Failed to send headers: {}", e);
-                break;
             }
         }
     });
@@ -123,30 +122,24 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
 ) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
-    let mut subscriber = ctx.chain_store().publisher().subscribe();
+    let mut head_changes_rx = ctx.chain_store().subscribe_head_changes();
 
     let ctx = ctx.clone();
 
     let handle = tokio::spawn(async move {
-        while let Ok(v) = subscriber.recv().await {
-            match v {
-                HeadChange::Apply(ts) => {
-                    match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
-                        Ok(logs) => {
-                            if !logs.is_empty()
-                                && let Err(e) = sender.send(logs)
-                            {
-                                tracing::error!(
-                                    "Failed to send logs for tipset {}: {}",
-                                    ts.key(),
-                                    e
-                                );
-                                break;
-                            }
+        while let Ok(changes) = head_changes_rx.recv().await {
+            for ts in changes.applies {
+                match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
+                    Ok(logs) => {
+                        if !logs.is_empty()
+                            && let Err(e) = sender.send(logs)
+                        {
+                            tracing::error!("Failed to send logs for tipset {}: {}", ts.key(), e);
+                            break;
                         }
-                        Err(e) => {
-                            tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
-                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
                     }
                 }
             }
@@ -174,56 +167,8 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let head = ctx.chain_store().heaviest_tipset();
-        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
-
-        // Either get the f3 finalized tipset or the ec finalized tipset
-        match get_f3_finality_tipset(&ctx, ec_finality_epoch).await {
-            Ok(f3_tipset) => {
-                tracing::debug!("Using F3 finalized tipset at epoch {}", f3_tipset.epoch());
-                Ok(f3_tipset)
-            }
-            Err(_) => {
-                // fallback to ec finality
-                tracing::warn!("F3 finalization unavailable, falling back to EC finality");
-                let ec_tipset = ctx.chain_index().tipset_by_height(
-                    ec_finality_epoch,
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                Ok(ec_tipset)
-            }
-        }
+        Ok(ChainGetTipSetV2::get_latest_finalized_tipset(&ctx).await?)
     }
-}
-
-// get f3 finalized tipset based on ec finality epoch
-async fn get_f3_finality_tipset<DB: Blockstore + Sync + Send + 'static>(
-    ctx: &Ctx<DB>,
-    ec_finality_epoch: ChainEpoch,
-) -> Result<Tipset> {
-    let f3_finalized_cert = crate::rpc::f3::F3GetLatestCertificate::get()
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to get F3 certificate: {}", e))?;
-
-    let f3_finalized_head = f3_finalized_cert.chain_head();
-    if f3_finalized_head.epoch < ec_finality_epoch {
-        return Err(anyhow::anyhow!(
-            "F3 finalized tipset epoch {} is further back than EC finalized tipset epoch {}",
-            f3_finalized_head.epoch,
-            ec_finality_epoch
-        ));
-    }
-
-    ctx.chain_index()
-        .load_required_tipset(&f3_finalized_head.key)
-        .map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to load F3 finalized tipset at epoch {}: {}",
-                f3_finalized_head.epoch,
-                e
-            )
-        })
 }
 
 pub enum ChainGetMessage {}
@@ -247,8 +192,8 @@ impl RpcMethod<1> for ChainGetMessage {
             .get_cbor(&message_cid)?
             .with_context(|| format!("can't find message with cid {message_cid}"))?;
         let message = match chain_message {
-            ChainMessage::Signed(m) => m.into_message(),
-            ChainMessage::Unsigned(m) => m,
+            ChainMessage::Signed(m) => Arc::unwrap_or_clone(m).into_message(),
+            ChainMessage::Unsigned(m) => Arc::unwrap_or_clone(m),
         };
 
         let cid = message.cid();
@@ -303,7 +248,9 @@ impl RpcMethod<1> for ChainGetParentMessages {
         if block_header.epoch == 0 {
             Ok(vec![])
         } else {
-            let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
+            let parent_tipset = ctx
+                .chain_index()
+                .load_required_tipset(&block_header.parents)?;
             load_api_messages_from_tipset(&ctx, parent_tipset.key()).await
         }
     }
@@ -498,7 +445,7 @@ impl RpcMethod<1> for ForestChainExport {
                     {
                         Ok(cid) => Some((cid, File::open(&f3_snap_tmp_path)?)),
                         Err(e) => {
-                            tracing::error!("Failed to export F3 snapshot: {e}");
+                            tracing::error!("Failed to export F3 snapshot: {e:#}");
                             None
                         }
                     }
@@ -850,11 +797,11 @@ impl RpcMethod<2> for ChainGetPath {
         (from, to): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        impl_chain_get_path(ctx.chain_store(), &from, &to).map_err(Into::into)
+        Ok(chain_get_path(ctx.chain_store(), &from, &to)?.into_change_vec())
     }
 }
 
-/// Find the path between two tipsets, as a series of [`PathChange`]s.
+/// Find the path between two tipsets, as [`PathChanges`].
 ///
 /// ```text
 /// 0 - A - B - C - D
@@ -871,11 +818,12 @@ impl RpcMethod<2> for ChainGetPath {
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-fn impl_chain_get_path(
+pub fn chain_get_path(
     chain_store: &ChainStore<impl Blockstore>,
     from: &TipsetKey,
     to: &TipsetKey,
-) -> anyhow::Result<Vec<PathChange>> {
+) -> anyhow::Result<PathChanges> {
+    let finality = chain_store.chain_config().policy.chain_finality;
     let mut to_revert = chain_store
         .load_required_tipset_or_heaviest(from)
         .context("couldn't load `from`")?;
@@ -883,8 +831,15 @@ fn impl_chain_get_path(
         .load_required_tipset_or_heaviest(to)
         .context("couldn't load `to`")?;
 
-    let mut all_reverts = vec![];
-    let mut all_applies = vec![];
+    anyhow::ensure!(
+        (to_apply.epoch() - to_revert.epoch()).abs() <= finality,
+        "the gap between the new head ({}) and the old head ({}) is larger than chain finality ({finality})",
+        to_apply.epoch(),
+        to_revert.epoch()
+    );
+
+    let mut reverts = vec![];
+    let mut applies = vec![];
 
     // This loop is guaranteed to terminate if the blockstore contain no cycles.
     // This is currently computationally infeasible.
@@ -893,21 +848,18 @@ fn impl_chain_get_path(
             let next = chain_store
                 .load_required_tipset_or_heaviest(to_revert.parents())
                 .context("couldn't load ancestor of `from`")?;
-            all_reverts.push(to_revert);
+            reverts.push(to_revert);
             to_revert = next;
         } else {
             let next = chain_store
                 .load_required_tipset_or_heaviest(to_apply.parents())
                 .context("couldn't load ancestor of `to`")?;
-            all_applies.push(to_apply);
+            applies.push(to_apply);
             to_apply = next;
         }
     }
-    Ok(all_reverts
-        .into_iter()
-        .map(PathChange::Revert)
-        .chain(all_applies.into_iter().rev().map(PathChange::Apply))
-        .collect())
+    applies.reverse();
+    Ok(PathChanges { reverts, applies })
 }
 
 /// Get tipset at epoch. Pick younger tipset if epoch points to a
@@ -1066,7 +1018,7 @@ pub enum ChainGetTipSetV2 {}
 impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_anchor(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        anchor: &Option<TipsetAnchor>,
+        anchor: Option<&TipsetAnchor>,
     ) -> anyhow::Result<Tipset> {
         if let Some(anchor) = anchor {
             match (&anchor.key.0, &anchor.tag) {
@@ -1116,28 +1068,16 @@ impl ChainGetTipSetV2 {
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {
-        let Ok(f3_finalized_cert) = crate::rpc::f3::F3GetLatestCertificate::get().await else {
+        let Some(f3_finalized_head) = ctx.chain_store().f3_finalized_tipset() else {
             return Self::get_ec_finalized_tipset(ctx);
         };
-
-        let f3_finalized_head = f3_finalized_cert.chain_head();
         let head = ctx.chain_store().heaviest_tipset();
         // Latest F3 finalized tipset is older than EC finality, falling back to EC finality
-        if head.epoch() > f3_finalized_head.epoch + ctx.chain_config().policy.chain_finality {
-            return Self::get_ec_finalized_tipset(ctx);
+        if head.epoch() > f3_finalized_head.epoch() + ctx.chain_config().policy.chain_finality {
+            Self::get_ec_finalized_tipset(ctx)
+        } else {
+            Ok(f3_finalized_head)
         }
-
-        let ts = ctx
-            .chain_index()
-            .load_required_tipset(&f3_finalized_head.key)
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to load F3 finalized tipset at epoch {} with key {}: {e}",
-                    f3_finalized_head.epoch,
-                    f3_finalized_head.key,
-                )
-            })?;
-        Ok(ts)
     }
 
     pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
@@ -1162,7 +1102,7 @@ impl ChainGetTipSetV2 {
         }
         // Get tipset by height.
         if let Some(height) = &selector.height {
-            let anchor = Self::get_tipset_by_anchor(ctx, &height.anchor).await?;
+            let anchor = Self::get_tipset_by_anchor(ctx, height.anchor.as_ref()).await?;
             let ts = ctx.chain_index().tipset_by_height(
                 height.at,
                 anchor,
@@ -1323,18 +1263,18 @@ pub(crate) fn chain_notify<DB: Blockstore>(
         .send(vec![ApiHeadChange { change, tipset }])
         .expect("receiver is not dropped");
 
-    let mut subscriber = data.chain_store().publisher().subscribe();
+    let mut head_changes_rx = data.chain_store().subscribe_head_changes();
 
     tokio::spawn(async move {
         // Skip first message
-        let _ = subscriber.recv().await;
-
-        while let Ok(v) = subscriber.recv().await {
-            let (change, tipset) = match v {
-                HeadChange::Apply(ts) => ("apply".into(), ts),
-            };
-
-            if sender.send(vec![ApiHeadChange { change, tipset }]).is_err() {
+        let _ = head_changes_rx.recv().await;
+        while let Ok(changes) = head_changes_rx.recv().await {
+            let api_changes = changes
+                .into_change_vec()
+                .into_iter()
+                .map(From::from)
+                .collect();
+            if sender.send(api_changes).is_err() {
                 break;
             }
         }
@@ -1506,6 +1446,21 @@ pub struct ApiHeadChange {
 }
 lotus_json_with_self!(ApiHeadChange);
 
+impl From<HeadChange> for ApiHeadChange {
+    fn from(change: HeadChange) -> Self {
+        match change {
+            HeadChange::Apply(tipset) => Self {
+                change: "apply".into(),
+                tipset,
+            },
+            HeadChange::Revert(tipset) => Self {
+                change: "revert".into(),
+                tipset,
+            },
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(tag = "Type", content = "Val", rename_all = "snake_case")]
 pub enum PathChange<T = Tipset> {
@@ -1560,6 +1515,33 @@ impl HasLotusJson for PathChange {
             PathChange::Revert(it) => PathChange::Revert(Tipset::from_lotus_json(it)),
             PathChange::Apply(it) => PathChange::Apply(Tipset::from_lotus_json(it)),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct PathChanges<T = Tipset> {
+    pub reverts: Vec<T>,
+    pub applies: Vec<T>,
+}
+
+impl<T: Clone> Clone for PathChanges<T> {
+    fn clone(&self) -> Self {
+        let Self { reverts, applies } = self;
+        Self {
+            reverts: reverts.clone(),
+            applies: applies.clone(),
+        }
+    }
+}
+
+impl<T> PathChanges<T> {
+    pub fn into_change_vec(self) -> Vec<PathChange<T>> {
+        let Self { reverts, applies } = self;
+        reverts
+            .into_iter()
+            .map(PathChange::Revert)
+            .chain(applies.into_iter().map(PathChange::Apply))
+            .collect()
     }
 }
 
@@ -1790,8 +1772,9 @@ mod tests {
             )
         }
 
-        let actual =
-            impl_chain_get_path(store, from.make_tipset().key(), to.make_tipset().key()).unwrap();
+        let actual = chain_get_path(store, from.make_tipset().key(), to.make_tipset().key())
+            .unwrap()
+            .into_change_vec();
         let expected = expected
             .into_iter()
             .map(|change| match change {

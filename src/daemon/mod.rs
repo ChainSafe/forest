@@ -7,7 +7,7 @@ pub mod db_util;
 pub mod main;
 
 use crate::blocks::Tipset;
-use crate::chain::HeadChange;
+use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::chain_sync::{ChainFollower, SyncStatus};
@@ -23,7 +23,7 @@ use crate::daemon::{
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
-use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use crate::message_pool::{MessagePool, MpoolConfig};
 use crate::networks::{self, ChainConfig};
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
@@ -35,12 +35,13 @@ use crate::utils;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
+use backon::{ExponentialBuilder, Retryable};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::{
     net::TcpListener,
     signal::{
@@ -293,11 +294,9 @@ fn create_mpool(
     services: &mut JoinSet<anyhow::Result<()>>,
     p2p_service: &Libp2pService<DbType>,
     ctx: &AppContext,
-) -> anyhow::Result<Arc<MessagePool<MpoolRpcProvider<DbType>>>> {
-    let publisher = ctx.state_manager.chain_store().publisher();
-    let provider = MpoolRpcProvider::new(publisher.clone(), ctx.state_manager.clone());
+) -> anyhow::Result<Arc<MessagePool<Arc<ChainStore<DbType>>>>> {
     Ok(MessagePool::new(
-        provider,
+        ctx.state_manager.chain_store().clone(),
         p2p_service.network_sender().clone(),
         MpoolConfig::load_config(ctx.db.writer().as_ref())?,
         ctx.state_manager.chain_config().clone(),
@@ -309,7 +308,7 @@ fn create_mpool(
 fn create_chain_follower(
     opts: &CliOpts,
     p2p_service: &Libp2pService<DbType>,
-    mpool: Arc<MessagePool<MpoolRpcProvider<DbType>>>,
+    mpool: Arc<MessagePool<Arc<ChainStore<DbType>>>>,
     ctx: &AppContext,
 ) -> anyhow::Result<ChainFollower<DbType>> {
     let network_send = p2p_service.network_sender().clone();
@@ -370,7 +369,7 @@ async fn maybe_start_health_check_service(
 fn maybe_start_rpc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    mpool: Arc<MessagePool<MpoolRpcProvider<DbType>>>,
+    mpool: Arc<MessagePool<Arc<ChainStore<DbType>>>>,
     chain_follower: &ChainFollower<DbType>,
     start_time: chrono::DateTime<chrono::Utc>,
     shutdown: mpsc::Sender<()>,
@@ -400,7 +399,6 @@ fn maybe_start_rpc_service(
             let tipset_send = chain_follower.tipset_sender.clone();
             let keystore = ctx.keystore.clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
-            let msgs_in_tipset = Arc::new(crate::chain::MsgsInTipsetCache::default());
             async move {
                 let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
                     .await
@@ -414,7 +412,6 @@ fn maybe_start_rpc_service(
                         keystore,
                         mpool,
                         bad_blocks,
-                        msgs_in_tipset,
                         sync_status,
                         eth_event_handler,
                         sync_network_context,
@@ -483,6 +480,44 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) -> 
                 );
             }
         });
+        tokio::task::spawn({
+            let chain_store = ctx.chain_store().clone();
+            async move {
+                // wait 1s to let F3 RPC server start
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                match (|| crate::rpc::f3::F3GetLatestCertificate::get())
+                    .retry(ExponentialBuilder::default())
+                    .await
+                {
+                    Ok(f3_finalized_cert) => {
+                        let f3_finalized_head = f3_finalized_cert.chain_head();
+                        match chain_store
+                            .chain_index()
+                            .load_required_tipset(&f3_finalized_head.key)
+                        {
+                            Ok(ts) => {
+                                chain_store.set_f3_finalized_tipset(ts);
+                                tracing::info!(
+                                    "Set F3 finalized tipset to epoch {} and key {}",
+                                    f3_finalized_head.epoch,
+                                    f3_finalized_head.key,
+                                );
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to get F3 finalized tipset epoch {} and key {}: {e}",
+                                    f3_finalized_head.epoch,
+                                    f3_finalized_head.key
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to get F3 latest certificate: {e:#}");
+                    }
+                }
+            }
+        });
     }
 
     Ok(())
@@ -498,21 +533,19 @@ fn maybe_start_indexer_service(
         && !opts.stateless
         && !ctx.state_manager.chain_config().is_devnet()
     {
-        let mut receiver = ctx.state_manager.chain_store().publisher().subscribe();
+        let mut head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
         let chain_store = ctx.state_manager.chain_store().clone();
         services.spawn(async move {
             tracing::info!("Starting indexer service");
 
             // Continuously listen for head changes
             loop {
-                let HeadChange::Apply(ts) = receiver.recv().await?;
-
-                tracing::debug!("Indexing tipset {}", ts.key());
-
-                let delegated_messages =
-                    chain_store.headers_delegated_messages(ts.block_headers().iter())?;
-
-                chain_store.process_signed_messages(&delegated_messages)?;
+                for ts in head_changes_rx.recv().await?.applies {
+                    tracing::debug!("Indexing tipset {}", ts.key());
+                    let delegated_messages =
+                        chain_store.headers_delegated_messages(ts.block_headers().iter())?;
+                    chain_store.process_signed_messages(&delegated_messages)?;
+                }
             }
         });
 
@@ -605,7 +638,7 @@ pub(super) async fn start_services(
         && !opts.skip_load_actors
         && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset()
     {
-        tracing::warn!("error in maybe_rewind_heaviest_tipset: {e}");
+        tracing::warn!("error in maybe_rewind_heaviest_tipset: {e:#}");
     }
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
@@ -630,7 +663,6 @@ pub(super) async fn start_services(
     }
     on_app_context_and_db_initialized(&ctx, chain_follower.sync_status.clone());
     warmup_in_background(&ctx);
-    ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_f3_service(opts, &config, &ctx)?;
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
@@ -764,7 +796,7 @@ async fn maybe_set_snapshot_path(
 /// returns the first error with which any of the services end, or never returns at all
 // This should return anyhow::Result<!> once the `Never` type is stabilized
 async fn propagate_error(
-    services: &mut JoinSet<Result<(), anyhow::Error>>,
+    services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<std::convert::Infallible> {
     while let Some(result) = services.join_next().await {
         if let Ok(Err(error_message)) = result {

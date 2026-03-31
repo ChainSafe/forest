@@ -5,7 +5,7 @@ pub use super::fvm_shared_latest::{
 };
 use super::version::NetworkVersion;
 use crate::eth::{EthChainId, EthTx};
-use crate::message::{Message, SignedMessage};
+use crate::message::{MessageRead as _, SignedMessage};
 use anyhow::{Context, ensure};
 use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
@@ -95,7 +95,7 @@ impl Signature {
     }
 
     /// Creates a signature from bytes.
-    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, anyhow::Error> {
+    pub fn from_bytes(bytes: Vec<u8>) -> anyhow::Result<Self> {
         if bytes.is_empty() {
             anyhow::bail!("Empty signature bytes");
         }
@@ -353,8 +353,7 @@ mod tests {
 
     // Create a base EIP-1559 transaction
     fn create_eip1559_tx() -> EthTx {
-        EthTx::Eip1559(Box::new(
-            EthEip1559TxArgsBuilder::default()
+        EthEip1559TxArgsBuilder::default()
                 .chain_id(TEST_CHAIN_ID)
                 .nonce(486_u64)
                 .to(Some(ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd").unwrap().into()))
@@ -364,9 +363,7 @@ mod tests {
                 .gas_limit(37442471_u64)
                 .input(hex::decode("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap())
                 .build()
-                .unwrap()
-            )
-        )
+                .unwrap().into()
     }
 
     fn create_signed_message(signature_type: SignatureType) -> (Address, SignedMessage) {

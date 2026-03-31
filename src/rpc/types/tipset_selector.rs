@@ -67,7 +67,7 @@ impl TipsetHeight {
             self.at >= 0,
             "invalid tipset height: epoch cannot be less than zero"
         );
-        TipsetAnchor::validate(&self.anchor)?;
+        TipsetAnchor::validate(self.anchor.as_ref())?;
         Ok(())
     }
 
@@ -100,7 +100,7 @@ impl TipsetAnchor {
     ///
     /// Note that a [`None`] anchor is valid, and is considered to be
     /// equivalent to the default anchor, which is the tipset tagged as [`TipsetTag::Finalized`].
-    pub fn validate(anchor: &Option<Self>) -> anyhow::Result<()> {
+    pub fn validate(anchor: Option<&Self>) -> anyhow::Result<()> {
         if let Some(anchor) = anchor {
             anyhow::ensure!(
                 anchor.key.0.is_none() || anchor.tag.is_none(),

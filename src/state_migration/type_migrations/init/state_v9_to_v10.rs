@@ -13,8 +13,7 @@ use crate::state_migration::common::{TypeMigration, TypeMigrator};
 
 impl TypeMigration<InitStateV9, InitStateV10> for TypeMigrator {
     fn migrate_type(from: InitStateV9, store: &impl Blockstore) -> anyhow::Result<InitStateV10> {
-        let mut in_addr_map: Map<_, ActorID> =
-            make_map_with_root(&from.address_map, &store).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let mut in_addr_map: Map<_, ActorID> = make_map_with_root(&from.address_map, &store)?;
 
         let actor_id = from.next_id;
         let eth_zero_addr = Address::new_delegated(

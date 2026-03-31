@@ -143,6 +143,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthTraceCall);
         $callback!($crate::rpc::eth::EthTraceFilter);
         $callback!($crate::rpc::eth::EthTraceTransaction);
+        $callback!($crate::rpc::eth::EthDebugTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
@@ -471,9 +472,8 @@ const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 pub struct RPCState<DB> {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
-    pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
+    pub mpool: Arc<crate::message_pool::MessagePool<Arc<crate::chain::ChainStore<DB>>>>,
     pub bad_blocks: Option<Arc<crate::chain_sync::BadBlockCache>>,
-    pub msgs_in_tipset: Arc<crate::chain::store::MsgsInTipsetCache>,
     pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,

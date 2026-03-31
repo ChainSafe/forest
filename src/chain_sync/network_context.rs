@@ -28,6 +28,7 @@ use crate::{
 };
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
+use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::future::Future;
 use tokio::sync::Semaphore;
@@ -70,7 +71,7 @@ impl<DB> Clone for SyncNetworkContext<DB> {
 /// Race tasks to completion while limiting the number of tasks that may execute concurrently.
 /// Once a task finishes without error, the rest of the tasks are canceled.
 struct RaceBatch<T> {
-    tasks: JoinSet<Result<T, String>>,
+    tasks: JoinSet<anyhow::Result<T>>,
     semaphore: Arc<Semaphore>,
 }
 
@@ -85,13 +86,13 @@ where
         }
     }
 
-    pub fn add(&mut self, future: impl Future<Output = Result<T, String>> + Send + 'static) {
+    pub fn add(&mut self, future: impl Future<Output = anyhow::Result<T>> + Send + 'static) {
         let sem = self.semaphore.clone();
         self.tasks.spawn(async move {
             let permit = sem
                 .acquire_owned()
                 .await
-                .map_err(|_| "Semaphore unexpectedly closed")?;
+                .context("Semaphore unexpectedly closed")?;
             let result = future.await;
             drop(permit);
             result
@@ -137,7 +138,7 @@ where
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
         count: NonZeroU64,
-    ) -> Result<Vec<Tipset>, String> {
+    ) -> anyhow::Result<Vec<Tipset>> {
         self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |tipsets: &Vec<Tipset>| {
             validate_network_tipsets(tipsets, tsk)
         })
@@ -150,22 +151,16 @@ where
         &self,
         peer_id: Option<PeerId>,
         ts: &Tipset,
-    ) -> Result<FullTipset, String> {
+    ) -> anyhow::Result<FullTipset> {
         let mut bundles: Vec<TipsetBundle> = self
-            .handle_chain_exchange_request(
-                peer_id,
-                ts.key(),
-                NonZeroU64::new(1).expect("Infallible"),
-                MESSAGES,
-                |_| true,
-            )
+            .handle_chain_exchange_request(peer_id, ts.key(), nonzero!(1_u64), MESSAGES, |_| true)
             .await?;
 
         if bundles.len() != 1 {
-            return Err(format!(
+            anyhow::bail!(
                 "chain exchange request returned {} tipsets, 1 expected.",
                 bundles.len()
-            ));
+            );
         }
         let mut bundle = bundles.remove(0);
         bundle.blocks = ts.block_headers().to_vec();
@@ -179,23 +174,23 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-    ) -> Result<FullTipset, String> {
+    ) -> anyhow::Result<FullTipset> {
         let mut fts = self
             .handle_chain_exchange_request(
                 peer_id,
                 tsk,
-                NonZeroU64::new(1).expect("Infallible"),
+                nonzero!(1_u64),
                 HEADERS | MESSAGES,
                 |_| true,
             )
             .await?;
 
-        if fts.len() != 1 {
-            return Err(format!(
-                "Full tipset request returned {} tipsets, 1 expected.",
-                fts.len()
-            ));
-        }
+        anyhow::ensure!(
+            fts.len() == 1,
+            "Full tipset request returned {} tipsets, 1 expected.",
+            fts.len()
+        );
+
         Ok(fts.remove(0))
     }
 
@@ -203,11 +198,11 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-    ) -> Result<Vec<FullTipset>, String> {
+    ) -> anyhow::Result<Vec<FullTipset>> {
         self.handle_chain_exchange_request(
             peer_id,
             tsk,
-            NonZeroU64::new(16).expect("Infallible"),
+            nonzero!(16_u64),
             HEADERS | MESSAGES,
             |_| true,
         )
@@ -223,10 +218,10 @@ where
         request_len: NonZeroU64,
         options: u64,
         validate: F,
-    ) -> Result<Vec<T>, String>
+    ) -> anyhow::Result<Vec<T>>
     where
         T: TryFrom<TipsetBundle> + Send + Sync + 'static,
-        <T as TryFrom<TipsetBundle>>::Error: std::fmt::Display,
+        <T as TryFrom<TipsetBundle>>::Error: Into<anyhow::Error>,
         F: Fn(&Vec<T>) -> bool,
     {
         let request = ChainExchangeRequest {
@@ -252,9 +247,11 @@ where
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled();
-                if peers.is_empty() {
-                    return Err("chain exchange failed: no peers are available".into());
-                }
+                anyhow::ensure!(
+                    !peers.is_empty(),
+                    "chain exchange failed: no peers are available"
+                );
+
                 let n_peers = peers.len();
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 let success_time_cost_millis_stats = Arc::new(Mutex::new(Stats::new()));
@@ -315,8 +312,8 @@ where
                         "{} lookup failures, ",
                         lookup_failures.load(Ordering::Relaxed)
                     ));
-                    message.push_str(&format!("request:\n{request:?}",));
-                    message
+                    message.push_str(&format!("request:\n{request:?}"));
+                    anyhow::anyhow!(message)
                 };
 
                 let v = batch
@@ -350,7 +347,7 @@ where
         network_send: flume::Sender<NetworkMessage>,
         peer_id: PeerId,
         request: ChainExchangeRequest,
-    ) -> Result<ChainExchangeResponse, String> {
+    ) -> anyhow::Result<ChainExchangeResponse> {
         trace!("Sending ChainExchange Request to {peer_id}");
 
         let req_pre_time = Instant::now();
@@ -365,7 +362,7 @@ where
             .await
             .is_err()
         {
-            return Err("Failed to send chain exchange request to network".to_string());
+            anyhow::bail!("Failed to send chain exchange request to network");
         };
 
         // Add timeout to receiving response from p2p service to avoid stalling.
@@ -406,14 +403,14 @@ where
                     }
                 }
                 debug!("Failed: ChainExchange Request to {peer_id}");
-                Err(format!("Internal libp2p error: {e:?}"))
+                anyhow::bail!("Internal libp2p error: {e:?}");
             }
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which
                 // will negatively score the peer, but not drop yet.
                 peer_manager.log_failure(&peer_id, res_duration);
                 debug!("Timeout: ChainExchange Request to {peer_id}");
-                Err(format!("Chain exchange request to {peer_id} timed out"))
+                anyhow::bail!("Chain exchange request to {peer_id} timed out");
             }
         }
     }
@@ -490,7 +487,7 @@ mod tests {
     async fn race_batch_ok() {
         let mut batch = RaceBatch::new(3);
         batch.add(async move { Ok(1) });
-        batch.add(async move { Err("kaboom".into()) });
+        batch.add(async move { anyhow::bail!("kaboom") });
 
         assert_eq!(batch.get_ok().await, Some(1));
     }
@@ -503,7 +500,7 @@ mod tests {
             Ok(1)
         });
         batch.add(async move { Ok(2) });
-        batch.add(async move { Err("kaboom".into()) });
+        batch.add(async move { anyhow::bail!("kaboom") });
 
         assert_eq!(batch.get_ok().await, Some(2));
     }
@@ -511,8 +508,8 @@ mod tests {
     #[tokio::test]
     async fn race_batch_none() {
         let mut batch: RaceBatch<i32> = RaceBatch::new(3);
-        batch.add(async move { Err("kaboom".into()) });
-        batch.add(async move { Err("banana".into()) });
+        batch.add(async move { anyhow::bail!("kaboom") });
+        batch.add(async move { anyhow::bail!("banana") });
 
         assert_eq!(batch.get_ok().await, None);
     }
@@ -536,7 +533,7 @@ mod tests {
                 tokio::task::yield_now().await;
                 c.fetch_sub(1, Ordering::Relaxed);
 
-                Err("banana".into())
+                anyhow::bail!("banana")
             });
         }
 
@@ -564,7 +561,7 @@ mod tests {
                 tokio::task::yield_now().await;
                 c.fetch_sub(1, Ordering::Relaxed);
 
-                Err("banana".into())
+                anyhow::bail!("banana")
             });
         }
 

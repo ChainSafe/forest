@@ -173,18 +173,20 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
         }
     }
 
-    pub fn metadata(&self) -> &Option<FilecoinSnapshotMetadata> {
-        self.metadata.get_or_init(|| {
-            if self.header_v1.roots.len() == super::V2_SNAPSHOT_ROOT_COUNT {
-                let maybe_metadata_cid = self.header_v1.roots.first();
-                if let Ok(Some(metadata)) =
-                    self.get_cbor::<FilecoinSnapshotMetadata>(maybe_metadata_cid)
-                {
-                    return Some(metadata);
+    pub fn metadata(&self) -> Option<&FilecoinSnapshotMetadata> {
+        self.metadata
+            .get_or_init(|| {
+                if self.header_v1.roots.len() == super::V2_SNAPSHOT_ROOT_COUNT {
+                    let maybe_metadata_cid = self.header_v1.roots.first();
+                    if let Ok(Some(metadata)) =
+                        self.get_cbor::<FilecoinSnapshotMetadata>(maybe_metadata_cid)
+                    {
+                        return Some(metadata);
+                    }
                 }
-            }
-            None
-        })
+                None
+            })
+            .as_ref()
     }
 
     pub fn head_tipset_key(&self) -> &NonEmpty<Cid> {
@@ -232,7 +234,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
             .read()
             .get(&k)
             .map(|UncompressedBlockDataLocation { offset, length }| {
-                positioned_io::Cursor::new_pos(&self.reader, *offset).take(*length as u64)
+                positioned_io::Cursor::new_pos(&self.reader, *offset).take(u64::from(*length))
             })
     }
 }

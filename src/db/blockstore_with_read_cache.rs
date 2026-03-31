@@ -3,13 +3,11 @@
 
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use std::sync::{
-    Arc,
-    atomic::{self, AtomicUsize},
-};
+use std::sync::atomic::{self, AtomicUsize};
 
 use crate::utils::{cache::SizeTrackingLruCache, get_size};
 
+#[auto_impl::auto_impl(&, Arc)]
 pub trait BlockstoreReadCache {
     fn get(&self, k: &Cid) -> Option<Vec<u8>>;
 
@@ -25,16 +23,6 @@ impl BlockstoreReadCache for SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>>
 
     fn put(&self, k: Cid, block: Vec<u8>) {
         self.push(k.into(), block);
-    }
-}
-
-impl<T: BlockstoreReadCache> BlockstoreReadCache for Arc<T> {
-    fn get(&self, k: &Cid) -> Option<Vec<u8>> {
-        self.as_ref().get(k)
-    }
-
-    fn put(&self, k: Cid, block: Vec<u8>) {
-        self.as_ref().put(k, block)
     }
 }
 
@@ -123,6 +111,7 @@ mod tests {
     use multihash_codetable::Code::Blake2b256;
     use multihash_codetable::MultihashDigest as _;
     use rand::Rng as _;
+    use std::sync::Arc;
 
     #[test]
     fn test_blockstore_read_cache() {

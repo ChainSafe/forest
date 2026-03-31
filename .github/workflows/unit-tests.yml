@@ -76,10 +76,18 @@ jobs:
         run: |
           cargo run --bin forest-dev --no-default-features --profile quick-test -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - run: |
           mise test
         env:
           FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
           # https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
           CARGO_BUILD_JOBS: 3
+      - name: Upload Test Results to CodeCov
+        uses: codecov/codecov-action@v6
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: "test_results"
+          files: target/nextest/default/junit.xml
+          fail_ci_if_error: false

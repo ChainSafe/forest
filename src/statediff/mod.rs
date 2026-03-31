@@ -61,7 +61,7 @@ fn actor_to_resolved(
 fn root_to_state_map<BS: Blockstore>(
     bs: &Arc<BS>,
     root: &Cid,
-) -> Result<HashMap<Address, ActorState>, anyhow::Error> {
+) -> anyhow::Result<HashMap<Address, ActorState>> {
     let mut actors = HashMap::default();
     let state_tree = StateTree::new_from_root(bs.clone(), root)?;
     state_tree.for_each(|addr: Address, actor: &ActorState| {
@@ -81,7 +81,7 @@ fn try_print_actor_states<BS: Blockstore>(
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     // For now, resolving to a map, because we need to use go implementation's
     // inefficient caching this would probably be faster in most cases.
     let mut e_state = root_to_state_map(bs, expected_root)?;
@@ -131,7 +131,7 @@ fn pp_actor_state(
     bs: &impl Blockstore,
     actor_state: &ActorState,
     depth: Option<u64>,
-) -> Result<String, anyhow::Error> {
+) -> anyhow::Result<String> {
     let mut buffer = String::new();
     writeln!(&mut buffer, "{actor_state:?}")?;
     if let Ok(miner_state) = MinerState::load(bs, actor_state.code, actor_state.state) {
@@ -206,12 +206,12 @@ pub fn print_state_diff<BS>(
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,
-) -> Result<(), anyhow::Error>
+) -> anyhow::Result<()>
 where
     BS: Blockstore,
 {
     if let Err(e) = try_print_actor_states(bs, root, expected_root, depth) {
-        println!("Could not resolve actor states: {e}\nUsing default resolution:");
+        println!("Could not resolve actor states: {e:#}\nUsing default resolution:");
         let expected = resolve_cids_recursive(bs, expected_root, depth)?;
         let actual = resolve_cids_recursive(bs, root, depth)?;
 

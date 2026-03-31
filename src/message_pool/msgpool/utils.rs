@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::chain::MINIMUM_BASE_FEE;
-use crate::message::{Message as MessageTrait, SignedMessage};
+use crate::message::{MessageRead as _, SignedMessage};
 use crate::shim::{crypto::Signature, econ::TokenAmount, message::Message};
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;

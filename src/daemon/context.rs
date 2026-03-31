@@ -78,7 +78,6 @@ fn get_chain_config_and_set_network(config: &Config) -> Arc<ChainConfig> {
     }
     Arc::new(ChainConfig {
         enable_indexer: config.chain_indexer.enable_indexer,
-        enable_receipt_event_caching: config.client.enable_rpc,
         default_max_fee: config.fee.max_fee.clone(),
         ..chain_config
     })
@@ -175,7 +174,7 @@ fn maybe_migrate_db(config: &Config) {
     // to avoid breaking the node.
     let db_migration = crate::db::migration::DbMigration::new(config);
     if let Err(e) = db_migration.migrate() {
-        warn!("Failed to migrate database: {e}");
+        warn!("Failed to migrate database: {e:#}");
     }
 }
 

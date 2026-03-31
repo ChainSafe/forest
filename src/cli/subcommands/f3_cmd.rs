@@ -152,8 +152,10 @@ impl F3Commands {
                 async fn get_heads(
                     client: &rpc::Client,
                 ) -> anyhow::Result<(Tipset, FinalityCertificate)> {
-                    let cert_head = client.call(F3GetLatestCertificate::request(())?).await?;
-                    let chain_head = client.call(ChainHead::request(())?).await?;
+                    let (cert_head, chain_head) = tokio::try_join!(
+                        client.call(F3GetLatestCertificate::request(())?),
+                        client.call(ChainHead::request(())?),
+                    )?;
                     Ok((chain_head, cert_head))
                 }
 
@@ -203,15 +205,15 @@ impl F3Commands {
                         }
                         Err(e) => {
                             if !wait {
-                                anyhow::bail!("Failed to check F3 sync status: {e}");
+                                return Err(e.context("Failed to check F3 sync status"));
                             }
 
                             num_consecutive_fetch_failtures += 1;
                             if num_consecutive_fetch_failtures >= 3 {
-                                eprintln!("Warning: Failed to fetch heads: {e}. Exiting...");
+                                eprintln!("Warning: Failed to fetch heads: {e:#}. Exiting...");
                                 std::process::exit(EXIT_CODE_F3_FAIL_TO_FETCH_HEAD);
                             } else {
-                                eprintln!("Warning: Failed to fetch heads: {e}. Retrying...");
+                                eprintln!("Warning: Failed to fetch heads: {e:#}. Retrying...");
                             }
                         }
                     }
@@ -468,12 +470,13 @@ impl F3PowerTableCommands {
             ));
         }
 
-        let previous = F3GetCertificate::call(client, (instance.saturating_sub(1),)).await?;
-        let lookback = F3GetCertificate::call(
-            client,
-            (instance.saturating_sub(manifest.committee_lookback),),
-        )
-        .await?;
+        let (previous, lookback) = tokio::try_join!(
+            F3GetCertificate::call(client, (instance.saturating_sub(1),)),
+            F3GetCertificate::call(
+                client,
+                (instance.saturating_sub(manifest.committee_lookback),)
+            ),
+        )?;
         let tsk = lookback.ec_chain.last().key.clone();
         Ok((tsk, previous.supplemental_data.power_table))
     }

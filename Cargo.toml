@@ -8,6 +8,9 @@ license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
 exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests", "go.work*"]
 
+[lints]
+workspace = true
+
 [lib]
 name = "forest"
 
@@ -23,7 +26,7 @@ libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.4"
-serde = { version = "1", default-features = false, features = ["derive"] }
+serde = { version = "1", default-features = false, features = ["derive", "rc"] }
 serde_yaml = "0.9"
 tokio = "1"
 
@@ -36,6 +39,7 @@ async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-trait = "0.1"
 asynchronous-codec = "0.7"
+auto_impl = "1"
 axum = "0.8"
 backon = "1"
 base64 = "0.22"
@@ -121,6 +125,7 @@ jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 keccak-hash = "0.12"
 kubert-prometheus-process = "0.2"
 lazy-regex = "3"
+libm = "0.2"
 libp2p = { workspace = true, features = [
   'autonat',
   'gossipsub',
@@ -169,6 +174,7 @@ pin-project-lite = "0.2"
 positioned-io = "0.3"
 pretty_assertions = "1"
 prometheus-client = "0.23"
+puruspe = "0.4"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.3"
 rand = "0.8"
@@ -212,7 +218,7 @@ tera = { version = "1", default-features = false }
 thiserror = "2"
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
-tokio-tungstenite = "0.28.0"
+tokio-tungstenite = "0.29"
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
 toml = "1"
 tower = { version = "0.5", features = ["util"] }
@@ -224,6 +230,7 @@ unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 walkdir = "2"
+zerocopy = "0.8"
 zstd = "0.13"
 
 # optional dependencies
@@ -236,6 +243,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 termios = "0.3"
 
 [dev-dependencies]
+all_asserts = "2"
 ariadne = "0.6"
 assert_cmd = "2"
 bimap = "0.6"
@@ -257,7 +265,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.323"
+ra_ap_syntax = "0.0.325"
 regex-automata = "0.4"
 rstest = "0.26"
 serial_test = "3"
@@ -357,6 +365,11 @@ required-features = ["benchmark-private"]
 [package.metadata.docs.rs]
 # See https://docs.rs/about/metadata
 rustdoc-args = ["--document-private-items"]
+
+[workspace.lints.clippy]
+ref_option = "deny"
+ref_option_ref = "deny"
+cast_lossless = "deny"
 
 [workspace]
 members = ["interop-tests"]

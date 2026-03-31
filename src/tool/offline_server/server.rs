@@ -15,7 +15,7 @@ use crate::db::{
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::PeerManager;
-use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::message_pool::MessagePool;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{RPCState, start_rpc};
@@ -83,7 +83,7 @@ where
     let (tipset_send, _) = flume::bounded(5);
 
     let message_pool = MessagePool::new(
-        MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
+        chain_store.clone(),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
@@ -121,7 +121,6 @@ where
             keystore: Arc::new(RwLock::new(keystore)),
             mpool: Arc::new(message_pool),
             bad_blocks: Default::default(),
-            msgs_in_tipset: Default::default(),
             sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
             eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
             sync_network_context,

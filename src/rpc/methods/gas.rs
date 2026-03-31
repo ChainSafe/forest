@@ -4,8 +4,7 @@
 use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
-use crate::interpreter::VMTrace;
-use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use crate::message::{ChainMessage, Message as _, MessageRead as _, SignedMessage};
 use crate::rpc::chain::FlattenedApiMessage;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
 use crate::shim::executor::ApplyRet;
@@ -15,7 +14,7 @@ use crate::shim::{
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
-use crate::state_manager::{StateLookupPolicy, VMFlush};
+use crate::state_manager::VMFlush;
 use anyhow::{Context, Result};
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
@@ -64,7 +63,7 @@ fn estimate_fee_cap<DB: Blockstore>(
         (1.0 + (BASE_FEE_MAX_CHANGE_DENOM as f64).recip()).powf(max_queue_blks as f64);
 
     let fee_in_future = parent_base_fee
-        * BigInt::from_f64(increase_factor * (1 << 8) as f64)
+        * BigInt::from_f64(increase_factor * f64::from(1_i32 << 8))
             .context("failed to convert fee_in_future f64 to bigint")?;
     let out = fee_in_future.div_floor(1 << 8).add(msg.gas_premium());
     Ok(out)
@@ -106,7 +105,7 @@ struct GasMeta {
 }
 
 pub async fn estimate_gas_premium<DB: Blockstore>(
-    data: &Ctx<DB>,
+    ctx: &Ctx<DB>,
     mut nblocksincl: u64,
     ApiTipsetKey(ts_key): &ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
@@ -117,18 +116,16 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
 
-    let mut ts = data
-        .chain_store()
-        .load_required_tipset_or_heaviest(ts_key)?;
+    let mut ts = ctx.chain_store().load_required_tipset_or_heaviest(ts_key)?;
 
     for _ in 0..(nblocksincl * 2) {
         if ts.epoch() == 0 {
             break;
         }
-        let pts = data.chain_index().load_required_tipset(ts.parents())?;
-        blocks += pts.block_headers().len();
-        let msgs =
-            crate::chain::messages_for_tipset_with_cache(data.store(), &pts, &data.msgs_in_tipset)?;
+        let parent_ts = ctx.chain_index().load_required_tipset(ts.parents())?;
+        blocks += parent_ts.block_headers().len();
+
+        let msgs = ctx.chain_store().messages_for_tipset(&parent_ts)?;
 
         prices.append(
             &mut msgs
@@ -139,7 +136,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
                 })
                 .collect(),
         );
-        ts = pts;
+        ts = parent_ts;
     }
 
     let mut premium = compute_gas_premium(prices, blocks as u64);
@@ -220,7 +217,6 @@ impl GasEstimateGasLimit {
         data: &Ctx<DB>,
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
-        trace_config: VMTrace,
     ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Tipset)>
     where
         DB: Blockstore + Send + Sync + 'static,
@@ -237,7 +233,7 @@ impl GasEstimateGasLimit {
 
         let pending = data.mpool.pending_for(&from_a);
         let prior_messages: Vec<ChainMessage> = pending
-            .map(|s| s.into_iter().map(ChainMessage::Signed).collect_vec())
+            .map(|s| s.into_iter().map(Into::into).collect_vec())
             .unwrap_or_default();
 
         let ts = data.mpool.current_tipset();
@@ -245,17 +241,18 @@ impl GasEstimateGasLimit {
         // cost. We obviously can't generate a valid signature. Instead, we just
         // fill the signature with zeros. The validity is not checked.
         let mut chain_msg = match from_a.protocol() {
-            Protocol::Secp256k1 => ChainMessage::Signed(SignedMessage::new_unchecked(
-                msg,
-                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
-            )),
-            Protocol::Delegated => ChainMessage::Signed(SignedMessage::new_unchecked(
+            Protocol::Secp256k1 => {
+                SignedMessage::new_unchecked(msg, Signature::new_secp256k1(vec![0; SECP_SIG_LEN]))
+                    .into()
+            }
+            Protocol::Delegated => SignedMessage::new_unchecked(
                 msg,
                 // In Lotus, delegated signatures have the same length as SECP256k1.
                 // This may or may not change in the future.
                 Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
-            )),
-            _ => ChainMessage::Unsigned(msg),
+            )
+            .into(),
+            _ => msg.into(),
         };
 
         let (invoc_res, apply_ret, _, _) = data
@@ -264,8 +261,6 @@ impl GasEstimateGasLimit {
                 &mut chain_msg,
                 &prior_messages,
                 Some(ts.clone()),
-                trace_config,
-                StateLookupPolicy::Enabled,
                 VMFlush::Skip,
             )
             .await?;
@@ -280,9 +275,9 @@ impl GasEstimateGasLimit {
     where
         DB: Blockstore + Send + Sync + 'static,
     {
-        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk, VMTrace::NotTraced)
+        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk)
             .await
-            .map_err(|e| anyhow::anyhow!("gas estimation failed: {e}"))?;
+            .context("gas estimation failed")?;
         match res.msg_rct {
             Some(rct) => {
                 anyhow::ensure!(

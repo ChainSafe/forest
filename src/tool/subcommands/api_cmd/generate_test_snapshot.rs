@@ -17,7 +17,7 @@ use crate::{
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite, Block64},
-    message_pool::{MessagePool, MpoolRpcProvider},
+    message_pool::MessagePool,
     networks::ChainConfig,
     shim::address::CurrentNetwork,
     state_manager::StateManager,
@@ -132,7 +132,7 @@ async fn ctx(
 
     let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
     let message_pool = MessagePool::new(
-        MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
+        chain_store.clone(),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
@@ -148,7 +148,6 @@ async fn ctx(
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
-        msgs_in_tipset: Default::default(),
         sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
@@ -194,7 +193,10 @@ where
             SettingsStoreExt::write_obj(
                 &self.tracker,
                 crate::db::setting_keys::HEAD_KEY,
-                &self.inner.heaviest_tipset_key()?,
+                &self
+                    .inner
+                    .heaviest_tipset_key()?
+                    .context("heaviest tipset key not found")?,
             )?;
         }
 
@@ -202,10 +204,7 @@ where
     }
 }
 
-impl<T> ReadOpsTrackingStore<T>
-where
-    T: Blockstore + SettingsStore,
-{
+impl<T> ReadOpsTrackingStore<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
@@ -223,7 +222,7 @@ where
 }
 
 impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for ReadOpsTrackingStore<T> {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
         self.inner.heaviest_tipset_key()
     }
 

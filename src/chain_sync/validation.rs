@@ -94,7 +94,7 @@ impl TipsetValidator<'_> {
             .unwrap()
             .as_secs();
         let max_epoch =
-            ((now - genesis_tipset.min_timestamp()) / block_delay as u64) + MAX_HEIGHT_DRIFT;
+            ((now - genesis_tipset.min_timestamp()) / u64::from(block_delay)) + MAX_HEIGHT_DRIFT;
         let too_far_ahead_in_time = self.0.epoch() as u64 > max_epoch;
         if too_far_ahead_in_time {
             Err(TipsetValidationError::EpochTooLarge)

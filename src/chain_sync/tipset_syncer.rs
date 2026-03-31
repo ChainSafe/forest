@@ -11,7 +11,7 @@ use crate::shim::{
     address::Address, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
-use crate::state_manager::StateLookupPolicy;
+use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
@@ -23,7 +23,7 @@ use crate::{
 };
 use crate::{
     eth::is_valid_eth_tx_for_sending,
-    message::{Message as MessageTrait, valid_for_block_inclusion},
+    message::{MessageRead as _, valid_for_block_inclusion},
 };
 use ahash::HashMap;
 use cid::Cid;
@@ -232,14 +232,20 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Base fee check
     validations.spawn_blocking({
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
+        let xxx_height = state_manager.chain_config().epoch(Height::Xxx);
         let base_tipset = base_tipset.clone();
         let block_store = state_manager.blockstore_owned();
         let block = Arc::clone(&block);
         move || {
-            let base_fee = crate::chain::compute_base_fee(&block_store, &base_tipset, smoke_height)
-                .map_err(|e| {
-                    TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))
-                })?;
+            let base_fee = crate::chain::compute_base_fee(
+                &block_store,
+                &base_tipset,
+                smoke_height,
+                xxx_height,
+            )
+            .map_err(|e| {
+                TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))
+            })?;
             let parent_base_fee = &block.header.parent_base_fee;
             if &base_fee != parent_base_fee {
                 return Err(TipsetSyncerError::Validation(format!(
@@ -257,7 +263,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         let weight = header.weight.clone();
         move || {
             let calc_weight = fil_cns::weight(&block_store, &base_tipset).map_err(|e| {
-                TipsetSyncerError::Calculation(format!("Error calculating weight: {e}"))
+                TipsetSyncerError::Calculation(format!("Error calculating weight: {e:#}"))
             })?;
             if weight != calc_weight {
                 return Err(TipsetSyncerError::Validation(format!(
@@ -274,11 +280,15 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         let block = block.clone();
         async move {
             let header = block.header();
-            let (state_root, receipt_root) = state_manager
-                .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
+            let ExecutedTipset {
+                state_root,
+                receipt_root,
+                ..
+            } = state_manager
+                .load_executed_tipset(&base_tipset)
                 .await
                 .map_err(|e| {
-                    TipsetSyncerError::Calculation(format!("Failed to calculate state: {e}"))
+                    TipsetSyncerError::Calculation(format!("Failed to calculate state: {e:#}"))
                 })?;
 
             if state_root != header.state_root {
@@ -392,7 +402,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
                          tree: &StateTree<DB>|
-     -> Result<(), anyhow::Error> {
+     -> anyhow::Result<()> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(to_vec(msg).unwrap().len());
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
@@ -435,14 +445,14 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     };
 
     let mut account_sequences: HashMap<Address, u64> = HashMap::default();
-    let (state_root, _) = state_manager
-        .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
+    let ExecutedTipset { state_root, .. } = state_manager
+        .load_executed_tipset(&base_tipset)
         .await
-        .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e}")))?;
+        .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e:#}")))?;
     let tree =
         StateTree::new_from_root(state_manager.blockstore_owned(), &state_root).map_err(|e| {
             TipsetSyncerError::Calculation(format!(
-                "Could not load from new state root in state manager: {e}"
+                "Could not load from new state root in state manager: {e:#}"
             ))
         })?;
 
@@ -450,7 +460,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     for (i, msg) in block.bls_msgs().iter().enumerate() {
         check_msg(msg, &mut account_sequences, &tree).map_err(|e| {
             TipsetSyncerError::Validation(format!(
-                "Block had invalid BLS message at index {i}: {e}"
+                "Block had invalid BLS message at index {i}: {e:#}"
             ))
         })?;
     }
@@ -466,7 +476,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetSyncerError::Validation(format!(
-                "block had an invalid secp message at index {i}: {e}"
+                "block had an invalid secp message at index {i}: {e:#}"
             ))
         })?;
         // Resolve key address for signature verification

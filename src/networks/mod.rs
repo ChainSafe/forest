@@ -281,7 +281,6 @@ pub struct ChainConfig {
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Option<Cid>,
     pub enable_indexer: bool,
-    pub enable_receipt_event_caching: bool,
     pub default_max_fee: TokenAmount,
 }
 
@@ -315,7 +314,6 @@ impl ChainConfig {
                     .expect("invalid f3_initial_power_table"),
             ),
             enable_indexer: false,
-            enable_receipt_event_caching: true,
             default_max_fee: TokenAmount::zero(),
         }
     }
@@ -352,7 +350,6 @@ impl ChainConfig {
                     .expect("invalid f3_initial_power_table"),
             ),
             enable_indexer: false,
-            enable_receipt_event_caching: true,
             default_max_fee: TokenAmount::zero(),
         }
     }
@@ -379,7 +376,6 @@ impl ChainConfig {
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: None,
             enable_indexer: false,
-            enable_receipt_event_caching: true,
             default_max_fee: TokenAmount::zero(),
         }
     }
@@ -412,7 +408,6 @@ impl ChainConfig {
             f3_bootstrap_epoch: 1000,
             f3_initial_power_table: None,
             enable_indexer: false,
-            enable_receipt_event_caching: true,
             default_max_fee: TokenAmount::zero(),
         }
     }
@@ -492,13 +487,11 @@ impl ChainConfig {
 
         BeaconSchedule(
             ds_iter
-                .map(|dc| BeaconPoint {
-                    height: dc.height,
-                    beacon: Box::new(DrandBeacon::new(
-                        genesis_ts,
-                        self.block_delay_secs as u64,
-                        dc.config,
-                    )),
+                .map(|dc| {
+                    BeaconPoint::new(
+                        dc.height,
+                        DrandBeacon::new(genesis_ts, u64::from(self.block_delay_secs), dc.config),
+                    )
                 })
                 .collect(),
         )
@@ -631,7 +624,7 @@ pub fn calculate_expected_epoch(
     genesis_timestamp: u64,
     block_delay_secs: u32,
 ) -> i64 {
-    (now_timestamp.saturating_sub(genesis_timestamp) / block_delay_secs as u64) as i64
+    (now_timestamp.saturating_sub(genesis_timestamp) / u64::from(block_delay_secs)) as i64
 }
 
 #[cfg(test)]
@@ -737,7 +730,7 @@ mod tests {
         assert_eq!(
             0,
             calculate_expected_epoch(
-                mainnet_genesis + mainnet_block_delay as u64 - 1,
+                mainnet_genesis + u64::from(mainnet_block_delay) - 1,
                 mainnet_genesis,
                 mainnet_block_delay
             )
@@ -746,7 +739,7 @@ mod tests {
         assert_eq!(
             1,
             calculate_expected_epoch(
-                mainnet_genesis + mainnet_block_delay as u64,
+                mainnet_genesis + u64::from(mainnet_block_delay),
                 mainnet_genesis,
                 mainnet_block_delay
             )

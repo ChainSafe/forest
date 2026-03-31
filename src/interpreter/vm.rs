@@ -12,7 +12,7 @@ use crate::interpreter::{
     fvm4::ForestExterns as ForestExternsV4,
 };
 use crate::message::ChainMessage;
-use crate::message::Message as MessageTrait;
+use crate::message::MessageRead as _;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::actors::{AwardBlockRewardParams, cron, reward};
 use crate::shim::{
@@ -77,8 +77,11 @@ type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
 pub type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
-pub type ApplyBlockResult =
-    anyhow::Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>, Vec<Option<Cid>>), anyhow::Error>;
+pub type ApplyBlockResult = anyhow::Result<(
+    Vec<Receipt>,
+    Vec<Option<Vec<StampedEvent>>>,
+    Vec<Option<Cid>>,
+)>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
@@ -115,14 +118,8 @@ impl BlockMessages {
                 let (usm, sm) = block_messages(db, b)?;
 
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
-                messages.extend(
-                    usm.into_iter()
-                        .filter_map(|m| select_msg(ChainMessage::Unsigned(m))),
-                );
-                messages.extend(
-                    sm.into_iter()
-                        .filter_map(|m| select_msg(ChainMessage::Signed(m))),
-                );
+                messages.extend(usm.into_iter().filter_map(|m| select_msg(m.into())));
+                messages.extend(sm.into_iter().filter_map(|m| select_msg(m.into())));
 
                 Ok(BlockMessages {
                     miner: b.miner_address,
@@ -188,7 +185,7 @@ where
         }: ExecutionContext<DB>,
         multi_engine: &MultiEngine,
         enable_tracing: VMTrace,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> anyhow::Result<Self> {
         let network_version = chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V21 {
             let mut config = NetworkConfig_v4::new(network_version.into());
@@ -278,7 +275,7 @@ where
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
-    pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, anyhow::Error> {
+    pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
         match self {
             VM::VM2(fvm_executor) => Ok(fvm_executor
                 .state_tree()
@@ -336,7 +333,7 @@ where
         if let Some(mut callback) = callback {
             callback(MessageCallbackCtx {
                 cid: cron_msg.cid(),
-                message: &ChainMessage::Unsigned(cron_msg),
+                message: &cron_msg.into(),
                 apply_ret: &ret,
                 at: CalledAt::Cron,
                 duration,
@@ -362,7 +359,7 @@ where
             let mut penalty = TokenAmount::zero();
             let mut gas_reward = TokenAmount::zero();
 
-            let mut process_msg = |message: &ChainMessage| -> Result<(), anyhow::Error> {
+            let mut process_msg = |message: &ChainMessage| -> anyhow::Result<()> {
                 let cid = message.cid();
                 // Ensure no duplicate processing of a message
                 if processed.contains(&cid) {
@@ -387,7 +384,11 @@ where
                 receipts.push(msg_receipt.clone());
 
                 events_roots.push(ret.msg_receipt().events_root());
-                events.push(ret.events());
+                if ret.msg_receipt().events_root().is_some() {
+                    events.push(Some(ret.events()));
+                } else {
+                    events.push(None);
+                }
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
@@ -421,7 +422,7 @@ where
                 if let Some(callback) = &mut callback {
                     callback(MessageCallbackCtx {
                         cid: rew_msg.cid(),
-                        message: &ChainMessage::Unsigned(rew_msg),
+                        message: &rew_msg.into(),
                         apply_ret: &ret,
                         at: CalledAt::Reward,
                         duration,
@@ -521,14 +522,14 @@ where
         Ok((ret, duration))
     }
 
-    fn reward_message(
+    pub(crate) fn reward_message(
         &self,
         epoch: ChainEpoch,
         miner: Address,
         win_count: i64,
         penalty: TokenAmount,
         gas_reward: TokenAmount,
-    ) -> Result<Option<Message>, anyhow::Error> {
+    ) -> anyhow::Result<Option<Message>> {
         let params = RawBytes::serialize(AwardBlockRewardParams {
             miner: miner.into(),
             penalty: penalty.into(),

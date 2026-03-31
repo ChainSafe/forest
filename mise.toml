@@ -113,6 +113,7 @@ pnpm yaml-check
 
 [tasks.format]
 description = "Format all supported code."
+depends = ["docs:format"]
 run = '''
 cargo fmt --all
 taplo fmt
@@ -165,7 +166,7 @@ arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test
 }
 '''
 run = '''
-cargo test --doc --profile ${usage_profile?} --no-default-features --features "test doctest-private" --no-fail-fast
+cargo test --doc --profile ${usage_profile?} --no-default-features --features "test doctest-private cargo-test" --no-fail-fast
 '''
 
 [tasks."test:nextest"]
@@ -189,7 +190,7 @@ arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test
 '''
 run = '''
 echo "Running tests with profile: ${usage_profile?}" 
-cargo test --lib --profile ${usage_profile?} --workspace --no-default-features --features "test cargo-test" --no-fail-fast -- --test "cargo_test_"
+cargo test --lib --profile ${usage_profile?} --no-default-features --features "test doctest-private cargo-test" --no-fail-fast -- --test "cargo_test_"
 '''
 
 [tasks.test]
@@ -237,8 +238,15 @@ fi
 tail -n +2 .config/forest.dic | diff - "$TMPFILE"
 '''
 
+[tasks.insta]
+description = "Update insta snapshots."
+run = '''
+cargo test --lib -- rpc::tests::openrpc || cargo insta accept
+'''
+tools.cargo-insta = "1.46"
+
 [tools]
 cargo-binstall = "1.17"
 go = "1.26"
-node = "20"
+node = "24"
 pnpm = "10"

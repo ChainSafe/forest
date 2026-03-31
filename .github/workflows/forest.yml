@@ -88,7 +88,7 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - name: Go tests
         run: |
           go test -v ./tools/prometheus_metrics_validator
@@ -112,7 +112,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - run: cargo publish --dry-run
   forest-cli-check:
     needs:
@@ -163,6 +163,9 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
@@ -268,6 +271,35 @@ jobs:
         run: |
           if [[ "$CALIBNET_WALLET" != "" ]]; then
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+          fi
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+  calibnet-delegated-wallet-check:
+    # Disabling this job until message pool nonce calculation is fixed. See: https://github.com/ChainSafe/forest/issues/4899
+    if: false
+    needs:
+      - build-ubuntu
+    name: Delegated wallet tests
+    runs-on: ubuntu-24.04
+    steps:
+      - run: lscpu
+      - uses: actions/cache@v5
+        with:
+          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
+          key: proof-params-keys
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: "forest-${{ runner.os }}"
+          path: ~/.cargo/bin
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Delegated wallet commands check
+        env:
+          CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
+        run: |
+          if [[ "$CALIBNET_WALLET" != "" ]]; then
+            ./scripts/tests/calibnet_delegated_wallet_check.sh "$CALIBNET_WALLET"
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v1:
@@ -609,7 +641,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet RPC checks
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-x64-8x
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile

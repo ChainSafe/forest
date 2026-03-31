@@ -7,11 +7,12 @@ use crate::chain::ChainStore;
 use crate::db::car::ManyCar;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
-use crate::message::{Message as _, SignedMessage};
+use crate::message::{MessageRead as _, SignedMessage};
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
-    BlockNumberOrHash, EthInt64, Predefined, new_eth_tx_from_signed_message, types::*,
+    BlockNumberOrHash, EthInt64, Predefined, new_eth_tx_from_signed_message, trace::types::*,
+    types::*,
 };
 use crate::rpc::gas::{GasEstimateGasLimit, GasEstimateMessageGas};
 use crate::rpc::miner::BlockTemplate;
@@ -271,8 +272,8 @@ pub(super) enum SortPolicy {
 
 pub(super) struct RpcTest {
     pub request: rpc::Request,
-    pub check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
-    pub check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
+    pub check_syntax: Box<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
+    pub check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     pub ignore: Option<&'static str>,
     pub policy_on_rejected: PolicyOnRejected,
     pub sort_policy: Option<SortPolicy>,
@@ -317,14 +318,14 @@ impl RpcTest {
     fn basic_raw<T: DeserializeOwned>(request: rpc::Request<T>) -> Self {
         Self {
             request: request.map_ty(),
-            check_syntax: Arc::new(|it| match serde_json::from_value::<T>(it) {
+            check_syntax: Box::new(|it| match serde_json::from_value::<T>(it) {
                 Ok(_) => true,
                 Err(e) => {
                     debug!(?e);
                     false
                 }
             }),
-            check_semantics: Arc::new(|_, _| true),
+            check_semantics: Box::new(|_, _| true),
             ignore: None,
             policy_on_rejected: PolicyOnRejected::Fail,
             sort_policy: None,
@@ -347,14 +348,14 @@ impl RpcTest {
     ) -> Self {
         Self {
             request: request.map_ty(),
-            check_syntax: Arc::new(|value| match serde_json::from_value::<T>(value) {
+            check_syntax: Box::new(|value| match serde_json::from_value::<T>(value) {
                 Ok(_) => true,
                 Err(e) => {
                     debug!("{e}");
                     false
                 }
             }),
-            check_semantics: Arc::new(move |forest_json, lotus_json| {
+            check_semantics: Box::new(move |forest_json, lotus_json| {
                 match (
                     serde_json::from_value::<T>(forest_json),
                     serde_json::from_value::<T>(lotus_json),
@@ -957,22 +958,22 @@ fn state_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(StateMarketDeals::request((tipset.key().into(),))?),
         RpcTest::identity(StateSectorPreCommitInfo::request((
             Default::default(), // invalid address
-            u16::MAX as _,
+            u64::from(u16::MAX),
             tipset.key().into(),
         ))?)
         .policy_on_rejected(PolicyOnRejected::Pass),
         RpcTest::identity(StateSectorGetInfo::request((
-            Default::default(), // invalid address
-            u16::MAX as _,      // invalid sector number
+            Default::default(),  // invalid address
+            u64::from(u16::MAX), // invalid sector number
             tipset.key().into(),
         ))?)
         .policy_on_rejected(PolicyOnRejected::Pass),
         RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
-            u16::MAX as _, // Invalid deal id
+            u64::from(u16::MAX), // Invalid deal id
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateGetAllocationForPendingDeal::request((
-            u16::MAX as _, // Invalid deal id
+            u64::from(u16::MAX), // Invalid deal id
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateCompute::request((
@@ -1103,13 +1104,13 @@ fn state_tests_with_tipset<DB: Blockstore>(
             RpcTest::identity(StateGetAllAllocations::request((tipset.key().into(),))?),
             RpcTest::identity(StateSectorPreCommitInfo::request((
                 block.miner_address,
-                u16::MAX as _, // invalid sector number
+                u64::from(u16::MAX), // invalid sector number
                 tipset.key().into(),
             ))?)
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
             RpcTest::identity(StateSectorGetInfo::request((
                 block.miner_address,
-                u16::MAX as _, // invalid sector number
+                u64::from(u16::MAX), // invalid sector number
                 tipset.key().into(),
             ))?)
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
@@ -1225,11 +1226,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([
                 RpcTest::identity(StateReplay::request((tipset.key().into(), msg_cid))?),
-                validate_message_lookup(
+                validate_message_wait(
                     StateWaitMsg::request((msg_cid, 0, 10101, true))?
                         .with_timeout(Duration::from_secs(15)),
                 ),
-                validate_message_lookup(
+                validate_message_wait(
                     StateWaitMsg::request((msg_cid, 0, 10101, false))?
                         .with_timeout(Duration::from_secs(15)),
                 ),
@@ -2082,6 +2083,27 @@ fn eth_tests_with_tipset<DB: Blockstore>(
                 .with_api_path(api_path),
             ),
             RpcTest::identity(
+                EthTraceReplayBlockTransactions::request((
+                    BlockNumberOrHash::PredefinedBlock(Predefined::Latest),
+                    vec!["trace".to_string()],
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthTraceReplayBlockTransactions::request((
+                    BlockNumberOrHash::PredefinedBlock(Predefined::Safe),
+                    vec!["trace".to_string()],
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
+                EthTraceReplayBlockTransactions::request((
+                    BlockNumberOrHash::PredefinedBlock(Predefined::Finalized),
+                    vec!["trace".to_string()],
+                ))?
+                .with_api_path(api_path),
+            ),
+            RpcTest::identity(
                 EthTraceFilter::request((EthTraceFilterCriteria {
                     from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
                     to_block: Some(format!(
@@ -2758,11 +2780,24 @@ fn dump_test_data(dump_dir: &Path, success: bool, test_dump: &TestDump) -> anyho
     Ok(())
 }
 
-fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
+fn validate_message_wait(req: rpc::Request<MessageLookup>) -> RpcTest {
     RpcTest::validate(req, |mut forest, mut lotus| {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
+        forest == lotus
+    })
+}
+
+fn validate_message_lookup(req: rpc::Request<Option<MessageLookup>>) -> RpcTest {
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
+        if let Some(forest) = &mut forest {
+            forest.return_dec = Ipld::Null;
+        }
+        if let Some(lotus) = &mut lotus {
+            lotus.return_dec = Ipld::Null;
+        }
         forest == lotus
     })
 }

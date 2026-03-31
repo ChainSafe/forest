@@ -6,10 +6,9 @@ use crate::blocks::TipsetKey;
 use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
-use crate::utils::multihash::prelude::*;
-use anyhow::{Context as _, anyhow};
+use crate::utils::{broadcast::has_subscribers, multihash::prelude::*};
+use anyhow::Context as _;
 use cid::Cid;
-use futures::FutureExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
@@ -131,7 +130,7 @@ impl ParityDb {
     {
         self.db
             .get(column as u8, key.as_ref())
-            .map_err(|e| anyhow!("error from column {column}: {e}"))
+            .with_context(|| format!("error from column {column}"))
     }
 
     fn write_to_column<K, V>(&self, key: K, value: V, column: DbColumn) -> anyhow::Result<()>
@@ -142,7 +141,7 @@ impl ParityDb {
         let tx = [(column as u8, key.as_ref(), Some(value.as_ref().to_vec()))];
         self.db
             .commit(tx)
-            .map_err(|e| anyhow!("error writing to column {column}: {e}"))
+            .with_context(|| format!("error writing to column {column}"))
     }
 }
 
@@ -173,9 +172,8 @@ impl SettingsStore for ParityDb {
 }
 
 impl super::HeaviestTipsetKeyProvider for ParityDb {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
-        super::SettingsStoreExt::read_obj::<TipsetKey>(self, super::setting_keys::HEAD_KEY)?
-            .context("head key not found")
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
+        super::SettingsStoreExt::read_obj::<TipsetKey>(self, super::setting_keys::HEAD_KEY)
     }
 
     fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
@@ -219,10 +217,6 @@ impl EthMappingsStore for ParityDb {
             (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
         }))?)
     }
-}
-
-fn has_subscribers<T>(tx: &tokio::sync::broadcast::Sender<T>) -> bool {
-    tx.closed().now_or_never().is_none()
 }
 
 impl Blockstore for ParityDb {
@@ -270,9 +264,7 @@ impl Blockstore for ParityDb {
         let tx = values
             .into_iter()
             .map(|(col, k, v)| (col as u8, Operation::Set(k, v)));
-        self.db
-            .commit_changes(tx)
-            .map_err(|e| anyhow!("error bulk writing: {e}"))?;
+        self.db.commit_changes(tx).context("error bulk writing")?;
         if let Some(tx) = tx_opt {
             for i in values_for_subscriber {
                 let _ = tx.send(i);

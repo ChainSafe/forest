@@ -15,10 +15,7 @@ use std::{
 
 use crate::{
     shim::sector::SectorSize,
-    utils::{
-        misc::env::is_env_truthy,
-        net::{download_ipfs_file_trustlessly, global_http_client},
-    },
+    utils::net::{download_ipfs_file_trustlessly, global_http_client},
 };
 use anyhow::{Context, bail};
 use backon::{ExponentialBuilder, Retryable};
@@ -61,7 +58,7 @@ pub enum SectorSizeOpt {
 /// Ensures the parameter files are downloaded to cache dir
 pub async fn ensure_proof_params_downloaded() -> anyhow::Result<()> {
     #[cfg(test)]
-    if is_env_truthy("FOREST_TEST_SKIP_PROOF_PARAM_CHECK") {
+    if crate::utils::misc::env::is_env_truthy("FOREST_TEST_SKIP_PROOF_PARAM_CHECK") {
         return Ok(());
     }
 
@@ -87,7 +84,7 @@ pub async fn get_params(
     param_json: &str,
     storage_size: SectorSizeOpt,
     dry_run: bool,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     // Just print out the parameters download directory path and exit.
     if dry_run {
         println!("{}", param_dir(data_dir).to_string_lossy());
@@ -126,7 +123,7 @@ pub async fn get_params_default(
     data_dir: &Path,
     storage_size: SectorSizeOpt,
     dry_run: bool,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     get_params(data_dir, DEFAULT_PARAMETERS, storage_size, dry_run).await
 }
 
@@ -134,7 +131,9 @@ async fn fetch_verify_params(
     data_dir: &Path,
     name: &str,
     info: Arc<ParameterData>,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
+    crate::def_is_env_truthy!(force_ipfs_gateway, PROOFS_ONLY_IPFS_GATEWAY_ENV);
+
     let path: PathBuf = param_dir(data_dir).join(name);
 
     match check_parameter_file(&path, &info).await {
@@ -150,7 +149,7 @@ async fn fetch_verify_params(
         }
     }
 
-    if is_env_truthy(PROOFS_ONLY_IPFS_GATEWAY_ENV) {
+    if force_ipfs_gateway() {
         fetch_params_ipfs_gateway(&path, &info).await?;
     } else if let Err(e) = fetch_params_cloudflare(name, &path).await {
         warn!("Failed to fetch param file from Cloudflare R2: {e:?}. Falling back to IPFS gateway",);

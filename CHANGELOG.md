@@ -29,11 +29,19 @@
 
 ### Added
 
+- [#6710](https://github.com/ChainSafe/forest/pull/6710): Added support for f4 addresses in forest-wallet.
+
 ### Changed
+
+- [#6821](https://github.com/ChainSafe/forest/pull/6821): Added message receipt size and event size to `forest-tool archive info` output.
 
 ### Removed
 
 ### Fixed
+
+- [#6707](https://github.com/ChainSafe/forest/issues/6707): Added missing `GoldenWeek` network upgrade entry in `Filecoin.StateGetNetworkParams` RPC method.
+
+- [#6817](https://github.com/ChainSafe/forest/pull/6817): Fixed `StateSearchMsg` to return null instead of error when not found to match Lotus behaviour.
 
 ## Forest v0.32.4 "Mild Inconvenience"
 
@@ -48,6 +56,8 @@ This is a non-mandatory release for all node operators. It enables F3 finality r
 ### Changed
 
 - [#6631](https://github.com/ChainSafe/forest/issues/6631): Backported F3 finality resolution to ETH v1 RPC methods.
+
+- [#6686](https://github.com/ChainSafe/forest/issues/6686): [FIP-0115](https://github.com/filecoin-project/FIPs/pull/1233) implementation. This will go live on the next network upgrade.
 
 ### Removed
 

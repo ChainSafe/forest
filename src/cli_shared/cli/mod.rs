@@ -154,7 +154,7 @@ pub struct CliOpts {
 }
 
 impl CliOpts {
-    pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
+    pub fn to_config(&self) -> anyhow::Result<(Config, Option<ConfigPath>)> {
         let (path, mut cfg) = read_config(self.config.as_ref(), self.chain.clone())?;
 
         if let Some(genesis_file) = &self.genesis {

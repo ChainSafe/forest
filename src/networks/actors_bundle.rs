@@ -293,8 +293,10 @@ mod tests {
                     _ => return anyhow::Ok(()),
                 };
 
-                let car_primary = CarStream::new(Cursor::new(primary)).await?;
-                let car_secondary = CarStream::new(Cursor::new(alt)).await?;
+                let (car_primary, car_secondary) = tokio::try_join!(
+                    CarStream::new(Cursor::new(primary)),
+                    CarStream::new(Cursor::new(alt)),
+                )?;
 
                 assert_eq!(
                     car_primary.header_v1.roots, car_secondary.header_v1.roots,

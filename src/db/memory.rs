@@ -24,6 +24,15 @@ pub struct MemoryDB {
 }
 
 impl MemoryDB {
+    pub fn blockstore_size_bytes(&self) -> usize {
+        self.blockchain_db
+            .read()
+            .iter()
+            .chain(self.blockchain_persistent_db.read().iter())
+            .map(|(k, v)| k.to_bytes().len() + v.len())
+            .sum()
+    }
+
     pub async fn export_forest_car<W: tokio::io::AsyncWrite + Unpin>(
         &self,
         writer: &mut W,
@@ -154,9 +163,8 @@ impl BitswapStoreReadWrite for MemoryDB {
 }
 
 impl super::HeaviestTipsetKeyProvider for MemoryDB {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
-        SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)?
-            .context("head key not found")
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
+        SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)
     }
 
     fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {

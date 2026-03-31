@@ -12,12 +12,17 @@ use crate::key_management::{Key, KeyInfo};
 use crate::{
     ENCRYPTED_KEYSTORE_NAME,
     cli::humantoken,
+    eth::{EAMMethod, EVMMethod, EthEip1559TxArgsBuilder, EthTx},
     message::SignedMessage,
     rpc::{
+        eth::{EthChainId, is_eth_address, types::EthAddress},
         mpool::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
         types::ApiTipsetKey,
     },
-    shim::address::Address,
+    shim::{
+        address::{Address, Protocol},
+        message::{METHOD_SEND, Message},
+    },
 };
 use crate::{KeyStore, lotus_json::LotusJson};
 use crate::{
@@ -26,7 +31,6 @@ use crate::{
         address::StrictAddress,
         crypto::{Signature, SignatureType},
         econ::TokenAmount,
-        message::{METHOD_SEND, Message},
     },
 };
 use crate::{
@@ -403,8 +407,8 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let key_pairs = backend.list_addrs().await?;
-                let default = backend.wallet_default_address().await?;
+                let (key_pairs, default) =
+                    tokio::try_join!(backend.list_addrs(), backend.wallet_default_address(),)?;
 
                 let max_addr_len = key_pairs
                     .iter()
@@ -499,11 +503,28 @@ impl WalletCommands {
                     .into()
                 };
 
+                let (mut to, is_0x_recipient) = resolve_target_address(&target_address)?;
+
+                // Resolve to ID address when sending from delegated address to non-ID/non-Delegated address.
+                if is_eth_address(&from)
+                    && to.protocol() != Protocol::ID
+                    && to.protocol() != Protocol::Delegated
+                {
+                    to = StateLookupID::call(&backend.remote, (to, ApiTipsetKey(None)))
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "addresses starting with f410f can only send to other addresses starting with f410f, or id addresses. could not find id address for {to}"
+                            )
+                        })?;
+                }
+                let method_num = resolve_method_num(&from, &to, is_0x_recipient);
+
                 let message = Message {
                     from,
-                    to: StrictAddress::from_str(&target_address)?.into(),
+                    to,
                     value: amount,
-                    method_num: METHOD_SEND,
+                    method_num,
                     gas_limit: gas_limit as u64,
                     gas_fee_cap: gas_feecap,
                     gas_premium,
@@ -526,13 +547,34 @@ impl WalletCommands {
                     message.sequence = MpoolGetNonce::call(&backend.remote, (from,)).await?;
 
                     let key = crate::key_management::find_key(&from, keystore)?;
-                    let sig = crate::key_management::sign(
-                        *key.key_info.key_type(),
-                        key.key_info.private_key(),
-                        message.cid().to_bytes().as_slice(),
-                    )?;
-
-                    let smsg = SignedMessage::new_from_parts(message, sig)?;
+                    let sig_type = *key.key_info.key_type();
+                    let smsg = if sig_type == SignatureType::Delegated {
+                        let eth_chain_id = u64::from_str_radix(
+                            EthChainId::call(&backend.remote, ())
+                                .await?
+                                .trim_start_matches("0x"),
+                            16,
+                        )?;
+                        let eth_tx_args = EthEip1559TxArgsBuilder::default()
+                            .chain_id(eth_chain_id)
+                            .unsigned_message(&message)?
+                            .build()?;
+                        let eth_tx = EthTx::from(eth_tx_args);
+                        let sig = crate::key_management::sign(
+                            sig_type,
+                            key.key_info.private_key(),
+                            &eth_tx.rlp_unsigned_message(eth_chain_id)?,
+                        )?;
+                        let unsigned_msg = eth_tx.get_unsigned_message(from, eth_chain_id)?;
+                        SignedMessage::new_unchecked(unsigned_msg, sig)
+                    } else {
+                        let sig = crate::key_management::sign(
+                            sig_type,
+                            key.key_info.private_key(),
+                            message.cid().to_bytes().as_slice(),
+                        )?;
+                        SignedMessage::new_from_parts(message, sig)?
+                    };
 
                     MpoolPush::call(&backend.remote, (smsg.clone(),)).await?;
                     smsg
@@ -593,5 +635,157 @@ fn format_balance(balance: &TokenAmount, no_round: bool, no_abbrev: bool) -> Str
         (false, true) => format!("{:#.4}", balance.pretty()),
         // round, relative
         (false, false) => format!("{:.4}", balance.pretty()),
+    }
+}
+
+fn resolve_target_address(target_address: &str) -> anyhow::Result<(Address, bool)> {
+    match StrictAddress::from_str(target_address) {
+        Ok(addr) => Ok((addr.into(), false)),
+        Err(_) => {
+            let eth_addr = EthAddress::from_str(target_address)
+                .context("target address must be a valid FIL address or ETH address (0x...)")?;
+            let addr = eth_addr.to_filecoin_address()?;
+            Ok((addr, true))
+        }
+    }
+}
+
+fn resolve_method_num(from: &Address, to: &Address, is_0x_recipient: bool) -> u64 {
+    if !is_eth_address(from) && !is_0x_recipient {
+        return METHOD_SEND;
+    }
+    if *to == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+        EAMMethod::CreateExternal as u64
+    } else {
+        EVMMethod::InvokeContract as u64
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use crate::eth::{EAMMethod, EVMMethod};
+    use crate::rpc::eth::types::EthAddress;
+    use crate::shim::address::{Address, CurrentNetwork, Network};
+    use crate::shim::message::METHOD_SEND;
+
+    use super::{resolve_method_num, resolve_target_address};
+
+    #[test]
+    fn test_resolve_target_address_id() {
+        CurrentNetwork::with(Network::Mainnet, || {
+            let (addr, is_0x) = resolve_target_address("f01234").unwrap();
+            assert!(!is_0x);
+            let expected_addr = Address::new_id(1234);
+            assert_eq!(addr, expected_addr);
+        });
+        CurrentNetwork::with(Network::Testnet, || {
+            let (addr, is_0x) = resolve_target_address("t01234").unwrap();
+            assert!(!is_0x);
+            let expected_addr = Address::new_id(1234);
+            assert_eq!(addr, expected_addr);
+        });
+    }
+
+    #[test]
+    fn test_resolve_target_address_masked_id() {
+        CurrentNetwork::with(Network::Mainnet, || {
+            let (addr, is_0x) =
+                resolve_target_address("0xff000000000000000000000000000000000004d2").unwrap();
+            assert!(is_0x);
+            let expected_addr = Address::new_id(1234);
+            assert_eq!(addr, expected_addr);
+        });
+        CurrentNetwork::with(Network::Testnet, || {
+            let (addr, is_0x) =
+                resolve_target_address("0xff000000000000000000000000000000000004d2").unwrap();
+            assert!(is_0x);
+            let expected_addr = Address::new_id(1234);
+            assert_eq!(addr, expected_addr);
+        });
+    }
+
+    #[test]
+    fn test_resolve_target_address_eth() {
+        CurrentNetwork::with(Network::Mainnet, || {
+            let (addr, is_0x) =
+                resolve_target_address("0x6cb414224f0b91de5c3b616e700e34a5172c149f").unwrap();
+            assert!(is_0x);
+            let expected_addr =
+                Address::from_str("f410fns2biispboi54xb3mfxhadruuulsyfe73avfmey").unwrap();
+            assert_eq!(addr, expected_addr);
+        });
+        CurrentNetwork::with(Network::Testnet, || {
+            let (addr, is_0x) =
+                resolve_target_address("0x6cb414224f0b91de5c3b616e700e34a5172c149f").unwrap();
+            assert!(is_0x);
+            let expected_addr =
+                Address::from_str("t410fns2biispboi54xb3mfxhadruuulsyfe73avfmey").unwrap();
+            assert_eq!(addr, expected_addr);
+        });
+    }
+
+    #[test]
+    fn test_resolve_target_address_invalid() {
+        let err = resolve_target_address("0xInvalidAddress").unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("target address must be a valid FIL address or ETH address")
+        );
+    }
+
+    #[test]
+    fn test_resolve_method_num_send() {
+        let from = Address::from_str("f01234").unwrap();
+        let to = Address::from_str("f01234").unwrap();
+        let method = resolve_method_num(&from, &to, false);
+        assert_eq!(method, METHOD_SEND);
+    }
+
+    #[test]
+    fn test_resolve_method_num_create_external() {
+        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let to = Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR;
+        let method = resolve_method_num(&from, &to, false);
+        assert_eq!(method, EAMMethod::CreateExternal as u64);
+    }
+
+    #[test]
+    fn test_resolve_method_num_invoke_contract() {
+        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let to = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let method = resolve_method_num(&from, &to, false);
+        assert_eq!(method, EVMMethod::InvokeContract as u64);
+    }
+
+    #[test]
+    fn test_resolve_method_num_invoke_contract_eth() {
+        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let to = EthAddress::from_str("0x6cb414224f0b91de5c3b616e700e34a5172c149f")
+            .unwrap()
+            .to_filecoin_address()
+            .unwrap();
+        let method = resolve_method_num(&from, &to, true);
+        assert_eq!(method, EVMMethod::InvokeContract as u64);
+    }
+
+    #[test]
+    fn test_resolve_method_num_send_to_delegated() {
+        let from = Address::from_str("f01234").unwrap();
+        let to = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let method = resolve_method_num(&from, &to, false);
+        assert_eq!(method, METHOD_SEND);
+    }
+
+    #[test]
+    fn test_resolve_method_num_send_to_eth() {
+        let from = Address::from_str("f01234").unwrap();
+        let to = EthAddress::from_str("0x6cb414224f0b91de5c3b616e700e34a5172c149f")
+            .unwrap()
+            .to_filecoin_address()
+            .unwrap();
+        let method = resolve_method_num(&from, &to, true);
+        assert_eq!(method, EVMMethod::InvokeContract as u64);
     }
 }

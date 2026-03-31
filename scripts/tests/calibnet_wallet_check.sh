@@ -7,23 +7,7 @@ set -euxo pipefail
 
 source "$(dirname "$0")/harness.sh"
 
-
-usage() {
-  echo "Usage: $0 <PRELOADED_WALLET_STRING>"
-  exit 1
-}
-
-if [ -z "$1" ]
-  then
-    usage
-fi
-
-echo "$1" > preloaded_wallet.key
-
-forest_init "$@"
-
-$FOREST_WALLET_PATH import preloaded_wallet.key
-$FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key
+forest_wallet_init "$@"
 
 # Test commented out due to it being flaky. See the tracking issue: https://github.com/ChainSafe/forest/issues/4849
 # : Begin Filecoin.MarketAddBalance test
@@ -115,6 +99,8 @@ sleep 5s
 # Show balances
 $FOREST_WALLET_PATH list
 
+FOREST_URL="http://127.0.0.1:2345/rpc/v1"
+
 echo "Creating a new address to send FIL to"
 ADDR_TWO=$($FOREST_WALLET_PATH new)
 echo "$ADDR_TWO"
@@ -153,6 +139,47 @@ while [[ $i != 20 && $ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; do
   sleep 30s
   ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_THREE" --exact-balance)
 done
+
+# Test commented out due to it being flaky. See the tracking issue: https://github.com/ChainSafe/forest/issues/4899
+# ETH_ADDR_TWO=$(curl -s -X POST "$FOREST_URL" \
+#   -H 'Content-Type: application/json' \
+#   -H "Authorization: Bearer $ADMIN_TOKEN" \
+#   --data "$(jq -n --arg addr "$ADDR_TWO" '{jsonrpc: "2.0", id: 1, method: "Filecoin.FilecoinAddressToEthAddress", params: [$addr, "pending"]}')" \
+#   | jq -r '.result')
+# echo "ETH address: $ETH_ADDR_TWO"
+
+# ETH_ADDR_THREE=$(curl -s -X POST "$FOREST_URL" \
+#   -H 'Content-Type: application/json' \
+#   -H "Authorization: Bearer $ADMIN_TOKEN" \
+#   --data "$(jq -n --arg addr "$ADDR_THREE" '{jsonrpc: "2.0", id: 1, method: "Filecoin.FilecoinAddressToEthAddress", params: [$addr, "pending"]}')" \
+#   | jq -r '.result')
+# echo "ETH address: $ETH_ADDR_THREE"
+
+# MSG_ETH=$($FOREST_WALLET_PATH send "$ETH_ADDR_TWO" "$FIL_AMT")
+# : "$MSG_ETH"
+
+# MSG_ETH_REMOTE=$($FOREST_WALLET_PATH --remote-wallet send "$ETH_ADDR_THREE" "$FIL_AMT")
+# : "$MSG_ETH_REMOTE"
+
+# ETH_ADDR_TWO_BALANCE=$ADDR_TWO_BALANCE
+# i=0
+# while [[ $i != 20 && $ETH_ADDR_TWO_BALANCE == "$ADDR_TWO_BALANCE" ]]; do
+#   i=$((i+1))
+  
+#   : "Checking balance $i/20"
+#   sleep 30s
+#   ETH_ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO" --exact-balance)
+# done
+
+# ETH_ADDR_THREE_BALANCE=$ADDR_THREE_BALANCE
+# i=0
+# while [[ $i != 20 && $ETH_ADDR_THREE_BALANCE == "$ADDR_THREE_BALANCE" ]]; do
+#   i=$((i+1))
+
+#   : "Checking balance $i/20"
+#   sleep 30s
+#   ETH_ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_THREE" --exact-balance)
+# done
 
 # wallet list should contain address two with transferred FIL amount
 $FOREST_WALLET_PATH list

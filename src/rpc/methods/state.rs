@@ -6,6 +6,7 @@ use futures::stream::FuturesOrdered;
 pub use types::*;
 
 use super::chain::ChainGetTipSetV2;
+use crate::beacon::Beacon as _;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
@@ -40,8 +41,9 @@ use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
+use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{
-    MarketBalance, StateManager, StateOutput, circulating_supply::GenesisInfo, utils::structured,
+    MarketBalance, StateManager, circulating_supply::GenesisInfo, utils::structured,
 };
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
@@ -1265,11 +1267,12 @@ impl RpcMethod<4> for StateSearchMsg {
         ["tipsetKey", "messageCid", "lookBackLimit", "allowReplaced"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the receipt and tipset the specified message was included in.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the receipt and tipset the specified message was included in, or null if the message was not found.",
+    );
 
     type Params = (ApiTipsetKey, Cid, i64, bool);
-    type Ok = MessageLookup;
+    type Ok = Option<MessageLookup>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1279,7 +1282,7 @@ impl RpcMethod<4> for StateSearchMsg {
         let from = tsk
             .map(|k| ctx.chain_index().load_required_tipset(&k))
             .transpose()?;
-        let (tipset, receipt) = ctx
+        let Some((tipset, receipt)) = ctx
             .state_manager
             .search_for_message(
                 from,
@@ -1288,15 +1291,17 @@ impl RpcMethod<4> for StateSearchMsg {
                 Some(allow_replaced),
             )
             .await?
-            .with_context(|| format!("message {message_cid} not found."))?;
+        else {
+            return Ok(None);
+        };
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-        Ok(MessageLookup {
+        Ok(Some(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
             height: tipset.epoch(),
             message: message_cid,
             return_dec: ipld,
-        })
+        }))
     }
 }
 
@@ -1309,31 +1314,31 @@ impl RpcMethod<2> for StateSearchMsgLimited {
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Not supported in V1
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
-        "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.",
+        "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed, or null if it was not found.",
     );
     type Params = (Cid, i64);
-    type Ok = MessageLookup;
+    type Ok = Option<MessageLookup>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (message_cid, look_back_limit): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let (tipset, receipt) = ctx
+        let Some((tipset, receipt)) = ctx
             .state_manager
             .search_for_message(None, message_cid, Some(look_back_limit), None)
             .await?
-            .with_context(|| {
-                format!("message {message_cid} not found within the last {look_back_limit} epochs")
-            })?;
+        else {
+            return Ok(None);
+        };
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-        Ok(MessageLookup {
+        Ok(Some(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
             height: tipset.epoch(),
             message: message_cid,
             return_dec: ipld,
-        })
+        }))
     }
 }
 
@@ -1571,11 +1576,9 @@ impl RpcMethod<2> for ForestStateCompute {
                                 Err(_) => continue,
                             }
                         }
-                        Err("unreachable chain exchange error in ForestStateCompute".into())
+                        anyhow::bail!("unreachable chain exchange error in ForestStateCompute")
                     }
-                    .map_err(|e| {
-                        anyhow::anyhow!("failed to download messages@{}: {e}", ts.epoch())
-                    })?;
+                    .with_context(|| format!("failed to download messages@{}", ts.epoch()))?;
                     fts.persist(chain_store.blockstore())?;
                 }
                 anyhow::Ok(ts)
@@ -1586,7 +1589,7 @@ impl RpcMethod<2> for ForestStateCompute {
         while let Some(ts) = futures.try_next().await? {
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
-            let StateOutput { state_root, .. } = ctx
+            let ExecutedTipset { state_root, .. } = ctx
                 .state_manager
                 .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
                 .await?;
@@ -1626,14 +1629,14 @@ impl RpcMethod<3> for StateCompute {
                 msg: ctx.message.message().clone(),
                 msg_rct: Some(ctx.apply_ret.msg_receipt()),
                 error: ctx.apply_ret.failure_info().unwrap_or_default(),
-                duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                duration: ctx.duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
                 gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
                 execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
                     .unwrap_or_default(),
             })?;
             Ok(())
         };
-        let StateOutput { state_root, .. } = ctx
+        let ExecutedTipset { state_root, .. } = ctx
             .state_manager
             .compute_state(height, messages, ts, Some(callback), VMTrace::Traced)
             .await?;
@@ -2115,7 +2118,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     ) -> Result<Self::Ok, ServerError> {
         {
             let genesis_timestamp = ctx.chain_store().genesis_block_header().timestamp as i64;
-            let block_delay = ctx.chain_config().block_delay_secs as i64;
+            let block_delay = i64::from(ctx.chain_config().block_delay_secs);
             // Give it a 1s clock drift buffer
             let epoch_timestamp = genesis_timestamp + block_delay * epoch + 1;
             let now_timestamp = chrono::Utc::now().timestamp();
@@ -2655,7 +2658,7 @@ impl RpcMethod<3> for StateListMessages {
         while cur_ts.epoch() >= max_height {
             let msgs = ctx.chain_store().messages_for_tipset(&cur_ts)?;
 
-            for msg in msgs {
+            for msg in msgs.iter() {
                 if from_to.matches(msg.message()) {
                     out.push(msg.cid());
                 }
@@ -3080,7 +3083,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
 
         let params = NetworkParams {
             network_name,
-            block_delay_secs: config.block_delay_secs as u64,
+            block_delay_secs: u64::from(config.block_delay_secs),
             consensus_miner_min_power: policy.minimum_consensus_power.clone(),
             pre_commit_challenge_delay: policy.pre_commit_challenge_delay,
             fork_upgrade_params: ForkUpgradeParams::try_from(config)
@@ -3142,7 +3145,7 @@ pub struct ForkUpgradeParams {
     upgrade_tuktuk_height: ChainEpoch,
     upgrade_teep_height: ChainEpoch,
     upgrade_tock_height: ChainEpoch,
-    //upgrade_golden_week_height: ChainEpoch,
+    upgrade_golden_week_height: ChainEpoch,
     //upgrade_xxx_height: ChainEpoch,
 }
 
@@ -3191,7 +3194,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_tuktuk_height: get_height(TukTuk)?,
             upgrade_teep_height: get_height(Teep)?,
             upgrade_tock_height: get_height(Tock)?,
-            //upgrade_golden_week_height: get_height(GoldenWeek)?,
+            upgrade_golden_week_height: get_height(GoldenWeek)?,
             //upgrade_xxx_height: get_height(Xxx)?,
         })
     }
@@ -3270,7 +3273,7 @@ fn get_pledge_ramp_params(
     ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     height: ChainEpoch,
     ts: &Tipset,
-) -> Result<(ChainEpoch, u64), anyhow::Error> {
+) -> anyhow::Result<(ChainEpoch, u64)> {
     let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
 
     let power_state: power::State = state_tree

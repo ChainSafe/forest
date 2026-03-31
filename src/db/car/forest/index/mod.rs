@@ -208,7 +208,7 @@ impl<R: ReadAt> ZstdSkipFramesEncodedDataReader<R> {
             .read_u32_at::<LittleEndian>(offset + ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER.len() as u64)
         {
             skip_frame_header_offsets.push(offset);
-            offset += ZSTD_SKIP_FRAME_LEN + data_len as u64;
+            offset += ZSTD_SKIP_FRAME_LEN + u64::from(data_len);
         }
         Ok(Self {
             reader,
@@ -747,6 +747,7 @@ trait Readable {
         Self: Sized;
 }
 
+#[auto_impl::auto_impl(&)]
 trait Writable {
     /// Must only return [`Err(_)`] if the underlying io fails.
     async fn write_to<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()>;
@@ -759,16 +760,6 @@ trait Writable {
 /// Useful for exhaustiveness checking
 fn written_len<T: Writable>(_: &T) -> u64 {
     T::LEN
-}
-
-impl<T> Writable for &T
-where
-    T: Writable,
-{
-    async fn write_to<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()> {
-        T::write_to(self, writer).await
-    }
-    const LEN: u64 = T::LEN;
 }
 
 // This lives in a module so its constructor can be private

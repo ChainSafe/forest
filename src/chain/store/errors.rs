@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt::Debug;
+use std::{borrow::Cow, fmt::Debug};
 
 use crate::blocks::CreateTipsetError;
 use cid::Error as CidErr;
@@ -17,7 +17,7 @@ pub enum Error {
     UndefinedKey(String),
     /// Key not found in database
     #[error("{0} not found")]
-    NotFound(String),
+    NotFound(Cow<'static, str>),
     /// Error originating constructing blockchain structures
     #[error(transparent)]
     Blockchain(#[from] CreateTipsetError),
@@ -29,7 +29,7 @@ pub enum Error {
     Cid(#[from] CidErr),
     /// Amt error
     #[error("State error: {0}")]
-    State(String),
+    State(Cow<'static, str>),
     /// Other chain error
     #[error("{0}")]
     Other(String),
@@ -43,7 +43,7 @@ impl From<EncErr> for Error {
 
 impl From<AmtErr> for Error {
     fn from(e: AmtErr) -> Error {
-        Error::State(e.to_string())
+        Error::state(e.to_string())
     }
 }
 
@@ -55,7 +55,7 @@ impl From<String> for Error {
 
 impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
-        Error::Other(e.to_string())
+        Error::Other(format!("{e:#}"))
     }
 }
 
@@ -72,7 +72,7 @@ impl<T> From<flume::SendError<T>> for Error {
 }
 
 impl Error {
-    pub fn state(msg: impl std::fmt::Display) -> Self {
-        Self::State(msg.to_string())
+    pub fn state(msg: impl Into<Cow<'static, str>>) -> Self {
+        Self::State(msg.into())
     }
 }

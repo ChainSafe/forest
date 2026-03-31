@@ -9,15 +9,16 @@
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use crate::blocks::{CachingBlockHeader, Tipset};
-use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
+use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
 use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
-use crate::message::{ChainMessage, Message, SignedMessage, valid_for_block_inclusion};
+use crate::message::{ChainMessage, MessageRead as _, SignedMessage, valid_for_block_inclusion};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
+use crate::rpc::eth::types::EthAddress;
 use crate::shim::{
-    address::Address,
+    address::{Address, Protocol},
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     gas::{Gas, price_list_by_network_version},
@@ -264,6 +265,12 @@ where
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
         if to_vec(msg)?.len() > MAX_MESSAGE_SIZE {
             return Err(Error::MessageTooBig);
+        }
+        let to = msg.message().to();
+        if to.protocol() == Protocol::Delegated {
+            EthAddress::from_filecoin_address(&to).context(format!(
+                "message recipient {to} is a delegated address but not a valid Eth Address"
+            ))?;
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
         if msg.value() > *crate::shim::econ::TOTAL_FILECOIN {
@@ -537,41 +544,38 @@ where
 
         mp.load_local()?;
 
-        let mut subscriber = mp.api.subscribe_head_changes();
+        let mut head_changes_rx = mp.api.subscribe_head_changes();
 
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.clone();
         let pending = mp.pending.clone();
         let republished = mp.republished.clone();
 
-        let cur_tipset = mp.cur_tipset.clone();
+        let current_ts = mp.cur_tipset.clone();
         let repub_trigger = mp.repub_trigger.clone();
 
         // Reacts to new HeadChanges
         services.spawn(async move {
             loop {
-                match subscriber.recv().await {
-                    Ok(ts) => {
-                        let (cur, rev, app) = match ts {
-                            HeadChange::Apply(tipset) => {
-                                (cur_tipset.clone(), Vec::new(), vec![tipset])
-                            }
-                        };
-                        head_change(
+                match head_changes_rx.recv().await {
+                    Ok(HeadChanges { reverts, applies }) => {
+                        if let Err(e) = head_change(
                             api.as_ref(),
                             bls_sig_cache.as_ref(),
                             repub_trigger.clone(),
                             republished.as_ref(),
                             pending.as_ref(),
-                            cur.as_ref(),
-                            rev,
-                            app,
+                            &current_ts,
+                            reverts,
+                            applies,
                         )
                         .await
-                        .context("Error changing head")?;
+                        {
+                            tracing::warn!("Error changing head: {e}");
+                        }
                     }
                     Err(RecvError::Lagged(e)) => {
-                        warn!("Head change subscriber lagged: skipping {} events", e);
+                        warn!("Head change subscriber lagged: skipping {e} events");
                     }
                     Err(RecvError::Closed) => {
                         break Ok(());
@@ -586,7 +590,7 @@ where
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
-        let republish_interval = (10 * block_delay + chain_config.propagation_delay_secs) as u64;
+        let republish_interval = u64::from(10 * block_delay + chain_config.propagation_delay_secs);
         // Reacts to republishing requests
         services.spawn(async move {
             let mut repub_trigger_rx = repub_trigger_rx.stream();
@@ -636,8 +640,8 @@ where
         bls_sig_cache.push(msg.cid().into(), msg.signature().clone());
     }
 
-    api.put_message(&ChainMessage::Signed(msg.clone()))?;
-    api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
+    api.put_message(&ChainMessage::Signed(msg.clone().into()))?;
+    api.put_message(&ChainMessage::Unsigned(msg.message().clone().into()))?;
 
     let mut pending = pending.write();
     let from = msg.from();

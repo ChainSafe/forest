@@ -7,13 +7,14 @@ pub mod filter;
 pub mod pubsub;
 pub(crate) mod pubsub_trait;
 mod tipset_resolver;
-mod trace;
+pub(crate) mod trace;
 pub mod types;
 mod utils;
 pub use tipset_resolver::TipsetResolver;
 
 use self::eth_tx::*;
 use self::filter::hex_str_to_epoch;
+use self::trace::types::*;
 use self::types::*;
 use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
@@ -24,16 +25,14 @@ use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
 };
-use crate::interpreter::VMTrace;
 use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
-use crate::message::{ChainMessage, Message as _, SignedMessage};
+use crate::message::{ChainMessage, Message as _, MessageRead as _, SignedMessage};
 use crate::rpc::{
     ApiPaths, Ctx, EthEventHandler, LOOKBACK_NO_LIMIT, Permission, RpcMethod, RpcMethodExt as _,
     error::ServerError,
     eth::{
         errors::EthErrors,
         filter::{SkipEvent, event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter},
-        types::{EthBlockTrace, EthTrace},
         utils::decode_revert_reason,
     },
     methods::chain::ChainGetTipSetV2,
@@ -52,12 +51,12 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::{StateLookupPolicy, VMFlush};
+use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
-use crate::utils::misc::env::{env_or_default, is_env_truthy};
+use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
 use anyhow::{Context, Error, Result, anyhow, bail, ensure};
@@ -382,37 +381,6 @@ impl BlockNumberOrHash {
     }
 }
 
-/// Selects which trace outputs to include in the `trace_call` response.
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub enum EthTraceType {
-    /// Requests a structured call graph, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)
-    /// with details like `from`, `to`, `gas`, `input`, `output`, and `subtraces`.
-    Trace,
-    /// Requests a state difference object, detailing changes to account states (e.g., `balance`, `nonce`, `storage`, `code`)
-    /// caused by the simulated transaction.
-    ///
-    /// It shows `"from"` and `"to"` values for modified fields, using `"+"`, `"-"`, or `"="` for code changes.
-    StateDiff,
-}
-
-lotus_json_with_self!(EthTraceType);
-
-/// Result payload returned by `trace_call`.
-#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct EthTraceResults {
-    /// Output bytes from the transaction execution.
-    pub output: EthBytes,
-    /// State diff showing all account changes.
-    pub state_diff: Option<StateDiff>,
-    /// Call trace hierarchy (empty when not requested).
-    #[serde(default)]
-    pub trace: Vec<EthTrace>,
-}
-
-lotus_json_with_self!(EthTraceResults);
-
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
 pub enum Transactions {
@@ -528,28 +496,43 @@ impl Block {
             let block_number = EthInt64(tipset.epoch());
             let block_hash: EthHash = block_cid.into();
 
-            let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &tipset).await?;
-
+            let ExecutedTipset {
+                state_root,
+                executed_messages,
+                ..
+            } = ctx.state_manager.load_executed_tipset(&tipset).await?;
+            let has_transactions = !executed_messages.is_empty();
             let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
             let mut full_transactions = vec![];
             let mut gas_used = 0;
-            for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
+            for (
+                i,
+                ExecutedMessage {
+                    message, receipt, ..
+                },
+            ) in executed_messages.iter().enumerate()
+            {
                 let ti = EthUint64(i as u64);
                 gas_used += receipt.gas_used();
-                let smsg = match msg {
-                    ChainMessage::Signed(msg) => msg.clone(),
+                let mut tx = match message {
+                    ChainMessage::Signed(smsg) => new_eth_tx_from_signed_message(
+                        smsg,
+                        &state_tree,
+                        ctx.chain_config().eth_chain_id,
+                    )?,
                     ChainMessage::Unsigned(msg) => {
-                        let sig = Signature::new_bls(vec![]);
-                        SignedMessage::new_unchecked(msg.clone(), sig)
+                        let tx = eth_tx_from_native_message(
+                            msg,
+                            &state_tree,
+                            ctx.chain_config().eth_chain_id,
+                        )?;
+                        ApiEthTx {
+                            hash: msg.cid().into(),
+                            ..tx
+                        }
                     }
                 };
-
-                let mut tx = new_eth_tx_from_signed_message(
-                    &smsg,
-                    &state_tree,
-                    ctx.chain_config().eth_chain_id,
-                )?;
                 tx.block_hash = block_hash;
                 tx.block_number = block_number;
                 tx.transaction_index = ti;
@@ -569,7 +552,7 @@ impl Block {
                     .into(),
                 gas_used: EthUint64(gas_used),
                 transactions: Transactions::Full(full_transactions),
-                ..Block::new(!msgs_and_receipts.is_empty(), tipset.len())
+                ..Block::new(has_transactions, tipset.len())
             };
             ETH_BLOCK_CACHE.push(block_cid.into(), b.clone());
             b
@@ -934,11 +917,8 @@ async fn eth_get_balance<DB: Blockstore + Send + Sync + 'static>(
     ts: &Tipset,
 ) -> Result<EthBigInt> {
     let fil_addr = address.to_filecoin_address()?;
-    let (state_cid, _) = ctx
-        .state_manager
-        .tipset_state(ts, StateLookupPolicy::Enabled)
-        .await?;
-    let state_tree = ctx.state_manager.get_state_tree(&state_cid)?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
+    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     match state_tree.get_actor(&fil_addr)? {
         Some(actor) => Ok(EthBigInt(actor.balance.atto().clone())),
         None => Ok(EthBigInt::default()), // Balance is 0 if the actor doesn't exist
@@ -950,7 +930,7 @@ fn get_tipset_from_hash<DB: Blockstore>(
     block_hash: &EthHash,
 ) -> anyhow::Result<Tipset> {
     let tsk = chain_store.get_required_tipset_key(block_hash)?;
-    Tipset::load_required(chain_store.blockstore(), &tsk)
+    Ok(chain_store.chain_index().load_required_tipset(&tsk)?)
 }
 
 fn resolve_block_number_tipset<DB: Blockstore>(
@@ -990,29 +970,7 @@ fn resolve_block_hash_tipset<DB: Blockstore>(
     Ok(ts)
 }
 
-async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
-    data: &Ctx<DB>,
-    tipset: &Tipset,
-) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
-    let msgs = data.chain_store().messages_for_tipset(tipset)?;
-
-    let (state_root, _) = data
-        .state_manager
-        .tipset_state(tipset, StateLookupPolicy::Enabled)
-        .await?;
-    let receipts = data.state_manager.tipset_message_receipts(tipset).await?;
-
-    if msgs.len() != receipts.len() {
-        bail!("receipts and message array lengths didn't match for tipset: {tipset:?}")
-    }
-
-    Ok((
-        state_root,
-        msgs.into_iter().zip(receipts.into_iter()).collect(),
-    ))
-}
-
-fn is_eth_address(addr: &VmAddress) -> bool {
+pub fn is_eth_address(addr: &VmAddress) -> bool {
     if addr.protocol() != Protocol::Delegated {
         return false;
     }
@@ -1277,7 +1235,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
         block_hash: tx.block_hash,
         block_number: tx.block_number,
         r#type: tx.r#type,
-        status: (msg_receipt.exit_code().is_success() as u64).into(),
+        status: (u64::from(msg_receipt.exit_code().is_success())).into(),
         gas_used: msg_receipt.gas_used().into(),
         ..EthTxReceipt::new()
     };
@@ -1457,23 +1415,33 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     let ts_key = ts_ref.key();
 
     // Execute the tipset to get the messages and receipts
-    let (state_root, msgs_and_receipts) = execute_tipset(ctx, &ts_ref).await?;
+    let ExecutedTipset {
+        state_root,
+        executed_messages,
+        ..
+    } = ctx.state_manager.load_executed_tipset(&ts_ref).await?;
 
     // Load the state tree
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
-    let mut eth_receipts = Vec::with_capacity(msgs_and_receipts.len());
-    for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
+    let mut eth_receipts = Vec::with_capacity(executed_messages.len());
+    for (
+        i,
+        ExecutedMessage {
+            message, receipt, ..
+        },
+    ) in executed_messages.iter().enumerate()
+    {
         let tx = new_eth_tx(
             ctx,
             &state_tree,
             ts_ref.epoch(),
             &ts_key.cid()?,
-            &msg.cid(),
+            &message.cid(),
             i as u64,
         )?;
 
-        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, &receipt).await?;
+        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, receipt).await?;
         eth_receipts.push(receipt);
     }
     Ok(eth_receipts)
@@ -1780,9 +1748,9 @@ where
 {
     let (invoc_res, _) = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg, StateLookupPolicy::Enabled, VMFlush::Skip)
+        .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
         .await
-        .map_err(|e| anyhow::anyhow!("failed to apply on state with gas: {e}"))?;
+        .context("failed to apply on state with gas")?;
 
     // Extract receipt or return early if none
     match &invoc_res.msg_rct {
@@ -1814,8 +1782,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let (_invoc_res, apply_ret, prior_messages, ts) =
-        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk, VMTrace::Traced)
-            .await?;
+        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk).await?;
     if apply_ret.msg_receipt().exit_code().is_success() {
         return Ok(msg.gas_limit());
     }
@@ -1871,14 +1838,7 @@ where
         msg.gas_limit = limit;
         let (_invoc_res, apply_ret, _, _) = data
             .state_manager
-            .call_with_gas(
-                &mut msg.into(),
-                prior_messages,
-                Some(ts),
-                VMTrace::NotTraced,
-                StateLookupPolicy::Enabled,
-                VMFlush::Skip,
-            )
+            .call_with_gas(&mut msg.into(), prior_messages, Some(ts), VMFlush::Skip)
             .await?;
         Ok(apply_ret.msg_receipt().exit_code().is_success())
     }
@@ -1960,9 +1920,14 @@ async fn eth_fee_history<B: Blockstore + Send + Sync + 'static>(
         .take(block_count as _)
     {
         let base_fee = &ts.block_headers().first().parent_base_fee;
-        let (_state_root, messages_and_receipts) = execute_tipset(&ctx, &ts).await?;
-        let mut tx_gas_rewards = Vec::with_capacity(messages_and_receipts.len());
-        for (message, receipt) in messages_and_receipts {
+        let ExecutedTipset {
+            executed_messages, ..
+        } = ctx.state_manager.load_executed_tipset(&ts).await?;
+        let mut tx_gas_rewards = Vec::with_capacity(executed_messages.len());
+        for ExecutedMessage {
+            message, receipt, ..
+        } in executed_messages.iter()
+        {
             let premium = message.effective_gas_premium(base_fee);
             tx_gas_rewards.push(GasReward {
                 gas_used: receipt.gas_used(),
@@ -2084,11 +2049,8 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let to_address = FilecoinAddress::try_from(eth_address)?;
-    let (state, _) = ctx
-        .state_manager
-        .tipset_state(ts, StateLookupPolicy::Enabled)
-        .await?;
-    let state_tree = ctx.state_manager.get_state_tree(&state)?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
+    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     let Some(actor) = state_tree
         .get_actor(&to_address)
         .with_context(|| format!("failed to lookup contract {}", eth_address.0))?
@@ -2112,7 +2074,10 @@ where
 
     let api_invoc_result = 'invoc: {
         for ts in ts.clone().chain(ctx.store()) {
-            match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
+            match ctx
+                .state_manager
+                .call_on_state(state_root, &message, Some(ts))
+            {
                 Ok(res) => {
                     break 'invoc res;
                 }
@@ -2177,14 +2142,11 @@ async fn get_storage_at<DB: Blockstore + Send + Sync + 'static>(
     position: EthBytes,
 ) -> Result<EthBytes, ServerError> {
     let to_address = FilecoinAddress::try_from(&eth_address)?;
-    let (state, _) = ctx
-        .state_manager
-        .tipset_state(&ts, StateLookupPolicy::Enabled)
-        .await?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(&ts).await?;
     let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
     let Some(actor) = ctx
         .state_manager
-        .get_actor(&to_address, state)
+        .get_actor(&to_address, state_root)
         .with_context(|| format!("failed to lookup contract {}", eth_address.0))?
     else {
         return Ok(make_empty_result());
@@ -2205,7 +2167,10 @@ async fn get_storage_at<DB: Blockstore + Send + Sync + 'static>(
     };
     let api_invoc_result = 'invoc: {
         for ts in ts.chain(ctx.store()) {
-            match ctx.state_manager.call_on_state(state, &message, Some(ts)) {
+            match ctx
+                .state_manager
+                .call_on_state(state_root, &message, Some(ts))
+            {
                 Ok(res) => {
                     break 'invoc res;
                 }
@@ -2275,12 +2240,9 @@ async fn eth_get_transaction_count<B>(
 where
     B: Blockstore + Send + Sync + 'static,
 {
-    let (state_cid, _) = ctx
-        .state_manager
-        .tipset_state(ts, StateLookupPolicy::Enabled)
-        .await?;
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
 
-    let state_tree = ctx.state_manager.get_state_tree(&state_cid)?;
+    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     let actor = match state_tree.get_actor(&addr)? {
         Some(actor) => actor,
         None => return Ok(EthUint64(0)),
@@ -3396,6 +3358,45 @@ impl RpcMethod<1> for EthTraceBlock {
     }
 }
 
+/// Replays a tipset and resolves every non-system transaction into a [`trace::TipsetTraceEntry`].
+async fn execute_tipset_traces<DB>(
+    ctx: &Ctx<DB>,
+    ts: &Tipset,
+    ext: &http::Extensions,
+) -> Result<(StateTree<DB>, Vec<trace::TipsetTraceEntry>), ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let (state_root, raw_traces) = {
+        let sm = ctx.state_manager.clone();
+        let ts = ts.clone();
+        tokio::task::spawn_blocking(move || sm.execution_trace(&ts))
+            .await
+            .context("execution_trace task panicked")??
+    };
+
+    let state = ctx.state_manager.get_state_tree(&state_root)?;
+
+    let mut entries = Vec::new();
+    let mut msg_idx = 0;
+    for ir in raw_traces {
+        if ir.msg.from == system::ADDRESS.into() {
+            continue;
+        }
+        msg_idx += 1;
+        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
+        let tx_hash = tx_hash
+            .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
+        entries.push(trace::TipsetTraceEntry {
+            tx_hash,
+            msg_position: msg_idx,
+            invoc_result: ir,
+        });
+    }
+
+    Ok((state, entries))
+}
+
 async fn eth_trace_block<DB>(
     ctx: &Ctx<DB>,
     ts: &Tipset,
@@ -3404,44 +3405,178 @@ async fn eth_trace_block<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (state_root, trace) = ctx.state_manager.execution_trace(ts)?;
-    let state = ctx.state_manager.get_state_tree(&state_root)?;
-    let cid = ts.key().cid()?;
-    let block_hash: EthHash = cid.into();
+    let (state, entries) = execute_tipset_traces(ctx, ts, ext).await?;
+    let block_hash: EthHash = ts.key().cid()?.into();
     let mut all_traces = vec![];
-    let mut msg_idx = 0;
-    for ir in trace.into_iter() {
-        // ignore messages from system actor
-        if ir.msg.from == system::ADDRESS.into() {
-            continue;
-        }
-        msg_idx += 1;
-        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
-        let tx_hash = tx_hash
-            .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
-        let mut env = trace::base_environment(&state, &ir.msg.from)
-            .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
-        if let Some(execution_trace) = ir.execution_trace {
-            trace::build_traces(&mut env, &[], execution_trace)?;
-            for trace in env.traces {
-                all_traces.push(EthBlockTrace {
-                    trace: EthTrace {
-                        r#type: trace.r#type,
-                        subtraces: trace.subtraces,
-                        trace_address: trace.trace_address,
-                        action: trace.action,
-                        result: trace.result,
-                        error: trace.error,
-                    },
-                    block_hash,
-                    block_number: ts.epoch(),
-                    transaction_hash: tx_hash,
-                    transaction_position: msg_idx as i64,
-                });
-            }
+
+    for entry in entries {
+        for trace in entry.build_parity_traces(&state)? {
+            all_traces.push(EthBlockTrace {
+                trace,
+                block_hash,
+                block_number: ts.epoch(),
+                transaction_hash: entry.tx_hash,
+                transaction_position: entry.msg_position,
+            });
         }
     }
     Ok(all_traces)
+}
+
+pub enum EthDebugTraceTransaction {}
+impl RpcMethod<2> for EthDebugTraceTransaction {
+    const N_REQUIRED_PARAMS: usize = 1;
+    const NAME: &'static str = "Forest.EthDebugTraceTransaction";
+    const NAME_ALIAS: Option<&'static str> = Some("debug_traceTransaction");
+    const PARAM_NAMES: [&'static str; 2] = ["txHash", "opts"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V1 | V2 });
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Replays a transaction and returns execution traces in Geth-compatible format.");
+
+    type Params = (String, Option<GethDebugTracingOptions>);
+    type Ok = GethTrace;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash, opts): Self::Params,
+        ext: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let opts = opts.unwrap_or_default();
+        debug_trace_transaction(ctx, ext, Self::api_path(ext)?, tx_hash, opts).await
+    }
+}
+
+async fn debug_trace_transaction<DB>(
+    ctx: Ctx<DB>,
+    ext: &http::Extensions,
+    api_path: ApiPaths,
+    tx_hash: String,
+    opts: GethDebugTracingOptions,
+) -> Result<GethTrace, ServerError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let tracer = match &opts.tracer {
+        Some(t) => t.clone(),
+        None => {
+            tracing::debug!(
+                "no tracer specified for debug_traceTransaction; defaulting to callTracer (struct logger not supported)"
+            );
+            GethDebugBuiltInTracerType::Call
+        }
+    };
+
+    let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
+    let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
+        .await?
+        .ok_or(ServerError::internal_error("transaction not found", None))?;
+
+    // Mempool/pending transactions cannot be traced — they have no containing tipset.
+    if eth_txn.block_hash == EthHash::default() {
+        return Err(ServerError::invalid_params(
+            "no trace for pending transactions",
+            None,
+        ));
+    }
+
+    if tracer == GethDebugBuiltInTracerType::Noop {
+        return Ok(GethTrace::Noop(NoopFrame {}));
+    }
+
+    let resolver = TipsetResolver::new(&ctx, api_path);
+    let ts = resolver
+        .tipset_by_block_number_or_hash(eth_txn.block_number, ResolveNullTipset::TakeOlder)
+        .await?;
+
+    // prestateTracer uses per-message replay for exact state boundaries,
+    // so it does not need the full tipset trace.
+    if tracer == GethDebugBuiltInTracerType::PreState {
+        let prestate_config = opts.prestate_config()?;
+
+        let message_cid = ctx
+            .chain_store()
+            .get_mapping(&eth_hash)?
+            .unwrap_or_else(|| eth_hash.to_cid());
+
+        let (pre_root, invoc_result, post_root) = ctx
+            .state_manager
+            .replay_for_prestate(ts.clone(), message_cid)
+            .await
+            .map_err(|e| anyhow::anyhow!("replay for prestate failed: {e}"))?;
+
+        let execution_trace = invoc_result
+            .execution_trace
+            .context("no execution trace for transaction")?;
+
+        let mut touched = extract_touched_eth_addresses(&execution_trace);
+        if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.from()) {
+            touched.insert(addr);
+        }
+
+        if let Ok(addr) = EthAddress::from_filecoin_address(&invoc_result.msg.to()) {
+            touched.insert(addr);
+        }
+
+        let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_root)?;
+        let post_state = StateTree::new_from_root(ctx.store_owned(), &post_root)?;
+
+        let frame = trace::build_prestate_frame(
+            ctx.store(),
+            &pre_state,
+            &post_state,
+            &touched,
+            &prestate_config,
+        )?;
+
+        return Ok(GethTrace::PreState(frame));
+    }
+
+    let (state, entries) = execute_tipset_traces(&ctx, &ts, ext).await?;
+    let entry = entries
+        .into_iter()
+        .find(|e| e.tx_hash == eth_hash)
+        .ok_or_else(|| ServerError::internal_error("transaction trace not found in block", None))?;
+
+    let execution_trace = entry
+        .invoc_result
+        .execution_trace
+        .context("no execution trace for transaction")?;
+
+    let mut env = trace::base_environment(&state, &entry.invoc_result.msg.from).map_err(|e| {
+        anyhow::anyhow!(
+            "when processing message {}: {e}",
+            entry.invoc_result.msg_cid
+        )
+    })?;
+
+    match tracer {
+        GethDebugBuiltInTracerType::Call => {
+            let call_config = opts.call_config()?;
+            let frame = trace::build_geth_call_frame(&mut env, execution_trace, &call_config)?;
+            Ok(GethTrace::Call(frame.unwrap_or_default()))
+        }
+        GethDebugBuiltInTracerType::FlatCall => {
+            trace::build_traces(&mut env, &[], execution_trace)?;
+            let block_hash: EthHash = ts.key().cid()?.into();
+            let traces = env
+                .traces
+                .into_iter()
+                .map(|t| EthBlockTrace {
+                    trace: t,
+                    block_hash,
+                    block_number: ts.epoch(),
+                    transaction_hash: eth_hash,
+                    transaction_position: entry.msg_position,
+                })
+                .collect();
+            Ok(GethTrace::FlatCall(traces))
+        }
+        _ => Err(anyhow::anyhow!(
+            "unexpected tracer type: noopTracer and prestateTracer should be handled above"
+        )
+        .into()),
+    }
 }
 
 pub enum EthTraceCall {}
@@ -3473,23 +3608,21 @@ impl RpcMethod<3> for EthTraceCall {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
 
-        let (pre_state_root, _) = ctx
+        let TipsetState {
+            state_root: pre_state_root,
+            ..
+        } = ctx
             .state_manager
-            .tipset_state(&ts, StateLookupPolicy::Enabled)
+            .load_tipset_state(&ts)
             .await
-            .map_err(|e| anyhow::anyhow!("failed to get tipset state: {e}"))?;
+            .context("failed to get tipset state")?;
         let pre_state = StateTree::new_from_root(ctx.store_owned(), &pre_state_root)?;
 
         let (invoke_result, post_state_root) = ctx
             .state_manager
-            .apply_on_state_with_gas(
-                Some(ts.clone()),
-                msg.clone(),
-                StateLookupPolicy::Enabled,
-                VMFlush::Flush,
-            )
+            .apply_on_state_with_gas(Some(ts.clone()), msg.clone(), VMFlush::Flush)
             .await
-            .map_err(|e| anyhow::anyhow!("failed to apply message: {e}"))?;
+            .context("failed to apply message")?;
         let post_state_root =
             post_state_root.context("post-execution state root required for trace call")?;
         let post_state = StateTree::new_from_root(ctx.store_owned(), &post_state_root)?;
@@ -3511,7 +3644,7 @@ impl RpcMethod<3> for EthTraceCall {
             && let Some(exec_trace) = invoke_result.execution_trace
         {
             let mut env = trace::base_environment(&post_state, &msg.from())
-                .map_err(|e| anyhow::anyhow!("failed to create trace environment: {e}"))?;
+                .context("failed to create trace environment")?;
             trace::build_traces(&mut env, &[], exec_trace)?;
             trace_results.trace = env.traces;
         }
@@ -3552,10 +3685,7 @@ fn get_trace_output(msg: &Message, invoke_result: &ApiInvocResult) -> Result<Eth
         return Ok(EthBytes::default());
     }
 
-    match decode_payload(&return_data, CBOR) {
-        Ok(payload) => Ok(payload),
-        Err(e) => Err(anyhow::anyhow!("failed to decode return data: {e}")),
-    }
+    decode_payload(&return_data, CBOR).context("failed to decode return data")
 }
 
 /// Extract all unique Ethereum addresses touched during execution from the trace.
@@ -3657,43 +3787,16 @@ async fn eth_trace_replay_block_transactions<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (state_root, trace) = ctx.state_manager.execution_trace(ts)?;
-
-    let state = ctx.state_manager.get_state_tree(&state_root)?;
+    let (state, entries) = execute_tipset_traces(ctx, ts, ext).await?;
 
     let mut all_traces = vec![];
-    for ir in trace.into_iter() {
-        if ir.msg.from == system::ADDRESS.into() {
-            continue;
-        }
-
-        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
-        let tx_hash = tx_hash
-            .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
-
-        let mut env = trace::base_environment(&state, &ir.msg.from)
-            .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
-
-        if let Some(execution_trace) = ir.execution_trace {
-            trace::build_traces(&mut env, &[], execution_trace)?;
-
-            let get_output = || -> EthBytes {
-                env.traces
-                    .first()
-                    .map_or_else(EthBytes::default, |trace| match &trace.result {
-                        TraceResult::Call(r) => r.output.clone(),
-                        TraceResult::Create(r) => r.code.clone(),
-                    })
-            };
-
-            all_traces.push(EthReplayBlockTransactionTrace {
-                output: get_output(),
-                state_diff: None,
-                trace: env.traces.clone(),
-                transaction_hash: tx_hash,
-                vm_trace: None,
-            });
-        };
+    for entry in entries {
+        let traces = entry.build_parity_traces(&state)?;
+        all_traces.push(EthReplayBlockTransactionTrace {
+            full_trace: EthTraceResults::from_parity_traces(traces),
+            transaction_hash: entry.tx_hash,
+            vm_trace: None,
+        });
     }
 
     Ok(all_traces)
@@ -3790,7 +3893,7 @@ async fn trace_filter(
         for block_trace in block_traces {
             if block_trace
                 .trace
-                .match_filter_criteria(&filter.from_address, &filter.to_address)?
+                .match_filter_criteria(filter.from_address.as_ref(), filter.to_address.as_ref())?
             {
                 trace_counter += 1;
                 if let Some(after) = filter.after

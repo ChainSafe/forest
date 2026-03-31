@@ -34,8 +34,10 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
     /// `.forest.car.zst`. This call may block for an indeterminate amount of
     /// time while data is decoded and indexed.
     pub fn new(reader: ReaderT) -> Result<Self> {
-        if super::ForestCar::is_valid(&reader) {
-            return Ok(AnyCar::Forest(super::ForestCar::new(reader)?));
+        if let Ok(validation_result) = super::ForestCar::validate_car(&reader) {
+            return Ok(
+                super::ForestCar::new_from_validation_result(reader, validation_result)?.into(),
+            );
         }
 
         // Maybe use a tempfile for this in the future.
@@ -46,7 +48,7 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
         }
 
         if let Ok(plain_car) = super::PlainCar::new(reader) {
-            return Ok(AnyCar::Plain(plain_car));
+            return Ok(plain_car.into());
         }
         Err(Error::new(
             ErrorKind::InvalidData,
@@ -54,7 +56,7 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
         ))
     }
 
-    pub fn metadata(&self) -> &Option<FilecoinSnapshotMetadata> {
+    pub fn metadata(&self) -> Option<&FilecoinSnapshotMetadata> {
         match self {
             AnyCar::Forest(forest) => forest.metadata(),
             AnyCar::Plain(plain) => plain.metadata(),

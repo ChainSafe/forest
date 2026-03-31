@@ -26,6 +26,7 @@ use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use std::cmp::Ord;
 use std::collections::BinaryHeap;
+use std::path::Path;
 use std::{path::PathBuf, sync::Arc};
 
 struct WithHeaviestEpoch {
@@ -124,18 +125,26 @@ impl<WriterT> ManyCar<WriterT> {
 
     pub fn read_only_files(&self, files: impl Iterator<Item = PathBuf>) -> anyhow::Result<()> {
         for file in files {
-            self.read_only(AnyCar::new(EitherMmapOrRandomAccessFile::open(file)?)?)?;
+            self.read_only_file(file)?;
         }
-
         Ok(())
     }
 
-    pub fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
-        self.read_only
+    pub fn read_only_file(&self, file: impl AsRef<Path>) -> anyhow::Result<()> {
+        (|| {
+            self.read_only(AnyCar::new(EitherMmapOrRandomAccessFile::open(
+                file.as_ref(),
+            )?)?)
+        })()
+        .with_context(|| format!("failed to load CAR at {}", file.as_ref().display()))
+    }
+
+    pub fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
+        Ok(self
+            .read_only
             .read()
             .peek()
-            .map(|w| AnyCar::heaviest_tipset_key(&w.car))
-            .context("ManyCar store doesn't have a heaviest tipset key")
+            .map(|w| AnyCar::heaviest_tipset_key(&w.car)))
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
@@ -252,9 +261,9 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
 }
 
 impl<T: Blockstore + SettingsStore> super::super::HeaviestTipsetKeyProvider for ManyCar<T> {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
         match SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)? {
-            Some(tsk) => Ok(tsk),
+            Some(tsk) => Ok(Some(tsk)),
             None => self.heaviest_tipset_key(),
         }
     }

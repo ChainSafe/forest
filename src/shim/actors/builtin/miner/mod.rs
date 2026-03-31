@@ -99,7 +99,7 @@ impl State {
         &self,
         policy: &Policy,
         store: &BS,
-        mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
+        mut f: impl FnMut(u64, Deadline) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         match self {
             State::V8(st) => {
@@ -883,7 +883,7 @@ impl Deadline {
     pub fn for_each<BS: Blockstore>(
         &self,
         store: &BS,
-        mut f: impl FnMut(u64, Partition) -> Result<(), anyhow::Error>,
+        mut f: impl FnMut(u64, Partition) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         delegate_deadline!(self.for_each(&store, |idx, part| f(idx, Cow::Borrowed(part).into())))
     }

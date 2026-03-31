@@ -11,7 +11,7 @@ on:
 jobs:
   rpc-parity:
     name: RPC parity report
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-x64-8x
     steps:
       - name: Relocate docker volumes folder
         run: |
@@ -56,11 +56,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           filename: .github/RPC_PARITY_REPORT_ISSUE_TEMPLATE.md
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - run: mise add_conformance_report
       - run: mise run docs:format
       # This is needed in order to have the commits signed.
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: generate-token
         with:
           app-id: ${{ secrets.LESHY_APP_ID }}

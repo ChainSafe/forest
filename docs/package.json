@@ -27,7 +27,7 @@
     "@docusaurus/theme-mermaid": "^3.9.2",
     "@easyops-cn/docusaurus-search-local": "^0.55.1",
     "mdx-mermaid": "^2.0.3",
-    "mermaid": "^11.12.3",
+    "mermaid": "^11.13.0",
     "prettier": "^3.8.1",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.2.4",
@@ -38,7 +38,7 @@
     "@docusaurus/module-type-aliases": "^3.9.2",
     "@docusaurus/tsconfig": "^3.9.2",
     "@docusaurus/types": "^3.9.2",
-    "@types/node": "^25.3.5",
+    "@types/node": "^25.5.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
@@ -55,6 +55,6 @@
     ]
   },
   "resolutions": {
-    "dompurify": "3.3.1"
+    "dompurify": "^3.3.3"
   }
 }

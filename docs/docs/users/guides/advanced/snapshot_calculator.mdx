@@ -1,0 +1,28 @@
+---
+title: Snapshot Calculator
+sidebar_position: 3
+---
+
+import SnapshotCalculator from "@site/src/components/SnapshotCalculator";
+
+# Snapshot Calculator
+
+Use this tool to figure out which archival snapshots you need to download for a
+given epoch. It checks the [Forest Archive](https://forest-archive.chainsafe.dev/list)
+for availability and generates a download script.
+
+For background on how lite and diff snapshots work together, see the
+[Archival Snapshots guide](./archival_snapshots.md).
+
+## Modes
+
+**Use state** — read historical state (e.g., actor balances via `StateGetActor`).
+Needs the base lite snapshot and diffs up to the target epoch.
+
+**Validate / Recompute** — re-execute messages and verify state roots
+(`forest-dev state validate`). Validation looks back up to 2000 epochs, but
+lite snapshots only contain 900 epochs of state. When the target is close to
+the base lite, the calculator adds the previous segment to cover the full
+lookback. See [the validation caveat](./archival_snapshots.md#step-4-validate-optional).
+
+<SnapshotCalculator />

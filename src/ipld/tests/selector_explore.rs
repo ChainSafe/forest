@@ -21,22 +21,22 @@ struct TestVector {
 
 // Just needed because cannot deserialize the current selector position in
 // recursive selectors
-fn test_equal(s1: &Option<Selector>, s2: &Option<Selector>) -> bool {
+fn test_equal(s1: Option<&Selector>, s2: Option<&Selector>) -> bool {
     use Selector::*;
     if let (
-        &Some(ExploreRecursive {
+        Some(ExploreRecursive {
             current: _,
             sequence: s1,
             limit: l1,
             stop_at: st1,
         }),
-        &Some(ExploreRecursive {
+        Some(ExploreRecursive {
             current: _,
             sequence: s2,
             limit: l2,
             stop_at: st2,
         }),
-    ) = (&s1, &s2)
+    ) = (s1, s2)
     {
         s1 == s2 && l1 == l2 && st1 == st2
     } else {
@@ -60,7 +60,7 @@ fn selector_explore_tests() {
     for tv in vectors {
         let result = process_vector(tv.initial_selector, tv.explore);
         assert!(
-            test_equal(&result, &tv.result_selector),
+            test_equal(result.as_ref(), tv.result_selector.as_ref()),
             "({}) Failed:\nExpected: {:?}\nFound: {:?}",
             tv.description
                 .unwrap_or_else(|| "Unnamed test case".to_owned()),

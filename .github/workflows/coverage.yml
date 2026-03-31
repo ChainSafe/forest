@@ -44,11 +44,11 @@ jobs:
   codecov:
     name: Coverage
     if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-arm64-4x
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
-      - uses: jdx/mise-action@v3
+      - uses: jdx/mise-action@v4
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Fetch proof params and RPC test snapshots
         run: |
@@ -63,7 +63,7 @@ jobs:
           path: lcov.info
           if-no-files-found: error
       - name: Upload CodeCov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info

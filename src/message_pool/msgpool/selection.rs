@@ -9,7 +9,7 @@
 use std::{borrow::BorrowMut, cmp::Ordering};
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
-use crate::message::{Message, SignedMessage};
+use crate::message::{MessageRead as _, SignedMessage};
 use crate::message_pool::msg_chain::MsgChainNode;
 use crate::shim::crypto::SignatureType;
 use crate::shim::{address::Address, econ::TokenAmount};
@@ -511,7 +511,7 @@ where
                     continue;
                 }
                 Err(e) => {
-                    debug!("Failed to add message chain with dependencies: {e}");
+                    debug!("Failed to add message chain with dependencies: {e:#}");
                 }
             }
 
@@ -570,7 +570,7 @@ where
 
                 match selected_msgs.try_to_add_with_deps(i, &mut chains, &base_fee) {
                     Ok(_) => continue,
-                    Err(e) => debug!("Failed to add message chain with dependencies: {e}"),
+                    Err(e) => debug!("Failed to add message chain with dependencies: {e:#}"),
                 }
 
                 continue 'tail_loop;
@@ -871,14 +871,9 @@ where
 mod test_selection {
     use std::sync::Arc;
 
+    use super::*;
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use crate::message::Message;
-    use crate::shim::crypto::SignatureType;
-    use crate::shim::econ::BLOCK_GAS_LIMIT;
-    use tokio::task::JoinSet;
-
-    use super::*;
     use crate::message_pool::{
         head_change,
         msgpool::{
@@ -886,6 +881,9 @@ mod test_selection {
             tests::{create_fake_smsg, create_smsg},
         },
     };
+    use crate::shim::crypto::SignatureType;
+    use crate::shim::econ::BLOCK_GAS_LIMIT;
+    use tokio::task::JoinSet;
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 

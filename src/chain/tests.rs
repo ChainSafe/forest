@@ -75,12 +75,12 @@ async fn test_export_inner(version: FilecoinSnapshotVersion) -> anyhow::Result<(
 
     match version {
         FilecoinSnapshotVersion::V1 => {
-            assert_eq!(car.metadata(), &None);
+            assert_eq!(car.metadata(), None);
         }
         FilecoinSnapshotVersion::V2 => {
             assert_eq!(
                 car.metadata(),
-                &Some(FilecoinSnapshotMetadata {
+                Some(&FilecoinSnapshotMetadata {
                     version,
                     head_tipset_key: head_key_cids,
                     f3_data: None,

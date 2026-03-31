@@ -104,12 +104,12 @@ where
         self.cache.write().insert(k, v)
     }
 
-    pub fn contains<Q>(&self, k: &Q) -> bool
+    pub fn get_map<Q, T>(&self, k: &Q, mapper: impl Fn(&V) -> T) -> Option<T>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.cache.read().contains_key(k)
+        self.cache.write().get(k).map(mapper)
     }
 
     pub fn get_cloned<Q>(&self, k: &Q) -> Option<V>
@@ -117,7 +117,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.cache.write().get(k).cloned()
+        self.get_map(k, Clone::clone)
     }
 
     pub fn peek_cloned<Q>(&self, k: &Q) -> Option<V>
