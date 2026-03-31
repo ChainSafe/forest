@@ -115,6 +115,18 @@ impl MsgSet {
         self.add(api, m, strict, false)
     }
 
+    /// Insert a message into this set, maintaining `next_sequence`.
+    ///
+    /// - If the message nonce equals `next_sequence`, advance past any
+    ///   consecutive existing messages (gap-filling loop).
+    /// - If the nonce exceeds `next_sequence + max_nonce_gap` and `strict`,
+    ///   reject with [`Error::NonceGap`].
+    /// - Replace-by-fee for an existing nonce is rejected when `strict` and
+    ///   a nonce gap is present.
+    ///
+    /// `strict` and `trusted` are independent: `strict` controls whether
+    /// nonce gap checks run, while `trusted` sets `max_nonce_gap` [`MAX_NONCE_GAP`]
+    /// and the per-actor pending message limit.
     pub(in crate::message_pool) fn add<T>(
         &mut self,
         api: &T,
@@ -199,8 +211,13 @@ impl MsgSet {
         Ok(())
     }
 
-    /// Removes message with the given sequence. If applied, update the set's
-    /// next sequence.
+    /// Remove the message at `sequence` and adjust `next_sequence`.
+    ///
+    /// - **Applied** (included on-chain): advance `next_sequence` to
+    ///   `sequence + 1` if needed. For messages not in our pool, also run
+    ///   the gap-filling loop to advance past consecutive known messages.
+    /// - **Pruned** (evicted): rewind `next_sequence` to `sequence` if the
+    ///   removal creates a gap.
     pub fn rm(&mut self, sequence: u64, applied: bool) {
         if self.msgs.remove(&sequence).is_none() {
             if applied && sequence >= self.next_sequence {

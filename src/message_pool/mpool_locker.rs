@@ -10,6 +10,15 @@ use tokio::sync::OwnedMutexGuard;
 /// Per-address async lock for serializing `MpoolPushMessage` RPC calls.
 /// Concurrent pushes for the same sender block on each other, while
 /// different senders proceed in parallel.
+///
+/// This is the *outer* lock in Forest's two-tier locking strategy (analogous to
+/// Lotus's `MpoolLocker` + `MessageSigner.lk`). It covers the entire RPC
+/// critical section -- from gas estimation through the final push -- preventing
+/// a second request from reading stale nonce or balance state while the first
+/// is still in-flight.
+///
+/// See also [`NonceTracker`](super::NonceTracker), the inner nonce-specific
+/// lock.
 pub struct MpoolLocker {
     inner: Mutex<HashMap<Address, Arc<tokio::sync::Mutex<()>>>>,
 }

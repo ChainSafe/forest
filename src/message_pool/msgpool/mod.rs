@@ -199,9 +199,17 @@ where
     Ok(msgs)
 }
 
-/// This function will revert and/or apply tipsets to the message pool. This
-/// function should be called every time that there is a head change in the
-/// message pool.
+/// Revert and/or apply tipsets to the message pool. This function should be
+/// called every time that there is a head change in the message pool.
+///
+/// - **Apply**: messages included in the new tipset are removed from the pending
+///   pool via [`MsgSet::rm`] with `applied=true`.
+/// - **Revert**: messages from the reverted tipset are re-added to the pool with
+///   `strict=false` and [`TrustPolicy::Trusted`], allowing them back without
+///   nonce gap restrictions.
+///
+/// The state nonce cache is naturally invalidated when the tipset changes, since
+/// it is keyed by [`TipsetKey`](crate::blocks::TipsetKey).
 #[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
     api: &T,
