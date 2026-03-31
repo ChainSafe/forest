@@ -96,8 +96,7 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
 
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.chain_config().epoch(Height::Smoke);
-        let xxx_height = self.chain_config().epoch(Height::Xxx);
-        crate::chain::compute_base_fee(self.blockstore(), ts, smoke_height, xxx_height)
+        crate::chain::compute_base_fee(self.blockstore(), ts, smoke_height)
             .map_err(|err| err.into())
     }
 
