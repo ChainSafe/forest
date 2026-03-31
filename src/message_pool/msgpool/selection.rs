@@ -19,13 +19,15 @@ use parking_lot::RwLock;
 use rand::prelude::SliceRandom;
 use tracing::{debug, error, warn};
 
+use crate::shim::crypto::Signature;
 use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::get_size::CidWrapper;
 
-use super::{msg_pool::MessagePool, provider::Provider};
+use super::{msg_pool::MessagePool, provider::Provider, utils::recover_sig};
 use crate::message_pool::{
     Error, add_to_selected_msgs,
     msg_chain::{Chains, NodeKey, create_message_chains},
-    msg_pool::{MsgSet, resolve_to_key},
+    msg_pool::MsgSet,
     msgpool::MIN_GAS,
     remove_from_selected_msgs,
 };
@@ -664,6 +666,7 @@ where
         // Run head change to do reorg detection
         run_head_change(
             self.api.as_ref(),
+            self.bls_sig_cache.as_ref(),
             &self.pending,
             self.key_cache.as_ref(),
             cur_ts.clone(),
@@ -816,6 +819,7 @@ fn merge_and_trim(
 // reorgs.
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
+    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     key_cache: &SizeTrackingLruCache<Address, Address>,
     from: Tipset,
@@ -840,19 +844,26 @@ where
             right = par;
         }
     }
-    for ts in &left_chain {
+    for ts in left_chain {
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.block_headers() {
-            let (_, smsgs) = api.messages_for_block(block)?;
+            let (umsg, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
+            for msg in umsg {
+                let msg_cid = msg.cid();
+                if let Ok(smsg) = recover_sig(bls_sig_cache, msg) {
+                    msgs.push(smsg);
+                } else {
+                    tracing::debug!("could not recover signature for bls message {msg_cid}");
+                }
+            }
         }
         for msg in msgs {
-            let resolved = resolve_to_key(api, key_cache, &msg.from(), ts)?;
-            add_to_selected_msgs(resolved, msg, rmsgs);
+            add_to_selected_msgs(msg, rmsgs);
         }
     }
 
-    for ts in &right_chain {
+    for ts in right_chain {
         for b in ts.block_headers() {
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
@@ -860,7 +871,7 @@ where
                 remove_from_selected_msgs(
                     api,
                     key_cache,
-                    ts,
+                    &ts,
                     &msg.from(),
                     pending,
                     msg.sequence(),
@@ -871,7 +882,7 @@ where
                 remove_from_selected_msgs(
                     api,
                     key_cache,
-                    ts,
+                    &ts,
                     &msg.from,
                     pending,
                     msg.sequence,

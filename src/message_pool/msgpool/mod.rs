@@ -253,8 +253,7 @@ where
         }
 
         for msg in msgs {
-            let resolved = resolve_to_key(api, key_cache, &msg.from(), &ts)?;
-            add_to_selected_msgs(resolved, msg, rmsgs.borrow_mut());
+            add_to_selected_msgs(msg, rmsgs.borrow_mut());
         }
     }
 
@@ -337,14 +336,15 @@ pub(in crate::message_pool) fn remove_from_selected_msgs<T: Provider>(
     sequence: u64,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) -> Result<(), Error> {
-    let resolved = resolve_to_key(api, key_cache, from, ts)?;
-    if let Some(temp) = rmsgs.get_mut(&resolved) {
+    if let Some(temp) = rmsgs.get_mut(from) {
         if temp.get_mut(&sequence).is_some() {
             temp.remove(&sequence);
         } else {
+            let resolved = resolve_to_key(api, key_cache, from, ts)?;
             remove(&resolved, pending, sequence, true)?;
         }
     } else {
+        let resolved = resolve_to_key(api, key_cache, from, ts)?;
         remove(&resolved, pending, sequence, true)?;
     }
     Ok(())
@@ -352,16 +352,11 @@ pub(in crate::message_pool) fn remove_from_selected_msgs<T: Provider>(
 
 /// This is a helper function for `head_change`. This method will add a signed
 /// message to the given messages selected by priority `HashMap`.
-/// `resolved_sender` must be the key-form address of the message sender.
 pub(in crate::message_pool) fn add_to_selected_msgs(
-    resolved_sender: Address,
     m: SignedMessage,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) {
-    rmsgs
-        .entry(resolved_sender)
-        .or_default()
-        .insert(m.sequence(), m);
+    rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
 }
 
 #[cfg(test)]
