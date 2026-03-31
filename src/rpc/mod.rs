@@ -192,6 +192,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::net::NetProtectList);
         $callback!($crate::rpc::net::NetProtectRemove);
         $callback!($crate::rpc::net::NetVersion);
+        $callback!($crate::rpc::net::NetChainExchange);
 
         // node vertical
         $callback!($crate::rpc::node::NodeStatus);
