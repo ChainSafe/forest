@@ -12,7 +12,7 @@ use std::{
 };
 
 use crate::{
-    blocks::{FullTipset, Tipset, TipsetKey},
+    blocks::{FullTipset, Tipset, TipsetKey, TipsetLike},
     libp2p::{
         NetworkMessage, PeerId, PeerManager,
         chain_exchange::{
@@ -147,7 +147,7 @@ where
         tsk: &TipsetKey,
         count: NonZeroU64,
     ) -> anyhow::Result<Vec<Tipset>> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |tipsets: &Vec<Tipset>| {
+        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |tipsets| {
             validate_network_tipsets(tipsets, tsk)
         })
         .await
@@ -189,7 +189,7 @@ where
                 tsk,
                 nonzero!(1_u64),
                 HEADERS | MESSAGES,
-                |_| true,
+                |tipsets| validate_network_tipsets(tipsets, tsk),
             )
             .await?;
 
@@ -457,7 +457,7 @@ where
 /// Validates network tipsets that are sorted by epoch in descending order with the below checks
 /// 1. The latest(first) tipset has the desired tipset key
 /// 2. The sorted tipsets are chained by their tipset keys
-fn validate_network_tipsets(tipsets: &[Tipset], start_tipset_key: &TipsetKey) -> bool {
+fn validate_network_tipsets<T: TipsetLike>(tipsets: &[T], start_tipset_key: &TipsetKey) -> bool {
     if let Some(start) = tipsets.first() {
         if start.key() != start_tipset_key {
             tracing::warn!(epoch=%start.epoch(), expected=%start_tipset_key, actual=%start.key(), "start tipset key mismatch");
