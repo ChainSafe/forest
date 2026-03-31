@@ -33,6 +33,8 @@
 
 ### Changed
 
+- [#6821](https://github.com/ChainSafe/forest/pull/6821): Added message receipt size and event size to `forest-tool archive info` output.
+
 ### Removed
 
 ### Fixed
