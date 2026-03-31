@@ -258,6 +258,7 @@ where
     }
 
     for ts in apply {
+        let cur_ts = cur_tipset.read().clone();
         for b in ts.block_headers() {
             let Ok((msgs, smsgs)) = api.messages_for_block(b) else {
                 tracing::error!("error retrieving messages for block");
@@ -265,7 +266,6 @@ where
             };
 
             for msg in smsgs {
-                let cur_ts = cur_tipset.read().clone();
                 remove_from_selected_msgs(
                     api,
                     key_cache,
@@ -280,7 +280,6 @@ where
                 }
             }
             for msg in msgs {
-                let cur_ts = cur_tipset.read().clone();
                 remove_from_selected_msgs(
                     api,
                     key_cache,
@@ -303,9 +302,9 @@ where
             .await
             .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))?;
     }
+    let cur_ts = cur_tipset.read().clone();
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let cur_ts = cur_tipset.read().clone();
             let sequence =
                 get_state_sequence(api, key_cache, state_nonce_cache, &msg.from(), &cur_ts)?;
             if let Err(e) = add_helper(
@@ -358,13 +357,7 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
     m: SignedMessage,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) {
-    let s = rmsgs.get_mut(&m.from());
-    if let Some(s) = s {
-        s.insert(m.sequence(), m);
-    } else {
-        rmsgs.insert(m.from(), HashMap::new());
-        rmsgs.get_mut(&m.from()).unwrap().insert(m.sequence(), m);
-    }
+    rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
 }
 
 #[cfg(test)]
