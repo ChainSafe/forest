@@ -25,7 +25,7 @@ use super::{msg_pool::MessagePool, provider::Provider};
 use crate::message_pool::{
     Error, add_to_selected_msgs,
     msg_chain::{Chains, NodeKey, create_message_chains},
-    msg_pool::MsgSet,
+    msg_pool::{MsgSet, resolve_to_key},
     msgpool::MIN_GAS,
     remove_from_selected_msgs,
 };
@@ -825,7 +825,6 @@ pub(in crate::message_pool) fn run_head_change<T>(
 where
     T: Provider,
 {
-    let resolve_ts = to.clone();
     let mut left = from;
     let mut right = to;
     let mut left_chain = Vec::new();
@@ -841,18 +840,19 @@ where
             right = par;
         }
     }
-    for ts in left_chain {
+    for ts in &left_chain {
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.block_headers() {
             let (_, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
         }
         for msg in msgs {
-            add_to_selected_msgs(msg, rmsgs);
+            let resolved = resolve_to_key(api, key_cache, &msg.from(), ts)?;
+            add_to_selected_msgs(resolved, msg, rmsgs);
         }
     }
 
-    for ts in right_chain {
+    for ts in &right_chain {
         for b in ts.block_headers() {
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
@@ -860,7 +860,7 @@ where
                 remove_from_selected_msgs(
                     api,
                     key_cache,
-                    &resolve_ts,
+                    ts,
                     &msg.from(),
                     pending,
                     msg.sequence(),
@@ -871,7 +871,7 @@ where
                 remove_from_selected_msgs(
                     api,
                     key_cache,
-                    &resolve_ts,
+                    ts,
                     &msg.from,
                     pending,
                     msg.sequence,

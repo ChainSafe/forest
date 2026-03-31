@@ -253,12 +253,12 @@ where
         }
 
         for msg in msgs {
-            add_to_selected_msgs(msg, rmsgs.borrow_mut());
+            let resolved = resolve_to_key(api, key_cache, &msg.from(), &ts)?;
+            add_to_selected_msgs(resolved, msg, rmsgs.borrow_mut());
         }
     }
 
     for ts in apply {
-        let cur_ts = cur_tipset.read().clone();
         for b in ts.block_headers() {
             let Ok((msgs, smsgs)) = api.messages_for_block(b) else {
                 tracing::error!("error retrieving messages for block");
@@ -269,7 +269,7 @@ where
                 remove_from_selected_msgs(
                     api,
                     key_cache,
-                    &cur_ts,
+                    &ts,
                     &msg.from(),
                     pending,
                     msg.sequence(),
@@ -283,7 +283,7 @@ where
                 remove_from_selected_msgs(
                     api,
                     key_cache,
-                    &cur_ts,
+                    &ts,
                     &msg.from,
                     pending,
                     msg.sequence,
@@ -331,21 +331,20 @@ where
 pub(in crate::message_pool) fn remove_from_selected_msgs<T: Provider>(
     api: &T,
     key_cache: &SizeTrackingLruCache<Address, Address>,
-    cur_ts: &Tipset,
+    ts: &Tipset,
     from: &Address,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) -> Result<(), Error> {
-    if let Some(temp) = rmsgs.get_mut(from) {
+    let resolved = resolve_to_key(api, key_cache, from, ts)?;
+    if let Some(temp) = rmsgs.get_mut(&resolved) {
         if temp.get_mut(&sequence).is_some() {
             temp.remove(&sequence);
         } else {
-            let resolved = resolve_to_key(api, key_cache, from, cur_ts)?;
             remove(&resolved, pending, sequence, true)?;
         }
     } else {
-        let resolved = resolve_to_key(api, key_cache, from, cur_ts)?;
         remove(&resolved, pending, sequence, true)?;
     }
     Ok(())
@@ -353,11 +352,16 @@ pub(in crate::message_pool) fn remove_from_selected_msgs<T: Provider>(
 
 /// This is a helper function for `head_change`. This method will add a signed
 /// message to the given messages selected by priority `HashMap`.
+/// `resolved_sender` must be the key-form address of the message sender.
 pub(in crate::message_pool) fn add_to_selected_msgs(
+    resolved_sender: Address,
     m: SignedMessage,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) {
-    rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
+    rmsgs
+        .entry(resolved_sender)
+        .or_default()
+        .insert(m.sequence(), m);
 }
 
 #[cfg(test)]
