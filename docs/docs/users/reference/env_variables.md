@@ -64,6 +64,7 @@ process.
 | `FOREST_GENESIS_NETWORK_VERSION`                          | non-negative integer            | empty                                          | 25                                                            | Override the genesis network version (devnet only)                                                                    |
 | `FOREST_TIPSET_CACHE_DISABLED`                            | 1 or true                       | empty                                          | 1                                                             | Disable the tipset cache. Used internally by development and tool subcommands                                         |
 | `FOREST_MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS`           | positive integer                | 3                                              | 3                                                             | number of max concurrent requests to send over chain exchange protocol                                                |
+| `FOREST_FEES_FIP0115HEIGHT`                               | integer                         | -1                                             | 100                                                           | FIP-0115 base fee activation epoch. Set to -1 to disable. **Consensus-breaking, for testing only.**                   |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 
