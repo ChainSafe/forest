@@ -12,7 +12,7 @@ use crate::{
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     lotus_json::HasLotusJson,
-    message_pool::MessagePool,
+    message_pool::{MessagePool, MpoolLocker, NonceTracker},
     networks::{ChainConfig, NetworkChain},
     rpc::{
         ApiPaths, RPCState, RpcMethod, RpcMethodExt as _,
@@ -161,7 +161,7 @@ async fn ctx(
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
-    let nonce_tracker = crate::message_pool::NonceTracker::new(state_manager.blockstore_owned());
+    let nonce_tracker = NonceTracker::new(state_manager.blockstore_owned());
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
@@ -174,7 +174,7 @@ async fn ctx(
         shutdown,
         tipset_send,
         snapshot_progress_tracker: Default::default(),
-        mpool_locker: crate::message_pool::MpoolLocker::new(),
+        mpool_locker: MpoolLocker::new(),
         nonce_tracker,
     });
     Ok((rpc_state, network_rx, shutdown_recv))

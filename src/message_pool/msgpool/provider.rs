@@ -101,6 +101,11 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
             .map_err(|err| err.into())
     }
 
+    // NOTE: Lotus resolves to deterministic address at finality to guarantee
+    // the ID→key mapping is reorg-stable. We currently resolve against the
+    // tipset's parent state, which is safe but does not provide the same
+    // reorg-safety guarantee.
+    // See https://github.com/filecoin-project/lotus/blob/006da4c7e1c1c29ac02b32112c0d205e4085ba35/chain/stmgr/stmgr.go#L347
     fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
         let state = StateTree::new_from_root(self.blockstore().clone(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;

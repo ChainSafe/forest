@@ -23,7 +23,7 @@ use crate::daemon::{
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
-use crate::message_pool::{MessagePool, MpoolConfig};
+use crate::message_pool::{MessagePool, MpoolConfig, MpoolLocker, NonceTracker};
 use crate::networks::{self, ChainConfig};
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
@@ -399,7 +399,8 @@ fn maybe_start_rpc_service(
             let tipset_send = chain_follower.tipset_sender.clone();
             let keystore = ctx.keystore.clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
-            let nonce_tracker = crate::message_pool::NonceTracker::new(ctx.db.clone());
+            let nonce_tracker = NonceTracker::new(ctx.db.clone());
+            let mpool_locker = MpoolLocker::new();
             async move {
                 let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
                     .await
@@ -420,7 +421,7 @@ fn maybe_start_rpc_service(
                         shutdown,
                         tipset_send,
                         snapshot_progress_tracker,
-                        mpool_locker: crate::message_pool::MpoolLocker::new(),
+                        mpool_locker,
                         nonce_tracker,
                     },
                     rpc_listener,
