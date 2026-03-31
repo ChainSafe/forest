@@ -1829,7 +1829,7 @@ components:
     Bloom:
       type: string
     ChainFinalityStatus:
-      description: "Describes how the node is currently determining finality,"
+      description: "Describes how the node is currently determining finality,\ncombining probabilistic EC finality (based on observed chain health) with\nF3 fast finality when available."
       type: object
       properties:
         ecFinalityThresholdDepth:
