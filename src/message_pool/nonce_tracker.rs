@@ -14,12 +14,12 @@ use tracing::{error, warn};
 
 /// Serializes nonce assignment globally and persists the next expected nonce
 /// per address. The global mutex prevents concurrent nonce assignment across
-/// all senders, while persistence ensures in-flight nonces survive restarts.
+/// all senders, while persistence ensures in-flight nonce's survive restarts.
 ///
-/// Nonces are persisted at `/mpool/nonces/{addr}` in the [`SettingsStore`]. On
+/// Nonce's are persisted at `/mpool/nonces/{addr}` in the [`SettingsStore`]. On
 /// restart, [`next_nonce`](Self::next_nonce) returns
-/// `max(mpool_nonce, persisted_nonce)` so that in-flight nonces are not reused.
-/// Nonces are only persisted **after** a successful push; if signing or pushing
+/// `max(mpool_nonce, persisted_nonce)` so that in-flight nonce's are not reused.
+/// Nonce's are only persisted **after** a successful push; if signing or pushing
 /// fails the nonce is not consumed.
 ///
 /// See also [`MpoolLocker`](super::MpoolLocker), the outer per-sender lock.
