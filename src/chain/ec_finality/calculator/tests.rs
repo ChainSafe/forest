@@ -171,7 +171,7 @@ fn test_find_threshold_depth_healthy_chain() {
 #[test]
 fn test_find_threshold_depth_degraded_chain() {
     // All-1s chain is too degraded to achieve 2^-30 within the bisect
-    // search range (BisectHigh=200), so threshold is not found
+    // search range (BisectHigh=450), so threshold is not found
     let chain = vec![1; 905];
 
     let depth = find_threshold_depth(

@@ -12,8 +12,8 @@ pub struct ObjStat {
 lotus_json_with_self!(ObjStat);
 
 /// Describes how the node is currently determining finality,
-// combining probabilistic EC finality (based on observed chain health) with
-// F3 fast finality when available.
+/// combining probabilistic EC finality (based on observed chain health) with
+/// F3 fast finality when available.
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainFinalityStatus {
