@@ -17,7 +17,7 @@ use crate::{
 use clap::Args;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use human_repr::HumanCount;
-use std::{path::PathBuf, sync::Arc};
+use std::{num::NonZeroUsize, path::PathBuf, sync::Arc, time::Instant};
 
 /// Exports epoch to tipset key mapping AMT as a `ForestCAR` file for a given epoch range.
 /// The exported AMT can be used to quickly look up the tipset key for a given epoch without traversing the chain,
@@ -36,6 +36,9 @@ pub struct ExportTipsetLookupCommand {
     /// End epoch (inclusive). Defaults to 0 (genesis)
     #[arg(long)]
     to: Option<ChainEpoch>,
+    /// Every N epochs to skip when exporting the AMT. Defaults to 1 (export every epoch)
+    #[arg(long, default_value = "1")]
+    skip_length: NonZeroUsize,
     /// The path to the output `ForestCAR` file
     #[arg(short, long)]
     output: PathBuf,
@@ -48,8 +51,10 @@ impl ExportTipsetLookupCommand {
             db,
             from,
             to,
+            skip_length,
             output,
         } = self;
+        let skip_length = skip_length.get() as i64;
         let db_root_path = if let Some(db) = db {
             db
         } else {
@@ -76,6 +81,7 @@ impl ExportTipsetLookupCommand {
 
         let amt_db = Arc::new(MemoryDB::default());
         let mut amt = Amt::new(&amt_db);
+        let start = Instant::now();
         for ts in head.chain(chain_store.blockstore()) {
             if let Some(from) = from
                 && ts.epoch() > from
@@ -87,13 +93,17 @@ impl ExportTipsetLookupCommand {
             {
                 break;
             }
+            if ts.epoch() % skip_length != 0 {
+                continue;
+            }
             amt.set(ts.epoch() as u64, ts.key().clone())?;
         }
         let root = amt.flush()?;
         println!(
-            "Exported tipset lookup AMT with root CID: {root}, len: {}, size: {}",
+            "Exported tipset lookup AMT with root CID: {root}, len: {}, size: {}, took {}",
             amt_db.blockstore_len(),
-            amt_db.blockstore_size_bytes().human_count_bytes()
+            amt_db.blockstore_size_bytes().human_count_bytes(),
+            humantime::format_duration(start.elapsed())
         );
         amt_db
             .export_forest_car_with_roots(
