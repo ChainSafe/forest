@@ -24,9 +24,9 @@ use std::sync::LazyLock;
 // `BISECT_LOW` and `BISECT_HIGH` define the search range for the bisect algorithm
 // that finds the epoch depth at which the finality guarantee is met. A low
 // bound of 3 avoids evaluating trivially shallow depths; a high bound of
-// 200 accommodates degraded chains that take longer to finalize.
+// 450 accommodates degraded chains that take longer to finalize.
 pub const BISECT_LOW: i64 = 3;
-pub const BISECT_HIGH: i64 = 200;
+pub const BISECT_HIGH: i64 = 450;
 
 // the Filecoin mainnet expected block production rate.
 pub const DEFAULT_BLOCKS_PER_EPOCH: f64 = 5.0;

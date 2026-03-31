@@ -299,7 +299,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
                 gas_used: r.gas_used(),
                 events_root: r.events_root(),
             })
-            .collect();
+            .collect_vec();
 
         Ok(receipts)
     }
@@ -1198,18 +1198,28 @@ impl ChainGetTipSetFinalityStatus {
 
         let finality = ctx.chain_config().policy.chain_finality;
         let chain_len = finality as usize + 5;
-        let chain_rev = ctx
-            .chain_index()
-            .chain_with_cache(head)
-            .take(chain_len)
-            .collect_vec();
-        let chain_n_blocks = chain_rev
-            .iter()
-            .rev()
-            .map(|ts| ts.len() as i64)
-            .collect_vec();
-        let threshold = match find_threshold_depth(
-            &chain_n_blocks,
+        let mut chain = Vec::with_capacity(chain_len);
+        let mut ts = head.clone();
+        while chain.len() < chain_len {
+            chain.push(ts.len() as i64);
+            if let Ok(parent) = ctx.chain_index().load_required_tipset(ts.parents()) {
+                // insert 0 for null rounds
+                for _ in 1..(ts.epoch() - parent.epoch()) {
+                    if chain.len() < chain_len {
+                        chain.push(0);
+                    } else {
+                        break;
+                    }
+                }
+                ts = parent;
+            } else {
+                break;
+            }
+        }
+        // Reverse to chronological order (oldest first).
+        chain.reverse();
+        let depth = match find_threshold_depth(
+            &chain,
             finality,
             DEFAULT_BLOCKS_PER_EPOCH,
             DEFAULT_BYZANTINE_FRACTION,
@@ -1218,19 +1228,22 @@ impl ChainGetTipSetFinalityStatus {
             Ok(threshold) => threshold,
             Err(e) => {
                 tracing::error!(
-                    "Failed to calculate EC finality threshold depth: {e:#}, chain: {chain_n_blocks:?}"
+                    "Failed to calculate EC finality threshold depth: {e:#}, chain: {chain:?}"
                 );
                 -1
             }
         };
-        let finalized = if let Ok(threshold) = usize::try_from(threshold)
-            && let Some(ts) = chain_rev.get(threshold)
-        {
+        let finalized = if depth >= 0
+            && let Ok(ts) = ctx.chain_index().tipset_by_height(
+                (head.epoch() - depth).max(0),
+                head,
+                ResolveNullTipset::TakeOlder,
+            ) {
             Some(ts.clone())
         } else {
             None
         };
-        (threshold, finalized)
+        (depth, finalized)
     }
 }
 
@@ -1657,7 +1670,7 @@ impl<T> PathChanges<T> {
             .into_iter()
             .map(PathChange::Revert)
             .chain(applies.into_iter().map(PathChange::Apply))
-            .collect()
+            .collect_vec()
     }
 }
 
