@@ -105,17 +105,6 @@ impl<DB: Blockstore> ChainIndex<DB> {
             .ok_or_else(|| Error::NotFound("Key for header".into()))
     }
 
-    /// Returns an iterator of all tipsets, each tipset is cached.
-    /// Use [`Tipset::chain`] if you don't want every tipset to be cached.
-    pub fn chain_with_cache(&self, ts: Tipset) -> impl Iterator<Item = Tipset> {
-        let mut tipset = Some(ts);
-        std::iter::from_fn(move || {
-            let child = tipset.take()?;
-            tipset = self.load_required_tipset(child.parents()).ok();
-            Some(child)
-        })
-    }
-
     /// Find tipset at epoch `to` in the chain of ancestors starting at `from`.
     /// If the tipset is _not_ in the chain of ancestors (i.e., if the `to`
     /// epoch is higher than `from.epoch()`), an error will be returned.
