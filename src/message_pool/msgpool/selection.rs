@@ -890,12 +890,9 @@ mod test_selection {
     use super::*;
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use crate::message_pool::{
-        head_change,
-        msgpool::{
-            test_provider::{TestApi, mock_block},
-            tests::{create_fake_smsg, create_smsg},
-        },
+    use crate::message_pool::msgpool::{
+        test_provider::{TestApi, mock_block},
+        tests::{create_fake_smsg, create_smsg},
     };
     use crate::shim::crypto::SignatureType;
     use crate::shim::econ::BLOCK_GAS_LIMIT;
@@ -911,33 +908,13 @@ mod test_selection {
 
     /// Creates a tipset with a mocked block and performs a head change to setup the
     /// [`MessagePool`] for testing.
-    async fn mock_tipset(mpool: &mut MessagePool<TestApi>) -> Tipset {
+    async fn mock_tipset(mpool: &MessagePool<TestApi>) -> Tipset {
         let b1 = mock_block(1, 1);
         let ts = Tipset::from(&b1);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = mpool.repub_trigger.clone();
-        let republished = mpool.republished.clone();
-        let key_cache = mpool.key_cache.clone();
-        let state_nonce_cache = mpool.state_nonce_cache.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            key_cache.as_ref(),
-            state_nonce_cache.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
-
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(b1)])
+            .await
+            .unwrap();
         ts
     }
 
@@ -954,34 +931,14 @@ mod test_selection {
         let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let b1 = mock_block(1, 1);
-        let ts = Tipset::from(&b1);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = mpool.repub_trigger.clone();
-        let republished = mpool.republished.clone();
-        let key_cache = mpool.key_cache.clone();
-        let state_nonce_cache = mpool.state_nonce_cache.clone();
+        let ts = mock_tipset(&mpool).await;
 
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            key_cache.as_ref(),
-            state_nonce_cache.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
-
-        api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
-        api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
+        mpool
+            .api
+            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
+        mpool
+            .api
+            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         // we create 10 messages from each actor to another, with the first actor paying
         // higher gas prices than the second; we expect message selection to
@@ -1024,20 +981,10 @@ mod test_selection {
         // now we make a block with all the messages and advance the chain
         let b2 = mpool.api.next_block();
         mpool.api.set_block_messages(&b2, msgs);
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            key_cache.as_ref(),
-            state_nonce_cache.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b2)],
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(b2)])
+            .await
+            .unwrap();
 
         // we should now have no pending messages in the MessagePool
         // let pending = mpool.pending.read().await;
@@ -1116,8 +1063,8 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_gas() {
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1167,8 +1114,8 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_msgs_basic() {
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1202,8 +1149,8 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_msgs_two_senders() {
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let keystore_1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1263,8 +1210,8 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_msgs_two_senders_complex() {
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let keystore_1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1366,7 +1313,7 @@ mod test_selection {
 
         let mut joinset = JoinSet::new();
         let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1443,8 +1390,8 @@ mod test_selection {
         // the chain dependent merging algorithm should pick messages from the actor
         // from the start
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         // create two actors
@@ -1499,8 +1446,8 @@ mod test_selection {
         // actor paying (much) higher gas premium than the second.
         // We select with a low ticket quality; the chain dependent merging algorithm
         // should pick messages from the second actor from the start
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         // create two actors
@@ -1586,8 +1533,8 @@ mod test_selection {
         // actors. We select with a low ticket quality; the chain dependent
         // merging algorithm should pick messages from the median actor from the
         // start
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let n_actors = 10;

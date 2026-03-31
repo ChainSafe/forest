@@ -383,16 +383,23 @@ pub mod tests {
         msg_pool::MessagePool,
     };
 
-    #[tokio::test]
-    async fn test_per_actor_limit() {
-        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
-        let mut wallet = Wallet::new(keystore);
-        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let tma = TestApi::with_max_actor_pending_messages(200);
-        tma.set_state_sequence(&sender, 0);
+    struct TestMpool {
+        mpool: MessagePool<TestApi>,
+        wallet: Wallet,
+        sender: Address,
+        target: Address,
+        services: JoinSet<anyhow::Result<()>>,
+        network_rx: flume::Receiver<NetworkMessage>,
+    }
 
-        let (tx, _rx) = flume::bounded(50);
+    fn make_test_mpool(
+        tma: TestApi,
+    ) -> (
+        MessagePool<TestApi>,
+        JoinSet<anyhow::Result<()>>,
+        flume::Receiver<NetworkMessage>,
+    ) {
+        let (tx, rx) = flume::bounded(50);
         let mut services = JoinSet::new();
         let mpool = MessagePool::new(
             tma,
@@ -402,6 +409,37 @@ pub mod tests {
             &mut services,
         )
         .unwrap();
+        (mpool, services, rx)
+    }
+
+    fn make_test_setup() -> TestMpool {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::default();
+        tma.set_state_sequence(&sender, 0);
+        let (mpool, services, network_rx) = make_test_mpool(tma);
+        TestMpool {
+            mpool,
+            wallet,
+            sender,
+            target,
+            services,
+            network_rx,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_per_actor_limit() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::with_max_actor_pending_messages(200);
+        tma.set_state_sequence(&sender, 0);
+        let (mpool, _services, _rx) = make_test_mpool(tma);
+
         let mut smsg_vec = Vec::new();
         for i in 0..(mpool.api.max_actor_pending_messages() + 1) {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -471,23 +509,14 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_message_pool() {
-        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
-        let mut wallet = Wallet::new(keystore);
-        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let tma = TestApi::default();
-        tma.set_state_sequence(&sender, 0);
+        let TestMpool {
+            mpool,
+            mut wallet,
+            sender,
+            target,
+            ..
+        } = make_test_setup();
 
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
         let mut smsg_vec = Vec::new();
         for i in 0..2 {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -504,28 +533,10 @@ pub mod tests {
         let a = mock_block(1, 1);
 
         mpool.api.inner.lock().set_block_messages(&a, smsg_vec);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = mpool.repub_trigger.clone();
-        let republished = mpool.republished.clone();
-        let key_cache = mpool.key_cache.clone();
-        let state_nonce_cache = mpool.state_nonce_cache.clone();
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger,
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            key_cache.as_ref(),
-            state_nonce_cache.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(a)],
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(a)])
+            .await
+            .unwrap();
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
     }
@@ -549,16 +560,7 @@ pub mod tests {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
+        let (mpool, _services, _rx) = make_test_mpool(tma);
 
         {
             let mut api_temp = mpool.api.inner.lock();
@@ -575,71 +577,28 @@ pub mod tests {
 
         mpool.api.set_state_sequence(&sender, 0);
 
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = mpool.repub_trigger.clone();
-        let republished = mpool.republished.clone();
-        let key_cache = mpool.key_cache.clone();
-        let state_nonce_cache = mpool.state_nonce_cache.clone();
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            key_cache.as_ref(),
-            state_nonce_cache.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(a)],
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(a)])
+            .await
+            .unwrap();
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
         mpool.api.set_state_sequence(&sender, 1);
 
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            key_cache.as_ref(),
-            state_nonce_cache.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(&b)],
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(&b)])
+            .await
+            .unwrap();
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
         mpool.api.set_state_sequence(&sender, 0);
 
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            key_cache.as_ref(),
-            state_nonce_cache.as_ref(),
-            vec![Tipset::from(b)],
-            Vec::new(),
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(vec![Tipset::from(b)], Vec::new())
+            .await
+            .unwrap();
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
@@ -657,19 +616,8 @@ pub mod tests {
 
         tma.set_key_address_mapping(&id_addr, &key_addr);
         tma.set_state_sequence(&key_addr, 0);
+        let (mpool, _services, _rx) = make_test_mpool(tma);
 
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
-
-        // Add messages using the key address
         let target = Address::new_id(1001);
         for i in 0..3 {
             let msg = create_smsg(&target, &key_addr, wallet.borrow_mut(), i, 1000000, 1);
@@ -691,17 +639,7 @@ pub mod tests {
 
         tma.set_key_address_mapping(&id_addr, &key_addr);
         tma.set_state_sequence(&key_addr, 0);
-
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
+        let (mpool, _services, _rx) = make_test_mpool(tma);
 
         let target = Address::new_id(1001);
         for i in 0..2 {
@@ -730,17 +668,7 @@ pub mod tests {
 
         tma.set_key_address_mapping(&id_addr, &key_addr);
         tma.set_state_sequence(&key_addr, 0);
-
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
+        let (mpool, _services, _rx) = make_test_mpool(tma);
 
         // Create a message with the ID address as sender and a fake signature
         let msg = create_fake_smsg(&mpool, &Address::new_id(1001), &id_addr, 0, 1000000, 1);
@@ -770,17 +698,7 @@ pub mod tests {
         tma.set_state_sequence(&key_addr, 0);
 
         let a = mock_block(1, 1);
-
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
+        let (mpool, _services, _rx) = make_test_mpool(tma);
 
         let target = Address::new_id(1001);
         let msg0 = create_smsg(&target, &key_addr, wallet.borrow_mut(), 0, 1000000, 1);
@@ -793,31 +711,12 @@ pub mod tests {
         // The head_change remove path resolves addresses before touching pending.
         mpool.api.inner.lock().set_block_messages(&a, vec![msg0]);
 
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = mpool.repub_trigger.clone();
-        let republished = mpool.republished.clone();
-        let key_cache = mpool.key_cache.clone();
-        let state_nonce_cache = mpool.state_nonce_cache.clone();
-
         mpool.api.set_state_sequence(&key_addr, 1);
 
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger,
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            key_cache.as_ref(),
-            state_nonce_cache.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(a)],
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(a)])
+            .await
+            .unwrap();
 
         // msg0 was applied on chain, msg1 remains pending
         assert_eq!(mpool.get_sequence(&id_addr).unwrap(), 2);
@@ -830,23 +729,14 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_async_message_pool() {
-        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
-        let mut wallet = Wallet::new(keystore);
-        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-
-        let tma = TestApi::default();
-        tma.set_state_sequence(&sender, 0);
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
+        let TestMpool {
+            mpool,
+            mut wallet,
+            sender,
+            target,
+            services: _services,
+            network_rx: _network_rx,
+        } = make_test_setup();
 
         let mut smsg_vec = Vec::new();
         for i in 0..3 {

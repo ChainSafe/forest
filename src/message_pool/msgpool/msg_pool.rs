@@ -631,6 +631,30 @@ where
         self.config = cfg;
         Ok(())
     }
+
+    #[cfg(test)]
+    pub async fn apply_head_change(
+        &self,
+        revert: Vec<crate::blocks::Tipset>,
+        apply: Vec<crate::blocks::Tipset>,
+    ) -> Result<(), Error>
+    where
+        T: 'static,
+    {
+        head_change(
+            self.api.as_ref(),
+            self.bls_sig_cache.as_ref(),
+            self.repub_trigger.clone(),
+            self.republished.as_ref(),
+            self.pending.as_ref(),
+            self.cur_tipset.as_ref(),
+            self.key_cache.as_ref(),
+            self.state_nonce_cache.as_ref(),
+            revert,
+            apply,
+        )
+        .await
+    }
 }
 
 impl<T> MessagePool<T>
