@@ -1,4 +1,7 @@
 name: RPC parity tests
+permissions:
+  contents: read
+  issues: write
 on:
   workflow_dispatch:
     inputs:

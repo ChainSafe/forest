@@ -1,4 +1,7 @@
 name: cargo publish dry run
+permissions:
+  contents: read
+  issues: write
 on:
   workflow_dispatch:
   schedule:

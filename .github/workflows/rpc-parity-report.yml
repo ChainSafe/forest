@@ -1,4 +1,8 @@
 name: RPC parity conformance report
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
 on:
   workflow_dispatch:
     inputs:
