@@ -33,9 +33,9 @@ pub struct ExportTipsetLookupCommand {
     /// Start epoch (inclusive). Defaults to the current chain head
     #[arg(long)]
     from: Option<ChainEpoch>,
-    /// End epoch (inclusive). Defaults to 0 (genesis)
-    #[arg(long)]
-    to: Option<ChainEpoch>,
+    /// End epoch (inclusive).
+    #[arg(long, default_value = "0")]
+    to: ChainEpoch,
     /// Every N epochs to skip when exporting the AMT. Defaults to 1 (export every epoch)
     #[arg(long, default_value = "1")]
     skip_length: NonZeroUsize,
@@ -88,9 +88,7 @@ impl ExportTipsetLookupCommand {
             {
                 continue;
             }
-            if let Some(to) = to
-                && ts.epoch() < to
-            {
+            if ts.epoch() < to {
                 break;
             }
             if ts.epoch() % skip_length != 0 {
