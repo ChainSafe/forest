@@ -52,7 +52,8 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Fetch proof params and RPC test snapshots
         run: |
-          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
+          # Use the same profile to re-use some compilation artifacts and speed up the entire job.
+          cargo llvm-cov run --no-report --bin forest-dev --no-default-features -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - name: Generate code coverage
         run: mise codecov
