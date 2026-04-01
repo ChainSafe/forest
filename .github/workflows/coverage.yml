@@ -44,15 +44,16 @@ jobs:
   codecov:
     name: Coverage
     if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
-    runs-on: warp-ubuntu-2404-arm64-4x
-    timeout-minutes: 45
+    runs-on: warp-ubuntu-2404-arm64-8x
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Fetch proof params and RPC test snapshots
         run: |
-          cargo run --bin forest-dev --no-default-features --profile quick -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
+          # Use the same profile to re-use some compilation artifacts and speed up the entire job.
+          cargo llvm-cov run --no-report --bin forest-dev --no-default-features -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
           ls -ahl $FIL_PROOFS_PARAMETER_CACHE
       - name: Generate code coverage
         run: mise codecov
