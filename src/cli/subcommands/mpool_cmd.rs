@@ -6,12 +6,15 @@ use crate::lotus_json::{HasLotusJson as _, NotNullVec};
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::rpc::{self, prelude::*, types::ApiTipsetKey};
 use crate::shim::address::StrictAddress;
-use crate::shim::message::Message;
+use crate::shim::message::{METHOD_SEND, Message};
 use crate::shim::{address::Address, econ::TokenAmount};
 
 use ahash::{HashMap, HashSet};
+use anyhow::Context as _;
 use clap::Subcommand;
+use fvm_ipld_encoding::RawBytes;
 use num::BigInt;
+use std::ops::Range;
 
 #[derive(Debug, Subcommand)]
 pub enum MpoolCommands {
@@ -44,6 +47,24 @@ pub enum MpoolCommands {
         #[arg(long)]
         local: bool,
     },
+    /// Fill an on-chain nonce gap by pushing signed self-transfer messages.
+    NonceFix {
+        /// Address to fill nonces for (must be signable by the node's wallet).
+        #[arg(long)]
+        addr: StrictAddress,
+        /// Derive the fill range from chain state and the mempool (ignores `--start` / `--end`).
+        #[arg(long)]
+        auto: bool,
+        /// First sequence to fill (inclusive); required unless `--auto`.
+        #[arg(long)]
+        start: Option<u64>,
+        /// End of range (exclusive); required unless `--auto`.
+        #[arg(long)]
+        end: Option<u64>,
+        /// Gas fee cap for filler messages, in `attoFIL`. Default: twice the parent base fee from chain head.
+        #[arg(long)]
+        gas_fee_cap: Option<String>,
+    },
 }
 
 fn filter_messages(
@@ -67,6 +88,62 @@ fn filter_messages(
         .collect();
 
     Ok(filtered)
+}
+
+enum NonceFixFillRangeInput {
+    Auto {
+        addr: Address,
+        next_on_chain_nonce: u64,
+        pending: Vec<SignedMessage>,
+    },
+    Manual {
+        start: Option<u64>,
+        end: Option<u64>,
+    },
+}
+
+fn get_nonce_fix_fill_range(input: NonceFixFillRangeInput) -> anyhow::Result<Option<Range<u64>>> {
+    match input {
+        NonceFixFillRangeInput::Auto {
+            addr,
+            next_on_chain_nonce,
+            pending,
+        } => {
+            let Some(pending_nonce) = pending
+                .iter()
+                .filter(|m| m.from() == addr)
+                .map(|m| m.sequence())
+                .filter(|&seq| seq >= next_on_chain_nonce)
+                .min()
+            else {
+                return Ok(None);
+            };
+            if pending_nonce == next_on_chain_nonce {
+                return Ok(None);
+            }
+            Ok(Some(next_on_chain_nonce..pending_nonce))
+        }
+        NonceFixFillRangeInput::Manual { start, end } => {
+            let start = start.context("manual mode requires --start")?;
+            let end = end.context("manual mode requires --end")?;
+            anyhow::ensure!(end > start, "--end must be greater than --start");
+            Ok(Some(start..end))
+        }
+    }
+}
+
+fn get_nonce_fix_gas_fee_cap(
+    gas_fee_cap: Option<&str>,
+    parent_base_fee: TokenAmount,
+) -> anyhow::Result<TokenAmount> {
+    if let Some(cap) = gas_fee_cap {
+        Ok(TokenAmount::from_atto(
+            cap.parse::<BigInt>()
+                .context("invalid --gas-fee-cap value")?,
+        ))
+    } else {
+        Ok(parent_base_fee * 2u64)
+    }
 }
 
 async fn get_actor_sequence(
@@ -275,6 +352,64 @@ impl MpoolCommands {
 
                 Ok(())
             }
+            Self::NonceFix {
+                addr,
+                auto,
+                start,
+                end,
+                gas_fee_cap,
+            } => {
+                let addr: Address = addr.into();
+
+                let fill_range = if auto {
+                    let actor = StateGetActor::call(&client, (addr, ApiTipsetKey(None)))
+                        .await?
+                        .with_context(|| format!("no on-chain actor found for {addr}"))?;
+                    let next_nonce = actor.sequence;
+                    let NotNullVec(pending) =
+                        MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
+                    get_nonce_fix_fill_range(NonceFixFillRangeInput::Auto {
+                        addr,
+                        next_on_chain_nonce: next_nonce,
+                        pending,
+                    })?
+                } else {
+                    get_nonce_fix_fill_range(NonceFixFillRangeInput::Manual { start, end })?
+                };
+
+                let Some(fill_range) = fill_range else {
+                    println!("No nonce gap found or no --end flag specified");
+                    return Ok(());
+                };
+
+                let tipset = ChainHead::call(&client, ()).await?;
+                let parent_base_fee = tipset.block_headers().first().parent_base_fee.clone();
+                let fee_cap = get_nonce_fix_gas_fee_cap(gas_fee_cap.as_deref(), parent_base_fee)?;
+                let n = fill_range.end.saturating_sub(fill_range.start);
+                println!(
+                    "Creating {n} filler messages ({} ~ {})",
+                    fill_range.start, fill_range.end
+                );
+
+                for sequence in fill_range {
+                    let msg = Message {
+                        version: 0,
+                        from: addr,
+                        to: addr,
+                        sequence,
+                        value: TokenAmount::default(),
+                        method_num: METHOD_SEND,
+                        params: RawBytes::new(vec![]),
+                        gas_limit: 1_000_000,
+                        gas_fee_cap: fee_cap.clone(),
+                        gas_premium: TokenAmount::from_atto(5u64),
+                    };
+                    let smsg = WalletSignMessage::call(&client, (addr, msg)).await?;
+                    MpoolPush::call(&client, (smsg,)).await?;
+                }
+
+                Ok(())
+            }
         }
     }
 }
@@ -420,6 +555,163 @@ mod tests {
         for smsg in smsg_filtered.iter() {
             assert_eq!(smsg.to(), target2);
         }
+    }
+
+    #[test]
+    fn nonce_fix_auto_no_pending() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let r = get_nonce_fix_fill_range(NonceFixFillRangeInput::Auto {
+            addr,
+            next_on_chain_nonce: 0,
+            pending: vec![],
+        })
+        .unwrap();
+        assert_eq!(r, None);
+    }
+
+    #[test]
+    fn nonce_fix_auto_other_sender() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let other = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let m = create_smsg(&target, &other, wallet.borrow_mut(), 10, 1000000, 1);
+        let r = get_nonce_fix_fill_range(NonceFixFillRangeInput::Auto {
+            addr,
+            next_on_chain_nonce: 5,
+            pending: vec![m],
+        })
+        .unwrap();
+        assert_eq!(r, None);
+    }
+
+    #[test]
+    fn nonce_fix_auto_fill_range_gap() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let m = create_smsg(&target, &addr, wallet.borrow_mut(), 7, 1000000, 1);
+        let r = get_nonce_fix_fill_range(NonceFixFillRangeInput::Auto {
+            addr,
+            next_on_chain_nonce: 5,
+            pending: vec![m],
+        })
+        .unwrap();
+        assert_eq!(r, Some(5..7));
+    }
+
+    #[test]
+    fn nonce_fix_auto_fill_range_min_pending_nonce() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let m10 = create_smsg(&target, &addr, wallet.borrow_mut(), 10, 1000000, 1);
+        let m8 = create_smsg(&target, &addr, wallet.borrow_mut(), 8, 1000000, 1);
+        let r = get_nonce_fix_fill_range(NonceFixFillRangeInput::Auto {
+            addr,
+            next_on_chain_nonce: 5,
+            pending: vec![m10, m8],
+        })
+        .unwrap();
+        assert_eq!(r, Some(5..8));
+    }
+
+    #[test]
+    fn nonce_fix_auto_next_nonce_exist_in_mpool() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let m = create_smsg(&target, &addr, wallet.borrow_mut(), 5, 1000000, 1);
+        let r = get_nonce_fix_fill_range(NonceFixFillRangeInput::Auto {
+            addr,
+            next_on_chain_nonce: 5,
+            pending: vec![m],
+        })
+        .unwrap();
+        assert_eq!(r, None);
+    }
+
+    #[test]
+    fn nonce_fix_manual_fill_range_missing_start() {
+        let e = get_nonce_fix_fill_range(NonceFixFillRangeInput::Manual {
+            start: None,
+            end: Some(10),
+        })
+        .unwrap_err();
+        assert!(
+            e.to_string().contains("manual mode requires --start"),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn nonce_fix_manual_fill_range_missing_end() {
+        let e = get_nonce_fix_fill_range(NonceFixFillRangeInput::Manual {
+            start: Some(1),
+            end: None,
+        })
+        .unwrap_err();
+        assert!(e.to_string().contains("manual mode requires --end"), "{e}");
+    }
+
+    #[test]
+    fn nonce_fix_invalid_fill_range() {
+        let e = get_nonce_fix_fill_range(NonceFixFillRangeInput::Manual {
+            start: Some(5),
+            end: Some(5),
+        })
+        .unwrap_err();
+        assert!(
+            e.to_string().contains("--end must be greater than --start"),
+            "{e}"
+        );
+
+        let e = get_nonce_fix_fill_range(NonceFixFillRangeInput::Manual {
+            start: Some(5),
+            end: Some(3),
+        })
+        .unwrap_err();
+        assert!(
+            e.to_string().contains("--end must be greater than --start"),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn nonce_fix_manual_fill_range() {
+        let r = get_nonce_fix_fill_range(NonceFixFillRangeInput::Manual {
+            start: Some(2),
+            end: Some(5),
+        })
+        .unwrap();
+        assert_eq!(r, Some(2..5));
+    }
+
+    #[test]
+    fn nonce_fix_default_fee_cap() {
+        let parent = TokenAmount::from_atto(100u64);
+        let cap = get_nonce_fix_gas_fee_cap(None, parent.clone()).unwrap();
+        assert_eq!(cap, parent * 2u64);
+    }
+
+    #[test]
+    fn nonce_fix_explicit_fee_cap() {
+        let parent = TokenAmount::from_atto(999u64);
+        let cap = get_nonce_fix_gas_fee_cap(Some("42"), parent).unwrap();
+        assert_eq!(cap, TokenAmount::from_atto(42u64));
+    }
+
+    #[test]
+    fn nonce_fix_invalid_fee_cap() {
+        let parent = TokenAmount::from_atto(1u64);
+        let e = get_nonce_fix_gas_fee_cap(Some("not-a-number"), parent).unwrap_err();
+        assert!(e.to_string().contains("invalid --gas-fee-cap value"), "{e}");
     }
 
     #[test]

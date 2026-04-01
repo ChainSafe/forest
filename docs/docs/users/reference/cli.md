@@ -617,10 +617,11 @@ Interact with the message pool
 Usage: forest-cli mpool <COMMAND>
 
 Commands:
-  pending  Get pending messages
-  nonce    Get the current nonce for an address
-  stat     Print mempool stats
-  help     Print this message or the help of the given subcommand(s)
+  pending    Get pending messages
+  nonce      Get the current nonce for an address
+  stat       Print mempool stats
+  nonce-fix  Fill an on-chain nonce gap by pushing signed self-transfer messages
+  help       Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
@@ -669,6 +670,22 @@ Arguments:
 
 Options:
   -h, --help  Print help
+```
+
+### `forest-cli mpool nonce-fix`
+
+```
+Fill an on-chain nonce gap by pushing signed self-transfer messages
+
+Usage: forest-cli mpool nonce-fix --addr <ADDR> [OPTIONS]
+
+Options:
+      --addr <ADDR>                Address to fill nonces for (must be signable by the node's wallet)
+      --auto                       Derive the fill range from chain state and the mempool (ignores `--start` / `--end`)
+      --start <START>              First sequence to fill (inclusive); required unless `--auto`
+      --end <END>                  End of range (exclusive); required unless `--auto`
+      --gas-fee-cap <GAS_FEE_CAP>  Gas fee cap for filler messages, in `attoFIL`. Default: twice the parent base fee from chain head
+  -h, --help                       Print help
 ```
 
 ### `forest-cli state`
