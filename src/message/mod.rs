@@ -5,8 +5,9 @@ pub mod chain_message;
 pub mod signed_message;
 
 use crate::shim::message::MethodNum;
-use crate::shim::{address::Address, econ::TokenAmount, message::Message as ShimMessage};
+use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use crate::shim::{gas::Gas, version::NetworkVersion};
+use ambassador::delegatable_trait;
 pub use chain_message::ChainMessage;
 use fvm_ipld_encoding::RawBytes;
 use num::Zero;
@@ -15,6 +16,7 @@ pub use signed_message::SignedMessage;
 /// Message interface to make read-only interactions with Signed and unsigned messages in a generic
 /// context.
 #[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
 pub trait MessageRead {
     /// Returns the from address of the message.
     fn from(&self) -> Address;
@@ -51,7 +53,7 @@ pub trait MessageRead {
 
 /// Message interface to interact with Signed and unsigned messages in a generic
 /// context.
-pub trait Message: MessageRead {
+pub trait MessageReadWrite: MessageRead {
     /// sets the gas limit for the message.
     fn set_gas_limit(&mut self, amount: u64);
     /// sets a new sequence to the message.
@@ -62,7 +64,7 @@ pub trait Message: MessageRead {
     fn set_gas_premium(&mut self, prem: TokenAmount);
 }
 
-impl MessageRead for ShimMessage {
+impl MessageRead for Message {
     fn from(&self) -> Address {
         self.from
     }
@@ -95,7 +97,7 @@ impl MessageRead for ShimMessage {
     }
 }
 
-impl Message for ShimMessage {
+impl MessageReadWrite for Message {
     fn set_gas_limit(&mut self, token_amount: u64) {
         self.gas_limit = token_amount;
     }
@@ -112,7 +114,7 @@ impl Message for ShimMessage {
 
 /// Semantic validation and validates the message has enough gas.
 pub fn valid_for_block_inclusion(
-    msg: &ShimMessage,
+    msg: &Message,
     min_gas: Gas,
     version: NetworkVersion,
 ) -> anyhow::Result<()> {
@@ -189,7 +191,7 @@ mod tests {
         .collect_vec();
 
         for (base_fee, gas_fee_cap, gas_premium, expected) in test_cases.into_iter() {
-            let msg = ShimMessage {
+            let msg = Message {
                 gas_fee_cap: gas_fee_cap.clone(),
                 gas_premium: gas_premium.clone(),
                 ..Default::default()
