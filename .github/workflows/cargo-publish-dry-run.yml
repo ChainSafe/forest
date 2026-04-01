@@ -15,7 +15,7 @@ env:
 
 jobs:
   cargo-publish-dry-run:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Configure SCCache variables
         run: |
