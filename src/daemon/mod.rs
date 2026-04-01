@@ -9,8 +9,8 @@ pub mod main;
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
+use crate::chain_sync::ChainFollower;
 use crate::chain_sync::network_context::SyncNetworkContext;
-use crate::chain_sync::{ChainFollower, SyncStatus};
 use crate::cli_shared::snapshot;
 use crate::cli_shared::{
     chain_path,
@@ -81,8 +81,9 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
     let start_time = chrono::Utc::now();
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
+    let (rpc_stop_handle, rpc_server_handle) = jsonrpsee::server::stop_channel();
     let result = tokio::select! {
-        ret = start(start_time, opts, config, shutdown_send) => ret,
+        ret = start(start_time, opts, config, shutdown_send, rpc_stop_handle) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
@@ -96,6 +97,7 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
             Ok(())
         },
     };
+    _ = rpc_server_handle.stop();
     crate::utils::io::terminal_cleanup();
     result
 }
@@ -365,6 +367,47 @@ async fn maybe_start_health_check_service(
     Ok(())
 }
 
+fn maybe_start_gc_service(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
+    config: &Config,
+    cs: Arc<ChainStore<DbType>>,
+    sync_status: crate::chain_sync::SyncStatus,
+) -> anyhow::Result<()> {
+    // If the node is stateless, GC shouldn't get triggered even on demand.
+    if opts.stateless {
+        return Ok(());
+    }
+
+    let snap_gc = Arc::new(SnapshotGarbageCollector::new(cs, sync_status, config)?);
+
+    GLOBAL_SNAPSHOT_GC
+        .set(snap_gc.clone())
+        .ok()
+        .context("failed to set GLOBAL_SNAPSHOT_GC")?;
+
+    services.spawn({
+        let snap_gc = snap_gc.clone();
+        async move {
+            snap_gc.event_loop().await;
+            Ok(())
+        }
+    });
+
+    // GC shouldn't run periodically if the node is stateless or if the user has disabled it.
+    if !opts.no_gc {
+        services.spawn({
+            let snap_gc = snap_gc.clone();
+            async move {
+                snap_gc.scheduler_loop().await;
+                Ok(())
+            }
+        });
+    }
+
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn maybe_start_rpc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
@@ -572,48 +615,17 @@ pub(super) async fn start(
     opts: CliOpts,
     config: Config,
     shutdown_send: mpsc::Sender<()>,
+    rpc_stop_handle: jsonrpsee::server::StopHandle,
 ) -> anyhow::Result<()> {
     startup_init(&config)?;
-    let (snap_gc, snap_gc_reboot_rx) = SnapshotGarbageCollector::new(&config)?;
-    let snap_gc = Arc::new(snap_gc);
-    GLOBAL_SNAPSHOT_GC
-        .set(snap_gc.clone())
-        .ok()
-        .context("failed to set GLOBAL_SNAPSHOT_GC")?;
-
-    // If the node is stateless, GC shouldn't get triggered even on demand.
-    if !opts.stateless {
-        tokio::task::spawn({
-            let snap_gc = snap_gc.clone();
-            async move { snap_gc.event_loop().await }
-        });
-    }
-    // GC shouldn't run periodically if the node is stateless or if the user has disabled it.
-    if !opts.no_gc && !opts.stateless {
-        tokio::task::spawn({
-            let snap_gc = snap_gc.clone();
-            async move { snap_gc.scheduler_loop().await }
-        });
-    }
-    loop {
-        let (rpc_stop_handle, rpc_server_handle) = jsonrpsee::server::stop_channel();
-        tokio::select! {
-            _ = snap_gc_reboot_rx.recv_async() => {
-                // gracefully shutdown RPC server
-                if let Err(e) = rpc_server_handle.stop() {
-                    tracing::warn!("failed to stop RPC server: {e}");
-                }
-                snap_gc.cleanup_before_reboot().await;
-            }
-            result = start_services(start_time, &opts, config.clone(), shutdown_send.clone(), rpc_stop_handle, |ctx, sync_status| {
-                snap_gc.set_db(ctx.db.clone());
-                snap_gc.set_sync_status(sync_status);
-                snap_gc.set_car_db_head_epoch(ctx.db.heaviest_tipset().map(|ts|ts.epoch()).unwrap_or_default());
-            }) => {
-                break result
-            }
-        }
-    }
+    start_services(
+        start_time,
+        &opts,
+        config.clone(),
+        shutdown_send.clone(),
+        rpc_stop_handle,
+    )
+    .await
 }
 
 pub(super) async fn start_services(
@@ -622,7 +634,6 @@ pub(super) async fn start_services(
     mut config: Config,
     shutdown_send: mpsc::Sender<()>,
     rpc_stop_handle: jsonrpsee::server::StopHandle,
-    on_app_context_and_db_initialized: impl FnOnce(&AppContext, SyncStatus),
 ) -> anyhow::Result<()> {
     // Cleanup the collector prometheus metrics registry on start
     crate::metrics::reset_collector_registry();
@@ -640,6 +651,7 @@ pub(super) async fn start_services(
     {
         tracing::warn!("error in maybe_rewind_heaviest_tipset: {e:#}");
     }
+
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
     let chain_follower = create_chain_follower(opts, &p2p_service, mpool.clone(), &ctx)?;
@@ -661,8 +673,15 @@ pub(super) async fn start_services(
         services.shutdown().await;
         return Ok(());
     }
-    on_app_context_and_db_initialized(&ctx, chain_follower.sync_status.clone());
+
     warmup_in_background(&ctx);
+    maybe_start_gc_service(
+        &mut services,
+        opts,
+        &config,
+        ctx.chain_store().clone(),
+        chain_follower.sync_status.clone(),
+    )?;
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_f3_service(opts, &config, &ctx)?;
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)

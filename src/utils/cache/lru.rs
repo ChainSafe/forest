@@ -132,6 +132,10 @@ where
         self.cache.write().remove_lru()
     }
 
+    pub fn clear(&self) {
+        self.cache.write().clear();
+    }
+
     pub fn len(&self) -> usize {
         self.cache.read().len()
     }

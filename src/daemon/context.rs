@@ -9,8 +9,8 @@ use crate::daemon::asyncify;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::daemon::db_util::load_all_forest_cars_with_cleanup;
 use crate::db::car::ManyCar;
-use crate::db::db_engine::{db_root, open_db};
-use crate::db::parity_db::ParityDb;
+use crate::db::db_engine::db_root;
+use crate::db::parity_db::{GarbageCollectableParityDb, ParityDb};
 use crate::db::{CAR_DB_DIR_NAME, DummyStore, EthMappingsStore};
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
@@ -178,7 +178,7 @@ fn maybe_migrate_db(config: &Config) {
     }
 }
 
-pub type DbType = ManyCar<Arc<ParityDb>>;
+pub type DbType = ManyCar<Arc<GarbageCollectableParityDb>>;
 
 pub(crate) struct DbMetadata {
     db_root_dir: PathBuf,
@@ -204,7 +204,10 @@ async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType
     maybe_migrate_db(config);
     let chain_data_path = chain_path(config);
     let db_root_dir = db_root(&chain_data_path)?;
-    let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config())?);
+    let db_writer = Arc::new(GarbageCollectableParityDb::new(ParityDb::to_options(
+        db_root_dir.clone(),
+        config.db_config(),
+    ))?);
     let db = Arc::new(ManyCar::new(db_writer.clone()));
     let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars_with_cleanup(&db, &forest_car_db_dir)?;

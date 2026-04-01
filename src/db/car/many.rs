@@ -10,6 +10,7 @@
 
 use super::{AnyCar, ZstdFrameCache};
 use crate::blocks::TipsetKey;
+use crate::db::parity_db::GarbageCollectableDb;
 use crate::db::{
     BlockstoreWriteOpsSubscribable, EthMappingsStore, MemoryDB, PersistentStore, SettingsStore,
     SettingsStoreExt,
@@ -104,14 +105,18 @@ impl<WriterT> ManyCar<WriterT> {
         any_car: AnyCar<ReaderT>,
     ) -> anyhow::Result<()> {
         let mut read_only = self.read_only.write();
+        Self::read_only_inner(&mut read_only, self.shared_cache.clone(), any_car)
+    }
+
+    fn read_only_inner<ReaderT: super::RandomAccessFileReader>(
+        read_only: &mut parking_lot::RwLockWriteGuard<'_, BinaryHeap<WithHeaviestEpoch>>,
+        shared_cache: Arc<ZstdFrameCache>,
+        any_car: AnyCar<ReaderT>,
+    ) -> anyhow::Result<()> {
         let key = read_only.len() as u64;
-
         read_only.push(WithHeaviestEpoch::new(
-            any_car
-                .with_cache(self.shared_cache.clone(), key)
-                .into_dyn()?,
+            any_car.with_cache(shared_cache, key).into_dyn()?,
         )?);
-
         Ok(())
     }
 
@@ -139,6 +144,21 @@ impl<WriterT> ManyCar<WriterT> {
         .with_context(|| format!("failed to load CAR at {}", file.as_ref().display()))
     }
 
+    /// Reload `CAR` files after garbage collection.
+    pub fn clear_and_append_read_only_files(
+        &self,
+        files: impl Iterator<Item = PathBuf>,
+    ) -> anyhow::Result<()> {
+        let mut read_only = self.read_only.write();
+        read_only.clear();
+        self.shared_cache.clear();
+        for f in files {
+            let car = AnyCar::new(EitherMmapOrRandomAccessFile::open(f)?)?;
+            Self::read_only_inner(&mut read_only, self.shared_cache.clone(), car)?;
+        }
+        Ok(())
+    }
+
     pub fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>> {
         Ok(self
             .read_only
@@ -158,6 +178,22 @@ impl<WriterT> ManyCar<WriterT> {
     /// Number of read-only `CAR`s
     pub fn len(&self) -> usize {
         self.read_only.read().len()
+    }
+}
+
+pub trait ReloadableManyCar {
+    fn clear_and_reload_cars(&self, files: impl Iterator<Item = PathBuf>) -> anyhow::Result<()>;
+
+    fn heaviest_car_tipset(&self) -> anyhow::Result<Tipset>;
+}
+
+impl<T> ReloadableManyCar for ManyCar<T> {
+    fn clear_and_reload_cars(&self, files: impl Iterator<Item = PathBuf>) -> anyhow::Result<()> {
+        self.clear_and_append_read_only_files(files)
+    }
+
+    fn heaviest_car_tipset(&self) -> anyhow::Result<Tipset> {
+        self.heaviest_tipset()
     }
 }
 
@@ -280,6 +316,12 @@ impl<WriterT: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for
 
     fn unsubscribe_write_ops(&self) {
         self.writer().unsubscribe_write_ops()
+    }
+}
+
+impl<T: GarbageCollectableDb> GarbageCollectableDb for ManyCar<T> {
+    fn reset_gc_columns(&self) -> anyhow::Result<()> {
+        self.writer().reset_gc_columns()
     }
 }
 
