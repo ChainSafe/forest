@@ -13,7 +13,7 @@ use super::super::{decode_payload, encode_filecoin_params_as_abi, encode_filecoi
 use super::Environment;
 use super::types::{
     EthCallTraceAction, EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult, EthTrace,
-    TraceAction, TraceResult,
+    TraceAction, TraceError, TraceResult,
 };
 use super::utils::trace_to_address;
 use crate::eth::{EAMMethod, EVMMethod};
@@ -29,17 +29,6 @@ use fvm_ipld_blockstore::Blockstore;
 use num::FromPrimitive;
 use tracing::debug;
 
-/// Error string used in Parity-format traces.
-pub const PARITY_TRACE_REVERT_ERROR: &str = "Reverted";
-pub const PARITY_EVM_INVALID_INSTRUCTION: &str = "invalid instruction";
-pub const PARITY_EVM_UNDEFINED_INSTRUCTION: &str = "undefined instruction";
-pub const PARITY_EVM_STACK_UNDERFLOW: &str = "stack underflow";
-pub const PARITY_EVM_STACK_OVERFLOW: &str = "stack overflow";
-pub const PARITY_EVM_ILLEGAL_MEMORY_ACCESS: &str = "illegal memory access";
-pub const PARITY_EVM_BAD_JUMPDEST: &str = "invalid jump destination";
-pub const PARITY_EVM_SELFDESTRUCT_FAILED: &str = "self destruct failed";
-pub const PARITY_EVM_OUT_OF_GAS: &str = "out of gas";
-
 /// Returns `true` if the invoked actor is an EVM contract or the Ethereum Account Manager.
 fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
     if let Some(invoked_actor) = &trace.invoked_actor {
@@ -50,49 +39,45 @@ fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
     }
 }
 
-/// Converts a trace's exit code into a human-readable Parity-style error string.
+/// Converts a trace's exit code into a typed [`TraceError`].
 /// Returns `None` when the trace completed successfully.
-fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
+fn trace_err_msg(trace: &ExecutionTrace) -> Option<TraceError> {
     let code = trace.msg_rct.exit_code;
 
     if code.is_success() {
         return None;
     }
 
-    // EVM tools often expect this literal string.
     if code == ExitCode::SYS_OUT_OF_GAS {
-        return Some(PARITY_EVM_OUT_OF_GAS.into());
+        return Some(TraceError::OutOfGas);
     }
 
-    // indicate when we have a "system" error.
     if code < ExitCode::FIRST_ACTOR_ERROR_CODE.into() {
-        return Some(format!("vm error: {code}"));
+        return Some(TraceError::VmError(code.value()));
     }
 
-    // handle special exit codes from the EVM/EAM.
     if trace_is_evm_or_eam(trace) {
         match code.into() {
-            evm12::EVM_CONTRACT_REVERTED => return Some(PARITY_TRACE_REVERT_ERROR.into()), // capitalized for compatibility
+            evm12::EVM_CONTRACT_REVERTED => return Some(TraceError::Reverted),
             evm12::EVM_CONTRACT_INVALID_INSTRUCTION => {
-                return Some(PARITY_EVM_INVALID_INSTRUCTION.into());
+                return Some(TraceError::InvalidInstruction);
             }
             evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => {
-                return Some(PARITY_EVM_UNDEFINED_INSTRUCTION.into());
+                return Some(TraceError::UndefinedInstruction);
             }
-            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some(PARITY_EVM_STACK_UNDERFLOW.into()),
-            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some(PARITY_EVM_STACK_OVERFLOW.into()),
+            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some(TraceError::StackUnderflow),
+            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some(TraceError::StackOverflow),
             evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => {
-                return Some(PARITY_EVM_ILLEGAL_MEMORY_ACCESS.into());
+                return Some(TraceError::IllegalMemoryAccess);
             }
-            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some(PARITY_EVM_BAD_JUMPDEST.into()),
+            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some(TraceError::BadJumpDest),
             evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => {
-                return Some(PARITY_EVM_SELFDESTRUCT_FAILED.into());
+                return Some(TraceError::SelfDestructFailed);
             }
             _ => (),
         }
     }
-    // everything else...
-    Some(format!("actor error: {code}"))
+    Some(TraceError::ActorError(code.value()))
 }
 
 /// Recursively builds the traces for a given ExecutionTrace by walking the subcalls

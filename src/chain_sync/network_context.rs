@@ -3,7 +3,7 @@
 
 use std::{
     convert::TryFrom,
-    num::NonZeroU64,
+    num::{NonZeroU64, NonZeroUsize},
     sync::{
         Arc, LazyLock,
         atomic::{AtomicU64, Ordering},
@@ -12,7 +12,7 @@ use std::{
 };
 
 use crate::{
-    blocks::{FullTipset, Tipset, TipsetKey},
+    blocks::{FullTipset, Tipset, TipsetKey, TipsetLike},
     libp2p::{
         NetworkMessage, PeerId, PeerManager,
         chain_exchange::{
@@ -43,7 +43,15 @@ static CHAIN_EXCHANGE_TIMEOUT_MILLIS: LazyLock<ExponentialAdaptiveValueProvider<
 
 /// Maximum number of concurrent chain exchange request being sent to the
 /// network.
-const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
+static MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: LazyLock<NonZeroUsize> = LazyLock::new(|| {
+    std::env::var("FOREST_MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS")
+        .ok()
+        .and_then(|i| {
+            i.parse().ok().inspect(|i| {
+                tracing::info!("max concurrent chain exchange requests set to {i} from `FOREST_MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS`");
+            })
+        }).unwrap_or(nonzero!(3_usize))
+});
 
 /// Context used in chain sync to handle network requests.
 /// This contains the peer manager, P2P service interface, and [`Blockstore`]
@@ -79,10 +87,10 @@ impl<T> RaceBatch<T>
 where
     T: Send + 'static,
 {
-    pub fn new(max_concurrent_jobs: usize) -> Self {
+    pub fn new(max_concurrent_jobs: NonZeroUsize) -> Self {
         RaceBatch {
             tasks: JoinSet::new(),
-            semaphore: Arc::new(Semaphore::new(max_concurrent_jobs)),
+            semaphore: Arc::new(Semaphore::new(max_concurrent_jobs.get())),
         }
     }
 
@@ -139,7 +147,7 @@ where
         tsk: &TipsetKey,
         count: NonZeroU64,
     ) -> anyhow::Result<Vec<Tipset>> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |tipsets: &Vec<Tipset>| {
+        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |tipsets| {
             validate_network_tipsets(tipsets, tsk)
         })
         .await
@@ -181,7 +189,7 @@ where
                 tsk,
                 nonzero!(1_u64),
                 HEADERS | MESSAGES,
-                |_| true,
+                |tipsets| validate_network_tipsets(tipsets, tsk),
             )
             .await?;
 
@@ -211,7 +219,7 @@ where
 
     /// Helper function to handle the peer retrieval if no peer supplied as well
     /// as the logging and updating of the peer info in the `PeerManager`.
-    async fn handle_chain_exchange_request<T, F>(
+    pub async fn handle_chain_exchange_request<T, F>(
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
@@ -253,7 +261,7 @@ where
                 );
 
                 let n_peers = peers.len();
-                let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
+                let mut batch = RaceBatch::new(*MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 let success_time_cost_millis_stats = Arc::new(Mutex::new(Stats::new()));
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();
@@ -449,7 +457,7 @@ where
 /// Validates network tipsets that are sorted by epoch in descending order with the below checks
 /// 1. The latest(first) tipset has the desired tipset key
 /// 2. The sorted tipsets are chained by their tipset keys
-fn validate_network_tipsets(tipsets: &[Tipset], start_tipset_key: &TipsetKey) -> bool {
+fn validate_network_tipsets<T: TipsetLike>(tipsets: &[T], start_tipset_key: &TipsetKey) -> bool {
     if let Some(start) = tipsets.first() {
         if start.key() != start_tipset_key {
             tracing::warn!(epoch=%start.epoch(), expected=%start_tipset_key, actual=%start.key(), "start tipset key mismatch");
@@ -485,7 +493,7 @@ mod tests {
 
     #[tokio::test]
     async fn race_batch_ok() {
-        let mut batch = RaceBatch::new(3);
+        let mut batch = RaceBatch::new(nonzero!(3_usize));
         batch.add(async move { Ok(1) });
         batch.add(async move { anyhow::bail!("kaboom") });
 
@@ -494,7 +502,7 @@ mod tests {
 
     #[tokio::test]
     async fn race_batch_ok_faster() {
-        let mut batch = RaceBatch::new(3);
+        let mut batch = RaceBatch::new(nonzero!(3_usize));
         batch.add(async move {
             tokio::time::sleep(Duration::from_secs(100)).await;
             Ok(1)
@@ -507,7 +515,7 @@ mod tests {
 
     #[tokio::test]
     async fn race_batch_none() {
-        let mut batch: RaceBatch<i32> = RaceBatch::new(3);
+        let mut batch: RaceBatch<i32> = RaceBatch::new(nonzero!(3_usize));
         batch.add(async move { anyhow::bail!("kaboom") });
         batch.add(async move { anyhow::bail!("banana") });
 
@@ -516,7 +524,7 @@ mod tests {
 
     #[tokio::test]
     async fn race_batch_semaphore() {
-        const MAX_JOBS: usize = 30;
+        const MAX_JOBS: NonZeroUsize = nonzero!(30_usize);
         let counter = Arc::new(AtomicUsize::new(0));
         let exceeded = Arc::new(AtomicBool::new(false));
 
@@ -526,7 +534,7 @@ mod tests {
             let e = exceeded.clone();
             batch.add(async move {
                 let prev = c.fetch_add(1, Ordering::Relaxed);
-                if prev >= MAX_JOBS {
+                if prev >= MAX_JOBS.get() {
                     e.fetch_or(true, Ordering::Relaxed);
                 }
 
@@ -543,18 +551,18 @@ mod tests {
 
     #[tokio::test]
     async fn race_batch_semaphore_exceeded() {
-        const MAX_JOBS: usize = 30;
+        const MAX_JOBS: NonZeroUsize = nonzero!(30_usize);
         let counter = Arc::new(AtomicUsize::new(0));
         let exceeded = Arc::new(AtomicBool::new(false));
 
         // We add one more job to exceed the limit
-        let mut batch: RaceBatch<i32> = RaceBatch::new(MAX_JOBS + 1);
+        let mut batch: RaceBatch<i32> = RaceBatch::new(MAX_JOBS.checked_add(1).unwrap());
         for _ in 0..10000 {
             let c = counter.clone();
             let e = exceeded.clone();
             batch.add(async move {
                 let prev = c.fetch_add(1, Ordering::Relaxed);
-                if prev >= MAX_JOBS {
+                if prev >= MAX_JOBS.get() {
                     e.fetch_or(true, Ordering::Relaxed);
                 }
 

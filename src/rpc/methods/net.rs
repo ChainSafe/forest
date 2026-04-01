@@ -2,18 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use itertools::Itertools;
 pub use types::*;
 
 use std::any::Any;
+use std::num::NonZeroU64;
 use std::str::FromStr;
+use std::time::Instant;
 
+use crate::libp2p::chain_exchange::TipsetBundle;
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
+use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use anyhow::{Context as _, Result};
 use cid::multibase;
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools as _;
 
 pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
@@ -383,5 +387,39 @@ impl RpcMethod<1> for NetProtectRemove {
             .await?;
         rx.recv_async().await?;
         Ok(())
+    }
+}
+
+pub enum NetChainExchange {}
+impl RpcMethod<3> for NetChainExchange {
+    const NAME: &'static str = "Forest.NetChainExchange";
+    const PARAM_NAMES: [&'static str; 3] = ["startTipsetKey", "len", "options"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: Option<&'static str> = Some("Internal API for debugging chain exchange.");
+
+    type Params = (ApiTipsetKey, u64, u64);
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (tsk, request_len, options): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let request_len =
+            NonZeroU64::new(request_len).context("request length must be greater than 0")?;
+        let tsk = tsk
+            .0
+            .unwrap_or_else(|| ctx.chain_store().heaviest_tipset().key().clone());
+        let timer = Instant::now();
+        let result: Vec<TipsetBundle> = ctx
+            .sync_network_context
+            .handle_chain_exchange_request(None, &tsk, request_len, options, |_| true)
+            .await?;
+        Ok(format!(
+            "fetched {} tipsets, took {}",
+            result.len(),
+            humantime::format_duration(timer.elapsed())
+        ))
     }
 }
