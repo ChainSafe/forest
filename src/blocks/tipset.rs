@@ -269,6 +269,15 @@ pub enum CreateTipsetError {
     DuplicateMiner,
 }
 
+/// A trait for types that have the same properties as a Tipset.
+pub trait TipsetLike {
+    fn epoch(&self) -> ChainEpoch;
+    fn key(&self) -> &TipsetKey;
+    fn parents(&self) -> &TipsetKey;
+    #[allow(dead_code)]
+    fn parent_state(&self) -> &Cid;
+}
+
 #[allow(clippy::len_without_is_empty)]
 impl Tipset {
     /// Builds a new Tipset from a collection of blocks.
@@ -451,6 +460,24 @@ impl Tipset {
     }
 }
 
+impl TipsetLike for Tipset {
+    fn epoch(&self) -> ChainEpoch {
+        self.epoch()
+    }
+
+    fn key(&self) -> &TipsetKey {
+        self.key()
+    }
+
+    fn parents(&self) -> &TipsetKey {
+        self.parents()
+    }
+
+    fn parent_state(&self) -> &Cid {
+        self.parent_state()
+    }
+}
+
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
 /// and messages.
 #[derive(Debug, Clone, Eq)]
@@ -458,6 +485,24 @@ pub struct FullTipset {
     blocks: Arc<NonEmpty<Block>>,
     // key is lazily initialized via `fn key()`.
     key: Arc<OnceLock<TipsetKey>>,
+}
+
+impl TipsetLike for FullTipset {
+    fn epoch(&self) -> ChainEpoch {
+        self.epoch()
+    }
+
+    fn key(&self) -> &TipsetKey {
+        self.key()
+    }
+
+    fn parents(&self) -> &TipsetKey {
+        self.parents()
+    }
+
+    fn parent_state(&self) -> &Cid {
+        self.parent_state()
+    }
 }
 
 impl std::hash::Hash for FullTipset {
