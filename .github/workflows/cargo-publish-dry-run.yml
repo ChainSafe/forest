@@ -1,0 +1,47 @@
+name: cargo publish dry run
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+env:
+  CI: 1
+  CACHE_TIMEOUT_MINUTES: 5
+  AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+  AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+  RUSTC_WRAPPER: sccache
+  CC: sccache clang
+  CXX: sccache clang++
+
+jobs:
+  cargo-publish-dry-run:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Configure SCCache variables
+        run: |
+          # External PRs do not have access to 'vars' or 'secrets'.
+          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
+            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
+            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
+            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+          fi
+      - name: Checkout Sources
+        uses: actions/checkout@v6
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - uses: jdx/mise-action@v4
+      - run: cargo publish --dry-run
+      - name: Set WORKFLOW_URL
+        if: failure()
+        run: |
+          export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo ${WORKFLOW_URL}
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
+      - uses: JasonEtco/create-an-issue@v2
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/CARGO_PUBLISH_DRY_RUN_ISSUE_TEMPLATE.md
