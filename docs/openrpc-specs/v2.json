@@ -1349,6 +1349,51 @@
       "paramStructure": "by-position"
     },
     {
+      "name": "Forest.NetChainExchange",
+      "description": "Internal API for debugging chain exchange.",
+      "params": [
+        {
+          "name": "startTipsetKey",
+          "required": true,
+          "schema": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Cid"
+            }
+          }
+        },
+        {
+          "name": "len",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        {
+          "name": "options",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      ],
+      "result": {
+        "name": "Forest.NetChainExchange.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
       "name": "debug_traceTransaction",
       "description": "Replays a transaction and returns execution traces in Geth-compatible format.",
       "params": [
