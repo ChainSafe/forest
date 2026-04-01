@@ -9,12 +9,98 @@
 use super::super::types::{EthAddress, EthAddressList, EthBytes, EthHash};
 use super::super::{EthBigInt, EthUint64};
 use crate::lotus_json::lotus_json_with_self;
+use crate::rpc::eth::trace::GETH_TRACE_REVERT_ERROR;
 use crate::rpc::eth::trace::utils::extract_revert_reason;
-use crate::rpc::eth::trace::{GETH_TRACE_REVERT_ERROR, PARITY_TRACE_REVERT_ERROR};
+use crate::shim::error::ExitCode;
 use anyhow::{Context as _, Result, bail};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+/// Typed error for Parity-style EVM trace entries.
+#[derive(Debug, Hash, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum TraceError {
+    #[error("Reverted")]
+    Reverted,
+    #[error("out of gas")]
+    OutOfGas,
+    #[error("invalid instruction")]
+    InvalidInstruction,
+    #[error("undefined instruction")]
+    UndefinedInstruction,
+    #[error("stack underflow")]
+    StackUnderflow,
+    #[error("stack overflow")]
+    StackOverflow,
+    #[error("illegal memory access")]
+    IllegalMemoryAccess,
+    #[error("invalid jump destination")]
+    BadJumpDest,
+    #[error("self destruct failed")]
+    SelfDestructFailed,
+    /// System-level VM error (exit code < FIRST_ACTOR_ERROR_CODE).
+    #[error("vm error: {}", ExitCode::from(*.0))]
+    VmError(u32),
+    /// Actor-level error (catch-all for unrecognised exit codes).
+    #[error("actor error: {}", ExitCode::from(*.0))]
+    ActorError(u32),
+}
+
+impl Serialize for TraceError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for TraceError {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(TraceError::from_string(&s))
+    }
+}
+
+impl TraceError {
+    pub fn from_string(s: &str) -> Self {
+        match s {
+            "Reverted" => Self::Reverted,
+            "out of gas" => Self::OutOfGas,
+            "invalid instruction" => Self::InvalidInstruction,
+            "undefined instruction" => Self::UndefinedInstruction,
+            "stack underflow" => Self::StackUnderflow,
+            "stack overflow" => Self::StackOverflow,
+            "illegal memory access" => Self::IllegalMemoryAccess,
+            "invalid jump destination" => Self::BadJumpDest,
+            "self destruct failed" => Self::SelfDestructFailed,
+            other => {
+                if let Some(rest) = other.strip_prefix("vm error: ") {
+                    Self::VmError(parse_exit_code_display(rest))
+                } else if let Some(rest) = other.strip_prefix("actor error: ") {
+                    Self::ActorError(parse_exit_code_display(rest))
+                } else {
+                    Self::ActorError(0)
+                }
+            }
+        }
+    }
+
+    /// Converts this Parity-format error to the equivalent Geth-format string.
+    pub fn to_geth_error_string(&self) -> String {
+        match self {
+            Self::Reverted => GETH_TRACE_REVERT_ERROR.into(),
+            other => other.to_string(),
+        }
+    }
+}
+
+/// Parses `ExitCode`'s display format back to its `u32` value.
+/// Handles both `"Name(N)"` (e.g., `"SysErrOutOfGas(7)"`) and plain `"N"`.
+fn parse_exit_code_display(s: &str) -> u32 {
+    s.rsplit_once('(')
+        .and_then(|(_, n)| n.strip_suffix(')'))
+        .unwrap_or(s)
+        .parse()
+        .unwrap_or(0)
+}
 
 #[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -419,7 +505,8 @@ pub struct EthTrace {
     pub action: TraceAction,
     pub result: TraceResult,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+    #[schemars(with = "Option<String>")]
+    pub error: Option<TraceError>,
 }
 
 impl EthTrace {
@@ -428,23 +515,13 @@ impl EthTrace {
     }
 
     /// Returns true if the trace is a revert error.
-    ///
-    /// This is not a complete check for reverted traces (there are other possible revert reasons).
     pub fn is_reverted(&self) -> bool {
-        self.error
-            .as_deref()
-            .is_some_and(|e| e == PARITY_TRACE_REVERT_ERROR)
+        matches!(self.error, Some(TraceError::Reverted))
     }
 
     /// Converts the Parity-format error stored in this trace to the Geth-format.
     pub fn to_geth_error(&self) -> Option<String> {
-        self.error.as_deref().map(|error| {
-            if error == PARITY_TRACE_REVERT_ERROR {
-                GETH_TRACE_REVERT_ERROR.into()
-            } else {
-                error.to_string()
-            }
-        })
+        self.error.as_ref().map(TraceError::to_geth_error_string)
     }
 
     /// Converts a Parity-style [`EthTrace`] into a Geth-style [`GethCallFrame`].
@@ -1131,7 +1208,7 @@ mod tests {
                 gas_used: EthUint64(100),
                 output: EthBytes(vec![]),
             }),
-            error: Some(PARITY_TRACE_REVERT_ERROR.into()),
+            error: Some(TraceError::Reverted),
             ..EthTrace::default()
         };
 
@@ -1240,7 +1317,7 @@ mod tests {
                 code: EthBytes(vec![]),
             }),
             error: if result_address.is_none() {
-                Some("ErrForbidden".into())
+                Some(TraceError::Reverted)
             } else {
                 None
             },
@@ -1354,5 +1431,56 @@ mod tests {
             ..EthTrace::default()
         };
         assert!(trace.match_filter_criteria(None, None).is_err());
+    }
+
+    #[rstest]
+    #[case(TraceError::Reverted, "\"Reverted\"")]
+    #[case(TraceError::OutOfGas, "\"out of gas\"")]
+    #[case(TraceError::InvalidInstruction, "\"invalid instruction\"")]
+    #[case(TraceError::UndefinedInstruction, "\"undefined instruction\"")]
+    #[case(TraceError::StackUnderflow, "\"stack underflow\"")]
+    #[case(TraceError::StackOverflow, "\"stack overflow\"")]
+    #[case(TraceError::IllegalMemoryAccess, "\"illegal memory access\"")]
+    #[case(TraceError::BadJumpDest, "\"invalid jump destination\"")]
+    #[case(TraceError::SelfDestructFailed, "\"self destruct failed\"")]
+    fn test_trace_error_serialization_round_trip(
+        #[case] error: TraceError,
+        #[case] expected_json: &str,
+    ) {
+        let json = serde_json::to_string(&error).unwrap();
+        assert_eq!(json, expected_json);
+
+        let deserialized: TraceError = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, error);
+    }
+
+    #[test]
+    fn test_trace_error_vm_error_serialization() {
+        // ExitCode 7 = SYS_OUT_OF_GAS, but VmError is for other system codes
+        let error = TraceError::VmError(5);
+        let json = serde_json::to_string(&error).unwrap();
+        assert!(json.contains("vm error:"));
+
+        let deserialized: TraceError = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, error);
+    }
+
+    #[test]
+    fn test_trace_error_actor_error_serialization() {
+        let error = TraceError::ActorError(33);
+        let json = serde_json::to_string(&error).unwrap();
+        assert!(json.contains("actor error:"));
+
+        let deserialized: TraceError = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, error);
+    }
+
+    #[test]
+    fn test_trace_error_to_geth_error_string() {
+        assert_eq!(
+            TraceError::Reverted.to_geth_error_string(),
+            "execution reverted"
+        );
+        assert_eq!(TraceError::OutOfGas.to_geth_error_string(), "out of gas");
     }
 }

@@ -58,7 +58,6 @@
 !Filecoin.WalletVerify
 
 # broken
-!Filecoin.EthGetFilterLogs
 # https://github.com/filecoin-project/lotus/pull/13562
 !Filecoin.StateSearchMsg
 # https://github.com/filecoin-project/lotus/pull/13562

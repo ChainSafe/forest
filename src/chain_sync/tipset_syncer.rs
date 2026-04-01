@@ -232,20 +232,14 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Base fee check
     validations.spawn_blocking({
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
-        let xxx_height = state_manager.chain_config().epoch(Height::Xxx);
         let base_tipset = base_tipset.clone();
         let block_store = state_manager.blockstore_owned();
         let block = Arc::clone(&block);
         move || {
-            let base_fee = crate::chain::compute_base_fee(
-                &block_store,
-                &base_tipset,
-                smoke_height,
-                xxx_height,
-            )
-            .map_err(|e| {
-                TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))
-            })?;
+            let base_fee = crate::chain::compute_base_fee(&block_store, &base_tipset, smoke_height)
+                .map_err(|e| {
+                    TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))
+                })?;
             let parent_base_fee = &block.header.parent_base_fee;
             if &base_fee != parent_base_fee {
                 return Err(TipsetSyncerError::Validation(format!(
