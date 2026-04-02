@@ -198,7 +198,7 @@ mod tests {
     use quickcheck_macros::quickcheck;
 
     #[quickcheck]
-    fn test_reset_gc_columns(blocks: Vec<CarBlock>) -> anyhow::Result<()> {
+    fn test_reset_gc_columns(blocks: [CarBlock; 10]) -> anyhow::Result<()> {
         let db_path = tempfile::tempdir()?;
         let options = ParityDb::to_options(db_path.path(), &ParityDbConfig::default());
         let db = GarbageCollectableParityDb::new(options)?;
