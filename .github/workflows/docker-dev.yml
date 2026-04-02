@@ -1,4 +1,7 @@
 name: Build Dev Docker Image
+permissions:
+  contents: read
+  packages: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.git_ref }}
