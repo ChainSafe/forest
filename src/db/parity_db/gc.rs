@@ -39,12 +39,17 @@ impl GarbageCollectableParityDb {
         for col in GC_COLUMNS {
             let start = Instant::now();
             tracing::info!("pruning parity-db column {col}...");
-            loop {
+            // Retry for 10 times with 1s interval in case parity-db is still holding some file handles to the column.
+            const MAX_RETRIES: usize = 10;
+            for i in 1..=MAX_RETRIES {
                 match parity_db::Db::reset_column(&mut options, col, None) {
                     Ok(_) => break,
-                    Err(_) => {
+                    Err(_) if i < MAX_RETRIES => {
                         std::thread::sleep(Duration::from_secs(1));
                     }
+                    Err(e) => anyhow::bail!(
+                        "failed to reset parity-db column {col} after {MAX_RETRIES} attempts: {e}"
+                    ),
                 }
             }
             tracing::info!(
