@@ -25,6 +25,7 @@ use rand_distr::{Distribution, Normal};
 use std::ops::Add;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
+// constant taken from here <https://github.com/filecoin-project/lotus/blob/v1.35.1/node/impl/gasutils/gasutils.go#L33>
 const MAX_GAS_HISTORY: u64 = 128;
 
 /// Estimate the fee cap
