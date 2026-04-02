@@ -114,9 +114,6 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
-      # Run offline RPC tests in sequence to mitigate OOM issue on CI
-      api-compare:
-        condition: service_completed_successfully
     build:
       context: ../../../.
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
