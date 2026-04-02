@@ -303,9 +303,7 @@ where
                     size
                 };
                 let start = Instant::now();
-                if let Err(e) = db.put_many_keyed(mem_db) {
-                    tracing::warn!("{e:#}");
-                }
+                db.put_many_keyed(mem_db)?;
                 tracing::info!(
                     "backfilled {count} new db records since snapshot epoch, approximate heap size: {}, took {}",
                     approximate_heap_size.human_count_bytes(),

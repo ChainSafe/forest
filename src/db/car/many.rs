@@ -109,13 +109,13 @@ impl<WriterT> ManyCar<WriterT> {
     }
 
     fn read_only_inner<ReaderT: super::RandomAccessFileReader>(
-        read_only: &mut parking_lot::RwLockWriteGuard<'_, BinaryHeap<WithHeaviestEpoch>>,
+        read_only: &mut BinaryHeap<WithHeaviestEpoch>,
         shared_cache: Arc<ZstdFrameCache>,
         any_car: AnyCar<ReaderT>,
     ) -> anyhow::Result<()> {
         let key = read_only.len() as u64;
         read_only.push(WithHeaviestEpoch::new(
-            any_car.with_cache(shared_cache, key).into_dyn()?,
+            any_car.with_cache(shared_cache, key).into_dyn(),
         )?);
         Ok(())
     }
@@ -149,13 +149,16 @@ impl<WriterT> ManyCar<WriterT> {
         &self,
         files: impl Iterator<Item = PathBuf>,
     ) -> anyhow::Result<()> {
-        let mut read_only = self.read_only.write();
-        read_only.clear();
+        let mut guard = self.read_only.write();
+        let mut read_only = BinaryHeap::default();
+        // It's OK to clear the shared cache even if failure happens in the middle of loading the new `CAR` files,
+        // because the cache is only an optimization and can be rebuilt by future reads.
         self.shared_cache.clear();
         for f in files {
             let car = AnyCar::new(EitherMmapOrRandomAccessFile::open(f)?)?;
             Self::read_only_inner(&mut read_only, self.shared_cache.clone(), car)?;
         }
+        *guard = read_only;
         Ok(())
     }
 

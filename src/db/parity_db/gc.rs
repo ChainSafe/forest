@@ -25,17 +25,25 @@ impl GarbageCollectableParityDb {
     }
 
     pub fn reset_gc_columns(&self) -> anyhow::Result<()> {
+        let mut guard = self.db.write();
+        // Close the database before resetting the columns, otherwise parity-db will fail to reset them.
+        let tmp_db_dir = tempfile::tempdir()?;
+        let tmp = ParityDb::open(tmp_db_dir.path(), &ParityDbConfig::default())?;
+        // Close the database by dropping it, and replace it with a temporary one to avoid holding the file handles of the original database.
+        drop(std::mem::replace(&mut *guard, tmp));
+        let result = self.reset_gc_columns_inner();
+        // Reopen the database no matter whether resetting columns succeeds or not
+        *guard = ParityDb::open_with_options(&self.options)?;
+        result
+    }
+
+    pub fn reset_gc_columns_inner(&self) -> anyhow::Result<()> {
         const GC_COLUMNS: [u8; 2] = [
             DbColumn::GraphDagCborBlake2b256 as u8,
             DbColumn::GraphFull as u8,
         ];
 
         let mut options = self.options.clone();
-        let mut guard = self.db.write();
-        // Close the database before resetting the columns, otherwise parity-db will fail to reset them.
-        let tmp_db_dir = tempfile::tempdir()?;
-        let tmp = ParityDb::open(tmp_db_dir.path(), &ParityDbConfig::default())?;
-        drop(std::mem::replace(&mut *guard, tmp));
         for col in GC_COLUMNS {
             let start = Instant::now();
             tracing::info!("pruning parity-db column {col}...");
@@ -57,7 +65,6 @@ impl GarbageCollectableParityDb {
                 humantime::format_duration(start.elapsed())
             );
         }
-        *guard = ParityDb::open_with_options(&self.options)?;
         Ok(())
     }
 }
