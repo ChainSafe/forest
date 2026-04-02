@@ -1,4 +1,6 @@
 name: Checkpoints Auto Update
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
