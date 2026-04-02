@@ -210,8 +210,11 @@ where
                 self.cs.blockstore().unsubscribe_write_ops();
             } else {
                 self.cs.blockstore().unsubscribe_write_ops();
-                self.cleanup_after_snapshot_export().await;
+                if let Err(e) = self.cleanup_after_snapshot_export().await {
+                    tracing::warn!("{e:#}");
+                }
             }
+            drop(self.progress_tx.write().take());
             self.running.store(false, Ordering::Relaxed);
         }
     }
@@ -275,14 +278,7 @@ where
         Ok(())
     }
 
-    async fn cleanup_after_snapshot_export(&self) {
-        drop(self.progress_tx.write().take());
-        if let Err(e) = self.cleanup_after_snapshot_export_inner().await {
-            tracing::warn!("{e:#}");
-        }
-    }
-
-    async fn cleanup_after_snapshot_export_inner(&self) -> anyhow::Result<()> {
+    async fn cleanup_after_snapshot_export(&self) -> anyhow::Result<()> {
         tracing::info!("cleaning up db");
         if let Some(blessed_lite_snapshot) = { self.blessed_lite_snapshot.read().clone() }
             && blessed_lite_snapshot.is_file()
