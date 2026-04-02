@@ -108,14 +108,10 @@ struct GasMeta {
 
 pub async fn estimate_gas_premium<DB: Blockstore>(
     ctx: &Ctx<DB>,
-    mut nblocksincl: u64,
+    nblocksincl: u64,
     ApiTipsetKey(ts_key): &ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
-    if nblocksincl == 0 {
-        nblocksincl = 1;
-    } else if nblocksincl > MAX_GAS_HISTORY {
-        nblocksincl = MAX_GAS_HISTORY
-    };
+    let nblocksincl = nblocksincl.clamp(1, MAX_GAS_HISTORY);
 
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
