@@ -60,8 +60,10 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - name: Cargo Check
-        run: cargo check
+      - uses: jdx/mise-action@v4
+      - run: cargo check
+      # nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
+      - run: mise test:docs
   build-ubuntu:
     name: Build Ubuntu
     runs-on: ubuntu-24.04
