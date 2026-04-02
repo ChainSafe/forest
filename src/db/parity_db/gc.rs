@@ -37,7 +37,7 @@ impl GarbageCollectableParityDb {
         result
     }
 
-    pub fn reset_gc_columns_inner(&self) -> anyhow::Result<()> {
+    fn reset_gc_columns_inner(&self) -> anyhow::Result<()> {
         const GC_COLUMNS: [u8; 2] = [
             DbColumn::GraphDagCborBlake2b256 as u8,
             DbColumn::GraphFull as u8,

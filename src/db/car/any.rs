@@ -19,7 +19,6 @@ use positioned_io::ReadAt;
 use std::borrow::Cow;
 use std::io::{Error, ErrorKind, Read, Result};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 #[derive(derive_more::From)]
 pub enum AnyCar<ReaderT> {
@@ -102,7 +101,7 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
     }
 
     /// Set the z-frame cache of the inner CAR reader.
-    pub fn with_cache(self, cache: Arc<ZstdFrameCache>, key: CacheKey) -> Self {
+    pub fn with_cache(self, cache: ZstdFrameCache, key: CacheKey) -> Self {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.with_cache(cache, key)),
             AnyCar::Plain(p) => AnyCar::Plain(p),

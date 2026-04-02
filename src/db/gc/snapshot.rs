@@ -204,16 +204,22 @@ where
             tracing::warn!("snap gc has already been running");
         } else {
             self.running.store(true, Ordering::Relaxed);
-            if let Err(e) = self.export_snapshot().await {
+            let rx = self.cs.blockstore().subscribe_write_ops();
+            if let Err(e) = self.export_snapshot(rx).await {
                 tracing::error!("{e:#}");
+                self.cs.blockstore().unsubscribe_write_ops();
             } else {
+                self.cs.blockstore().unsubscribe_write_ops();
                 self.cleanup_after_snapshot_export().await;
             }
             self.running.store(false, Ordering::Relaxed);
         }
     }
 
-    async fn export_snapshot(&self) -> anyhow::Result<()> {
+    async fn export_snapshot(
+        &self,
+        mut db_write_ops_rx: tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)>,
+    ) -> anyhow::Result<()> {
         let cs = &self.cs;
         let db = cs.blockstore();
         tracing::info!(
@@ -222,11 +228,10 @@ where
         );
         let temp_path = new_forest_car_temp_path_in(&self.car_db_dir)?;
         let file = tokio::fs::File::create(&temp_path).await?;
-        let mut rx = db.subscribe_write_ops();
         let mut joinset = JoinSet::new();
         joinset.spawn(async move {
             let mut map = HashMap::default();
-            while let Ok((k, v)) = rx.recv().await {
+            while let Ok((k, v)) = db_write_ops_rx.recv().await {
                 map.insert(k, v);
             }
             map
@@ -258,8 +263,7 @@ where
         );
         *self.blessed_lite_snapshot.write() = Some(target_path);
         *self.exported_head_key.write() = Some(head_ts.key().clone());
-        *self.memory_db_head_key.write() = db.heaviest_tipset_key()?;
-        db.unsubscribe_write_ops();
+        *self.memory_db_head_key.write() = db.heaviest_tipset_key().ok().flatten();
         match joinset.join_next().await {
             Some(Ok(map)) => {
                 *self.memory_db.write() = Some(map);
@@ -321,7 +325,8 @@ where
                     .unwrap_or_default()
             );
 
-            // Reset chain head
+            // Reset chain head. Note that `self.exported_head_key` is guaranteed to be present,
+            // see `*self.exported_head_key.write() = Some(head_ts.key().clone());` in `export_snapshot`.
             for tsk_opt in [
                 self.memory_db_head_key.write().take(),
                 self.exported_head_key.write().take(),

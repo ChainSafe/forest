@@ -25,10 +25,11 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
-use std::cmp::Ord;
-use std::collections::BinaryHeap;
-use std::path::Path;
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    cmp::Ord,
+    collections::BinaryHeap,
+    path::{Path, PathBuf},
+};
 
 struct WithHeaviestEpoch {
     pub car: AnyCar<Box<dyn super::RandomAccessFileReader>>,
@@ -66,16 +67,16 @@ impl PartialEq for WithHeaviestEpoch {
 }
 
 pub struct ManyCar<WriterT = MemoryDB> {
-    shared_cache: Arc<ZstdFrameCache>,
-    read_only: Arc<RwLock<BinaryHeap<WithHeaviestEpoch>>>,
+    shared_cache: RwLock<ZstdFrameCache>,
+    read_only: RwLock<BinaryHeap<WithHeaviestEpoch>>,
     writer: WriterT,
 }
 
 impl<WriterT> ManyCar<WriterT> {
     pub fn new(writer: WriterT) -> Self {
         ManyCar {
-            shared_cache: Arc::new(ZstdFrameCache::default()),
-            read_only: Arc::new(RwLock::new(BinaryHeap::default())),
+            shared_cache: RwLock::new(ZstdFrameCache::default()),
+            read_only: RwLock::new(BinaryHeap::default()),
             writer,
         }
     }
@@ -105,12 +106,12 @@ impl<WriterT> ManyCar<WriterT> {
         any_car: AnyCar<ReaderT>,
     ) -> anyhow::Result<()> {
         let mut read_only = self.read_only.write();
-        Self::read_only_inner(&mut read_only, self.shared_cache.clone(), any_car)
+        Self::read_only_inner(&mut read_only, self.shared_cache.read().clone(), any_car)
     }
 
     fn read_only_inner<ReaderT: super::RandomAccessFileReader>(
         read_only: &mut BinaryHeap<WithHeaviestEpoch>,
-        shared_cache: Arc<ZstdFrameCache>,
+        shared_cache: ZstdFrameCache,
         any_car: AnyCar<ReaderT>,
     ) -> anyhow::Result<()> {
         let key = read_only.len() as u64;
@@ -149,16 +150,16 @@ impl<WriterT> ManyCar<WriterT> {
         &self,
         files: impl Iterator<Item = PathBuf>,
     ) -> anyhow::Result<()> {
-        let mut guard = self.read_only.write();
+        let mut read_only_guard = self.read_only.write();
+        let mut shared_cache_guard = self.shared_cache.write();
         let mut read_only = BinaryHeap::default();
-        // It's OK to clear the shared cache even if failure happens in the middle of loading the new `CAR` files,
-        // because the cache is only an optimization and can be rebuilt by future reads.
-        self.shared_cache.clear();
+        let shared_cache = ZstdFrameCache::default();
         for f in files {
             let car = AnyCar::new(EitherMmapOrRandomAccessFile::open(f)?)?;
-            Self::read_only_inner(&mut read_only, self.shared_cache.clone(), car)?;
+            Self::read_only_inner(&mut read_only, shared_cache.clone(), car)?;
         }
-        *guard = read_only;
+        *read_only_guard = read_only;
+        *shared_cache_guard = shared_cache;
         Ok(())
     }
 
