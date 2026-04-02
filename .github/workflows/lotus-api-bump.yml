@@ -1,6 +1,8 @@
 # This workflows, run daily, updates the Lotus version in the JSON-RPC API tests to the latest release,
 # and submits a PR with the changes.
 name: Update Lotus version in API tests
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:

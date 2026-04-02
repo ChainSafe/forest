@@ -1,4 +1,7 @@
 name: Forest Docker
+permissions:
+  contents: read
+  packages: write
 
 # Cancel workflow if there is a new change to the branch.
 concurrency:
