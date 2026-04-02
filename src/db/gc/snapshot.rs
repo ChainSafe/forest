@@ -204,17 +204,22 @@ where
             tracing::warn!("snap gc has already been running");
         } else {
             self.running.store(true, Ordering::Relaxed);
-            let rx = self.cs.blockstore().subscribe_write_ops();
-            if let Err(e) = self.export_snapshot(rx).await {
-                tracing::error!("{e:#}");
-                self.cs.blockstore().unsubscribe_write_ops();
-            } else {
-                self.cs.blockstore().unsubscribe_write_ops();
-                if let Err(e) = self.cleanup_after_snapshot_export().await {
-                    tracing::warn!("{e:#}");
+            let success = match self
+                .export_snapshot(self.cs.blockstore().subscribe_write_ops())
+                .await
+            {
+                Ok(_) => true,
+                Err(e) => {
+                    tracing::error!("{e:#}");
+                    false
                 }
-            }
+            };
+            self.cs.blockstore().unsubscribe_write_ops();
+            // Drop this early to let the CLI client disconnect and avoid potential deadlock on db write ops during cleanup
             drop(self.progress_tx.write().take());
+            if success && let Err(e) = self.cleanup_after_snapshot_export().await {
+                tracing::warn!("{e:#}");
+            }
             self.running.store(false, Ordering::Relaxed);
         }
     }
