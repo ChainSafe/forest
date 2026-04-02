@@ -5882,19 +5882,19 @@ components:
         - type: boolean
         - type: object
           properties:
-            currentblock:
+            currentBlock:
               type: integer
               format: int64
-            highestblock:
+            highestBlock:
               type: integer
               format: int64
-            startingblock:
+            startingBlock:
               type: integer
               format: int64
           required:
-            - startingblock
-            - currentblock
-            - highestblock
+            - startingBlock
+            - currentBlock
+            - highestBlock
     EthTopicSpec:
       type: array
       items:

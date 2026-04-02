@@ -1349,6 +1349,51 @@
       "paramStructure": "by-position"
     },
     {
+      "name": "Forest.NetChainExchange",
+      "description": "Internal API for debugging chain exchange.",
+      "params": [
+        {
+          "name": "startTipsetKey",
+          "required": true,
+          "schema": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Cid"
+            }
+          }
+        },
+        {
+          "name": "len",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        {
+          "name": "options",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      ],
+      "result": {
+        "name": "Forest.NetChainExchange.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
       "name": "debug_traceTransaction",
       "description": "Replays a transaction and returns execution traces in Geth-compatible format.",
       "params": [
@@ -3815,23 +3860,23 @@
           {
             "type": "object",
             "properties": {
-              "currentblock": {
+              "currentBlock": {
                 "type": "integer",
                 "format": "int64"
               },
-              "highestblock": {
+              "highestBlock": {
                 "type": "integer",
                 "format": "int64"
               },
-              "startingblock": {
+              "startingBlock": {
                 "type": "integer",
                 "format": "int64"
               }
             },
             "required": [
-              "startingblock",
-              "currentblock",
-              "highestblock"
+              "startingBlock",
+              "currentBlock",
+              "highestBlock"
             ]
           }
         ]
