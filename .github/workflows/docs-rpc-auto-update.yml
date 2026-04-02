@@ -1,5 +1,7 @@
 # This workflow, run daily, updates the Forest RPC reference docs, and submits a PR with the changes.
 name: Update Forest RPC reference docs
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:

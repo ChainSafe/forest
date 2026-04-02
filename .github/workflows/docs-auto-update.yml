@@ -1,5 +1,7 @@
 # This workflows, run daily, updates the Forest CLI usage docs, and submits a PR with the changes.
 name: Update Forest usage docs
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
