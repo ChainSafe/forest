@@ -204,36 +204,32 @@ where
             tracing::warn!("snap gc has already been running");
         } else {
             self.running.store(true, Ordering::Relaxed);
-            let success = match self
-                .export_snapshot(self.cs.blockstore().subscribe_write_ops())
-                .await
-            {
-                Ok(_) => true,
+            match self.export_snapshot().await {
+                Ok(_) => {
+                    if let Err(e) = self.cleanup_after_snapshot_export().await {
+                        tracing::warn!("{e:#}");
+                    }
+                }
                 Err(e) => {
                     tracing::error!("{e:#}");
-                    false
+                    // Unsubscribe on failure path
+                    self.cs.blockstore().unsubscribe_write_ops();
                 }
-            };
-            self.cs.blockstore().unsubscribe_write_ops();
-            // Drop this early to let the CLI client disconnect and avoid potential deadlock on db write ops during cleanup
-            drop(self.progress_tx.write().take());
-            if success && let Err(e) = self.cleanup_after_snapshot_export().await {
-                tracing::warn!("{e:#}");
             }
+            // To indicate the completion of GC
+            drop(self.progress_tx.write().take());
             self.running.store(false, Ordering::Relaxed);
         }
     }
 
-    async fn export_snapshot(
-        &self,
-        mut db_write_ops_rx: tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)>,
-    ) -> anyhow::Result<()> {
+    async fn export_snapshot(&self) -> anyhow::Result<()> {
         let cs = &self.cs;
         let db = cs.blockstore();
         tracing::info!(
             "exporting lite snapshot with {} recent state roots",
             self.recent_state_roots
         );
+        let mut db_write_ops_rx = db.subscribe_write_ops();
         let temp_path = new_forest_car_temp_path_in(&self.car_db_dir)?;
         let file = tokio::fs::File::create(&temp_path).await?;
         let mut joinset = JoinSet::new();
@@ -272,6 +268,8 @@ where
         *self.blessed_lite_snapshot.write() = Some(target_path);
         *self.exported_head_key.write() = Some(head_ts.key().clone());
         *self.memory_db_head_key.write() = db.heaviest_tipset_key().ok().flatten();
+        // Unsubscribe before taking the snapshot of in-memory db to avoid deadlock
+        db.unsubscribe_write_ops();
         match joinset.join_next().await {
             Some(Ok(map)) => {
                 *self.memory_db.write() = Some(map);

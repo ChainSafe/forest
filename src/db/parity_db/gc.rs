@@ -33,7 +33,14 @@ impl GarbageCollectableParityDb {
         drop(std::mem::replace(&mut *guard, tmp));
         let result = self.reset_gc_columns_inner();
         // Reopen the database no matter whether resetting columns succeeds or not
-        *guard = ParityDb::open_with_options(&self.options)?;
+        *guard = ParityDb::open_with_options(&self.options)
+            .with_context(|| {
+                format!(
+                    "failed to reopen parity-db at {}",
+                    self.options.path.display()
+                )
+            })
+            .expect("infallible");
         result
     }
 

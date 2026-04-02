@@ -150,16 +150,14 @@ impl<WriterT> ManyCar<WriterT> {
         &self,
         files: impl Iterator<Item = PathBuf>,
     ) -> anyhow::Result<()> {
-        let mut read_only_guard = self.read_only.write();
-        let mut shared_cache_guard = self.shared_cache.write();
         let mut read_only = BinaryHeap::default();
         let shared_cache = ZstdFrameCache::default();
         for f in files {
             let car = AnyCar::new(EitherMmapOrRandomAccessFile::open(f)?)?;
             Self::read_only_inner(&mut read_only, shared_cache.clone(), car)?;
         }
-        *read_only_guard = read_only;
-        *shared_cache_guard = shared_cache;
+        *self.read_only.write() = read_only;
+        *self.shared_cache.write() = shared_cache;
         Ok(())
     }
 
