@@ -229,14 +229,23 @@ where
             "exporting lite snapshot with {} recent state roots",
             self.recent_state_roots
         );
-        let mut db_write_ops_rx = db.subscribe_write_ops();
         let temp_path = new_forest_car_temp_path_in(&self.car_db_dir)?;
         let file = tokio::fs::File::create(&temp_path).await?;
+        let mut db_write_ops_rx = db.subscribe_write_ops();
         let mut joinset = JoinSet::new();
         joinset.spawn(async move {
             let mut map = HashMap::default();
-            while let Ok((k, v)) = db_write_ops_rx.recv().await {
-                map.insert(k, v);
+            loop {
+                match db_write_ops_rx.recv().await {
+                    Ok((k, v)) => {
+                        map.insert(k, v);
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        tracing::warn!("write ops channel lagged, skipped {skipped} ops");
+                        continue;
+                    }
+                }
             }
             map
         });
