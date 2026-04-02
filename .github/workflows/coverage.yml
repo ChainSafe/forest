@@ -42,6 +42,10 @@ env:
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   RUST_LOG: error
   FOREST_ACTOR_BUNDLE_PATH: /var/tmp/forest_actor_bundle.car.zst
+  # https://github.com/BurntSushi/quickcheck/blob/692527d1d9fc9043a70b7d2bf436902e2d0f595b/src/tester.rs#L20
+  QUICKCHECK_GENERATOR_SIZE: 20
+  QUICKCHECK_TESTS: 20
+  QUICKCHECK_MAX_TESTS: 1000
 
 jobs:
   codecov:
