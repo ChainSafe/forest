@@ -56,10 +56,6 @@ jobs:
             echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
             echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
           fi
-      # find the nearest S3 space for storing cache files
-      - name: Show IP
-        run: curl ifconfig.me
-        continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
@@ -72,6 +68,16 @@ jobs:
           cache-dependency-path: "**/go.sum"
       - name: install nextest
         uses: taiki-e/install-action@nextest
+      - uses: actions/cache@v5
+        id: cache-proof-params
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
+      - uses: actions/cache@v5
+        id: cache-actor-bundle
+        with:
+          path: ${{ env.FOREST_ACTOR_BUNDLE_PATH }}
+          key: actor-bundle
       - name: Fetch proof params and RPC test snapshots
         run: |
           cargo run --bin forest-dev --no-default-features --profile quick-test -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
