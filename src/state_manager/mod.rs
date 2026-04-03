@@ -24,7 +24,7 @@ use crate::interpreter::{
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
-use crate::message::{ChainMessage, Message as _, MessageRead as _, SignedMessage};
+use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
