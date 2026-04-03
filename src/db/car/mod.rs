@@ -8,7 +8,7 @@ pub mod plain;
 pub use any::AnyCar;
 pub use forest::ForestCar;
 use get_size2::GetSize as _;
-pub use many::ManyCar;
+pub use many::{ManyCar, ReloadableManyCar};
 pub use plain::PlainCar;
 
 use cid::Cid;
@@ -16,7 +16,7 @@ use positioned_io::{ReadAt, Size};
 use std::{
     num::NonZeroUsize,
     sync::{
-        LazyLock,
+        Arc, LazyLock,
         atomic::{AtomicUsize, Ordering},
     },
 };
@@ -52,11 +52,12 @@ pub static ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE: LazyLock<usize> = LazyLock::new(||
     256 * 1024 * 1024
 });
 
+#[derive(Clone)]
 pub struct ZstdFrameCache {
     /// Maximum size in bytes. Pages will be evicted if the total size of the
     /// cache exceeds this amount.
     pub max_size: usize,
-    current_size: AtomicUsize,
+    current_size: Arc<AtomicUsize>,
     // use `hashbrown::HashMap` here because its `GetSize` implementation is accurate
     // (thanks to `hashbrown::HashMap::allocation_size`).
     lru: SizeTrackingLruCache<(FrameOffset, CacheKey), hashbrown::HashMap<CidWrapper, Vec<u8>>>,
@@ -72,7 +73,7 @@ impl ZstdFrameCache {
     pub fn new(max_size: usize) -> Self {
         ZstdFrameCache {
             max_size,
-            current_size: AtomicUsize::new(0),
+            current_size: Arc::new(AtomicUsize::new(0)),
             lru: SizeTrackingLruCache::unbounded_with_metrics("zstd_frame".into()),
         }
     }

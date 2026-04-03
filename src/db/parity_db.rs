@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod gc;
+pub use gc::*;
+
 use super::{EthMappingsStore, PersistentStore, SettingsStore};
 use crate::blocks::TipsetKey;
 use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
@@ -91,9 +94,9 @@ pub struct ParityDb {
 }
 
 impl ParityDb {
-    pub fn to_options(path: PathBuf, config: &ParityDbConfig) -> Options {
+    pub fn to_options(path: impl Into<PathBuf>, config: &ParityDbConfig) -> Options {
         Options {
-            path,
+            path: path.into(),
             sync_wal: true,
             sync_data: true,
             stats: config.enable_statistics,
@@ -105,9 +108,13 @@ impl ParityDb {
 
     pub fn open(path: impl Into<PathBuf>, config: &ParityDbConfig) -> anyhow::Result<Self> {
         let opts = Self::to_options(path.into(), config);
+        Self::open_with_options(&opts)
+    }
+
+    pub fn open_with_options(options: &Options) -> anyhow::Result<Self> {
         Ok(Self {
-            db: Db::open_or_create(&opts)?,
-            statistics_enabled: opts.stats,
+            db: Db::open_or_create(options)?,
+            statistics_enabled: options.stats,
             disable_persistent_fallback: false,
             write_ops_broadcast_tx: RwLock::new(None),
         })
