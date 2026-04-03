@@ -25,6 +25,8 @@ use rand_distr::{Distribution, Normal};
 use std::ops::Add;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
+// constant taken from here <https://github.com/filecoin-project/lotus/blob/v1.35.1/node/impl/gasutils/gasutils.go#L33>
+const MAX_GAS_HISTORY: u64 = 128;
 
 /// Estimate the fee cap
 pub enum GasEstimateFeeCap {}
@@ -106,12 +108,10 @@ struct GasMeta {
 
 pub async fn estimate_gas_premium<DB: Blockstore>(
     ctx: &Ctx<DB>,
-    mut nblocksincl: u64,
+    nblocksincl: u64,
     ApiTipsetKey(ts_key): &ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
-    if nblocksincl == 0 {
-        nblocksincl = 1;
-    }
+    let nblocksincl = nblocksincl.clamp(1, MAX_GAS_HISTORY);
 
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
@@ -163,7 +163,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
     Ok(premium)
 }
 
-// logic taken from here <https://github.com/filecoin-project/lotus/blob/v1.34.3/node/impl/gasutils/gasutils.go#L302>
+// logic taken from here <https://github.com/filecoin-project/lotus/blob/v1.35.1/node/impl/gasutils/gasutils.go#L309>
 fn compute_gas_premium(mut prices: Vec<GasMeta>, blocks: u64) -> TokenAmount {
     prices.sort_by(|a, b| b.price.cmp(&a.price));
 

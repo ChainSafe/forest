@@ -1,4 +1,6 @@
 name: Butterflynet checks
+permissions:
+  contents: read
 on:
   workflow_dispatch:
 env:

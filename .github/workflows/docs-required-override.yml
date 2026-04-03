@@ -2,6 +2,8 @@
 # We check that changes affect only the documentation and that no other changes are present. If this is the case, we trigger the no-op jobs.
 
 name: Docs Required Override
+permissions:
+  contents: read
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: "${{ github.ref != 'refs/heads/main' }}"
