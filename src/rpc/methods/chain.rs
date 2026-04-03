@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod types;
-use enumflags2::{BitFlags, make_bitflags};
 use types::*;
 
 #[cfg(test)]
@@ -34,10 +33,12 @@ use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
 use anyhow::{Context as _, Result};
 use cid::Cid;
+use enumflags2::{BitFlags, make_bitflags};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use ipld_core::ipld::Ipld;
+use itertools::Itertools as _;
 use jsonrpsee::types::Params;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use num::BigInt;
@@ -298,7 +299,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
                 gas_used: r.gas_used(),
                 events_root: r.events_root(),
             })
-            .collect();
+            .collect_vec();
 
         Ok(receipts)
     }
@@ -1138,6 +1139,134 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     }
 }
 
+pub enum ChainGetTipSetFinalityStatus {}
+
+impl ChainGetTipSetFinalityStatus {
+    pub fn get_finality_status(ctx: &Ctx<impl Blockstore>) -> ChainFinalityStatus {
+        let head = ctx.chain_store().heaviest_tipset();
+        let (ec_finality_threshold_depth, ec_finalized_tip_set) =
+            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.clone());
+        let f3_finalized_tip_set = ctx.chain_store().f3_finalized_tipset();
+        let finalized_tip_set = match (&ec_finalized_tip_set, &f3_finalized_tip_set) {
+            (Some(ec), Some(f3)) => {
+                if ec.epoch() >= f3.epoch() {
+                    Some(ec.clone())
+                } else {
+                    Some(f3.clone())
+                }
+            }
+            (Some(ec), None) => Some(ec.clone()),
+            (None, Some(f3)) => Some(f3.clone()),
+            (None, None) => None,
+        };
+        ChainFinalityStatus {
+            ec_finality_threshold_depth,
+            ec_finalized_tip_set,
+            f3_finalized_tip_set,
+            finalized_tip_set,
+            head,
+        }
+    }
+
+    fn get_ec_finality_threshold_depth_and_tipset_with_cache(
+        ctx: &Ctx<impl Blockstore>,
+        head: Tipset,
+    ) -> (i64, Option<Tipset>) {
+        static CACHE: parking_lot::Mutex<Option<(Tipset, i64, Option<Tipset>)>> =
+            parking_lot::Mutex::new(None);
+        let mut cache = CACHE.lock();
+        if let Some((cached_head, cached_threshold, cached_tipset)) = &*cache
+            && cached_head == &head
+        {
+            (*cached_threshold, cached_tipset.clone())
+        } else {
+            let (threshold, tipset) =
+                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head.clone());
+            *cache = Some((head, threshold, tipset.clone()));
+            (threshold, tipset)
+        }
+    }
+
+    fn get_ec_finality_threshold_depth_and_tipset(
+        ctx: &Ctx<impl Blockstore>,
+        head: Tipset,
+    ) -> (i64, Option<Tipset>) {
+        use crate::chain::ec_finality::calculator::{
+            DEFAULT_BLOCKS_PER_EPOCH, DEFAULT_BYZANTINE_FRACTION, DEFAULT_GUARANTEE,
+            find_threshold_depth,
+        };
+
+        let finality = ctx.chain_config().policy.chain_finality;
+        let chain_len = finality as usize + 5;
+        let mut chain = Vec::with_capacity(chain_len);
+        let mut ts = head.clone();
+        while chain.len() < chain_len {
+            chain.push(ts.len() as i64);
+            if let Ok(parent) = ctx.chain_index().load_required_tipset(ts.parents()) {
+                // insert 0 for null rounds
+                for _ in 1..(ts.epoch() - parent.epoch()) {
+                    if chain.len() < chain_len {
+                        chain.push(0);
+                    } else {
+                        break;
+                    }
+                }
+                ts = parent;
+            } else {
+                break;
+            }
+        }
+        // Reverse to chronological order (oldest first).
+        chain.reverse();
+        let depth = match find_threshold_depth(
+            &chain,
+            finality,
+            DEFAULT_BLOCKS_PER_EPOCH,
+            DEFAULT_BYZANTINE_FRACTION,
+            *DEFAULT_GUARANTEE,
+        ) {
+            Ok(threshold) => threshold,
+            Err(e) => {
+                tracing::error!(
+                    "Failed to calculate EC finality threshold depth: {e:#}, chain: {chain:?}"
+                );
+                -1
+            }
+        };
+        let finalized = if depth >= 0
+            && let Ok(ts) = ctx.chain_index().tipset_by_height(
+                (head.epoch() - depth).max(0),
+                head,
+                ResolveNullTipset::TakeOlder,
+            ) {
+            Some(ts.clone())
+        } else {
+            None
+        };
+        (depth, finalized)
+    }
+}
+
+impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
+    const NAME: &'static str = "Filecoin.ChainGetTipSetFinalityStatus";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns a breakdown of how the node is currently determining finality.");
+
+    type Params = ();
+    type Ok = ChainFinalityStatus;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(Self::get_finality_status(&ctx))
+    }
+}
+
 pub enum ChainSetHead {}
 impl RpcMethod<1> for ChainSetHead {
     const NAME: &'static str = "Filecoin.ChainSetHead";
@@ -1541,7 +1670,7 @@ impl<T> PathChanges<T> {
             .into_iter()
             .map(PathChange::Revert)
             .chain(applies.into_iter().map(PathChange::Apply))
-            .collect()
+            .collect_vec()
     }
 }
 
@@ -1582,7 +1711,6 @@ mod tests {
         networks::{self, ChainConfig},
     };
     use PathChange::{Apply, Revert};
-    use itertools::Itertools as _;
     use std::sync::Arc;
 
     #[test]
