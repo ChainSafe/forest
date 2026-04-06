@@ -33,14 +33,17 @@ use crate::utils::{RetryArgs, net::global_http_client, retry};
 use anyhow::{Context as _, ensure};
 use backon::{ExponentialBuilder, Retryable as _};
 use base64::{Engine, prelude::BASE64_STANDARD};
+use digest_io::IoWrapper;
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use human_repr::HumanCount as _;
 use humantime::format_duration;
 use md5::{Digest as _, Md5};
-use std::sync::Arc;
 use std::{
     ffi::OsStr,
+    fs::File,
+    io::BufReader,
     path::{Path, PathBuf},
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
@@ -113,7 +116,7 @@ pub async fn download_file_with_cache(
     }
 
     let cache_hit = match get_file_md5_hash(&cache_file_path) {
-        Some(file_md5) => match get_content_md5_hash_from_url(url.clone()).await? {
+        Ok(file_md5) => match get_content_md5_hash_from_url(url.clone()).await? {
             Some(url_md5) => {
                 if file_md5 == url_md5 {
                     true
@@ -130,7 +133,7 @@ pub async fn download_file_with_cache(
                 anyhow::bail!("failed to extract md5 content hash from remote url {url}");
             }
         },
-        None => false,
+        Err(_) => false,
     };
 
     if cache_hit {
@@ -160,10 +163,11 @@ pub async fn download_file_with_cache(
     })
 }
 
-fn get_file_md5_hash(path: &Path) -> Option<Vec<u8>> {
-    std::fs::read(path)
-        .ok()
-        .map(|bytes| Md5::digest(bytes.as_slice()).to_vec())
+fn get_file_md5_hash(path: &Path) -> anyhow::Result<Vec<u8>> {
+    let mut hasher = IoWrapper(Md5::new());
+    let mut reader = BufReader::new(File::open(path)?);
+    std::io::copy(&mut reader, &mut hasher)?;
+    Ok(hasher.0.finalize().to_vec())
 }
 
 async fn get_content_md5_hash_from_url(url: Url) -> anyhow::Result<Option<Vec<u8>>> {
@@ -800,8 +804,8 @@ mod test {
         assert!(result.exists());
 
         // Verify the file is not corrupted by checking its MD5
-        let downloaded_md5 = get_file_md5_hash(&result);
-        assert_eq!(downloaded_md5, Some(test_file_md5()));
+        let downloaded_md5 = get_file_md5_hash(&result).unwrap();
+        assert_eq!(downloaded_md5, test_file_md5());
     }
 
     #[tokio::test]
@@ -824,8 +828,8 @@ mod test {
         assert!(result.exists());
 
         // Verify integrity
-        let downloaded_md5 = get_file_md5_hash(&result);
-        assert_eq!(downloaded_md5, Some(test_file_md5()));
+        let downloaded_md5 = get_file_md5_hash(&result).unwrap();
+        assert_eq!(downloaded_md5, test_file_md5());
     }
 
     #[tokio::test]

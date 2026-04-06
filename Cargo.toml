@@ -69,6 +69,8 @@ data-encoding-macro = "0.1"
 derive_builder = "0.20"
 derive_more = { version = "2", features = ["from", "into"] }
 dialoguer = "0.12"
+digest = "0.11"
+digest-io = "0.1"
 directories = "6"
 educe = { version = "0.6", features = ["Debug"], default-features = false }
 enumflags2 = "0.7"
@@ -151,7 +153,7 @@ libp2p = { workspace = true, features = [
   'secp256k1',
 ] }
 libsecp256k1 = "0.7"
-md5 = { package = "md-5", version = "0.10" }
+md5 = { package = "md-5", version = "0.11" }
 memmap2 = "0.9"
 multiaddr = "0.18"
 multihash-codetable = { workspace = true }
@@ -200,7 +202,7 @@ serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1", features = ["raw_value"] }
 serde_with = { version = "3", features = ["chrono_0_4"] }
 serde_yaml = { workspace = true }
-sha2 = { version = "0.10", default-features = false }
+sha2 = { version = "0.11", default-features = false }
 similar = "2"
 slotmap = "1"
 smallvec = "1"
