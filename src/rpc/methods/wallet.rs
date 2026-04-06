@@ -101,7 +101,7 @@ impl RpcMethod<1> for WalletHas {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read();
-        Ok(crate::key_management::find_key(&address, &keystore).is_ok())
+        Ok(crate::key_management::try_find_key(&address, &keystore).is_ok())
     }
 }
 
@@ -121,11 +121,8 @@ impl RpcMethod<1> for WalletImport {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let key = Key::try_from(key_info)?;
-
         let addr = format!("wallet-{}", key.address);
-
-        let mut keystore = ctx.keystore.write();
-        keystore.put(&addr, key.key_info)?;
+        ctx.keystore.write().put(&addr, key.key_info)?;
         Ok(key.address)
     }
 }
@@ -167,10 +164,9 @@ impl RpcMethod<1> for WalletNew {
         (signature_type,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let mut keystore = ctx.keystore.write();
         let key = crate::key_management::generate_key(signature_type)?;
-
         let addr = format!("wallet-{}", key.address);
+        let mut keystore = ctx.keystore.write();
         keystore.put(&addr, key.key_info.clone())?;
         let value = keystore.get("default");
         if value.is_err() {
@@ -227,15 +223,8 @@ impl RpcMethod<2> for WalletSign {
             .state_manager
             .resolve_to_key_addr(&address, &heaviest_tipset)
             .await?;
-        let keystore = &mut *ctx.keystore.write();
-        let key = match crate::key_management::find_key(&key_addr, keystore) {
-            Ok(key) => key,
-            Err(_) => {
-                let key_info = crate::key_management::try_find(&key_addr, keystore)?;
-                Key::try_from(key_info)?
-            }
-        };
-
+        let keystore = ctx.keystore.read();
+        let key = crate::key_management::try_find_key(&key_addr, &keystore)?;
         let sig = crate::key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
@@ -269,15 +258,8 @@ impl RpcMethod<2> for WalletSignMessage {
             .resolve_to_deterministic_address(address, &ts)
             .await?;
 
-        let keystore = &mut *ctx.keystore.write();
-        let key = match crate::key_management::find_key(&key_addr, keystore) {
-            Ok(key) => key,
-            Err(_) => {
-                let key_info = crate::key_management::try_find(&key_addr, keystore)?;
-                Key::try_from(key_info)?
-            }
-        };
-
+        let keystore = ctx.keystore.read();
+        let key = crate::key_management::try_find_key(&key_addr, &keystore)?;
         let sig = crate::key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
@@ -347,8 +329,7 @@ impl RpcMethod<1> for WalletDelete {
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let mut keystore = ctx.keystore.write();
-        crate::key_management::remove_key(&address, &mut keystore)?;
+        crate::key_management::remove_key(&address, &mut ctx.keystore.write())?;
         Ok(())
     }
 }
