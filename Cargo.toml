@@ -32,6 +32,7 @@ tokio = "1"
 
 [dependencies]
 ahash = { workspace = true }
+ambassador = "0.5"
 anes = "0.2"
 anyhow = { workspace = true }
 argon2 = "0.5"
@@ -265,7 +266,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.325"
+ra_ap_syntax = "0.0.326"
 regex-automata = "0.4"
 rstest = "0.26"
 serial_test = "3"
@@ -284,6 +285,16 @@ debug = "line-tables-only"
 split-debuginfo = "unpacked"
 
 [profile.dev.package."*"]
+# Avoid generating any debug information for dependencies
+debug = false
+# Speed up debug tests and codecov tests
+opt-level = 1
+
+[profile.codecov]
+inherits = "dev"
+opt-level = 1
+
+[profile.codecov.package."*"]
 # Avoid generating any debug information for dependencies
 debug = false
 # Speed up debug tests and codecov tests

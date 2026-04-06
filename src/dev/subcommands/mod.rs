@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod archive_missing_cmd;
+mod export_tipset_lookup_cmd;
 mod state_cmd;
 mod update_checkpoints_cmd;
 
@@ -49,6 +50,7 @@ pub enum Subcommand {
     UpdateCheckpoints(update_checkpoints_cmd::UpdateCheckpointsCommand),
     /// Find missing archival snapshots on the Forest Archive for a given epoch range
     ArchiveMissing(archive_missing_cmd::ArchiveMissingCommand),
+    ExportTipsetLookup(export_tipset_lookup_cmd::ExportTipsetLookupCommand),
 }
 
 impl Subcommand {
@@ -58,6 +60,7 @@ impl Subcommand {
             Self::State(cmd) => cmd.run().await,
             Self::UpdateCheckpoints(cmd) => cmd.run().await,
             Self::ArchiveMissing(cmd) => cmd.run().await,
+            Self::ExportTipsetLookup(cmd) => cmd.run().await,
         }
     }
 }

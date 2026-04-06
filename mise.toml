@@ -160,13 +160,8 @@ rm -rf node_modules
 # nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 # We need to run them separately.
 description = "Run doctests."
-usage = '''
-arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
-   choices "quick" "quick-test" "release" "dev"
-}
-'''
 run = '''
-cargo test --doc --profile ${usage_profile?} --no-default-features --features "test doctest-private cargo-test" --no-fail-fast
+cargo test --doc --no-default-features --features "test doctest-private cargo-test" --no-fail-fast
 '''
 
 [tasks."test:nextest"]
@@ -194,7 +189,7 @@ cargo test --lib --profile ${usage_profile?} --no-default-features --features "t
 '''
 
 [tasks.test]
-description = "Run all tests."
+description = "Run nextest and cargo-test groups (doctests run via `test:docs`)."
 usage = '''
 arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
    choices "quick" "quick-test" "release" "dev"
@@ -203,13 +198,32 @@ arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test
 run = '''
 mise task run test:nextest ${usage_profile?}
 mise task run test:cargo ${usage_profile?}
-mise task run test:docs ${usage_profile?}
+'''
+
+[tasks."codecov:nextest"]
+description = "Run codecov with nextest"
+run = '''
+cargo llvm-cov --no-report nextest --cargo-profile codecov --workspace --no-default-features --features "test" --no-fail-fast
+'''
+
+[tasks."codecov:cargo"]
+description = "Run codecov with cargo-test"
+run = '''
+cargo llvm-cov --no-report test -p forest-filecoin --profile codecov --lib --no-default-features --features "test cargo-test" --no-fail-fast -- "cargo_test_"
+'''
+
+[tasks."codecov:report"]
+description = "Generate merged codecov report"
+run = '''
+cargo llvm-cov report --profile codecov --codecov --output-path lcov.info
 '''
 
 [tasks.codecov]
 description = "Generate codecov report"
 run = '''
-cargo llvm-cov -p forest-filecoin --codecov --no-default-features --features "test cargo-test" --output-path lcov.info
+mise task run codecov:nextest
+mise task run codecov:cargo
+mise task run codecov:report
 '''
 
 [tasks."format-spellcheck-dictionary"]

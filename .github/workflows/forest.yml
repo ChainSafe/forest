@@ -1,4 +1,7 @@
 name: Integration tests
+permissions:
+  contents: read
+  issues: write
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -60,8 +63,10 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - name: Cargo Check
-        run: cargo check
+      - uses: jdx/mise-action@v4
+      - run: cargo check
+      # nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
+      - run: mise test:docs
   build-ubuntu:
     name: Build Ubuntu
     runs-on: ubuntu-24.04
@@ -74,10 +79,6 @@ jobs:
             echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
             echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
           fi
-      - run: lscpu
-      - name: Show IP
-        run: curl ifconfig.me
-        continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
@@ -103,24 +104,12 @@ jobs:
           path: |
             ~/.cargo/bin/forest*
           if-no-files-found: error
-  cargo-publish-dry-run:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - uses: jdx/mise-action@v4
-      - run: cargo publish --dry-run
   forest-cli-check:
     needs:
       - build-ubuntu
     name: Forest CLI checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
@@ -142,16 +131,11 @@ jobs:
     name: Calibnet check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -178,17 +162,12 @@ jobs:
     name: Calibnet stateless mode check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -204,17 +183,12 @@ jobs:
     name: Calibnet stateless RPC check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -230,7 +204,6 @@ jobs:
     name: State migrations
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -252,7 +225,6 @@ jobs:
     name: Wallet tests
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -281,7 +253,6 @@ jobs:
     name: Delegated wallet tests
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -303,13 +274,12 @@ jobs:
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v1:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'Release')) }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
     needs:
       - build-ubuntu
     name: V1 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -326,12 +296,12 @@ jobs:
         run: ./scripts/tests/calibnet_export_check.sh v1
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v2:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
     needs:
       - build-ubuntu
     name: V2 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -348,12 +318,12 @@ jobs:
         run: ./scripts/tests/calibnet_export_check.sh v2
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-diff-check:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
     needs:
       - build-ubuntu
     name: Diff snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -375,7 +345,6 @@ jobs:
     name: Calibnet no discovery checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -396,7 +365,6 @@ jobs:
     name: Calibnet kademlia checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -417,17 +385,12 @@ jobs:
     name: Calibnet eth mapping check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -447,17 +410,12 @@ jobs:
     name: Calibnet api test-stateful check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -498,8 +456,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-ubuntu
-    env:
-      # We use a custom Dockerfile for CI to speed up the build process.
+    env: # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/cache@v5
@@ -668,14 +625,12 @@ jobs:
     needs:
       - build-macos
       - build-ubuntu
-      - cargo-publish-dry-run
       - forest-cli-check
       - calibnet-check
       - calibnet-stateless-mode-check
       - calibnet-stateless-rpc-check
       - state-migrations-check
       - calibnet-wallet-check
-      - calibnet-export-check-v2
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check
@@ -691,10 +646,12 @@ jobs:
       - run: echo "All integration tests passed."
 
   extra_tests:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'Release')) }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
     runs-on: ubuntu-24.04
     needs:
       - calibnet-export-check-v1
+      - calibnet-export-check-v2
+      - calibnet-export-diff-check
     name: Additional integration tests status
     steps:
       - run: echo "All extra integration tests passed."

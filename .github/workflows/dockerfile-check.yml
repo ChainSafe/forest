@@ -1,5 +1,8 @@
 # Checks periodically that the Dockerfile builds successfully, and if it doesn't, it creates an issue with the error message.
 name: Dockerfile Check
+permissions:
+  contents: read
+  issues: write
 
 on:
   workflow_dispatch:
