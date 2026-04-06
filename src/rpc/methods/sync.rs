@@ -173,7 +173,7 @@ mod tests {
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::{NetworkMessage, PeerManager};
-    use crate::message_pool::MessagePool;
+    use crate::message_pool::{MessagePool, MpoolLocker, NonceTracker};
     use crate::networks::ChainConfig;
     use crate::rpc::RPCState;
     use crate::rpc::eth::filter::EthEventHandler;
@@ -231,6 +231,7 @@ mod tests {
         let peer_manager = Arc::new(PeerManager::default());
         let sync_network_context =
             SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
+        let nonce_tracker = NonceTracker::new();
         let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
@@ -243,6 +244,8 @@ mod tests {
             shutdown: mpsc::channel(1).0, // dummy for tests
             tipset_send,
             snapshot_progress_tracker: Default::default(),
+            mpool_locker: MpoolLocker::new(),
+            nonce_tracker,
         });
         (state, network_rx)
     }
