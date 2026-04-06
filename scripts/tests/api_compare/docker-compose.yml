@@ -151,6 +151,7 @@ services:
       - |
         set -euxo pipefail
         export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
+        lotus-gateway --version
         lotus-gateway run --api-max-lookback 72000h --api-wait-lookback-limit 20000 --listen 0.0.0.0:${FOREST_VIA_GATEWAY_RPC_PORT}
     healthcheck:
       test: |
@@ -184,6 +185,7 @@ services:
     command:
       - |
         set -euxo pipefail
+        lotus --version
         lotus daemon --remove-existing-chain --import-snapshot $(ls /data/*.car.zst | tail -n 1)
   lotus-sync-wait:
     depends_on:
