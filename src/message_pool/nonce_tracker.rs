@@ -50,6 +50,7 @@ mod tests {
     use crate::message_pool::msgpool::test_provider::TestApi;
     use crate::shim::crypto::SignatureType;
     use crate::shim::{address::Address, econ::TokenAmount};
+    use std::sync::Arc;
     use tokio::task::JoinSet;
 
     fn make_test_pool_and_wallet() -> (
@@ -97,7 +98,7 @@ mod tests {
         let (mpool, mut wallet, sender, _rx) = make_test_pool_and_wallet();
 
         let key = wallet.find_key(&sender).unwrap();
-        let eth_chain_id = 0u64;
+        let eth_chain_id: EthChainId = crate::networks::calibnet::ETH_CHAIN_ID;
 
         let msg1 = make_message(sender);
         let smsg1 = tracker
@@ -112,5 +113,34 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(smsg2.message().sequence, 1);
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_push_no_nonce_duplicates() {
+        const N: usize = 10;
+        let tracker = Arc::new(NonceTracker::new());
+        let (mpool, mut wallet, sender, _rx) = make_test_pool_and_wallet();
+        let mpool = Arc::new(mpool);
+        let key = Arc::new(wallet.find_key(&sender).unwrap());
+        let eth_chain_id: EthChainId = crate::networks::calibnet::ETH_CHAIN_ID;
+
+        let mut tasks = JoinSet::new();
+        for _ in 0..N {
+            let (tracker, mpool, key) = (tracker.clone(), mpool.clone(), key.clone());
+            tasks.spawn(async move {
+                tracker
+                    .sign_and_push(&mpool, make_message(sender), &key, eth_chain_id)
+                    .await
+                    .unwrap()
+                    .message()
+                    .sequence
+            });
+        }
+
+        let mut nonces: Vec<u64> = tasks.join_all().await;
+        nonces.sort();
+
+        let expected: Vec<u64> = (0..N as u64).collect();
+        assert_eq!(nonces, expected, "nonces must be contiguous 0..{N}");
     }
 }
