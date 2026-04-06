@@ -1,0 +1,36 @@
+name: Code coverage
+permissions:
+  contents: read
+
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+on:
+  workflow_dispatch:
+  merge_group:
+  pull_request:
+    branches:
+      - main
+    # This needs to be declared explicitly so that the job is actually
+    # run when moved out of draft.
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-*.yml"
+      - "**/*.md"
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-*.yml"
+      - "**/*.md"
+
+jobs:
+  override_codecov:
+    name: Coverage
+    runs-on: ubuntu-slim
+    steps:
+      - run: echo "No-op job to trigger the required codecov job."
