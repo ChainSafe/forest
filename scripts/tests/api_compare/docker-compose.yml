@@ -151,10 +151,35 @@ services:
       - |
         set -euxo pipefail
         export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
-        lotus-gateway run --api-max-lookback 72000h --api-wait-lookback-limit 2000 --listen 0.0.0.0:${FOREST_VIA_GATEWAY_RPC_PORT}
+        lotus-gateway --version
+        lotus-gateway run --api-max-lookback 72000h --api-wait-lookback-limit 20000 --listen 0.0.0.0:${FOREST_VIA_GATEWAY_RPC_PORT}
     healthcheck:
       test: |
         export FULLNODE_API_INFO="/dns/forest-via-gateway/tcp/${FOREST_VIA_GATEWAY_RPC_PORT}/http"
+        lotus chain head || exit 1
+      interval: 10s
+      retries: 10
+      start_period: 30s
+      timeout: 5s
+  lotus-via-gateway:
+    depends_on:
+      lotus-sync-wait:
+        condition: service_completed_successfully
+    image: ${LOTUS_IMAGE}
+    volumes:
+      - node-data:/data
+    networks:
+      - api-tests
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euxo pipefail
+        export FULLNODE_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
+        lotus-gateway --version
+        lotus-gateway run --api-max-lookback 72000h --api-wait-lookback-limit 20000 --listen 0.0.0.0:${LOTUS_VIA_GATEWAY_RPC_PORT}
+    healthcheck:
+      test: |
+        export FULLNODE_API_INFO="/dns/lotus-via-gateway/tcp/${LOTUS_VIA_GATEWAY_RPC_PORT}/http"
         lotus chain head || exit 1
       interval: 10s
       retries: 10
@@ -184,6 +209,7 @@ services:
     command:
       - |
         set -euxo pipefail
+        lotus --version
         lotus daemon --remove-existing-chain --import-snapshot $(ls /data/*.car.zst | tail -n 1)
   lotus-sync-wait:
     depends_on:
@@ -266,8 +292,8 @@ services:
 
   api-compare-gateway:
     depends_on:
-      lotus-sync-wait:
-        condition: service_completed_successfully
+      lotus-via-gateway:
+        condition: service_healthy
       forest-via-gateway:
         condition: service_healthy
       forest-wallet-import:
@@ -290,7 +316,7 @@ services:
       - |
         set -uxo pipefail
         # Test against websocket endpoint for online server
-        LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/ws"
+        LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus-via-gateway/tcp/${LOTUS_VIA_GATEWAY_RPC_PORT}/ws"
         FOREST_API_INFO="$(cat /data/forest-token):/dns/forest-via-gateway/tcp/${FOREST_VIA_GATEWAY_RPC_PORT}/ws"
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest $$FOREST_API_INFO \

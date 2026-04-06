@@ -123,6 +123,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambassador"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8184c5d23ba3829fb1e93388d776c3469cd9f4162af65250490b4f22d3ecf614"
+dependencies = [
+ "itertools 0.10.5",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3248,6 +3260,7 @@ version = "0.32.4"
 dependencies = [
  "ahash",
  "all_asserts",
+ "ambassador 0.5.0",
  "anes 0.2.1",
  "anyhow",
  "argon2",
@@ -3809,7 +3822,7 @@ version = "4.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73b57c20e53ec98fa897b3a6ff3ea6e863c58a419ae012968dec273257f1a466"
 dependencies = [
- "ambassador",
+ "ambassador 0.4.2",
  "anyhow",
  "cid",
  "derive_more",
