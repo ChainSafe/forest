@@ -53,12 +53,14 @@ use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount as _;
 use parking_lot::RwLock;
 use sha2::Sha256;
-use std::path::PathBuf;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
 };
-use std::time::{Duration, Instant};
 use tokio::task::JoinSet;
 
 pub struct SnapshotGarbageCollector<DB> {
@@ -200,26 +202,26 @@ where
     }
 
     async fn gc_once(&self) {
-        if self.running.load(Ordering::Relaxed) {
+        if self.running.swap(true, Ordering::Relaxed) {
             tracing::warn!("snap gc has already been running");
-        } else {
-            self.running.store(true, Ordering::Relaxed);
-            match self.export_snapshot().await {
-                Ok(_) => {
-                    if let Err(e) = self.cleanup_after_snapshot_export().await {
-                        tracing::warn!("{e:#}");
-                    }
-                }
-                Err(e) => {
-                    tracing::error!("{e:#}");
-                    // Unsubscribe on failure path
-                    self.cs.blockstore().unsubscribe_write_ops();
+            return;
+        }
+
+        match self.export_snapshot().await {
+            Ok(_) => {
+                if let Err(e) = self.cleanup_after_snapshot_export().await {
+                    tracing::warn!("{e:#}");
                 }
             }
-            // To indicate the completion of GC
-            drop(self.progress_tx.write().take());
-            self.running.store(false, Ordering::Relaxed);
+            Err(e) => {
+                tracing::error!("{e:#}");
+                // Unsubscribe on failure path
+                self.cs.blockstore().unsubscribe_write_ops();
+            }
         }
+        // To indicate the completion of GC
+        drop(self.progress_tx.write().take());
+        self.running.store(false, Ordering::Relaxed);
     }
 
     async fn export_snapshot(&self) -> anyhow::Result<()> {
@@ -240,11 +242,14 @@ where
                     Ok((k, v)) => {
                         map.insert(k, v);
                     }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                        tracing::warn!("write ops channel lagged, skipped {skipped} ops");
-                        continue;
+                        tracing::warn!(
+                            "{skipped} write ops lagged, skip backfilling from memory db"
+                        );
+                        map.clear();
+                        break;
                     }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 }
             }
             map
@@ -276,12 +281,15 @@ where
         );
         *self.blessed_lite_snapshot.write() = Some(target_path);
         *self.exported_head_key.write() = Some(head_ts.key().clone());
-        *self.memory_db_head_key.write() = db.heaviest_tipset_key().ok().flatten();
+        let current_chain_head = db.heaviest_tipset_key().ok().flatten();
         // Unsubscribe before taking the snapshot of in-memory db to avoid deadlock
         db.unsubscribe_write_ops();
         match joinset.join_next().await {
             Some(Ok(map)) => {
-                *self.memory_db.write() = Some(map);
+                if !map.is_empty() {
+                    *self.memory_db.write() = Some(map);
+                    *self.memory_db_head_key.write() = current_chain_head;
+                }
             }
             Some(Err(e)) => tracing::warn!("{e}"),
             _ => {}
@@ -301,7 +309,7 @@ where
             let db = self.cs.blockstore();
 
             // Reset parity-db columns
-            db.reset_gc_columns()?;
+            db.reset_gc_columns().await?;
 
             // Backfill new db records during snapshot export
             if let Some(mem_db) = self.memory_db.write().take() {
