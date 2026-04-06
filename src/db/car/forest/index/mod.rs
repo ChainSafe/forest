@@ -796,8 +796,8 @@ mod tests {
     use super::*;
     use ahash::{HashMap, HashSet};
     use cid::Cid;
-    use futures::executor::block_on;
     use tap::Tap as _;
+    use tokio_test::block_on;
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
     fn do_hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
