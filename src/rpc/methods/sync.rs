@@ -231,7 +231,7 @@ mod tests {
         let peer_manager = Arc::new(PeerManager::default());
         let sync_network_context =
             SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
-        let nonce_tracker = NonceTracker::new(state_manager.blockstore_owned());
+        let nonce_tracker = NonceTracker::new();
         let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),

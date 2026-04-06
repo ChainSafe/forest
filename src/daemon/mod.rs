@@ -399,7 +399,7 @@ fn maybe_start_rpc_service(
             let tipset_send = chain_follower.tipset_sender.clone();
             let keystore = ctx.keystore.clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
-            let nonce_tracker = NonceTracker::new(ctx.db.clone());
+            let nonce_tracker = NonceTracker::new();
             let mpool_locker = MpoolLocker::new();
             async move {
                 let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
