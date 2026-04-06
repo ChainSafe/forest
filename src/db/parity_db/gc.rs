@@ -198,10 +198,11 @@ mod tests {
     use super::*;
     use crate::utils::db::car_stream::CarBlock;
     use quickcheck_macros::quickcheck;
+    use tokio_test::block_on;
 
     #[quickcheck]
     fn test_reset_gc_columns(blocks: Vec<CarBlock>) -> anyhow::Result<()> {
-        crate::block_on(test_reset_gc_columns_async(blocks))
+        block_on(test_reset_gc_columns_async(blocks))
     }
 
     async fn test_reset_gc_columns_async(blocks: Vec<CarBlock>) -> anyhow::Result<()> {
