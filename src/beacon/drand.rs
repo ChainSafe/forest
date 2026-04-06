@@ -1,6 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(dead_code)]
+
 use std::sync::LazyLock;
 use std::time::Duration;
 use std::{borrow::Cow, num::NonZeroUsize};
@@ -16,13 +18,13 @@ use crate::shim::version::NetworkVersion;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::net::global_http_client;
+use ambassador::{Delegate, delegatable_trait};
 use anyhow::Context as _;
 use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
 use itertools::Itertools as _;
 use nonzero_ext::nonzero;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
-use spire_enum::prelude::delegated_enum;
 use tracing::debug;
 use url::Url;
 
@@ -140,38 +142,12 @@ impl BeaconSchedule {
     }
 }
 
-#[delegated_enum(impl_conversions)]
+#[derive(Delegate, derive_more::From)]
+#[delegate(Beacon)]
 pub enum BeaconImpl {
     Drand(DrandBeacon),
     #[cfg(test)]
-    Mock(super::mock_beacon::MockBeacon),
-}
-
-impl Beacon for BeaconImpl {
-    /// Gets the `drand` network
-    fn network(&self) -> DrandNetwork {
-        delegate_beacon_impl!(self.network())
-    }
-
-    /// Verify beacon entries that are sorted by round.
-    fn verify_entries(&self, entries: &[BeaconEntry], prev: &BeaconEntry) -> anyhow::Result<bool> {
-        delegate_beacon_impl!(self.verify_entries(entries, prev))
-    }
-
-    /// Returns a `BeaconEntry` given a round. It fetches the `BeaconEntry` from a `Drand` node over [`gRPC`](https://grpc.io/)
-    /// In the future, we will cache values, and support streaming.
-    async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        delegate_beacon_impl!(self.entry(round).await)
-    }
-
-    /// Returns the most recent beacon round for the given Filecoin chain epoch.
-    fn max_beacon_round_for_epoch(
-        &self,
-        network_version: NetworkVersion,
-        fil_epoch: ChainEpoch,
-    ) -> u64 {
-        delegate_beacon_impl!(self.max_beacon_round_for_epoch(network_version, fil_epoch))
-    }
+    Mock(crate::beacon::mock_beacon::MockBeacon),
 }
 
 /// Contains height at which the beacon is activated, as well as the beacon
@@ -190,6 +166,7 @@ impl BeaconPoint {
 
 /// Trait used as the interface to be able to retrieve bytes from a randomness
 /// beacon.
+#[delegatable_trait]
 pub trait Beacon {
     /// Gets the `drand` network
     fn network(&self) -> DrandNetwork;
