@@ -688,6 +688,25 @@ Options:
   -h, --help                       Print help
 ```
 
+### `forest-cli mpool replace`
+
+```
+Replace a pending message in the mempool with updated gas parameters (replace-by-fee)
+
+Usage: forest-cli mpool replace [OPTIONS]
+
+Options:
+      --from <FROM>                Address that sent the message (required unless `--cid` is used)
+      --nonce <NONCE>              Nonce of the message to replace (required unless `--cid` is used)
+      --cid <CID>                  CID of the message to replace (alternative to `--from`/`--nonce`)
+      --auto                       Automatically re-estimate gas, ensuring the RBF minimum premium is met
+      --max-fee <MAX_FEE>          Maximum total fee in `attoFIL`; only used with `--auto`
+      --gas-premium <GAS_PREMIUM>  Gas premium in `attoFIL` (manual mode)
+      --gas-feecap <GAS_FEECAP>    Gas fee cap in `attoFIL` (manual mode)
+      --gas-limit <GAS_LIMIT>      Gas limit (manual mode; keeps original value if unset)
+  -h, --help                       Print help
+```
+
 ### `forest-cli state`
 
 ```

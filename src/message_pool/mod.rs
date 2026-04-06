@@ -12,4 +12,6 @@ pub use self::{
     msgpool::{msg_pool::MessagePool, *},
 };
 
+pub(crate) use self::msgpool::{RBF_DENOM, RBF_NUM};
+
 pub use block_prob::block_probabilities;
