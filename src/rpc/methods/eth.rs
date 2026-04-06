@@ -3161,11 +3161,20 @@ impl RpcMethod<1> for EthGetLogs {
     ) -> Result<Self::Ok, ServerError> {
         let pf = ctx
             .eth_event_handler
-            .parse_eth_filter_spec(&ctx, &eth_filter)?;
+            .parse_eth_filter_spec(&ctx, &eth_filter)
+            .map_err(|e| {
+                if e.downcast_ref::<EthErrors>()
+                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::BlockRangeExceeded { .. }))
+                {
+                    return e;
+                }
+                anyhow::anyhow!("failed to parse events for filter: {e:#}")
+            })?;
         let events = ctx
             .eth_event_handler
             .get_events_for_parsed_filter(&ctx, &pf, SkipEvent::OnUnresolvedAddress)
-            .await?;
+            .await
+            .context("failed to get events for filter".to_string())?;
         Ok(eth_filter_result_from_events(&ctx, &events)?)
     }
 }
@@ -3858,6 +3867,17 @@ impl RpcMethod<1> for EthTraceFilter {
         .await
         .context("cannot parse toBlock")?;
 
+        let max_block_range = ctx.eth_event_handler.max_filter_height_range as u64;
+        if max_block_range != 0
+            && to_block.0.gt(&from_block.0)
+            && to_block.0.saturating_sub(from_block.0) > max_block_range
+        {
+            return Err(EthErrors::limit_exceeded(
+                max_block_range,
+                to_block.0.saturating_sub(from_block.0),
+            )
+            .into());
+        }
         Ok(trace_filter(ctx, filter, from_block, to_block, ext).await?)
     }
 }
