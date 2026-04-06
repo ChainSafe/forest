@@ -142,11 +142,6 @@ impl RpcMethod<1> for MinerCreateBlock {
                 .get(&Height::Smoke)
                 .context("Missing Smoke height")?
                 .epoch,
-            ctx.chain_config()
-                .height_infos
-                .get(&Height::Xxx)
-                .context("Missing Xxx height")?
-                .epoch,
         )?;
         let ExecutedTipset {
             state_root,
@@ -248,14 +243,9 @@ fn sign_block_header(
     let signing_bytes = block_header.signing_bytes();
 
     let key = {
-        let mut keystore = keystore.write();
-        match crate::key_management::find_key(worker, &keystore) {
-            Ok(key) => key,
-            Err(_) => {
-                let key_info = crate::key_management::try_find(worker, &mut keystore)?;
-                Key::try_from(key_info)?
-            }
-        }
+        let keystore = keystore.read();
+        let key_info = crate::key_management::try_find(worker, &keystore)?;
+        Key::try_from(key_info)?
     };
 
     let sig = crate::key_management::sign(

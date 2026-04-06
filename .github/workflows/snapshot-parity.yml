@@ -1,4 +1,7 @@
 name: Snapshot parity test
+permissions:
+  contents: read
+  issues: write
 on:
   workflow_dispatch:
   schedule:

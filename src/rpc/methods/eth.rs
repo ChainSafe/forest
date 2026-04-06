@@ -26,7 +26,7 @@ use crate::eth::{
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
 };
 use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
-use crate::message::{ChainMessage, Message as _, MessageRead as _, SignedMessage};
+use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
 use crate::rpc::{
     ApiPaths, Ctx, EthEventHandler, LOOKBACK_NO_LIMIT, Permission, RpcMethod, RpcMethodExt as _,
     error::ServerError,
@@ -634,13 +634,13 @@ pub enum EthSyncingResultLotusJson {
     DoneSync(bool),
     Syncing {
         #[schemars(with = "i64")]
-        #[serde(rename = "startingblock", with = "crate::lotus_json::hexify")]
+        #[serde(rename = "startingBlock", with = "crate::lotus_json::hexify")]
         starting_block: i64,
         #[schemars(with = "i64")]
-        #[serde(rename = "currentblock", with = "crate::lotus_json::hexify")]
+        #[serde(rename = "currentBlock", with = "crate::lotus_json::hexify")]
         current_block: i64,
         #[schemars(with = "i64")]
-        #[serde(rename = "highestblock", with = "crate::lotus_json::hexify")]
+        #[serde(rename = "highestBlock", with = "crate::lotus_json::hexify")]
         highest_block: i64,
     },
 }

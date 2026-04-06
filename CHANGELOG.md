@@ -37,6 +37,8 @@
 
 - [#6821](https://github.com/ChainSafe/forest/pull/6821): Added message receipt size and event size to `forest-tool archive info` output.
 
+- [#6830](https://github.com/ChainSafe/forest/pull/6830): Make base fee FIP-0115 activation configurable via `FOREST_FEES_FIP0115HEIGHT` environment variable. The FIP will NOT be automatically activated on the next network upgrade with this change, for now.
+
 ### Removed
 
 ### Fixed
@@ -44,6 +46,8 @@
 - [#6707](https://github.com/ChainSafe/forest/issues/6707): Added missing `GoldenWeek` network upgrade entry in `Filecoin.StateGetNetworkParams` RPC method.
 
 - [#6817](https://github.com/ChainSafe/forest/pull/6817): Fixed `StateSearchMsg` to return null instead of error when not found to match Lotus behaviour.
+
+- [#6849](https://github.com/ChainSafe/forest/pull/6849): Included strict bound in blocks included for calculating gas premium `GasEstimateGasPremium`.
 
 ## Forest v0.32.4 "Mild Inconvenience"
 
