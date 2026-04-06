@@ -4,7 +4,7 @@
 use std::sync::LazyLock;
 
 use crate::blocks::Tipset;
-use crate::message::Message;
+use crate::message::MessageReadWrite;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
 use crate::utils::misc::env::env_or_default;
@@ -93,8 +93,8 @@ where
         let (bls_msgs, secp_msgs) = crate::chain::block_messages(db, b)?;
         for m in bls_msgs
             .iter()
-            .map(|m| m as &dyn Message)
-            .chain(secp_msgs.iter().map(|m| m as &dyn Message))
+            .map(|m| m as &dyn MessageReadWrite)
+            .chain(secp_msgs.iter().map(|m| m as &dyn MessageReadWrite))
         {
             if seen.insert((m.from(), m.sequence())) {
                 limits.push(m.gas_limit());
