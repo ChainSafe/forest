@@ -19,6 +19,7 @@ use crate::utils::db::CborStoreExt;
 use auto_impl::auto_impl;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use std::sync::Arc;
 use tokio::sync::broadcast;
 
 /// Provider Trait. This trait will be used by the message pool to interact with
@@ -49,7 +50,7 @@ pub trait Provider {
     /// Resolve an address to its key form using the tipset's parent state.
     fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>;
     /// Return all messages included in the given tipset.
-    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>;
+    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error>;
     // Get max number of messages per actor in the pool
     fn max_actor_pending_messages(&self) -> u64 {
         MAX_ACTOR_PENDING_MESSAGES
@@ -113,7 +114,7 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
             .map_err(|e| Error::Other(e.to_string()))
     }
 
-    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        Ok((*ChainStore::messages_for_tipset(self, ts)?).clone())
+    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error> {
+        ChainStore::messages_for_tipset(self, ts).map_err(Into::into)
     }
 }

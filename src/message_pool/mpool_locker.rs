@@ -36,6 +36,7 @@ impl MpoolLocker {
     pub async fn take_lock(&self, addr: Address) -> OwnedMutexGuard<()> {
         let mutex = {
             let mut map = self.inner.lock();
+            map.retain(|_, v| Arc::strong_count(v) > 1);
             map.entry(addr)
                 .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
                 .clone()
@@ -116,5 +117,24 @@ mod tests {
         })
         .await
         .expect("different address locks should be acquired in parallel");
+    }
+
+    #[tokio::test]
+    async fn test_take_lock_prunes_idle_entries() {
+        let locker = MpoolLocker::new();
+        let addr_a = Address::new_id(1);
+        let addr_b = Address::new_id(2);
+
+        {
+            let _guard = locker.take_lock(addr_a).await;
+            assert_eq!(locker.inner.lock().len(), 1);
+        }
+        // Locking a different address triggers retain, which prunes addr_a as guard is now dropped.
+        let _guard_b = locker.take_lock(addr_b).await;
+        assert_eq!(
+            locker.inner.lock().len(),
+            1,
+            "idle entry for addr_a should have been pruned"
+        );
     }
 }

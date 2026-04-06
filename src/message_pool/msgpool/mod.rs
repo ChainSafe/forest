@@ -336,14 +336,8 @@ pub(in crate::message_pool) fn remove_from_selected_msgs<T: Provider>(
     sequence: u64,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) -> Result<(), Error> {
-    if let Some(temp) = rmsgs.get_mut(from) {
-        if temp.get_mut(&sequence).is_some() {
-            temp.remove(&sequence);
-        } else {
-            let resolved = resolve_to_key(api, key_cache, from, ts)?;
-            remove(&resolved, pending, sequence, true)?;
-        }
-    } else {
+    let removed = rmsgs.get_mut(from).and_then(|temp| temp.remove(&sequence));
+    if removed.is_none() {
         let resolved = resolve_to_key(api, key_cache, from, ts)?;
         remove(&resolved, pending, sequence, true)?;
     }

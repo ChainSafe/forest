@@ -230,7 +230,7 @@ impl Provider for TestApi {
         Ok(self.inner.lock().resolve_addr(addr))
     }
 
-    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
+    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error> {
         let inner = self.inner.lock();
         let mut msgs = Vec::new();
         for b in ts.block_headers() {
@@ -240,7 +240,7 @@ impl Provider for TestApi {
                 }
             }
         }
-        Ok(msgs)
+        Ok(Arc::new(msgs))
     }
 
     fn max_actor_pending_messages(&self) -> u64 {

@@ -321,12 +321,15 @@ pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
     let mut next_nonce = actor.sequence;
 
     if let (Ok(resolved), Ok(messages)) = (
-        resolve_to_key(api, key_cache, addr, cur_ts),
-        api.messages_for_tipset(cur_ts),
+        resolve_to_key(api, key_cache, addr, cur_ts)
+            .inspect_err(|e| tracing::warn!(%addr, "failed to resolve address to key: {e:#}")),
+        api.messages_for_tipset(cur_ts)
+            .inspect_err(|e| tracing::warn!("failed to get messages for tipset: {e:#}")),
     ) {
-        for msg in &messages {
-            if let Ok(from) = resolve_to_key(api, key_cache, &msg.from(), cur_ts)
-                && from == resolved
+        for msg in messages.iter() {
+            if let Ok(from) = resolve_to_key(api, key_cache, &msg.from(), cur_ts).inspect_err(
+                |e| tracing::warn!(from = %msg.from(), "failed to resolve message sender: {e:#}"),
+            ) && from == resolved
             {
                 let n = msg.sequence() + 1;
                 if n > next_nonce {
