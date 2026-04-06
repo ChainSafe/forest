@@ -74,18 +74,9 @@ impl Wallet {
         if let Some(k) = self.keys.get(addr) {
             return Ok(k.clone());
         }
-        let key_string = format!("wallet-{addr}");
-        let key_info = match self.keystore.get(&key_string) {
-            Ok(k) => k,
-            Err(_) => {
-                // replace with testnet prefix
-                self.keystore
-                    .get(&format!("wallet-t{}", &addr.to_string()[1..]))?
-            }
-        };
-        let new_key = Key::try_from(key_info)?;
-        self.keys.insert(*addr, new_key.clone());
-        Ok(new_key)
+        let key = try_find_key(addr, &self.keystore)?;
+        self.keys.insert(*addr, key.clone());
+        Ok(key)
     }
 
     /// Return the resultant `Signature` after signing a given message
@@ -188,14 +179,6 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     Ok(out)
 }
 
-/// Returns a key corresponding to given address
-pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
-    let key_string = format!("wallet-{addr}");
-    let key_info = keystore.get(&key_string)?;
-    let new_key = Key::try_from(key_info)?;
-    Ok(new_key)
-}
-
 /// Removes a key corresponding to given address
 pub fn remove_key(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> {
     let key_string = format!("wallet-{addr}");
@@ -213,7 +196,8 @@ pub fn remove_key(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> 
     Ok(())
 }
 
-pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Error> {
+/// Returns key info corresponding to given address
+pub fn try_find(addr: &Address, keystore: &KeyStore) -> Result<KeyInfo, Error> {
     let key_string = format!("wallet-{addr}");
     match keystore.get(&key_string) {
         Ok(k) => Ok(k),
@@ -228,7 +212,6 @@ pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Erro
             let key_string = format!("wallet-{new_addr}");
             let key_info = match keystore.get(&key_string) {
                 Ok(k) => k,
-                #[allow(clippy::indexing_slicing)]
                 Err(_) => keystore.get(&format!("wallet-f{}", &new_addr[1..]))?,
             };
             Ok(key_info)
@@ -236,9 +219,14 @@ pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Erro
     }
 }
 
+pub fn try_find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
+    let ki = try_find(addr, keystore)?;
+    ki.try_into()
+}
+
 /// Return `KeyInfo` for given address in `KeyStore`
 pub fn export_key_info(addr: &Address, keystore: &KeyStore) -> Result<KeyInfo, Error> {
-    let key = find_key(addr, keystore)?;
+    let key = try_find_key(addr, keystore)?;
     Ok(key.key_info)
 }
 
