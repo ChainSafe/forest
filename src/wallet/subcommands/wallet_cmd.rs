@@ -116,7 +116,7 @@ impl WalletBackend {
 
     async fn wallet_has(&self, address: Address) -> anyhow::Result<bool> {
         if let Some(keystore) = &self.local {
-            Ok(crate::key_management::find_key(&address, keystore).is_ok())
+            Ok(crate::key_management::try_find_key(&address, keystore).is_ok())
         } else {
             Ok(WalletHas::call(&self.remote, (address,)).await?)
         }
@@ -173,7 +173,7 @@ impl WalletBackend {
 
     async fn wallet_sign(&self, address: Address, message: String) -> anyhow::Result<Signature> {
         if let Some(keystore) = &self.local {
-            let key = crate::key_management::find_key(&address, keystore)?;
+            let key = crate::key_management::try_find_key(&address, keystore)?;
 
             Ok(crate::key_management::sign(
                 *key.key_info.key_type(),
@@ -554,7 +554,7 @@ impl WalletCommands {
 
                     message.sequence = MpoolGetNonce::call(&backend.remote, (from,)).await?;
 
-                    let key = crate::key_management::find_key(&from, keystore)?;
+                    let key = crate::key_management::try_find_key(&from, keystore)?;
                     let eth_chain_id = u64::from_str_radix(
                         EthChainId::call(&backend.remote, ())
                             .await?
@@ -562,7 +562,6 @@ impl WalletCommands {
                         16,
                     )?;
                     let smsg = crate::key_management::sign_message(&key, &message, eth_chain_id)?;
-
                     MpoolPush::call(&backend.remote, (smsg.clone(),)).await?;
                     smsg
                 } else {
