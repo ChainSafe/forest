@@ -24,14 +24,14 @@ pub struct ChainFinalityStatus {
     pub ec_finality_threshold_depth: i64,
 
     /// The most recent tipset where the reorg probability
-    /// is below 2^-30, based on observed block production. Nil if the
+    /// is below 2^-30, based on observed block production. [`None`] if the
     /// threshold is not met.
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Option<Tipset>>")]
     pub ec_finalized_tip_set: Option<Tipset>,
 
     /// The tipset finalized by F3 (Fast Finality), if F3
-    /// is running and has issued a certificate. Nil if F3 is not available.
+    /// is running and has issued a certificate. [`None`] if F3 is not available.
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Option<Tipset>>")]
     pub f3_finalized_tip_set: Option<Tipset>,

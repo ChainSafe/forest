@@ -1196,20 +1196,22 @@ impl ChainGetTipSetFinalityStatus {
             find_threshold_depth,
         };
 
+        const FINALITY_CHAIN_EXTRA_EPOCHS: usize = 5;
+
         let finality = ctx.chain_config().policy.chain_finality;
-        let chain_len = finality as usize + 5;
+        let chain_len = finality as usize + FINALITY_CHAIN_EXTRA_EPOCHS;
         let mut chain = Vec::with_capacity(chain_len);
         let mut ts = head.clone();
         while chain.len() < chain_len {
             chain.push(ts.len() as i64);
             if let Ok(parent) = ctx.chain_index().load_required_tipset(ts.parents()) {
                 // insert 0 for null rounds
-                for _ in 1..(ts.epoch() - parent.epoch()) {
-                    if chain.len() < chain_len {
-                        chain.push(0);
-                    } else {
-                        break;
-                    }
+                if let Ok(n_null_tipsets_to_pad) = usize::try_from(ts.epoch() - parent.epoch() - 1)
+                    && n_null_tipsets_to_pad > 0
+                {
+                    let target_len =
+                        (chain.len().saturating_add(n_null_tipsets_to_pad)).min(chain_len);
+                    chain.resize(target_len, 0);
                 }
                 ts = parent;
             } else {
