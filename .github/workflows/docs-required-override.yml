@@ -29,44 +29,31 @@ on:
 jobs:
   # We need this because merge groups dont support path filters
   # https://github.com/community/community/discussions/45899
-  changes-docs:
+  changes:
     runs-on: ubuntu-slim
     outputs:
-      changesFound: ${{ steps.filter.outputs.changesFound }}
+      docChanges: ${{ steps.filter.outputs.docChanges }}
+      otherChanges: ${{ steps.filter.outputs.otherChanges }}
     steps:
-      - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
         id: filter
         with:
+          predicate-quantifier: 'every'
           filters: |
-            changesFound:
-                    - 'docs/**'
-                    - '**.md'
-                    - '.github/workflows/docs-*.yml'
-  changes-not-docs:
-    runs-on: ubuntu-slim
-    outputs:
-      otherChangesFound: ${{ steps.filter.outputs.otherChangesFound }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          predicate-quantifier: every
-          filters: |
-            otherChangesFound:
-                    - '**'
-                    - '!docs/**'
-                    - '!**.md'
-                    - '!.github/workflows/docs-*.yml'
+            docChanges: &docChanges
+              - 'docs/**'
+              - '**.md'
+              - '.github/workflows/docs-*.yml'
+            otherChanges:
+              - '**'
+              - '!*docChanges'
 
   override_calibnet_rpc_checks:
     name: Calibnet RPC checks
     runs-on: ubuntu-slim
     needs:
-      - changes-docs
-      - changes-not-docs
-    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+      - changes
+    if: ${{ (needs.changes.outputs.docChanges == 'true') && (needs.changes.outputs.otherChanges == 'false') }}
     steps:
       - run: echo "No-op job to trigger the required checks."
 
@@ -74,9 +61,8 @@ jobs:
     name: Integration tests status
     runs-on: ubuntu-slim
     needs:
-      - changes-docs
-      - changes-not-docs
-    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+      - changes
+    if: ${{ (needs.changes.outputs.docChanges == 'true') && (needs.changes.outputs.otherChanges == 'false') }}
     steps:
       - run: echo "No-op job to trigger the required checks."
 
@@ -84,9 +70,8 @@ jobs:
     name: tests-release
     runs-on: ubuntu-slim
     needs:
-      - changes-docs
-      - changes-not-docs
-    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+      - changes
+    if: ${{ (needs.changes.outputs.docChanges == 'true') && (needs.changes.outputs.otherChanges == 'false') }}
     steps:
       - run: echo "No-op job to trigger the required checks."
 
@@ -94,9 +79,8 @@ jobs:
     name: Build images and push to GHCR
     runs-on: ubuntu-slim
     needs:
-      - changes-docs
-      - changes-not-docs
-    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+      - changes
+    if: ${{ (needs.changes.outputs.docChanges == 'true') && (needs.changes.outputs.otherChanges == 'false') }}
     steps:
       - run: echo "No-op job to trigger the required checks."
 
@@ -104,8 +88,7 @@ jobs:
     name: All lint checks
     runs-on: ubuntu-slim
     needs:
-      - changes-docs
-      - changes-not-docs
-    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+      - changes
+    if: ${{ (needs.changes.outputs.docChanges == 'true') && (needs.changes.outputs.otherChanges == 'false') }}
     steps:
       - run: echo "No-op job to trigger the required checks."
