@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 /// A trait for databases that support garbage collection by resetting specific columns.
 #[auto_impl::auto_impl(&, Arc)]
 pub trait GarbageCollectableDb {
-    async fn reset_gc_columns(&self) -> anyhow::Result<()>;
+    fn reset_gc_columns(&self) -> anyhow::Result<()>;
 }
 
 /// A wrapper around `ParityDb` that provides a method to reset the columns used for garbage collection.
@@ -24,7 +24,7 @@ impl GarbageCollectableParityDb {
         Ok(Self { options, db })
     }
 
-    pub async fn reset_gc_columns(&self) -> anyhow::Result<()> {
+    pub fn reset_gc_columns(&self) -> anyhow::Result<()> {
         let mut guard = self.db.write();
         // Close the database before resetting the columns, otherwise parity-db will fail to reset them.
         let tmp_db_dir = tempfile::tempdir()?;
@@ -54,18 +54,18 @@ impl GarbageCollectableParityDb {
         for col in GC_COLUMNS {
             let start = Instant::now();
             tracing::info!("pruning parity-db column {col}...");
-            // Retry for 10 times with 1s interval in case parity-db is still holding some file handles to the column.
+            // Allow up to 3 attempts with 1s interval in case parity-db is still holding some file handles to the column.
             // Note: retry should no longer be needed with the current logic, keeping it for now just for safety.
-            const MAX_RETRIES: usize = 10;
-            for i in 1..=MAX_RETRIES {
+            const MAX_ATTEMPTS: usize = 3;
+            for i in 1..=MAX_ATTEMPTS {
                 match parity_db::Db::reset_column(&mut options, col, None) {
                     Ok(_) => break,
-                    Err(_) if i < MAX_RETRIES => {
+                    Err(_) if i < MAX_ATTEMPTS => {
                         tracing::warn!("retry pruning parity-db column {col} in 1s...");
                         std::thread::sleep(Duration::from_secs(1));
                     }
                     Err(e) => anyhow::bail!(
-                        "failed to reset parity-db column {col} after {MAX_RETRIES} attempts: {e}"
+                        "failed to reset parity-db column {col} after {MAX_ATTEMPTS} attempts: {e}"
                     ),
                 }
             }
@@ -79,8 +79,8 @@ impl GarbageCollectableParityDb {
 }
 
 impl GarbageCollectableDb for GarbageCollectableParityDb {
-    async fn reset_gc_columns(&self) -> anyhow::Result<()> {
-        self.reset_gc_columns().await
+    fn reset_gc_columns(&self) -> anyhow::Result<()> {
+        self.reset_gc_columns()
     }
 }
 
@@ -198,14 +198,9 @@ mod tests {
     use super::*;
     use crate::utils::db::car_stream::CarBlock;
     use quickcheck_macros::quickcheck;
-    use tokio_test::block_on;
 
     #[quickcheck]
     fn test_reset_gc_columns(blocks: Vec<CarBlock>) -> anyhow::Result<()> {
-        block_on(test_reset_gc_columns_async(blocks))
-    }
-
-    async fn test_reset_gc_columns_async(blocks: Vec<CarBlock>) -> anyhow::Result<()> {
         let db_path = tempfile::tempdir()?;
         let options = ParityDb::to_options(db_path.path(), &ParityDbConfig::default());
         let db = GarbageCollectableParityDb::new(options)?;
@@ -218,7 +213,7 @@ mod tests {
             assert_eq!(Blockstore::get(&db, &b.cid)?.as_ref(), Some(&b.data));
         }
         // reset gc columns
-        db.reset_gc_columns().await?;
+        db.reset_gc_columns()?;
         // check blocks are gone
         for b in &blocks {
             assert_eq!(Blockstore::get(&db, &b.cid)?, None);

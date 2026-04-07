@@ -309,7 +309,11 @@ where
             let db = self.cs.blockstore();
 
             // Reset parity-db columns
-            db.reset_gc_columns().await?;
+            tokio::task::spawn_blocking({
+                let db = db.clone();
+                move || db.reset_gc_columns()
+            })
+            .await??;
 
             // Backfill new db records during snapshot export
             if let Some(mem_db) = self.memory_db.write().take() {

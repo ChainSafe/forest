@@ -322,8 +322,8 @@ impl<WriterT: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for
 }
 
 impl<T: GarbageCollectableDb> GarbageCollectableDb for ManyCar<T> {
-    async fn reset_gc_columns(&self) -> anyhow::Result<()> {
-        self.writer().reset_gc_columns().await
+    fn reset_gc_columns(&self) -> anyhow::Result<()> {
+        self.writer().reset_gc_columns()
     }
 }
 
