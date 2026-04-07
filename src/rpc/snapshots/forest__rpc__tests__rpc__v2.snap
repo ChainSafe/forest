@@ -1866,10 +1866,10 @@ components:
           type: integer
           format: int64
         ecFinalizedTipSet:
-          description: "The most recent tipset where the reorg probability\nis below 2^-30, based on observed block production. Nil if the\nthreshold is not met."
+          description: "The most recent tipset where the reorg probability\nis below 2^-30, based on observed block production. [`None`] if the\nthreshold is not met."
           $ref: "#/components/schemas/Nullable_Tipset"
         f3FinalizedTipSet:
-          description: "The tipset finalized by F3 (Fast Finality), if F3\nis running and has issued a certificate. Nil if F3 is not available."
+          description: "The tipset finalized by F3 (Fast Finality), if F3\nis running and has issued a certificate. [`None`] if F3 is not available."
           $ref: "#/components/schemas/Nullable_Tipset"
         finalizedTipSet:
           description: "The overall finalized tipset used by the node,\ntaking the most recent of F3 and EC calculator results."
