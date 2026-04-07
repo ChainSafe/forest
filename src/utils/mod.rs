@@ -8,6 +8,7 @@ pub mod db;
 pub mod encoding;
 pub mod flume;
 pub mod get_size;
+pub mod hash;
 pub mod io;
 pub mod misc;
 pub mod multihash;

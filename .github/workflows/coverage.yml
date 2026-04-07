@@ -16,17 +16,9 @@ on:
     # This needs to be declared explicitly so that the job is actually
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - "docs/**"
-      - ".github/workflows/docs-*.yml"
-      - "**/*.md"
   push:
     branches:
       - main
-    paths-ignore:
-      - "docs/**"
-      - ".github/workflows/docs-*.yml"
-      - "**/*.md"
 
 env:
   CI: 1
@@ -48,9 +40,30 @@ env:
   QUICKCHECK_MAX_TESTS: 1000
 
 jobs:
+  path-filter:
+    runs-on: ubuntu-slim
+    outputs:
+      codeChange: ${{ steps.filter.outputs.codeChange }}
+      workflowChange: ${{ steps.filter.outputs.workflowChange }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            codeChange:
+              - '**'
+              - '!docs/**'
+              - '!**.md'
+              - '!.github/workflows/*.yml'
+            workflowChange:
+              - '.github/workflows/coverage.yml'
   codecov:
     name: Coverage
-    if: github.event.pull_request.draft == false
+    needs:
+      - path-filter
+    if: ${{ github.event.pull_request.draft == false && (needs.path-filter.outputs.codeChange == 'true' || needs.path-filter.outputs.workflowChange == 'true') }}
     runs-on: warp-ubuntu-2404-arm64-8x
     timeout-minutes: 30
     steps:
@@ -109,3 +122,11 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
+  override_codecov:
+    name: Coverage
+    needs:
+      - path-filter
+    if: ${{ needs.path-filter.outputs.codeChange == 'false' && needs.path-filter.outputs.workflowChange == 'false' }}
+    runs-on: ubuntu-slim
+    steps:
+      - run: echo "No-op job to trigger the required codecov job."

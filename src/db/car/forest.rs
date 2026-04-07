@@ -495,9 +495,9 @@ pub fn new_forest_car_temp_path_in(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::block_on;
     use nunny::vec as nonempty;
     use quickcheck_macros::quickcheck;
+    use tokio_test::block_on;
 
     fn mk_encoded_car(
         zstd_frame_size_tripwire: usize,
