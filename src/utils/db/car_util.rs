@@ -42,7 +42,6 @@ mod tests {
     use std::io::Cursor;
 
     use super::*;
-    use crate::block_on;
     use crate::utils::db::car_stream::CarWriter;
     use crate::utils::multihash::prelude::*;
     use ahash::HashSet;
@@ -56,6 +55,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
+    use tokio_test::block_on;
 
     #[derive(Debug, Clone)]
     struct Blocks(Vec<CarBlock>);
