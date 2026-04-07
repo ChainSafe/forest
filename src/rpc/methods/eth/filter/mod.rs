@@ -28,6 +28,7 @@ use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
 use crate::rpc::eth::EVM_WORD_LENGTH;
+use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
@@ -552,14 +553,12 @@ fn parse_block_range(
     if min_height == -1 && max_height > 0 {
         ensure!(
             max_height - heaviest <= max_range,
-            "invalid epoch range: to block is too far in the future (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range as u64, (max_height - heaviest) as u64),
         );
     } else if min_height >= 0 && max_height == -1 {
         ensure!(
             heaviest - min_height <= max_range,
-            "invalid epoch range: from block is too far in the past (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range as u64, (heaviest - min_height) as u64)
         );
     } else if min_height >= 0 && max_height >= 0 {
         ensure!(
@@ -570,8 +569,7 @@ fn parse_block_range(
         );
         ensure!(
             max_height - min_height <= max_range,
-            "invalid epoch range: range between to and from blocks is too large (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range as u64, (max_height - min_height) as u64)
         );
     }
 
@@ -929,6 +927,9 @@ mod tests {
 
     #[test]
     fn test_parse_block_range() {
+        use crate::rpc::error::RpcErrorData;
+        use crate::rpc::eth::errors::LIMIT_EXCEEDED_CODE;
+
         let heaviest = 50;
         let max_range = 100;
 
@@ -956,14 +957,17 @@ mod tests {
         assert_eq!(min_height, 1); // hex_str_to_epoch("0x1") = 1
         assert_eq!(max_height, 10); // hex_str_to_epoch("0xA") = 10
 
-        // Test case 3: Range too large
-        let result = parse_block_range(
+        // Test case 3: Range too large — returns BlockRangeExceeded with -32005 code
+        let err = parse_block_range(
             heaviest,
             Some(BlockNumberOrHash::from_str("earliest").unwrap()),
-            Some(BlockNumberOrHash::from_str("0x100").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x100").unwrap()), // epoch 256, range = 256 > 100
             max_range,
-        );
-        assert!(result.is_err());
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(eth_err, EthErrors::BlockRangeExceeded { .. }));
+        assert_eq!(eth_err.error_code(), Some(LIMIT_EXCEEDED_CODE));
 
         // Test case 4: from_block = "latest", to_block = "earliest"
         let result = parse_block_range(
@@ -1008,13 +1012,23 @@ mod tests {
         assert!(result.is_err());
 
         // Test case 8: Both blocks are non-negative, order is correct, but the range is too large.
-        let result = parse_block_range(
+        let err = parse_block_range(
             heaviest,
             Some(BlockNumberOrHash::from_str("earliest").unwrap()),
-            Some(BlockNumberOrHash::from_str("0x65").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x65").unwrap()), // epoch 101, range = 101 > 100
             max_range,
-        );
-        assert!(result.is_err());
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(
+            eth_err,
+            EthErrors::BlockRangeExceeded {
+                max: 100,
+                given: 101,
+                ..
+            }
+        ));
+        assert_eq!(eth_err.error_code(), Some(LIMIT_EXCEEDED_CODE));
 
         // Test case 9: Range exactly equal to max_range (boundary, should succeed).
         let result = parse_block_range(
@@ -1081,6 +1095,28 @@ mod tests {
         let (min_height, max_height) = result.unwrap();
         assert_eq!(min_height, heaviest);
         assert_eq!(max_height, -1);
+
+        // Test case 15: from_block too far in past (min >= 0, max == -1, heaviest - min > max_range)
+        let err = parse_block_range(
+            500,                                               // heaviest
+            Some(BlockNumberOrHash::from_str("0x1").unwrap()), // epoch 1, range = 500 - 1 = 499
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
+            max_range,
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(
+            eth_err,
+            EthErrors::BlockRangeExceeded {
+                max: 100,
+                given: 499,
+                ..
+            }
+        ));
+        assert_eq!(
+            eth_err.error_message().unwrap(),
+            "block range exceeds maximum of 100 (got 499)"
+        );
     }
 
     #[test]
