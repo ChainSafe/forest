@@ -172,7 +172,7 @@ impl HasLotusJson for State {
         convert_market_state! {
             v8_market_state_fields for [V8];
             v9_to_v12_market_state_fields for [V9, V10, V11, V12];
-            v13_plus_market_state_fields for [V13, V14, V15, V16, V17];
+            v13_plus_market_state_fields for [V13, V14, V15, V16, V17, V18];
         }
     }
 
