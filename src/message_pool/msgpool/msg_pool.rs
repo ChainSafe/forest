@@ -971,7 +971,7 @@ mod tests {
         // Fill up to capacity (10 messages)
         for i in 0..10 {
             let res = mset.add_trusted(&api, make_smsg(Address::default(), i, 100), false);
-            assert!(res.is_ok(), "Failed to add message {}: {:?}", i, res);
+            assert!(res.is_ok(), "Failed to add message {i}");
         }
 
         // Should reject adding a NEW message (sequence 10) when at capacity
@@ -981,7 +981,7 @@ mod tests {
         // Should ALLOW replacing an existing message (RBF) even when at capacity
         // Replace message with sequence 5 with higher gas premium
         let res = mset.add_trusted(&api, make_smsg(Address::default(), 5, 200), false);
-        assert!(res.is_ok(), "RBF should be allowed at capacity: {:?}", res);
+        assert!(res.is_ok(), "RBF should be allowed at capacity");
     }
 
     #[test]
