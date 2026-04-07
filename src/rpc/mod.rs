@@ -79,6 +79,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainGetPath);
         $callback!($crate::rpc::chain::ChainGetTipSet);
         $callback!($crate::rpc::chain::ChainGetTipSetV2);
+        $callback!($crate::rpc::chain::ChainGetTipSetFinalityStatus);
         $callback!($crate::rpc::chain::ChainGetTipSetAfterHeight);
         $callback!($crate::rpc::chain::ChainGetTipSetByHeight);
         $callback!($crate::rpc::chain::ChainHasObj);
