@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6811](https://github.com/ChainSafe/forest/pull/6811): Added v2 RPC method `Filecoin.ChainGetTipSetFinalityStatus`.
+
 - [#6710](https://github.com/ChainSafe/forest/pull/6710): Added support for f4 addresses in forest-wallet.
 
 ### Changed
@@ -46,6 +48,8 @@
 - [#6817](https://github.com/ChainSafe/forest/pull/6817): Fixed `StateSearchMsg` to return null instead of error when not found to match Lotus behaviour.
 
 - [#6849](https://github.com/ChainSafe/forest/pull/6849): Included strict bound in blocks included for calculating gas premium `GasEstimateGasPremium`.
+
+- [#6856](https://github.com/ChainSafe/forest/pull/6856): Return ethereum compatible error `BlockRangeExceeded` with code `-32005` when block range exceeds in the eth filter and logs API.
 
 ## Forest v0.32.4 "Mild Inconvenience"
 
