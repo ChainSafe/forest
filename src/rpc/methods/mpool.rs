@@ -287,9 +287,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         let required_funds = &message.value + &message.gas_fee_cap * message.gas_limit;
         if balance < required_funds {
             return Err(anyhow::anyhow!(
-                "mpool push: not enough funds: {} < {}",
-                balance,
-                required_funds
+                "mpool push: not enough funds: {balance} < {required_funds}",
             )
             .into());
         }
