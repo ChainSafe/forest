@@ -1196,6 +1196,12 @@ impl ChainGetTipSetFinalityStatus {
             find_threshold_depth,
         };
 
+        /// Number of extra epochs to fetch beyond [`chain_finality`] when
+        /// building the chain sample for [`find_threshold_depth`].
+        ///
+        /// The extra 5 epochs act as a tail buffer to prevent out-of-bounds access,
+        /// particularly when null rounds (epochs with zero blocks) are present, since
+        /// they consume array slots without advancing the meaningful epoch count.
         const FINALITY_CHAIN_EXTRA_EPOCHS: usize = 5;
 
         let finality = ctx.chain_config().policy.chain_finality;

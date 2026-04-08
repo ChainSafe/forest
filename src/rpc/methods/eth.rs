@@ -3872,7 +3872,7 @@ impl RpcMethod<1> for EthTraceFilter {
             let range = i64::try_from(to_block.0.saturating_sub(from_block.0))
                 .context("block range overflow")?;
             if range > max_block_range {
-                return Err(EthErrors::limit_exceeded(max_block_range as u64, range as u64).into());
+                return Err(EthErrors::limit_exceeded(max_block_range, range).into());
             }
         }
         Ok(trace_filter(ctx, filter, from_block, to_block, ext).await?)
