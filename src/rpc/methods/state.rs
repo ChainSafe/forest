@@ -1591,23 +1591,21 @@ impl RpcMethod<2> for ForestStateCompute {
             let tipset_key = ts.key().clone();
             let ExecutedTipset { state_root, .. } =
                 ctx.state_manager.load_executed_tipset(&ts).await?;
-            if StateTree::new_from_root(ctx.store_owned(), &state_root).is_ok() {
-                results.push(ForestComputeStateOutput {
-                    state_root,
-                    epoch,
-                    tipset_key,
-                });
+            let state_root = if StateTree::new_from_root(ctx.store_owned(), &state_root).is_ok() {
+                state_root
             } else {
                 let ExecutedTipset { state_root, .. } = ctx
                     .state_manager
                     .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
-                results.push(ForestComputeStateOutput {
-                    state_root,
-                    epoch,
-                    tipset_key,
-                });
-            }
+                _ = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+                state_root
+            };
+            results.push(ForestComputeStateOutput {
+                state_root,
+                epoch,
+                tipset_key,
+            });
         }
         Ok(results)
     }
