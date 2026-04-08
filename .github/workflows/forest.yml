@@ -147,9 +147,7 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
+      - uses: jdx/mise-action@v4
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
