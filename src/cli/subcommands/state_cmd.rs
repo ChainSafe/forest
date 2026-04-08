@@ -34,6 +34,8 @@ pub enum StateCommands {
         /// Number of tipset epochs to compute state for. Default is 1
         #[arg(short, long)]
         n_epochs: Option<NonZeroUsize>,
+        /// Force recomputing the state trees regardless whether the results are cached
+        force: Option<bool>,
         /// Print epoch and tipset key along with state root
         #[arg(short, long)]
         verbose: bool,
@@ -65,11 +67,13 @@ impl StateCommands {
             StateCommands::Compute {
                 epoch,
                 n_epochs,
+                force,
                 verbose,
             } => {
                 let results = client
                     .call(
-                        ForestStateCompute::request((epoch, n_epochs))?.with_timeout(Duration::MAX),
+                        ForestStateCompute::request((epoch, n_epochs, force))?
+                            .with_timeout(Duration::MAX),
                     )
                     .await?;
                 for ForestComputeStateOutput {
