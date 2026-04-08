@@ -27,7 +27,7 @@
     "@docusaurus/theme-mermaid": "^3.9.2",
     "@easyops-cn/docusaurus-search-local": "^0.55.1",
     "mdx-mermaid": "^2.0.3",
-    "mermaid": "^11.13.0",
+    "mermaid": "^11.14.0",
     "prettier": "^3.8.1",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.2.4",
@@ -55,6 +55,8 @@
     ]
   },
   "resolutions": {
-    "dompurify": "^3.3.3"
+    "dompurify": "^3.3.3",
+    "lodash": "^4.18.1",
+    "serialize-javascript": "^7.0.5"
   }
 }
