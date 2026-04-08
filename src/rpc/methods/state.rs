@@ -1523,21 +1523,25 @@ impl RpcMethod<2> for StateFetchRoot {
 
 pub enum ForestStateCompute {}
 
-impl RpcMethod<2> for ForestStateCompute {
+impl RpcMethod<3> for ForestStateCompute {
     const NAME: &'static str = "Forest.StateCompute";
     const N_REQUIRED_PARAMS: usize = 1;
-    const PARAM_NAMES: [&'static str; 2] = ["epoch", "n_epochs"];
+    const PARAM_NAMES: [&'static str; 3] = ["epoch", "n_epochs", "force_recompute"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Forest-specific RPC method that recomputes tipset state over an epoch range. It reuses cached executed tipsets only when the cached state root is loadable; otherwise it recomputes. Unlike Filecoin.StateCompute, it does not apply caller-supplied messages or return execution traces.",
+    );
 
-    type Params = (ChainEpoch, Option<NonZeroUsize>);
+    type Params = (ChainEpoch, Option<NonZeroUsize>, Option<bool>);
     type Ok = Vec<ForestComputeStateOutput>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (from_epoch, n_epochs): Self::Params,
+        (from_epoch, n_epochs, force_recompute): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let force_recompute = force_recompute.unwrap_or_default();
         let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
         let to_epoch = from_epoch + n_epochs - 1;
         let to_ts = ctx.chain_index().tipset_by_height(
@@ -1589,18 +1593,26 @@ impl RpcMethod<2> for ForestStateCompute {
         while let Some(ts) = futures.try_next().await? {
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
-            let ExecutedTipset { state_root, .. } =
-                ctx.state_manager.load_executed_tipset(&ts).await?;
-            let state_root = if StateTree::new_from_root(ctx.store_owned(), &state_root).is_ok() {
-                state_root
-            } else {
-                let ExecutedTipset { state_root, .. } = ctx
-                    .state_manager
-                    .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
-                    .await?;
-                _ = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
-                state_root
-            };
+            if !force_recompute {
+                let ExecutedTipset { state_root, .. } =
+                    ctx.state_manager.load_executed_tipset(&ts).await?;
+                // Verify the state tree is loadable as the root CID could present due to some bad or wrong diff snapshot import
+                if StateTree::new_from_root(ctx.store_owned(), &state_root).is_ok() {
+                    results.push(ForestComputeStateOutput {
+                        state_root,
+                        epoch,
+                        tipset_key,
+                    });
+                    continue;
+                }
+            }
+
+            let ExecutedTipset { state_root, .. } = ctx
+                .state_manager
+                .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
+                .await?;
+            // Verify the result state tree
+            StateTree::new_from_root(ctx.store_owned(), &state_root).with_context(|| format!("failed to load the result state tree, root: {state_root}, epoch: {epoch}, tipset key: {tipset_key}"))?;
             results.push(ForestComputeStateOutput {
                 state_root,
                 epoch,

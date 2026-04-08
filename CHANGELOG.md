@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6871](https://github.com/ChainSafe/forest/pull/6871): Added `--force` to `forest-cli state compute`.
+
 - [#6811](https://github.com/ChainSafe/forest/pull/6811): Added v2 RPC method `Filecoin.ChainGetTipSetFinalityStatus`.
 
 - [#6710](https://github.com/ChainSafe/forest/pull/6710): Added support for f4 addresses in forest-wallet.
