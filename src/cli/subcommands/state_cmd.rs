@@ -35,7 +35,8 @@ pub enum StateCommands {
         #[arg(short, long)]
         n_epochs: Option<NonZeroUsize>,
         /// Force recomputing the state trees regardless whether the results are cached
-        force: Option<bool>,
+        #[arg(long)]
+        force: bool,
         /// Print epoch and tipset key along with state root
         #[arg(short, long)]
         verbose: bool,
@@ -72,7 +73,7 @@ impl StateCommands {
             } => {
                 let results = client
                     .call(
-                        ForestStateCompute::request((epoch, n_epochs, force))?
+                        ForestStateCompute::request((epoch, n_epochs, Some(force)))?
                             .with_timeout(Duration::MAX),
                     )
                     .await?;
