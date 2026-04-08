@@ -324,9 +324,9 @@ where
     Ok(())
 }
 
-/// This is a helper function for `head_change`. This method will remove a
-/// sequence for a from address from the messages selected by priority hash-map.
-/// It also removes the 'from' address and sequence from the `MessagePool`.
+/// Removes a message with the given `sequence` and `from` address from the
+/// selected messages map (`rmsgs`). If the message is not found there, falls
+/// back to removing it from the `MessagePool` pending set instead.
 pub(in crate::message_pool) fn remove_from_selected_msgs<T: Provider>(
     api: &T,
     key_cache: &SizeTrackingLruCache<Address, Address>,
