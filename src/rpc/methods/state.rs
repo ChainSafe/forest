@@ -1596,6 +1596,7 @@ impl RpcMethod<3> for ForestStateCompute {
             if !force_recompute {
                 let ExecutedTipset { state_root, .. } =
                     ctx.state_manager.load_executed_tipset(&ts).await?;
+                // Verify the state tree is loadable as the root CID could present due to some bad or wrong diff snapshot import
                 if StateTree::new_from_root(ctx.store_owned(), &state_root).is_ok() {
                     results.push(ForestComputeStateOutput {
                         state_root,
@@ -1611,7 +1612,7 @@ impl RpcMethod<3> for ForestStateCompute {
                 .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
                 .await?;
             // Verify the result state tree
-            StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+            StateTree::new_from_root(ctx.store_owned(), &state_root).with_context(|| format!("failed to load the result state tree, root: {state_root}, epoch: {epoch}, tipset key: {tipset_key}"))?;
             results.push(ForestComputeStateOutput {
                 state_root,
                 epoch,
