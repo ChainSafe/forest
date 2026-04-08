@@ -294,7 +294,7 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         let key = crate::key_management::Key::try_from(crate::key_management::try_find(
             &key_addr,
-            &ctx.keystore.as_ref().write(),
+            &ctx.keystore.as_ref().read(),
         )?)?;
         let eth_chain_id = ctx.chain_config().eth_chain_id;
 

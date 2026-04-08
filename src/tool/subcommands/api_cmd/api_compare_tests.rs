@@ -477,10 +477,19 @@ fn common_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn chain_tests() -> Vec<RpcTest> {
+fn chain_tests(offline: bool) -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(ChainHead::request(()).unwrap()),
         RpcTest::identity(ChainGetGenesis::request(()).unwrap()),
+        if offline {
+            RpcTest::basic(ChainHead::request(()).unwrap())
+        } else {
+            RpcTest::identity(ChainHead::request(()).unwrap())
+        },
+        if offline {
+            RpcTest::basic(ChainGetTipSetFinalityStatus::request(()).unwrap())
+        } else {
+            RpcTest::identity(ChainGetTipSetFinalityStatus::request(()).unwrap())
+        },
     ]
 }
 
@@ -2512,7 +2521,7 @@ pub(super) async fn create_tests(
     let mut tests = vec![];
     tests.extend(auth_tests()?);
     tests.extend(common_tests());
-    tests.extend(chain_tests());
+    tests.extend(chain_tests(offline));
     tests.extend(mpool_tests());
     tests.extend(net_tests());
     tests.extend(node_tests());
