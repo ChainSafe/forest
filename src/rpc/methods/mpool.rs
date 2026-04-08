@@ -282,7 +282,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         message.sequence = nonce;
         let key = crate::key_management::Key::try_from(crate::key_management::try_find(
             &key_addr,
-            &ctx.keystore.as_ref().write(),
+            &ctx.keystore.as_ref().read(),
         )?)?;
         let sig = crate::key_management::sign(
             *key.key_info.key_type(),
