@@ -2778,8 +2778,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_account_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3b765fb8cb1243e6c1efb00095a7042ce29f4996439c6b09307140cec5da0d1"
 dependencies = [
  "frc42_dispatch",
  "frc42_macros",
@@ -2794,8 +2795,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9f937b56617f604534abcc2852818743a5f7295ff07f4b31e7d686c38ca79c6"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.11.3",
@@ -2808,8 +2810,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f79a84790d7d570fae386933d99fc26a5a5c7c89034f50f79dce72bc80f43c1a"
 dependencies = [
  "fil_actors_shared",
  "frc42_dispatch",
@@ -2828,8 +2831,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_eam_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "678386518490d556214736c39af6aa4e5ad569a5e0565d29f90254ee1e5c7777"
 dependencies = [
  "fil_actor_evm_state",
  "fvm_ipld_encoding",
@@ -2842,8 +2846,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_ethaccount_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9a6eb61a133e4a6dbe4f1bc8ce06adee3afc54350f72c815a695d52035083cc"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 3.13.3",
@@ -2855,8 +2860,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0f43eeb1209e03d45d80a98314c0c591ecfdc926489312c1e2f45310f5cdadf"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2875,8 +2881,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56f741c4d5d9411300419eddf08f1537e376f6b82a33c68a2ced445603fb44ce"
 dependencies = [
  "anyhow",
  "cid",
@@ -2894,8 +2901,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c0a9e3dc8c6a10320b7c679ef428fe046ce79f273d84aaf2b1541904d9922bf"
 dependencies = [
  "anyhow",
  "cid",
@@ -2921,8 +2929,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d1bf485d33088443968072c599069bdf28bb59a0e2bf9f52402134174166b34"
 dependencies = [
  "anyhow",
  "bitflags 2.11.0",
@@ -2951,8 +2960,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7720690a40ac5a5347f087d2b0c500243e6f16e3bf164e69feef0bfc5b118b14"
 dependencies = [
  "anyhow",
  "cid",
@@ -2974,8 +2984,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_paych_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1485de3529fce7d893c37e5a8dd15bf57e89f453c8801bbc437ec88ef96cd771"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2992,8 +3003,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4aef38d9d15647c7a4d708192d39b8c1e5cfd7f6ebc0a06dcd927921fd96246c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3015,8 +3027,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9486ca4fc774d0870e9517df3b82b4ac8a3e4e1272dbb789a08d57f24ebee25e"
 dependencies = [
  "fil_actors_shared",
  "fvm_ipld_encoding",
@@ -3031,8 +3044,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2d4d8d4e82c21947af2d0c7c6077e2134a06cc514d70eadd6c0a9ecfc4b1e3e"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -3048,8 +3062,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4101182679512b35342a9eea5d595de196613ce8eb8fee9e39c35e3f7f6dfab"
 dependencies = [
  "anyhow",
  "cid",
@@ -3069,8 +3084,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "24.1.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=akaladarshi%2Fadd-v18-actors#ef10dd298eb4f6c53fac31f2d13eb9f14370cfd3"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95f2404c4544c072af4b8e132b620063be48c0dfb2643f0e59845b55aede7176"
 dependencies = [
  "anyhow",
  "cid",
