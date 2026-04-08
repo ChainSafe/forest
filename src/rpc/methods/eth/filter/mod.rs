@@ -553,12 +553,12 @@ fn parse_block_range(
     if min_height == -1 && max_height > 0 {
         ensure!(
             max_height - heaviest <= max_range,
-            EthErrors::limit_exceeded(max_range as u64, (max_height - heaviest) as u64),
+            EthErrors::limit_exceeded(max_range, max_height - heaviest),
         );
     } else if min_height >= 0 && max_height == -1 {
         ensure!(
             heaviest - min_height <= max_range,
-            EthErrors::limit_exceeded(max_range as u64, (heaviest - min_height) as u64)
+            EthErrors::limit_exceeded(max_range, heaviest - min_height)
         );
     } else if min_height >= 0 && max_height >= 0 {
         ensure!(
@@ -569,7 +569,7 @@ fn parse_block_range(
         );
         ensure!(
             max_height - min_height <= max_range,
-            EthErrors::limit_exceeded(max_range as u64, (max_height - min_height) as u64)
+            EthErrors::limit_exceeded(max_range, max_height - min_height)
         );
     }
 

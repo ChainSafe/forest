@@ -20,8 +20,8 @@ pub enum EthErrors {
     ExecutionReverted { message: String, data: String },
     #[error("{message}")]
     BlockRangeExceeded {
-        max: u64,
-        given: u64,
+        max: i64,
+        given: i64,
         message: String,
     },
 }
@@ -43,7 +43,7 @@ impl EthErrors {
         }
     }
 
-    pub fn limit_exceeded(max_block_range: u64, given: u64) -> Self {
+    pub fn limit_exceeded(max_block_range: i64, given: i64) -> Self {
         Self::BlockRangeExceeded {
             max: max_block_range,
             given,
