@@ -41,7 +41,7 @@ use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
-use crate::state_manager::ExecutedTipset;
+use crate::state_manager::{ExecutedTipset, NO_CALLBACK};
 use crate::state_manager::{
     MarketBalance, StateManager, circulating_supply::GenesisInfo, utils::structured,
 };
@@ -1591,11 +1591,23 @@ impl RpcMethod<2> for ForestStateCompute {
             let tipset_key = ts.key().clone();
             let ExecutedTipset { state_root, .. } =
                 ctx.state_manager.load_executed_tipset(&ts).await?;
-            results.push(ForestComputeStateOutput {
-                state_root,
-                epoch,
-                tipset_key,
-            });
+            if StateTree::new_from_root(ctx.store_owned(), &state_root).is_ok() {
+                results.push(ForestComputeStateOutput {
+                    state_root,
+                    epoch,
+                    tipset_key,
+                });
+            } else {
+                let ExecutedTipset { state_root, .. } = ctx
+                    .state_manager
+                    .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
+                    .await?;
+                results.push(ForestComputeStateOutput {
+                    state_root,
+                    epoch,
+                    tipset_key,
+                });
+            }
         }
         Ok(results)
     }
