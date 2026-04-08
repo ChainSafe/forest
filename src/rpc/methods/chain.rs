@@ -1199,15 +1199,6 @@ impl ChainGetTipSetFinalityStatus {
         /// Number of extra epochs to fetch beyond [`chain_finality`] when
         /// building the chain sample for [`find_threshold_depth`].
         ///
-        /// The chain sample is sized to `chain_finality + FINALITY_CHAIN_EXTRA_EPOCHS`
-        /// entries. Inside [`find_threshold_depth`], the bisect search probes depths in
-        /// `[BISECT_LOW, BISECT_HIGH]` (currently [3, 450]). At each probe point,
-        /// [`calc_validator_prob`] requires a lookback window of up to `chain_finality`
-        /// epochs of historical data — so the sample must be at least `chain_finality`
-        /// entries long. This matches the Lotus reference implementation, where
-        /// `chain/ecfinality/cache.go` documents this window size as
-        /// "finality + 5 (the lookback the calculator needs)".
-        ///
         /// The extra 5 epochs act as a tail buffer to prevent out-of-bounds access,
         /// particularly when null rounds (epochs with zero blocks) are present, since
         /// they consume array slots without advancing the meaningful epoch count.
