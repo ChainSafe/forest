@@ -1529,6 +1529,9 @@ impl RpcMethod<2> for ForestStateCompute {
     const PARAM_NAMES: [&'static str; 2] = ["epoch", "n_epochs"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Recompute the state trees of the given tipsets. Cache is used when the state tree is present for a tipset with message receipts and events",
+    );
 
     type Params = (ChainEpoch, Option<NonZeroUsize>);
     type Ok = Vec<ForestComputeStateOutput>;

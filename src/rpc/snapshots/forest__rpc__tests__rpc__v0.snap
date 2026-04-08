@@ -2413,6 +2413,7 @@ methods:
         $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Forest.StateCompute
+    description: Recompute the state trees of the given tipsets. Cache is used when the state tree is present for a tipset with message receipts and events
     params:
       - name: epoch
         required: true
