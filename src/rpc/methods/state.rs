@@ -1530,7 +1530,7 @@ impl RpcMethod<3> for ForestStateCompute {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
-        "Recompute the state trees of the given tipsets. If `force_recompute` is false, cache is used when the state tree is present for a tipset with message receipts and events",
+        "Forest-specific RPC method that recomputes tipset state over an epoch range. It reuses cached executed tipsets only when the cached state root is loadable; otherwise it recomputes. Unlike Filecoin.StateCompute, it does not apply caller-supplied messages or return execution traces.",
     );
 
     type Params = (ChainEpoch, Option<NonZeroUsize>, Option<bool>);
