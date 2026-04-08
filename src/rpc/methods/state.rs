@@ -1589,10 +1589,8 @@ impl RpcMethod<2> for ForestStateCompute {
         while let Some(ts) = futures.try_next().await? {
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
-            let ExecutedTipset { state_root, .. } = ctx
-                .state_manager
-                .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
-                .await?;
+            let ExecutedTipset { state_root, .. } =
+                ctx.state_manager.load_executed_tipset(&ts).await?;
             results.push(ForestComputeStateOutput {
                 state_root,
                 epoch,
