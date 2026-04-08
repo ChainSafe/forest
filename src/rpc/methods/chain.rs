@@ -1199,13 +1199,18 @@ impl ChainGetTipSetFinalityStatus {
         /// Number of extra epochs to fetch beyond [`chain_finality`] when
         /// building the chain sample for [`find_threshold_depth`].
         ///
-        /// [`find_threshold_depth`] probes epoch depths up to `chain_finality`
-        /// using a bisect search over the sampled chain slice. The extra epochs
-        /// provide a small tail buffer so that the bisect can safely evaluate
-        /// entries at the very edge of the finality window without reading past
-        /// the end of the slice — particularly important when null rounds (epochs
-        /// with zero blocks) are present, since they consume slots in the vector
-        /// without advancing the meaningful epoch count.
+        /// The chain sample is sized to `chain_finality + FINALITY_CHAIN_EXTRA_EPOCHS`
+        /// entries. Inside [`find_threshold_depth`], the bisect search probes depths in
+        /// `[BISECT_LOW, BISECT_HIGH]` (currently [3, 450]). At each probe point,
+        /// [`calc_validator_prob`] requires a lookback window of up to `chain_finality`
+        /// epochs of historical data — so the sample must be at least `chain_finality`
+        /// entries long. This matches the Lotus reference implementation, where
+        /// `chain/ecfinality/cache.go` documents this window size as
+        /// "finality + 5 (the lookback the calculator needs)".
+        ///
+        /// The extra 5 epochs act as a tail buffer to prevent out-of-bounds access,
+        /// particularly when null rounds (epochs with zero blocks) are present, since
+        /// they consume array slots without advancing the meaningful epoch count.
         const FINALITY_CHAIN_EXTRA_EPOCHS: usize = 5;
 
         let finality = ctx.chain_config().policy.chain_finality;
