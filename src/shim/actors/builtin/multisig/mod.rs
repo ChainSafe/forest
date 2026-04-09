@@ -8,6 +8,7 @@ use crate::{
     rpc::types::MsigVesting,
     shim::{MethodNum, address::Address, clock::ChainEpoch, econ::TokenAmount},
 };
+use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use serde::{Deserialize, Serialize};
@@ -114,7 +115,7 @@ impl State {
                     fil_actor_multisig_state::v12::PENDING_TXN_CONFIG,
                     "pending txns",
                 )
-                .expect("Could not load pending transactions");
+                .context("Could not load pending transactions")?;
                 parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
@@ -125,7 +126,7 @@ impl State {
                     fil_actor_multisig_state::v13::PENDING_TXN_CONFIG,
                     "pending txns",
                 )
-                .expect("Could not load pending transactions");
+                .context("Could not load pending transactions")?;
                 parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
@@ -136,7 +137,7 @@ impl State {
                     fil_actor_multisig_state::v14::PENDING_TXN_CONFIG,
                     "pending txns",
                 )
-                .expect("Could not load pending transactions");
+                .context("Could not load pending transactions")?;
                 parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
@@ -147,7 +148,7 @@ impl State {
                     fil_actor_multisig_state::v15::PENDING_TXN_CONFIG,
                     "pending txns",
                 )
-                .expect("Could not load pending transactions");
+                .context("Could not load pending transactions")?;
                 parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
@@ -158,7 +159,7 @@ impl State {
                     fil_actor_multisig_state::v16::PENDING_TXN_CONFIG,
                     "pending txns",
                 )
-                .expect("Could not load pending transactions");
+                .context("Could not load pending transactions")?;
                 parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
@@ -169,7 +170,7 @@ impl State {
                     fil_actor_multisig_state::v17::PENDING_TXN_CONFIG,
                     "pending txns",
                 )
-                .expect("Could not load pending transactions");
+                .context("Could not load pending transactions")?;
                 parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
@@ -180,7 +181,7 @@ impl State {
                     fil_actor_multisig_state::v18::PENDING_TXN_CONFIG,
                     "pending txns",
                 )
-                .expect("Could not load pending transactions");
+                .context("Could not load pending transactions")?;
                 parse_pending_transactions_v4!(res, txns);
                 Ok(res)
             }
