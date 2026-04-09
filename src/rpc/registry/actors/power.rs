@@ -150,5 +150,8 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V17 => {
             register_power_version_16_onwards!(registry, cid, fil_actor_power_state::v17)
         }
+        ActorVersion::V18 => {
+            register_power_version_16_onwards!(registry, cid, fil_actor_power_state::v18)
+        }
     }
 }

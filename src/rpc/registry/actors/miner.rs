@@ -391,6 +391,12 @@ fn register_miner_version_17(registry: &mut MethodRegistry, cid: Cid) {
     register_miner_common_method_v16_onwards!(registry, cid, fil_actor_miner_state::v17);
 }
 
+fn register_miner_version_18(registry: &mut MethodRegistry, cid: Cid) {
+    register_miner_common_methods_v10_onwards!(registry, cid, fil_actor_miner_state::v18);
+    register_miner_common_method_v14_onwards!(registry, cid, fil_actor_miner_state::v18);
+    register_miner_common_method_v16_onwards!(registry, cid, fil_actor_miner_state::v18);
+}
+
 pub(crate) fn register_miner_actor_methods(
     registry: &mut MethodRegistry,
     cid: Cid,
@@ -407,5 +413,6 @@ pub(crate) fn register_miner_actor_methods(
         ActorVersion::V15 => register_miner_version_15(registry, cid),
         ActorVersion::V16 => register_miner_version_16(registry, cid),
         ActorVersion::V17 => register_miner_version_17(registry, cid),
+        ActorVersion::V18 => register_miner_version_18(registry, cid),
     }
 }

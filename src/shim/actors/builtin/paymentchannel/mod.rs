@@ -16,6 +16,7 @@ pub enum State {
     V15(fil_actor_paych_state::v15::State),
     V16(fil_actor_paych_state::v16::State),
     V17(fil_actor_paych_state::v17::State),
+    V18(fil_actor_paych_state::v18::State),
 }
 
 impl State {
@@ -27,7 +28,7 @@ impl State {
         min_settle_height: ChainEpoch,
         lane_states: cid::Cid,
     ) -> Self {
-        State::V17(fil_actor_paych_state::v17::State {
+        State::V18(fil_actor_paych_state::v18::State {
             from,
             to,
             to_send,

@@ -712,6 +712,7 @@ Usage: forest-cli state compute [OPTIONS] --epoch <EPOCH>
 Options:
       --epoch <EPOCH>        Which epoch to compute the state transition for
   -n, --n-epochs <N_EPOCHS>  Number of tipset epochs to compute state for. Default is 1
+      --force                Force recomputing the state trees regardless whether the results are cached
   -v, --verbose              Print epoch and tipset key along with state root
   -h, --help                 Print help
 ```
