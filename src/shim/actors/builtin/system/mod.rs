@@ -28,11 +28,12 @@ pub enum State {
     V15(fil_actor_system_state::v15::State),
     V16(fil_actor_system_state::v16::State),
     V17(fil_actor_system_state::v17::State),
+    V18(fil_actor_system_state::v18::State),
 }
 
 impl State {
     pub fn default_latest_version(builtin_actors: cid::Cid) -> Self {
-        State::V17(fil_actor_system_state::v17::State { builtin_actors })
+        State::V18(fil_actor_system_state::v18::State { builtin_actors })
     }
 
     /// Returns the builtin actors Cid.

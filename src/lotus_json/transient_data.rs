@@ -124,4 +124,4 @@ macro_rules! impl_transient_data_lotus_json {
     };
 }
 
-impl_transient_data_lotus_json!(16, 17);
+impl_transient_data_lotus_json!(16, 17, 18);

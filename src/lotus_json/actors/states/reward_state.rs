@@ -85,7 +85,7 @@ impl HasLotusJson for State {
                 1,
                 BigInt::from(1),
                 TokenAmount::from_atto(1).into(),
-                fil_actors_shared::v17::builtin::reward::smooth::FilterEstimate {
+                fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate {
                     position: BigInt::from(1),
                     velocity: BigInt::from(1),
                 },
@@ -124,7 +124,7 @@ impl HasLotusJson for State {
             };
         }
 
-        convert_reward_state!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17)
+        convert_reward_state!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17, V18)
     }
 
     // Always return the latest version when deserializing
@@ -135,7 +135,7 @@ impl HasLotusJson for State {
             lotus_json.effective_network_time,
             lotus_json.effective_baseline_power,
             lotus_json.this_epoch_reward.into(),
-            fil_actors_shared::v17::builtin::reward::smooth::FilterEstimate {
+            fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate {
                 position: lotus_json.this_epoch_reward_smoothed.position,
                 velocity: lotus_json.this_epoch_reward_smoothed.velocity,
             },

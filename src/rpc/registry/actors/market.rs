@@ -211,5 +211,8 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V17 => {
             register_market_versions_onwards!(registry, cid, fil_actor_market_state::v17)
         }
+        ActorVersion::V18 => {
+            register_market_versions_onwards!(registry, cid, fil_actor_market_state::v18)
+        }
     }
 }

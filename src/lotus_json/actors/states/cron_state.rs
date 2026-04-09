@@ -33,11 +33,11 @@ impl HasLotusJson for State {
                 ]
             }),
             State::default_latest_version(vec![
-                fil_actor_cron_state::v17::Entry {
+                fil_actor_cron_state::v18::Entry {
                     receiver: Address::new_id(1).into(),
                     method_num: 2,
                 },
-                fil_actor_cron_state::v17::Entry {
+                fil_actor_cron_state::v18::Entry {
                     receiver: Address::new_id(2).into(),
                     method_num: 3,
                 },
@@ -58,7 +58,7 @@ impl HasLotusJson for State {
             };
         }
 
-        convert_cron_state!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17)
+        convert_cron_state!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17, V18)
     }
 
     // Always return the latest version when deserializing
