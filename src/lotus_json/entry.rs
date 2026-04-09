@@ -42,7 +42,7 @@ impl HasLotusJson for Entry {
             };
         }
 
-        convert_entry!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17)
+        convert_entry!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17, V18)
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {

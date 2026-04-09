@@ -182,6 +182,23 @@ impl MinerStateExt for State {
                     Ok(infos)
                 }
             }
+            State::V18(st) => {
+                if let Some(sectors) = sectors {
+                    Ok(st
+                        .load_sector_infos(&store, sectors)?
+                        .into_iter()
+                        .map(From::from)
+                        .collect())
+                } else {
+                    let sectors = fil_actor_miner_state::v18::Sectors::load(&store, &st.sectors)?;
+                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                    sectors.amt.for_each(|_, info| {
+                        infos.push(info.clone().into());
+                        Ok(())
+                    })?;
+                    Ok(infos)
+                }
+            }
         }
     }
 }

@@ -88,5 +88,8 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V17 => {
             register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v17)
         }
+        ActorVersion::V18 => {
+            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v18)
+        }
     }
 }

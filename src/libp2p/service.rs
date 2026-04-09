@@ -443,8 +443,16 @@ async fn handle_network_message(
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
-            if let Err(e) = swarm.behaviour_mut().publish(topic, message) {
-                warn!("Failed to send gossipsub message: {:?}", e);
+            match swarm.behaviour_mut().publish(topic, message) {
+                Ok(_) => (),
+                Err(gossipsub::PublishError::Duplicate) => {
+                    // Safe to ignore, the message has already been published and deduped by gossipsub, so no need to log this as a warning.
+                    // This matches `go-libp2p-pubsub` behavior https://github.com/libp2p/go-libp2p-pubsub/blob/v0.15.0/topic.go#L240-L242
+                    debug!("Failed to send gossipsub message: duplicate");
+                }
+                Err(e) => {
+                    warn!("Failed to send gossipsub message: {e:#}");
+                }
             }
         }
         NetworkMessage::HelloRequest {
