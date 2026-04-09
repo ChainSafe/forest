@@ -426,6 +426,14 @@ impl EthEventHandler {
                     });
                 }
                 while let Some(events) = tasks.try_next().await? {
+                    let remaining = self
+                        .max_filter_results
+                        .saturating_sub(collected_events.len());
+                    ensure!(
+                        events.len() <= remaining,
+                        "filter matches too many events (maximum {}), try a more restricted filter",
+                        self.max_filter_results
+                    );
                     collected_events.extend(events);
                 }
             }
