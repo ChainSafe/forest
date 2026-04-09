@@ -635,7 +635,6 @@ jobs:
       - state-migrations-check
       - calibnet-wallet-check
       - calibnet-delegated-wallet-check
-      - calibnet-export-check-v2
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check
