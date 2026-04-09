@@ -250,7 +250,7 @@ impl RpcMethod<2> for MpoolPushMessage {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (message, send_spec): Self::Params,
-        _: &http::Extensions,
+        extensions: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let from = message.from;
 
@@ -266,6 +266,9 @@ impl RpcMethod<2> for MpoolPushMessage {
             )
             .into());
         }
+
+        let _sender_guard = ctx.mpool_locker.take_lock(key_addr).await;
+
         let mut message =
             estimate_message_gas(&ctx, message, send_spec, Default::default()).await?;
         if message.gas_premium > message.gas_fee_cap {
@@ -278,21 +281,27 @@ impl RpcMethod<2> for MpoolPushMessage {
         if from.protocol() == Protocol::ID {
             message.from = key_addr;
         }
-        let nonce = ctx.mpool.get_sequence(&from)?;
-        message.sequence = nonce;
+
+        let balance =
+            super::wallet::WalletBalance::handle(ctx.clone(), (message.from,), extensions).await?;
+        let required_funds = &message.value + &message.gas_fee_cap * message.gas_limit;
+        if balance < required_funds {
+            return Err(anyhow::anyhow!(
+                "mpool push: not enough funds: {balance} < {required_funds}",
+            )
+            .into());
+        }
+
         let key = crate::key_management::Key::try_from(crate::key_management::try_find(
             &key_addr,
             &ctx.keystore.as_ref().read(),
         )?)?;
-        let sig = crate::key_management::sign(
-            *key.key_info.key_type(),
-            key.key_info.private_key(),
-            message.cid().to_bytes().as_slice(),
-        )?;
+        let eth_chain_id = ctx.chain_config().eth_chain_id;
 
-        let smsg = SignedMessage::new_from_parts(message, sig)?;
-
-        ctx.mpool.as_ref().push(smsg.clone()).await?;
+        let smsg = ctx
+            .nonce_tracker
+            .sign_and_push(ctx.mpool.as_ref(), message, &key, eth_chain_id)
+            .await?;
 
         Ok(smsg)
     }
