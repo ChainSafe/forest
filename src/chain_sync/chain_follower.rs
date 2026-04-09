@@ -703,7 +703,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 
     fn mark_validated_tipset(&mut self, tipset: FullTipset, is_proposed_head: bool) {
         if !self.is_parent_validated(&tipset) {
-            tracing::error!(epoch = %tipset.epoch(), tsk = %tipset.key(), "Tipset must be validated");
+            tracing::error!(epoch = %tipset.epoch(), tsk = %tipset.key(), parent_state = %tipset.parent_state(), "Parent tipset must be validated");
             return;
         }
 
