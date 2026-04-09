@@ -263,6 +263,33 @@ impl EthEventHandler {
         )
     }
 
+    pub async fn collect_events_for_tipsets<DB: Blockstore + Send + Sync + 'static>(
+        ctx: &Ctx<DB>,
+        tipsets: impl Iterator<Item = Tipset>,
+        spec: Option<&impl Matcher>,
+        skip_event: SkipEvent,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let mut tasks = FuturesOrdered::new();
+        for tipset in tipsets {
+            tasks.push_back(async move {
+                let mut events = vec![];
+                Self::collect_events(ctx, &tipset, spec, skip_event, &mut events).await?;
+                anyhow::Ok(events)
+            });
+        }
+        let max_filter_results = ctx.eth_event_handler.max_filter_results;
+        while let Some(events) = tasks.try_next().await? {
+            let remaining = max_filter_results.saturating_sub(collected_events.len());
+            ensure!(
+                events.len() <= remaining,
+                "filter matches too many events (maximum {max_filter_results}), try a more restricted filter"
+            );
+            collected_events.extend(events);
+        }
+        Ok(())
+    }
+
     pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Tipset,
@@ -270,6 +297,7 @@ impl EthEventHandler {
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
+        let max_filter_results = ctx.eth_event_handler.max_filter_results;
         let height = tipset.epoch();
         let tipset_key = tipset.key();
         let ExecutedTipset {
@@ -340,8 +368,10 @@ impl EthEventHandler {
                             msg_idx: msg_idx as u64,
                             msg_cid: message.cid(),
                         };
-                        if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
-                            bail!("filter matches too many events, try a more restricted filter");
+                        if collected_events.len() >= max_filter_results {
+                            bail!(
+                                "filter matches too many events (maximum {max_filter_results} allowed), try a more restricted filter"
+                            );
                         }
                         collected_events.push(ce);
                     }
@@ -401,41 +431,22 @@ impl EthEventHandler {
                 } else {
                     *range.end()
                 };
-
                 let max_tipset = ctx.chain_index().tipset_by_height(
                     max_height,
                     ctx.chain_store().heaviest_tipset(),
                     ResolveNullTipset::TakeOlder,
                 )?;
-                let mut tasks = FuturesOrdered::new();
-                for tipset in max_tipset
-                    .chain(&ctx.store())
-                    .take_while(|ts| ts.epoch() >= *range.start())
-                {
-                    tasks.push_back(async move {
-                        let mut collected_events = vec![];
-                        Self::collect_events(
-                            ctx,
-                            &tipset,
-                            Some(pf),
-                            skip_event,
-                            &mut collected_events,
-                        )
-                        .await?;
-                        anyhow::Ok(collected_events)
-                    });
-                }
-                while let Some(events) = tasks.try_next().await? {
-                    let remaining = self
-                        .max_filter_results
-                        .saturating_sub(collected_events.len());
-                    ensure!(
-                        events.len() <= remaining,
-                        "filter matches too many events (maximum {}), try a more restricted filter",
-                        self.max_filter_results
-                    );
-                    collected_events.extend(events);
-                }
+                let tipsets = max_tipset
+                    .chain(ctx.store())
+                    .take_while(|ts| ts.epoch() >= *range.start());
+                Self::collect_events_for_tipsets(
+                    ctx,
+                    tipsets,
+                    Some(pf),
+                    skip_event,
+                    &mut collected_events,
+                )
+                .await?;
             }
         }
 
