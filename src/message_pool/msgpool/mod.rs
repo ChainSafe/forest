@@ -29,8 +29,8 @@ use super::errors::Error;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
     msg_pool::{
-        MsgSet, StateNonceCacheKey, StrictnessPolicy, TrustPolicy, add_helper, get_state_sequence,
-        remove, resolve_to_key,
+        MsgSet, StateNonceCacheKey, StrictnessPolicy, TrustPolicy, add_helper, remove,
+        resolve_to_key,
     },
     provider::Provider,
 };
@@ -258,6 +258,7 @@ where
     }
 
     for ts in apply {
+        let mpool_ctx = MpoolCtx { api, key_cache, pending, ts: &ts };
         for b in ts.block_headers() {
             let Ok((msgs, smsgs)) = api.messages_for_block(b) else {
                 tracing::error!("error retrieving messages for block");
@@ -265,29 +266,13 @@ where
             };
 
             for msg in smsgs {
-                remove_from_selected_msgs(
-                    api,
-                    key_cache,
-                    &ts,
-                    &msg.from(),
-                    pending,
-                    msg.sequence(),
-                    rmsgs.borrow_mut(),
-                )?;
+                mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), &mut rmsgs)?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(
-                    api,
-                    key_cache,
-                    &ts,
-                    &msg.from,
-                    pending,
-                    msg.sequence,
-                    rmsgs.borrow_mut(),
-                )?;
+                mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, &mut rmsgs)?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
@@ -302,10 +287,10 @@ where
             .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))?;
     }
     let cur_ts = cur_tipset.read().clone();
+    let mpool_ctx = MpoolCtx { api, key_cache, pending, ts: &cur_ts };
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence =
-                get_state_sequence(api, key_cache, state_nonce_cache, &msg.from(), &cur_ts)?;
+            let sequence = mpool_ctx.get_state_sequence(state_nonce_cache, &msg.from())?;
             if let Err(e) = add_helper(
                 api,
                 bls_sig_cache,
@@ -324,24 +309,39 @@ where
     Ok(())
 }
 
-/// Removes a message with the given `sequence` and `from` address from the
-/// selected messages map (`rmsgs`). If the message is not found there, falls
-/// back to removing it from the `MessagePool` pending set instead.
-pub(in crate::message_pool) fn remove_from_selected_msgs<T: Provider>(
-    api: &T,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
-    ts: &Tipset,
-    from: &Address,
-    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    sequence: u64,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-) -> Result<(), Error> {
-    let removed = rmsgs.get_mut(from).and_then(|temp| temp.remove(&sequence));
-    if removed.is_none() {
-        let resolved = resolve_to_key(api, key_cache, from, ts)?;
-        remove(&resolved, pending, sequence, true)?;
+
+pub(in crate::message_pool) struct MpoolCtx<'a, T> {
+    pub api: &'a T,
+    pub key_cache: &'a SizeTrackingLruCache<Address, Address>,
+    pub pending: &'a SyncRwLock<HashMap<Address, MsgSet>>,
+    pub ts: &'a Tipset,
+}
+
+impl<T: Provider> MpoolCtx<'_, T> {
+    /// Removes a message from the selected messages map (`rmsgs`). If the
+    /// message is not found there, falls back to removing it from the pending set.
+    pub(in crate::message_pool) fn remove_from_selected_msgs(
+        &self,
+        from: &Address,
+        sequence: u64,
+        rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+    ) -> Result<(), Error> {
+        if rmsgs.get_mut(from).and_then(|temp| temp.remove(&sequence)).is_none() {
+            let resolved = resolve_to_key(self.api, self.key_cache, from, self.ts)?;
+            remove(&resolved, self.pending, sequence, true)?;
+        }
+        Ok(())
     }
-    Ok(())
+
+    /// Get the state nonce for an address, accounting for messages already
+    /// included in the current tipset.
+    pub(in crate::message_pool) fn get_state_sequence(
+        &self,
+        state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
+        addr: &Address,
+    ) -> Result<u64, Error> {
+        msg_pool::get_state_sequence(self.api, self.key_cache, state_nonce_cache, addr, self.ts)
+    }
 }
 
 /// This is a helper function for `head_change`. This method will add a signed

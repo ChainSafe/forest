@@ -77,7 +77,7 @@ pub enum TrustPolicy {
     Untrusted,
 }
 
-/// Stictness policy for pending insertion enforces nonce-gap and replace-by-fee-during-gap rules.
+/// Strictness policy for pending insertion enforces nonce-gap and replace-by-fee-during-gap rules.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StrictnessPolicy {
     Strict,

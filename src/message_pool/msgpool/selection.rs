@@ -6,7 +6,7 @@
 //! `select_messages` API which selects an appropriate set of messages such that
 //! it optimizes miner reward and chain capacity. See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
-use std::{borrow::BorrowMut, cmp::Ordering};
+use std::cmp::Ordering;
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
 use crate::message::{MessageRead as _, SignedMessage};
@@ -23,13 +23,12 @@ use crate::shim::crypto::Signature;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
 
-use super::{msg_pool::MessagePool, provider::Provider, utils::recover_sig};
+use super::{MpoolCtx, msg_pool::MessagePool, provider::Provider, utils::recover_sig};
 use crate::message_pool::{
     Error, add_to_selected_msgs,
     msg_chain::{Chains, NodeKey, create_message_chains},
     msg_pool::MsgSet,
     msgpool::MIN_GAS,
-    remove_from_selected_msgs,
 };
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
@@ -864,30 +863,15 @@ where
     }
 
     for ts in right_chain {
+        let mpool_ctx = MpoolCtx { api, key_cache, pending, ts: &ts };
         for b in ts.block_headers() {
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                remove_from_selected_msgs(
-                    api,
-                    key_cache,
-                    &ts,
-                    &msg.from(),
-                    pending,
-                    msg.sequence(),
-                    rmsgs.borrow_mut(),
-                )?;
+                mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), rmsgs)?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(
-                    api,
-                    key_cache,
-                    &ts,
-                    &msg.from,
-                    pending,
-                    msg.sequence,
-                    rmsgs.borrow_mut(),
-                )?;
+                mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, rmsgs)?;
             }
         }
     }
