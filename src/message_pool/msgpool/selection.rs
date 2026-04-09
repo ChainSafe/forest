@@ -863,7 +863,12 @@ where
     }
 
     for ts in right_chain {
-        let mpool_ctx = MpoolCtx { api, key_cache, pending, ts: &ts };
+        let mpool_ctx = MpoolCtx {
+            api,
+            key_cache,
+            pending,
+            ts: &ts,
+        };
         for b in ts.block_headers() {
             let (msgs, smsgs) = api.messages_for_block(b)?;
 

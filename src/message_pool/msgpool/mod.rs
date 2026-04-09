@@ -258,7 +258,12 @@ where
     }
 
     for ts in apply {
-        let mpool_ctx = MpoolCtx { api, key_cache, pending, ts: &ts };
+        let mpool_ctx = MpoolCtx {
+            api,
+            key_cache,
+            pending,
+            ts: &ts,
+        };
         for b in ts.block_headers() {
             let Ok((msgs, smsgs)) = api.messages_for_block(b) else {
                 tracing::error!("error retrieving messages for block");
@@ -287,7 +292,12 @@ where
             .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))?;
     }
     let cur_ts = cur_tipset.read().clone();
-    let mpool_ctx = MpoolCtx { api, key_cache, pending, ts: &cur_ts };
+    let mpool_ctx = MpoolCtx {
+        api,
+        key_cache,
+        pending,
+        ts: &cur_ts,
+    };
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
             let sequence = mpool_ctx.get_state_sequence(state_nonce_cache, &msg.from())?;
@@ -309,7 +319,6 @@ where
     Ok(())
 }
 
-
 pub(in crate::message_pool) struct MpoolCtx<'a, T> {
     pub api: &'a T,
     pub key_cache: &'a SizeTrackingLruCache<Address, Address>,
@@ -326,7 +335,11 @@ impl<T: Provider> MpoolCtx<'_, T> {
         sequence: u64,
         rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
     ) -> Result<(), Error> {
-        if rmsgs.get_mut(from).and_then(|temp| temp.remove(&sequence)).is_none() {
+        if rmsgs
+            .get_mut(from)
+            .and_then(|temp| temp.remove(&sequence))
+            .is_none()
+        {
             let resolved = resolve_to_key(self.api, self.key_cache, from, self.ts)?;
             remove(&resolved, self.pending, sequence, true)?;
         }
