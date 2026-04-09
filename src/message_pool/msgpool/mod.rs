@@ -29,8 +29,8 @@ use super::errors::Error;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
     msg_pool::{
-        MsgSet, StateNonceCacheKey, TrustPolicy, add_helper, get_state_sequence, remove,
-        resolve_to_key,
+        MsgSet, StateNonceCacheKey, StrictnessPolicy, TrustPolicy, add_helper, get_state_sequence,
+        remove, resolve_to_key,
     },
     provider::Provider,
 };
@@ -205,7 +205,7 @@ where
 /// - **Apply**: messages included in the new tipset are removed from the pending
 ///   pool via [`MsgSet::rm`] with `applied=true`.
 /// - **Revert**: messages from the reverted tipset are re-added to the pool with
-///   `strict=false` and [`TrustPolicy::Trusted`], allowing them back without
+///   [`StrictnessPolicy::Relaxed`] and [`TrustPolicy::Trusted`], allowing them back without
 ///   nonce gap restrictions.
 ///
 /// The state nonce cache is naturally invalidated when the tipset changes, since
@@ -315,7 +315,7 @@ where
                 msg,
                 sequence,
                 TrustPolicy::Trusted,
-                false,
+                StrictnessPolicy::Relaxed,
             ) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
