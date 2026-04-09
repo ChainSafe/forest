@@ -36,5 +36,6 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V15 => register_system_version!(registry, cid, fil_actor_system_state::v15),
         ActorVersion::V16 => register_system_version!(registry, cid, fil_actor_system_state::v16),
         ActorVersion::V17 => register_system_version!(registry, cid, fil_actor_system_state::v17),
+        ActorVersion::V18 => register_system_version!(registry, cid, fil_actor_system_state::v18),
     }
 }

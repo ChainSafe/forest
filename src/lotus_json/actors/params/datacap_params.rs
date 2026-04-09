@@ -59,7 +59,7 @@ macro_rules! impl_datacap_balance_params_lotus_json {
     };
 }
 
-impl_datacap_balance_params_lotus_json!(v11, v12, v13, v14, v15, v16, v17);
+impl_datacap_balance_params_lotus_json!(v11, v12, v13, v14, v15, v16, v17, v18);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(transparent)]
@@ -106,7 +106,7 @@ macro_rules! impl_datacap_constructor_params_lotus_json {
     };
 }
 
-impl_datacap_constructor_params_lotus_json!(v11, v12, v13, v14, v15, v16, v17);
+impl_datacap_constructor_params_lotus_json!(v11, v12, v13, v14, v15, v16, v17, v18);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -166,7 +166,7 @@ macro_rules! impl_datacap_destroy_params_lotus_json {
     };
 }
 
-impl_datacap_destroy_params_lotus_json!(v9, v10, v11, v12, v13, v14, v15, v16, v17);
+impl_datacap_destroy_params_lotus_json!(v9, v10, v11, v12, v13, v14, v15, v16, v17, v18);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -236,7 +236,7 @@ macro_rules! impl_datacap_mint_params_lotus_json {
     };
 }
 
-impl_datacap_mint_params_lotus_json!(v9, v10, v11, v12, v13, v14, v15, v16, v17);
+impl_datacap_mint_params_lotus_json!(v9, v10, v11, v12, v13, v14, v15, v16, v17, v18);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

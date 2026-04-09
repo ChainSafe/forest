@@ -42,5 +42,6 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V15 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v15),
         ActorVersion::V16 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v16),
         ActorVersion::V17 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v17),
+        ActorVersion::V18 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v18),
     }
 }

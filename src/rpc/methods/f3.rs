@@ -405,6 +405,9 @@ impl GetPowerTable {
             power::State::V17(s) => {
                 handle_miner_state_v12_on!(v17, id_power_worker_mappings, &ts, s, &policy.into());
             }
+            power::State::V18(s) => {
+                handle_miner_state_v12_on!(v18, id_power_worker_mappings, &ts, s, &policy.into());
+            }
         }
         let mut power_entries = vec![];
         for (id, power, worker) in id_power_worker_mappings {

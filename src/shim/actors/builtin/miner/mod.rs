@@ -18,7 +18,7 @@ use crate::{
 };
 use cid::Cid;
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
-use fil_actor_miner_state::v17::VestingFunds as VestingFundsV17;
+use fil_actor_miner_state::v18::VestingFunds as VestingFundsV18;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, serde_bytes};
@@ -50,6 +50,7 @@ pub enum State {
     V15(fil_actor_miner_state::v15::State),
     V16(fil_actor_miner_state::v16::State),
     V17(fil_actor_miner_state::v17::State),
+    V18(fil_actor_miner_state::v18::State),
 }
 
 impl State {
@@ -58,7 +59,7 @@ impl State {
         info: Cid,
         pre_commit_deposits: fvm_shared4::econ::TokenAmount,
         locked_funds: fvm_shared4::econ::TokenAmount,
-        vesting_funds: VestingFundsV17,
+        vesting_funds: VestingFundsV18,
         fee_debt: fvm_shared4::econ::TokenAmount,
         initial_pledge: fvm_shared4::econ::TokenAmount,
         pre_committed_sectors: Cid,
@@ -71,7 +72,7 @@ impl State {
         early_terminations: BitField,
         deadline_cron_active: bool,
     ) -> Self {
-        State::V17(fil_actor_miner_state::v17::State {
+        State::V18(fil_actor_miner_state::v18::State {
             info,
             pre_commit_deposits,
             locked_funds,
@@ -136,6 +137,9 @@ impl State {
             State::V17(st) => st
                 .load_deadlines(store)?
                 .for_each(store, |idx, dl| f(idx, dl.into())),
+            State::V18(st) => st
+                .load_deadlines(store)?
+                .for_each(store, |idx, dl| f(idx, dl.into())),
         }
     }
 
@@ -184,6 +188,10 @@ impl State {
                 .load_deadline(store, idx)
                 .map(From::from)?),
             State::V17(st) => Ok(st
+                .load_deadlines(store)?
+                .load_deadline(store, idx)
+                .map(From::from)?),
+            State::V18(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
                 .map(From::from)?),
@@ -368,6 +376,23 @@ impl State {
                     Ok(infos)
                 }
             }
+            State::V18(st) => {
+                if let Some(sectors) = sectors {
+                    Ok(st
+                        .load_sector_infos(&store, sectors)?
+                        .into_iter()
+                        .map(From::from)
+                        .collect())
+                } else {
+                    let sectors = fil_actor_miner_state::v18::Sectors::load(&store, &st.sectors)?;
+                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                    sectors.amt.for_each(|_, info| {
+                        infos.push(SectorOnChainInfo::from(info.clone()));
+                        Ok(())
+                    })?;
+                    Ok(infos)
+                }
+            }
         }
     }
 
@@ -389,6 +414,7 @@ impl State {
             State::V15(st) => st.find_sector(store, sector_number),
             State::V16(st) => st.find_sector(store, sector_number),
             State::V17(st) => st.find_sector(store, sector_number),
+            State::V18(st) => st.find_sector(store, sector_number),
         }
     }
 
@@ -846,6 +872,46 @@ impl From<fil_actor_miner_state::v17::MinerInfo> for MinerInfo {
     }
 }
 
+impl From<fil_actor_miner_state::v18::MinerInfo> for MinerInfo {
+    fn from(info: fil_actor_miner_state::v18::MinerInfo) -> Self {
+        MinerInfo {
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.into_iter().map(From::from).collect(),
+            new_worker: info
+                .pending_worker_key
+                .as_ref()
+                .map(|k| k.new_worker.into()),
+            worker_change_epoch: info
+                .pending_worker_key
+                .map(|k| k.effective_at)
+                .unwrap_or(-1),
+            peer_id: info.peer_id,
+            multiaddrs: info.multi_address,
+            window_post_proof_type: from_reg_post_proof_v4_to_v2(info.window_post_proof_type),
+            sector_size: info.sector_size.into(),
+            window_post_partition_sectors: info.window_post_partition_sectors,
+            consensus_fault_elapsed: info.consensus_fault_elapsed,
+            pending_owner_address: info.pending_owner_address.map(From::from),
+            beneficiary: info.beneficiary.into(),
+            beneficiary_term: BeneficiaryTerm {
+                quota: info.beneficiary_term.quota,
+                used_quota: info.beneficiary_term.used_quota,
+                expiration: info.beneficiary_term.expiration,
+            },
+            pending_beneficiary_term: info.pending_beneficiary_term.map(|change| {
+                PendingBeneficiaryChange {
+                    new_beneficiary: change.new_beneficiary,
+                    new_quota: change.new_quota,
+                    new_expiration: change.new_expiration,
+                    approved_by_beneficiary: change.approved_by_beneficiary,
+                    approved_by_nominee: change.approved_by_nominee,
+                }
+            }),
+        }
+    }
+}
+
 impl MinerInfo {
     pub fn worker(&self) -> Address {
         self.worker
@@ -876,6 +942,7 @@ pub enum Deadline {
     V15(fil_actor_miner_state::v15::Deadline),
     V16(fil_actor_miner_state::v16::Deadline),
     V17(fil_actor_miner_state::v17::Deadline),
+    V18(fil_actor_miner_state::v18::Deadline),
 }
 
 impl Deadline {
@@ -913,6 +980,7 @@ pub enum Partition<'a> {
     V15(Cow<'a, fil_actor_miner_state::v15::Partition>),
     V16(Cow<'a, fil_actor_miner_state::v16::Partition>),
     V17(Cow<'a, fil_actor_miner_state::v17::Partition>),
+    V18(Cow<'a, fil_actor_miner_state::v18::Partition>),
 }
 
 impl Partition<'_> {
@@ -1183,6 +1251,31 @@ impl From<fil_actor_miner_state::v16::SectorOnChainInfo> for SectorOnChainInfo {
 
 impl From<fil_actor_miner_state::v17::SectorOnChainInfo> for SectorOnChainInfo {
     fn from(info: fil_actor_miner_state::v17::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: from_reg_seal_proof_v4_to_v2(info.seal_proof),
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deprecated_deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.map(From::from).unwrap_or_default(),
+            expected_storage_pledge: info
+                .expected_storage_pledge
+                .map(From::from)
+                .unwrap_or_default(),
+            replaced_sector_age: ChainEpoch::default(),
+            replaced_day_reward: info.replaced_day_reward.map(From::from).unwrap_or_default(),
+            sector_key_cid: info.sector_key_cid,
+            simple_qa_power: bool::default(),
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v18::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_state::v18::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
             seal_proof: from_reg_seal_proof_v4_to_v2(info.seal_proof),
@@ -1662,6 +1755,39 @@ impl From<fil_actor_miner_state::v16::DeadlineInfo> for DeadlineInfo {
 impl From<fil_actor_miner_state::v17::DeadlineInfo> for DeadlineInfo {
     fn from(info: fil_actor_miner_state::v17::DeadlineInfo) -> Self {
         let fil_actor_miner_state::v17::DeadlineInfo {
+            current_epoch,
+            period_start,
+            index,
+            open,
+            close,
+            challenge,
+            fault_cutoff,
+            w_post_period_deadlines,
+            w_post_proving_period,
+            w_post_challenge_window,
+            w_post_challenge_lookback,
+            fault_declaration_cutoff,
+        } = info;
+        DeadlineInfo {
+            current_epoch,
+            period_start,
+            index,
+            open,
+            close,
+            challenge,
+            fault_cutoff,
+            w_post_period_deadlines,
+            w_post_proving_period,
+            w_post_challenge_window,
+            w_post_challenge_lookback,
+            fault_declaration_cutoff,
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v18::DeadlineInfo> for DeadlineInfo {
+    fn from(info: fil_actor_miner_state::v18::DeadlineInfo) -> Self {
+        let fil_actor_miner_state::v18::DeadlineInfo {
             current_epoch,
             period_start,
             index,
