@@ -203,7 +203,7 @@ serde_json = { version = "1", features = ["raw_value"] }
 serde_with = { version = "3", features = ["chrono_0_4"] }
 serde_yaml = { workspace = true }
 sha2 = { version = "0.11", default-features = false }
-similar = "2"
+similar = "3"
 slotmap = "1"
 smallvec = "1"
 smart-default = "0.7"
@@ -268,7 +268,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.326"
+ra_ap_syntax = "0.0.327"
 regex-automata = "0.4"
 rstest = "0.26"
 serial_test = "3"
