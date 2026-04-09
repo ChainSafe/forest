@@ -122,7 +122,7 @@ impl HasLotusJson for State {
 
         convert_verified_reg_state! {
             v8_verified_reg_state_fields for [V8];
-            v9_to_latest_verified_reg_state_fields for [V9, V10, V11, V12, V13, V14, V15, V16, V17];
+            v9_to_latest_verified_reg_state_fields for [V9, V10, V11, V12, V13, V14, V15, V16, V17, V18];
         }
     }
 

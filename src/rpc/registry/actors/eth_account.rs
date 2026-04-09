@@ -46,5 +46,8 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V17 => {
             register_eth_account_reg_version!(registry, cid, fil_actor_ethaccount_state::v17)
         }
+        ActorVersion::V18 => {
+            register_eth_account_reg_version!(registry, cid, fil_actor_ethaccount_state::v18)
+        }
     }
 }
