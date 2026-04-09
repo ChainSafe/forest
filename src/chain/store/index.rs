@@ -52,6 +52,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
             SizeTrackingLruCache::new_with_metrics(
                 "tipset_by_height".into(),
                 // 1048576 * 20 = 20971520 which is sufficient for mainnet
+                // Maximum ~32MiB RAM usage
                 nonzero!(1048576_usize),
             );
         Self {
@@ -153,7 +154,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
         // use `20` as checkpoint interval to match Lotus:
-        // <https://github.com/filecoin-project/lotus/blob/006da4c7e1c1c29ac02b32112c0d205e4085ba35/chain/store/index.go#L52>
+        // <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/store/index.go#L52>
         const CHECKPOINT_INTERVAL: ChainEpoch = 20;
         fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
             epoch - epoch.mod_floor(&CHECKPOINT_INTERVAL) + CHECKPOINT_INTERVAL
