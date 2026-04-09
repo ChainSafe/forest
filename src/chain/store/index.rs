@@ -51,8 +51,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
         let ts_height_cache: SizeTrackingLruCache<ChainEpoch, TipsetKey> =
             SizeTrackingLruCache::new_with_metrics(
                 "tipset_by_height".into(),
-                // 20480 * 900 = 18432000 which is sufficient for mainnet
-                nonzero!(20480_usize),
+                // 1048576 * 20 = 20971520 which is sufficient for mainnet
+                // Maximum ~32MiB RAM usage
+                nonzero!(1048576_usize),
             );
         Self {
             ts_cache,
@@ -152,8 +153,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
     ) -> Result<Tipset, Error> {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
-        // use `CHAIN_FINALITY` as checkpoint interval
-        const CHECKPOINT_INTERVAL: ChainEpoch = CHAIN_FINALITY;
+        // use `20` as checkpoint interval to match Lotus:
+        // <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/store/index.go#L52>
+        const CHECKPOINT_INTERVAL: ChainEpoch = 20;
         fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
             epoch - epoch.mod_floor(&CHECKPOINT_INTERVAL) + CHECKPOINT_INTERVAL
         }
