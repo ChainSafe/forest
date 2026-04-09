@@ -17,7 +17,7 @@ use crate::{
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite, Block64},
-    message_pool::MessagePool,
+    message_pool::{MessagePool, MpoolLocker, NonceTracker},
     networks::ChainConfig,
     shim::address::CurrentNetwork,
     state_manager::StateManager,
@@ -143,6 +143,7 @@ async fn ctx(
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
+    let nonce_tracker = NonceTracker::new();
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
@@ -155,6 +156,8 @@ async fn ctx(
         shutdown,
         tipset_send,
         snapshot_progress_tracker: Default::default(),
+        mpool_locker: MpoolLocker::new(),
+        nonce_tracker,
     });
     Ok((rpc_state, network_rx, shutdown_recv))
 }

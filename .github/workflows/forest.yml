@@ -218,6 +218,9 @@ jobs:
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-wallet-check:
+    concurrency:
+      group: calibnet-wallet-tests
+      cancel-in-progress: false
     needs:
       - build-ubuntu
     name: Wallet tests
@@ -244,10 +247,12 @@ jobs:
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-delegated-wallet-check:
-    # Disabling this job until message pool nonce calculation is fixed. See: https://github.com/ChainSafe/forest/issues/4899
-    if: false
+    concurrency:
+      group: calibnet-wallet-tests
+      cancel-in-progress: false
     needs:
       - build-ubuntu
+      - calibnet-wallet-check
     name: Delegated wallet tests
     runs-on: ubuntu-24.04
     steps:
@@ -629,6 +634,7 @@ jobs:
       - calibnet-stateless-rpc-check
       - state-migrations-check
       - calibnet-wallet-check
+      - calibnet-delegated-wallet-check
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check

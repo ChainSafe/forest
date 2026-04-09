@@ -45,6 +45,8 @@
 
 ### Fixed
 
+- [#6788](https://github.com/ChainSafe/forest/pull/6788): Fixed message pool nonce calculation to align with Lotus.
+
 - [#6707](https://github.com/ChainSafe/forest/issues/6707): Added missing `GoldenWeek` network upgrade entry in `Filecoin.StateGetNetworkParams` RPC method.
 
 - [#6817](https://github.com/ChainSafe/forest/pull/6817): Fixed `StateSearchMsg` to return null instead of error when not found to match Lotus behaviour.
