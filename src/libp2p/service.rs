@@ -444,7 +444,7 @@ async fn handle_network_message(
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
             if let Err(e) = swarm.behaviour_mut().publish(topic, message) {
-                warn!("Failed to send gossipsub message: {:?}", e);
+                debug!("Failed to send gossipsub message: {:?}", e);
             }
         }
         NetworkMessage::HelloRequest {
