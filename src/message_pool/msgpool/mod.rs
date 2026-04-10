@@ -16,6 +16,7 @@ use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
+use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
@@ -57,7 +58,7 @@ async fn republish_pending_messages<T>(
 where
     T: Provider,
 {
-    let ts = cur_tipset.read().clone();
+    let ts = cur_tipset.read().shallow_clone();
     let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
 
     republished.write().clear();
@@ -291,7 +292,7 @@ where
             .await
             .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))?;
     }
-    let cur_ts = cur_tipset.read().clone();
+    let cur_ts = cur_tipset.read().shallow_clone();
     let mpool_ctx = MpoolCtx {
         api,
         key_cache,

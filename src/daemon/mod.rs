@@ -31,8 +31,8 @@ use crate::rpc::start_rpc;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
-use crate::utils;
 use crate::utils::misc::env::is_env_truthy;
+use crate::utils::{self, ShallowClone as _};
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
 use backon::{ExponentialBuilder, Retryable};
@@ -392,12 +392,12 @@ fn maybe_start_rpc_service(
             );
         }
         services.spawn({
-            let state_manager = ctx.state_manager.clone();
-            let bad_blocks = chain_follower.bad_blocks.clone();
-            let sync_status = chain_follower.sync_status.clone();
-            let sync_network_context = chain_follower.network.clone();
+            let state_manager = ctx.state_manager.shallow_clone();
+            let bad_blocks = chain_follower.bad_blocks.shallow_clone();
+            let sync_status = chain_follower.sync_status.shallow_clone();
+            let sync_network_context = chain_follower.network.shallow_clone();
             let tipset_send = chain_follower.tipset_sender.clone();
-            let keystore = ctx.keystore.clone();
+            let keystore = ctx.keystore.shallow_clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
             let nonce_tracker = NonceTracker::new();
             let mpool_locker = MpoolLocker::new();

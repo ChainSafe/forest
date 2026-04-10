@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use cid::Cid;
 use nonzero_ext::nonzero;
 
-use crate::utils::{cache::SizeTrackingLruCache, get_size};
+use crate::utils::{ShallowClone, cache::SizeTrackingLruCache, get_size};
 
 /// Default capacity for CID caches (32768 entries).
 /// That's about 4 MiB.
@@ -47,9 +47,17 @@ impl BadBlockCache {
 
 /// Thread-safe LRU cache for tracking recently seen gossip block CIDs.
 /// Used to de-duplicate gossip blocks before expensive message fetching.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SeenBlockCache {
     cache: SizeTrackingLruCache<get_size::CidWrapper, ()>,
+}
+
+impl ShallowClone for SeenBlockCache {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            cache: self.cache.shallow_clone(),
+        }
+    }
 }
 
 impl Default for SeenBlockCache {
