@@ -22,9 +22,10 @@ use crate::{
     chain::ChainStore,
     chain_sync::{
         ForkSyncInfo, ForkSyncStage, SyncStatus, SyncStatusReport, TipsetValidator,
-        bad_block_cache::BadBlockCache,
+        bad_block_cache::{BadBlockCache, SeenBlockCache},
         metrics,
         tipset_syncer::{TipsetSyncerError, validate_tipset},
+        validation::GossipBlockValidator,
     },
     libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
     message_pool::MessagePool,
@@ -146,6 +147,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         stateless_mode,
     )));
     let tasks: Arc<Mutex<HashSet<SyncTask>>> = Arc::new(Mutex::new(HashSet::default()));
+    let seen_block_cache = SeenBlockCache::default();
 
     let mut set = JoinSet::new();
 
@@ -155,6 +157,8 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         let state_changed = state_changed.clone();
         let state_machine = state_machine.clone();
         let network = network.clone();
+        let bad_block_cache = bad_block_cache.clone();
+        let seen_block_cache = seen_block_cache.clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
                 inc_gossipsub_event_metrics(&event);
@@ -180,8 +184,26 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     }
                     NetworkEvent::PubsubMessage { message } => match message {
                         PubsubMessage::Block(b) => {
+                            let cs = state_manager.chain_store();
+                            let cfg = cs.chain_config();
+                            if let Err(reason) = GossipBlockValidator::new(&b).validate_pre_fetch(
+                                &genesis,
+                                cfg.block_delay_secs,
+                                cfg.policy.chain_finality,
+                                cs.heaviest_tipset().epoch(),
+                                bad_block_cache.as_deref(),
+                                &seen_block_cache,
+                            ) {
+                                metrics::GOSSIP_BLOCK_REJECTED_TOTAL
+                                    .get_or_create(&metrics::GossipRejectReasonLabel {
+                                        reason: reason.label(),
+                                    })
+                                    .inc();
+                                debug!("Rejected gossip block {}: {reason}", b.header.cid());
+                                continue;
+                            }
                             let key = TipsetKey::from(nunny::vec![*b.header.cid()]);
-                            get_full_tipset(&network, state_manager.chain_store(), None, &key).await
+                            get_full_tipset(&network, cs, None, &key).await
                         }
                         PubsubMessage::Message(m) => {
                             if let Err(why) = mem_pool.add(m) {
