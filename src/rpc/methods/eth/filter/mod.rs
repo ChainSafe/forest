@@ -368,11 +368,10 @@ impl EthEventHandler {
                             msg_idx: msg_idx as u64,
                             msg_cid: message.cid(),
                         };
-                        if collected_events.len() >= max_filter_results {
-                            bail!(
-                                "filter matches too many events (maximum {max_filter_results} allowed), try a more restricted filter"
-                            );
-                        }
+                        ensure!(
+                            collected_events.len() <= max_filter_results,
+                            "filter matches too many events (maximum {max_filter_results} allowed), try a more restricted filter"
+                        );
                         collected_events.push(ce);
                     }
                 }
