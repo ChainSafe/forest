@@ -608,7 +608,10 @@ where
     /// messages found, return None result type.
     pub fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
         let cur_ts = self.current_tipset();
-        let resolved = self.resolve_to_key(a, &cur_ts).ok()?;
+        let resolved = self
+            .resolve_to_key(a, &cur_ts)
+            .inspect_err(|e| tracing::debug!(%a, "pending_for: failed to resolve address: {e:#}"))
+            .ok()?;
         let pending = self.pending.read();
         let mset = pending.get(&resolved)?;
         if mset.msgs.is_empty() {
