@@ -47,7 +47,7 @@ impl BadBlockCache {
 
 /// Thread-safe LRU cache for tracking recently seen gossip block CIDs.
 /// Used to de-duplicate gossip blocks before expensive message fetching.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SeenBlockCache {
     cache: SizeTrackingLruCache<get_size::CidWrapper, ()>,
 }

@@ -147,7 +147,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         stateless_mode,
     )));
     let tasks: Arc<Mutex<HashSet<SyncTask>>> = Arc::new(Mutex::new(HashSet::default()));
-    let seen_block_cache = Arc::new(SeenBlockCache::default());
+    let seen_block_cache = SeenBlockCache::default();
 
     let mut set = JoinSet::new();
 
