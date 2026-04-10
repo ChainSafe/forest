@@ -343,12 +343,10 @@ impl<T: Provider> MpoolCtx<'_, T> {
             .get_mut(from)
             .and_then(|temp| temp.remove(&sequence))
             .is_none()
-        {
-            if let Ok(resolved) = resolve_to_key(self.api, self.key_cache, from, self.ts)
+            && let Ok(resolved) = resolve_to_key(self.api, self.key_cache, from, self.ts)
                 .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
-            {
-                remove(&resolved, self.pending, sequence, true)?;
-            }
+        {
+            remove(&resolved, self.pending, sequence, true)?;
         }
         Ok(())
     }
