@@ -176,15 +176,17 @@ async fn maybe_import_snapshot(
             .snapshot_head
             .unwrap_or_else(|| ctx.state_manager.chain_store().heaviest_tipset().epoch());
         assert!(current_height.is_positive());
-        match validate_from.is_negative() {
-            // allow --height=-1000 to scroll back from the current head
-            true => ctx
-                .state_manager
-                .validate_range((current_height + validate_from)..=current_height)?,
-            false => ctx
-                .state_manager
-                .validate_range(validate_from..=current_height)?,
-        }
+        // allow --height=-1000 to scroll back from the current head
+        let start = if validate_from.is_negative() {
+            current_height + validate_from
+        } else {
+            validate_from
+        };
+        // `validate_range` is CPU-bound (drives rayon-parallel VM execution) and
+        // can run for minutes. Safer to spawn it on a blocking thread.
+        let state_manager = ctx.state_manager.clone();
+        tokio::task::spawn_blocking(move || state_manager.validate_range(start..=current_height))
+            .await??;
     }
 
     Ok(())
