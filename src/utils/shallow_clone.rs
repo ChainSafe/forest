@@ -3,7 +3,17 @@
 
 use std::sync::Arc;
 
+/// A trait for performing a lightweight clone of a type.
+///
+/// Implementations should clone only the outer wrapper and preserve any
+/// shared internal state where appropriate (for example, `Arc<T>` clones the
+/// pointer without cloning the inner value).
 pub trait ShallowClone {
+    /// Performs a lightweight clone.
+    ///
+    /// Implementations should clone only the outer wrapper and preserve any
+    /// shared internal state where appropriate (for example, `Arc<T>` clones the
+    /// pointer without cloning the inner value).
     fn shallow_clone(&self) -> Self;
 }
 
