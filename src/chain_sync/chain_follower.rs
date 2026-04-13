@@ -32,6 +32,7 @@ use crate::{
     networks::calculate_expected_epoch,
     shim::clock::ChainEpoch,
     state_manager::StateManager,
+    utils::ShallowClone as _,
 };
 use ahash::{HashMap, HashSet};
 use chrono::Utc;
@@ -153,12 +154,12 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
 
     // Increment metrics, update peer information, and forward tipsets to the state machine.
     set.spawn({
-        let state_manager = state_manager.clone();
-        let state_changed = state_changed.clone();
-        let state_machine = state_machine.clone();
-        let network = network.clone();
-        let bad_block_cache = bad_block_cache.clone();
-        let seen_block_cache = seen_block_cache.clone();
+        let state_manager = state_manager.shallow_clone();
+        let state_changed = state_changed.shallow_clone();
+        let state_machine = state_machine.shallow_clone();
+        let network = network.shallow_clone();
+        let bad_block_cache = bad_block_cache.shallow_clone();
+        let seen_block_cache = seen_block_cache.shallow_clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
                 inc_gossipsub_event_metrics(&event);
@@ -272,10 +273,10 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     let new = tasks_set.insert(task.clone());
                     if new {
                         let action = task.clone().execute(
-                            network.clone(),
-                            state_manager.clone(),
+                            network.shallow_clone(),
+                            state_manager.shallow_clone(),
                             stateless_mode,
-                            bad_block_cache.clone(),
+                            bad_block_cache.shallow_clone(),
                         );
                         tokio::spawn({
                             let tasks = tasks.clone();
@@ -389,7 +390,7 @@ fn update_peer_info<DB: Blockstore + Sync + Send + 'static>(
             let genesis_cid = *genesis.block_headers().first().cid();
             // Spawn and immediately move on to the next event
             tokio::task::spawn(handle_peer_connected_event(
-                network.clone(),
+                network.shallow_clone(),
                 chain_store,
                 *peer_id,
                 genesis_cid,

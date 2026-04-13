@@ -16,12 +16,12 @@ use positioned_io::{ReadAt, Size};
 use std::{
     num::NonZeroUsize,
     sync::{
-        LazyLock,
+        Arc, LazyLock,
         atomic::{AtomicUsize, Ordering},
     },
 };
 
-use crate::utils::{cache::SizeTrackingLruCache, get_size::CidWrapper};
+use crate::utils::{ShallowClone, cache::SizeTrackingLruCache, get_size::CidWrapper};
 
 pub trait RandomAccessFileReader: ReadAt + Size + Send + Sync + 'static {}
 impl<X: ReadAt + Size + Send + Sync + 'static> RandomAccessFileReader for X {}
@@ -56,10 +56,20 @@ pub struct ZstdFrameCache {
     /// Maximum size in bytes. Pages will be evicted if the total size of the
     /// cache exceeds this amount.
     pub max_size: usize,
-    current_size: AtomicUsize,
+    current_size: Arc<AtomicUsize>,
     // use `hashbrown::HashMap` here because its `GetSize` implementation is accurate
     // (thanks to `hashbrown::HashMap::allocation_size`).
     lru: SizeTrackingLruCache<(FrameOffset, CacheKey), hashbrown::HashMap<CidWrapper, Vec<u8>>>,
+}
+
+impl ShallowClone for ZstdFrameCache {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            max_size: self.max_size,
+            current_size: self.current_size.shallow_clone(),
+            lru: self.lru.shallow_clone(),
+        }
+    }
 }
 
 impl Default for ZstdFrameCache {
@@ -72,7 +82,7 @@ impl ZstdFrameCache {
     pub fn new(max_size: usize) -> Self {
         ZstdFrameCache {
             max_size,
-            current_size: AtomicUsize::new(0),
+            current_size: Arc::new(AtomicUsize::new(0)),
             lru: SizeTrackingLruCache::unbounded_with_metrics("zstd_frame".into()),
         }
     }

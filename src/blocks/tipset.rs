@@ -13,6 +13,7 @@ use crate::{
     networks::{calibnet, mainnet},
     shim::clock::ChainEpoch,
     utils::{
+        ShallowClone,
         cid::CidCborExt,
         db::{CborStoreExt, car_stream::CarBlock},
         get_size::nunny_vec_heap_size_helper,
@@ -193,6 +194,15 @@ pub struct Tipset {
     headers: Arc<NonEmpty<CachingBlockHeader>>,
     // key is lazily initialized via `fn key()`.
     key: Arc<OnceLock<TipsetKey>>,
+}
+
+impl ShallowClone for Tipset {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            headers: self.headers.shallow_clone(),
+            key: self.key.shallow_clone(),
+        }
+    }
 }
 
 impl From<RawBlockHeader> for Tipset {

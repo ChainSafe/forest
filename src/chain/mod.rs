@@ -15,6 +15,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::ipld::stream_chain;
+use crate::utils::ShallowClone as _;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
@@ -167,8 +168,8 @@ async fn export_to_forest_car<D: Digest>(
         // block size is between 1kb and 2kb.
         1024,
         stream_chain(
-            Arc::clone(db),
-            tipset.clone().chain_owned(Arc::clone(db)),
+            db.shallow_clone(),
+            tipset.shallow_clone().chain_owned(db.shallow_clone()),
             stateroot_lookup_limit,
         )
         .with_seen(seen)

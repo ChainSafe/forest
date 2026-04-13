@@ -28,6 +28,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
+use crate::utils::ShallowClone;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
@@ -1150,13 +1151,13 @@ impl ChainGetTipSetFinalityStatus {
         let finalized_tip_set = match (&ec_finalized_tip_set, &f3_finalized_tip_set) {
             (Some(ec), Some(f3)) => {
                 if ec.epoch() >= f3.epoch() {
-                    Some(ec.clone())
+                    Some(ec.shallow_clone())
                 } else {
-                    Some(f3.clone())
+                    Some(f3.shallow_clone())
                 }
             }
-            (Some(ec), None) => Some(ec.clone()),
-            (None, Some(f3)) => Some(f3.clone()),
+            (Some(ec), None) => Some(ec.shallow_clone()),
+            (None, Some(f3)) => Some(f3.shallow_clone()),
             (None, None) => None,
         };
         ChainFinalityStatus {
@@ -1178,11 +1179,11 @@ impl ChainGetTipSetFinalityStatus {
         if let Some((cached_head, cached_threshold, cached_tipset)) = &*cache
             && cached_head == &head
         {
-            (*cached_threshold, cached_tipset.clone())
+            (*cached_threshold, cached_tipset.shallow_clone())
         } else {
             let (threshold, tipset) =
-                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head.clone());
-            *cache = Some((head, threshold, tipset.clone()));
+                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head.shallow_clone());
+            *cache = Some((head, threshold, tipset.shallow_clone()));
             (threshold, tipset)
         }
     }
@@ -1247,7 +1248,7 @@ impl ChainGetTipSetFinalityStatus {
                 head,
                 ResolveNullTipset::TakeOlder,
             ) {
-            Some(ts.clone())
+            Some(ts.shallow_clone())
         } else {
             None
         };
@@ -1382,7 +1383,7 @@ impl RpcMethod<1> for ChainGetTipsetByParentState {
             .heaviest_tipset()
             .chain(ctx.store())
             .find(|ts| ts.parent_state() == &parent_state)
-            .clone())
+            .shallow_clone())
     }
 }
 
@@ -1598,12 +1599,22 @@ impl From<HeadChange> for ApiHeadChange {
     }
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "Type", content = "Val", rename_all = "snake_case")]
 pub enum PathChange<T = Tipset> {
     Revert(T),
     Apply(T),
 }
+
+impl<T: Clone> Clone for PathChange<T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Revert(i) => Self::Revert(i.clone()),
+            Self::Apply(i) => Self::Apply(i.clone()),
+        }
+    }
+}
+
 impl HasLotusJson for PathChange {
     type LotusJson = PathChange<<Tipset as HasLotusJson>::LotusJson>;
 
@@ -1685,7 +1696,7 @@ impl<T> PathChanges<T> {
 #[cfg(test)]
 impl<T> quickcheck::Arbitrary for PathChange<T>
 where
-    T: quickcheck::Arbitrary,
+    T: quickcheck::Arbitrary + ShallowClone,
 {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let inner = T::arbitrary(g);

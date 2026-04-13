@@ -22,6 +22,7 @@ use crate::{
         rpc::RequestResponseError,
     },
     utils::{
+        ShallowClone,
         misc::{AdaptiveValueProvider, ExponentialAdaptiveValueProvider},
         stats::Stats,
     },
@@ -66,12 +67,12 @@ pub struct SyncNetworkContext<DB> {
     db: Arc<DB>,
 }
 
-impl<DB> Clone for SyncNetworkContext<DB> {
-    fn clone(&self) -> Self {
+impl<DB> ShallowClone for SyncNetworkContext<DB> {
+    fn shallow_clone(&self) -> Self {
         Self {
             network_send: self.network_send.clone(),
-            peer_manager: self.peer_manager.clone(),
-            db: self.db.clone(),
+            peer_manager: self.peer_manager.shallow_clone(),
+            db: self.db.shallow_clone(),
         }
     }
 }

@@ -222,7 +222,7 @@ async fn benchmark_exporting(
 ) -> anyhow::Result<()> {
     let store = Arc::new(open_store(input)?);
     let heaviest = store.heaviest_tipset()?;
-    let idx = ChainIndex::new(&store);
+    let idx = ChainIndex::new(store.clone());
     let ts = idx.tipset_by_height(
         epoch.unwrap_or(heaviest.epoch()),
         heaviest,
