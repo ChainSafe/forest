@@ -162,7 +162,7 @@ pub struct ExecutionContext<DB> {
     // The chain config is used to determine which consensus rules to use.
     pub chain_config: Arc<ChainConfig>,
     // Caching interface to the DB
-    pub chain_index: Arc<ChainIndex<Arc<DB>>>,
+    pub chain_index: ChainIndex<DB>,
     // UNIX timestamp for epoch
     pub timestamp: u64,
 }

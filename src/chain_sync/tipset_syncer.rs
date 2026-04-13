@@ -13,6 +13,7 @@ use crate::shim::{
 };
 use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
+use crate::utils::ShallowClone as _;
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
@@ -224,17 +225,17 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 
     // Check block messages
     validations.spawn(check_block_messages(
-        state_manager.clone(),
-        block.clone(),
-        base_tipset.clone(),
+        state_manager.shallow_clone(),
+        block.shallow_clone(),
+        base_tipset.shallow_clone(),
     ));
 
     // Base fee check
     validations.spawn_blocking({
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
-        let base_tipset = base_tipset.clone();
+        let base_tipset = base_tipset.shallow_clone();
         let block_store = state_manager.blockstore_owned();
-        let block = Arc::clone(&block);
+        let block = block.shallow_clone();
         move || {
             let base_fee = crate::chain::compute_base_fee(&block_store, &base_tipset, smoke_height)
                 .map_err(|e| {
@@ -253,7 +254,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Parent weight calculation check
     validations.spawn_blocking({
         let block_store = state_manager.blockstore_owned();
-        let base_tipset = base_tipset.clone();
+        let base_tipset = base_tipset.shallow_clone();
         let weight = header.weight.clone();
         move || {
             let calc_weight = fil_cns::weight(&block_store, &base_tipset).map_err(|e| {

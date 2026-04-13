@@ -1,13 +1,14 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::ShallowClone;
 use crate::utils::cache::SizeTrackingLruCache;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
@@ -20,7 +21,7 @@ type TipsetCache = SizeTrackingLruCache<TipsetKey, Tipset>;
 
 type TipsetHeightCache = SizeTrackingLruCache<ChainEpoch, TipsetKey>;
 
-type IsTipsetFinalizedFn = Box<dyn Fn(&Tipset) -> bool + Send + Sync>;
+type IsTipsetFinalizedFn = Arc<dyn Fn(&Tipset) -> bool + Send + Sync>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
@@ -30,9 +31,20 @@ pub struct ChainIndex<DB> {
     /// epoch to tipset key mappings.
     ts_height_cache: TipsetHeightCache,
     /// `Blockstore` pointer needed to load tipsets from cold storage.
-    db: DB,
+    db: Arc<DB>,
     /// check whether a tipset is finalized
     is_tipset_finalized: Option<IsTipsetFinalizedFn>,
+}
+
+impl<DB> ShallowClone for ChainIndex<DB> {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            ts_cache: self.ts_cache.shallow_clone(),
+            ts_height_cache: self.ts_height_cache.shallow_clone(),
+            db: self.db.shallow_clone(),
+            is_tipset_finalized: self.is_tipset_finalized.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -45,7 +57,7 @@ pub enum ResolveNullTipset {
 }
 
 impl<DB: Blockstore> ChainIndex<DB> {
-    pub fn new(db: DB) -> Self {
+    pub fn new(db: Arc<DB>) -> Self {
         let ts_cache =
             SizeTrackingLruCache::new_with_metrics("tipset".into(), DEFAULT_TIPSET_CACHE_SIZE);
         let ts_height_cache: SizeTrackingLruCache<ChainEpoch, TipsetKey> =
@@ -68,7 +80,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         self
     }
 
-    pub fn db(&self) -> &DB {
+    pub fn db(&self) -> &Arc<DB> {
         &self.db
     }
 

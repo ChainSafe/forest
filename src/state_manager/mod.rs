@@ -54,6 +54,7 @@ use crate::shim::{
 use crate::state_manager::cache::TipsetStateCache;
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
+use crate::utils::ShallowClone as _;
 use crate::utils::get_size::{GetSize, vec_heap_size_helper};
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context as _, bail, ensure};
@@ -336,7 +337,7 @@ where
     }
 
     /// Returns reference to the state manager's [`ChainIndex`].
-    pub fn chain_index(&self) -> &Arc<ChainIndex<Arc<DB>>> {
+    pub fn chain_index(&self) -> &ChainIndex<DB> {
         self.cs.chain_index()
     }
 
@@ -347,10 +348,10 @@ where
 
     pub fn chain_rand(&self, tipset: Tipset) -> ChainRand<DB> {
         ChainRand::new(
-            self.chain_config().clone(),
+            self.chain_config().shallow_clone(),
             tipset,
-            self.chain_index().clone(),
-            self.beacon.clone(),
+            self.chain_index().shallow_clone(),
+            self.beacon.shallow_clone(),
         )
     }
 
@@ -491,7 +492,7 @@ where
             Some((state_root, receipt_root, receipts)) => (state_root, receipt_root, receipts),
             None => {
                 let state_output = self
-                    .compute_tipset_state(msg_ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
+                    .compute_tipset_state(msg_ts.shallow_clone(), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 recomputed = true;
                 (
@@ -518,7 +519,7 @@ where
                         Err(e) if recomputed => return Err(e),
                         Err(_) => {
                             self.compute_tipset_state(
-                                msg_ts.clone(),
+                                msg_ts.shallow_clone(),
                                 NO_CALLBACK,
                                 VMTrace::NotTraced,
                             )
@@ -571,7 +572,7 @@ where
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         let mut vm = VM::new(
             ExecutionContext {
-                heaviest_tipset: tipset.clone(),
+                heaviest_tipset: tipset.shallow_clone(),
                 state_tree_root: state_cid,
                 epoch: height,
                 rand: Box::new(rand),
@@ -581,8 +582,8 @@ where
                     self.blockstore(),
                     &state_cid,
                 )?,
-                chain_config: self.chain_config().clone(),
-                chain_index: self.chain_index().clone(),
+                chain_config: self.chain_config().shallow_clone(),
+                chain_index: self.chain_index().shallow_clone(),
                 timestamp: tipset.min_timestamp(),
             },
             &self.engine,
@@ -625,7 +626,7 @@ where
     /// changes.
     pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
-        let chain_rand = self.chain_rand(ts.clone());
+        let chain_rand = self.chain_rand(ts.shallow_clone());
         self.call_raw(None, message, chain_rand, &ts)
     }
 
@@ -638,7 +639,7 @@ where
         tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
-        let chain_rand = self.chain_rand(ts.clone());
+        let chain_rand = self.chain_rand(ts.shallow_clone());
         self.call_raw(Some(state_cid), message, chain_rand, &ts)
     }
 
@@ -725,8 +726,8 @@ where
                         self.blockstore(),
                         &state_root,
                     )?,
-                    chain_config: self.chain_config().clone(),
-                    chain_index: self.chain_index().clone(),
+                    chain_config: self.chain_config().shallow_clone(),
+                    chain_index: self.chain_index().shallow_clone(),
                     timestamp: ts.min_timestamp(),
                 },
                 &self.engine,
@@ -833,11 +834,11 @@ where
 
         let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
         let exec = TipsetExecutor::new(
-            self.chain_index().clone(),
-            self.chain_config().clone(),
-            self.beacon_schedule().clone(),
+            self.chain_index().shallow_clone(),
+            self.chain_config().shallow_clone(),
+            self.beacon_schedule().shallow_clone(),
             &self.engine,
-            ts.clone(),
+            ts.shallow_clone(),
         );
         let mut no_cb = NO_CALLBACK;
         let (parent_state, epoch, block_messages) =
@@ -1017,9 +1018,9 @@ where
         );
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
-            Arc::clone(self.chain_index()),
-            Arc::clone(self.chain_config()),
-            self.beacon_schedule().clone(),
+            self.chain_index().shallow_clone(),
+            self.chain_config().shallow_clone(),
+            self.beacon_schedule().shallow_clone(),
             &self.engine,
             tipset,
             callback,
@@ -1065,9 +1066,9 @@ where
             messages,
             tipset,
             self.chain_store().genesis_block_header().timestamp,
-            Arc::clone(self.chain_index()),
-            Arc::clone(self.chain_config()),
-            self.beacon_schedule().clone(),
+            self.chain_index().shallow_clone(),
+            self.chain_config().shallow_clone(),
+            self.beacon_schedule().shallow_clone(),
             &self.engine,
             callback,
             enable_tracing,
@@ -1244,13 +1245,13 @@ where
         let maybe_message_receipt =
             self.tipset_executed_message(&current_tipset, &message, true)?;
         if let Some(r) = maybe_message_receipt {
-            return Ok((Some(current_tipset.clone()), Some(r)));
+            return Ok((Some(current_tipset.shallow_clone()), Some(r)));
         }
 
         let mut candidate_tipset: Option<Tipset> = None;
         let mut candidate_receipt: Option<Receipt> = None;
 
-        let sm_cloned = Arc::clone(self);
+        let sm_cloned = self.shallow_clone();
 
         let message_for_task = message.clone();
         let height_of_head = current_tipset.epoch();
@@ -1694,9 +1695,9 @@ where
         let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
         validate_tipsets(
             genesis_timestamp,
-            self.chain_index().clone(),
-            self.chain_config().clone(),
-            self.beacon_schedule().clone(),
+            self.chain_index(),
+            self.chain_config(),
+            self.beacon_schedule(),
             &self.engine,
             tipsets,
         )
@@ -1826,11 +1827,11 @@ where
 
         let ExecutedTipset { state_root, .. } = apply_block_messages(
             genesis_timestamp,
-            self.chain_index().clone(),
-            self.chain_config().clone(),
-            self.beacon_schedule().clone(),
+            self.chain_index().shallow_clone(),
+            self.chain_config().shallow_clone(),
+            self.beacon_schedule().shallow_clone(),
             &self.engine,
-            tipset.clone(),
+            tipset.shallow_clone(),
             Some(callback),
             VMTrace::Traced,
         )?;
@@ -1841,9 +1842,9 @@ where
 
 pub fn validate_tipsets<DB, T>(
     genesis_timestamp: u64,
-    chain_index: Arc<ChainIndex<Arc<DB>>>,
-    chain_config: Arc<ChainConfig>,
-    beacon: Arc<BeaconSchedule>,
+    chain_index: &ChainIndex<DB>,
+    chain_config: &Arc<ChainConfig>,
+    beacon: &Arc<BeaconSchedule>,
     engine: &MultiEngine,
     tipsets: T,
 ) -> anyhow::Result<()>
@@ -1863,9 +1864,9 @@ where
                 ..
             } = apply_block_messages(
                 genesis_timestamp,
-                chain_index.clone(),
-                chain_config.clone(),
-                beacon.clone(),
+                chain_index.shallow_clone(),
+                chain_config.shallow_clone(),
+                beacon.shallow_clone(),
                 engine,
                 parent,
                 NO_CALLBACK,
@@ -1899,26 +1900,26 @@ struct TipsetExecutor<'a, DB: Blockstore + Send + Sync + 'static> {
     tipset: Tipset,
     rand: ChainRand<DB>,
     chain_config: Arc<ChainConfig>,
-    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_index: ChainIndex<DB>,
     genesis_info: GenesisInfo,
     engine: &'a MultiEngine,
 }
 
 impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
     fn new(
-        chain_index: Arc<ChainIndex<Arc<DB>>>,
+        chain_index: ChainIndex<DB>,
         chain_config: Arc<ChainConfig>,
         beacon: Arc<BeaconSchedule>,
         engine: &'a MultiEngine,
         tipset: Tipset,
     ) -> Self {
         let rand = ChainRand::new(
-            chain_config.clone(),
-            tipset.clone(),
-            chain_index.clone(),
+            chain_config.shallow_clone(),
+            tipset.shallow_clone(),
+            chain_index.shallow_clone(),
             beacon,
         );
-        let genesis_info = GenesisInfo::from_chain_config(chain_config.clone());
+        let genesis_info = GenesisInfo::from_chain_config(chain_config.shallow_clone());
         Self {
             tipset,
             rand,
@@ -1943,14 +1944,14 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
         )?;
         VM::new(
             ExecutionContext {
-                heaviest_tipset: self.tipset.clone(),
+                heaviest_tipset: self.tipset.shallow_clone(),
                 state_tree_root: state_root,
                 epoch,
-                rand: Box::new(self.rand.clone()),
+                rand: Box::new(self.rand.shallow_clone()),
                 base_fee: self.tipset.min_ticket_block().parent_base_fee.clone(),
                 circ_supply,
-                chain_config: self.chain_config.clone(),
-                chain_index: self.chain_index.clone(),
+                chain_config: self.chain_config.shallow_clone(),
+                chain_index: self.chain_index.shallow_clone(),
                 timestamp,
             },
             self.engine,
@@ -2085,7 +2086,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
 #[allow(clippy::too_many_arguments)]
 pub fn apply_block_messages<DB>(
     genesis_timestamp: u64,
-    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_index: ChainIndex<DB>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
     engine: &MultiEngine,
@@ -2118,11 +2119,11 @@ where
     }
 
     let exec = TipsetExecutor::new(
-        chain_index.clone(),
+        chain_index.shallow_clone(),
         chain_config,
         beacon,
         engine,
-        tipset.clone(),
+        tipset.shallow_clone(),
     );
 
     // step 2: running cron for any null-tipsets
@@ -2198,7 +2199,7 @@ pub fn compute_state<DB>(
     messages: Vec<Message>,
     tipset: Tipset,
     genesis_timestamp: u64,
-    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_index: ChainIndex<DB>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
     engine: &MultiEngine,
