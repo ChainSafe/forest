@@ -175,21 +175,46 @@ async fn maybe_import_snapshot(
             .client
             .snapshot_head
             .unwrap_or_else(|| ctx.state_manager.chain_store().heaviest_tipset().epoch());
-        assert!(current_height.is_positive());
-        // allow --height=-1000 to scroll back from the current head
-        let start = if validate_from.is_negative() {
-            current_height + validate_from
-        } else {
-            validate_from
-        };
+
+        let validation_range = validation_range(current_height, validate_from)?;
         // `validate_range` is CPU-bound (drives rayon-parallel VM execution) and
         // can run for minutes. Safer to spawn it on a blocking thread.
         let state_manager = ctx.state_manager.clone();
-        tokio::task::spawn_blocking(move || state_manager.validate_range(start..=current_height))
+        tokio::task::spawn_blocking(move || state_manager.validate_range(validation_range))
             .await??;
     }
 
     Ok(())
+}
+
+/// Returns the range of epochs to validate. This includes special handling for negative `from`
+/// values, which are interpreted as offsets from the current epoch.
+fn validation_range(
+    current: ChainEpoch,
+    from: ChainEpoch,
+) -> anyhow::Result<std::ops::RangeInclusive<ChainEpoch>> {
+    anyhow::ensure!(
+        current.is_positive(),
+        "current head epoch {current} is invalid"
+    );
+
+    // Negative values scroll back from the current head (e.g. --height=-1000).
+    // `saturating_add` + `.max(0)` keeps extreme negatives from underflowing or
+    // wrapping to a huge positive (which would silently produce an empty range).
+    let start = if from.is_negative() {
+        current.saturating_add(from).max(0)
+    } else {
+        from
+    };
+
+    // An absolute `--height` past the head would otherwise produce an empty
+    // range and silently succeed without validating anything.
+    anyhow::ensure!(
+        start <= current,
+        "requested validation start epoch {start} is beyond the current head at epoch {current}",
+    );
+
+    Ok(start..=current)
 }
 
 async fn maybe_start_metrics_service(
@@ -821,4 +846,41 @@ where
     T: Send + 'static,
 {
     tokio::task::spawn_blocking(f).then(|res| async { res.expect("spawned task panicked") })
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::current_non_positive(0, 1, anyhow::Result::Err(anyhow::anyhow!(
+        "current head epoch 0 is invalid"
+    )))]
+    #[case::current_non_positive(-1, 1, anyhow::Result::Err(anyhow::anyhow!(
+        "current head epoch 0 is invalid"
+    )))]
+    #[case::from_positive_beyond_head(10, 11, anyhow::Result::Err(anyhow::anyhow!(
+        "requested validation start epoch 11 is beyond the current head at epoch 10"
+    )))]
+    #[case::from_positive_within_range(10, 5, anyhow::Result::Ok(5..=10))]
+    #[case::from_zero(10, 0, anyhow::Result::Ok(0..=10))]
+    #[case::from_negative_within_range(10, -5, anyhow::Result::Ok(5..=10))]
+    #[case::from_negative_beyond_range(10, -15, anyhow::Result::Ok(0..=10))]
+    fn test_validation_range(
+        #[case] current: ChainEpoch,
+        #[case] from: ChainEpoch,
+        #[case] expected: anyhow::Result<std::ops::RangeInclusive<ChainEpoch>>,
+    ) {
+        let result = validation_range(current, from);
+        match expected {
+            Ok(expected_range) => {
+                assert_eq!(result.unwrap(), expected_range);
+            }
+            Err(_) => {
+                assert!(result.is_err());
+            }
+        }
+    }
 }
