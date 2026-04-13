@@ -110,8 +110,9 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
 
     let epoch = full_tipset.epoch();
-    let full_tipset_key = full_tipset.key().clone();
-    trace!("Tipset keys: {full_tipset_key}");
+    let parent_state = *full_tipset.parent_state();
+    let tipset_key = full_tipset.key();
+    trace!("Tipset keys: {tipset_key}");
     let blocks = full_tipset.into_blocks();
     let mut validations = JoinSet::new();
     for b in blocks {
@@ -126,14 +127,20 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
                     .add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {
-                warn!("Validating block [CID = {cid}] in EPOCH = {epoch} failed: {why}");
+                warn!(
+                    "Validating block [CID = {cid}, PARENT_STATE = {parent_state}] in EPOCH = {epoch} failed: {why}",
+                );
                 match &why {
                     TipsetSyncerError::TimeTravellingBlock(_, _) => {
                         // Do not mark a block as bad for temporary errors.
                         // See <https://github.com/filecoin-project/lotus/blob/v1.34.1/chain/sync.go#L602> in Lotus
                     }
                     _ => {
-                        if let Some(bad_block_cache) = bad_block_cache {
+                        // Do not mark block as bad if the parent state tree does not exist
+                        if StateTree::new_from_root(state_manager.blockstore_owned(), &parent_state)
+                            .is_ok()
+                            && let Some(bad_block_cache) = bad_block_cache
+                        {
                             bad_block_cache.push(cid);
                         }
                     }

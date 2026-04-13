@@ -84,7 +84,7 @@ pub struct ChainStore<DB> {
     genesis_block_header: CachingBlockHeader,
 
     /// validated blocks
-    validated_blocks: Mutex<HashSet<Cid>>,
+    pub(crate) validated_blocks: Mutex<HashSet<Cid>>,
 
     /// Ethereum mappings store
     eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,

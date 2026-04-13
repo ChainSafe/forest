@@ -140,6 +140,10 @@ where
         self.cache.read().capacity()
     }
 
+    pub fn clear(&self) {
+        self.cache.write().clear()
+    }
+
     pub(crate) fn size_in_bytes(&self) -> usize {
         let mut size = 0_usize;
         for (k, v) in self.cache.read().iter() {

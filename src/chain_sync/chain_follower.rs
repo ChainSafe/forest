@@ -45,11 +45,17 @@ use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
 pub struct ChainFollower<DB> {
+    /// Tasks
+    tasks: Arc<Mutex<HashSet<SyncTask>>>,
+
+    /// State machine
+    state_machine: Arc<Mutex<SyncStateMachine<DB>>>,
+
     /// Syncing status of the chain
     pub sync_status: SyncStatus,
 
     /// manages retrieving and updates state objects
-    state_manager: Arc<StateManager<DB>>,
+    pub state_manager: Arc<StateManager<DB>>,
 
     /// Context to be able to send requests to P2P network
     pub network: SyncNetworkContext<DB>,
@@ -92,17 +98,26 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
     ) -> Self {
         crate::def_is_env_truthy!(cache_disabled, "FOREST_DISABLE_BAD_BLOCK_CACHE");
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
+        let tasks: Arc<Mutex<HashSet<SyncTask>>> = Arc::new(Mutex::new(HashSet::default()));
+        let bad_blocks = if cache_disabled() {
+            tracing::warn!("bad block cache is disabled by `FOREST_DISABLE_BAD_BLOCK_CACHE`");
+            None
+        } else {
+            Some(Default::default())
+        };
+        let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(
+            state_manager.chain_store().clone(),
+            bad_blocks.clone(),
+            stateless_mode,
+        )));
         Self {
+            tasks,
+            state_machine,
             sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
             state_manager,
             network,
             genesis,
-            bad_blocks: if cache_disabled() {
-                tracing::warn!("bad block cache is disabled by `FOREST_DISABLE_BAD_BLOCK_CACHE`");
-                None
-            } else {
-                Some(Default::default())
-            },
+            bad_blocks,
             net_handler,
             tipset_sender,
             tipset_receiver,
@@ -111,16 +126,37 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         }
     }
 
-    pub async fn run(self) -> anyhow::Result<()> {
+    /// Reset inner states
+    pub fn reset(&self) {
+        let start = Instant::now();
+        self.tasks.lock().clear();
+        self.state_manager
+            .chain_store()
+            .validated_blocks
+            .lock()
+            .clear();
+        self.state_machine.lock().tipsets.clear();
+        if let Some(bad_blocks) = &self.bad_blocks {
+            bad_blocks.clear();
+        }
+        tracing::info!(
+            "chain follower reset, took {}",
+            humantime::format_duration(start.elapsed())
+        );
+    }
+
+    pub async fn run(&self) -> anyhow::Result<()> {
         chain_follower(
-            self.state_manager,
-            self.bad_blocks,
-            self.net_handler,
-            self.tipset_receiver,
-            self.network,
-            self.mem_pool,
-            self.sync_status,
-            self.genesis,
+            &self.tasks,
+            &self.state_machine,
+            &self.state_manager,
+            self.bad_blocks.clone(),
+            self.net_handler.clone(),
+            self.tipset_receiver.clone(),
+            &self.network,
+            &self.mem_pool,
+            &self.sync_status,
+            &self.genesis,
             self.stateless_mode,
         )
         .await
@@ -129,24 +165,21 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
 
 #[allow(clippy::too_many_arguments)]
 // We receive new full tipsets from the p2p swarm, and from miners that use Forest as their frontend.
-pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
-    state_manager: Arc<StateManager<DB>>,
+async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
+    tasks: &Arc<Mutex<HashSet<SyncTask>>>,
+    state_machine: &Arc<Mutex<SyncStateMachine<DB>>>,
+    state_manager: &Arc<StateManager<DB>>,
     bad_block_cache: Option<Arc<BadBlockCache>>,
     network_rx: flume::Receiver<NetworkEvent>,
     tipset_receiver: flume::Receiver<FullTipset>,
-    network: SyncNetworkContext<DB>,
-    mem_pool: Arc<MessagePool<Arc<ChainStore<DB>>>>,
-    sync_status: SyncStatus,
-    genesis: Tipset,
+    network: &SyncNetworkContext<DB>,
+    mem_pool: &Arc<MessagePool<Arc<ChainStore<DB>>>>,
+    sync_status: &SyncStatus,
+    genesis: &Tipset,
     stateless_mode: bool,
 ) -> anyhow::Result<()> {
     let state_changed = Arc::new(Notify::new());
-    let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(
-        state_manager.chain_store().clone(),
-        bad_block_cache.clone(),
-        stateless_mode,
-    )));
-    let tasks: Arc<Mutex<HashSet<SyncTask>>> = Arc::new(Mutex::new(HashSet::default()));
+
     let seen_block_cache = SeenBlockCache::default();
 
     let mut set = JoinSet::new();
@@ -157,6 +190,8 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         let state_changed = state_changed.clone();
         let state_machine = state_machine.clone();
         let network = network.clone();
+        let mem_pool = mem_pool.clone();
+        let genesis = genesis.clone();
         let bad_block_cache = bad_block_cache.clone();
         let seen_block_cache = seen_block_cache.clone();
         async move {
@@ -245,6 +280,8 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     set.spawn({
         let state_manager = state_manager.clone();
         let state_machine = state_machine.clone();
+        let network = network.clone();
+        let sync_status = sync_status.clone();
         let state_changed = state_changed.clone();
         let tasks = tasks.clone();
         let bad_block_cache = bad_block_cache.clone();

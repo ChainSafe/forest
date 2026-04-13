@@ -196,7 +196,7 @@ pub trait HeaviestTipsetKeyProvider {
 
 #[auto_impl::auto_impl(&, Arc)]
 pub trait BlockstoreWriteOpsSubscribable {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)>;
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, Vec<u8>)>>;
 
     fn unsubscribe_write_ops(&self);
 }

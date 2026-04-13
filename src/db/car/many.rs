@@ -312,7 +312,7 @@ impl<T: Blockstore + SettingsStore> super::super::HeaviestTipsetKeyProvider for 
 }
 
 impl<WriterT: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for ManyCar<WriterT> {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, Vec<u8>)>> {
         self.writer().subscribe_write_ops()
     }
 

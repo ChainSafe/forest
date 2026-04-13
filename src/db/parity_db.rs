@@ -83,7 +83,7 @@ impl DbColumn {
     }
 }
 
-type WriteOpsBroadcastTxSender = tokio::sync::broadcast::Sender<(Cid, Vec<u8>)>;
+type WriteOpsBroadcastTxSender = tokio::sync::broadcast::Sender<Vec<(Cid, Vec<u8>)>>;
 
 pub struct ParityDb {
     pub db: parity_db::Db,
@@ -242,7 +242,7 @@ impl Blockstore for ParityDb {
         self.write_to_column(k.to_bytes(), block, column)?;
         match &*self.write_ops_broadcast_tx.read() {
             Some(tx) if has_subscribers(tx) => {
-                let _ = tx.send((*k, block.to_vec()));
+                let _ = tx.send(vec![(*k, block.to_vec())]);
             }
             _ => {}
         }
@@ -256,8 +256,7 @@ impl Blockstore for ParityDb {
         D: AsRef<[u8]>,
         I: IntoIterator<Item = (Cid, D)>,
     {
-        let tx_opt: &Option<tokio::sync::broadcast::Sender<(cid::CidGeneric<64>, Vec<u8>)>> =
-            &self.write_ops_broadcast_tx.read();
+        let tx_opt = &*self.write_ops_broadcast_tx.read();
         let has_subscribers = tx_opt.as_ref().map(has_subscribers).unwrap_or_default();
         let mut values_for_subscriber = vec![];
         let values = blocks.into_iter().map(|(k, v)| {
@@ -273,9 +272,7 @@ impl Blockstore for ParityDb {
             .map(|(col, k, v)| (col as u8, Operation::Set(k, v)));
         self.db.commit_changes(tx).context("error bulk writing")?;
         if let Some(tx) = tx_opt {
-            for i in values_for_subscriber {
-                let _ = tx.send(i);
-            }
+            let _ = tx.send(values_for_subscriber);
         }
         Ok(())
     }
@@ -375,13 +372,13 @@ impl ParityDb {
 }
 
 impl super::BlockstoreWriteOpsSubscribable for ParityDb {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, Vec<u8>)>> {
         let tx_lock = self.write_ops_broadcast_tx.read();
         if let Some(tx) = &*tx_lock {
             return tx.subscribe();
         }
         drop(tx_lock);
-        let (tx, rx) = tokio::sync::broadcast::channel(8192);
+        let (tx, rx) = tokio::sync::broadcast::channel(65536);
         *self.write_ops_broadcast_tx.write() = Some(tx);
         rx
     }
@@ -560,8 +557,14 @@ mod test {
         for (idx, cid) in cids.iter().enumerate() {
             let data_entry = &data[idx];
             db.put_keyed(cid, data_entry).unwrap();
-            assert_eq!(rx1.blocking_recv().unwrap(), (*cid, data_entry.clone()));
-            assert_eq!(rx2.blocking_recv().unwrap(), (*cid, data_entry.clone()));
+            assert_eq!(
+                rx1.blocking_recv().unwrap(),
+                vec![(*cid, data_entry.clone())]
+            );
+            assert_eq!(
+                rx2.blocking_recv().unwrap(),
+                vec![(*cid, data_entry.clone())]
+            );
         }
 
         drop(rx1);

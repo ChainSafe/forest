@@ -38,12 +38,13 @@
 
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, ExportOptions};
+use crate::chain_sync::ChainFollower;
 use crate::cli_shared::chain_path;
-use crate::db::car::{ForestCar, ReloadableManyCar, forest::new_forest_car_temp_path_in};
-use crate::db::parity_db::GarbageCollectableDb;
 use crate::db::{
     BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore,
+    car::{ForestCar, ReloadableManyCar, forest::new_forest_car_temp_path_in},
     db_engine::db_root,
+    parity_db::GarbageCollectableDb,
 };
 use crate::shim::clock::EPOCHS_IN_DAY;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -68,8 +69,7 @@ pub struct SnapshotGarbageCollector<DB> {
     recent_state_roots: i64,
     running: AtomicBool,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
-    cs: Arc<ChainStore<DB>>,
-    sync_status: crate::chain_sync::SyncStatus,
+    chain_follower: Arc<ChainFollower<DB>>,
     // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
     memory_db: RwLock<Option<HashMap<Cid, Vec<u8>>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
@@ -92,8 +92,7 @@ where
         + 'static,
 {
     pub fn new(
-        cs: Arc<ChainStore<DB>>,
-        sync_status: crate::chain_sync::SyncStatus,
+        chain_follower: Arc<ChainFollower<DB>>,
         config: &crate::Config,
     ) -> anyhow::Result<Self> {
         let chain_data_path = chain_path(config);
@@ -119,8 +118,7 @@ where
             recent_state_roots,
             running: AtomicBool::new(false),
             blessed_lite_snapshot: RwLock::new(None),
-            cs,
-            sync_status,
+            chain_follower,
             memory_db: RwLock::new(None),
             memory_db_head_key: RwLock::new(None),
             exported_head_key: RwLock::new(None),
@@ -161,14 +159,10 @@ where
         );
         loop {
             if !self.running.load(Ordering::Relaxed)
-                && let Some(car_db_head_epoch) = self
-                    .cs
-                    .blockstore()
-                    .heaviest_car_tipset()
-                    .ok()
-                    .map(|ts| ts.epoch())
+                && let Some(car_db_head_epoch) =
+                    self.db().heaviest_car_tipset().ok().map(|ts| ts.epoch())
             {
-                let sync_status = &*self.sync_status.read();
+                let sync_status = &*self.sync_status().read();
                 let network_head_epoch = sync_status.network_head_epoch;
                 let head_epoch = sync_status.current_head_epoch;
                 if head_epoch > 0 // sync_status has been initialized
@@ -216,7 +210,7 @@ where
             Err(e) => {
                 tracing::error!("{e:#}");
                 // Unsubscribe on failure path
-                self.cs.blockstore().unsubscribe_write_ops();
+                self.db().unsubscribe_write_ops();
             }
         }
         // To indicate the completion of GC
@@ -225,8 +219,7 @@ where
     }
 
     async fn export_snapshot(&self) -> anyhow::Result<()> {
-        let cs = &self.cs;
-        let db = cs.blockstore();
+        let db = self.db();
         tracing::info!(
             "exporting lite snapshot with {} recent state roots",
             self.recent_state_roots
@@ -236,23 +229,23 @@ where
         let mut db_write_ops_rx = db.subscribe_write_ops();
         let mut joinset = JoinSet::new();
         joinset.spawn(async move {
+            let mut lagged = false;
             let mut map = HashMap::default();
             loop {
                 match db_write_ops_rx.recv().await {
-                    Ok((k, v)) => {
-                        map.insert(k, v);
+                    Ok(pairs) => {
+                        map.extend(pairs);
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
                         tracing::warn!(
                             "{skipped} write ops lagged, skip backfilling from memory db"
                         );
-                        map.clear();
-                        break;
+                        lagged = true;
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 }
             }
-            map
+            (lagged, map)
         });
         let start = Instant::now();
         let (head_ts, _) = crate::chain::export_from_head::<Sha256>(
@@ -285,9 +278,9 @@ where
         // Unsubscribe before taking the snapshot of in-memory db to avoid deadlock
         db.unsubscribe_write_ops();
         match joinset.join_next().await {
-            Some(Ok(map)) => {
-                if !map.is_empty() {
-                    *self.memory_db.write() = Some(map);
+            Some(Ok((lagged, map))) => {
+                *self.memory_db.write() = Some(map);
+                if !lagged {
                     *self.memory_db_head_key.write() = current_chain_head;
                 }
             }
@@ -306,7 +299,7 @@ where
                 blessed_lite_snapshot.as_path(),
             )?)
         {
-            let db = self.cs.blockstore();
+            let db = self.db();
 
             // Reset parity-db columns
             tokio::task::spawn_blocking({
@@ -355,7 +348,7 @@ where
                     && let Ok(ts) = Tipset::load_required(&db, &tsk)
                 {
                     let epoch = ts.epoch();
-                    if let Err(e) = self.cs.set_heaviest_tipset(ts) {
+                    if let Err(e) = self.cs().set_heaviest_tipset(ts) {
                         tracing::error!(
                             "failed to set chain head to epoch {epoch} with key {tsk}: {e:#}"
                         );
@@ -365,6 +358,9 @@ where
                     }
                 }
             }
+
+            // Reset chain follower
+            self.chain_follower.reset();
 
             // Cleanup stale CAR files
             for car_to_remove in walkdir::WalkDir::new(&self.car_db_dir)
@@ -395,5 +391,17 @@ where
             }
         }
         Ok(())
+    }
+
+    fn cs(&self) -> &Arc<ChainStore<DB>> {
+        self.chain_follower.state_manager.chain_store()
+    }
+
+    fn db(&self) -> &Arc<DB> {
+        self.chain_follower.state_manager.blockstore()
+    }
+
+    fn sync_status(&self) -> &crate::chain_sync::SyncStatus {
+        &self.chain_follower.sync_status
     }
 }
