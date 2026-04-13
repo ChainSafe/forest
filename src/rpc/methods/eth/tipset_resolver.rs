@@ -175,24 +175,6 @@ where
                 self.ctx,
                 head.clone(),
             );
-        if let Some(ts) = ec_finalized_tipset {
-            Ok(ts)
-        } else {
-            get_fallback_ec_finalized_tipset(self.ctx.chain_store())
-        }
+        ec_finalized_tipset.context("failed to resolve EC finalized tipset")
     }
-}
-
-/// Returns the tipset considered finalized by the fallback expected-consensus finality.
-///
-/// The finalized epoch is computed as head.epoch() minus the chain's `policy.chain_finality`, clamped to zero.
-/// The tipset at that epoch is returned; when the exact height is unavailable, an older tipset is selected.
-pub fn get_fallback_ec_finalized_tipset<DB: Blockstore>(
-    cs: &ChainStore<DB>,
-) -> anyhow::Result<Tipset> {
-    let head = cs.heaviest_tipset();
-    let ec_finality_epoch = (head.epoch() - cs.chain_config().policy.chain_finality).max(0);
-    Ok(cs
-        .chain_index()
-        .tipset_by_height(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)?)
 }
