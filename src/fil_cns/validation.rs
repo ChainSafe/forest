@@ -21,6 +21,7 @@ use crate::shim::{
     version::NetworkVersion,
 };
 use crate::state_manager::StateManager;
+use crate::utils::ShallowClone;
 use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
 use fil_actors_shared::filecoin_proofs_api::{PublicReplicaInfo, SectorId, post};
@@ -78,7 +79,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
 
     let prev_beacon = chain_store
         .chain_index()
-        .latest_beacon_entry(base_tipset.clone())
+        .latest_beacon_entry(base_tipset.shallow_clone())
         .map(Arc::new)
         .map_err(to_errs)?;
 
@@ -94,7 +95,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     // Miner validations
     validations.spawn_blocking({
         let state_manager = state_manager.clone();
-        let base_tipset = base_tipset.clone();
+        let base_tipset = base_tipset.shallow_clone();
         let block = block.clone();
         move || {
             validate_miner(
@@ -109,7 +110,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     validations.spawn_blocking({
         let block = block.clone();
         let prev_beacon = prev_beacon.clone();
-        let base_tipset = base_tipset.clone();
+        let base_tipset = base_tipset.shallow_clone();
         let state_manager = state_manager.clone();
         let lookback_state = lookback_state.clone();
         move || {

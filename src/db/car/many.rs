@@ -18,6 +18,7 @@ use crate::db::{
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::rpc::eth::types::EthHash;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::ShallowClone as _;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::multihash::prelude::*;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
@@ -106,7 +107,11 @@ impl<WriterT> ManyCar<WriterT> {
         any_car: AnyCar<ReaderT>,
     ) -> anyhow::Result<()> {
         let mut read_only = self.read_only.write();
-        Self::read_only_inner(&mut read_only, self.shared_cache.read().clone(), any_car)
+        Self::read_only_inner(
+            &mut read_only,
+            self.shared_cache.read().shallow_clone(),
+            any_car,
+        )
     }
 
     fn read_only_inner<ReaderT: super::RandomAccessFileReader>(
@@ -154,7 +159,7 @@ impl<WriterT> ManyCar<WriterT> {
         let shared_cache = ZstdFrameCache::default();
         for f in files {
             let car = AnyCar::new(EitherMmapOrRandomAccessFile::open(f)?)?;
-            Self::read_only_inner(&mut read_only, shared_cache.clone(), car)?;
+            Self::read_only_inner(&mut read_only, shared_cache.shallow_clone(), car)?;
         }
         *self.read_only.write() = read_only;
         *self.shared_cache.write() = shared_cache;

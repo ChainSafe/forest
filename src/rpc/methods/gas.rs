@@ -15,6 +15,7 @@ use crate::shim::{
     message::Message,
 };
 use crate::state_manager::VMFlush;
+use crate::utils::ShallowClone as _;
 use anyhow::{Context, Result};
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
@@ -260,7 +261,7 @@ impl GasEstimateGasLimit {
             .call_with_gas(
                 &mut chain_msg,
                 &prior_messages,
-                Some(ts.clone()),
+                Some(ts.shallow_clone()),
                 VMFlush::Skip,
             )
             .await?;

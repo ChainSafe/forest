@@ -216,10 +216,10 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         }
     }
 
-    pub fn with_cache(self, cache: ZstdFrameCache, key: CacheKey) -> Self {
+    pub fn with_cache(self, frame_cache: ZstdFrameCache, key: CacheKey) -> Self {
         Self {
             cache_key: key,
-            frame_cache: cache,
+            frame_cache,
             ..self
         }
     }

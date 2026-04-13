@@ -16,9 +16,11 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Either;
 use positioned_io::ReadAt;
-use std::borrow::Cow;
-use std::io::{Error, ErrorKind, Read, Result};
-use std::path::{Path, PathBuf};
+use std::{
+    borrow::Cow,
+    io::{Error, ErrorKind, Read, Result},
+    path::{Path, PathBuf},
+};
 
 #[derive(derive_more::From)]
 pub enum AnyCar<ReaderT> {

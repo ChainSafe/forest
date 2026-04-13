@@ -45,6 +45,7 @@ use crate::state_manager::{ExecutedTipset, NO_CALLBACK};
 use crate::state_manager::{
     MarketBalance, StateManager, circulating_supply::GenesisInfo, utils::structured,
 };
+use crate::utils::ShallowClone as _;
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
     beacon::BeaconEntry,
@@ -1574,11 +1575,11 @@ impl RpcMethod<3> for ForestStateCompute {
         let from_ts = if from_epoch >= to_ts.epoch() {
             // When `from_epoch` is a null epoch or `n_epochs` is 1,
             // `to_ts.epoch()` could be less than or equal to `from_epoch`
-            to_ts.clone()
+            to_ts.shallow_clone()
         } else {
             ctx.chain_index().tipset_by_height(
                 from_epoch,
-                to_ts.clone(),
+                to_ts.shallow_clone(),
                 ResolveNullTipset::TakeOlder,
             )?
         };
@@ -1589,7 +1590,7 @@ impl RpcMethod<3> for ForestStateCompute {
             .take_while(|ts| ts.epoch() >= from_ts.epoch())
         {
             let chain_store = ctx.chain_store().clone();
-            let network_context = ctx.sync_network_context.clone();
+            let network_context = ctx.sync_network_context.shallow_clone();
             futures.push_front(async move {
                 if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
                     // Backfill full tipset from the network
@@ -2723,7 +2724,7 @@ impl RpcMethod<3> for StateListMessages {
         }
 
         let mut out = Vec::new();
-        let mut cur_ts = ts.clone();
+        let mut cur_ts = ts.shallow_clone();
 
         while cur_ts.epoch() >= max_height {
             let msgs = ctx.chain_store().messages_for_tipset(&cur_ts)?;

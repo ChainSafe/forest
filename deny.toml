@@ -6,6 +6,7 @@ ignore = [
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
   "RUSTSEC-2024-0436", # paste is unmaintained
   "RUSTSEC-2025-0141", # bincode is unmaintained
+  "RUSTSEC-2026-0097", # Rand is unsound with a custom logger using `rand::rng()`
 ]
 
 [licenses]
