@@ -229,7 +229,6 @@ where
         let mut db_write_ops_rx = db.subscribe_write_ops();
         let mut joinset = JoinSet::new();
         joinset.spawn(async move {
-            let mut lagged = false;
             let mut map = HashMap::default();
             loop {
                 match db_write_ops_rx.recv().await {
@@ -240,12 +239,13 @@ where
                         tracing::warn!(
                             "{skipped} write ops lagged, skip backfilling from memory db"
                         );
-                        lagged = true;
+                        map.clear();
+                        break;
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 }
             }
-            (lagged, map)
+            map
         });
         let start = Instant::now();
         let (head_ts, _) = crate::chain::export_from_head::<Sha256>(
@@ -278,9 +278,9 @@ where
         // Unsubscribe before taking the snapshot of in-memory db to avoid deadlock
         db.unsubscribe_write_ops();
         match joinset.join_next().await {
-            Some(Ok((lagged, map))) => {
-                *self.memory_db.write() = Some(map);
-                if !lagged {
+            Some(Ok(map)) => {
+                if !map.is_empty() {
+                    *self.memory_db.write() = Some(map);
                     *self.memory_db_head_key.write() = current_chain_head;
                 }
             }

@@ -100,6 +100,14 @@ where
         &self.cache
     }
 
+    pub fn remove<Q>(&self, k: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.cache.write().remove(k)
+    }
+
     pub fn push(&self, k: K, v: V) -> Option<V> {
         self.cache.write().insert(k, v)
     }

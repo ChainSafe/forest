@@ -460,6 +460,16 @@ where
         self: &Arc<Self>,
         ts: &Tipset,
     ) -> anyhow::Result<ExecutedTipset> {
+        // validate the existence of state trees for post-chain-head-epoch tipsets in case chain head is reset(e.g. manually or via GC).
+        if ts.epoch() >= self.heaviest_tipset().epoch()
+            && let Some(cached) = self.cache.get(ts.key())
+        {
+            if StateTree::new_from_root(self.blockstore_owned(), &cached.state_root).is_ok() {
+                return Ok(cached);
+            } else {
+                self.cache.remove(ts.key());
+            }
+        }
         self.cache
             .get_or_else(ts.key(), || async move {
                 let receipt_ts = self.chain_store().load_child_tipset(ts).ok();
