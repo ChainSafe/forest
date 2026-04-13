@@ -22,15 +22,17 @@ use crate::{
     chain::ChainStore,
     chain_sync::{
         ForkSyncInfo, ForkSyncStage, SyncStatus, SyncStatusReport, TipsetValidator,
-        bad_block_cache::BadBlockCache,
+        bad_block_cache::{BadBlockCache, SeenBlockCache},
         metrics,
         tipset_syncer::{TipsetSyncerError, validate_tipset},
+        validation::GossipBlockValidator,
     },
     libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
     message_pool::MessagePool,
     networks::calculate_expected_epoch,
     shim::clock::ChainEpoch,
     state_manager::StateManager,
+    utils::ShallowClone as _,
 };
 use ahash::{HashMap, HashSet};
 use chrono::Utc;
@@ -146,15 +148,18 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         stateless_mode,
     )));
     let tasks: Arc<Mutex<HashSet<SyncTask>>> = Arc::new(Mutex::new(HashSet::default()));
+    let seen_block_cache = SeenBlockCache::default();
 
     let mut set = JoinSet::new();
 
     // Increment metrics, update peer information, and forward tipsets to the state machine.
     set.spawn({
-        let state_manager = state_manager.clone();
-        let state_changed = state_changed.clone();
-        let state_machine = state_machine.clone();
-        let network = network.clone();
+        let state_manager = state_manager.shallow_clone();
+        let state_changed = state_changed.shallow_clone();
+        let state_machine = state_machine.shallow_clone();
+        let network = network.shallow_clone();
+        let bad_block_cache = bad_block_cache.shallow_clone();
+        let seen_block_cache = seen_block_cache.shallow_clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
                 inc_gossipsub_event_metrics(&event);
@@ -180,8 +185,26 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     }
                     NetworkEvent::PubsubMessage { message } => match message {
                         PubsubMessage::Block(b) => {
+                            let cs = state_manager.chain_store();
+                            let cfg = cs.chain_config();
+                            if let Err(reason) = GossipBlockValidator::new(&b).validate_pre_fetch(
+                                &genesis,
+                                cfg.block_delay_secs,
+                                cfg.policy.chain_finality,
+                                cs.heaviest_tipset().epoch(),
+                                bad_block_cache.as_deref(),
+                                &seen_block_cache,
+                            ) {
+                                metrics::GOSSIP_BLOCK_REJECTED_TOTAL
+                                    .get_or_create(&metrics::GossipRejectReasonLabel {
+                                        reason: reason.label(),
+                                    })
+                                    .inc();
+                                debug!("Rejected gossip block {}: {reason}", b.header.cid());
+                                continue;
+                            }
                             let key = TipsetKey::from(nunny::vec![*b.header.cid()]);
-                            get_full_tipset(&network, state_manager.chain_store(), None, &key).await
+                            get_full_tipset(&network, cs, None, &key).await
                         }
                         PubsubMessage::Message(m) => {
                             if let Err(why) = mem_pool.add(m) {
@@ -250,10 +273,10 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     let new = tasks_set.insert(task.clone());
                     if new {
                         let action = task.clone().execute(
-                            network.clone(),
-                            state_manager.clone(),
+                            network.shallow_clone(),
+                            state_manager.shallow_clone(),
                             stateless_mode,
-                            bad_block_cache.clone(),
+                            bad_block_cache.shallow_clone(),
                         );
                         tokio::spawn({
                             let tasks = tasks.clone();
@@ -367,7 +390,7 @@ fn update_peer_info<DB: Blockstore + Sync + Send + 'static>(
             let genesis_cid = *genesis.block_headers().first().cid();
             // Spawn and immediately move on to the next event
             tokio::task::spawn(handle_peer_connected_event(
-                network.clone(),
+                network.shallow_clone(),
                 chain_store,
                 *peer_id,
                 genesis_cid,

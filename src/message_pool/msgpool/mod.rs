@@ -16,6 +16,7 @@ use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
+use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
@@ -57,7 +58,7 @@ async fn republish_pending_messages<T>(
 where
     T: Provider,
 {
-    let ts = cur_tipset.read().clone();
+    let ts = cur_tipset.read().shallow_clone();
     let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
 
     republished.write().clear();
@@ -65,7 +66,11 @@ where
     // Only republish messages from local addresses, ie. transactions which were
     // sent to this node directly.
     for actor in local_addrs.read().iter() {
-        let resolved = resolve_to_key(api, key_cache, actor, &ts)?;
+        let Ok(resolved) = resolve_to_key(api, key_cache, actor, &ts).inspect_err(|e| {
+            tracing::debug!(%actor, "republish: failed to resolve address: {e:#}");
+        }) else {
+            continue;
+        };
         if let Some(mset) = pending.read().get(&resolved) {
             if mset.msgs.is_empty() {
                 continue;
@@ -291,7 +296,7 @@ where
             .await
             .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))?;
     }
-    let cur_ts = cur_tipset.read().clone();
+    let cur_ts = cur_tipset.read().shallow_clone();
     let mpool_ctx = MpoolCtx {
         api,
         key_cache,
@@ -339,8 +344,9 @@ impl<T: Provider> MpoolCtx<'_, T> {
             .get_mut(from)
             .and_then(|temp| temp.remove(&sequence))
             .is_none()
+            && let Ok(resolved) = resolve_to_key(self.api, self.key_cache, from, self.ts)
+                .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
         {
-            let resolved = resolve_to_key(self.api, self.key_cache, from, self.ts)?;
             remove(&resolved, self.pending, sequence, true)?;
         }
         Ok(())

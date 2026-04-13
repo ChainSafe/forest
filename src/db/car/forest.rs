@@ -66,7 +66,7 @@ use nunny::Vec as NonEmpty;
 use positioned_io::{Cursor, ReadAt, Size as _, SizeCursor};
 use std::io::{Seek, SeekFrom};
 use std::path::Path;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 use std::task::Poll;
 use std::{
     io,
@@ -97,7 +97,7 @@ pub struct ForestCar<ReaderT> {
     cache_key: CacheKey,
     indexed: index::Reader<index::ZstdSkipFramesEncodedDataReader<positioned_io::Slice<ReaderT>>>,
     index_size_bytes: u64,
-    frame_cache: Arc<ZstdFrameCache>,
+    frame_cache: ZstdFrameCache,
     header: CarV1Header,
     metadata: OnceLock<Option<FilecoinSnapshotMetadata>>,
 }
@@ -119,7 +119,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             cache_key: 0,
             indexed,
             index_size_bytes,
-            frame_cache: Arc::new(ZstdFrameCache::default()),
+            frame_cache: ZstdFrameCache::default(),
             header,
             metadata: OnceLock::new(),
         })
@@ -220,10 +220,10 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         })
     }
 
-    pub fn with_cache(self, cache: Arc<ZstdFrameCache>, key: CacheKey) -> Self {
+    pub fn with_cache(self, frame_cache: ZstdFrameCache, key: CacheKey) -> Self {
         Self {
             cache_key: key,
-            frame_cache: cache,
+            frame_cache,
             ..self
         }
     }

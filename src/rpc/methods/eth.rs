@@ -52,6 +52,7 @@ use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
+use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -1844,7 +1845,7 @@ where
     }
 
     while high < BLOCK_GAS_LIMIT {
-        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
+        if can_succeed(data, msg.clone(), prior_messages, ts.shallow_clone(), high).await? {
             break;
         }
         low = high;
@@ -1854,7 +1855,15 @@ where
     let mut check_threshold = high / 100;
     while (high - low) > check_threshold {
         let median = (high + low) / 2;
-        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), median).await? {
+        if can_succeed(
+            data,
+            msg.clone(),
+            prior_messages,
+            ts.shallow_clone(),
+            median,
+        )
+        .await?
+        {
             high = median;
         } else {
             low = median;
@@ -2073,7 +2082,7 @@ where
     };
 
     let api_invoc_result = 'invoc: {
-        for ts in ts.clone().chain(ctx.store()) {
+        for ts in ts.shallow_clone().chain(ctx.store()) {
             match ctx
                 .state_manager
                 .call_on_state(state_root, &message, Some(ts))
@@ -3378,7 +3387,7 @@ where
 {
     let (state_root, raw_traces) = {
         let sm = ctx.state_manager.clone();
-        let ts = ts.clone();
+        let ts = ts.shallow_clone();
         tokio::task::spawn_blocking(move || sm.execution_trace(&ts))
             .await
             .context("execution_trace task panicked")??
@@ -3510,7 +3519,7 @@ where
 
         let (pre_root, invoc_result, post_root) = ctx
             .state_manager
-            .replay_for_prestate(ts.clone(), message_cid)
+            .replay_for_prestate(ts.shallow_clone(), message_cid)
             .await
             .map_err(|e| anyhow::anyhow!("replay for prestate failed: {e}"))?;
 
@@ -3629,7 +3638,7 @@ impl RpcMethod<3> for EthTraceCall {
 
         let (invoke_result, post_state_root) = ctx
             .state_manager
-            .apply_on_state_with_gas(Some(ts.clone()), msg.clone(), VMFlush::Flush)
+            .apply_on_state_with_gas(Some(ts.shallow_clone()), msg.clone(), VMFlush::Flush)
             .await
             .context("failed to apply message")?;
         let post_state_root =

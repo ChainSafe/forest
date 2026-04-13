@@ -12,6 +12,7 @@ use crate::{
     shim::clock::ChainEpoch,
     state_manager::{ExecutedTipset, StateManager},
     tool::subcommands::api_cmd::generate_test_snapshot,
+    utils::ShallowClone as _,
 };
 use human_repr::HumanCount as _;
 use nonzero_ext::nonzero;
@@ -157,8 +158,12 @@ impl ReplayComputeCommand {
             crate::state_manager::utils::state_compute::prepare_state_compute(&chain, &snapshot)
                 .await?;
         for _ in 0..n.get() {
-            crate::state_manager::utils::state_compute::state_compute(&sm, ts.clone(), &ts_next)
-                .await?;
+            crate::state_manager::utils::state_compute::state_compute(
+                &sm,
+                ts.shallow_clone(),
+                &ts_next,
+            )
+            .await?;
         }
         Ok(())
     }

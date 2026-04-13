@@ -46,6 +46,7 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages};
 use crate::tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore;
+use crate::utils::ShallowClone as _;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
 use crate::utils::multihash::MultihashCode;
 use anyhow::{Context as _, bail};
@@ -584,7 +585,7 @@ pub async fn do_export(
 
     let seen = if let Some(diff) = diff {
         let diff_ts: Tipset = index
-            .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
+            .tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
@@ -845,7 +846,7 @@ async fn show_tipset_diff(
 
     let ExecutedTipset { state_root, .. } = apply_block_messages(
         timestamp,
-        Arc::new(chain_index),
+        chain_index,
         Arc::new(chain_config),
         beacon,
         &GLOBAL_MULTI_ENGINE,

@@ -17,6 +17,7 @@ use crate::db::{
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::rpc::eth::types::EthHash;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::ShallowClone;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::multihash::prelude::*;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
@@ -65,7 +66,7 @@ impl PartialEq for WithHeaviestEpoch {
 }
 
 pub struct ManyCar<WriterT = MemoryDB> {
-    shared_cache: Arc<ZstdFrameCache>,
+    shared_cache: ZstdFrameCache,
     read_only: Arc<RwLock<BinaryHeap<WithHeaviestEpoch>>>,
     writer: WriterT,
 }
@@ -73,7 +74,7 @@ pub struct ManyCar<WriterT = MemoryDB> {
 impl<WriterT> ManyCar<WriterT> {
     pub fn new(writer: WriterT) -> Self {
         ManyCar {
-            shared_cache: Arc::new(ZstdFrameCache::default()),
+            shared_cache: ZstdFrameCache::default(),
             read_only: Arc::new(RwLock::new(BinaryHeap::default())),
             writer,
         }
@@ -108,7 +109,7 @@ impl<WriterT> ManyCar<WriterT> {
 
         read_only.push(WithHeaviestEpoch::new(
             any_car
-                .with_cache(self.shared_cache.clone(), key)
+                .with_cache(self.shared_cache.shallow_clone(), key)
                 .into_dyn()?,
         )?);
 
