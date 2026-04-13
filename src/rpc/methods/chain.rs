@@ -1069,26 +1069,11 @@ impl ChainGetTipSetV2 {
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {
-        let Some(f3_finalized_head) = ctx.chain_store().f3_finalized_tipset() else {
-            return Self::get_ec_finalized_tipset(ctx);
-        };
-        let head = ctx.chain_store().heaviest_tipset();
-        // Latest F3 finalized tipset is older than EC finality, falling back to EC finality
-        if head.epoch() > f3_finalized_head.epoch() + ctx.chain_config().policy.chain_finality {
-            Self::get_ec_finalized_tipset(ctx)
+        if let Some(ts) = ChainGetTipSetFinalityStatus::get_finality_status(ctx).finalized_tip_set {
+            Ok(ts)
         } else {
-            Ok(f3_finalized_head)
+            crate::rpc::eth::tipset_resolver::get_fallback_ec_finalized_tipset(ctx.chain_store())
         }
-    }
-
-    pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
-        let head = ctx.chain_store().heaviest_tipset();
-        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
-        Ok(ctx.chain_index().tipset_by_height(
-            ec_finality_epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?)
     }
 
     pub async fn get_tipset(
@@ -1168,7 +1153,7 @@ impl ChainGetTipSetFinalityStatus {
         }
     }
 
-    fn get_ec_finality_threshold_depth_and_tipset_with_cache(
+    pub fn get_ec_finality_threshold_depth_and_tipset_with_cache(
         ctx: &Ctx<impl Blockstore>,
         head: Tipset,
     ) -> (i64, Option<Tipset>) {
