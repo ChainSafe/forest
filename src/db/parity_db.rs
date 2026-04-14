@@ -11,6 +11,7 @@ use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
 use crate::utils::{broadcast::has_subscribers, multihash::prelude::*};
 use anyhow::Context as _;
+use bytes::Bytes;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
@@ -83,7 +84,7 @@ impl DbColumn {
     }
 }
 
-type WriteOpsBroadcastTxSender = tokio::sync::broadcast::Sender<Vec<(Cid, bytes::Bytes)>>;
+type WriteOpsBroadcastTxSender = tokio::sync::broadcast::Sender<Vec<(Cid, Bytes)>>;
 
 pub struct ParityDb {
     pub db: parity_db::Db,
@@ -242,7 +243,7 @@ impl Blockstore for ParityDb {
         self.write_to_column(k.to_bytes(), block, column)?;
         match &*self.write_ops_broadcast_tx.read() {
             Some(tx) if has_subscribers(tx) => {
-                let _ = tx.send(vec![(*k, bytes::Bytes::copy_from_slice(block))]);
+                let _ = tx.send(vec![(*k, Bytes::copy_from_slice(block))]);
             }
             _ => {}
         }
@@ -263,7 +264,7 @@ impl Blockstore for ParityDb {
             let column = Self::choose_column(&k);
             let v = v.as_ref().to_vec();
             if has_subscribers {
-                values_for_subscriber.push((k, bytes::Bytes::copy_from_slice(&v)));
+                values_for_subscriber.push((k, Bytes::copy_from_slice(&v)));
             }
             (column, k.to_bytes(), v)
         });
@@ -372,7 +373,7 @@ impl ParityDb {
 }
 
 impl super::BlockstoreWriteOpsSubscribable for ParityDb {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>> {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, Bytes)>> {
         let tx_lock = self.write_ops_broadcast_tx.read();
         if let Some(tx) = &*tx_lock {
             return tx.subscribe();
@@ -557,7 +558,7 @@ mod test {
         for (idx, cid) in cids.iter().enumerate() {
             let data_entry = &data[idx];
             db.put_keyed(cid, data_entry).unwrap();
-            let expected = vec![(*cid, bytes::Bytes::copy_from_slice(data_entry))];
+            let expected = vec![(*cid, Bytes::copy_from_slice(data_entry))];
             assert_eq!(rx1.blocking_recv().unwrap(), expected);
             assert_eq!(rx2.blocking_recv().unwrap(), expected);
         }

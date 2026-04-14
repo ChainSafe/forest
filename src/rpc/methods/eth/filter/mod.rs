@@ -338,7 +338,7 @@ impl EthEventHandler {
                         }
                     };
 
-                    let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
+                    let entries: Vec<crate::shim::executor::Entry> = event.entries();
                     let matched = if let Some(spec) = spec {
                         spec.matches(&resolved, &entries)?
                     } else {
