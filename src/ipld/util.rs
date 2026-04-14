@@ -451,7 +451,6 @@ impl<DB: Blockstore> Stream for IpldStream<DB> {
                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                         let new_cids = extract_cids(&data)?;
                         if !new_cids.is_empty() {
-                            this.cid_vec.reserve(new_cids.len());
                             this.cid_vec.extend(new_cids);
                         }
                     }
