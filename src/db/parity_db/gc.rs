@@ -184,7 +184,7 @@ impl DBStatistics for GarbageCollectableParityDb {
 }
 
 impl BlockstoreWriteOpsSubscribable for GarbageCollectableParityDb {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, Vec<u8>)>> {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>> {
         BlockstoreWriteOpsSubscribable::subscribe_write_ops(&*self.db.read())
     }
 
