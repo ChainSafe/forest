@@ -71,7 +71,7 @@ pub struct SnapshotGarbageCollector<DB> {
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
     chain_follower: Arc<ChainFollower<DB>>,
     // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
-    memory_db: RwLock<Option<HashMap<Cid, Vec<u8>>>>,
+    memory_db: RwLock<Option<HashMap<Cid, bytes::Bytes>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
     exported_head_key: RwLock<Option<TipsetKey>>,
     trigger_tx: flume::Sender<()>,
