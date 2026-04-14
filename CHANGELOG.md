@@ -55,6 +55,8 @@
 
 - [#6856](https://github.com/ChainSafe/forest/pull/6856): Return ethereum compatible error `BlockRangeExceeded` with code `-32005` when block range exceeds in the eth filter and logs API.
 
+- [`#6893`](https://github.com/ChainSafe/forest/issues/6893): Fixed occasional lock contention during tipset validation.
+
 ## Forest v0.32.4 "Mild Inconvenience"
 
 This is a non-mandatory release for all node operators. It enables F3 finality resolution on ETH v1 RPC methods.

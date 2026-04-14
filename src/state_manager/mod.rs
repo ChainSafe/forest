@@ -75,7 +75,6 @@ use itertools::Itertools as _;
 use nonzero_ext::nonzero;
 use num::BigInt;
 use num_traits::identities::Zero;
-use rayon::prelude::ParallelBridge;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
@@ -1645,8 +1644,10 @@ where
 
     /// Validates all tipsets at epoch `start..=end` behind the heaviest tipset.
     ///
-    /// This spawns [`rayon::current_num_threads`] threads to do the compute-heavy work
-    /// of tipset validation.
+    /// Tipsets are processed sequentially. The compute-intensive work inside each
+    /// tipset (`bellperson` proof verification, FVM batch seal verification, etc.)
+    /// is already heavily rayon-parallelized. Parallelizing the outer loop actually introduces
+    /// some issues due to locks in the aforementioned crates. So don't do it.
     ///
     /// # What is validation?
     /// Every state transition returns a new _state root_, which is typically retained in, e.g., snapshots.
@@ -1662,10 +1663,6 @@ where
     /// - assert that they match
     ///
     /// See [`Self::compute_tipset_state_blocking`] for an explanation of state transitions.
-    ///
-    /// # Known issues
-    /// This function is blocking, but we do observe threads waiting and synchronizing.
-    /// This is suspected to be due something in the VM or its `WASM` runtime.
     #[tracing::instrument(skip(self))]
     pub fn validate_range(&self, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
         let heaviest = self.heaviest_tipset();
@@ -1852,44 +1849,42 @@ where
     DB: Blockstore + Send + Sync + 'static,
     T: Iterator<Item = Tipset> + Send,
 {
-    use rayon::iter::ParallelIterator as _;
-    tipsets
-        .tuple_windows()
-        .par_bridge()
-        .try_for_each(|(child, parent)| {
-            info!(height = parent.epoch(), "compute parent state");
-            let ExecutedTipset {
-                state_root: actual_state,
-                receipt_root: actual_receipt,
-                ..
-            } = apply_block_messages(
-                genesis_timestamp,
-                chain_index.shallow_clone(),
-                chain_config.shallow_clone(),
-                beacon.shallow_clone(),
-                engine,
-                parent,
-                NO_CALLBACK,
-                VMTrace::NotTraced,
-            )
-            .context("couldn't compute tipset state")?;
-            let expected_receipt = child.min_ticket_block().message_receipts;
-            let expected_state = child.parent_state();
-            match (expected_state, expected_receipt) == (&actual_state, actual_receipt) {
-                true => Ok(()),
-                false => {
-                    error!(
-                        height = child.epoch(),
-                        ?expected_state,
-                        ?expected_receipt,
-                        ?actual_state,
-                        ?actual_receipt,
-                        "state mismatch"
-                    );
-                    bail!("state mismatch");
-                }
-            }
-        })
+    // Validate one tipset at a time. Parallelizing the outer loop across tipsets
+    // might wedge the global rayon pool.
+    // Sequential outer iteration leaves the entire rayon pool free for that
+    // already-rich inner parallelism.
+    for (child, parent) in tipsets.tuple_windows() {
+        info!(height = parent.epoch(), "compute parent state");
+        let ExecutedTipset {
+            state_root: actual_state,
+            receipt_root: actual_receipt,
+            ..
+        } = apply_block_messages(
+            genesis_timestamp,
+            chain_index.shallow_clone(),
+            chain_config.shallow_clone(),
+            beacon.shallow_clone(),
+            engine,
+            parent,
+            NO_CALLBACK,
+            VMTrace::NotTraced,
+        )
+        .context("couldn't compute tipset state")?;
+        let expected_receipt = child.min_ticket_block().message_receipts;
+        let expected_state = child.parent_state();
+        if (expected_state, expected_receipt) != (&actual_state, actual_receipt) {
+            error!(
+                height = child.epoch(),
+                ?expected_state,
+                ?expected_receipt,
+                ?actual_state,
+                ?actual_receipt,
+                "state mismatch"
+            );
+            bail!("state mismatch");
+        }
+    }
+    Ok(())
 }
 
 /// Shared context for creating VMs and preparing tipset state.
