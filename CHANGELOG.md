@@ -29,6 +29,18 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.33.0 "Patroclus"
+
+Non-mandatory release with a couple of larger internal changes, especially around mempool and garbage collection. It also includes support for the new finality resolution mechanism. Also, a couple of fixes!
+
+### Added
+
 - [#6871](https://github.com/ChainSafe/forest/pull/6871): Added `--force` to `forest-cli state compute`.
 
 - [#6811](https://github.com/ChainSafe/forest/pull/6811): Added v2 RPC method `Filecoin.ChainGetTipSetFinalityStatus`.
@@ -42,8 +54,6 @@
 - [#6821](https://github.com/ChainSafe/forest/pull/6821): Added message receipt size and event size to `forest-tool archive info` output.
 
 - [#6830](https://github.com/ChainSafe/forest/pull/6830): Make base fee FIP-0115 activation configurable via `FOREST_FEES_FIP0115HEIGHT` environment variable. The FIP will NOT be automatically activated on the next network upgrade with this change, for now.
-
-### Removed
 
 ### Fixed
 
