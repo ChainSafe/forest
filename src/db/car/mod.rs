@@ -8,7 +8,7 @@ pub mod plain;
 pub use any::AnyCar;
 pub use forest::ForestCar;
 use get_size2::GetSize as _;
-pub use many::ManyCar;
+pub use many::{ManyCar, ReloadableManyCar};
 pub use plain::PlainCar;
 
 use cid::Cid;

@@ -94,12 +94,12 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
     }
 
     /// Discard reader type and replace with dynamic trait object.
-    pub fn into_dyn(self) -> Result<AnyCar<Box<dyn super::RandomAccessFileReader>>> {
-        Ok(match self {
-            AnyCar::Forest(f) => AnyCar::Forest(f.into_dyn()?),
+    pub fn into_dyn(self) -> AnyCar<Box<dyn super::RandomAccessFileReader>> {
+        match self {
+            AnyCar::Forest(f) => AnyCar::Forest(f.into_dyn()),
             AnyCar::Plain(p) => AnyCar::Plain(p.into_dyn()),
             AnyCar::Memory(m) => AnyCar::Memory(m),
-        })
+        }
     }
 
     /// Set the z-frame cache of the inner CAR reader.

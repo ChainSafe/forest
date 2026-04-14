@@ -116,6 +116,14 @@ where
         &self.cache
     }
 
+    pub fn remove<Q>(&self, k: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.cache.write().remove(k)
+    }
+
     pub fn push(&self, k: K, v: V) -> Option<V> {
         self.cache.write().insert(k, v)
     }
@@ -154,6 +162,10 @@ where
 
     pub fn cap(&self) -> usize {
         self.cache.read().capacity()
+    }
+
+    pub fn clear(&self) {
+        self.cache.write().clear()
     }
 
     pub(crate) fn size_in_bytes(&self) -> usize {

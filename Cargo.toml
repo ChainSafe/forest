@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.32.4"
+version = "0.33.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -251,7 +251,6 @@ ariadne = "0.6"
 assert_cmd = "2"
 bimap = "0.6"
 cargo_metadata = "0.23"
-cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
 criterion = { version = "0.8", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"

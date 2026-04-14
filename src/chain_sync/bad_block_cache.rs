@@ -43,6 +43,10 @@ impl BadBlockCache {
     pub fn peek(&self, c: &Cid) -> Option<()> {
         self.cache.peek_cloned(&(*c).into())
     }
+
+    pub fn clear(&self) {
+        self.cache.clear()
+    }
 }
 
 /// Thread-safe LRU cache for tracking recently seen gossip block CIDs.
