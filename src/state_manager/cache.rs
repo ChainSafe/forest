@@ -135,6 +135,13 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
             inner.values.push(key, value);
         });
     }
+
+    pub fn remove(&self, key: &TipsetKey) {
+        self.with_inner(|inner| {
+            inner.pending.retain(|(k, _)| k != key);
+            inner.values.remove(key);
+        });
+    }
 }
 
 #[cfg(test)]

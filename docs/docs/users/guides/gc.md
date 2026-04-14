@@ -21,10 +21,8 @@ GC can be trigger manually with `forest-cli chain prune snap`, regardless whethe
 Garbage Collection (GC) runs on a regular schedule and follows these steps:
 
 - Export an effective standard lite snapshot in `.forest.car.zst` format.
-- Stop the node.
 - Purge parity-db columns that serve as non-persistent blockstore.
 - Purge old CAR database files.
-- Restart the node.
 
 This process keeps the system clean by regularly removing old, unused data.
 
@@ -67,7 +65,6 @@ While GC runs in the background, it can cause some delays or pauses, particularl
 
 - **Syncing Pauses**: There may be brief interruptions in syncing as resources are allocated for the GC process.
 - **Performance Overhead**: While relatively efficient, the chain traversal algorithm could slow down operations slightly.
-- **Reboot pauses**: The GC stops the node before cleaning up parity-db and CAR snapshots and then restarts the node, which could take `~10s-~30s` on mainnet
 
 ## Disk Usage
 
