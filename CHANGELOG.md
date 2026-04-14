@@ -37,6 +37,8 @@
 
 ### Changed
 
+- [#6897](https://github.com/ChainSafe/forest/pull/6897): Integrated EC finality into Eth RPC methods.
+
 - [#6821](https://github.com/ChainSafe/forest/pull/6821): Added message receipt size and event size to `forest-tool archive info` output.
 
 - [#6830](https://github.com/ChainSafe/forest/pull/6830): Make base fee FIP-0115 activation configurable via `FOREST_FEES_FIP0115HEIGHT` environment variable. The FIP will NOT be automatically activated on the next network upgrade with this change, for now.

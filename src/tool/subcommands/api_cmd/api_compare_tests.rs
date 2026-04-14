@@ -490,6 +490,7 @@ fn chain_tests(offline: bool) -> Vec<RpcTest> {
         } else {
             RpcTest::identity(ChainGetTipSetFinalityStatus::request(()).unwrap())
         },
+        RpcTest::basic(ChainGetFinalizedTipset::request(()).unwrap()),
     ]
 }
 
@@ -567,7 +568,6 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             .clone()
             .into(),))?),
         RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
-        RpcTest::basic(ChainGetFinalizedTipset::request(())?),
     ];
 
     if !offline {
