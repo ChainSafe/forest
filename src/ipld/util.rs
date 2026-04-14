@@ -450,9 +450,7 @@ impl<DB: Blockstore> Stream for IpldStream<DB> {
                 if let Some(data) = this.db.get(&cid)? {
                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                         let new_cids = extract_cids(&data)?;
-                        if !new_cids.is_empty() {
-                            this.cid_vec.extend(new_cids);
-                        }
+                        this.cid_vec.extend(new_cids);
                     }
                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                 } else {
