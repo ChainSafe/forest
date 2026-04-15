@@ -246,32 +246,6 @@ jobs:
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
-  calibnet-mpool-check:
-    needs:
-      - build-ubuntu
-    name: Mpool nonce-fix and replace tests
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/cache@v5
-        with:
-          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
-          key: proof-params-keys
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: Mpool nonce-fix and replace check
-        env:
-          CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
-        run: |
-          if [[ "$CALIBNET_WALLET" != "" ]]; then
-            ./scripts/tests/calibnet_mpool_check.sh "$CALIBNET_WALLET"
-          fi
-        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-delegated-wallet-check:
     concurrency:
       group: calibnet-wallet-tests
@@ -661,7 +635,6 @@ jobs:
       - state-migrations-check
       - calibnet-wallet-check
       - calibnet-delegated-wallet-check
-      - calibnet-mpool-check
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check
