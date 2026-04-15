@@ -1,5 +1,6 @@
-# This workflows, run daily, updates the Forest CLI usage docs, and submits a PR with the changes.
-name: Update Forest usage docs
+# This workflow, run daily, updates the Forest CLI usage docs and the Forest RPC reference docs,
+# and submits a separate PR for each.
+name: Update Forest docs
 permissions:
   contents: read
 
@@ -9,7 +10,7 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
-  update-docs:
+  update-cli-docs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
@@ -37,3 +38,33 @@ jobs:
           body: |
             ### Changes
             - Updates Forest CLI docs to the latest commit in the `main` branch.
+
+  update-rpc-docs:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - name: Generate OpenRPC specifications
+        run: |
+          cd docs/scripts
+          ./generate-openrpc-specs.sh docker
+      # This is needed in order to have the commits signed.
+      - uses: actions/create-github-app-token@v3
+        id: generate-token
+        with:
+          app-id: ${{ secrets.LESHY_APP_ID }}
+          private-key: ${{ secrets.LESHY_APP_PRIVATE_KEY }}
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          base: main
+          branch: leshy/update-forest-rpc-docs
+          token: ${{ steps.generate-token.outputs.token }}
+          commit-message: Update Forest RPC reference docs
+          sign-commits: true
+          title: "[automated] Update Forest RPC reference docs"
+          add-paths: |
+            docs/openrpc-specs/
+          body: |
+            ### Changes
+            - Updates Forest RPC reference docs to the latest commit in the `main` branch.
+            - Regenerates OpenRPC specifications (v0, v1, v2) from latest Forest code.
