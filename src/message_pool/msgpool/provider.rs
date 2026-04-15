@@ -103,7 +103,7 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
     }
 
     /// Resolves an address to its deterministic key form using the state at
-    /// finality lookback, This ensures the resolved address is reorg-stable.
+    /// finality look-back, This ensures the resolved address is reorg-stable.
     fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
         match addr.protocol() {
             BLS | Secp256k1 | Delegated => return Ok(*addr),
