@@ -107,11 +107,9 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
     fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
         match addr.protocol() {
             BLS | Secp256k1 | Delegated => Ok(*addr),
-            Actor => {
-                Err(Error::Other(
-                    "Cannot resolve actor address to key address".into(),
-                ))
-            }
+            Actor => Err(Error::Other(
+                "Cannot resolve actor address to key address".into(),
+            )),
             _ => {
                 let lookback_ts = if ts.epoch() > self.chain_config().policy.chain_finality {
                     self.chain_index()
