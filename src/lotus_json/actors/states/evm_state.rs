@@ -215,12 +215,12 @@ impl HasLotusJson for State {
             };
         }
 
-        convert_evm_state!(V10, V11, V12, V13, V14, V15, V16, V17)
+        convert_evm_state!(V10, V11, V12, V13, V14, V15, V16, V17, V18)
     }
 
     // Always return the latest version when deserializing
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        let latest_state = fil_actor_evm_state::v17::State::from_lotus_json(lotus_json);
+        let latest_state = fil_actor_evm_state::v18::State::from_lotus_json(lotus_json);
         State::default_latest_version(
             latest_state.bytecode,
             latest_state.bytecode_hash.into(),
@@ -237,4 +237,4 @@ crate::test_snapshots!(State);
 impl_evm_state_lotus_json!(no_transient_data: 10, 11, 12, 13, 14, 15);
 
 // Implement for versions with transient_data (v16+)
-impl_evm_state_lotus_json!(with_transient_data: 16, 17);
+impl_evm_state_lotus_json!(with_transient_data: 16, 17, 18);

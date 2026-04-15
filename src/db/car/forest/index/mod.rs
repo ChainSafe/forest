@@ -186,12 +186,12 @@ where
     /// Replace the inner reader.
     /// It MUST point to the same underlying IO, else future calls to `get`
     /// will be incorrect.
-    pub fn map<T>(self, f: impl FnOnce(R) -> io::Result<T>) -> io::Result<Reader<T>> {
-        Ok(Reader {
-            inner: f(self.inner)?,
+    pub fn map<T>(self, f: impl FnOnce(R) -> T) -> Reader<T> {
+        Reader {
+            inner: f(self.inner),
             table_offset: self.table_offset,
             header: self.header,
-        })
+        }
     }
 }
 
@@ -201,7 +201,7 @@ pub struct ZstdSkipFramesEncodedDataReader<R> {
 }
 
 impl<R: ReadAt> ZstdSkipFramesEncodedDataReader<R> {
-    pub fn new(reader: R) -> io::Result<Self> {
+    pub fn new(reader: R) -> Self {
         let mut offset = 0;
         let mut skip_frame_header_offsets = vec![];
         while let Ok(data_len) = reader
@@ -210,10 +210,10 @@ impl<R: ReadAt> ZstdSkipFramesEncodedDataReader<R> {
             skip_frame_header_offsets.push(offset);
             offset += ZSTD_SKIP_FRAME_LEN + u64::from(data_len);
         }
-        Ok(Self {
+        Self {
             reader,
             skip_frame_header_offsets,
-        })
+        }
     }
 
     pub fn inner(&self) -> &R {
@@ -796,8 +796,8 @@ mod tests {
     use super::*;
     use ahash::{HashMap, HashSet};
     use cid::Cid;
-    use futures::executor::block_on;
     use tap::Tap as _;
+    use tokio_test::block_on;
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
     fn do_hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
@@ -818,8 +818,7 @@ mod tests {
                         }
                     })?;
                     Ok(())
-                }))
-                .unwrap();
+                }));
             if multi_index_frame {
                 assert!(!r.skip_frame_header_offsets.is_empty());
             } else {
@@ -858,8 +857,7 @@ mod tests {
                     }
                 })?;
                 Ok(())
-            }))
-            .unwrap();
+            }));
             if multi_index_frame {
                 assert!(!r.skip_frame_header_offsets.is_empty());
             } else {

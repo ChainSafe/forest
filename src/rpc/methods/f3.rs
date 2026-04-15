@@ -15,7 +15,6 @@ pub use self::types::{
 };
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
-use crate::shim::actors::{miner, power};
 use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
@@ -28,11 +27,12 @@ use crate::{
     lotus_json::{HasLotusJson as _, LotusJson},
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
     shim::{
+        actors::{miner, power},
         address::{Address, Protocol},
         clock::ChainEpoch,
         crypto::Signature,
     },
-    utils::misc::env::is_env_set_and_truthy,
+    utils::{ShallowClone, misc::env::is_env_set_and_truthy},
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
@@ -174,7 +174,7 @@ impl GetPowerTable {
         });
         let db = BlockstoreWithReadCache::new(
             ctx.store_owned(),
-            BLOCKSTORE_CACHE.clone(),
+            BLOCKSTORE_CACHE.shallow_clone(),
             Some(DefaultBlockstoreReadCacheStats::default()),
         );
 
@@ -405,6 +405,9 @@ impl GetPowerTable {
             power::State::V17(s) => {
                 handle_miner_state_v12_on!(v17, id_power_worker_mappings, &ts, s, &policy.into());
             }
+            power::State::V18(s) => {
+                handle_miner_state_v12_on!(v18, id_power_worker_mappings, &ts, s, &policy.into());
+            }
         }
         let mut power_entries = vec![];
         for (id, power, worker) in id_power_worker_mappings {
@@ -534,7 +537,7 @@ impl RpcMethod<1> for Finalize {
                 .chain_exchange_headers(None, &tsk, nonzero!(1_u64))
                 .await?
                 .first()
-                .cloned()
+                .map(ShallowClone::shallow_clone)
                 .with_context(|| format!("failed to get tipset via chain exchange. tsk: {tsk}"))?,
         };
         let head = ctx.chain_store().heaviest_tipset();
@@ -575,7 +578,7 @@ impl RpcMethod<1> for Finalize {
                 let ts = Arc::new(Tipset::from(fts));
                 ctx.chain_store().put_tipset(&ts)?;
                 ctx.chain_store()
-                    .set_heaviest_tipset(finalized_ts.clone())?;
+                    .set_heaviest_tipset(finalized_ts.shallow_clone())?;
             }
             ctx.chain_store().set_f3_finalized_tipset(finalized_ts);
         }

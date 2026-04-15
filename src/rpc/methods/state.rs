@@ -41,10 +41,11 @@ use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
-use crate::state_manager::ExecutedTipset;
+use crate::state_manager::{ExecutedTipset, NO_CALLBACK};
 use crate::state_manager::{
     MarketBalance, StateManager, circulating_supply::GenesisInfo, utils::structured,
 };
+use crate::utils::ShallowClone as _;
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
     beacon::BeaconEntry,
@@ -504,6 +505,24 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                         &store,
                         &state.address_map,
                         fil_actors_shared::v17::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )
+                    .context("Failed to load address map")?;
+                    map.for_each(|addr, v| {
+                        if *v == id_addr_decoded {
+                            robust_addr = addr.into();
+                            return Ok(());
+                        }
+                        Ok(())
+                    })
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
+                }
+                init::State::V18(state) => {
+                    let map = fil_actor_init_state::v18::AddressMap::load(
+                        &store,
+                        &state.address_map,
+                        fil_actors_shared::v18::DEFAULT_HAMT_CONFIG,
                         "address_map",
                     )
                     .context("Failed to load address map")?;
@@ -993,6 +1012,10 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
         let actor_balance: TokenAmount = actor.balance.clone().into();
         let (vested, available): (TokenAmount, TokenAmount) = match &state {
+            miner::State::V18(s) => (
+                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.get_available_balance(&actor_balance.into())?.into(),
+            ),
             miner::State::V17(s) => (
                 s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
@@ -1523,21 +1546,25 @@ impl RpcMethod<2> for StateFetchRoot {
 
 pub enum ForestStateCompute {}
 
-impl RpcMethod<2> for ForestStateCompute {
+impl RpcMethod<3> for ForestStateCompute {
     const NAME: &'static str = "Forest.StateCompute";
     const N_REQUIRED_PARAMS: usize = 1;
-    const PARAM_NAMES: [&'static str; 2] = ["epoch", "n_epochs"];
+    const PARAM_NAMES: [&'static str; 3] = ["epoch", "n_epochs", "force_recompute"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Forest-specific RPC method that recomputes tipset state over an epoch range. It reuses cached executed tipsets only when the cached state root is loadable; otherwise it recomputes. Unlike Filecoin.StateCompute, it does not apply caller-supplied messages or return execution traces.",
+    );
 
-    type Params = (ChainEpoch, Option<NonZeroUsize>);
+    type Params = (ChainEpoch, Option<NonZeroUsize>, Option<bool>);
     type Ok = Vec<ForestComputeStateOutput>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (from_epoch, n_epochs): Self::Params,
+        (from_epoch, n_epochs, force_recompute): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let force_recompute = force_recompute.unwrap_or_default();
         let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
         let to_epoch = from_epoch + n_epochs - 1;
         let to_ts = ctx.chain_index().tipset_by_height(
@@ -1548,11 +1575,11 @@ impl RpcMethod<2> for ForestStateCompute {
         let from_ts = if from_epoch >= to_ts.epoch() {
             // When `from_epoch` is a null epoch or `n_epochs` is 1,
             // `to_ts.epoch()` could be less than or equal to `from_epoch`
-            to_ts.clone()
+            to_ts.shallow_clone()
         } else {
             ctx.chain_index().tipset_by_height(
                 from_epoch,
-                to_ts.clone(),
+                to_ts.shallow_clone(),
                 ResolveNullTipset::TakeOlder,
             )?
         };
@@ -1563,7 +1590,7 @@ impl RpcMethod<2> for ForestStateCompute {
             .take_while(|ts| ts.epoch() >= from_ts.epoch())
         {
             let chain_store = ctx.chain_store().clone();
-            let network_context = ctx.sync_network_context.clone();
+            let network_context = ctx.sync_network_context.shallow_clone();
             futures.push_front(async move {
                 if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
                     // Backfill full tipset from the network
@@ -1589,10 +1616,26 @@ impl RpcMethod<2> for ForestStateCompute {
         while let Some(ts) = futures.try_next().await? {
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
+            if !force_recompute {
+                let ExecutedTipset { state_root, .. } =
+                    ctx.state_manager.load_executed_tipset(&ts).await?;
+                // Verify the state tree is loadable as the root CID could present due to some bad or wrong diff snapshot import
+                if StateTree::new_from_root(ctx.store_owned(), &state_root).is_ok() {
+                    results.push(ForestComputeStateOutput {
+                        state_root,
+                        epoch,
+                        tipset_key,
+                    });
+                    continue;
+                }
+            }
+
             let ExecutedTipset { state_root, .. } = ctx
                 .state_manager
-                .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
+                .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
                 .await?;
+            // Verify the result state tree
+            StateTree::new_from_root(ctx.store_owned(), &state_root).with_context(|| format!("failed to load the result state tree, root: {state_root}, epoch: {epoch}, tipset key: {tipset_key}"))?;
             results.push(ForestComputeStateOutput {
                 state_root,
                 epoch,
@@ -2329,6 +2372,20 @@ impl StateSectorPreCommitInfo {
                     })
                     .context("failed to iterate over precommitted sectors")
             }
+            miner::State::V18(s) => {
+                let precommitted = fil_actor_miner_state::v18::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v18::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
         }?;
 
         Ok(sectors)
@@ -2462,6 +2519,20 @@ impl StateSectorPreCommitInfo {
                     store,
                     &s.pre_committed_sectors,
                     fil_actor_miner_state::v17::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V18(s) => {
+                let precommitted = fil_actor_miner_state::v18::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v18::PRECOMMIT_CONFIG,
                     "precommits",
                 )?;
                 precommitted
@@ -2653,7 +2724,7 @@ impl RpcMethod<3> for StateListMessages {
         }
 
         let mut out = Vec::new();
-        let mut cur_ts = ts.clone();
+        let mut cur_ts = ts.shallow_clone();
 
         while cur_ts.epoch() >= max_height {
             let msgs = ctx.chain_store().messages_for_tipset(&cur_ts)?;
@@ -2937,6 +3008,18 @@ impl StateGetAllocations {
                         store,
                         &s.address_map,
                         fil_actors_shared::v17::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
+                init::State::V18(s) => {
+                    let map = fil_actor_init_state::v18::AddressMap::load(
+                        store,
+                        &s.address_map,
+                        fil_actors_shared::v18::DEFAULT_HAMT_CONFIG,
                         "address_map",
                     )?;
                     map.for_each(|_k, v| {

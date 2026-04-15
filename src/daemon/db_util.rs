@@ -10,6 +10,7 @@ use crate::networks::ChainConfig;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
+use crate::utils::ShallowClone as _;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::net::{DownloadFileOption, download_to};
@@ -390,7 +391,7 @@ where
     match spec {
         RangeSpec::To(to_epoch) => {
             for ts in head_ts
-                .clone()
+                .shallow_clone()
                 .chain(&state_manager.chain_store().blockstore())
                 .take_while(|ts| ts.epoch() >= to_epoch)
             {
@@ -400,7 +401,7 @@ where
         }
         RangeSpec::NumTipsets(n_tipsets) => {
             for ts in head_ts
-                .clone()
+                .shallow_clone()
                 .chain(&state_manager.chain_store().blockstore())
                 .take(n_tipsets)
             {

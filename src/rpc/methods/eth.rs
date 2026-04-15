@@ -6,7 +6,7 @@ mod eth_tx;
 pub mod filter;
 pub mod pubsub;
 pub(crate) mod pubsub_trait;
-mod tipset_resolver;
+pub mod tipset_resolver;
 pub(crate) mod trace;
 pub mod types;
 mod utils;
@@ -52,6 +52,7 @@ use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
+use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -1844,7 +1845,7 @@ where
     }
 
     while high < BLOCK_GAS_LIMIT {
-        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
+        if can_succeed(data, msg.clone(), prior_messages, ts.shallow_clone(), high).await? {
             break;
         }
         low = high;
@@ -1854,7 +1855,15 @@ where
     let mut check_threshold = high / 100;
     while (high - low) > check_threshold {
         let median = (high + low) / 2;
-        if can_succeed(data, msg.clone(), prior_messages, ts.clone(), median).await? {
+        if can_succeed(
+            data,
+            msg.clone(),
+            prior_messages,
+            ts.shallow_clone(),
+            median,
+        )
+        .await?
+        {
             high = median;
         } else {
             low = median;
@@ -2073,7 +2082,7 @@ where
     };
 
     let api_invoc_result = 'invoc: {
-        for ts in ts.clone().chain(ctx.store()) {
+        for ts in ts.shallow_clone().chain(ctx.store()) {
             match ctx
                 .state_manager
                 .call_on_state(state_root, &message, Some(ts))
@@ -3161,11 +3170,20 @@ impl RpcMethod<1> for EthGetLogs {
     ) -> Result<Self::Ok, ServerError> {
         let pf = ctx
             .eth_event_handler
-            .parse_eth_filter_spec(&ctx, &eth_filter)?;
+            .parse_eth_filter_spec(&ctx, &eth_filter)
+            .map_err(|e| {
+                if e.downcast_ref::<EthErrors>()
+                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::BlockRangeExceeded { .. }))
+                {
+                    return e;
+                }
+                e.context("failed to parse events for filter")
+            })?;
         let events = ctx
             .eth_event_handler
             .get_events_for_parsed_filter(&ctx, &pf, SkipEvent::OnUnresolvedAddress)
-            .await?;
+            .await
+            .context("failed to get events for filter")?;
         Ok(eth_filter_result_from_events(&ctx, &events)?)
     }
 }
@@ -3369,7 +3387,7 @@ where
 {
     let (state_root, raw_traces) = {
         let sm = ctx.state_manager.clone();
-        let ts = ts.clone();
+        let ts = ts.shallow_clone();
         tokio::task::spawn_blocking(move || sm.execution_trace(&ts))
             .await
             .context("execution_trace task panicked")??
@@ -3501,7 +3519,7 @@ where
 
         let (pre_root, invoc_result, post_root) = ctx
             .state_manager
-            .replay_for_prestate(ts.clone(), message_cid)
+            .replay_for_prestate(ts.shallow_clone(), message_cid)
             .await
             .map_err(|e| anyhow::anyhow!("replay for prestate failed: {e}"))?;
 
@@ -3620,7 +3638,7 @@ impl RpcMethod<3> for EthTraceCall {
 
         let (invoke_result, post_state_root) = ctx
             .state_manager
-            .apply_on_state_with_gas(Some(ts.clone()), msg.clone(), VMFlush::Flush)
+            .apply_on_state_with_gas(Some(ts.shallow_clone()), msg.clone(), VMFlush::Flush)
             .await
             .context("failed to apply message")?;
         let post_state_root =
@@ -3858,6 +3876,14 @@ impl RpcMethod<1> for EthTraceFilter {
         .await
         .context("cannot parse toBlock")?;
 
+        let max_block_range = ctx.eth_event_handler.max_filter_height_range;
+        if max_block_range > 0 && to_block.0 > from_block.0 {
+            let range = i64::try_from(to_block.0.saturating_sub(from_block.0))
+                .context("block range overflow")?;
+            if range > max_block_range {
+                return Err(EthErrors::limit_exceeded(max_block_range, range).into());
+            }
+        }
         Ok(trace_filter(ctx, filter, from_block, to_block, ext).await?)
     }
 }

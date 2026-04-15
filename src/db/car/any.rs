@@ -16,10 +16,11 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Either;
 use positioned_io::ReadAt;
-use std::borrow::Cow;
-use std::io::{Error, ErrorKind, Read, Result};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::{
+    borrow::Cow,
+    io::{Error, ErrorKind, Read, Result},
+    path::{Path, PathBuf},
+};
 
 #[derive(derive_more::From)]
 pub enum AnyCar<ReaderT> {
@@ -93,16 +94,16 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
     }
 
     /// Discard reader type and replace with dynamic trait object.
-    pub fn into_dyn(self) -> Result<AnyCar<Box<dyn super::RandomAccessFileReader>>> {
-        Ok(match self {
-            AnyCar::Forest(f) => AnyCar::Forest(f.into_dyn()?),
+    pub fn into_dyn(self) -> AnyCar<Box<dyn super::RandomAccessFileReader>> {
+        match self {
+            AnyCar::Forest(f) => AnyCar::Forest(f.into_dyn()),
             AnyCar::Plain(p) => AnyCar::Plain(p.into_dyn()),
             AnyCar::Memory(m) => AnyCar::Memory(m),
-        })
+        }
     }
 
     /// Set the z-frame cache of the inner CAR reader.
-    pub fn with_cache(self, cache: Arc<ZstdFrameCache>, key: CacheKey) -> Self {
+    pub fn with_cache(self, cache: ZstdFrameCache, key: CacheKey) -> Self {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.with_cache(cache, key)),
             AnyCar::Plain(p) => AnyCar::Plain(p),

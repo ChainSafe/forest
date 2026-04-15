@@ -14,6 +14,7 @@
 //! - **Event Filter**: Captures blockchain events, such as smart contract log events, emitted by specific actors.
 //! - **TipSet Filter**: Tracks changes in the blockchain's tipset (the latest set of blocks).
 //! - **Mempool Filter**: Monitors the Ethereum mempool for new pending transactions that meet certain criteria.
+
 pub mod event;
 pub mod mempool;
 mod store;
@@ -28,6 +29,7 @@ use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
 use crate::rpc::eth::EVM_WORD_LENGTH;
+use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
@@ -43,6 +45,7 @@ use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Error, anyhow, bail, ensure};
 use cid::Cid;
+use futures::{TryStreamExt as _, stream::FuturesOrdered};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
@@ -260,6 +263,33 @@ impl EthEventHandler {
         )
     }
 
+    pub async fn collect_events_for_tipsets<DB: Blockstore + Send + Sync + 'static>(
+        ctx: &Ctx<DB>,
+        tipsets: impl Iterator<Item = Tipset>,
+        spec: Option<&impl Matcher>,
+        skip_event: SkipEvent,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let mut tasks = FuturesOrdered::new();
+        for tipset in tipsets {
+            tasks.push_back(async move {
+                let mut events = vec![];
+                Self::collect_events(ctx, &tipset, spec, skip_event, &mut events).await?;
+                anyhow::Ok(events)
+            });
+        }
+        let max_filter_results = ctx.eth_event_handler.max_filter_results;
+        while let Some(events) = tasks.try_next().await? {
+            let remaining = max_filter_results.saturating_sub(collected_events.len());
+            ensure!(
+                events.len() <= remaining,
+                "filter matches too many events (maximum {max_filter_results}), try a more restricted filter"
+            );
+            collected_events.extend(events);
+        }
+        Ok(())
+    }
+
     pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Tipset,
@@ -267,6 +297,7 @@ impl EthEventHandler {
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
+        let max_filter_results = ctx.eth_event_handler.max_filter_results;
         let height = tipset.epoch();
         let tipset_key = tipset.key();
         let ExecutedTipset {
@@ -307,7 +338,7 @@ impl EthEventHandler {
                         }
                     };
 
-                    let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
+                    let entries: Vec<crate::shim::executor::Entry> = event.entries();
                     let matched = if let Some(spec) = spec {
                         spec.matches(&resolved, &entries)?
                     } else {
@@ -337,9 +368,10 @@ impl EthEventHandler {
                             msg_idx: msg_idx as u64,
                             msg_cid: message.cid(),
                         };
-                        if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
-                            bail!("filter matches too many events, try a more restricted filter");
-                        }
+                        ensure!(
+                            collected_events.len() <= max_filter_results,
+                            "filter matches too many events (maximum {max_filter_results} allowed), try a more restricted filter"
+                        );
                         collected_events.push(ce);
                     }
                 }
@@ -398,19 +430,22 @@ impl EthEventHandler {
                 } else {
                     *range.end()
                 };
-
                 let max_tipset = ctx.chain_index().tipset_by_height(
                     max_height,
                     ctx.chain_store().heaviest_tipset(),
                     ResolveNullTipset::TakeOlder,
                 )?;
-                for tipset in max_tipset
-                    .chain(&ctx.store())
-                    .take_while(|ts| ts.epoch() >= *range.start())
-                {
-                    Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
-                        .await?;
-                }
+                let tipsets = max_tipset
+                    .chain(ctx.store())
+                    .take_while(|ts| ts.epoch() >= *range.start());
+                Self::collect_events_for_tipsets(
+                    ctx,
+                    tipsets,
+                    Some(pf),
+                    skip_event,
+                    &mut collected_events,
+                )
+                .await?;
             }
         }
 
@@ -552,14 +587,12 @@ fn parse_block_range(
     if min_height == -1 && max_height > 0 {
         ensure!(
             max_height - heaviest <= max_range,
-            "invalid epoch range: to block is too far in the future (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range, max_height - heaviest),
         );
     } else if min_height >= 0 && max_height == -1 {
         ensure!(
             heaviest - min_height <= max_range,
-            "invalid epoch range: from block is too far in the past (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range, heaviest - min_height)
         );
     } else if min_height >= 0 && max_height >= 0 {
         ensure!(
@@ -570,8 +603,7 @@ fn parse_block_range(
         );
         ensure!(
             max_height - min_height <= max_range,
-            "invalid epoch range: range between to and from blocks is too large (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range, max_height - min_height)
         );
     }
 
@@ -929,6 +961,9 @@ mod tests {
 
     #[test]
     fn test_parse_block_range() {
+        use crate::rpc::error::RpcErrorData;
+        use crate::rpc::eth::errors::LIMIT_EXCEEDED_CODE;
+
         let heaviest = 50;
         let max_range = 100;
 
@@ -956,14 +991,17 @@ mod tests {
         assert_eq!(min_height, 1); // hex_str_to_epoch("0x1") = 1
         assert_eq!(max_height, 10); // hex_str_to_epoch("0xA") = 10
 
-        // Test case 3: Range too large
-        let result = parse_block_range(
+        // Test case 3: Range too large — returns BlockRangeExceeded with -32005 code
+        let err = parse_block_range(
             heaviest,
             Some(BlockNumberOrHash::from_str("earliest").unwrap()),
-            Some(BlockNumberOrHash::from_str("0x100").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x100").unwrap()), // epoch 256, range = 256 > 100
             max_range,
-        );
-        assert!(result.is_err());
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(eth_err, EthErrors::BlockRangeExceeded { .. }));
+        assert_eq!(eth_err.error_code(), Some(LIMIT_EXCEEDED_CODE));
 
         // Test case 4: from_block = "latest", to_block = "earliest"
         let result = parse_block_range(
@@ -1008,13 +1046,23 @@ mod tests {
         assert!(result.is_err());
 
         // Test case 8: Both blocks are non-negative, order is correct, but the range is too large.
-        let result = parse_block_range(
+        let err = parse_block_range(
             heaviest,
             Some(BlockNumberOrHash::from_str("earliest").unwrap()),
-            Some(BlockNumberOrHash::from_str("0x65").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x65").unwrap()), // epoch 101, range = 101 > 100
             max_range,
-        );
-        assert!(result.is_err());
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(
+            eth_err,
+            EthErrors::BlockRangeExceeded {
+                max: 100,
+                given: 101,
+                ..
+            }
+        ));
+        assert_eq!(eth_err.error_code(), Some(LIMIT_EXCEEDED_CODE));
 
         // Test case 9: Range exactly equal to max_range (boundary, should succeed).
         let result = parse_block_range(
@@ -1081,6 +1129,28 @@ mod tests {
         let (min_height, max_height) = result.unwrap();
         assert_eq!(min_height, heaviest);
         assert_eq!(max_height, -1);
+
+        // Test case 15: from_block too far in past (min >= 0, max == -1, heaviest - min > max_range)
+        let err = parse_block_range(
+            500,                                               // heaviest
+            Some(BlockNumberOrHash::from_str("0x1").unwrap()), // epoch 1, range = 500 - 1 = 499
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
+            max_range,
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(
+            eth_err,
+            EthErrors::BlockRangeExceeded {
+                max: 100,
+                given: 499,
+                ..
+            }
+        ));
+        assert_eq!(
+            eth_err.error_message().unwrap(),
+            "block range exceeds maximum of 100 (got 499)"
+        );
     }
 
     #[test]

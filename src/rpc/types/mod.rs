@@ -546,9 +546,9 @@ lotus_json_with_self!(Event);
 
 impl From<StampedEvent> for Event {
     fn from(stamped: StampedEvent) -> Self {
+        let emitter = stamped.emitter();
         let entries = stamped
-            .event()
-            .entries()
+            .into_entries()
             .into_iter()
             .map(|entry| {
                 let (flags, key, codec, value) = entry.into_parts();
@@ -561,10 +561,7 @@ impl From<StampedEvent> for Event {
             })
             .collect();
 
-        Event {
-            emitter: stamped.emitter(),
-            entries,
-        }
+        Event { emitter, entries }
     }
 }
 

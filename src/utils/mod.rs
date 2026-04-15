@@ -8,6 +8,7 @@ pub mod db;
 pub mod encoding;
 pub mod flume;
 pub mod get_size;
+pub mod hash;
 pub mod io;
 pub mod misc;
 pub mod multihash;
@@ -16,6 +17,8 @@ pub mod p2p;
 pub mod proofs_api;
 pub mod rand;
 pub mod reqwest_resume;
+mod shallow_clone;
+pub use shallow_clone::ShallowClone;
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
 pub mod stats;

@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.32.4
+forest-filecoin 0.33.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.32.4
+forest-filecoin 0.33.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.32.4
+forest-filecoin 0.33.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -748,6 +748,7 @@ Usage: forest-cli state compute [OPTIONS] --epoch <EPOCH>
 Options:
       --epoch <EPOCH>        Which epoch to compute the state transition for
   -n, --n-epochs <N_EPOCHS>  Number of tipset epochs to compute state for. Default is 1
+      --force                Force recomputing the state trees regardless whether the results are cached
   -v, --verbose              Print epoch and tipset key along with state root
   -h, --help                 Print help
 ```
@@ -1058,7 +1059,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.32.4
+forest-filecoin 0.33.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2151,7 +2152,7 @@ Options:
 ## `forest-dev`
 
 ```
-forest-filecoin 0.32.4
+forest-filecoin 0.33.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 

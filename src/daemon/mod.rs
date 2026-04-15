@@ -9,8 +9,8 @@ pub mod main;
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
+use crate::chain_sync::ChainFollower;
 use crate::chain_sync::network_context::SyncNetworkContext;
-use crate::chain_sync::{ChainFollower, SyncStatus};
 use crate::cli_shared::snapshot;
 use crate::cli_shared::{
     chain_path,
@@ -23,7 +23,7 @@ use crate::daemon::{
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
-use crate::message_pool::{MessagePool, MpoolConfig};
+use crate::message_pool::{MessagePool, MpoolConfig, MpoolLocker, NonceTracker};
 use crate::networks::{self, ChainConfig};
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
@@ -31,8 +31,8 @@ use crate::rpc::start_rpc;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
-use crate::utils;
 use crate::utils::misc::env::is_env_truthy;
+use crate::utils::{self, ShallowClone as _};
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
 use backon::{ExponentialBuilder, Retryable};
@@ -81,8 +81,9 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
     let start_time = chrono::Utc::now();
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
+    let (rpc_stop_handle, rpc_server_handle) = jsonrpsee::server::stop_channel();
     let result = tokio::select! {
-        ret = start(start_time, opts, config, shutdown_send) => ret,
+        ret = start(start_time, opts, config, shutdown_send, rpc_stop_handle) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
@@ -96,6 +97,7 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
             Ok(())
         },
     };
+    _ = rpc_server_handle.stop();
     crate::utils::io::terminal_cleanup();
     result
 }
@@ -175,19 +177,46 @@ async fn maybe_import_snapshot(
             .client
             .snapshot_head
             .unwrap_or_else(|| ctx.state_manager.chain_store().heaviest_tipset().epoch());
-        assert!(current_height.is_positive());
-        match validate_from.is_negative() {
-            // allow --height=-1000 to scroll back from the current head
-            true => ctx
-                .state_manager
-                .validate_range((current_height + validate_from)..=current_height)?,
-            false => ctx
-                .state_manager
-                .validate_range(validate_from..=current_height)?,
-        }
+
+        let validation_range = validation_range(current_height, validate_from)?;
+        // `validate_range` is CPU-bound (drives rayon-parallel VM execution) and
+        // can run for minutes. Safer to spawn it on a blocking thread.
+        let state_manager = ctx.state_manager.clone();
+        tokio::task::spawn_blocking(move || state_manager.validate_range(validation_range))
+            .await??;
     }
 
     Ok(())
+}
+
+/// Returns the range of epochs to validate. This includes special handling for negative `from`
+/// values, which are interpreted as offsets from the current epoch.
+fn validation_range(
+    current: ChainEpoch,
+    from: ChainEpoch,
+) -> anyhow::Result<std::ops::RangeInclusive<ChainEpoch>> {
+    anyhow::ensure!(
+        current.is_positive(),
+        "current head epoch {current} is invalid"
+    );
+
+    // Negative values scroll back from the current head (e.g. --height=-1000).
+    // `saturating_add` + `.max(0)` keeps extreme negatives from underflowing or
+    // wrapping to a huge positive (which would silently produce an empty range).
+    let start = if from.is_negative() {
+        current.saturating_add(from).max(0)
+    } else {
+        from
+    };
+
+    // An absolute `--height` past the head would otherwise produce an empty
+    // range and silently succeed without validating anything.
+    anyhow::ensure!(
+        start <= current,
+        "requested validation start epoch {start} is beyond the current head at epoch {current}",
+    );
+
+    Ok(start..=current)
 }
 
 async fn maybe_start_metrics_service(
@@ -310,24 +339,23 @@ fn create_chain_follower(
     p2p_service: &Libp2pService<DbType>,
     mpool: Arc<MessagePool<Arc<ChainStore<DbType>>>>,
     ctx: &AppContext,
-) -> anyhow::Result<ChainFollower<DbType>> {
+) -> anyhow::Result<Arc<ChainFollower<DbType>>> {
     let network_send = p2p_service.network_sender().clone();
     let peer_manager = p2p_service.peer_manager().clone();
     let network = SyncNetworkContext::new(network_send, peer_manager, ctx.db.clone());
-    let chain_follower = ChainFollower::new(
+    Ok(Arc::new(ChainFollower::new(
         ctx.state_manager.clone(),
         network,
         Tipset::from(ctx.state_manager.chain_store().genesis_block_header()),
         p2p_service.network_receiver(),
         opts.stateless,
         mpool,
-    );
-    Ok(chain_follower)
+    )))
 }
 
 fn start_chain_follower_service(
     services: &mut JoinSet<anyhow::Result<()>>,
-    chain_follower: ChainFollower<DbType>,
+    chain_follower: Arc<ChainFollower<DbType>>,
 ) {
     services.spawn(async move { chain_follower.run().await });
 }
@@ -365,6 +393,46 @@ async fn maybe_start_health_check_service(
     Ok(())
 }
 
+fn maybe_start_gc_service(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
+    config: &Config,
+    chain_follower: Arc<ChainFollower<DbType>>,
+) -> anyhow::Result<()> {
+    // If the node is stateless, GC shouldn't get triggered even on demand.
+    if opts.stateless {
+        return Ok(());
+    }
+
+    let snap_gc = Arc::new(SnapshotGarbageCollector::new(chain_follower, config)?);
+
+    GLOBAL_SNAPSHOT_GC
+        .set(snap_gc.clone())
+        .ok()
+        .context("failed to set GLOBAL_SNAPSHOT_GC")?;
+
+    services.spawn({
+        let snap_gc = snap_gc.clone();
+        async move {
+            snap_gc.event_loop().await;
+            Ok(())
+        }
+    });
+
+    // GC shouldn't run periodically if the node is stateless or if the user has disabled it.
+    if !opts.no_gc {
+        services.spawn({
+            let snap_gc = snap_gc.clone();
+            async move {
+                snap_gc.scheduler_loop().await;
+                Ok(())
+            }
+        });
+    }
+
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn maybe_start_rpc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
@@ -392,13 +460,15 @@ fn maybe_start_rpc_service(
             );
         }
         services.spawn({
-            let state_manager = ctx.state_manager.clone();
-            let bad_blocks = chain_follower.bad_blocks.clone();
-            let sync_status = chain_follower.sync_status.clone();
-            let sync_network_context = chain_follower.network.clone();
+            let state_manager = ctx.state_manager.shallow_clone();
+            let bad_blocks = chain_follower.bad_blocks.shallow_clone();
+            let sync_status = chain_follower.sync_status.shallow_clone();
+            let sync_network_context = chain_follower.network.shallow_clone();
             let tipset_send = chain_follower.tipset_sender.clone();
-            let keystore = ctx.keystore.clone();
+            let keystore = ctx.keystore.shallow_clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
+            let nonce_tracker = NonceTracker::new();
+            let mpool_locker = MpoolLocker::new();
             async move {
                 let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
                     .await
@@ -419,6 +489,8 @@ fn maybe_start_rpc_service(
                         shutdown,
                         tipset_send,
                         snapshot_progress_tracker,
+                        mpool_locker,
+                        nonce_tracker,
                     },
                     rpc_listener,
                     rpc_stop_handle,
@@ -572,48 +644,17 @@ pub(super) async fn start(
     opts: CliOpts,
     config: Config,
     shutdown_send: mpsc::Sender<()>,
+    rpc_stop_handle: jsonrpsee::server::StopHandle,
 ) -> anyhow::Result<()> {
     startup_init(&config)?;
-    let (snap_gc, snap_gc_reboot_rx) = SnapshotGarbageCollector::new(&config)?;
-    let snap_gc = Arc::new(snap_gc);
-    GLOBAL_SNAPSHOT_GC
-        .set(snap_gc.clone())
-        .ok()
-        .context("failed to set GLOBAL_SNAPSHOT_GC")?;
-
-    // If the node is stateless, GC shouldn't get triggered even on demand.
-    if !opts.stateless {
-        tokio::task::spawn({
-            let snap_gc = snap_gc.clone();
-            async move { snap_gc.event_loop().await }
-        });
-    }
-    // GC shouldn't run periodically if the node is stateless or if the user has disabled it.
-    if !opts.no_gc && !opts.stateless {
-        tokio::task::spawn({
-            let snap_gc = snap_gc.clone();
-            async move { snap_gc.scheduler_loop().await }
-        });
-    }
-    loop {
-        let (rpc_stop_handle, rpc_server_handle) = jsonrpsee::server::stop_channel();
-        tokio::select! {
-            _ = snap_gc_reboot_rx.recv_async() => {
-                // gracefully shutdown RPC server
-                if let Err(e) = rpc_server_handle.stop() {
-                    tracing::warn!("failed to stop RPC server: {e}");
-                }
-                snap_gc.cleanup_before_reboot().await;
-            }
-            result = start_services(start_time, &opts, config.clone(), shutdown_send.clone(), rpc_stop_handle, |ctx, sync_status| {
-                snap_gc.set_db(ctx.db.clone());
-                snap_gc.set_sync_status(sync_status);
-                snap_gc.set_car_db_head_epoch(ctx.db.heaviest_tipset().map(|ts|ts.epoch()).unwrap_or_default());
-            }) => {
-                break result
-            }
-        }
-    }
+    start_services(
+        start_time,
+        &opts,
+        config.clone(),
+        shutdown_send.clone(),
+        rpc_stop_handle,
+    )
+    .await
 }
 
 pub(super) async fn start_services(
@@ -622,7 +663,6 @@ pub(super) async fn start_services(
     mut config: Config,
     shutdown_send: mpsc::Sender<()>,
     rpc_stop_handle: jsonrpsee::server::StopHandle,
-    on_app_context_and_db_initialized: impl FnOnce(&AppContext, SyncStatus),
 ) -> anyhow::Result<()> {
     // Cleanup the collector prometheus metrics registry on start
     crate::metrics::reset_collector_registry();
@@ -640,6 +680,7 @@ pub(super) async fn start_services(
     {
         tracing::warn!("error in maybe_rewind_heaviest_tipset: {e:#}");
     }
+
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
     let chain_follower = create_chain_follower(opts, &p2p_service, mpool.clone(), &ctx)?;
@@ -661,8 +702,9 @@ pub(super) async fn start_services(
         services.shutdown().await;
         return Ok(());
     }
-    on_app_context_and_db_initialized(&ctx, chain_follower.sync_status.clone());
+
     warmup_in_background(&ctx);
+    maybe_start_gc_service(&mut services, opts, &config, chain_follower.clone())?;
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_f3_service(opts, &config, &ctx)?;
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
@@ -815,4 +857,41 @@ where
     T: Send + 'static,
 {
     tokio::task::spawn_blocking(f).then(|res| async { res.expect("spawned task panicked") })
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::current_non_positive(0, 1, anyhow::Result::Err(anyhow::anyhow!(
+        "current head epoch 0 is invalid"
+    )))]
+    #[case::current_non_positive(-1, 1, anyhow::Result::Err(anyhow::anyhow!(
+        "current head epoch 0 is invalid"
+    )))]
+    #[case::from_positive_beyond_head(10, 11, anyhow::Result::Err(anyhow::anyhow!(
+        "requested validation start epoch 11 is beyond the current head at epoch 10"
+    )))]
+    #[case::from_positive_within_range(10, 5, anyhow::Result::Ok(5..=10))]
+    #[case::from_zero(10, 0, anyhow::Result::Ok(0..=10))]
+    #[case::from_negative_within_range(10, -5, anyhow::Result::Ok(5..=10))]
+    #[case::from_negative_beyond_range(10, -15, anyhow::Result::Ok(0..=10))]
+    fn test_validation_range(
+        #[case] current: ChainEpoch,
+        #[case] from: ChainEpoch,
+        #[case] expected: anyhow::Result<std::ops::RangeInclusive<ChainEpoch>>,
+    ) {
+        let result = validation_range(current, from);
+        match expected {
+            Ok(expected_range) => {
+                assert_eq!(result.unwrap(), expected_range);
+            }
+            Err(_) => {
+                assert!(result.is_err());
+            }
+        }
+    }
 }

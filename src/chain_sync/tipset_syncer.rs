@@ -13,6 +13,7 @@ use crate::shim::{
 };
 use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
+use crate::utils::ShallowClone as _;
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
@@ -110,8 +111,9 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
 
     let epoch = full_tipset.epoch();
-    let full_tipset_key = full_tipset.key().clone();
-    trace!("Tipset keys: {full_tipset_key}");
+    let parent_state = *full_tipset.parent_state();
+    let tipset_key = full_tipset.key();
+    trace!("Tipset keys: {tipset_key}");
     let blocks = full_tipset.into_blocks();
     let mut validations = JoinSet::new();
     for b in blocks {
@@ -126,14 +128,20 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
                     .add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {
-                warn!("Validating block [CID = {cid}] in EPOCH = {epoch} failed: {why}");
+                warn!(
+                    "Validating block [CID = {cid}, PARENT_STATE = {parent_state}] in EPOCH = {epoch} failed: {why}",
+                );
                 match &why {
                     TipsetSyncerError::TimeTravellingBlock(_, _) => {
                         // Do not mark a block as bad for temporary errors.
                         // See <https://github.com/filecoin-project/lotus/blob/v1.34.1/chain/sync.go#L602> in Lotus
                     }
                     _ => {
-                        if let Some(bad_block_cache) = bad_block_cache {
+                        // Do not mark block as bad if the parent state tree does not exist
+                        if StateTree::new_from_root(state_manager.blockstore_owned(), &parent_state)
+                            .is_ok()
+                            && let Some(bad_block_cache) = bad_block_cache
+                        {
                             bad_block_cache.push(cid);
                         }
                     }
@@ -224,17 +232,17 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 
     // Check block messages
     validations.spawn(check_block_messages(
-        state_manager.clone(),
-        block.clone(),
-        base_tipset.clone(),
+        state_manager.shallow_clone(),
+        block.shallow_clone(),
+        base_tipset.shallow_clone(),
     ));
 
     // Base fee check
     validations.spawn_blocking({
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
-        let base_tipset = base_tipset.clone();
+        let base_tipset = base_tipset.shallow_clone();
         let block_store = state_manager.blockstore_owned();
-        let block = Arc::clone(&block);
+        let block = block.shallow_clone();
         move || {
             let base_fee = crate::chain::compute_base_fee(&block_store, &base_tipset, smoke_height)
                 .map_err(|e| {
@@ -253,7 +261,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Parent weight calculation check
     validations.spawn_blocking({
         let block_store = state_manager.blockstore_owned();
-        let base_tipset = base_tipset.clone();
+        let base_tipset = base_tipset.shallow_clone();
         let weight = header.weight.clone();
         move || {
             let calc_weight = fil_cns::weight(&block_store, &base_tipset).map_err(|e| {

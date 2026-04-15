@@ -79,6 +79,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainGetPath);
         $callback!($crate::rpc::chain::ChainGetTipSet);
         $callback!($crate::rpc::chain::ChainGetTipSetV2);
+        $callback!($crate::rpc::chain::ChainGetTipSetFinalityStatus);
         $callback!($crate::rpc::chain::ChainGetTipSetAfterHeight);
         $callback!($crate::rpc::chain::ChainGetTipSetByHeight);
         $callback!($crate::rpc::chain::ChainHasObj);
@@ -482,6 +483,8 @@ pub struct RPCState<DB> {
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
     pub shutdown: mpsc::Sender<()>,
+    pub mpool_locker: crate::message_pool::MpoolLocker,
+    pub nonce_tracker: crate::message_pool::NonceTracker,
 }
 
 impl<DB: Blockstore> RPCState<DB> {
@@ -493,7 +496,7 @@ impl<DB: Blockstore> RPCState<DB> {
         self.state_manager.chain_store()
     }
 
-    pub fn chain_index(&self) -> &Arc<crate::chain::index::ChainIndex<Arc<DB>>> {
+    pub fn chain_index(&self) -> &crate::chain::index::ChainIndex<DB> {
         self.chain_store().chain_index()
     }
 

@@ -4,6 +4,7 @@
 //! Contains mock implementations for testing internal `MessagePool` APIs
 
 use std::convert::TryFrom;
+use std::sync::Arc;
 
 use crate::blocks::{
     CachingBlockHeader, ElectionProof, RawBlockHeader, Ticket, Tipset, TipsetKey, VRFProof,
@@ -33,6 +34,9 @@ pub struct TestApiInner {
     balances: HashMap<Address, TokenAmount>,
     tipsets: Vec<Tipset>,
     max_actor_pending_messages: u64,
+    /// Maps ID addresses to their key (deterministic) addresses, simulating
+    /// the state tree's address resolution.
+    key_address_mapping: HashMap<Address, Address>,
 }
 
 impl Default for TestApi {
@@ -90,9 +94,24 @@ impl TestApi {
     pub fn next_block(&self) -> CachingBlockHeader {
         self.inner.lock().next_block()
     }
+
+    /// Register an ID address -> key address mapping so that `resolve_to_key`
+    /// and `get_actor_after` behave as if the state tree contains this binding.
+    pub fn set_key_address_mapping(&self, id_addr: &Address, key_addr: &Address) {
+        self.inner
+            .lock()
+            .key_address_mapping
+            .insert(*id_addr, *key_addr);
+    }
 }
 
 impl TestApiInner {
+    /// Resolve an address through the key mapping, returning the address
+    /// unchanged if no mapping exists.
+    fn resolve_addr(&self, addr: &Address) -> Address {
+        self.key_address_mapping.get(addr).copied().unwrap_or(*addr)
+    }
+
     /// Set the state sequence for an Address for `TestApi`
     pub fn set_state_sequence(&mut self, addr: &Address, sequence: u64) {
         self.state_sequence.insert(*addr, sequence);
@@ -135,23 +154,28 @@ impl Provider for TestApi {
 
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let inner = self.inner.lock();
+        let canonical = inner.resolve_addr(addr);
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for b in ts.block_headers() {
             if let Some(ms) = inner.bmsgs.get(b.cid()) {
                 for m in ms {
-                    if &m.from() == addr {
+                    if inner.resolve_addr(&m.from()) == canonical {
                         msgs.push(m.clone());
                     }
                 }
             }
         }
-        let balance = match inner.balances.get(addr) {
+        let balance = match inner.balances.get(&canonical) {
             Some(b) => b.clone(),
             None => TokenAmount::from_atto(10_000_000_000_u64),
         };
 
         msgs.sort_by_key(|m| m.sequence());
-        let mut sequence: u64 = inner.state_sequence.get(addr).copied().unwrap_or_default();
+        let mut sequence: u64 = inner
+            .state_sequence
+            .get(&canonical)
+            .copied()
+            .unwrap_or_default();
         for m in msgs {
             if m.sequence() != sequence {
                 break;
@@ -200,6 +224,23 @@ impl Provider for TestApi {
 
     fn chain_compute_base_fee(&self, _ts: &Tipset) -> Result<TokenAmount, Error> {
         Ok(TokenAmount::from_atto(100))
+    }
+
+    fn resolve_to_key(&self, addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
+        Ok(self.inner.lock().resolve_addr(addr))
+    }
+
+    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error> {
+        let inner = self.inner.lock();
+        let mut msgs = Vec::new();
+        for b in ts.block_headers() {
+            if let Some(ms) = inner.bmsgs.get(b.cid()) {
+                for m in ms {
+                    msgs.push(ChainMessage::Signed(Arc::new(m.clone())));
+                }
+            }
+        }
+        Ok(Arc::new(msgs))
     }
 
     fn max_actor_pending_messages(&self) -> u64 {

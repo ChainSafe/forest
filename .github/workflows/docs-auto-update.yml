@@ -17,13 +17,8 @@ jobs:
         run: |
           cd docs/docs/users/reference
           ./generate_cli_md.sh docker > cli.md
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          package-manager-cache: false
-      - run: corepack enable
-      - run: pnpm i --frozen-lockfile
-      - run: pnpm md-fmt
+      - uses: jdx/mise-action@v4
+      - run: mise docs:format
       # This is needed in order to have the commits signed.
       - uses: actions/create-github-app-token@v3
         id: generate-token

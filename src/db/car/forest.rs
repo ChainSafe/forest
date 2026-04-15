@@ -64,14 +64,10 @@ use fvm_ipld_encoding::CborStore as _;
 use integer_encoding::VarIntReader;
 use nunny::Vec as NonEmpty;
 use positioned_io::{Cursor, ReadAt, Size as _, SizeCursor};
-use std::io::{Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 use std::task::Poll;
-use std::{
-    io,
-    io::{Read, Write},
-};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
 
@@ -97,7 +93,7 @@ pub struct ForestCar<ReaderT> {
     cache_key: CacheKey,
     indexed: index::Reader<index::ZstdSkipFramesEncodedDataReader<positioned_io::Slice<ReaderT>>>,
     index_size_bytes: u64,
-    frame_cache: Arc<ZstdFrameCache>,
+    frame_cache: ZstdFrameCache,
     header: CarV1Header,
     metadata: OnceLock<Option<FilecoinSnapshotMetadata>>,
 }
@@ -114,12 +110,12 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     ) -> io::Result<ForestCar<ReaderT>> {
         let indexed = index::Reader::new(index::ZstdSkipFramesEncodedDataReader::new(
             positioned_io::Slice::new(reader, index_start_pos, Some(index_size_bytes)),
-        )?)?;
+        ))?;
         Ok(ForestCar {
             cache_key: 0,
             indexed,
             index_size_bytes,
-            frame_cache: Arc::new(ZstdFrameCache::default()),
+            frame_cache: ZstdFrameCache::default(),
             header,
             metadata: OnceLock::new(),
         })
@@ -201,29 +197,29 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         Tipset::load_required(self, &self.heaviest_tipset_key())
     }
 
-    pub fn into_dyn(self) -> io::Result<ForestCar<Box<dyn super::RandomAccessFileReader>>> {
-        Ok(ForestCar {
+    pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
+        ForestCar {
             cache_key: self.cache_key,
             indexed: self.indexed.map(|slice| {
                 let offset = slice.inner().offset();
-                let size = slice.inner().size()?;
+                let size = slice.inner().size().ok().flatten();
                 ZstdSkipFramesEncodedDataReader::new(positioned_io::Slice::new(
                     Box::new(slice.into_inner().into_inner()) as Box<dyn RandomAccessFileReader>,
                     offset,
                     size,
                 ))
-            })?,
+            }),
             index_size_bytes: self.index_size_bytes,
             frame_cache: self.frame_cache,
             header: self.header,
             metadata: self.metadata,
-        })
+        }
     }
 
-    pub fn with_cache(self, cache: Arc<ZstdFrameCache>, key: CacheKey) -> Self {
+    pub fn with_cache(self, frame_cache: ZstdFrameCache, key: CacheKey) -> Self {
         Self {
             cache_key: key,
-            frame_cache: cache,
+            frame_cache,
             ..self
         }
     }
@@ -495,9 +491,9 @@ pub fn new_forest_car_temp_path_in(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::block_on;
     use nunny::vec as nonempty;
     use quickcheck_macros::quickcheck;
+    use tokio_test::block_on;
 
     fn mk_encoded_car(
         zstd_frame_size_tripwire: usize,

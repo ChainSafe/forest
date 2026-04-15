@@ -3,13 +3,17 @@
 mod block_prob;
 mod config;
 mod errors;
+mod mpool_locker;
 mod msg_chain;
 mod msgpool;
+mod nonce_tracker;
 
 pub use self::{
     config::*,
     errors::*,
+    mpool_locker::MpoolLocker,
     msgpool::{msg_pool::MessagePool, *},
+    nonce_tracker::NonceTracker,
 };
 
 pub(crate) use self::msgpool::{RBF_DENOM, RBF_NUM};

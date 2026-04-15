@@ -50,7 +50,6 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
-use libsecp256k1::{PublicKey, SecretKey};
 use num_traits::Signed;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -71,6 +70,7 @@ use tracing::debug;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
 const SAFE_EPOCH_DELAY_FOR_TESTING: i64 = 20; // `SAFE_HEIGHT_DISTANCE`(200) is too large for testing
+const MESSAGE_LOOKBACK_LIMIT: i64 = 2000;
 
 /// This address has been funded by the calibnet faucet and the private keys
 /// has been discarded. It should always have a non-zero balance.
@@ -126,10 +126,7 @@ static KNOWN_CALIBNET_F4_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
 });
 
 fn generate_eth_random_address() -> anyhow::Result<EthAddress> {
-    let rng = &mut crate::utils::rand::forest_os_rng();
-    let secret_key = SecretKey::random(rng);
-    let public_key = PublicKey::from_secret_key(&secret_key);
-    EthAddress::eth_address_from_pub_key(&public_key.serialize())
+    k256::ecdsa::SigningKey::random(&mut crate::utils::rand::forest_os_rng()).try_into()
 }
 
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
@@ -476,10 +473,20 @@ fn common_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn chain_tests() -> Vec<RpcTest> {
+fn chain_tests(offline: bool) -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(ChainHead::request(()).unwrap()),
         RpcTest::identity(ChainGetGenesis::request(()).unwrap()),
+        if offline {
+            RpcTest::basic(ChainHead::request(()).unwrap())
+        } else {
+            RpcTest::identity(ChainHead::request(()).unwrap())
+        },
+        if offline {
+            RpcTest::basic(ChainGetTipSetFinalityStatus::request(()).unwrap())
+        } else {
+            RpcTest::identity(ChainGetTipSetFinalityStatus::request(()).unwrap())
+        },
+        RpcTest::basic(ChainGetFinalizedTipset::request(()).unwrap()),
     ]
 }
 
@@ -557,7 +564,6 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             .clone()
             .into(),))?),
         RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
-        RpcTest::basic(ChainGetFinalizedTipset::request(())?),
     ];
 
     if !offline {
@@ -1237,16 +1243,19 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 validate_message_lookup(StateSearchMsg::request((
                     None.into(),
                     msg_cid,
-                    800,
+                    MESSAGE_LOOKBACK_LIMIT,
                     true,
                 ))?),
                 validate_message_lookup(StateSearchMsg::request((
                     None.into(),
                     msg_cid,
-                    800,
+                    MESSAGE_LOOKBACK_LIMIT,
                     false,
                 ))?),
-                validate_message_lookup(StateSearchMsgLimited::request((msg_cid, 800))?),
+                validate_message_lookup(StateSearchMsgLimited::request((
+                    msg_cid,
+                    MESSAGE_LOOKBACK_LIMIT,
+                ))?),
             ]);
         }
         for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
@@ -2306,8 +2315,11 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
                         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
                 );
                 tests.push(
-                    RpcTest::identity(EthGetTransactionReceiptLimited::request((tx.hash, 800))?)
-                        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+                    RpcTest::identity(EthGetTransactionReceiptLimited::request((
+                        tx.hash,
+                        MESSAGE_LOOKBACK_LIMIT,
+                    ))?)
+                    .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
                 );
             }
         }
@@ -2505,7 +2517,7 @@ pub(super) async fn create_tests(
     let mut tests = vec![];
     tests.extend(auth_tests()?);
     tests.extend(common_tests());
-    tests.extend(chain_tests());
+    tests.extend(chain_tests(offline));
     tests.extend(mpool_tests());
     tests.extend(net_tests());
     tests.extend(node_tests());

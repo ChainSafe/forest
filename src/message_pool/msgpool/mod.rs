@@ -16,6 +16,7 @@ use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
+use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
@@ -28,7 +29,10 @@ use utils::{get_base_fee_lower_bound, recover_sig};
 use super::errors::Error;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
-    msg_pool::{MsgSet, TrustPolicy, add_helper, remove},
+    msg_pool::{
+        MsgSet, StateNonceCacheKey, StrictnessPolicy, TrustPolicy, add_helper, remove,
+        resolve_to_key,
+    },
     provider::Provider,
 };
 
@@ -40,18 +44,6 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const MIN_GAS: u64 = 1298450;
 
-/// Get the state of the `base_sequence` for a given address in the current
-/// Tipset
-fn get_state_sequence<T>(api: &T, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error>
-where
-    T: Provider,
-{
-    let actor = api.get_actor_after(addr, cur_ts)?;
-    let base_sequence = actor.sequence;
-
-    Ok(base_sequence)
-}
-
 #[allow(clippy::too_many_arguments)]
 async fn republish_pending_messages<T>(
     api: &T,
@@ -60,12 +52,13 @@ async fn republish_pending_messages<T>(
     cur_tipset: &SyncRwLock<Tipset>,
     republished: &SyncRwLock<HashSet<Cid>>,
     local_addrs: &SyncRwLock<Vec<Address>>,
+    key_cache: &SizeTrackingLruCache<Address, Address>,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
     T: Provider,
 {
-    let ts = cur_tipset.read().clone();
+    let ts = cur_tipset.read().shallow_clone();
     let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
 
     republished.write().clear();
@@ -73,7 +66,12 @@ where
     // Only republish messages from local addresses, ie. transactions which were
     // sent to this node directly.
     for actor in local_addrs.read().iter() {
-        if let Some(mset) = pending.read().get(actor) {
+        let Ok(resolved) = resolve_to_key(api, key_cache, actor, &ts).inspect_err(|e| {
+            tracing::debug!(%actor, "republish: failed to resolve address: {e:#}");
+        }) else {
+            continue;
+        };
+        if let Some(mset) = pending.read().get(&resolved) {
             if mset.msgs.is_empty() {
                 continue;
             }
@@ -81,7 +79,7 @@ where
             for (nonce, m) in mset.msgs.clone().into_iter() {
                 pend.insert(nonce, m);
             }
-            pending_map.insert(*actor, pend);
+            pending_map.insert(resolved, pend);
         }
     }
 
@@ -206,9 +204,17 @@ where
     Ok(msgs)
 }
 
-/// This function will revert and/or apply tipsets to the message pool. This
-/// function should be called every time that there is a head change in the
-/// message pool.
+/// Revert and/or apply tipsets to the message pool. This function should be
+/// called every time that there is a head change in the message pool.
+///
+/// - **Apply**: messages included in the new tipset are removed from the pending
+///   pool via [`MsgSet::rm`] with `applied=true`.
+/// - **Revert**: messages from the reverted tipset are re-added to the pool with
+///   [`StrictnessPolicy::Relaxed`] and [`TrustPolicy::Trusted`], allowing them back without
+///   nonce gap restrictions.
+///
+/// The state nonce cache is naturally invalidated when the tipset changes, since
+/// it is keyed by [`TipsetKey`](crate::blocks::TipsetKey).
 #[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
     api: &T,
@@ -217,6 +223,8 @@ pub async fn head_change<T>(
     republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &SyncRwLock<Tipset>,
+    key_cache: &SizeTrackingLruCache<Address, Address>,
+    state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -255,6 +263,12 @@ where
     }
 
     for ts in apply {
+        let mpool_ctx = MpoolCtx {
+            api,
+            key_cache,
+            pending,
+            ts: &ts,
+        };
         for b in ts.block_headers() {
             let Ok((msgs, smsgs)) = api.messages_for_block(b) else {
                 tracing::error!("error retrieving messages for block");
@@ -262,18 +276,13 @@ where
             };
 
             for msg in smsgs {
-                remove_from_selected_msgs(
-                    &msg.from(),
-                    pending,
-                    msg.sequence(),
-                    rmsgs.borrow_mut(),
-                )?;
+                mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), &mut rmsgs)?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, &mut rmsgs)?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
@@ -287,16 +296,26 @@ where
             .await
             .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))?;
     }
+    let cur_ts = cur_tipset.read().shallow_clone();
+    let mpool_ctx = MpoolCtx {
+        api,
+        key_cache,
+        pending,
+        ts: &cur_ts,
+    };
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.read().clone())?;
+            let sequence = mpool_ctx.get_state_sequence(state_nonce_cache, &msg.from())?;
             if let Err(e) = add_helper(
                 api,
                 bls_sig_cache,
                 pending,
+                key_cache,
+                &cur_ts,
                 msg,
                 sequence,
                 TrustPolicy::Trusted,
+                StrictnessPolicy::Relaxed,
             ) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
@@ -305,25 +324,43 @@ where
     Ok(())
 }
 
-/// This is a helper function for `head_change`. This method will remove a
-/// sequence for a from address from the messages selected by priority hash-map.
-/// It also removes the 'from' address and sequence from the `MessagePool`.
-pub(in crate::message_pool) fn remove_from_selected_msgs(
-    from: &Address,
-    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    sequence: u64,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-) -> Result<(), Error> {
-    if let Some(temp) = rmsgs.get_mut(from) {
-        if temp.get_mut(&sequence).is_some() {
-            temp.remove(&sequence);
-        } else {
-            remove(from, pending, sequence, true)?;
+pub(in crate::message_pool) struct MpoolCtx<'a, T> {
+    pub api: &'a T,
+    pub key_cache: &'a SizeTrackingLruCache<Address, Address>,
+    pub pending: &'a SyncRwLock<HashMap<Address, MsgSet>>,
+    pub ts: &'a Tipset,
+}
+
+impl<T: Provider> MpoolCtx<'_, T> {
+    /// Removes a message from the selected messages map (`rmsgs`). If the
+    /// message is not found there, falls back to removing it from the pending set.
+    pub(in crate::message_pool) fn remove_from_selected_msgs(
+        &self,
+        from: &Address,
+        sequence: u64,
+        rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+    ) -> Result<(), Error> {
+        if rmsgs
+            .get_mut(from)
+            .and_then(|temp| temp.remove(&sequence))
+            .is_none()
+            && let Ok(resolved) = resolve_to_key(self.api, self.key_cache, from, self.ts)
+                .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
+        {
+            remove(&resolved, self.pending, sequence, true)?;
         }
-    } else {
-        remove(from, pending, sequence, true)?;
+        Ok(())
     }
-    Ok(())
+
+    /// Get the state nonce for an address, accounting for messages already
+    /// included in the current tipset.
+    pub(in crate::message_pool) fn get_state_sequence(
+        &self,
+        state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
+        addr: &Address,
+    ) -> Result<u64, Error> {
+        msg_pool::get_state_sequence(self.api, self.key_cache, state_nonce_cache, addr, self.ts)
+    }
 }
 
 /// This is a helper function for `head_change`. This method will add a signed
@@ -332,13 +369,7 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
     m: SignedMessage,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) {
-    let s = rmsgs.get_mut(&m.from());
-    if let Some(s) = s {
-        s.insert(m.sequence(), m);
-    } else {
-        rmsgs.insert(m.from(), HashMap::new());
-        rmsgs.get_mut(&m.from()).unwrap().insert(m.sequence(), m);
-    }
+    rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
 }
 
 #[cfg(test)]
@@ -365,16 +396,23 @@ pub mod tests {
         msg_pool::MessagePool,
     };
 
-    #[tokio::test]
-    async fn test_per_actor_limit() {
-        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
-        let mut wallet = Wallet::new(keystore);
-        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let tma = TestApi::with_max_actor_pending_messages(200);
-        tma.set_state_sequence(&sender, 0);
+    struct TestMpool {
+        mpool: MessagePool<TestApi>,
+        wallet: Wallet,
+        sender: Address,
+        target: Address,
+        services: JoinSet<anyhow::Result<()>>,
+        network_rx: flume::Receiver<NetworkMessage>,
+    }
 
-        let (tx, _rx) = flume::bounded(50);
+    fn make_test_mpool(
+        tma: TestApi,
+    ) -> (
+        MessagePool<TestApi>,
+        JoinSet<anyhow::Result<()>>,
+        flume::Receiver<NetworkMessage>,
+    ) {
+        let (tx, rx) = flume::bounded(50);
         let mut services = JoinSet::new();
         let mpool = MessagePool::new(
             tma,
@@ -384,6 +422,37 @@ pub mod tests {
             &mut services,
         )
         .unwrap();
+        (mpool, services, rx)
+    }
+
+    fn make_test_setup() -> TestMpool {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::default();
+        tma.set_state_sequence(&sender, 0);
+        let (mpool, services, network_rx) = make_test_mpool(tma);
+        TestMpool {
+            mpool,
+            wallet,
+            sender,
+            target,
+            services,
+            network_rx,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_per_actor_limit() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::with_max_actor_pending_messages(200);
+        tma.set_state_sequence(&sender, 0);
+        let (mpool, _services, _rx) = make_test_mpool(tma);
+
         let mut smsg_vec = Vec::new();
         for i in 0..(mpool.api.max_actor_pending_messages() + 1) {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -453,23 +522,14 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_message_pool() {
-        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
-        let mut wallet = Wallet::new(keystore);
-        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let tma = TestApi::default();
-        tma.set_state_sequence(&sender, 0);
+        let TestMpool {
+            mpool,
+            mut wallet,
+            sender,
+            target,
+            ..
+        } = make_test_setup();
 
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
         let mut smsg_vec = Vec::new();
         for i in 0..2 {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -486,24 +546,10 @@ pub mod tests {
         let a = mock_block(1, 1);
 
         mpool.api.inner.lock().set_block_messages(&a, smsg_vec);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = mpool.repub_trigger.clone();
-        let republished = mpool.republished.clone();
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger,
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(a)],
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(a)])
+            .await
+            .unwrap();
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
     }
@@ -527,16 +573,7 @@ pub mod tests {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
+        let (mpool, _services, _rx) = make_test_mpool(tma);
 
         {
             let mut api_temp = mpool.api.inner.lock();
@@ -553,63 +590,28 @@ pub mod tests {
 
         mpool.api.set_state_sequence(&sender, 0);
 
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = mpool.repub_trigger.clone();
-        let republished = mpool.republished.clone();
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(a)],
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(a)])
+            .await
+            .unwrap();
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
         mpool.api.set_state_sequence(&sender, 1);
 
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(&b)],
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(&b)])
+            .await
+            .unwrap();
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
         mpool.api.set_state_sequence(&sender, 0);
 
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            vec![Tipset::from(b)],
-            Vec::new(),
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(vec![Tipset::from(b)], Vec::new())
+            .await
+            .unwrap();
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
@@ -618,24 +620,136 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_async_message_pool() {
+    async fn test_get_sequence_resolves_id_address() {
+        let tma = TestApi::default();
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
-        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let key_addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let id_addr = Address::new_id(999);
 
+        tma.set_key_address_mapping(&id_addr, &key_addr);
+        tma.set_state_sequence(&key_addr, 0);
+        let (mpool, _services, _rx) = make_test_mpool(tma);
+
+        let target = Address::new_id(1001);
+        for i in 0..3 {
+            let msg = create_smsg(&target, &key_addr, wallet.borrow_mut(), i, 1000000, 1);
+            mpool.add(msg).unwrap();
+        }
+
+        // get_sequence with ID address should see the same pending messages
+        assert_eq!(mpool.get_sequence(&id_addr).unwrap(), 3);
+        assert_eq!(mpool.get_sequence(&key_addr).unwrap(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_pending_for_resolves_id_address() {
         let tma = TestApi::default();
-        tma.set_state_sequence(&sender, 0);
-        let (tx, _rx) = flume::bounded(50);
-        let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            tx,
-            Default::default(),
-            Default::default(),
-            &mut services,
-        )
-        .unwrap();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let key_addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let id_addr = Address::new_id(888);
+
+        tma.set_key_address_mapping(&id_addr, &key_addr);
+        tma.set_state_sequence(&key_addr, 0);
+        let (mpool, _services, _rx) = make_test_mpool(tma);
+
+        let target = Address::new_id(1001);
+        for i in 0..2 {
+            let msg = create_smsg(&target, &key_addr, wallet.borrow_mut(), i, 1000000, 1);
+            mpool.add(msg).unwrap();
+        }
+
+        // pending_for with ID address should find messages added under key address
+        let msgs = mpool
+            .pending_for(&id_addr)
+            .expect("should find pending messages");
+        assert_eq!(msgs.len(), 2);
+
+        // pending_for with key address should also work
+        let msgs2 = mpool
+            .pending_for(&key_addr)
+            .expect("should find pending messages");
+        assert_eq!(msgs2.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_add_with_id_from_resolves_to_key_in_pending() {
+        let tma = TestApi::default();
+        let key_addr = Address::new_bls(&[11u8; 48]).unwrap();
+        let id_addr = Address::new_id(777);
+
+        tma.set_key_address_mapping(&id_addr, &key_addr);
+        tma.set_state_sequence(&key_addr, 0);
+        let (mpool, _services, _rx) = make_test_mpool(tma);
+
+        // Create a message with the ID address as sender and a fake signature
+        let msg = create_fake_smsg(&mpool, &Address::new_id(1001), &id_addr, 0, 1000000, 1);
+        mpool.add(msg).unwrap();
+
+        // Pending map should be keyed by key_addr, not id_addr
+        let pending = mpool.pending.read();
+        assert!(
+            pending.get(&key_addr).is_some(),
+            "pending should be keyed by resolved key address"
+        );
+        assert!(
+            pending.get(&id_addr).is_none(),
+            "pending should NOT have entry under raw ID address"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_head_change_removes_via_resolved_address() {
+        let tma = TestApi::default();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let key_addr = wallet.generate_addr(SignatureType::Bls).unwrap();
+        let id_addr = Address::new_id(555);
+
+        tma.set_key_address_mapping(&id_addr, &key_addr);
+        tma.set_state_sequence(&key_addr, 0);
+
+        let a = mock_block(1, 1);
+        let (mpool, _services, _rx) = make_test_mpool(tma);
+
+        let target = Address::new_id(1001);
+        let msg0 = create_smsg(&target, &key_addr, wallet.borrow_mut(), 0, 1000000, 1);
+        let msg1 = create_smsg(&target, &key_addr, wallet.borrow_mut(), 1, 1000000, 1);
+        mpool.add(msg0.clone()).unwrap();
+        mpool.add(msg1).unwrap();
+        assert_eq!(mpool.get_sequence(&key_addr).unwrap(), 2);
+
+        // Block messages are stored under the key_addr (as would appear on chain).
+        // The head_change remove path resolves addresses before touching pending.
+        mpool.api.inner.lock().set_block_messages(&a, vec![msg0]);
+
+        mpool.api.set_state_sequence(&key_addr, 1);
+
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(a)])
+            .await
+            .unwrap();
+
+        // msg0 was applied on chain, msg1 remains pending
+        assert_eq!(mpool.get_sequence(&id_addr).unwrap(), 2);
+        let msgs = mpool
+            .pending_for(&key_addr)
+            .expect("should have remaining msg");
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].sequence(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_async_message_pool() {
+        let TestMpool {
+            mpool,
+            mut wallet,
+            sender,
+            target,
+            services: _services,
+            network_rx: _network_rx,
+        } = make_test_setup();
 
         let mut smsg_vec = Vec::new();
         for i in 0..3 {

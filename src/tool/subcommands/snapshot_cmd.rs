@@ -425,7 +425,7 @@ where
         ensure_proof_params_downloaded(),
     )?;
 
-    let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));
+    let chain_index = ChainIndex::new(db.clone());
 
     // Prepare tipsets for validation
     let tipsets = ts
@@ -441,9 +441,9 @@ where
     // iterator is consumed.
     crate::state_manager::validate_tipsets(
         genesis.timestamp,
-        chain_index.clone(),
-        chain_config,
-        beacon,
+        &chain_index,
+        &chain_config,
+        &beacon,
         &GLOBAL_MULTI_ENGINE,
         tipsets,
     )?;
@@ -488,7 +488,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
 
     let ExecutedTipset { state_root, .. } = apply_block_messages(
         timestamp,
-        Arc::new(chain_index),
+        chain_index,
         Arc::new(chain_config),
         beacon,
         &GLOBAL_MULTI_ENGINE,

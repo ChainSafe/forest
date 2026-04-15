@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod types;
-use enumflags2::{BitFlags, make_bitflags};
 use types::*;
 
 #[cfg(test)]
@@ -29,15 +28,18 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
+use crate::utils::ShallowClone;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
 use anyhow::{Context as _, Result};
 use cid::Cid;
+use enumflags2::{BitFlags, make_bitflags};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use ipld_core::ipld::Ipld;
+use itertools::Itertools as _;
 use jsonrpsee::types::Params;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use num::BigInt;
@@ -298,7 +300,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
                 gas_used: r.gas_used(),
                 events_root: r.events_root(),
             })
-            .collect();
+            .collect_vec();
 
         Ok(receipts)
     }
@@ -1068,26 +1070,9 @@ impl ChainGetTipSetV2 {
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {
-        let Some(f3_finalized_head) = ctx.chain_store().f3_finalized_tipset() else {
-            return Self::get_ec_finalized_tipset(ctx);
-        };
-        let head = ctx.chain_store().heaviest_tipset();
-        // Latest F3 finalized tipset is older than EC finality, falling back to EC finality
-        if head.epoch() > f3_finalized_head.epoch() + ctx.chain_config().policy.chain_finality {
-            Self::get_ec_finalized_tipset(ctx)
-        } else {
-            Ok(f3_finalized_head)
-        }
-    }
-
-    pub fn get_ec_finalized_tipset(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<Tipset> {
-        let head = ctx.chain_store().heaviest_tipset();
-        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
-        Ok(ctx.chain_index().tipset_by_height(
-            ec_finality_epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?)
+        ChainGetTipSetFinalityStatus::get_finality_status(ctx)
+            .finalized_tip_set
+            .context("failed to resolve finalized tipset")
     }
 
     pub async fn get_tipset(
@@ -1135,6 +1120,146 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(Self::get_tipset(&ctx, &selector).await?)
+    }
+}
+
+pub enum ChainGetTipSetFinalityStatus {}
+
+impl ChainGetTipSetFinalityStatus {
+    pub fn get_finality_status(ctx: &Ctx<impl Blockstore>) -> ChainFinalityStatus {
+        let head = ctx.chain_store().heaviest_tipset();
+        let (ec_finality_threshold_depth, ec_finalized_tip_set) =
+            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone());
+        let f3_finalized_tip_set = ctx.chain_store().f3_finalized_tipset();
+        let finalized_tip_set = match (&ec_finalized_tip_set, &f3_finalized_tip_set) {
+            (Some(ec), Some(f3)) => {
+                if ec.epoch() >= f3.epoch() {
+                    Some(ec.shallow_clone())
+                } else {
+                    Some(f3.shallow_clone())
+                }
+            }
+            (Some(ec), None) => Some(ec.shallow_clone()),
+            (None, Some(f3)) => Some(f3.shallow_clone()),
+            (None, None) => None,
+        };
+        ChainFinalityStatus {
+            ec_finality_threshold_depth,
+            ec_finalized_tip_set,
+            f3_finalized_tip_set,
+            finalized_tip_set,
+            head,
+        }
+    }
+
+    pub fn get_ec_finality_threshold_depth_and_tipset_with_cache(
+        ctx: &Ctx<impl Blockstore>,
+        head: Tipset,
+    ) -> (i64, Option<Tipset>) {
+        static CACHE: parking_lot::Mutex<Option<(Tipset, i64, Option<Tipset>)>> =
+            parking_lot::Mutex::new(None);
+        let mut cache = CACHE.lock();
+        if let Some((cached_head, cached_threshold, cached_tipset)) = &*cache
+            && cached_head == &head
+        {
+            (*cached_threshold, cached_tipset.shallow_clone())
+        } else {
+            let (threshold, tipset) =
+                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head.shallow_clone());
+            *cache = Some((head, threshold, tipset.shallow_clone()));
+            (threshold, tipset)
+        }
+    }
+
+    fn get_ec_finality_threshold_depth_and_tipset(
+        ctx: &Ctx<impl Blockstore>,
+        head: Tipset,
+    ) -> (i64, Option<Tipset>) {
+        use crate::chain::ec_finality::calculator::{
+            DEFAULT_BLOCKS_PER_EPOCH, DEFAULT_BYZANTINE_FRACTION, DEFAULT_GUARANTEE,
+            find_threshold_depth,
+        };
+
+        /// Number of extra epochs to fetch beyond [`chain_finality`] when
+        /// building the chain sample for [`find_threshold_depth`].
+        ///
+        /// The extra 5 epochs act as a tail buffer to prevent out-of-bounds access,
+        /// particularly when null rounds (epochs with zero blocks) are present, since
+        /// they consume array slots without advancing the meaningful epoch count.
+        const FINALITY_CHAIN_EXTRA_EPOCHS: usize = 5;
+
+        let finality = ctx.chain_config().policy.chain_finality;
+        let chain_len = finality as usize + FINALITY_CHAIN_EXTRA_EPOCHS;
+        let mut chain = Vec::with_capacity(chain_len);
+        let mut ts = head.shallow_clone();
+        while chain.len() < chain_len {
+            chain.push(ts.len() as i64);
+            if let Ok(parent) = ctx.chain_index().load_required_tipset(ts.parents()) {
+                // insert 0 for null rounds
+                if let Ok(n_null_tipsets_to_pad) = usize::try_from(ts.epoch() - parent.epoch() - 1)
+                    && n_null_tipsets_to_pad > 0
+                {
+                    let target_len =
+                        (chain.len().saturating_add(n_null_tipsets_to_pad)).min(chain_len);
+                    chain.resize(target_len, 0);
+                }
+                ts = parent;
+            } else {
+                break;
+            }
+        }
+        // Reverse to chronological order (oldest first).
+        chain.reverse();
+        let depth = match find_threshold_depth(
+            &chain,
+            finality,
+            DEFAULT_BLOCKS_PER_EPOCH,
+            DEFAULT_BYZANTINE_FRACTION,
+            *DEFAULT_GUARANTEE,
+        ) {
+            Ok(threshold) => threshold,
+            Err(e) => {
+                tracing::error!(
+                    "Failed to calculate EC finality threshold depth: {e:#}, chain: {chain:?}"
+                );
+                -1
+            }
+        };
+        let finalized = if depth >= 0
+            && let Ok(ts) = ctx.chain_index().tipset_by_height(
+                (head.epoch() - depth).max(0),
+                head.shallow_clone(),
+                ResolveNullTipset::TakeOlder,
+            ) {
+            Some(ts)
+        } else {
+            let ec_finality_epoch =
+                (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
+            ctx.chain_index()
+                .tipset_by_height(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)
+                .ok()
+        };
+        (depth, finalized)
+    }
+}
+
+impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
+    const NAME: &'static str = "Filecoin.ChainGetTipSetFinalityStatus";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns a breakdown of how the node is currently determining finality.");
+
+    type Params = ();
+    type Ok = ChainFinalityStatus;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(Self::get_finality_status(&ctx))
     }
 }
 
@@ -1245,7 +1370,7 @@ impl RpcMethod<1> for ChainGetTipsetByParentState {
             .heaviest_tipset()
             .chain(ctx.store())
             .find(|ts| ts.parent_state() == &parent_state)
-            .clone())
+            .shallow_clone())
     }
 }
 
@@ -1461,12 +1586,22 @@ impl From<HeadChange> for ApiHeadChange {
     }
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "Type", content = "Val", rename_all = "snake_case")]
 pub enum PathChange<T = Tipset> {
     Revert(T),
     Apply(T),
 }
+
+impl<T: Clone> Clone for PathChange<T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Revert(i) => Self::Revert(i.clone()),
+            Self::Apply(i) => Self::Apply(i.clone()),
+        }
+    }
+}
+
 impl HasLotusJson for PathChange {
     type LotusJson = PathChange<<Tipset as HasLotusJson>::LotusJson>;
 
@@ -1541,14 +1676,14 @@ impl<T> PathChanges<T> {
             .into_iter()
             .map(PathChange::Revert)
             .chain(applies.into_iter().map(PathChange::Apply))
-            .collect()
+            .collect_vec()
     }
 }
 
 #[cfg(test)]
 impl<T> quickcheck::Arbitrary for PathChange<T>
 where
-    T: quickcheck::Arbitrary,
+    T: quickcheck::Arbitrary + ShallowClone,
 {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let inner = T::arbitrary(g);
@@ -1582,7 +1717,6 @@ mod tests {
         networks::{self, ChainConfig},
     };
     use PathChange::{Apply, Revert};
-    use itertools::Itertools as _;
     use std::sync::Arc;
 
     #[test]

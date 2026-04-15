@@ -164,3 +164,11 @@ generate_markdown_section "forest-dev" "state compute"
 generate_markdown_section "forest-dev" "state replay-compute"
 generate_markdown_section "forest-dev" "state validate"
 generate_markdown_section "forest-dev" "state replay-validate"
+
+generate_markdown_section "forest-dev" "update-checkpoints"
+
+generate_markdown_section "forest-dev" "archive-missing"
+
+generate_markdown_section "forest-dev" "export-tipset-lookup"
+
+generate_markdown_section "forest-dev" "export-state-tree"

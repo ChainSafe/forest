@@ -11,6 +11,7 @@ use crate::networks::{ChainConfig, Height};
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{executor::Receipt, message::Message, version::NetworkVersion};
+use crate::utils::ShallowClone;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
@@ -76,7 +77,7 @@ pub struct ChainStore<DB> {
     f3_finalized_tipset: Arc<RwLock<Option<Tipset>>>,
 
     /// Used as a cache for tipset `lookbacks`.
-    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_index: ChainIndex<DB>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
@@ -84,7 +85,7 @@ pub struct ChainStore<DB> {
     genesis_block_header: CachingBlockHeader,
 
     /// validated blocks
-    validated_blocks: Mutex<HashSet<Cid>>,
+    pub(crate) validated_blocks: Mutex<HashSet<Cid>>,
 
     /// Ethereum mappings store
     eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
@@ -144,22 +145,20 @@ where
         };
         let heaviest_tipset = Arc::new(RwLock::new(head));
         let f3_finalized_tipset: Arc<RwLock<Option<Tipset>>> = Default::default();
-        let chain_index = Arc::new(
-            ChainIndex::new(db.clone()).with_is_tipset_finalized(Box::new({
-                let chain_finality = chain_config.policy.chain_finality;
-                let heaviest_tipset = heaviest_tipset.clone();
-                let f3_finalized_tipset = f3_finalized_tipset.clone();
-                move |ts| {
-                    let finalized = f3_finalized_tipset
-                        .read()
-                        .as_ref()
-                        .map(|ts| ts.epoch())
-                        .unwrap_or_default()
-                        .max(heaviest_tipset.read().epoch() - chain_finality);
-                    ts.epoch() <= finalized
-                }
-            })),
-        );
+        let chain_index = ChainIndex::new(db.clone()).with_is_tipset_finalized(Arc::new({
+            let chain_finality = chain_config.policy.chain_finality;
+            let heaviest_tipset = heaviest_tipset.clone();
+            let f3_finalized_tipset = f3_finalized_tipset.clone();
+            move |ts| {
+                let finalized = f3_finalized_tipset
+                    .read()
+                    .as_ref()
+                    .map(|ts| ts.epoch())
+                    .unwrap_or_default()
+                    .max(heaviest_tipset.read().epoch() - chain_finality);
+                ts.epoch() <= finalized
+            }
+        }));
         let cs = Self {
             head_changes_tx: publisher,
             chain_index,
@@ -290,7 +289,7 @@ where
     }
 
     /// Returns the chain index
-    pub fn chain_index(&self) -> &Arc<ChainIndex<Arc<DB>>> {
+    pub fn chain_index(&self) -> &ChainIndex<DB> {
         &self.chain_index
     }
 
@@ -393,7 +392,7 @@ where
     /// is usually 900. The `heaviest_tipset` is a reference point in the
     /// blockchain. It must be a child of the look-back tipset.
     pub fn get_lookback_tipset_for_round(
-        chain_index: &Arc<ChainIndex<Arc<DB>>>,
+        chain_index: &ChainIndex<DB>,
         chain_config: &Arc<ChainConfig>,
         heaviest_tipset: &Tipset,
         round: ChainEpoch,
@@ -417,8 +416,8 @@ where
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let ExecutedTipset { state_root, .. } = crate::state_manager::apply_block_messages(
                 genesis_timestamp,
-                Arc::clone(chain_index),
-                Arc::clone(chain_config),
+                chain_index.shallow_clone(),
+                chain_config.shallow_clone(),
                 beacon,
                 // Using shared WASM engine here as creating new WASM engines is expensive
                 // (takes seconds to minutes). It's only acceptable here because this situation is

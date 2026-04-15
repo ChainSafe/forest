@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.32.4"
+    "version": "0.33.0"
   },
   "methods": [
     {
@@ -6012,6 +6012,7 @@
     },
     {
       "name": "Forest.StateCompute",
+      "description": "Forest-specific RPC method that recomputes tipset state over an epoch range. It reuses cached executed tipsets only when the cached state root is loadable; otherwise it recomputes. Unlike Filecoin.StateCompute, it does not apply caller-supplied messages or return execution traces.",
       "params": [
         {
           "name": "epoch",
@@ -6031,6 +6032,16 @@
             ],
             "format": "uint",
             "minimum": 1
+          }
+        },
+        {
+          "name": "force_recompute",
+          "required": false,
+          "schema": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         }
       ],

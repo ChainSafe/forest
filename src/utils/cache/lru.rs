@@ -22,6 +22,8 @@ use prometheus_client::{
     registry::Unit,
 };
 
+use crate::utils::ShallowClone;
+
 pub trait KeyConstraints:
     GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
 {
@@ -36,7 +38,7 @@ pub trait LruValueConstraints: GetSize + Debug + Send + Sync + Clone + 'static {
 
 impl<T> LruValueConstraints for T where T: GetSize + Debug + Send + Sync + Clone + 'static {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SizeTrackingLruCache<K, V>
 where
     K: KeyConstraints,
@@ -47,13 +49,27 @@ where
     cache: Arc<RwLock<LruCache<K, V>>>,
 }
 
+impl<K, V> ShallowClone for SizeTrackingLruCache<K, V>
+where
+    K: KeyConstraints,
+    V: LruValueConstraints,
+{
+    fn shallow_clone(&self) -> Self {
+        Self {
+            cache_id: self.cache_id,
+            cache_name: self.cache_name.clone(),
+            cache: self.cache.shallow_clone(),
+        }
+    }
+}
+
 impl<K, V> SizeTrackingLruCache<K, V>
 where
     K: KeyConstraints,
     V: LruValueConstraints,
 {
     fn register_metrics(&self) {
-        crate::metrics::register_collector(Box::new(self.clone()));
+        crate::metrics::register_collector(Box::new(self.shallow_clone()));
     }
 
     fn new_inner(cache_name: Cow<'static, str>, capacity: Option<NonZeroUsize>) -> Self {
@@ -100,6 +116,14 @@ where
         &self.cache
     }
 
+    pub fn remove<Q>(&self, k: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.cache.write().remove(k)
+    }
+
     pub fn push(&self, k: K, v: V) -> Option<V> {
         self.cache.write().insert(k, v)
     }
@@ -138,6 +162,10 @@ where
 
     pub fn cap(&self) -> usize {
         self.cache.read().capacity()
+    }
+
+    pub fn clear(&self) {
+        self.cache.write().clear()
     }
 
     pub(crate) fn size_in_bytes(&self) -> usize {
