@@ -422,6 +422,47 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
     }
 }
 
+pin_project! {
+    pub struct IpldStream<DB> {
+        db: DB,
+        cid_vec: Vec<Cid>,
+        seen: CidHashSet,
+    }
+}
+
+impl<DB> IpldStream<DB> {
+    pub fn new(db: DB, roots: Vec<Cid>) -> Self {
+        Self {
+            db,
+            cid_vec: roots,
+            seen: CidHashSet::default(),
+        }
+    }
+}
+
+impl<DB: Blockstore> Stream for IpldStream<DB> {
+    type Item = anyhow::Result<CarBlock>;
+
+    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        while let Some(cid) = this.cid_vec.pop() {
+            if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+                if let Some(data) = this.db.get(&cid)? {
+                    if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                        let new_cids = extract_cids(&data)?;
+                        this.cid_vec.extend(new_cids);
+                    }
+                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                } else {
+                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {cid}"))));
+                }
+            }
+        }
+        // That's it, nothing else to do. End of stream.
+        Poll::Ready(None)
+    }
+}
+
 fn ipld_to_cid(ipld: Ipld) -> Option<Cid> {
     if let Ipld::Link(cid) = ipld {
         Some(cid)
