@@ -50,7 +50,6 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
-use libsecp256k1::{PublicKey, SecretKey};
 use num_traits::Signed;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -127,10 +126,7 @@ static KNOWN_CALIBNET_F4_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
 });
 
 fn generate_eth_random_address() -> anyhow::Result<EthAddress> {
-    let rng = &mut crate::utils::rand::forest_os_rng();
-    let secret_key = SecretKey::random(rng);
-    let public_key = PublicKey::from_secret_key(&secret_key);
-    EthAddress::eth_address_from_pub_key(&public_key.serialize())
+    k256::ecdsa::SigningKey::random(&mut crate::utils::rand::forest_os_rng()).try_into()
 }
 
 const TICKET_QUALITY_GREEDY: f64 = 0.9;

@@ -125,6 +125,7 @@ is-terminal = "0.4"
 itertools = "0.14"
 jsonrpsee = { version = "0.26", features = ["server", "ws-client", "http-client", "macros"] }
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
+k256 = "0.13"
 keccak-hash = "0.12"
 kubert-prometheus-process = "0.2"
 lazy-regex = "3"
@@ -152,7 +153,6 @@ libp2p = { workspace = true, features = [
   'ed25519',
   'secp256k1',
 ] }
-libsecp256k1 = "0.7"
 md5 = { package = "md-5", version = "0.11" }
 memmap2 = "0.9"
 multiaddr = "0.18"

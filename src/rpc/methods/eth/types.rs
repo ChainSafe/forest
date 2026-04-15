@@ -8,13 +8,14 @@ use get_size2::GetSize;
 use ipld_core::serde::SerdeError;
 use jsonrpsee::core::traits::IdProvider;
 use jsonrpsee::types::SubscriptionId;
-use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use rand::Rng;
 use serde::de::{IntoDeserializer, value::StringDeserializer};
 use std::{hash::Hash, ops::Deref};
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
+
+const UNCOMPRESSED_PUBLIC_KEY_SIZE: usize = 65;
 
 #[derive(
     Eq,
@@ -194,12 +195,12 @@ impl EthAddress {
     }
 
     /// Returns the Ethereum address corresponding to an uncompressed secp256k1 public key.
-    pub fn eth_address_from_pub_key(pubkey: &[u8]) -> anyhow::Result<Self> {
+    pub fn eth_address_from_uncompressed_public_key(pubkey: &[u8]) -> anyhow::Result<Self> {
         // Check if the public key has the correct length (65 bytes)
         ensure!(
-            pubkey.len() == FULL_PUBLIC_KEY_SIZE,
+            pubkey.len() == UNCOMPRESSED_PUBLIC_KEY_SIZE,
             "uncompressed public key should have {} bytes, but got {}",
-            FULL_PUBLIC_KEY_SIZE,
+            UNCOMPRESSED_PUBLIC_KEY_SIZE,
             pubkey.len()
         );
 
@@ -212,6 +213,38 @@ impl EthAddress {
         let hash = keccak_hash::keccak(pubkey.get(1..).context("failed to get pubkey data")?);
         let addr: &[u8] = &hash[12..32];
         EthAddress::try_from(addr)
+    }
+}
+
+impl TryFrom<&k256::ecdsa::VerifyingKey> for EthAddress {
+    type Error = anyhow::Error;
+
+    fn try_from(k: &k256::ecdsa::VerifyingKey) -> Result<Self, Self::Error> {
+        Self::eth_address_from_uncompressed_public_key(k.to_encoded_point(false).as_bytes())
+    }
+}
+
+impl TryFrom<k256::ecdsa::VerifyingKey> for EthAddress {
+    type Error = anyhow::Error;
+
+    fn try_from(k: k256::ecdsa::VerifyingKey) -> Result<Self, Self::Error> {
+        (&k).try_into()
+    }
+}
+
+impl TryFrom<&k256::ecdsa::SigningKey> for EthAddress {
+    type Error = anyhow::Error;
+
+    fn try_from(k: &k256::ecdsa::SigningKey) -> Result<Self, Self::Error> {
+        k.verifying_key().try_into()
+    }
+}
+
+impl TryFrom<k256::ecdsa::SigningKey> for EthAddress {
+    type Error = anyhow::Error;
+
+    fn try_from(k: k256::ecdsa::SigningKey) -> Result<Self, Self::Error> {
+        (&k).try_into()
     }
 }
 
@@ -624,9 +657,9 @@ mod tests {
     }
 
     #[test]
-    fn test_eth_address_from_pub_key() {
+    fn test_eth_address_from_uncompressed_public_key() {
         // Uncompressed pub key secp256k1)
-        let pubkey: [u8; FULL_PUBLIC_KEY_SIZE] = [
+        let pubkey: [u8; UNCOMPRESSED_PUBLIC_KEY_SIZE] = [
             4, 75, 249, 118, 22, 83, 215, 249, 252, 54, 149, 27, 253, 35, 238, 15, 229, 8, 50, 228,
             19, 137, 115, 123, 183, 243, 237, 144, 113, 41, 115, 70, 234, 174, 61, 199, 1, 81, 95,
             143, 102, 246, 176, 220, 176, 93, 241, 139, 94, 105, 141, 153, 20, 74, 35, 52, 139,
@@ -636,7 +669,7 @@ mod tests {
         let expected_eth_address =
             EthAddress::from_str("0xeb1d0c87b7e33d0ab44a397b675f0897295491c2").unwrap();
 
-        let result = EthAddress::eth_address_from_pub_key(&pubkey).unwrap();
+        let result = EthAddress::eth_address_from_uncompressed_public_key(&pubkey).unwrap();
         assert_eq!(result, expected_eth_address);
     }
 }

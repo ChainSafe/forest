@@ -274,7 +274,7 @@ pub fn verify_delegated_sig(
     let hash = keccak_256(data);
     let pub_key = recover_secp_public_key(&hash, &sig)?;
 
-    let eth_addr = EthAddress::eth_address_from_pub_key(&pub_key)?;
+    let eth_addr = EthAddress::eth_address_from_uncompressed_public_key(&pub_key)?;
 
     let rec_addr = eth_addr.to_filecoin_address()?;
 
