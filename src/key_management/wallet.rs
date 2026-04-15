@@ -26,7 +26,10 @@ impl TryFrom<KeyInfo> for Key {
     type Error = crate::key_management::errors::Error;
 
     fn try_from(key_info: KeyInfo) -> Result<Self, Self::Error> {
-        let public_key = wallet_helpers::to_public(*key_info.key_type(), key_info.private_key())?;
+        let public_key = wallet_helpers::to_uncompressed_public_key(
+            *key_info.key_type(),
+            key_info.private_key(),
+        )?;
         let address = wallet_helpers::new_address(*key_info.key_type(), &public_key)?;
         Ok(Key {
             key_info,
@@ -241,7 +244,6 @@ pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
 mod tests {
     use crate::utils::encoding::{blake2b_256, keccak_256};
     use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
-    use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     use super::*;
     use crate::key_management::{KeyStoreConfig, generate};
@@ -293,7 +295,8 @@ mod tests {
 
         let new_priv_key = generate(SignatureType::Bls).unwrap();
         let pub_key =
-            wallet_helpers::to_public(SignatureType::Bls, new_priv_key.as_slice()).unwrap();
+            wallet_helpers::to_uncompressed_public_key(SignatureType::Bls, new_priv_key.as_slice())
+                .unwrap();
         let address = Address::new_bls(pub_key.as_slice()).unwrap();
 
         // test to see if the new key has been created and added to the wallet
@@ -321,12 +324,11 @@ mod tests {
         let msg_sig = wallet.sign(&addr, &msg).unwrap();
 
         let msg_complete = blake2b_256(&msg);
-        let message = SecpMessage::parse(&msg_complete);
-        let priv_key = SecpPrivate::parse_slice(&priv_key_bytes).unwrap();
-        let (sig, recovery_id) = libsecp256k1::sign(&message, &priv_key);
+        let priv_key = k256::ecdsa::SigningKey::from_slice(&priv_key_bytes).unwrap();
+        let (sig, recovery_id) = priv_key.sign_prehash_recoverable(&msg_complete).unwrap();
         let mut new_bytes = [0; 65];
-        new_bytes[..64].copy_from_slice(&sig.serialize());
-        new_bytes[64] = recovery_id.serialize();
+        new_bytes[..64].copy_from_slice(&sig.to_bytes());
+        new_bytes[64] = recovery_id.to_byte();
         let actual = Signature::new_secp256k1(new_bytes.to_vec());
         assert_eq!(msg_sig, actual)
     }
@@ -361,12 +363,11 @@ mod tests {
         let msg_sig = wallet.sign(&addr, &msg).unwrap();
 
         let msg_complete = keccak_256(&msg);
-        let message = SecpMessage::parse(&msg_complete);
-        let priv_key = SecpPrivate::parse_slice(&priv_key_bytes).unwrap();
-        let (sig, recovery_id) = libsecp256k1::sign(&message, &priv_key);
+        let priv_key = k256::ecdsa::SigningKey::from_slice(&priv_key_bytes).unwrap();
+        let (sig, recovery_id) = priv_key.sign_prehash_recoverable(&msg_complete).unwrap();
         let mut new_bytes = [0; 65];
-        new_bytes[..64].copy_from_slice(&sig.serialize());
-        new_bytes[64] = recovery_id.serialize();
+        new_bytes[..64].copy_from_slice(&sig.to_bytes());
+        new_bytes[64] = recovery_id.to_byte();
         let actual = Signature::new_delegated(new_bytes.to_vec());
         assert_eq!(msg_sig, actual)
     }
@@ -383,8 +384,11 @@ mod tests {
         assert_eq!(key_info, key.key_info);
 
         let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
-        let pub_key =
-            wallet_helpers::to_public(SignatureType::Secp256k1, new_priv_key.as_slice()).unwrap();
+        let pub_key = wallet_helpers::to_uncompressed_public_key(
+            SignatureType::Secp256k1,
+            new_priv_key.as_slice(),
+        )
+        .unwrap();
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
         let key_info_err = wallet.export(&test_addr).unwrap_err();
         // test to make sure that an error is raised when an incorrect address is added
@@ -459,8 +463,11 @@ mod tests {
         assert!(matches!(wallet.get_default().unwrap_err(), Error::KeyInfo));
 
         let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
-        let pub_key =
-            wallet_helpers::to_public(SignatureType::Secp256k1, new_priv_key.as_slice()).unwrap();
+        let pub_key = wallet_helpers::to_uncompressed_public_key(
+            SignatureType::Secp256k1,
+            new_priv_key.as_slice(),
+        )
+        .unwrap();
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
 
         let key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);
