@@ -260,9 +260,7 @@ where
         &self.engine
     }
 
-    pub(in crate::state_manager) fn tipset_state_cache(
-        &self,
-    ) -> &TipsetStateCache<ExecutedTipset> {
+    pub(in crate::state_manager) fn tipset_state_cache(&self) -> &TipsetStateCache<ExecutedTipset> {
         &self.cache
     }
 

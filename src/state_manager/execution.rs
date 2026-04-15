@@ -1,22 +1,15 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use super::state_computation::{TipsetExecutor, apply_block_messages, validate_tipsets};
+use super::state_computation::TipsetExecutor;
 use super::utils::structured;
-use super::{ExecutedTipset, NO_CALLBACK, StateManager};
-use crate::blocks::Tipset;
-use crate::chain::index::ResolveNullTipset;
-use crate::interpreter::{CalledAt, MessageCallbackCtx, VMTrace};
+use super::*;
+use crate::interpreter::{CalledAt, VMTrace};
 use crate::rpc::state::{ApiInvocResult, MessageGasCost};
-use crate::shim::econ::TokenAmount;
 use crate::utils::ShallowClone as _;
 use anyhow::{Context as _, bail};
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use num_traits::identities::Zero;
 use std::ops::RangeInclusive;
-use std::sync::Arc;
 
 impl<DB> StateManager<DB>
 where
@@ -38,25 +31,23 @@ where
         const REPLAY_HALT: &str = "replay_halt";
 
         let mut api_invoc_result = None;
-        let callback = |ctx: MessageCallbackCtx<'_>| {
-            match ctx.at {
-                CalledAt::Applied | CalledAt::Reward
-                    if api_invoc_result.is_none() && ctx.cid == mcid =>
-                {
-                    api_invoc_result = Some(ApiInvocResult {
-                        msg_cid: ctx.message.cid(),
-                        msg: ctx.message.message().clone(),
-                        msg_rct: Some(ctx.apply_ret.msg_receipt()),
-                        error: ctx.apply_ret.failure_info().unwrap_or_default(),
-                        duration: ctx.duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
-                        gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
-                        execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
-                            .unwrap_or_default(),
-                    });
-                    anyhow::bail!(REPLAY_HALT);
-                }
-                _ => Ok(()),
+        let callback = |ctx: MessageCallbackCtx<'_>| match ctx.at {
+            CalledAt::Applied | CalledAt::Reward
+                if api_invoc_result.is_none() && ctx.cid == mcid =>
+            {
+                api_invoc_result = Some(ApiInvocResult {
+                    msg_cid: ctx.message.cid(),
+                    msg: ctx.message.message().clone(),
+                    msg_rct: Some(ctx.apply_ret.msg_receipt()),
+                    error: ctx.apply_ret.failure_info().unwrap_or_default(),
+                    duration: ctx.duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
+                    gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
+                    execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
+                        .unwrap_or_default(),
+                });
+                anyhow::bail!(REPLAY_HALT);
             }
+            _ => Ok(()),
         };
         let result = self.compute_tipset_state_blocking(ts, Some(callback), VMTrace::Traced);
         if let Err(error_message) = result
@@ -218,23 +209,21 @@ where
 
         let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
 
-        let callback = |ctx: MessageCallbackCtx<'_>| {
-            match ctx.at {
-                CalledAt::Applied | CalledAt::Reward => {
-                    invoc_trace.push(ApiInvocResult {
-                        msg_cid: ctx.message.cid(),
-                        msg: ctx.message.message().clone(),
-                        msg_rct: Some(ctx.apply_ret.msg_receipt()),
-                        error: ctx.apply_ret.failure_info().unwrap_or_default(),
-                        duration: ctx.duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
-                        gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
-                        execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
-                            .unwrap_or_default(),
-                    });
-                    Ok(())
-                }
-                _ => Ok(()),
+        let callback = |ctx: MessageCallbackCtx<'_>| match ctx.at {
+            CalledAt::Applied | CalledAt::Reward => {
+                invoc_trace.push(ApiInvocResult {
+                    msg_cid: ctx.message.cid(),
+                    msg: ctx.message.message().clone(),
+                    msg_rct: Some(ctx.apply_ret.msg_receipt()),
+                    error: ctx.apply_ret.failure_info().unwrap_or_default(),
+                    duration: ctx.duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
+                    gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
+                    execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
+                        .unwrap_or_default(),
+                });
+                Ok(())
             }
+            _ => Ok(()),
         };
 
         let ExecutedTipset { state_root, .. } = apply_block_messages(
