@@ -41,6 +41,13 @@ taplo fmt --check
 taplo lint
 '''
 
+[tasks."lint:actions"]
+description = "Check GitHub Actions workflow files."
+tools.actionlint = "1.7.12"
+run = '''
+actionlint
+'''
+
 [tasks."lint:rust-fmt"]
 description = "Run cargo-fmt to check Rust code formatting."
 run = '''

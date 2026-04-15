@@ -49,9 +49,11 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
       - name: Checkout Sources
         uses: actions/checkout@v6
@@ -84,11 +86,13 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
-          echo "SCCACHE_S3_KEY_PREFIX=aarch64" >> $GITHUB_ENV
+          echo "SCCACHE_S3_KEY_PREFIX=aarch64" >> "$GITHUB_ENV"
       - name: Checkout Sources
         uses: actions/checkout@v6
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')

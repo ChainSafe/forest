@@ -71,9 +71,11 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -96,8 +98,8 @@ jobs:
       - name: Fetch proof params and RPC test snapshots
         run: |
           # Use the same profile to re-use some compilation artifacts and speed up the entire job.
-          cargo llvm-cov run --profile codecov --no-report --bin forest-dev --no-default-features -- fetch-test-snapshots --actor-bundle $FOREST_ACTOR_BUNDLE_PATH
-          ls -ahl $FIL_PROOFS_PARAMETER_CACHE
+          cargo llvm-cov run --profile codecov --no-report --bin forest-dev --no-default-features -- fetch-test-snapshots --actor-bundle "$FOREST_ACTOR_BUNDLE_PATH"
+          ls -ahl "$FIL_PROOFS_PARAMETER_CACHE"
       - name: Generate code coverage
         run: mise codecov
         env:

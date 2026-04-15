@@ -32,8 +32,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install black flake8
-      - name: Run Python linters
-        uses: wearerequired/lint-action@v2
-        with:
-          black: true
-          flake8: true
+      - name: Run black
+        run: black --check scripts/
+      - name: Run flake8
+        run: flake8 scripts/
