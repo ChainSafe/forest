@@ -48,11 +48,13 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "$AWS_ACCESS_KEY_ID" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
-          echo "SCCACHE_S3_KEY_PREFIX=macos" >> $GITHUB_ENV
+          echo "SCCACHE_S3_KEY_PREFIX=macos" >> "$GITHUB_ENV"
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
@@ -75,9 +77,11 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
       - name: Checkout Sources
         uses: actions/checkout@v6
@@ -473,8 +477,8 @@ jobs:
           docker volume create devnet_filecoin-proofs
           docker run --rm \
             -v devnet_filecoin-proofs:/proofs \
-            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            $SHELL_IMAGE \
+            -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
+            "$SHELL_IMAGE" \
             sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v8
@@ -494,63 +498,10 @@ jobs:
         run: |
           docker run --rm \
             -v devnet_filecoin-proofs:/proofs \
-            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            $SHELL_IMAGE \
+            -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
+            "$SHELL_IMAGE" \
             sh -c "cp /proofs/* /cache"
-          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
-  local-devnet-curio-check:
-    # Disabling this job as it is not providing any value until the curio setup is fixed. See: https://github.com/ChainSafe/forest/issues/5171
-    if: false
-    name: Devnet Curio checks
-    runs-on: ubuntu-24.04
-    needs:
-      - build-ubuntu
-    env:
-      # We use a custom Dockerfile for CI to speed up the build process.
-      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
-    steps:
-      - uses: actions/cache@v5
-        id: cache
-        with:
-          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
-          key: proof-params-2k
-      - name: Load cache into volume
-        if: steps.cache.outputs.cache-hit == 'true'
-        run: |
-          docker volume create devnet_filecoin-proofs
-          docker run --rm \
-            -v devnet_filecoin-proofs:/proofs \
-            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            $SHELL_IMAGE \
-            sh -c "cp /cache/* /proofs"
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-      - name: Devnet setup
-        run: |
-          cp ./scripts/devnet/setup.sh ./scripts/devnet-curio/setup.sh
-          chmod +x ./scripts/devnet-curio/setup.sh
-          ./scripts/devnet-curio/setup.sh
-        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
-      - name: Devnet check
-        run: |
-          cp ./scripts/devnet/check.sh ./scripts/devnet-curio/check.sh
-          chmod +x ./scripts/devnet-curio/check.sh
-          ./scripts/devnet-curio/check.sh
-        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
-      - name: Dump docker logs
-        if: always()
-        uses: jwalton/gh-docker-logs@v2
-      - name: Prepare cache folder for uploading
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          docker run --rm \
-            -v devnet_filecoin-proofs:/proofs \
-            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            $SHELL_IMAGE \
-            sh -c "cp /proofs/* /cache"
-          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
+          sudo chmod -R 755 "$FIL_PROOFS_PARAMETER_CACHE"
   bootstrap-checks-forest:
     needs:
       - build-ubuntu
@@ -663,8 +614,8 @@ jobs:
         if: always()
         run: |
           export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          echo ${WORKFLOW_URL}
-          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
+          echo "${WORKFLOW_URL}"
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
       - uses: JasonEtco/create-an-issue@v2
         if: github.ref == 'refs/heads/main' && failure()
         env:

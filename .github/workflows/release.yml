@@ -41,7 +41,7 @@ jobs:
       - name: Pack artifacts
         run: |
           for bin in forest-${{ github.ref_name }}/*; do
-            sha256sum $bin > $bin.sha256
+            sha256sum "$bin" > "$bin".sha256
           done
           cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md forest-${{ github.ref_name }}
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
