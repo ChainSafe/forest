@@ -51,7 +51,7 @@ pub enum MpoolCommands {
     },
     /// Fill an on-chain nonce gap by pushing signed self-transfer messages.
     NonceFix {
-        /// Address to fill nonces for (must be signable by the node's wallet).
+        /// Address to fill nonce's for (must be signable by the node's wallet).
         #[arg(long)]
         addr: StrictAddress,
         /// Derive the fill range from chain state and the mempool (ignores `--start` / `--end`).
