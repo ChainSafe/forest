@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6926](https://github.com/ChainSafe/forest/pull/6926): Added strict JSON validation to deny unknown fields in RPC request parameters and response results when `FOREST_STRICT_JSON` is enabled.
+
 ### Changed
 
 ### Removed
