@@ -942,8 +942,15 @@ pub fn remove(
 
 #[cfg(test)]
 mod tests {
+    use crate::blocks::RawBlockHeader;
+    use crate::chain::ChainStore;
+    use crate::db::MemoryDB;
+    use crate::message_pool::provider::Provider;
     use crate::message_pool::test_provider::TestApi;
+    use crate::networks::ChainConfig;
     use crate::shim::econ::TokenAmount;
+    use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
+    use crate::utils::db::CborStoreExt as _;
 
     use super::*;
     use crate::shim::message::Message as ShimMessage;
@@ -1107,8 +1114,6 @@ mod tests {
 
     #[test]
     fn test_get_sequence_works_with_both_address_forms() {
-        use crate::message_pool::provider::Provider;
-
         let api = TestApi::default();
         let bls_sig_cache = SizeTrackingLruCache::new_mocked();
         let key_cache = SizeTrackingLruCache::new_mocked();
@@ -1500,5 +1505,77 @@ mod tests {
             nonce_b, 20,
             "different tipset should miss the cache and read fresh state"
         );
+    }
+
+    #[test]
+    fn resolve_to_key_uses_finality_lookback() {
+        let db = Arc::new(MemoryDB::default());
+
+        let mut cfg = ChainConfig::default();
+        cfg.policy.chain_finality = 1;
+        let cfg = Arc::new(cfg);
+
+        let bls_a = Address::new_bls(&[8u8; 48]).unwrap();
+        let bls_b = Address::new_bls(&[9u8; 48]).unwrap();
+
+        // root_a: only contains f0300
+        let mut st_a = StateTree::new(db.clone(), StateTreeVersion::V5).unwrap();
+        st_a.set_actor(
+            &Address::new_id(300),
+            ActorState::new_empty(Cid::default(), Some(bls_a)),
+        )
+        .unwrap();
+        let root_a = st_a.flush().unwrap();
+
+        // root_b: only contains f0400
+        let mut st_b = StateTree::new(db.clone(), StateTreeVersion::V5).unwrap();
+        st_b.set_actor(
+            &Address::new_id(400),
+            ActorState::new_empty(Cid::default(), Some(bls_b)),
+        )
+        .unwrap();
+        let root_b = st_b.flush().unwrap();
+
+        let genesis = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            state_root: root_a,
+            ..Default::default()
+        }));
+        db.put_cbor_default(genesis.block_headers().first())
+            .unwrap();
+
+        let ts1 = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            parents: genesis.key().clone(),
+            epoch: 1,
+            state_root: root_a,
+            timestamp: 1,
+            ..Default::default()
+        }));
+        db.put_cbor_default(ts1.block_headers().first()).unwrap();
+
+        let head = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            parents: ts1.key().clone(),
+            epoch: 2,
+            state_root: root_b,
+            timestamp: 2,
+            ..Default::default()
+        }));
+        db.put_cbor_default(head.block_headers().first()).unwrap();
+
+        let cs = ChainStore::new(
+            db.clone(),
+            db.clone(),
+            db,
+            cfg,
+            genesis.block_headers().first().clone(),
+        )
+        .unwrap();
+
+        // f0300 exists in lookback state (root_a) → resolves successfully.
+        let result = Provider::resolve_to_key(&cs, &Address::new_id(300), &head).unwrap();
+        assert_eq!(result, bls_a);
+
+        // f0400 exists only in head state (root_b), not in lookback → fails.
+        Provider::resolve_to_key(&cs, &Address::new_id(400), &head)
+            .expect_err("actor only in head state must not resolve via finality lookback");
     }
 }
