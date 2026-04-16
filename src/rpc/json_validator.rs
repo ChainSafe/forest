@@ -7,7 +7,7 @@
 //!   using a "last-write-wins" strategy. This means JSON like `{"/":"cid1", "/":"cid2"}` will
 //!   keep only the last value, which can lead to unexpected behavior in RPC calls.
 //! - **Unknown field detection**: `serde_json` silently ignores unknown fields by default.
-//!   In strict mode, [`from_value_rejecting_unknown_fields`] applies to rpc request and
+//!   In strict mode, [`from_value_rejecting_unknown_fields`] applies to RPC request and
 //!   responses.
 //!
 //! All of this is gated behind the `FOREST_STRICT_JSON` environment variable.
