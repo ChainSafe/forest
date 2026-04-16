@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::blocks::TipsetKey;
 use crate::state_manager::DEFAULT_TIPSET_CACHE_SIZE;
+use crate::utils::ShallowClone;
 use crate::utils::cache::{LruValueConstraints, SizeTrackingLruCache};
-use parking_lot::Mutex as SyncMutex;
+use ahash::{HashMap, HashMapExt as _};
+use parking_lot::RwLock as SyncRwLock;
 use std::future::Future;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -11,7 +13,7 @@ use tokio::sync::Mutex as TokioMutex;
 
 struct TipsetStateCacheInner<V: LruValueConstraints> {
     values: SizeTrackingLruCache<TipsetKey, V>,
-    pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
+    pending: HashMap<TipsetKey, Arc<TokioMutex<()>>>,
 }
 
 impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
@@ -21,7 +23,7 @@ impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
                 Self::cache_name(cache_identifier).into(),
                 cache_size,
             ),
-            pending: Vec::with_capacity(8),
+            pending: HashMap::with_capacity(8),
         }
     }
 
@@ -32,7 +34,7 @@ impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
 
 /// A generic cache that handles concurrent access and computation for tipset-related data.
 pub(crate) struct TipsetStateCache<V: LruValueConstraints> {
-    cache: Arc<SyncMutex<TipsetStateCacheInner<V>>>,
+    cache: Arc<SyncRwLock<TipsetStateCacheInner<V>>>,
 }
 
 enum CacheLookupStatus<V> {
@@ -47,19 +49,23 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
 
     pub fn with_size(cache_identifier: &str, cache_size: NonZeroUsize) -> Self {
         Self {
-            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::with_size(
+            cache: Arc::new(SyncRwLock::new(TipsetStateCacheInner::with_size(
                 cache_identifier,
                 cache_size,
             ))),
         }
     }
 
-    fn with_inner<F, T>(&self, func: F) -> T
+    fn get_or_insert<F1, F2, T>(&self, get_func: F1, or_insert_func: F2) -> T
     where
-        F: FnOnce(&mut TipsetStateCacheInner<V>) -> T,
+        F1: FnOnce(&TipsetStateCacheInner<V>) -> Option<T>,
+        F2: FnOnce(&mut TipsetStateCacheInner<V>) -> T,
     {
-        let mut lock = self.cache.lock();
-        func(&mut lock)
+        if let Some(v) = get_func(&self.cache.read()) {
+            v
+        } else {
+            or_insert_func(&mut self.cache.write())
+        }
     }
 
     pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<V>
@@ -68,24 +74,17 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
         Fut: Future<Output = anyhow::Result<V>> + Send,
         V: Send + Sync + 'static,
     {
-        let status = self.with_inner(|inner| match inner.values.get_cloned(key) {
-            Some(v) => CacheLookupStatus::Exist(v),
-            None => {
-                let option = inner
+        let status = self.get_or_insert(
+            |inner| inner.values.get_cloned(key).map(CacheLookupStatus::Exist),
+            |inner| {
+                let mutex = inner
                     .pending
-                    .iter()
-                    .find(|(k, _)| k == key)
-                    .map(|(_, mutex)| mutex);
-                match option {
-                    Some(mutex) => CacheLookupStatus::Empty(mutex.clone()),
-                    None => {
-                        let mutex = Arc::new(TokioMutex::new(()));
-                        inner.pending.push((key.clone(), mutex.clone()));
-                        CacheLookupStatus::Empty(mutex)
-                    }
-                }
-            }
-        });
+                    .entry(key.clone())
+                    .or_insert_with(|| Arc::new(TokioMutex::new(())))
+                    .shallow_clone();
+                CacheLookupStatus::Empty(mutex)
+            },
+        );
         match status {
             CacheLookupStatus::Exist(x) => {
                 crate::metrics::LRU_CACHE_HIT
@@ -109,9 +108,7 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
                         crate::metrics::LRU_CACHE_MISS
                             .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
                             .inc();
-
                         let value = compute().await?;
-
                         // Write back to cache, release lock and return value
                         self.insert(key.clone(), value.clone());
                         Ok(value)
@@ -122,7 +119,7 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
     }
 
     pub fn get_map<T>(&self, key: &TipsetKey, mapper: impl Fn(&V) -> T) -> Option<T> {
-        self.with_inner(|inner| inner.values.get_map(key, mapper))
+        self.cache.read().values.get_map(key, mapper)
     }
 
     pub fn get(&self, key: &TipsetKey) -> Option<V> {
@@ -130,17 +127,15 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
     }
 
     pub fn insert(&self, key: TipsetKey, value: V) {
-        self.with_inner(|inner| {
-            inner.pending.retain(|(k, _)| k != &key);
-            inner.values.push(key, value);
-        });
+        let mut cache = self.cache.write();
+        cache.pending.retain(|k, _| k != &key);
+        cache.values.push(key, value);
     }
 
     pub fn remove(&self, key: &TipsetKey) {
-        self.with_inner(|inner| {
-            inner.pending.retain(|(k, _)| k != key);
-            inner.values.remove(key);
-        });
+        let mut cache = self.cache.write();
+        cache.pending.retain(|k, _| k != key);
+        cache.values.remove(key);
     }
 }
 
