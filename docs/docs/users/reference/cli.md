@@ -2129,6 +2129,7 @@ SUBCOMMANDS:
   update-checkpoints    Update known blocks (checkpoints), normally in `build/known_blocks.yaml`, by querying RPC endpoints
   archive-missing       Find missing archival snapshots on the Forest Archive for a given epoch range
   export-tipset-lookup  Exports epoch to tipset key mapping AMT as a `ForestCAR` file for a given epoch range. The exported AMT can be used to quickly look up the tipset key for a given epoch without traversing the chain, which is useful for tools that need to access historical tipsets frequently
+  export-state-tree     Exports N consecutive parent state trees(together with messages, message receipts and events) of the tipset at the given epoch
   help                  Print this message or the help of the given subcommand(s)
 
 OPTIONS:
@@ -2226,4 +2227,91 @@ Options:
       --chain <CHAIN>  Filecoin network chain
   -n, --n <N>          Number of times to repeat the state computation [default: 1]
   -h, --help           Print help
+```
+
+### `forest-dev update-checkpoints`
+
+```
+Update known blocks (checkpoints), normally in `build/known_blocks.yaml`, by querying RPC endpoints
+
+Usage: forest-dev update-checkpoints [OPTIONS]
+
+Options:
+      --known-blocks-file <KNOWN_BLOCKS_FILE>
+          Path to `known_blocks.yaml` file
+
+          [default: build/known_blocks.yaml]
+
+      --mainnet-rpc <MAINNET_RPC>
+          Mainnet RPC endpoint (Filfox recommended for full historical data)
+
+          [default: https://filfox.info]
+
+      --calibnet-rpc <CALIBNET_RPC>
+          Calibnet RPC endpoint (Filfox recommended for full historical data)
+
+          [default: https://calibration.filfox.info]
+
+      --network <NETWORK>
+          Which network(s) to update
+
+          Possible values:
+          - all:      Update both calibnet and mainnet
+          - calibnet: Update calibnet only
+          - mainnet:  Update mainnet only
+
+          [default: all]
+
+      --dry-run
+          Dry run - don't write changes to file
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+### `forest-dev archive-missing`
+
+```
+Find missing archival snapshots on the Forest Archive for a given epoch range
+
+Usage: forest-dev archive-missing [OPTIONS] --chain <CHAIN>
+
+Options:
+      --chain <CHAIN>  Filecoin network chain (e.g., calibnet, mainnet)
+      --from <FROM>    Start epoch (inclusive). Defaults to genesis (epoch 0). Rounded down to the nearest lite boundary
+      --to <TO>        End epoch (inclusive). Defaults to the current expected epoch minus 3000. Rounded up to the next diff boundary
+  -h, --help           Print help
+```
+
+### `forest-dev export-tipset-lookup`
+
+```
+Exports epoch to tipset key mapping AMT as a `ForestCAR` file for a given epoch range. The exported AMT can be used to quickly look up the tipset key for a given epoch without traversing the chain, which is useful for tools that need to access historical tipsets frequently
+
+Usage: forest-dev export-tipset-lookup [OPTIONS] --chain <CHAIN> --output <OUTPUT>
+
+Options:
+      --chain <CHAIN>              Filecoin network chain (e.g., calibnet, mainnet)
+      --db <DB>                    Optional path to the database folder
+      --from <FROM>                Start epoch (inclusive). Defaults to the current chain head
+      --to <TO>                    End epoch (inclusive) [default: 0]
+      --skip-length <SKIP_LENGTH>  Every N epochs to skip when exporting the AMT. Defaults to 1 (export every epoch) [default: 1]
+  -o, --output <OUTPUT>            The path to the output `ForestCAR` file
+  -h, --help                       Print help
+```
+
+### `forest-dev export-state-tree`
+
+```
+Exports N consecutive parent state trees(together with messages, message receipts and events) of the tipset at the given epoch
+
+Usage: forest-dev export-state-tree [OPTIONS] --chain <CHAIN> --from <FROM> --to <TO>
+
+Options:
+      --chain <CHAIN>    Filecoin network chain (e.g., calibnet, mainnet)
+      --db <DB>          Optional path to the database folder
+      --from <FROM>      The maximum tipset epoch to export state tree from (Exclusive)
+      --to <TO>          The minimum tipset epoch to export state tree from (Inclusive)
+  -o, --output <OUTPUT>  The path to the output `ForestCAR` file
+  -h, --help             Print help
 ```
