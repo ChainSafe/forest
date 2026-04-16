@@ -357,18 +357,14 @@ async fn download_http_parallel(
                         file.write_all(&chunk_result).await?;
                         chunk_bytes_written += chunk_result.len() as u64;
 
-                        let downloaded = bytes_downloaded.fetch_add(
-                            chunk_result.len() as u64,
-                            Ordering::Relaxed,
-                        ) + chunk_result.len() as u64;
+                        let downloaded = bytes_downloaded
+                            .fetch_add(chunk_result.len() as u64, Ordering::Relaxed)
+                            + chunk_result.len() as u64;
 
                         // Log progress every 5 seconds (lockless fast path)
-                        let elapsed_ms =
-                            start_time.elapsed().as_millis() as u64;
-                        let prev_ms =
-                            last_logged_millis.load(Ordering::Relaxed);
-                        if elapsed_ms.saturating_sub(prev_ms)
-                            >= UPDATE_FREQUENCY_MS
+                        let elapsed_ms = start_time.elapsed().as_millis() as u64;
+                        let prev_ms = last_logged_millis.load(Ordering::Relaxed);
+                        if elapsed_ms.saturating_sub(prev_ms) >= UPDATE_FREQUENCY_MS
                             && last_logged_millis
                                 // Spurious failure is fine — another task logs instead.
                                 .compare_exchange_weak(
@@ -379,14 +375,10 @@ async fn download_http_parallel(
                                 )
                                 .is_ok()
                         {
-                            let last_bytes =
-                                last_logged_bytes.load(Ordering::Relaxed);
-                            let elapsed_secs =
-                                elapsed_ms as f64 / 1000.0;
-                            let seconds_since_last =
-                                (elapsed_ms - prev_ms) as f64 / 1000.0;
-                            let speed = downloaded.saturating_sub(last_bytes)
-                                as f64
+                            let last_bytes = last_logged_bytes.load(Ordering::Relaxed);
+                            let elapsed_secs = elapsed_ms as f64 / 1000.0;
+                            let seconds_since_last = (elapsed_ms - prev_ms) as f64 / 1000.0;
+                            let speed = downloaded.saturating_sub(last_bytes) as f64
                                 / seconds_since_last.max(0.1);
                             let percent = if total_size > 0 {
                                 downloaded * 100 / total_size
@@ -406,15 +398,10 @@ async fn download_http_parallel(
                                 ))
                             );
 
-                            last_logged_bytes
-                                .store(downloaded, Ordering::Relaxed);
+                            last_logged_bytes.store(downloaded, Ordering::Relaxed);
                         }
 
-                        call_progress_callback(
-                            callback.as_deref(),
-                            downloaded,
-                            total_size,
-                        );
+                        call_progress_callback(callback.as_deref(), downloaded, total_size);
                     }
 
                     file.flush().await?;
@@ -433,8 +420,7 @@ async fn download_http_parallel(
                         "Chunk {i} download failed after {}: {e:#}",
                         chunk_bytes_written.human_count_bytes(),
                     );
-                    bytes_downloaded
-                        .fetch_sub(chunk_bytes_written, Ordering::Relaxed);
+                    bytes_downloaded.fetch_sub(chunk_bytes_written, Ordering::Relaxed);
                 })
             };
 
