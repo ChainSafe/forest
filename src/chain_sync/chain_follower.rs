@@ -784,8 +784,8 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             if let Err(e) = self.cs.put_tipset(&tipset) {
                 error!("Error putting tipset: {e}");
             }
-        } else if let Err(e) = self.cs.set_heaviest_tipset(tipset) {
-            error!("Error setting heaviest tipset: {e}");
+        } else if let Err(e) = self.cs.update_heaviest(tipset) {
+            error!("Error updating heaviest tipset: {e}");
         }
     }
 

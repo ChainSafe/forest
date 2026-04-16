@@ -339,7 +339,7 @@ where
 
     /// Determines if provided tipset is heavier than existing known heaviest
     /// tipset
-    fn update_heaviest(&self, ts: Tipset) -> Result<(), Error> {
+    pub fn update_heaviest(&self, ts: Tipset) -> Result<(), Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = fil_cns::weight(self.blockstore(), &self.heaviest_tipset())?;
 
