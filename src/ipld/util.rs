@@ -100,18 +100,12 @@ fn should_save_block_to_snapshot(cid: Cid) -> bool {
 /// 3. `Float(3.14)`
 /// 4. `String("string")`
 pub struct DfsIter {
-    dfs: VecDeque<Ipld>,
+    dfs: Vec<Ipld>,
 }
 
 impl DfsIter {
     pub fn new(root: Ipld) -> Self {
-        DfsIter {
-            dfs: VecDeque::from([root]),
-        }
-    }
-
-    pub fn walk_next(&mut self, ipld: Ipld) {
-        self.dfs.push_front(ipld)
+        DfsIter { dfs: vec![root] }
     }
 }
 
@@ -125,10 +119,10 @@ impl Iterator for DfsIter {
     type Item = Ipld;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(ipld) = self.dfs.pop_front() {
+        while let Some(ipld) = self.dfs.pop() {
             match ipld {
-                Ipld::List(list) => list.into_iter().rev().for_each(|elt| self.walk_next(elt)),
-                Ipld::Map(map) => map.into_values().rev().for_each(|elt| self.walk_next(elt)),
+                Ipld::List(list) => self.dfs.extend(list.into_iter().rev()),
+                Ipld::Map(map) => self.dfs.extend(map.into_values().rev()),
                 other => return Some(other),
             }
         }
@@ -147,7 +141,7 @@ enum Task {
     // Yield the block, don't visit it.
     Emit(Cid, Option<Vec<u8>>),
     // Visit all the elements, recursively.
-    Iterate(ChainEpoch, Cid, IterateType, VecDeque<Cid>),
+    Iterate(ChainEpoch, Cid, IterateType, Vec<Cid>),
 }
 
 pin_project! {
@@ -279,7 +273,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                         if *this.track_progress {
                             update_epoch(*epoch);
                         }
-                        while let Some(cid) = cid_vec.pop_front() {
+                        while let Some(cid) = cid_vec.pop() {
                             // The link traversal implementation assumes there are three types of encoding:
                             // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
                             // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
@@ -289,12 +283,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                 if let Some(data) = this.db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let new_values = extract_cids(&data)?;
-                                        if !new_values.is_empty() {
-                                            cid_vec.reserve(new_values.len());
-                                            for v in new_values.into_iter().rev() {
-                                                cid_vec.push_front(v)
-                                            }
-                                        }
+                                        cid_vec.extend(new_values.into_iter().rev());
                                     }
                                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                                 } else if fail_on_dead_links {
