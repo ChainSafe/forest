@@ -26,9 +26,11 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
       - name: Checkout Sources
         uses: actions/checkout@v6
@@ -42,8 +44,8 @@ jobs:
         if: failure()
         run: |
           export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          echo ${WORKFLOW_URL}
-          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
+          echo "${WORKFLOW_URL}"
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
       - uses: JasonEtco/create-an-issue@v2
         if: failure()
         env:
