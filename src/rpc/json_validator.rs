@@ -1,15 +1,16 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! JSON validation utilities for RPC request processing.
+//! JSON validation utilities for RPC requests and responses processing.
 //!
 //! - **Duplicate key detection**: `serde_json` automatically deduplicates keys at parse time
 //!   using a "last-write-wins" strategy. This means JSON like `{"/":"cid1", "/":"cid2"}` will
 //!   keep only the last value, which can lead to unexpected behavior in RPC calls.
 //! - **Unknown field detection**: `serde_json` silently ignores unknown fields by default.
-//!   In strict mode, [`from_value_rejecting_unknown_fields`] rejects them in RPC calls.
+//!   In strict mode, [`from_value_rejecting_unknown_fields`] applies to rpc request and
+//!   responses.
 //!
-//! Both checks are gated behind the `FOREST_STRICT_JSON` environment variable.
+//! All of this is gated behind the `FOREST_STRICT_JSON` environment variable.
 
 use ahash::HashSet;
 use serde::de::DeserializeOwned;
