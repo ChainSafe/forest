@@ -303,6 +303,7 @@ impl EthEventHandler {
         let ExecutedTipset {
             executed_messages, ..
         } = ctx.state_manager.load_executed_tipset(tipset).await?;
+        let mut resolved_id_addrs = HashMap::default();
         let mut event_count = 0;
         for (
             msg_idx,
@@ -315,37 +316,36 @@ impl EthEventHandler {
                 let event_idx_base = u64::try_from(event_count)?;
                 event_count += events.len();
                 for (event_idx, event) in (event_idx_base..).zip(events.iter()) {
-                    let id_addr = Address::new_id(event.emitter());
-                    let result = ctx
-                        .state_manager
-                        .resolve_to_deterministic_address(id_addr, tipset)
-                        .await
-                        .with_context(|| {
-                            format!(
-                                "resolving address {} failed (EPOCH = {})",
-                                id_addr,
-                                tipset.epoch()
-                            )
-                        });
-                    let resolved = if let Ok(resolved) = result {
-                        resolved
+                    let emitter = event.emitter();
+                    let id_addr = Address::new_id(emitter);
+                    let resolved_opt = if let Some(r) = resolved_id_addrs.get(&emitter) {
+                        *r
                     } else {
-                        if let SkipEvent::OnUnresolvedAddress = skip_event {
-                            // Skip event
-                            continue;
-                        } else {
-                            id_addr
-                        }
+                        let r = ctx
+                            .state_manager
+                            .resolve_to_deterministic_address(id_addr, tipset)
+                            .await
+                            .ok();
+                        resolved_id_addrs.insert(emitter, r);
+                        r
+                    };
+                    let resolved = if let Some(resolved) = resolved_opt {
+                        resolved
+                    } else if matches!(skip_event, SkipEvent::OnUnresolvedAddress) {
+                        // Skip event
+                        continue;
+                    } else {
+                        id_addr
                     };
 
-                    let entries: Vec<crate::shim::executor::Entry> = event.entries();
+                    let entries = event.entries();
                     let matched = if let Some(spec) = spec {
                         spec.matches(&resolved, &entries)?
                     } else {
                         true
                     };
                     if matched {
-                        let entries: Vec<EventEntry> = entries
+                        let entries = entries
                             .into_iter()
                             .map(|entry| {
                                 let (flags, key, codec, value) = entry.into_parts();
