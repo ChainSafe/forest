@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{Tipset, TipsetKey};
+use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::ipld::{stream_chain, stream_graph};
@@ -176,7 +177,7 @@ async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> anyhow::Result<()> {
 
     let mut sink = indicatif_sink("traversed");
 
-    let mut s = stream_graph(&store, heaviest.chain(&store), 0);
+    let mut s = stream_graph::<_, _, _, CidHashSet>(&store, heaviest.chain(&store), 0);
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
@@ -234,7 +235,7 @@ async fn benchmark_exporting(
 
     let mut dest = indicatif_sink("exported");
 
-    let blocks = stream_chain(
+    let blocks = stream_chain::<_, _, _, CidHashSet>(
         Arc::clone(&store),
         ts.clone().chain_owned(Arc::clone(&store)),
         stateroot_lookup_limit,
@@ -299,7 +300,7 @@ async fn benchmark_blockstore_traversal(
     let head = Tipset::load_required(bs, head_tsk)?;
     let mut sink = indicatif_sink("traversed");
     let start = Instant::now();
-    let mut s = stream_graph(bs, head.chain(bs), 0);
+    let mut s = stream_graph::<_, _, _, CidHashSet>(bs, head.chain(bs), 0);
     let mut n = 0;
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?;

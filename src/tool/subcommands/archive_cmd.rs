@@ -32,6 +32,7 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
 };
 use crate::cid_collections::CidHashSet;
+use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
@@ -589,7 +590,7 @@ pub async fn do_export(
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
-        let mut stream = stream_chain(
+        let mut stream = stream_chain::<_, _, _, FileBackedCidHashSet>(
             store.clone(),
             diff_ts.clone().chain_owned(store.clone()),
             diff_limit,
@@ -597,7 +598,7 @@ pub async fn do_export(
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
-        CidHashSet::default()
+        Default::default()
     };
 
     let output_path = build_output_path(network.to_string(), genesis.timestamp, epoch, output_path);
@@ -696,7 +697,7 @@ async fn merge_snapshots(
     )?);
 
     // Stream all available blocks from heaviest_tipset to genesis.
-    let blocks = stream_graph(&store, heaviest_tipset.chain(&store), 0);
+    let blocks = stream_graph::<_, _, _, CidHashSet>(&store, heaviest_tipset.chain(&store), 0);
 
     // Encode Ipld key-value pairs in zstd frames
     let frames = forest::Encoder::compress_stream_default(blocks);

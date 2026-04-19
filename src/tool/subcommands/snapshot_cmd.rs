@@ -4,6 +4,7 @@
 use super::*;
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
@@ -347,7 +348,7 @@ where
             pb.set_message(format!("{height} remaining epochs (spine)"));
         }
     });
-    let mut stream = stream_chain(&db, tipsets, epoch_limit);
+    let mut stream = stream_chain::<_, _, _, CidHashSet>(&db, tipsets, epoch_limit);
     while stream.try_next().await?.is_some() {}
 
     pb.finish_with_message("✅ verified!");

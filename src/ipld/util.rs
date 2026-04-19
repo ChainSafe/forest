@@ -3,6 +3,7 @@
 
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
+use crate::cid_collections::hash_set::CidHashSetLike;
 use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
@@ -145,11 +146,11 @@ enum Task {
 }
 
 pin_project! {
-    pub struct ChainStream<DB, T> {
+    pub struct ChainStream<DB, T, S = CidHashSet> {
         tipset_iter: T,
         db: DB,
         dfs: VecDeque<Task>, // Depth-first work queue.
-        seen: CidHashSet,
+        seen: S,
         stateroot_limit_exclusive: ChainEpoch,
         fail_on_dead_links: bool,
         message_receipts: bool,
@@ -159,8 +160,8 @@ pin_project! {
     }
 }
 
-impl<DB, T> ChainStream<DB, T> {
-    pub fn with_seen(mut self, seen: CidHashSet) -> Self {
+impl<DB, T, S> ChainStream<DB, T, S> {
+    pub fn with_seen(mut self, seen: S) -> Self {
         self.seen = seen;
         self
     }
@@ -194,8 +195,7 @@ impl<DB, T> ChainStream<DB, T> {
         self
     }
 
-    #[allow(dead_code)]
-    pub fn into_seen(self) -> CidHashSet {
+    pub fn into_seen(self) -> S {
         self.seen
     }
 }
@@ -211,16 +211,21 @@ impl<DB, T> ChainStream<DB, T> {
 /// * `stateroot_limit` - An epoch that signifies how far back (exclusive) we need to inspect tipsets,
 ///   in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where `$depth`
 ///   is the number of `[`Tipset`]` that needs inspection.
-pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>(
+pub fn stream_chain<
+    DB: Blockstore,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin,
+    S: CidHashSetLike + Default,
+>(
     db: DB,
     tipset_iter: ITER,
     stateroot_limit_exclusive: ChainEpoch,
-) -> ChainStream<DB, ITER> {
+) -> ChainStream<DB, ITER, S> {
     ChainStream {
         tipset_iter,
         db,
         dfs: VecDeque::new(),
-        seen: CidHashSet::default(),
+        seen: Default::default(),
         stateroot_limit_exclusive,
         fail_on_dead_links: true,
         message_receipts: false,
@@ -232,16 +237,21 @@ pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
 
 // Stream available graph in a depth-first search. All reachable nodes are touched and dead-links
 // are ignored.
-pub fn stream_graph<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>(
+pub fn stream_graph<
+    DB: Blockstore,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin,
+    S: CidHashSetLike + Default,
+>(
     db: DB,
     tipset_iter: ITER,
     stateroot_limit_exclusive: ChainEpoch,
-) -> ChainStream<DB, ITER> {
+) -> ChainStream<DB, ITER, S> {
     stream_chain(db, tipset_iter, stateroot_limit_exclusive).fail_on_dead_links(false)
 }
 
-impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
-    for ChainStream<DB, ITER>
+impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: CidHashSetLike> Stream
+    for ChainStream<DB, ITER, S>
 {
     type Item = anyhow::Result<CarBlock>;
 
@@ -412,24 +422,24 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
 }
 
 pin_project! {
-    pub struct IpldStream<DB> {
+    pub struct IpldStream<DB, S> {
         db: DB,
         cid_vec: Vec<Cid>,
-        seen: CidHashSet,
+        seen: S,
     }
 }
 
-impl<DB> IpldStream<DB> {
+impl<DB, S: Default> IpldStream<DB, S> {
     pub fn new(db: DB, roots: Vec<Cid>) -> Self {
         Self {
             db,
             cid_vec: roots,
-            seen: CidHashSet::default(),
+            seen: S::default(),
         }
     }
 }
 
-impl<DB: Blockstore> Stream for IpldStream<DB> {
+impl<DB: Blockstore, S: CidHashSetLike> Stream for IpldStream<DB, S> {
     type Item = anyhow::Result<CarBlock>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {

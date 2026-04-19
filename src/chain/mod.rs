@@ -11,7 +11,7 @@ mod weight;
 pub use self::{snapshot_format::*, store::*, weight::*};
 
 use crate::blocks::{Tipset, TipsetKey};
-use crate::cid_collections::CidHashSet;
+use crate::cid_collections::FileBackedCidHashSet;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::ipld::stream_chain;
@@ -32,13 +32,13 @@ use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Default)]
 pub struct ExportOptions {
     pub skip_checksum: bool,
     pub include_receipts: bool,
     pub include_events: bool,
     pub include_tipset_keys: bool,
-    pub seen: CidHashSet,
+    pub seen: FileBackedCidHashSet,
 }
 
 pub async fn export_from_head<D: Digest>(
