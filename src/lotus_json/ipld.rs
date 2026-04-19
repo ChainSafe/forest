@@ -275,34 +275,31 @@ fn snapshots() {
 }
 
 #[cfg(test)]
-quickcheck::quickcheck! {
-    fn quickcheck(val: Ipld) -> () {
-        let mut val = val;
-        /// `NaN != NaN`, which breaks our round-trip tests.
-        /// Correct this by changing any `NaN`s to zero.
-        fn fixup_floats(ipld: &mut Ipld) {
-            match ipld {
-                Ipld::Float(v) => {
-                    if v.is_nan() {
-                        *ipld = Ipld::Float(0.0);
-                    }
-                }
-                Ipld::List(list) => {
-                    for item in list {
-                        fixup_floats(item);
-                    }
-                }
-                Ipld::Map(map) => {
-                    for item in map.values_mut() {
-                        fixup_floats(item);
-                    }
-                }
-                _ => {}
+#[quickcheck_macros::quickcheck]
+fn quickcheck(val: Ipld) {
+    let mut val = val;
+    /// `NaN != NaN`, which breaks our round-trip tests.
+    /// Correct this by changing any `NaN`s to zero.
+    fn fixup_floats(ipld: &mut Ipld) {
+        match ipld {
+            Ipld::Float(v) if v.is_nan() => {
+                *ipld = Ipld::Float(0.0);
             }
+            Ipld::List(list) => {
+                for item in list {
+                    fixup_floats(item);
+                }
+            }
+            Ipld::Map(map) => {
+                for item in map.values_mut() {
+                    fixup_floats(item);
+                }
+            }
+            _ => {}
         }
-        fixup_floats(&mut val);
-        assert_unchanged_via_json(val)
     }
+    fixup_floats(&mut val);
+    assert_unchanged_via_json(val)
 }
 
 /// [`quickcheck`] [found a round-trip bug in CI][failing job], tracked by [#3383][issue]
