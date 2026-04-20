@@ -55,6 +55,7 @@ use crate::state_manager::cache::TipsetStateCache;
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
 use crate::utils::ShallowClone as _;
+use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::{GetSize, vec_heap_size_helper};
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context as _, bail, ensure};
@@ -84,6 +85,7 @@ use tokio::sync::{RwLock, broadcast::error::RecvError};
 use tracing::{error, info, instrument, warn};
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
+const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 
 /// Result of executing an individual chain message in a tipset.
@@ -190,6 +192,7 @@ pub struct StateManager<DB> {
     cs: Arc<ChainStore<DB>>,
     /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
     cache: TipsetStateCache<ExecutedTipset>,
+    id_to_deterministic_address_cache: SizeTrackingLruCache<u64, Address>,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
 }
@@ -217,6 +220,10 @@ where
             cache: TipsetStateCache::new("executed_tipset"), // For StateOutput
             beacon,
             engine,
+            id_to_deterministic_address_cache: SizeTrackingLruCache::new_with_metrics(
+                "id_to_deterministic_address".into(),
+                DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE,
+            ),
         })
     }
 
@@ -520,7 +527,7 @@ where
             receipts.len()
         );
         let mut executed_messages = Vec::with_capacity(messages.len());
-        for (message, receipt) in messages.iter().cloned().zip(receipts.into_iter()) {
+        for (message, receipt) in messages.iter().cloned().zip(receipts) {
             let events = if let Some(events_root) = receipt.events_root() {
                 Some(
                     match StampedEvent::get_events(self.cs.blockstore(), &events_root) {
@@ -1790,20 +1797,26 @@ where
         match address.protocol() {
             BLS | Secp256k1 | Delegated => Ok(address),
             Actor => anyhow::bail!("cannot resolve actor address to key address"),
-            _ => {
+            ID => {
+                let id = address.id()?;
+                if let Some(cached) = self.id_to_deterministic_address_cache.get_cloned(&id) {
+                    return Ok(cached);
+                }
                 // First try to resolve the actor in the parent state, so we don't have to compute anything.
-                if let Ok(state) =
+                let resolved = if let Ok(state) =
                     StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
                     && let Ok(address) = state
                         .resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
                 {
-                    return Ok(address);
-                }
-
-                // If that fails, compute the tip-set and try again.
-                let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
-                let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
-                state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+                    address
+                } else {
+                    // If that fails, compute the tip-set and try again.
+                    let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
+                    let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
+                    state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)?
+                };
+                self.id_to_deterministic_address_cache.push(id, resolved);
+                Ok(resolved)
             }
         }
     }
