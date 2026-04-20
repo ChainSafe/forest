@@ -32,7 +32,7 @@ pub fn reveal_upgrade_logo(network_version: NetworkVersion) {
         NetworkVersion::V24 => reveal_tuktuk_upgrade(),
         NetworkVersion::V25 => reveal_teep_upgrade(),
         NetworkVersion::V27 => reveal_golden_week_upgrade(),
-        NetworkVersion::V28 => reveal_xxx_upgrade(),
+        NetworkVersion::V28 => reveal_fire_horse_upgrade(),
         _ => reveal_three_trees(),
     }
 }
@@ -241,11 +241,15 @@ fn reveal_golden_week_upgrade() {
     );
 }
 
-/// Reveals the `Xxx` upgrade logo.
-fn reveal_xxx_upgrade() {
+fn reveal_fire_horse_upgrade() {
     info!(
         r###"
-    Xxx!
+           ,--,
+     _ ___/ /\|
+ ,;'( )__, )  ~
+//  //   '--; 
+'   \     | ^
+     ^    ^
         "###
     );
 }
