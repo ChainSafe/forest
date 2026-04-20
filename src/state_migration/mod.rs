@@ -85,6 +85,7 @@ where
                 (Height::TukTuk, nv24::run_migration::<DB>),
                 (Height::Teep, nv25::run_migration::<DB>),
                 (Height::GoldenWeek, nv27::run_migration::<DB>),
+                (Height::FireHorse, nv28::run_migration::<DB>),
             ]
         }
     }
