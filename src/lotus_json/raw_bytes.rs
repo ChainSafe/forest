@@ -10,10 +10,9 @@ fn snapshots() {
 }
 
 #[cfg(test)]
-quickcheck! {
-    fn quickcheck(val: Vec<u8>) -> () {
-        assert_unchanged_via_json(RawBytes::new(val))
-    }
+#[quickcheck_macros::quickcheck]
+fn quickcheck(val: Vec<u8>) {
+    assert_unchanged_via_json(RawBytes::new(val))
 }
 
 impl HasLotusJson for RawBytes {

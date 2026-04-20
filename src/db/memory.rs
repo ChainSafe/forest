@@ -117,8 +117,8 @@ impl EthMappingsStore for MemoryDB {
         let cids = self
             .eth_mappings_db
             .read()
-            .iter()
-            .filter_map(|(_, value)| fvm_ipld_encoding::from_slice::<(Cid, u64)>(value).ok())
+            .values()
+            .filter_map(|value| fvm_ipld_encoding::from_slice::<(Cid, u64)>(value).ok())
             .collect();
 
         Ok(cids)

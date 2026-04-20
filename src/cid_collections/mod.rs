@@ -179,7 +179,7 @@ mod imp {
 mod tests {
     use super::*;
     use cid::Cid;
-    use quickcheck::{Arbitrary, quickcheck};
+    use quickcheck::Arbitrary;
 
     impl Arbitrary for MaybeCompactedCid {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -190,11 +190,10 @@ mod tests {
         }
     }
 
-    quickcheck! {
-        fn cid_via_maybe_compacted_cid(before: Cid) -> () {
-            let via = MaybeCompactedCid::from(before);
-            let after = Cid::from(via);
-            assert_eq!(before, after);
-        }
+    #[quickcheck_macros::quickcheck]
+    fn cid_via_maybe_compacted_cid(before: Cid) {
+        let via = MaybeCompactedCid::from(before);
+        let after = Cid::from(via);
+        assert_eq!(before, after);
     }
 }
