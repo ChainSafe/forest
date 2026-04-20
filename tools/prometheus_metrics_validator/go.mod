@@ -3,9 +3,9 @@ module prometheus_metrics_validator/v2
 go 1.26.0
 
 require (
-	github.com/prometheus/prometheus v0.310.0
+	github.com/prometheus/prometheus v0.311.2
 	github.com/stretchr/testify v1.11.1
-	github.com/urfave/cli/v3 v3.7.0
+	github.com/urfave/cli/v3 v3.8.0
 )
 
 require (
@@ -18,7 +18,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
