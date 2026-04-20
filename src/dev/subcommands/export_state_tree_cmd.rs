@@ -109,7 +109,7 @@ impl ExportStateTreeCommand {
             ipld_roots.extend(receipts.into_iter().filter_map(|r| r.events_root()));
         }
         let roots = nunny::vec![ipld_roots.first().cloned().context("no ipld roots found")?];
-        let stream = IpldStream::<_, FileBackedCidHashSet>::new(db, ipld_roots.clone());
+        let stream = IpldStream::new(db, ipld_roots.clone(), FileBackedCidHashSet::new(".")?);
         let frames = crate::db::car::forest::Encoder::compress_stream_default(stream);
         let tmp =
             tempfile::NamedTempFile::new_in(output.parent().unwrap_or_else(|| Path::new(".")))?

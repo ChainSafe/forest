@@ -348,7 +348,7 @@ where
             pb.set_message(format!("{height} remaining epochs (spine)"));
         }
     });
-    let mut stream = stream_chain::<_, _, _, CidHashSet>(&db, tipsets, epoch_limit);
+    let mut stream = stream_chain(&db, tipsets, epoch_limit, CidHashSet::default());
     while stream.try_next().await?.is_some() {}
 
     pb.finish_with_message("✅ verified!");

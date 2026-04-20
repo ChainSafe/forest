@@ -18,14 +18,14 @@
 //! ## Correctness
 //! The algorithm assumes that a Forest node can always be bootstrapped with the most recent standard lite snapshot.
 //!
-//! ## Disk usage
-//! The algorithm requires extra disk space of the size of a most recent standard lite
-//! snapshot(`~72 GiB` as of writing at epoch 4937270 on mainnet).
+//! ### RAM/Disk Usage Spikes
 //!
-//! ## Memory usage
-//! During the lite snapshot export stage, the algorithm at least `32 bytes` of memory for each reachable block
-//! while traversing the reachable graph. For a typical mainnet snapshot of about 100 GiB that adds up to
-//! roughly 2.5 GiB.
+//! During the GC process, Forest consumes extra RAM and disk space temporarily:
+//!
+//! - While traversing reachable blocks, it uses ~80MiB of RAM and ~8GiB disk space on mainnet (and ~2GiB on calibnet) for de-duplicating reachable blocks.
+//! - While exporting a lite snapshot, it uses extra disk space before cleaning up parity-db and stale CAR snapshots.
+//!
+//! For a typical ~80 GiB mainnet snapshot, this results in ~80 MiB of additional RAM and ~90 GiB disk space usage.
 //!
 //! ## Scheduling
 //! When automatic GC is enabled, it by default runs every 7 days (20160 epochs).
@@ -39,6 +39,7 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, ExportOptions};
 use crate::chain_sync::ChainFollower;
+use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::chain_path;
 use crate::db::{
     BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore,
@@ -65,6 +66,7 @@ use std::{
 use tokio::task::JoinSet;
 
 pub struct SnapshotGarbageCollector<DB> {
+    chain_tmp_root: PathBuf,
     car_db_dir: PathBuf,
     recent_state_roots: i64,
     running: AtomicBool,
@@ -96,6 +98,8 @@ where
         config: &crate::Config,
     ) -> anyhow::Result<Self> {
         let chain_data_path = chain_path(config);
+        let chain_tmp_root = chain_data_path.join("tmp");
+        std::fs::create_dir_all(&chain_tmp_root)?;
         let db_root_dir = db_root(&chain_data_path)?;
         let car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
         let recent_state_roots = std::env::var("FOREST_SNAPSHOT_GC_KEEP_STATE_TREE_EPOCHS")
@@ -114,6 +118,7 @@ where
             .unwrap_or(config.sync.recent_state_roots);
         let (trigger_tx, trigger_rx) = flume::bounded(1);
         Ok(Self {
+            chain_tmp_root,
             car_db_dir,
             recent_state_roots,
             running: AtomicBool::new(false),
@@ -248,17 +253,17 @@ where
             map
         });
         let start = Instant::now();
-        let (head_ts, _) = crate::chain::export_from_head::<Sha256>(
+        let (head_ts, _) = crate::chain::export_from_head::<Sha256, _>(
             db,
             self.recent_state_roots,
             file,
-            Some(ExportOptions {
+            ExportOptions {
                 skip_checksum: true,
                 include_receipts: true,
                 include_events: true,
                 include_tipset_keys: true,
-                seen: Default::default(),
-            }),
+                seen: FileBackedCidHashSet::new(&self.chain_tmp_root)?,
+            },
         )
         .await?;
         let target_path = self.car_db_dir.join(format!(

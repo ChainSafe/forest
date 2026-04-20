@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use anyhow::Context as _;
 use bytes::Bytes;
 use cid::Cid;
 
 #[cfg(doc)]
 use std::collections::HashSet;
-use std::sync::LazyLock;
+use std::{path::Path, sync::LazyLock};
 
 pub trait CidHashSetLike {
     /// Adds a value to the set.
@@ -98,48 +99,45 @@ pub struct FileBackedCidHashSet {
     lru: hashlink::LruCache<SmallCid, ()>,
 }
 
-impl Default for FileBackedCidHashSet {
-    fn default() -> Self {
-        const MAX_ATTEMPTS: usize = 10;
-        for _ in 0..MAX_ATTEMPTS {
-            // temp dir has limitation of 10GiB on some platforms, so we prefer current working directory
-            // and try multiple times to create one in case we hit that limit
-            if let Some(dir) = tempfile::tempdir_in(".")
-                .ok()
-                .or_else(|| tempfile::tempdir().ok())
-            {
-                let options = parity_db::Options {
-                    path: dir.path().to_path_buf(),
-                    sync_wal: false,
-                    sync_data: false,
-                    stats: false,
-                    salt: None,
-                    columns: vec![
-                        parity_db::ColumnOptions {
-                            uniform: true,
-                            append_only: true,
-                            ..Default::default()
-                        },
-                        parity_db::ColumnOptions {
-                            append_only: true,
-                            ..Default::default()
-                        },
-                    ],
-                    compression_threshold: Default::default(),
-                };
-                if let Ok(db) = parity_db::Db::open_or_create(&options) {
-                    return Self {
-                        db,
-                        _dir: dir,
-                        #[allow(clippy::disallowed_methods)]
-                        lru: hashlink::LruCache::new(2 << 19), // ~80MiB for 1M entries
-                    };
-                }
-            }
-        }
-        panic!(
-            "failed to create parity db with a temporary directory after {MAX_ATTEMPTS} attempts"
-        );
+impl FileBackedCidHashSet {
+    pub fn new(temp_dir_root: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let dir = tempfile::tempdir_in(temp_dir_root.as_ref()).with_context(|| {
+            format!(
+                "failed to create temp dir in {}",
+                temp_dir_root.as_ref().display(),
+            )
+        })?;
+        let options = parity_db::Options {
+            path: dir.path().to_path_buf(),
+            sync_wal: false,
+            sync_data: false,
+            stats: false,
+            salt: None,
+            columns: vec![
+                parity_db::ColumnOptions {
+                    uniform: true,
+                    append_only: true,
+                    ..Default::default()
+                },
+                parity_db::ColumnOptions {
+                    append_only: true,
+                    ..Default::default()
+                },
+            ],
+            compression_threshold: Default::default(),
+        };
+        let db = parity_db::Db::open_or_create(&options).with_context(|| {
+            format!(
+                "failed to create temp parity-db at {}",
+                options.path.display()
+            )
+        })?;
+        Ok(Self {
+            db,
+            _dir: dir,
+            #[allow(clippy::disallowed_methods)]
+            lru: hashlink::LruCache::new(2 << 19), // ~80MiB for 1M entries
+        })
     }
 }
 
@@ -188,7 +186,7 @@ mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_file_backed_cid_hashset(mut cids: Vec<Cid>) {
         cids.dedup();
-        let mut set = FileBackedCidHashSet::default();
+        let mut set = FileBackedCidHashSet::new(std::env::temp_dir()).unwrap();
         let dir = set._dir.path().to_path_buf();
         for cid in cids.iter() {
             all_asserts::assert_true!(set.insert(*cid), "expected CID to be newly inserted");

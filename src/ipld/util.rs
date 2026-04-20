@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::cid_collections::CidHashSet;
-use crate::cid_collections::hash_set::CidHashSetLike;
+use crate::cid_collections::{CidHashSet, CidHashSetLike};
 use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
@@ -161,11 +160,6 @@ pin_project! {
 }
 
 impl<DB, T, S> ChainStream<DB, T, S> {
-    pub fn with_seen(mut self, seen: S) -> Self {
-        self.seen = seen;
-        self
-    }
-
     pub fn fail_on_dead_links(mut self, fail_on_dead_links: bool) -> Self {
         self.fail_on_dead_links = fail_on_dead_links;
         self
@@ -215,17 +209,18 @@ pub fn stream_chain<
     DB: Blockstore,
     T: Borrow<Tipset>,
     ITER: Iterator<Item = T> + Unpin,
-    S: CidHashSetLike + Default,
+    S: CidHashSetLike,
 >(
     db: DB,
     tipset_iter: ITER,
     stateroot_limit_exclusive: ChainEpoch,
+    seen: S,
 ) -> ChainStream<DB, ITER, S> {
     ChainStream {
         tipset_iter,
         db,
         dfs: VecDeque::new(),
-        seen: Default::default(),
+        seen,
         stateroot_limit_exclusive,
         fail_on_dead_links: true,
         message_receipts: false,
@@ -241,13 +236,14 @@ pub fn stream_graph<
     DB: Blockstore,
     T: Borrow<Tipset>,
     ITER: Iterator<Item = T> + Unpin,
-    S: CidHashSetLike + Default,
+    S: CidHashSetLike,
 >(
     db: DB,
     tipset_iter: ITER,
     stateroot_limit_exclusive: ChainEpoch,
+    seen: S,
 ) -> ChainStream<DB, ITER, S> {
-    stream_chain(db, tipset_iter, stateroot_limit_exclusive).fail_on_dead_links(false)
+    stream_chain(db, tipset_iter, stateroot_limit_exclusive, seen).fail_on_dead_links(false)
 }
 
 impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: CidHashSetLike> Stream
@@ -429,12 +425,12 @@ pin_project! {
     }
 }
 
-impl<DB, S: Default> IpldStream<DB, S> {
-    pub fn new(db: DB, roots: Vec<Cid>) -> Self {
+impl<DB, S> IpldStream<DB, S> {
+    pub fn new(db: DB, roots: Vec<Cid>, seen: S) -> Self {
         Self {
             db,
             cid_vec: roots,
-            seen: S::default(),
+            seen,
         }
     }
 }

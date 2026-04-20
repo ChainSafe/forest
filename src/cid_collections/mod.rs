@@ -4,7 +4,7 @@ pub mod hash_map;
 pub mod hash_set;
 mod small_cid_vec;
 pub use hash_map::CidHashMap;
-pub use hash_set::{CidHashSet, FileBackedCidHashSet};
+pub use hash_set::{CidHashSet, CidHashSetLike, FileBackedCidHashSet};
 use imp::{CidV1DagCborBlake2b256, Uncompactable};
 pub use small_cid_vec::{SmallCid, SmallCidNonEmptyVec};
 

@@ -590,15 +590,16 @@ pub async fn do_export(
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
-        let mut stream = stream_chain::<_, _, _, FileBackedCidHashSet>(
+        let mut stream = stream_chain(
             store.clone(),
             diff_ts.clone().chain_owned(store.clone()),
             diff_limit,
+            FileBackedCidHashSet::new(".")?,
         );
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
-        Default::default()
+        FileBackedCidHashSet::new(".")?
     };
 
     let output_path = build_output_path(network.to_string(), genesis.timestamp, epoch, output_path);
@@ -641,18 +642,18 @@ pub async fn do_export(
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     let writer = pb.wrap_async_write(writer);
 
-    crate::chain::export::<Sha256>(
+    crate::chain::export::<Sha256, _>(
         store,
         &ts,
         depth,
         writer,
-        Some(ExportOptions {
+        ExportOptions {
             skip_checksum: true,
             include_receipts: false,
             include_events: false,
             include_tipset_keys: false,
             seen,
-        }),
+        },
     )
     .await?;
 
@@ -697,7 +698,12 @@ async fn merge_snapshots(
     )?);
 
     // Stream all available blocks from heaviest_tipset to genesis.
-    let blocks = stream_graph::<_, _, _, CidHashSet>(&store, heaviest_tipset.chain(&store), 0);
+    let blocks = stream_graph(
+        &store,
+        heaviest_tipset.chain(&store),
+        0,
+        CidHashSet::default(),
+    );
 
     // Encode Ipld key-value pairs in zstd frames
     let frames = forest::Encoder::compress_stream_default(blocks);
