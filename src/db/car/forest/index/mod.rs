@@ -889,38 +889,59 @@ mod tests {
         }
     }
 
-    quickcheck::quickcheck! {
-        fn hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) -> () {
-            do_hashmap_of_cids(reference)
-        }
-        fn hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) -> () {
-            do_hashmap_of_hashes(reference)
-        }
-        fn everything_maps_to_first_slot(values: Vec<HashSet<u64>>) -> () {
-            let Some(initial_width) = initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR) else {
-                return;
-            };
-            let reference = HashMap::from_iter(iter::zip(hash::from_ideal_slot_ix(0, initial_width).unique(), values));
-            do_hashmap_of_hashes(reference)
-        }
-        fn everything_maps_to_first_10_slots(values: Vec<HashSet<u64>>) -> () {
-            let Some(initial_width) = initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR) else {
-                return;
-            };
-            let mut generators = Vec::from_iter((0..cmp::min(initial_width.get(), 10)).map(|it|hash::from_ideal_slot_ix(it, initial_width).unique()));
-            let hashes_in_first_10 = generators.iter_mut().flatten();
-            let reference = HashMap::from_iter(iter::zip(hashes_in_first_10, values));
-            do_hashmap_of_hashes(reference)
-        }
-        fn header(it: V1Header) -> () {
-            round_trip(&it);
-        }
-        fn slot(it: Slot) -> () {
-            round_trip(&it);
-        }
-        fn raw_slot(it: RawSlot) -> () {
-            round_trip(&it);
-        }
+    #[quickcheck_macros::quickcheck]
+    fn hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
+        do_hashmap_of_cids(reference)
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) {
+        do_hashmap_of_hashes(reference)
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn everything_maps_to_first_slot(values: Vec<HashSet<u64>>) {
+        let Some(initial_width) =
+            initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR)
+        else {
+            return;
+        };
+        let reference = HashMap::from_iter(iter::zip(
+            hash::from_ideal_slot_ix(0, initial_width).unique(),
+            values,
+        ));
+        do_hashmap_of_hashes(reference)
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn everything_maps_to_first_10_slots(values: Vec<HashSet<u64>>) {
+        let Some(initial_width) =
+            initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR)
+        else {
+            return;
+        };
+        let mut generators = Vec::from_iter(
+            (0..cmp::min(initial_width.get(), 10))
+                .map(|it| hash::from_ideal_slot_ix(it, initial_width).unique()),
+        );
+        let hashes_in_first_10 = generators.iter_mut().flatten();
+        let reference = HashMap::from_iter(iter::zip(hashes_in_first_10, values));
+        do_hashmap_of_hashes(reference)
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn header(it: V1Header) {
+        round_trip(&it);
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn slot(it: Slot) {
+        round_trip(&it);
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn raw_slot(it: RawSlot) {
+        round_trip(&it);
     }
 
     #[track_caller]

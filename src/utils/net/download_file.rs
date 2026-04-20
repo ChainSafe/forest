@@ -380,12 +380,10 @@ async fn download_http_parallel(
                             let seconds_since_last = (elapsed_ms - prev_ms) as f64 / 1000.0;
                             let speed = downloaded.saturating_sub(last_bytes) as f64
                                 / seconds_since_last.max(0.1);
-                            let percent = if total_size > 0 {
-                                downloaded * 100 / total_size
-                            } else {
-                                0
-                            };
-
+                            let percent = downloaded
+                                .checked_mul(100)
+                                .and_then(|v| v.checked_div(total_size))
+                                .unwrap_or(0);
                             tracing::info!(
                                 target: "forest::progress",
                                 "Loading {} / {}, {}%, {}/s, elapsed time: {}",
