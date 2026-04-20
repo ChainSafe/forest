@@ -112,6 +112,33 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
     (receiver, handle)
 }
 
+pub(crate) fn new_pending_transaction<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+) -> (Subscriber<SignedMessage>, JoinHandle<()>) {
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
+    let mut mpool_updates_rx = ctx.mpool.subscribe_to_updates();
+
+    let handle = tokio::spawn(async move {
+        use crate::message_pool::MpoolUpdateType;
+        while let Ok(updates) = mpool_updates_rx.recv().await {
+            if updates.r#type == MpoolUpdateType::Remove {
+                continue;
+            }
+            match updates.r#type {
+                MpoolUpdateType::Add => {
+                    if let Err(e) = sender.send(updates.msg.clone()) {
+                        tracing::error!("Failed to send headers: {}", e);
+                        return;
+                    }
+                }
+                MpoolUpdateType::Remove => continue,
+            }
+        }
+    });
+
+    (receiver, handle)
+}
+
 /// Subscribes to head changes from the chain store and broadcasts new `Ethereum` logs.
 ///
 /// # Notes

@@ -35,6 +35,7 @@ use get_size2::GetSize;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
+use tokio::sync::broadcast;
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
 use tracing::warn;
 
@@ -265,6 +266,18 @@ impl MsgSet {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum MpoolUpdateType {
+    Add,
+    Remove,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct MpoolUpdate {
+    pub r#type: MpoolUpdateType,
+    pub msg: SignedMessage,
+}
+
 /// This contains all necessary information needed for the message pool.
 /// Keeps track of messages to apply, as well as context needed for verifying
 /// transactions.
@@ -297,6 +310,8 @@ pub struct MessagePool<T> {
     pub config: MpoolConfig,
     /// Chain configuration
     pub chain_config: Arc<ChainConfig>,
+    /// Publishes the changes in the message pool
+    pub changes: broadcast::Sender<MpoolUpdate>,
 }
 
 /// Resolve an address to its key form, checking the cache first.
@@ -513,7 +528,7 @@ where
         } else {
             StrictnessPolicy::Strict
         };
-        self.add_helper(msg, trust_policy, strictness)?;
+        self.add_helper(msg, trust_policy, strictness, &self.changes)?;
         Ok(publish)
     }
 
@@ -526,6 +541,7 @@ where
         msg: SignedMessage,
         trust_policy: TrustPolicy,
         strictness: StrictnessPolicy,
+        change_publisher: &broadcast::Sender<MpoolUpdate>,
     ) -> Result<(), Error> {
         let from = msg.from();
         let cur_ts = self.current_tipset();
@@ -539,6 +555,7 @@ where
             self.get_state_sequence(&from, &cur_ts)?,
             trust_policy,
             strictness,
+            change_publisher,
         )
     }
 
@@ -697,6 +714,7 @@ where
             self.cur_tipset.as_ref(),
             self.key_cache.as_ref(),
             self.state_nonce_cache.as_ref(),
+            &self.changes,
             revert,
             apply,
         )
@@ -743,6 +761,7 @@ where
         let block_delay = chain_config.block_delay_secs;
 
         let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
+        let (change_publisher, _) = broadcast::channel(50);
         let mut mp = MessagePool {
             local_addrs,
             pending,
@@ -758,6 +777,7 @@ where
             network_sender,
             repub_trigger,
             chain_config: Arc::clone(&chain_config),
+            changes: change_publisher.clone(),
         };
 
         mp.load_local()?;
@@ -788,6 +808,7 @@ where
                             &current_ts,
                             key_cache.as_ref(),
                             state_nonce_cache.as_ref(),
+                            &change_publisher,
                             reverts,
                             applies,
                         )
@@ -841,6 +862,10 @@ where
         });
         Ok(mp)
     }
+
+    pub fn subscribe_to_updates(&self) -> broadcast::Receiver<MpoolUpdate> {
+        self.changes.subscribe()
+    }
 }
 
 // Helpers for MessagePool
@@ -860,6 +885,7 @@ pub(in crate::message_pool) fn add_helper<T>(
     sequence: u64,
     trust_policy: TrustPolicy,
     strictness: StrictnessPolicy,
+    change_publisher: &broadcast::Sender<MpoolUpdate>,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -877,8 +903,20 @@ where
         .entry(resolved_from)
         .or_insert_with(|| MsgSet::new(sequence));
     match trust_policy {
-        TrustPolicy::Trusted => mset.add_trusted(api, msg, strictness)?,
-        TrustPolicy::Untrusted => mset.add_untrusted(api, msg, strictness)?,
+        TrustPolicy::Trusted => mset.add_trusted(api, msg.clone(), strictness)?,
+        TrustPolicy::Untrusted => mset.add_untrusted(api, msg.clone(), strictness)?,
+    }
+
+    if crate::utils::broadcast::has_subscribers(change_publisher) {
+        if change_publisher
+            .send(MpoolUpdate {
+                r#type: MpoolUpdateType::Add,
+                msg,
+            })
+            .is_err()
+        {
+            warn!("Failed to broadcast MpoolUpdate");
+        };
     }
 
     Ok(())
@@ -981,6 +1019,7 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
         let sequence = msg.message().sequence;
+        let (change_publisher, _) = broadcast::channel(1);
         let res = add_helper(
             &api,
             &bls_sig_cache,
@@ -991,6 +1030,7 @@ mod tests {
             sequence,
             TrustPolicy::Trusted,
             StrictnessPolicy::Relaxed,
+            &change_publisher,
         );
         assert!(res.is_ok());
     }
@@ -1089,6 +1129,7 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
 
+        let (change_publisher, _) = broadcast::channel(1);
         add_helper(
             &api,
             &bls_sig_cache,
@@ -1099,6 +1140,7 @@ mod tests {
             0,
             TrustPolicy::Trusted,
             StrictnessPolicy::Relaxed,
+            &change_publisher,
         )
         .unwrap();
 
@@ -1126,6 +1168,8 @@ mod tests {
         api.set_key_address_mapping(&id_addr, &key_addr);
         api.set_state_sequence(&key_addr, 0);
 
+        let (change_publisher, _) = broadcast::channel(1);
+
         // Add two messages from the ID address
         for seq in 0..2 {
             let message = ShimMessage {
@@ -1145,6 +1189,7 @@ mod tests {
                 0,
                 TrustPolicy::Trusted,
                 StrictnessPolicy::Relaxed,
+                &change_publisher,
             )
             .unwrap();
         }

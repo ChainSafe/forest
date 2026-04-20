@@ -23,10 +23,12 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::to_vec;
 use parking_lot::RwLock as SyncRwLock;
+use tokio::sync::broadcast;
 use tracing::error;
 use utils::{get_base_fee_lower_bound, recover_sig};
 
 use super::errors::Error;
+use crate::message_pool::msgpool::msg_pool::MpoolUpdate;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
     msg_pool::{
@@ -225,6 +227,7 @@ pub async fn head_change<T>(
     cur_tipset: &SyncRwLock<Tipset>,
     key_cache: &SizeTrackingLruCache<Address, Address>,
     state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
+    change_publisher: &broadcast::Sender<MpoolUpdate>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -316,6 +319,7 @@ where
                 sequence,
                 TrustPolicy::Trusted,
                 StrictnessPolicy::Relaxed,
+                change_publisher,
             ) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
