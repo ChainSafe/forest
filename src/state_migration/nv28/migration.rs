@@ -63,7 +63,7 @@ where
 {
     let new_manifest_cid = chain_config
         .height_infos
-        .get(&Height::Xxx)
+        .get(&Height::FireHorse)
         .context("no height info for network version NV28")?
         .bundle
         .as_ref()
