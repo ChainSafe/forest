@@ -266,7 +266,6 @@ services:
       - RUST_LOG=info,forest::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-      - FOREST_STRICT_JSON=1
     entrypoint: ["/bin/bash", "-c"]
     user: 0:0
     command:
@@ -311,7 +310,6 @@ services:
       - RUST_LOG=info,forest::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-      - FOREST_STRICT_JSON=1
     entrypoint: ["/bin/bash", "-c"]
     user: 0:0
     command:
@@ -381,7 +379,6 @@ services:
       - RUST_LOG=info,forest::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-      - FOREST_STRICT_JSON=1
     entrypoint: ["/bin/bash", "-c"]
     user: 0:0
     command:
