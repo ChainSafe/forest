@@ -275,8 +275,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                         let params = Self::parse_params(params.as_str(), calling_convention)
                             .map_err(|e| Error::invalid_params(e, None))?;
                         let ok = Self::handle(ctx, params, &extensions).await?;
-                        let result = ok.into_lotus_json();
-                        Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(result)
+                        Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
                     },
                 )?;
                 if let Some(alias) = Self::NAME_ALIAS {
