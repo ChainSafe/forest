@@ -276,12 +276,6 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                             .map_err(|e| Error::invalid_params(e, None))?;
                         let ok = Self::handle(ctx, params, &extensions).await?;
                         let result = ok.into_lotus_json();
-                        if crate::rpc::json_validator::is_strict_mode() {
-                            let v = serde_json::to_value(&result).map_err(Error::from)?;
-                            let _: <Self::Ok as HasLotusJson>::LotusJson =
-                                crate::rpc::json_validator::from_value_rejecting_unknown_fields(v)
-                                    .map_err(Error::from)?;
-                        }
                         Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(result)
                     },
                 )?;
@@ -357,7 +351,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             //               Client::call has an inappropriate HasLotusJson
             //               bound, work around it for now.
             let json = client.call(Self::request(params)?.map_ty()).await?;
-            Ok(serde_json::from_value(json)?)
+            Ok(crate::rpc::json_validator::from_value_rejecting_unknown_fields(json)?)
         }
     }
     fn call(
