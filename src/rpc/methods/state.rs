@@ -3278,7 +3278,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_teep_height: get_height(Teep)?,
             upgrade_tock_height: get_height(Tock)?,
             upgrade_golden_week_height: get_height(GoldenWeek)?,
-            //upgrade_xxx_height: get_height(Xxx)?,
+            //upgrade_firehorse_height: get_height(FireHorse)?,
         })
     }
 }
