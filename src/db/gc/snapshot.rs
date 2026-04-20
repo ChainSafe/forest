@@ -278,11 +278,9 @@ where
         // Unsubscribe before taking the snapshot of in-memory db to avoid deadlock
         db.unsubscribe_write_ops();
         match joinset.join_next().await {
-            Some(Ok(map)) => {
-                if !map.is_empty() {
-                    *self.memory_db.write() = Some(map);
-                    *self.memory_db_head_key.write() = current_chain_head;
-                }
+            Some(Ok(map)) if !map.is_empty() => {
+                *self.memory_db.write() = Some(map);
+                *self.memory_db_head_key.write() = current_chain_head;
             }
             Some(Err(e)) => tracing::warn!("{e}"),
             _ => {}

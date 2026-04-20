@@ -1699,10 +1699,9 @@ fn snapshots() {
 }
 
 #[cfg(test)]
-quickcheck::quickcheck! {
-    fn quickcheck(val: PathChange) -> () {
-        assert_unchanged_via_json(val)
-    }
+#[quickcheck_macros::quickcheck]
+fn quickcheck(val: PathChange) {
+    assert_unchanged_via_json(val)
 }
 
 #[cfg(test)]

@@ -527,7 +527,7 @@ where
             receipts.len()
         );
         let mut executed_messages = Vec::with_capacity(messages.len());
-        for (message, receipt) in messages.iter().cloned().zip(receipts.into_iter()) {
+        for (message, receipt) in messages.iter().cloned().zip(receipts) {
             let events = if let Some(events_root) = receipt.events_root() {
                 Some(
                     match StampedEvent::get_events(self.cs.blockstore(), &events_root) {
