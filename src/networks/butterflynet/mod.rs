@@ -21,7 +21,7 @@ use super::{
 /// Well-known network names.
 pub const NETWORK_COMMON_NAME: &str = "butterflynet";
 
-pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V24;
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V27;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
@@ -43,20 +43,20 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
-    Cid::from_str("bafy2bzacedmrdladdvj6ghy2ty4gqgu35vcta3brag3h7qo63sgybg4iwu6ou").unwrap()
+    Cid::from_str("bafy2bzaceakkgnqbuam2qoyds57f4h6ennt3o5or5ek3i3a4qpetirt7et5jw").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
 static GENESIS_URL: LazyLock<Url> = LazyLock::new(|| {
-    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacedmrdladdvj6ghy2ty4gqgu35vcta3brag3h7qo63sgybg4iwu6ou.car.zst"
+    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzaceakkgnqbuam2qoyds57f4h6ennt3o5or5ek3i3a4qpetirt7et5jw.car.zst"
         .parse()
         .expect("hard-coded URL must parse")
 });
 
 /// Alternative URL for the genesis file. This is hosted on the `lotus` repository.
-/// `<https://github.com/filecoin-project/lotus/commit/c6068b60c526d44270bfc5d612045f0b27322dfb>`
+/// `<https://github.com/filecoin-project/lotus/commit/76d4ca672262105bf406ef2f0b54ed69ea39636f>`
 static GENESIS_URL_ALT: LazyLock<Url> = LazyLock::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/8d769c51dcaa165d90c3a0b2d36b93c644db8a13/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/76d4ca672262105bf406ef2f0b54ed69ea39636f/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
@@ -102,11 +102,11 @@ pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|
         make_height!(Dragon, -25),
         make_height!(Phoenix, i64::MIN),
         make_height!(Waffle, -26),
-        make_height!(TukTuk, -27, get_bundle_cid("v15.0.0-rc1")),
-        make_height!(Teep, 50, get_bundle_cid("v16.0.1")),
-        make_height!(Tock, 100),
-        make_height!(GoldenWeek, 200, get_bundle_cid("v17.0.0")),
-        make_height!(FireHorse, i64::MAX),
+        make_height!(TukTuk, -27),
+        make_height!(Teep, -28),
+        make_height!(Tock, -29),
+        make_height!(GoldenWeek, -30),
+        make_height!(FireHorse, 960, get_bundle_cid("v18.0.0-rc1")),
     ])
 });
 

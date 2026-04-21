@@ -40,6 +40,7 @@ pub struct AppContext {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
+    pub temp_dir: std::path::PathBuf,
 }
 
 impl AppContext {
@@ -50,6 +51,8 @@ impl AppContext {
         let state_manager = create_state_manager(cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(opts, cfg).await?;
         let snapshot_progress_tracker = SnapshotProgressTracker::default();
+        let temp_dir = chain_path(cfg).join("tmp");
+        std::fs::create_dir_all(&temp_dir).context("Failed to create temporary directory")?;
         Ok(Self {
             net_keypair,
             p2p_peer_id,
@@ -59,6 +62,7 @@ impl AppContext {
             keystore,
             admin_jwt,
             snapshot_progress_tracker,
+            temp_dir,
         })
     }
 

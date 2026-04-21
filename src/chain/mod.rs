@@ -11,7 +11,7 @@ mod weight;
 pub use self::{snapshot_format::*, store::*, weight::*};
 
 use crate::blocks::{Tipset, TipsetKey};
-use crate::cid_collections::CidHashSet;
+use crate::cid_collections::CidHashSetLike;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::ipld::stream_chain;
@@ -32,50 +32,61 @@ use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
-#[derive(Debug, Clone, Default)]
-pub struct ExportOptions {
+pub struct ExportOptions<S> {
     pub skip_checksum: bool,
     pub include_receipts: bool,
     pub include_events: bool,
     pub include_tipset_keys: bool,
-    pub seen: CidHashSet,
+    pub seen: S,
 }
 
-pub async fn export_from_head<D: Digest>(
+impl<S: Default> Default for ExportOptions<S> {
+    fn default() -> Self {
+        Self {
+            skip_checksum: Default::default(),
+            include_receipts: Default::default(),
+            include_events: Default::default(),
+            include_tipset_keys: Default::default(),
+            seen: Default::default(),
+        }
+    }
+}
+
+pub async fn export_from_head<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
     db: &Arc<impl Blockstore + SettingsStore + Send + Sync + 'static>,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    options: Option<ExportOptions>,
+    options: ExportOptions<S>,
 ) -> anyhow::Result<(Tipset, Option<digest::Output<D>>)> {
     let head_key = SettingsStoreExt::read_obj::<TipsetKey>(db, crate::db::setting_keys::HEAD_KEY)?
         .context("chain head key not found")?;
     let head_ts = Tipset::load_required(&db, &head_key)?;
-    let digest = export::<D>(db, &head_ts, lookup_depth, writer, options).await?;
+    let digest = export::<D, S>(db, &head_ts, lookup_depth, writer, options).await?;
     Ok((head_ts, digest))
 }
 
 /// Exports a Filecoin snapshot in v1 format
 /// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v1-specification>
-pub async fn export<D: Digest>(
+pub async fn export<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
     db: &Arc<impl Blockstore + Send + Sync + 'static>,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    options: Option<ExportOptions>,
+    options: ExportOptions<S>,
 ) -> anyhow::Result<Option<digest::Output<D>>> {
     let roots = tipset.key().to_cids();
-    export_to_forest_car::<D>(roots, None, db, tipset, lookup_depth, writer, options).await
+    export_to_forest_car::<D, S>(roots, None, db, tipset, lookup_depth, writer, options).await
 }
 
 /// Exports a Filecoin snapshot in v2 format
 /// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v2-specification>
-pub async fn export_v2<D: Digest, F: Seek + Read>(
+pub async fn export_v2<D: Digest, F: Seek + Read, S: CidHashSetLike + Send + Sync + 'static>(
     db: &Arc<impl Blockstore + Send + Sync + 'static>,
     mut f3: Option<(Cid, F)>,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    options: Option<ExportOptions>,
+    options: ExportOptions<S>,
 ) -> anyhow::Result<Option<digest::Output<D>>> {
     // validate f3 data
     if let Some((f3_cid, f3_data)) = &mut f3 {
@@ -121,7 +132,7 @@ pub async fn export_v2<D: Digest, F: Seek + Read>(
         });
     }
 
-    export_to_forest_car::<D>(
+    export_to_forest_car::<D, S>(
         roots,
         Some(prefix_data_frames),
         db,
@@ -134,23 +145,21 @@ pub async fn export_v2<D: Digest, F: Seek + Read>(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn export_to_forest_car<D: Digest>(
+async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
     roots: NonEmpty<Cid>,
     prefix_data_frames: Option<Vec<anyhow::Result<ForestCarFrame>>>,
     db: &Arc<impl Blockstore + Send + Sync + 'static>,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    options: Option<ExportOptions>,
-) -> anyhow::Result<Option<digest::Output<D>>> {
-    let ExportOptions {
+    ExportOptions {
         skip_checksum,
         include_receipts,
         include_events,
         include_tipset_keys,
         seen,
-    } = options.unwrap_or_default();
-
+    }: ExportOptions<S>,
+) -> anyhow::Result<Option<digest::Output<D>>> {
     if include_events && !include_receipts {
         anyhow::bail!("message receipts must be included when events are included");
     }
@@ -171,8 +180,8 @@ async fn export_to_forest_car<D: Digest>(
             db.shallow_clone(),
             tipset.shallow_clone().chain_owned(db.shallow_clone()),
             stateroot_lookup_limit,
+            seen,
         )
-        .with_seen(seen)
         .with_message_receipts(include_receipts)
         .with_events(include_events)
         .with_tipset_keys(include_tipset_keys)

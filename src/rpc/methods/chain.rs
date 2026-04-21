@@ -10,7 +10,7 @@ use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
-use crate::cid_collections::CidHashSet;
+use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
 use crate::ipld::DfsIter;
 use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -395,13 +395,13 @@ impl RpcMethod<1> for ForestChainExport {
             ctx.chain_index()
                 .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
-        let options = Some(ExportOptions {
+        let options = ExportOptions {
             skip_checksum,
             include_receipts,
             include_events,
             include_tipset_keys,
-            seen: Default::default(),
-        });
+            seen: FileBackedCidHashSet::new(ctx.temp_dir.as_path())?,
+        };
         let writer = if dry_run {
             tokio_util::either::Either::Left(VoidAsyncWriter)
         } else {
@@ -411,8 +411,13 @@ impl RpcMethod<1> for ForestChainExport {
             FilecoinSnapshotVersion::V1 => {
                 let db = ctx.store_owned();
 
-                let chain_export =
-                    crate::chain::export::<Sha256>(&db, &start_ts, recent_roots, writer, options);
+                let chain_export = crate::chain::export::<Sha256, _>(
+                    &db,
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    options,
+                );
 
                 tokio::select! {
                     result = chain_export => {
@@ -450,7 +455,7 @@ impl RpcMethod<1> for ForestChainExport {
                     }
                 };
 
-                let chain_export = crate::chain::export_v2::<Sha256, _>(
+                let chain_export = crate::chain::export_v2::<Sha256, _, _>(
                     &db,
                     f3_snap,
                     &start_ts,
