@@ -169,6 +169,13 @@ impl CidHashSetLike for FileBackedCidHashSet {
 }
 
 #[cfg(test)]
+impl Default for FileBackedCidHashSet {
+    fn default() -> Self {
+        Self::new(std::env::temp_dir()).expect("failed to create FileBackedCidHashSet")
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use ahash::HashSet;
@@ -186,7 +193,7 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn test_file_backed_cid_hashset(cids: HashSet<Cid>) {
-        let mut set = FileBackedCidHashSet::new(std::env::temp_dir()).unwrap();
+        let mut set = FileBackedCidHashSet::default();
         let dir = set._dir.path().to_path_buf();
         for cid in cids.iter() {
             all_asserts::assert_true!(
