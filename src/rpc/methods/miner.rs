@@ -133,14 +133,17 @@ impl RpcMethod<1> for MinerCreateBlock {
             .get_miner_work_addr(*lookback_state, &block_template.miner)?;
 
         let parent_weight = weight(store, &parent_tipset)?;
-        //let parent_weight = parent_tipset.weight().to_owned();
+        let heights = &ctx.chain_config().height_infos;
         let parent_base_fee = compute_base_fee(
             store,
             &parent_tipset,
-            ctx.chain_config()
-                .height_infos
+            heights
                 .get(&Height::Smoke)
                 .context("Missing Smoke height")?
+                .epoch,
+            heights
+                .get(&Height::FireHorse)
+                .context("Missing FireHorse height")?
                 .epoch,
         )?;
         let ExecutedTipset {
