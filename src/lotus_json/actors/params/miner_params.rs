@@ -611,9 +611,6 @@ pub struct GenerateSectorLocationParamsLotusJson {
     pub sector_number: SectorNumber,
 }
 
-/// Matches the wire representation of `SectorStatusCode` in
-/// `builtin-actors` (`#[repr(u8)]` with `Serialize_repr`/`Deserialize_repr`).
-/// Invalid discriminants produce a serde error during deserialization.
 #[derive(Serialize_repr, Deserialize_repr, JsonSchema, Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 #[schemars(with = "u8")]
