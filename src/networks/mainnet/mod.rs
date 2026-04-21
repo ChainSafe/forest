@@ -92,7 +92,7 @@ pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|
         make_height!(Tock, 4_878_840 + EPOCHS_IN_DAY * 90),
         // Wed 24 Sep 23:00:00 UTC 2025
         make_height!(GoldenWeek, 5_348_280, get_bundle_cid("v17.0.0")),
-        make_height!(Xxx, i64::MAX),
+        make_height!(FireHorse, i64::MAX),
     ])
 });
 

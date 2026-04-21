@@ -10,7 +10,7 @@ pushd "${PARENT_PATH}"
 source .env
 
 # Forest check - assert that we sync past the genesis block.
-# Allow for 300 seconds of sync time.
+# Allow for 360 seconds of sync time.
 function get_sync_height {
   local port=$1
   curl --silent -X POST -H "Content-Type: application/json" \
@@ -26,7 +26,7 @@ function get_f3_latest_cert_instance {
 }
 
 start_time=$(date +%s)
-timeout=$((start_time + 300))  # Set timeout to 5 minutes
+timeout=$((start_time + 360))  # Set timeout to 6 minutes
 
 # Target height set so that all migrations are applied.
 target_height=$TARGET_HEIGHT
