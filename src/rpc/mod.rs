@@ -485,6 +485,7 @@ pub struct RPCState<DB> {
     pub shutdown: mpsc::Sender<()>,
     pub mpool_locker: crate::message_pool::MpoolLocker,
     pub nonce_tracker: crate::message_pool::NonceTracker,
+    pub temp_dir: Arc<std::path::PathBuf>,
 }
 
 impl<DB: Blockstore> RPCState<DB> {

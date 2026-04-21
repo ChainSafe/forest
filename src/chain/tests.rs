@@ -4,6 +4,7 @@
 use super::*;
 use crate::{
     blocks::{CachingBlockHeader, Chain4U, Tipset, TipsetKey, chain4u},
+    cid_collections::CidHashSet,
     db::{MemoryDB, car::ForestCar},
     utils::db::CborStoreExt,
 };
@@ -60,10 +61,25 @@ async fn test_export_inner(version: FilecoinSnapshotVersion) -> anyhow::Result<(
 
     let checksum = match version {
         FilecoinSnapshotVersion::V1 => {
-            export::<Sha256>(&db, &head, 0, &mut car_bytes, None).await?
+            export::<Sha256, _>(
+                &db,
+                &head,
+                0,
+                &mut car_bytes,
+                ExportOptions::<CidHashSet>::default(),
+            )
+            .await?
         }
         FilecoinSnapshotVersion::V2 => {
-            export_v2::<Sha256, File>(&db, None, &head, 0, &mut car_bytes, None).await?
+            export_v2::<Sha256, File, _>(
+                &db,
+                None,
+                &head,
+                0,
+                &mut car_bytes,
+                ExportOptions::<CidHashSet>::default(),
+            )
+            .await?
         }
     };
 
