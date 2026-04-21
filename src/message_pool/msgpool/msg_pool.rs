@@ -590,12 +590,12 @@ where
         let mut out: Vec<SignedMessage> = Vec::new();
         let pending = self.pending.read().clone();
 
-        for (addr, _) in pending {
-            out.append(
-                self.pending_for(&addr)
-                    .ok_or(Error::InvalidFromAddr)?
-                    .as_mut(),
-            )
+        for mset in pending.into_values() {
+            out.extend(
+                mset.msgs
+                    .into_values()
+                    .sorted_by_key(|v| v.message().sequence),
+            );
         }
 
         let cur_ts = self.current_tipset();
