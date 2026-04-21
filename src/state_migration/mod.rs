@@ -69,10 +69,7 @@ where
             ]
         }
         NetworkChain::Butterflynet => {
-            vec![
-                (Height::Teep, nv25::run_migration::<DB>),
-                (Height::GoldenWeek, nv27::run_migration::<DB>),
-            ]
+            vec![(Height::FireHorse, nv28::run_migration::<DB>)]
         }
         NetworkChain::Devnet(_) => {
             vec![
