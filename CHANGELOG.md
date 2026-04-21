@@ -31,6 +31,8 @@
 
 - [#6926](https://github.com/ChainSafe/forest/pull/6926): Added strict JSON validation to deny unknown fields in RPC request parameters and response results when `FOREST_STRICT_JSON` is enabled.
 
+- [#6913](https://github.com/ChainSafe/forest/issues/6913): Added support for NV28 for devnets. Use `FOREST_FIREHORSE_HEIGHT` environment variable to set the upgrade height. Note that `FIP-0115` is not yet automatically activated with this change.
+
 ### Changed
 
 ### Removed
