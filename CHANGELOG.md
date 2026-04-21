@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6913](https://github.com/ChainSafe/forest/issues/6913): Added support for NV28 for devnets. Use `FOREST_FIREHORSE_HEIGHT` environment variable to set the upgrade height. Note that `FIP-0115` is not yet automatically activated with this change.
+
 ### Changed
 
 - [#6939](https://github.com/ChainSafe/forest/pull/6939): Refactored snapshot export and garbage collection logic to use disk-backed hash set for de-de-duplicating reachable blocks. This results in less RAM usage (~6-7GiB) and more disk usage (~7-8GiB on mainnet).
