@@ -1,24 +1,14 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::LazyLock;
-
 use crate::blocks::Tipset;
 use crate::message::MessageReadWrite;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
-use crate::utils::misc::env::env_or_default;
 use ahash::{HashSet, HashSetExt};
 use fvm_ipld_blockstore::Blockstore;
 
 use super::weighted_quick_select::weighted_quick_select;
-
-/// FIP-0115 base fee activation epoch, controlled via `FOREST_FEES_FIP0115HEIGHT`.
-/// Defaults to `-1` (disabled). Setting to a non-negative value activates premium-based
-/// base fee computation at that epoch.
-/// WARNING: This is a consensus-breaking change and should only be used for testing.
-static FIP0115_HEIGHT: LazyLock<ChainEpoch> =
-    LazyLock::new(|| env_or_default("FOREST_FEES_FIP0115HEIGHT", -1));
 
 pub const BLOCK_GAS_TARGET_INDEX: u64 = BLOCK_GAS_LIMIT * 80 / 100 - 1;
 
@@ -64,17 +54,15 @@ pub fn compute_base_fee<DB>(
     db: &DB,
     ts: &Tipset,
     smoke_height: ChainEpoch,
+    firehorse_height: ChainEpoch,
 ) -> Result<TokenAmount, crate::chain::Error>
 where
     DB: Blockstore,
 {
-    // FIP-0115: https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0115.md
-    let fip0115_height = *FIP0115_HEIGHT;
-    if fip0115_height >= 0 && ts.epoch() >= fip0115_height {
-        return compute_next_base_fee_from_premiums(db, ts);
+    if ts.epoch() < firehorse_height {
+        return compute_next_base_fee_from_utlilization(db, ts, smoke_height);
     }
-
-    compute_next_base_fee_from_utlilization(db, ts, smoke_height)
+    compute_next_base_fee_from_premiums(db, ts)
 }
 
 fn compute_next_base_fee_from_premiums<DB>(
@@ -229,7 +217,8 @@ mod tests {
         });
         let ts = Tipset::from(h0);
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        assert!(compute_base_fee(&blockstore, &ts, smoke_height).is_err());
+        let firehorse_height = ChainConfig::default().epoch(Height::FireHorse);
+        assert!(compute_base_fee(&blockstore, &ts, smoke_height, firehorse_height).is_err());
     }
 
     #[test]
