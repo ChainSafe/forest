@@ -41,6 +41,8 @@
 
 ### Fixed
 
+- [#6951](https://github.com/ChainSafe/forest/pull/6951): Set the HTTP response compression threshold for the RPC server to 1 KiB. Configurable via `FOREST_RPC_COMPRESS_MIN_BODY_SIZE`; set a negative value to disable compression entirely. Small JSON-RPC responses such as `eth_chainId` are no longer gzip-encoded, yielding a large throughput and latency improvement on high-QPS workloads.
+
 ## Forest v0.33.0 "Patroclus"
 
 Non-mandatory release with a couple of larger internal changes, especially around mempool and garbage collection. It also includes support for the new finality resolution mechanism. Also, a couple of fixes!
