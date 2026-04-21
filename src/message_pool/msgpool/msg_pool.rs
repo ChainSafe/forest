@@ -586,21 +586,22 @@ where
 
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
-    pub fn pending(&self) -> Result<(Vec<SignedMessage>, Tipset), Error> {
-        let mut out: Vec<SignedMessage> = Vec::new();
+    pub fn pending(&self) -> (Vec<SignedMessage>, Tipset) {
         let pending = self.pending.read().clone();
+        let len = pending.values().map(|mset| mset.msgs.len()).sum();
+        let mut out = Vec::with_capacity(len);
 
         for mset in pending.into_values() {
             out.extend(
                 mset.msgs
                     .into_values()
-                    .sorted_by_key(|v| v.message().sequence),
+                    .sorted_unstable_by_key(|m| m.message().sequence),
             );
         }
 
         let cur_ts = self.current_tipset();
 
-        Ok((out, cur_ts))
+        (out, cur_ts)
     }
 
     /// Return a Vector of signed messages for a given from address. This vector

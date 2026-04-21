@@ -60,7 +60,7 @@ impl RpcMethod<1> for MpoolPending {
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
 
-        let (mut pending, mpts) = ctx.mpool.pending()?;
+        let (mut pending, mpts) = ctx.mpool.pending();
 
         let mut have_cids = HashSet::new();
         for item in pending.iter() {
