@@ -139,7 +139,7 @@ impl MessageGasCost {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ExecutionTrace {
     pub msg: MessageTrace,
@@ -153,6 +153,17 @@ pub struct ExecutionTrace {
     pub logs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ipld_ops: Vec<serde_json::Value>,
+}
+
+impl PartialEq for ExecutionTrace {
+    /// Ignore [`Self::logs`] and [`Self::ipld_ops`] as they are implementation-dependent
+    fn eq(&self, other: &Self) -> bool {
+        self.msg == other.msg
+            && self.msg_rct == other.msg_rct
+            && self.invoked_actor == other.invoked_actor
+            && self.gas_charges == other.gas_charges
+            && self.subcalls == other.subcalls
+    }
 }
 
 impl ExecutionTrace {
