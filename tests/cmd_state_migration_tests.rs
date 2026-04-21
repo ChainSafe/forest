@@ -32,5 +32,5 @@ fn state_migration_generate_actors_metadata() {
     // - the bundle list was updated and the manifest was not (this is ok, just update the manifest),
     // - the manifest generation is non-deterministic (this is bad),
     // - an existing bundle was updated under the same tag (this is bad, it should be immutable).
-    assert_eq!(json, manifest);
+    assert_eq!(json.trim(), manifest.trim());
 }
