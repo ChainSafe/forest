@@ -3172,6 +3172,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
             fork_upgrade_params: ForkUpgradeParams::try_from(config)
                 .context("Failed to get fork upgrade params")?,
             eip155_chain_id: config.eth_chain_id,
+            genesis_timestamp: ctx.chain_store().genesis_block_header().timestamp,
         };
 
         Ok(params)
@@ -3190,6 +3191,7 @@ pub struct NetworkParams {
     fork_upgrade_params: ForkUpgradeParams,
     #[serde(rename = "Eip155ChainID")]
     eip155_chain_id: EthChainId,
+    genesis_timestamp: u64,
 }
 
 lotus_json_with_self!(NetworkParams);
@@ -3229,7 +3231,7 @@ pub struct ForkUpgradeParams {
     upgrade_teep_height: ChainEpoch,
     upgrade_tock_height: ChainEpoch,
     upgrade_golden_week_height: ChainEpoch,
-    //upgrade_xxx_height: ChainEpoch,
+    upgrade_xx_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -3279,6 +3281,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_tock_height: get_height(Tock)?,
             upgrade_golden_week_height: get_height(GoldenWeek)?,
             //upgrade_firehorse_height: get_height(FireHorse)?,
+            upgrade_xx_height: 999_999_999_999_999,
         })
     }
 }

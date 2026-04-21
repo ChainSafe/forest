@@ -5,6 +5,7 @@ use super::*;
 
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::RawBytes;
+use ::cid::Cid;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -40,6 +41,14 @@ pub struct MessageLotusJson {
         default
     )]
     params: Option<RawBytes>,
+    #[schemars(with = "LotusJson<Option<Cid>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        rename = "CID",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    cid: Option<Cid>,
 }
 
 impl HasLotusJson for Message {
@@ -47,6 +56,8 @@ impl HasLotusJson for Message {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        let msg = Message::default();
+        let cid = msg.cid();
         vec![(
             json!({
                 "From": "f00",
@@ -59,12 +70,14 @@ impl HasLotusJson for Message {
                 "To": "f00",
                 "Value": "0",
                 "Version": 0,
+                "CID": { "/": cid.to_string() },
             }),
-            Message::default(),
+            msg,
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
+        let cid = self.cid();
         let Self {
             version,
             from,
@@ -88,6 +101,7 @@ impl HasLotusJson for Message {
             gas_premium,
             method: method_num,
             params: Some(params),
+            cid: Some(cid),
         }
     }
 
@@ -103,6 +117,7 @@ impl HasLotusJson for Message {
             gas_premium,
             method,
             params,
+            cid: _,
         } = lotus_json;
         Self {
             version,

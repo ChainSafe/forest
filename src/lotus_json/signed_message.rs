@@ -39,6 +39,8 @@ impl HasLotusJson for SignedMessage {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        let msg = Message::default();
+        let msg_cid = msg.cid();
         vec![(
             json!({
                 "Message": {
@@ -52,6 +54,7 @@ impl HasLotusJson for SignedMessage {
                     "To": "f00",
                     "Value": "0",
                     "Version": 0,
+                    "CID": { "/": msg_cid.to_string() },
                 },
                 "Signature": {"Type": 2, "Data": "aGVsbG8gd29ybGQh"},
                 "CID": {
@@ -59,7 +62,7 @@ impl HasLotusJson for SignedMessage {
                 },
             }),
             SignedMessage {
-                message: Message::default(),
+                message: msg,
                 signature: Signature {
                     sig_type: crate::shim::crypto::SignatureType::Bls,
                     bytes: Vec::from_iter(*b"hello world!"),

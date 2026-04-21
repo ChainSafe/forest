@@ -669,6 +669,8 @@ pub mod structured {
                         gas_charges,
                         subcalls,
                         invoked_actor: actor_trace,
+                        logs: vec![],
+                        ipld_ops: vec![],
                     });
                 }
             }

@@ -149,6 +149,10 @@ pub struct ExecutionTrace {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Vec<ExecutionTrace>>")]
     pub subcalls: Vec<ExecutionTrace>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub logs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ipld_ops: Vec<serde_json::Value>,
 }
 
 impl ExecutionTrace {

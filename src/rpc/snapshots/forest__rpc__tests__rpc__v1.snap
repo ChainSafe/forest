@@ -143,7 +143,7 @@ methods:
       name: Filecoin.ChainGetMessage.Result
       required: true
       schema:
-        $ref: "#/components/schemas/FlattenedApiMessage"
+        $ref: "#/components/schemas/Message"
     paramStructure: by-position
   - name: Filecoin.ChainGetMessagesInTipset
     params:
@@ -1926,7 +1926,7 @@ methods:
       name: Filecoin.GasEstimateMessageGas.Result
       required: true
       schema:
-        $ref: "#/components/schemas/FlattenedApiMessage"
+        $ref: "#/components/schemas/Message"
     paramStructure: by-position
   - name: Filecoin.MarketAddBalance
     params:
@@ -6096,6 +6096,13 @@ components:
           anyOf:
             - $ref: "#/components/schemas/ActorTrace"
             - type: "null"
+        IpldOps:
+          type: array
+          items: true
+        Logs:
+          type: array
+          items:
+            type: string
         Msg:
           $ref: "#/components/schemas/MessageTrace"
         MsgRct:
@@ -6298,50 +6305,6 @@ components:
         - SupplementalData
         - Signers
         - Signature
-    FlattenedApiMessage:
-      type: object
-      properties:
-        CID:
-          $ref: "#/components/schemas/Cid"
-        From:
-          $ref: "#/components/schemas/Address"
-        GasFeeCap:
-          $ref: "#/components/schemas/TokenAmount"
-          default: "0"
-        GasLimit:
-          type: integer
-          format: uint64
-          default: 0
-          minimum: 0
-        GasPremium:
-          $ref: "#/components/schemas/TokenAmount"
-          default: "0"
-        Method:
-          type: integer
-          format: uint64
-          default: 0
-          minimum: 0
-        Nonce:
-          type: integer
-          format: uint64
-          default: 0
-          minimum: 0
-        Params:
-          $ref: "#/components/schemas/Nullable_Base64String"
-        To:
-          $ref: "#/components/schemas/Address"
-        Value:
-          $ref: "#/components/schemas/TokenAmount"
-          default: "0"
-        Version:
-          type: integer
-          format: uint64
-          default: 0
-          minimum: 0
-      required:
-        - To
-        - From
-        - CID
     ForestChainExportDiffParams:
       type: object
       properties:
@@ -6568,6 +6531,9 @@ components:
         UpgradeWatermelonHeight:
           type: integer
           format: int64
+        UpgradeXxHeight:
+          type: integer
+          format: int64
       required:
         - UpgradeSmokeHeight
         - UpgradeBreezeHeight
@@ -6601,6 +6567,7 @@ components:
         - UpgradeTeepHeight
         - UpgradeTockHeight
         - UpgradeGoldenWeekHeight
+        - UpgradeXxHeight
     GasTrace:
       type: object
       properties:
@@ -6811,6 +6778,8 @@ components:
     Message:
       type: object
       properties:
+        CID:
+          $ref: "#/components/schemas/Nullable_Cid"
         From:
           $ref: "#/components/schemas/Address"
         GasFeeCap:
@@ -7168,6 +7137,10 @@ components:
           minimum: 0
         ForkUpgradeParams:
           $ref: "#/components/schemas/ForkUpgradeParams"
+        GenesisTimestamp:
+          type: integer
+          format: uint64
+          minimum: 0
         NetworkName:
           type: string
         PreCommitChallengeDelay:
@@ -7180,6 +7153,7 @@ components:
         - PreCommitChallengeDelay
         - ForkUpgradeParams
         - Eip155ChainID
+        - GenesisTimestamp
     NetworkVersion:
       description: "Specifies the network version\n\n# Examples\n```\n# use forest::doctest_private::NetworkVersion;\nlet v0 = NetworkVersion::V0;\n\n// dereference to convert to FVM4\nassert_eq!(fvm_shared4::version::NetworkVersion::V0, *v0);\n\n// use `.into()` when FVM3 has to be specified.\nassert_eq!(fvm_shared3::version::NetworkVersion::V0, v0.into());\n\n// use `.into()` when FVM2 has to be specified.\nassert_eq!(fvm_shared2::version::NetworkVersion::V0, v0.into());\n```"
       type: integer
@@ -7544,6 +7518,10 @@ components:
       properties:
         APIVersion:
           $ref: "#/components/schemas/ShiftingVersion"
+        Agent:
+          type:
+            - string
+            - "null"
         BlockDelay:
           type: integer
           format: uint32

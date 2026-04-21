@@ -4492,6 +4492,8 @@ mod test {
             invoked_actor: None,
             gas_charges: vec![],
             subcalls: vec![],
+            logs: vec![],
+            ipld_ops: vec![],
         }
     }
 
