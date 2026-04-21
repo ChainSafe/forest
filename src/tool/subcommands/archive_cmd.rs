@@ -594,12 +594,12 @@ pub async fn do_export(
             store.clone(),
             diff_ts.clone().chain_owned(store.clone()),
             diff_limit,
-            FileBackedCidHashSet::new(".")?,
+            FileBackedCidHashSet::new_in_temp_dir()?,
         );
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
-        FileBackedCidHashSet::new(".")?
+        FileBackedCidHashSet::new_in_temp_dir()?
     };
 
     let output_path = build_output_path(network.to_string(), genesis.timestamp, epoch, output_path);

@@ -139,6 +139,10 @@ impl FileBackedCidHashSet {
             lru: hashlink::LruCache::new(2 << 19), // ~80MiB for 1M entries
         })
     }
+
+    pub fn new_in_temp_dir() -> anyhow::Result<Self> {
+        Self::new(std::env::temp_dir())
+    }
 }
 
 impl CidHashSetLike for FileBackedCidHashSet {
@@ -171,7 +175,7 @@ impl CidHashSetLike for FileBackedCidHashSet {
 #[cfg(test)]
 impl Default for FileBackedCidHashSet {
     fn default() -> Self {
-        Self::new(std::env::temp_dir()).expect("failed to create FileBackedCidHashSet")
+        Self::new_in_temp_dir().expect("failed to create FileBackedCidHashSet")
     }
 }
 
