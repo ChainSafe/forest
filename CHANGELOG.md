@@ -33,6 +33,8 @@
 
 ### Changed
 
+- [#6939](https://github.com/ChainSafe/forest/pull/6939): Refactored snapshot export and garbage collection logic to use disk-backed hash set for de-de-duplicating reachable blocks. This results in less RAM usage (~6-7GiB) and more disk usage (~7-8GiB on mainnet).
+
 ### Removed
 
 - [#6948](https://github.com/ChainSafe/forest/pull/6948): Removed the `FOREST_FEES_FIP0115HEIGHT` environment variable. The `FIP-0115` will be automatically activated at `FireHorse` network upgrade.
