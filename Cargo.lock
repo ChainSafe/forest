@@ -6773,6 +6773,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6985a45b0597d68448dac9db2907f9f72bbaf63fe3383d4ba15f99096c87212f"
 dependencies = [
  "blake2",
+ "bytes",
  "crc32fast",
  "fs2",
  "hex",

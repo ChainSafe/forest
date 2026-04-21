@@ -469,6 +469,7 @@ fn maybe_start_rpc_service(
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
             let nonce_tracker = NonceTracker::new();
             let mpool_locker = MpoolLocker::new();
+            let temp_dir = Arc::new(ctx.temp_dir.clone());
             async move {
                 let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
                     .await
@@ -491,6 +492,7 @@ fn maybe_start_rpc_service(
                         snapshot_progress_tracker,
                         mpool_locker,
                         nonce_tracker,
+                        temp_dir,
                     },
                     rpc_listener,
                     rpc_stop_handle,

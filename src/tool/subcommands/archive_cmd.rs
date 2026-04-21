@@ -32,6 +32,7 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
 };
 use crate::cid_collections::CidHashSet;
+use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
@@ -593,11 +594,12 @@ pub async fn do_export(
             store.clone(),
             diff_ts.clone().chain_owned(store.clone()),
             diff_limit,
+            FileBackedCidHashSet::new_in_temp_dir()?,
         );
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
-        CidHashSet::default()
+        FileBackedCidHashSet::new_in_temp_dir()?
     };
 
     let output_path = build_output_path(network.to_string(), genesis.timestamp, epoch, output_path);
@@ -640,18 +642,18 @@ pub async fn do_export(
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     let writer = pb.wrap_async_write(writer);
 
-    crate::chain::export::<Sha256>(
+    crate::chain::export::<Sha256, _>(
         store,
         &ts,
         depth,
         writer,
-        Some(ExportOptions {
+        ExportOptions {
             skip_checksum: true,
             include_receipts: false,
             include_events: false,
             include_tipset_keys: false,
             seen,
-        }),
+        },
     )
     .await?;
 
@@ -696,7 +698,12 @@ async fn merge_snapshots(
     )?);
 
     // Stream all available blocks from heaviest_tipset to genesis.
-    let blocks = stream_graph(&store, heaviest_tipset.chain(&store), 0);
+    let blocks = stream_graph(
+        &store,
+        heaviest_tipset.chain(&store),
+        0,
+        CidHashSet::default(),
+    );
 
     // Encode Ipld key-value pairs in zstd frames
     let frames = forest::Encoder::compress_stream_default(blocks);
