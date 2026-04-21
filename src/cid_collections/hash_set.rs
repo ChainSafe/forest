@@ -14,7 +14,7 @@ pub trait CidHashSetLike {
     /// Adds a value to the set.
     ///
     /// Returns whether the value was newly inserted.
-    fn insert(&mut self, cid: Cid) -> bool;
+    fn insert(&mut self, cid: Cid) -> anyhow::Result<bool>;
 }
 
 /// A hash set implemented as a `HashMap` where the value is `()`.
@@ -67,8 +67,8 @@ impl CidHashSet {
 }
 
 impl CidHashSetLike for CidHashSet {
-    fn insert(&mut self, cid: Cid) -> bool {
-        self.insert(cid)
+    fn insert(&mut self, cid: Cid) -> anyhow::Result<bool> {
+        Ok(self.insert(cid))
     }
 }
 
@@ -142,12 +142,12 @@ impl FileBackedCidHashSet {
 }
 
 impl CidHashSetLike for FileBackedCidHashSet {
-    fn insert(&mut self, cid: Cid) -> bool {
+    fn insert(&mut self, cid: Cid) -> anyhow::Result<bool> {
         static EMPTY_VALUE: LazyLock<Bytes> = LazyLock::new(|| Bytes::from_static(&[]));
 
         let small = SmallCid::from(cid);
         if self.lru.get(&small).is_some() {
-            return false;
+            return Ok(false);
         }
 
         let (col, key) = match &small {
@@ -156,13 +156,14 @@ impl CidHashSetLike for FileBackedCidHashSet {
         };
         if self.db.get(col, &key).ok().flatten().is_some() {
             self.lru.insert(small, ());
-            false
+            Ok(false)
         } else {
-            _ = self
-                .db
-                .commit_changes_bytes([(col, parity_db::Operation::Set(key, EMPTY_VALUE.clone()))]);
+            self.db.commit_changes_bytes([(
+                col,
+                parity_db::Operation::Set(key, EMPTY_VALUE.clone()),
+            )])?;
             self.lru.insert(small, ());
-            true
+            Ok(true)
         }
     }
 }
@@ -170,10 +171,10 @@ impl CidHashSetLike for FileBackedCidHashSet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ahash::HashSet;
 
     #[quickcheck_macros::quickcheck]
-    fn test_cid_hashset(mut cids: Vec<Cid>) {
-        cids.dedup();
+    fn test_cid_hashset(cids: HashSet<Cid>) {
         let mut set = CidHashSet::default();
         for cid in cids.iter() {
             all_asserts::assert_true!(set.insert(*cid), "expected CID to be newly inserted");
@@ -184,15 +185,20 @@ mod tests {
     }
 
     #[quickcheck_macros::quickcheck]
-    fn test_file_backed_cid_hashset(mut cids: Vec<Cid>) {
-        cids.dedup();
+    fn test_file_backed_cid_hashset(cids: HashSet<Cid>) {
         let mut set = FileBackedCidHashSet::new(std::env::temp_dir()).unwrap();
         let dir = set._dir.path().to_path_buf();
         for cid in cids.iter() {
-            all_asserts::assert_true!(set.insert(*cid), "expected CID to be newly inserted");
+            all_asserts::assert_true!(
+                set.insert(*cid).unwrap(),
+                "expected CID to be newly inserted"
+            );
         }
         for cid in cids.iter() {
-            all_asserts::assert_false!(set.insert(*cid), "expected CID to be present in the set");
+            all_asserts::assert_false!(
+                set.insert(*cid).unwrap(),
+                "expected CID to be present in the set"
+            );
         }
         drop(set);
         all_asserts::assert_false!(dir.exists(), "expected temporary directory to be deleted");

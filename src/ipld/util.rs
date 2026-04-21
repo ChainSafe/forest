@@ -285,7 +285,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
                             // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
                             // 3. _: ignore all other links
                             // Don't revisit what's already been visited.
-                            if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+                            if should_save_block_to_snapshot(cid) && this.seen.insert(cid)? {
                                 if let Some(data) = this.db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let new_values = extract_cids(&data)?;
@@ -339,7 +339,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
 
                 for block in tipset.borrow().block_headers() {
                     let (cid, data) = block.car_block()?;
-                    if this.seen.insert(cid) {
+                    if this.seen.insert(cid)? {
                         if *this.track_progress {
                             update_epoch(block.epoch);
                         }
@@ -441,7 +441,7 @@ impl<DB: Blockstore, S: CidHashSetLike> Stream for IpldStream<DB, S> {
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
         while let Some(cid) = this.cid_vec.pop() {
-            if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+            if should_save_block_to_snapshot(cid) && this.seen.insert(cid)? {
                 if let Some(data) = this.db.get(&cid)? {
                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                         let new_cids = extract_cids(&data)?;
