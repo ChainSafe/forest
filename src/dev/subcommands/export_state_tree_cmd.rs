@@ -3,12 +3,12 @@
 
 use crate::{
     chain::{ChainStore, index::ResolveNullTipset},
+    cid_collections::FileBackedCidHashSet,
     cli_shared::{chain_path, read_config},
     daemon::db_util::load_all_forest_cars,
     db::{
         CAR_DB_DIR_NAME,
-        car::ManyCar,
-        car::forest::FOREST_CAR_FILE_EXTENSION,
+        car::{ManyCar, forest::FOREST_CAR_FILE_EXTENSION},
         db_engine::{db_root, open_db},
     },
     genesis::read_genesis_header,
@@ -109,7 +109,11 @@ impl ExportStateTreeCommand {
             ipld_roots.extend(receipts.into_iter().filter_map(|r| r.events_root()));
         }
         let roots = nunny::vec![ipld_roots.first().cloned().context("no ipld roots found")?];
-        let stream = IpldStream::new(db, ipld_roots.clone());
+        let stream = IpldStream::new(
+            db,
+            ipld_roots.clone(),
+            FileBackedCidHashSet::new_in_temp_dir()?,
+        );
         let frames = crate::db::car::forest::Encoder::compress_stream_default(stream);
         let tmp =
             tempfile::NamedTempFile::new_in(output.parent().unwrap_or_else(|| Path::new(".")))?

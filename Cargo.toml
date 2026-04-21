@@ -169,7 +169,7 @@ num-traits = "0.2"
 num_cpus = "1"
 nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars1"] }
 openrpc-types = "0.5"
-parity-db = { version = "0.5" }
+parity-db = { version = "0.5", features = ["bytes"] }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pastey = "0.2"
 pathfinding = "4"

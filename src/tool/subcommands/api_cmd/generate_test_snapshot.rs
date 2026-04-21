@@ -158,6 +158,7 @@ async fn ctx(
         snapshot_progress_tracker: Default::default(),
         mpool_locker: MpoolLocker::new(),
         nonce_tracker,
+        temp_dir: Arc::new(std::env::temp_dir()),
     });
     Ok((rpc_state, network_rx, shutdown_recv))
 }
