@@ -37,8 +37,8 @@ use crate::message_pool::{
 };
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
-const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
-const RBF_DENOM: u64 = 256;
+pub(crate) const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
+pub(crate) const RBF_DENOM: u64 = 256;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;

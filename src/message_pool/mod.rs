@@ -16,4 +16,6 @@ pub use self::{
     nonce_tracker::NonceTracker,
 };
 
+pub(crate) use self::msgpool::{RBF_DENOM, RBF_NUM};
+
 pub use block_prob::block_probabilities;
