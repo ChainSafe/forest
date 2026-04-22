@@ -63,14 +63,20 @@ impl RpcMethod<0> for GetRawNetworkName {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = String;
+    type Ok = Arc<str>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.chain_config().network.genesis_name().into())
+        // Network is fixed for the process lifetime; cache the genesis name.
+        static CACHED: OnceLock<Arc<str>> = OnceLock::new();
+        Ok(CACHED
+            .get_or_init(|| {
+                Arc::<str>::from(String::from(ctx.chain_config().network.genesis_name()))
+            })
+            .clone())
     }
 }
 

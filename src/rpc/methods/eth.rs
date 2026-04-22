@@ -77,7 +77,7 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 use utils::{decode_payload, lookup_eth_address};
 
 static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
@@ -764,17 +764,23 @@ impl RpcMethod<0> for Web3ClientVersion {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = String;
+    type Ok = Arc<str>;
 
     async fn handle(
         _: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(format!(
-            "forest/{}",
-            *crate::utils::version::FOREST_VERSION_STRING
-        ))
+        // Version string is baked in at build time; cache once.
+        static CACHED: OnceLock<Arc<str>> = OnceLock::new();
+        Ok(CACHED
+            .get_or_init(|| {
+                Arc::<str>::from(format!(
+                    "forest/{}",
+                    *crate::utils::version::FOREST_VERSION_STRING
+                ))
+            })
+            .clone())
     }
 }
 
@@ -844,14 +850,18 @@ impl RpcMethod<0> for EthChainId {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = String;
+    type Ok = Arc<str>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(format!("{:#x}", ctx.chain_config().eth_chain_id))
+        // `eth_chain_id` is fixed for the process lifetime; cache the hex form.
+        static CACHED: OnceLock<Arc<str>> = OnceLock::new();
+        Ok(CACHED
+            .get_or_init(|| Arc::<str>::from(format!("{:#x}", ctx.chain_config().eth_chain_id)))
+            .clone())
     }
 }
 
