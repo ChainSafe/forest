@@ -6098,7 +6098,8 @@ components:
             - type: "null"
         IpldOps:
           type: array
-          items: true
+          items:
+            $ref: "#/components/schemas/TraceIpld"
         Logs:
           type: array
           items:
@@ -7879,6 +7880,28 @@ components:
       anyOf:
         - $ref: "#/components/schemas/EthCallTraceAction"
         - $ref: "#/components/schemas/EthCreateTraceAction"
+    TraceIpld:
+      description: "IPLD operation details attached to an [`ExecutionTrace`]."
+      type: object
+      properties:
+        Cid:
+          $ref: "#/components/schemas/Cid"
+        Op:
+          $ref: "#/components/schemas/TraceIpldOp"
+        Size:
+          type: integer
+          format: uint64
+          minimum: 0
+      required:
+        - Op
+        - Cid
+        - Size
+    TraceIpldOp:
+      type: string
+      enum:
+        - Get
+        - Put
+        - Unknown
     TraceResult:
       anyOf:
         - $ref: "#/components/schemas/EthCallTraceResult"
