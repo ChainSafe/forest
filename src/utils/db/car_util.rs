@@ -6,6 +6,7 @@ use fvm_ipld_blockstore::Blockstore;
 use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
 use crate::cid_collections::CidHashSet;
+use crate::db::BlockstoreWithWriteBuffer;
 use crate::utils::db::car_stream::{CarBlock, CarStream, CarV1Header};
 
 /// Stream key-value pairs from a CAR archive into a block store.
@@ -14,6 +15,7 @@ pub async fn load_car<R>(db: &impl Blockstore, reader: R) -> anyhow::Result<CarV
 where
     R: AsyncBufRead + AsyncSeek + Unpin,
 {
+    let db = BlockstoreWithWriteBuffer::new_with_capacity(db, 10000);
     let mut stream = CarStream::new(BufReader::new(reader)).await?;
     while let Some(block) = stream.try_next().await? {
         db.put_keyed(&block.cid, &block.data)?;
