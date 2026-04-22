@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
+use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChanges};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::message_pool::errors::Error;
@@ -10,7 +11,7 @@ use crate::message_pool::msg_pool::{
 };
 use crate::networks::Height;
 use crate::shim::{
-    address::Address,
+    address::{Address, Protocol::*},
     econ::TokenAmount,
     message::Message,
     state_tree::{ActorState, StateTree},
@@ -102,13 +103,35 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
             .map_err(|err| err.into())
     }
 
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/6891
+    /// Resolves an address to its deterministic key form using the state at
+    /// finality look-back, This ensures the resolved address is reorg-stable.
     fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
-        let state = StateTree::new_from_root(self.blockstore().clone(), ts.parent_state())
-            .map_err(|e| Error::Other(e.to_string()))?;
-        state
-            .resolve_to_deterministic_addr(self.blockstore(), *addr)
-            .map_err(|e| Error::Other(e.to_string()))
+        match addr.protocol() {
+            BLS | Secp256k1 | Delegated => Ok(*addr),
+            Actor => Err(Error::Other(
+                "Cannot resolve actor address to key address".into(),
+            )),
+            _ => {
+                let lookback_ts = if ts.epoch() > self.chain_config().policy.chain_finality {
+                    self.chain_index()
+                        .tipset_by_height(
+                            ts.epoch() - self.chain_config().policy.chain_finality,
+                            ts.clone(),
+                            ResolveNullTipset::TakeOlder,
+                        )
+                        .map_err(|e| Error::Other(e.to_string()))?
+                } else {
+                    ts.clone()
+                };
+
+                let state =
+                    StateTree::new_from_root(self.blockstore().clone(), lookback_ts.parent_state())
+                        .map_err(|e| Error::Other(e.to_string()))?;
+                state
+                    .resolve_to_deterministic_addr(self.blockstore(), *addr)
+                    .map_err(|e| Error::Other(e.to_string()))
+            }
+        }
     }
 
     fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error> {
