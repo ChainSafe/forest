@@ -615,7 +615,7 @@ pub mod tests {
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
-        let (p, _) = mpool.pending().unwrap();
+        let (p, _) = mpool.pending();
         assert_eq!(p.len(), 3);
     }
 

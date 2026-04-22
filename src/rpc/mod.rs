@@ -5,6 +5,7 @@ use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 mod auth_layer;
 mod channel;
 mod client;
+mod compression_layer;
 mod filter_layer;
 mod filter_list;
 pub mod json_validator;
@@ -319,9 +320,9 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::misc::GetActorEventsRaw);
     };
 }
+use compression_layer::{COMPRESS_MIN_BODY_SIZE, CompressionLayer};
 pub(crate) use for_each_rpc_method;
 use sync::SnapshotProgressTracker;
-use tower_http::compression::CompressionLayer;
 use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
 
 #[allow(unused)]
@@ -573,7 +574,7 @@ where
             )
             .set_http_middleware(
                 tower::ServiceBuilder::new()
-                    .layer(CompressionLayer::new())
+                    .option_layer(COMPRESS_MIN_BODY_SIZE.map(CompressionLayer::new))
                     // Mark the `Authorization` request header as sensitive so it doesn't show in logs
                     .layer(SetSensitiveRequestHeadersLayer::new(std::iter::once(
                         http::header::AUTHORIZATION,
