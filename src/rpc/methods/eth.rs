@@ -2535,15 +2535,8 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
         if let Ok(smsgs) = smsgs_result
             && let Some(smsg) = smsgs.first()
         {
-            let hash = if smsg.is_delegated() {
-                let chain_id = ctx.chain_config().eth_chain_id;
-                let (_, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
-                tx.eth_hash()?.into()
-            } else if smsg.is_secp256k1() {
-                smsg.cid().into()
-            } else {
-                smsg.message().cid().into()
-            };
+           let hash = eth_tx_hash_from_signed_message(smsg, ctx.chain_config().eth_chain_id)
+               .context("failed to get eth tx hash from signed message")?;
             return Ok(Some(hash));
         }
 
