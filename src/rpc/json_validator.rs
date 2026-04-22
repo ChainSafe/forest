@@ -1,12 +1,19 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! JSON validation utilities for detecting duplicate keys before serde_json processing.
+//! JSON validation utilities for RPC requests and responses processing.
 //!
-//! serde_json automatically deduplicates keys at parse time using a "last-write-wins" strategy
-//! This means JSON like `{"/":"cid1", "/":"cid2"}` will keep only the last value, which can lead to unexpected behavior in RPC calls.
+//! - **Duplicate key detection**: `serde_json` automatically deduplicates keys at parse time
+//!   using a "last-write-wins" strategy. This means JSON like `{"/":"cid1", "/":"cid2"}` will
+//!   keep only the last value, which can lead to unexpected behavior in RPC calls.
+//! - **Unknown field detection**: `serde_json` silently ignores unknown fields by default.
+//!   In strict mode, [`from_value_rejecting_unknown_fields`] applies to RPC request and
+//!   responses.
+//!
+//! All of this is gated behind the `FOREST_STRICT_JSON` environment variable.
 
 use ahash::HashSet;
+use serde::de::DeserializeOwned;
 
 pub const STRICT_JSON_ENV: &str = "FOREST_STRICT_JSON";
 
@@ -50,9 +57,32 @@ pub fn validate_json_for_duplicates(json_str: &str) -> Result<(), String> {
     check_value(&value)
 }
 
+/// De-serializes a [`serde_json::Value`] into `T`, rejecting unknown fields when strict mode is
+/// enabled. When strict mode is off, this is equivalent to [`serde_json::from_value`].
+pub fn from_value_rejecting_unknown_fields<T: DeserializeOwned>(
+    value: serde_json::Value,
+) -> Result<T, serde_json::Error> {
+    if !is_strict_mode() {
+        return serde_json::from_value(value);
+    }
+    let mut unknown = Vec::new();
+    let result: T = serde_ignored::deserialize(value, |path| {
+        unknown.push(path.to_string());
+    })?;
+    if !unknown.is_empty() {
+        return Err(serde::de::Error::custom(format!(
+            "unknown field(s): {}. Set {STRICT_JSON_ENV}=0 to disable this check",
+            unknown.join(", ")
+        )));
+    }
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::Deserialize;
+    use serde_json::json;
     use serial_test::serial;
 
     fn with_strict_mode<F>(enabled: bool, f: F)
@@ -129,6 +159,56 @@ mod tests {
             let result = validate_json_for_duplicates(json);
             assert!(result.is_err());
             assert!(result.unwrap_err().contains("duplicate key '/'"));
+        });
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct RpcTestReq {
+        name: String,
+        value: i32,
+    }
+
+    #[test]
+    #[serial]
+    fn test_unknown_fields_known_only() {
+        with_strict_mode(true, || {
+            let val = json!({"name": "alice", "value": 42});
+            let result = from_value_rejecting_unknown_fields::<RpcTestReq>(val);
+            assert_eq!(
+                result.unwrap(),
+                RpcTestReq {
+                    name: "alice".into(),
+                    value: 42
+                }
+            );
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn test_unknown_fields_detected() {
+        with_strict_mode(true, || {
+            let val = json!({"name": "alice", "value": 42, "extra": true});
+            let err = from_value_rejecting_unknown_fields::<RpcTestReq>(val)
+                .expect_err("expected Err when unknown JSON field is present under strict mode");
+            let msg = err.to_string();
+            assert!(
+                msg.contains("unknown field(s)") && msg.contains("extra"),
+                "got: {msg}"
+            );
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn test_unknown_fields_strict_mode_off() {
+        with_strict_mode(false, || {
+            let val = json!({"name": "alice", "value": 42, "extra": true});
+            let result = from_value_rejecting_unknown_fields::<RpcTestReq>(val);
+            assert!(
+                result.is_ok(),
+                "unknown fields should be allowed when strict mode is off"
+            );
         });
     }
 }

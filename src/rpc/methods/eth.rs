@@ -2495,7 +2495,7 @@ async fn get_eth_transaction_by_hash(
     }
 
     // If not found, try to get it from the mempool
-    let (pending, _) = ctx.mpool.pending()?;
+    let (pending, _) = ctx.mpool.pending();
 
     if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
         // We only return pending eth-account messages because we can't guarantee
