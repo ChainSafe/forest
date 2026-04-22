@@ -350,7 +350,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             //               Client::call has an inappropriate HasLotusJson
             //               bound, work around it for now.
             let json = client.call(Self::request(params)?.map_ty()).await?;
-            Ok(serde_json::from_value(json)?)
+            Ok(crate::rpc::json_validator::from_value_rejecting_unknown_fields(json)?)
         }
     }
     fn call(

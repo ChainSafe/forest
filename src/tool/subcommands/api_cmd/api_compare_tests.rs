@@ -315,11 +315,13 @@ impl RpcTest {
     fn basic_raw<T: DeserializeOwned>(request: rpc::Request<T>) -> Self {
         Self {
             request: request.map_ty(),
-            check_syntax: Box::new(|it| match serde_json::from_value::<T>(it) {
-                Ok(_) => true,
-                Err(e) => {
-                    debug!(?e);
-                    false
+            check_syntax: Box::new(|it| {
+                match crate::rpc::json_validator::from_value_rejecting_unknown_fields::<T>(it) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        debug!(?e);
+                        false
+                    }
                 }
             }),
             check_semantics: Box::new(|_, _| true),
@@ -345,17 +347,23 @@ impl RpcTest {
     ) -> Self {
         Self {
             request: request.map_ty(),
-            check_syntax: Box::new(|value| match serde_json::from_value::<T>(value) {
-                Ok(_) => true,
-                Err(e) => {
-                    debug!("{e}");
-                    false
+            check_syntax: Box::new(|value| {
+                match crate::rpc::json_validator::from_value_rejecting_unknown_fields::<T>(value) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        debug!("{e}");
+                        false
+                    }
                 }
             }),
             check_semantics: Box::new(move |forest_json, lotus_json| {
                 match (
-                    serde_json::from_value::<T>(forest_json),
-                    serde_json::from_value::<T>(lotus_json),
+                    crate::rpc::json_validator::from_value_rejecting_unknown_fields::<T>(
+                        forest_json,
+                    ),
+                    crate::rpc::json_validator::from_value_rejecting_unknown_fields::<T>(
+                        lotus_json,
+                    ),
                 ) {
                     (Ok(forest), Ok(lotus)) => validate(forest, lotus),
                     (forest, lotus) => {
