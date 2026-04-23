@@ -23,7 +23,9 @@ use crate::shim::{
     econ::TokenAmount,
     gas::{Gas, price_list_by_network_version},
 };
+use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
+use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
@@ -280,13 +282,13 @@ pub struct MessagePool<T> {
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
-    pub bls_sig_cache: Arc<SizeTrackingLruCache<CidWrapper, Signature>>,
+    pub bls_sig_cache: SizeTrackingLruCache<CidWrapper, Signature>,
     /// A cache for BLS signature keyed by Cid
-    pub sig_val_cache: Arc<SizeTrackingLruCache<CidWrapper, ()>>,
+    pub sig_val_cache: SizeTrackingLruCache<CidWrapper, ()>,
     /// Cache for ID address ID to key address resolution.
-    pub key_cache: Arc<SizeTrackingLruCache<u64, Address>>,
+    pub key_cache: IdToAddressCache,
     /// Cache for state nonce lookups keyed by (`TipsetKey`, `Address`).
-    pub state_nonce_cache: Arc<SizeTrackingLruCache<StateNonceCacheKey, u64>>,
+    pub state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64>,
     /// A set of republished messages identified by their Cid
     pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of
@@ -303,7 +305,7 @@ pub struct MessagePool<T> {
 /// Non-ID addresses are returned unchanged.
 pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
     api: &T,
-    key_cache: &SizeTrackingLruCache<u64, Address>,
+    key_cache: &IdToAddressCache,
     addr: &Address,
     cur_ts: &Tipset,
 ) -> Result<Address, Error> {
@@ -323,7 +325,7 @@ pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
 /// Get the state nonce for an address, accounting for messages already included in `cur_ts`.
 pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
     api: &T,
-    key_cache: &SizeTrackingLruCache<u64, Address>,
+    key_cache: &IdToAddressCache,
     state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
     addr: &Address,
     cur_ts: &Tipset,
@@ -373,7 +375,7 @@ where
     }
 
     pub fn resolve_to_key(&self, addr: &Address, cur_ts: &Tipset) -> Result<Address, Error> {
-        resolve_to_key(self.api.as_ref(), self.key_cache.as_ref(), addr, cur_ts)
+        resolve_to_key(self.api.as_ref(), &self.key_cache, addr, cur_ts)
     }
 
     /// Add a signed message to the pool and its address.
@@ -533,9 +535,9 @@ where
         let cur_ts = self.current_tipset();
         add_helper(
             self.api.as_ref(),
-            self.bls_sig_cache.as_ref(),
+            &self.bls_sig_cache,
             self.pending.as_ref(),
-            self.key_cache.as_ref(),
+            &self.key_cache,
             &cur_ts,
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
@@ -572,8 +574,8 @@ where
     fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         get_state_sequence(
             self.api.as_ref(),
-            self.key_cache.as_ref(),
-            self.state_nonce_cache.as_ref(),
+            &self.key_cache,
+            &self.state_nonce_cache,
             addr,
             cur_ts,
         )
@@ -642,7 +644,7 @@ where
 
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
-                let smsg = recover_sig(self.bls_sig_cache.as_ref(), msg)?;
+                let smsg = recover_sig(&self.bls_sig_cache, msg)?;
                 msg_vec.push(smsg)
             }
         }
@@ -692,13 +694,13 @@ where
     {
         head_change(
             self.api.as_ref(),
-            self.bls_sig_cache.as_ref(),
+            &self.bls_sig_cache,
             self.repub_trigger.clone(),
             self.republished.as_ref(),
             self.pending.as_ref(),
             self.cur_tipset.as_ref(),
-            self.key_cache.as_ref(),
-            self.state_nonce_cache.as_ref(),
+            &self.key_cache,
+            &self.state_nonce_cache,
             revert,
             apply,
         )
@@ -724,22 +726,13 @@ where
         let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
         let pending = Arc::new(SyncRwLock::new(HashMap::new()));
         let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
-        let bls_sig_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
-            "bls_sig".into(),
-            BLS_SIG_CACHE_SIZE,
-        ));
-        let sig_val_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
-            "sig_val".into(),
-            SIG_VAL_CACHE_SIZE,
-        ));
-        let key_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
-            "mpool_key".into(),
-            KEY_CACHE_SIZE,
-        ));
-        let state_nonce_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
-            "state_nonce".into(),
-            STATE_NONCE_CACHE_SIZE,
-        ));
+        let bls_sig_cache =
+            SizeTrackingLruCache::new_with_metrics("bls_sig".into(), BLS_SIG_CACHE_SIZE);
+        let sig_val_cache =
+            SizeTrackingLruCache::new_with_metrics("sig_val".into(), SIG_VAL_CACHE_SIZE);
+        let key_cache = SizeTrackingLruCache::new_with_metrics("mpool_key".into(), KEY_CACHE_SIZE);
+        let state_nonce_cache =
+            SizeTrackingLruCache::new_with_metrics("state_nonce".into(), STATE_NONCE_CACHE_SIZE);
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
         let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
@@ -767,11 +760,11 @@ where
         let mut head_changes_rx = mp.api.subscribe_head_changes();
 
         let api = mp.api.clone();
-        let bls_sig_cache = mp.bls_sig_cache.clone();
+        let bls_sig_cache = mp.bls_sig_cache.shallow_clone();
         let pending = mp.pending.clone();
         let republished = mp.republished.clone();
-        let key_cache = mp.key_cache.clone();
-        let state_nonce_cache = mp.state_nonce_cache.clone();
+        let key_cache = mp.key_cache.shallow_clone();
+        let state_nonce_cache = mp.state_nonce_cache.shallow_clone();
 
         let current_ts = mp.cur_tipset.clone();
         let repub_trigger = mp.repub_trigger.clone();
@@ -783,13 +776,13 @@ where
                     Ok(HeadChanges { reverts, applies }) => {
                         if let Err(e) = head_change(
                             api.as_ref(),
-                            bls_sig_cache.as_ref(),
+                            &bls_sig_cache,
                             repub_trigger.clone(),
                             republished.as_ref(),
                             pending.as_ref(),
                             &current_ts,
-                            key_cache.as_ref(),
-                            state_nonce_cache.as_ref(),
+                            &key_cache,
+                            &state_nonce_cache,
                             reverts,
                             applies,
                         )
@@ -813,7 +806,7 @@ where
         let cur_tipset = mp.cur_tipset.clone();
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
-        let key_cache = mp.key_cache.clone();
+        let key_cache = mp.key_cache.shallow_clone();
         let network_sender = Arc::new(mp.network_sender.clone());
         let republish_interval = u64::from(10 * block_delay + chain_config.propagation_delay_secs);
         // Reacts to republishing requests
@@ -832,7 +825,7 @@ where
                     cur_tipset.as_ref(),
                     republished.as_ref(),
                     local_addrs.as_ref(),
-                    key_cache.as_ref(),
+                    &key_cache,
                     &chain_config,
                 )
                 .await
@@ -856,7 +849,7 @@ pub(in crate::message_pool) fn add_helper<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    key_cache: &SizeTrackingLruCache<u64, Address>,
+    key_cache: &IdToAddressCache,
     cur_ts: &Tipset,
     msg: SignedMessage,
     sequence: u64,

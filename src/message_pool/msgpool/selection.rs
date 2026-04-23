@@ -13,6 +13,7 @@ use crate::message::{MessageRead as _, SignedMessage};
 use crate::message_pool::msg_chain::MsgChainNode;
 use crate::shim::crypto::SignatureType;
 use crate::shim::{address::Address, econ::TokenAmount};
+use crate::state_manager::IdToAddressCache;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, bail, ensure};
 use parking_lot::RwLock;
@@ -665,9 +666,9 @@ where
         // Run head change to do reorg detection
         run_head_change(
             self.api.as_ref(),
-            self.bls_sig_cache.as_ref(),
+            &self.bls_sig_cache,
             &self.pending,
-            self.key_cache.as_ref(),
+            &self.key_cache,
             cur_ts.clone(),
             ts.clone(),
             &mut result,
@@ -820,7 +821,7 @@ pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
-    key_cache: &SizeTrackingLruCache<u64, Address>,
+    key_cache: &IdToAddressCache,
     from: Tipset,
     to: Tipset,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
