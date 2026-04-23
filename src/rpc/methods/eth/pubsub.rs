@@ -65,7 +65,7 @@ use crate::rpc::eth::pubsub_trait::{
 use crate::rpc::{RPCState, chain};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::PendingSubscriptionSink;
-use jsonrpsee::core::{SubscriptionError, SubscriptionResult};
+use jsonrpsee::core::SubscriptionResult;
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, error::RecvError};
 

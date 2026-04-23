@@ -279,13 +279,23 @@ where
             };
 
             for msg in smsgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), &mut rmsgs)?;
+                mpool_ctx.remove_from_selected_msgs(
+                    &msg.from(),
+                    msg.sequence(),
+                    &mut rmsgs,
+                    change_publisher,
+                )?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
             }
             for msg in msgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, &mut rmsgs)?;
+                mpool_ctx.remove_from_selected_msgs(
+                    &msg.from,
+                    msg.sequence,
+                    &mut rmsgs,
+                    change_publisher,
+                )?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
@@ -343,6 +353,7 @@ impl<T: Provider> MpoolCtx<'_, T> {
         from: &Address,
         sequence: u64,
         rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+        change_publisher: &broadcast::Sender<MpoolUpdate>,
     ) -> Result<(), Error> {
         if rmsgs
             .get_mut(from)
@@ -351,7 +362,7 @@ impl<T: Provider> MpoolCtx<'_, T> {
             && let Ok(resolved) = resolve_to_key(self.api, self.key_cache, from, self.ts)
                 .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
         {
-            remove(&resolved, self.pending, sequence, true)?;
+            remove(&resolved, self.pending, sequence, true, change_publisher)?;
         }
         Ok(())
     }

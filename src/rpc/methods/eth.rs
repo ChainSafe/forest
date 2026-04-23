@@ -1310,24 +1310,18 @@ pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + '
         ..Default::default()
     };
 
-    eth_logs_with_filter(ctx, ts, Some(spec), Some(tx_hash)).await
+    eth_logs_with_filter(ctx, ts, Some(&spec), Some(tx_hash)).await
 }
 
 pub async fn eth_logs_with_filter<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     ts: &Tipset,
-    spec: Option<EthFilterSpec>,
+    spec: Option<&EthFilterSpec>,
     tx_hash: Option<&EthHash>,
 ) -> anyhow::Result<Vec<EthLog>> {
     let mut events = vec![];
-    EthEventHandler::collect_events(
-        ctx,
-        ts,
-        spec.as_ref(),
-        SkipEvent::OnUnresolvedAddress,
-        &mut events,
-    )
-    .await?;
+    EthEventHandler::collect_events(ctx, ts, spec, SkipEvent::OnUnresolvedAddress, &mut events)
+        .await?;
 
     let logs = eth_filter_logs_from_events(ctx, &events)?;
     Ok(match tx_hash {
@@ -2535,8 +2529,8 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
         if let Ok(smsgs) = smsgs_result
             && let Some(smsg) = smsgs.first()
         {
-           let hash = eth_tx_hash_from_signed_message(smsg, ctx.chain_config().eth_chain_id)
-               .context("failed to get eth tx hash from signed message")?;
+            let hash = eth_tx_hash_from_signed_message(smsg, ctx.chain_config().eth_chain_id)
+                .context("failed to get eth tx hash from signed message")?;
             return Ok(Some(hash));
         }
 
@@ -3020,7 +3014,7 @@ fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)
     Some((data, topics))
 }
 
-fn eth_tx_hash_from_signed_message(
+pub fn eth_tx_hash_from_signed_message(
     message: &SignedMessage,
     eth_chain_id: EthChainIdType,
 ) -> anyhow::Result<EthHash> {

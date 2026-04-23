@@ -12,7 +12,7 @@ pub use self::{
     config::*,
     errors::*,
     mpool_locker::MpoolLocker,
-    msgpool::{msg_pool::MessagePool, msg_pool::MpoolUpdate, msg_pool::MpoolUpdateType, *},
+    msgpool::{msg_pool::MessagePool, msg_pool::MpoolUpdate, *},
     nonce_tracker::NonceTracker,
 };
 
