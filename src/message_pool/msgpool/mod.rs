@@ -16,6 +16,7 @@ use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
+use crate::state_manager::IdToAddressCache;
 use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
@@ -52,7 +53,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &SyncRwLock<Tipset>,
     republished: &SyncRwLock<HashSet<Cid>>,
     local_addrs: &SyncRwLock<Vec<Address>>,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
+    key_cache: &IdToAddressCache,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
@@ -223,7 +224,7 @@ pub async fn head_change<T>(
     republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &SyncRwLock<Tipset>,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
+    key_cache: &IdToAddressCache,
     state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
@@ -326,7 +327,7 @@ where
 
 pub(in crate::message_pool) struct MpoolCtx<'a, T> {
     pub api: &'a T,
-    pub key_cache: &'a SizeTrackingLruCache<Address, Address>,
+    pub key_cache: &'a IdToAddressCache,
     pub pending: &'a SyncRwLock<HashMap<Address, MsgSet>>,
     pub ts: &'a Tipset,
 }

@@ -32,6 +32,7 @@ use crate::shim::actors::init::{self, State};
 use crate::shim::actors::miner::{MinerInfo, MinerPower, Partition};
 use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
 use crate::shim::actors::*;
+use crate::shim::address::AddressId;
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::{
     actors::{
@@ -87,6 +88,7 @@ use tracing::{error, info, instrument, warn};
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
+pub type IdToAddressCache = SizeTrackingLruCache<AddressId, Address>;
 
 /// Result of executing an individual chain message in a tipset.
 ///
@@ -192,7 +194,7 @@ pub struct StateManager<DB> {
     cs: Arc<ChainStore<DB>>,
     /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
     cache: TipsetStateCache<ExecutedTipset>,
-    id_to_deterministic_address_cache: SizeTrackingLruCache<u64, Address>,
+    id_to_deterministic_address_cache: IdToAddressCache,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
 }
@@ -1788,6 +1790,8 @@ where
         state.verified_client_data_cap(self.blockstore(), id)
     }
 
+    /// Similar to [`StateTree::resolve_to_deterministic_addr`] but does not allow [`crate::shim::address::Protocol::Actor`] type of addresses.
+    /// Uses the [`Tipset`] `ts` to generate the VM state.
     pub async fn resolve_to_deterministic_address(
         self: &Arc<Self>,
         address: Address,
