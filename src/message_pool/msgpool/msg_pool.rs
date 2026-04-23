@@ -35,6 +35,7 @@ use get_size2::GetSize;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
+use tokio::sync::broadcast;
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
 use tracing::warn;
 
@@ -231,21 +232,23 @@ impl MsgSet {
 
     /// Remove the message at `sequence` and adjust `next_sequence`.
     ///
+    /// Returns the removed message, or `None` if `sequence` was not present.
+    ///
     /// - **Applied** (included on-chain): advance `next_sequence` to
     ///   `sequence + 1` if needed. For messages not in our pool, also run
     ///   the gap-filling loop to advance past consecutive known messages.
     /// - **Pruned** (evicted): rewind `next_sequence` to `sequence` if the
     ///   removal creates a gap.
-    pub fn rm(&mut self, sequence: u64, applied: bool) {
-        if self.msgs.remove(&sequence).is_none() {
+    pub fn rm(&mut self, sequence: u64, applied: bool) -> Option<SignedMessage> {
+        let Some(removed) = self.msgs.remove(&sequence) else {
             if applied && sequence >= self.next_sequence {
                 self.next_sequence = sequence + 1;
                 while self.msgs.contains_key(&self.next_sequence) {
                     self.next_sequence += 1;
                 }
             }
-            return;
-        }
+            return None;
+        };
         metrics::MPOOL_MESSAGE_TOTAL.dec();
 
         // adjust next sequence
@@ -255,14 +258,26 @@ impl MsgSet {
             if sequence >= self.next_sequence {
                 self.next_sequence = sequence + 1;
             }
-            return;
-        }
-        // we removed a message because it was pruned
-        // we have to adjust the sequence if it creates a gap or rewinds state
-        if sequence < self.next_sequence {
+        } else if sequence < self.next_sequence {
+            // we removed a message because it was pruned
+            // we have to adjust the sequence if it creates a gap or rewinds state
             self.next_sequence = sequence;
         }
+        Some(removed)
     }
+}
+
+/// Capacity of the mpool changes broadcast channel.
+///
+/// Sized to absorb reorg-replay bursts (many `Add` events fired in rapid
+/// succession from `head_change`) while a single subscriber drains. Subscribers
+/// that fall further behind receive `Lagged` and drop events.
+const MPOOL_CHANGES_CHANNEL_CAPACITY: usize = 256;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum MpoolUpdate {
+    Add(SignedMessage),
+    Remove(SignedMessage),
 }
 
 /// This contains all necessary information needed for the message pool.
@@ -297,6 +312,8 @@ pub struct MessagePool<T> {
     pub config: MpoolConfig,
     /// Chain configuration
     pub chain_config: Arc<ChainConfig>,
+    /// Publishes the changes in the message pool
+    pub(crate) changes: broadcast::Sender<MpoolUpdate>,
 }
 
 /// Resolve an address to its key form, checking the cache first.
@@ -513,7 +530,7 @@ where
         } else {
             StrictnessPolicy::Strict
         };
-        self.add_helper(msg, trust_policy, strictness)?;
+        self.add_helper(msg, trust_policy, strictness, &self.changes)?;
         Ok(publish)
     }
 
@@ -526,6 +543,7 @@ where
         msg: SignedMessage,
         trust_policy: TrustPolicy,
         strictness: StrictnessPolicy,
+        change_publisher: &broadcast::Sender<MpoolUpdate>,
     ) -> Result<(), Error> {
         let from = msg.from();
         let cur_ts = self.current_tipset();
@@ -539,6 +557,7 @@ where
             self.get_state_sequence(&from, &cur_ts)?,
             trust_policy,
             strictness,
+            change_publisher,
         )
     }
 
@@ -697,6 +716,7 @@ where
             self.cur_tipset.as_ref(),
             self.key_cache.as_ref(),
             self.state_nonce_cache.as_ref(),
+            &self.changes,
             revert,
             apply,
         )
@@ -743,6 +763,7 @@ where
         let block_delay = chain_config.block_delay_secs;
 
         let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
+        let (change_publisher, _) = broadcast::channel(MPOOL_CHANGES_CHANNEL_CAPACITY);
         let mut mp = MessagePool {
             local_addrs,
             pending,
@@ -758,6 +779,7 @@ where
             network_sender,
             repub_trigger,
             chain_config: Arc::clone(&chain_config),
+            changes: change_publisher.clone(),
         };
 
         mp.load_local()?;
@@ -788,6 +810,7 @@ where
                             &current_ts,
                             key_cache.as_ref(),
                             state_nonce_cache.as_ref(),
+                            &change_publisher,
                             reverts,
                             applies,
                         )
@@ -841,6 +864,10 @@ where
         });
         Ok(mp)
     }
+
+    pub fn subscribe_to_updates(&self) -> broadcast::Receiver<MpoolUpdate> {
+        self.changes.subscribe()
+    }
 }
 
 // Helpers for MessagePool
@@ -860,6 +887,7 @@ pub(in crate::message_pool) fn add_helper<T>(
     sequence: u64,
     trust_policy: TrustPolicy,
     strictness: StrictnessPolicy,
+    change_publisher: &broadcast::Sender<MpoolUpdate>,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -876,9 +904,15 @@ where
     let mset = pending
         .entry(resolved_from)
         .or_insert_with(|| MsgSet::new(sequence));
+
+    let event_msg = crate::utils::broadcast::has_subscribers(change_publisher).then(|| msg.clone());
     match trust_policy {
         TrustPolicy::Trusted => mset.add_trusted(api, msg, strictness)?,
         TrustPolicy::Untrusted => mset.add_untrusted(api, msg, strictness)?,
+    }
+
+    if let Some(msg) = event_msg {
+        let _ = change_publisher.send(MpoolUpdate::Add(msg));
     }
 
     Ok(())
@@ -924,15 +958,18 @@ pub fn remove(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
     applied: bool,
+    change_publisher: &broadcast::Sender<MpoolUpdate>,
 ) -> Result<(), Error> {
     let mut pending = pending.write();
-    let mset = if let Some(mset) = pending.get_mut(from) {
-        mset
-    } else {
+    let Some(mset) = pending.get_mut(from) else {
         return Ok(());
     };
 
-    mset.rm(sequence, applied);
+    if let Some(removed) = mset.rm(sequence, applied)
+        && crate::utils::broadcast::has_subscribers(change_publisher)
+    {
+        let _ = change_publisher.send(MpoolUpdate::Remove(removed));
+    }
 
     if mset.msgs.is_empty() {
         pending.remove(from);
@@ -981,6 +1018,7 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
         let sequence = msg.message().sequence;
+        let (change_publisher, _) = broadcast::channel(1);
         let res = add_helper(
             &api,
             &bls_sig_cache,
@@ -991,6 +1029,7 @@ mod tests {
             sequence,
             TrustPolicy::Trusted,
             StrictnessPolicy::Relaxed,
+            &change_publisher,
         );
         assert!(res.is_ok());
     }
@@ -1089,6 +1128,7 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
 
+        let (change_publisher, _) = broadcast::channel(1);
         add_helper(
             &api,
             &bls_sig_cache,
@@ -1099,6 +1139,7 @@ mod tests {
             0,
             TrustPolicy::Trusted,
             StrictnessPolicy::Relaxed,
+            &change_publisher,
         )
         .unwrap();
 
@@ -1126,6 +1167,8 @@ mod tests {
         api.set_key_address_mapping(&id_addr, &key_addr);
         api.set_state_sequence(&key_addr, 0);
 
+        let (change_publisher, _) = broadcast::channel(1);
+
         // Add two messages from the ID address
         for seq in 0..2 {
             let message = ShimMessage {
@@ -1145,6 +1188,7 @@ mod tests {
                 0,
                 TrustPolicy::Trusted,
                 StrictnessPolicy::Relaxed,
+                &change_publisher,
             )
             .unwrap();
         }

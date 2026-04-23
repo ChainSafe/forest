@@ -17,6 +17,7 @@ use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, bail, ensure};
 use parking_lot::RwLock;
 use rand::prelude::SliceRandom;
+use tokio::sync::broadcast;
 use tracing::{debug, error, warn};
 
 use crate::shim::crypto::Signature;
@@ -25,7 +26,7 @@ use crate::utils::get_size::CidWrapper;
 
 use super::{MpoolCtx, msg_pool::MessagePool, provider::Provider, utils::recover_sig};
 use crate::message_pool::{
-    Error, add_to_selected_msgs,
+    Error, MpoolUpdate, add_to_selected_msgs,
     msg_chain::{Chains, NodeKey, create_message_chains},
     msg_pool::MsgSet,
     msgpool::MIN_GAS,
@@ -671,6 +672,7 @@ where
             cur_ts.clone(),
             ts.clone(),
             &mut result,
+            &self.changes,
         )?;
 
         Ok(result)
@@ -816,6 +818,7 @@ fn merge_and_trim(
 /// It simulates a head change call.
 // This logic should probably be implemented in the ChainStore. It handles
 // reorgs.
+#[allow(clippy::too_many_arguments)]
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
@@ -824,6 +827,7 @@ pub(in crate::message_pool) fn run_head_change<T>(
     from: Tipset,
     to: Tipset,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+    change_publisher: &broadcast::Sender<MpoolUpdate>,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -873,10 +877,20 @@ where
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), rmsgs)?;
+                mpool_ctx.remove_from_selected_msgs(
+                    &msg.from(),
+                    msg.sequence(),
+                    rmsgs,
+                    change_publisher,
+                )?;
             }
             for msg in msgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, rmsgs)?;
+                mpool_ctx.remove_from_selected_msgs(
+                    &msg.from,
+                    msg.sequence,
+                    rmsgs,
+                    change_publisher,
+                )?;
             }
         }
     }

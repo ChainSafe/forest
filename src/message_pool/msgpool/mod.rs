@@ -23,10 +23,12 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::to_vec;
 use parking_lot::RwLock as SyncRwLock;
+use tokio::sync::broadcast;
 use tracing::error;
 use utils::{get_base_fee_lower_bound, recover_sig};
 
 use super::errors::Error;
+use crate::message_pool::msgpool::msg_pool::MpoolUpdate;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
     msg_pool::{
@@ -225,6 +227,7 @@ pub async fn head_change<T>(
     cur_tipset: &SyncRwLock<Tipset>,
     key_cache: &SizeTrackingLruCache<Address, Address>,
     state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
+    change_publisher: &broadcast::Sender<MpoolUpdate>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -276,13 +279,23 @@ where
             };
 
             for msg in smsgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), &mut rmsgs)?;
+                mpool_ctx.remove_from_selected_msgs(
+                    &msg.from(),
+                    msg.sequence(),
+                    &mut rmsgs,
+                    change_publisher,
+                )?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
             }
             for msg in msgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, &mut rmsgs)?;
+                mpool_ctx.remove_from_selected_msgs(
+                    &msg.from,
+                    msg.sequence,
+                    &mut rmsgs,
+                    change_publisher,
+                )?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
@@ -316,6 +329,7 @@ where
                 sequence,
                 TrustPolicy::Trusted,
                 StrictnessPolicy::Relaxed,
+                change_publisher,
             ) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
@@ -339,6 +353,7 @@ impl<T: Provider> MpoolCtx<'_, T> {
         from: &Address,
         sequence: u64,
         rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+        change_publisher: &broadcast::Sender<MpoolUpdate>,
     ) -> Result<(), Error> {
         if rmsgs
             .get_mut(from)
@@ -347,7 +362,7 @@ impl<T: Provider> MpoolCtx<'_, T> {
             && let Ok(resolved) = resolve_to_key(self.api, self.key_cache, from, self.ts)
                 .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
         {
-            remove(&resolved, self.pending, sequence, true)?;
+            remove(&resolved, self.pending, sequence, true, change_publisher)?;
         }
         Ok(())
     }

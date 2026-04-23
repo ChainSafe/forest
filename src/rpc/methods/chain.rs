@@ -17,9 +17,10 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
-use crate::rpc::eth::Block as EthBlock;
+use crate::message_pool::MpoolUpdate;
 use crate::rpc::eth::{
-    EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec,
+    Block as EthBlock, EthLog, TxInfo, eth_logs_with_filter, eth_tx_hash_from_signed_message,
+    types::ApiHeaders, types::EthFilterSpec, types::EthHash,
 };
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
@@ -29,12 +30,14 @@ use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
 use crate::utils::ShallowClone;
+use crate::utils::broadcast::subscription_stream;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
 use anyhow::{Context as _, Result};
 use cid::Cid;
 use enumflags2::{BitFlags, make_bitflags};
+use futures::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
@@ -86,25 +89,45 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
 ) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
-
-    let mut head_changes_rx = data.chain_store().subscribe_head_changes();
+    let mut stream = subscription_stream(data.chain_store().subscribe_head_changes());
 
     let handle = tokio::spawn(async move {
-        while let Ok(changes) = head_changes_rx.recv().await {
+        while let Some(changes) = stream.next().await {
             for ts in changes.applies {
-                // Convert the tipset to an Ethereum block with full transaction info
-                // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
+                // In Filecoin's Eth RPC, a tipset maps to a single Ethereum block.
                 match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
                     Ok(block) => {
-                        if let Err(e) = sender.send(ApiHeaders(block)) {
-                            tracing::error!("Failed to send headers: {}", e);
+                        if sender.send(ApiHeaders(block)).is_err() {
                             return;
                         }
                     }
-                    Err(e) => {
-                        tracing::error!("Failed to convert tipset to eth block: {}", e);
-                    }
+                    Err(e) => tracing::error!("Failed to convert tipset to eth block: {}", e),
                 }
+            }
+        }
+    });
+
+    (receiver, handle)
+}
+
+/// Subscribe to mpool changes and broadcast the new pending transaction (only newly Added transaction is broadcasted)
+pub(crate) fn new_pending_transaction<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+) -> (Subscriber<EthHash>, JoinHandle<()>) {
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
+    let mut stream = subscription_stream(ctx.mpool.subscribe_to_updates());
+    let eth_chain_id = ctx.chain_config().eth_chain_id;
+
+    let handle = tokio::spawn(async move {
+        while let Some(update) = stream.next().await {
+            let MpoolUpdate::Add(msg) = update else {
+                continue;
+            };
+            let Ok(hash) = eth_tx_hash_from_signed_message(&msg, eth_chain_id) else {
+                continue;
+            };
+            if sender.send(hash).is_err() {
+                return;
             }
         }
     });
@@ -123,21 +146,16 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     filter: Option<EthFilterSpec>,
 ) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
-
-    let mut head_changes_rx = ctx.chain_store().subscribe_head_changes();
-
+    let mut stream = subscription_stream(ctx.chain_store().subscribe_head_changes());
     let ctx = ctx.clone();
 
     let handle = tokio::spawn(async move {
-        while let Ok(changes) = head_changes_rx.recv().await {
+        while let Some(changes) = stream.next().await {
             for ts in changes.applies {
-                match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
+                match eth_logs_with_filter(&ctx, &ts, filter.as_ref(), None).await {
                     Ok(logs) => {
-                        if !logs.is_empty()
-                            && let Err(e) = sender.send(logs)
-                        {
-                            tracing::error!("Failed to send logs for tipset {}: {}", ts.key(), e);
-                            break;
+                        if !logs.is_empty() && sender.send(logs).is_err() {
+                            return;
                         }
                     }
                     Err(e) => {

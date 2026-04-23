@@ -65,7 +65,7 @@ use crate::rpc::eth::pubsub_trait::{
 use crate::rpc::{RPCState, chain};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::PendingSubscriptionSink;
-use jsonrpsee::core::{SubscriptionError, SubscriptionResult};
+use jsonrpsee::core::SubscriptionResult;
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, error::RecvError};
 
@@ -91,13 +91,7 @@ where
         match kind {
             SubscriptionKind::NewHeads => self.handle_new_heads_subscription(sink, ctx).await,
             SubscriptionKind::PendingTransactions => {
-                return Err(SubscriptionError::from(
-                    jsonrpsee::types::ErrorObjectOwned::owned(
-                        jsonrpsee::types::error::METHOD_NOT_FOUND_CODE,
-                        "pendingTransactions subscription not yet implemented",
-                        None::<()>,
-                    ),
-                ));
+                self.handle_pending_transaction(sink, ctx).await
             }
             SubscriptionKind::Logs => {
                 let filter = params.and_then(|p| p.filter);
@@ -134,6 +128,17 @@ where
         let (logs, handle) = chain::logs(&ctx, filter_spec);
         tokio::spawn(async move {
             handle_subscription(logs, accepted_sink, handle).await;
+        });
+    }
+
+    async fn handle_pending_transaction(
+        &self,
+        accepted_sink: jsonrpsee::SubscriptionSink,
+        ctx: Arc<RPCState<DB>>,
+    ) {
+        let (pending_rx, handle) = chain::new_pending_transaction(&ctx);
+        tokio::spawn(async move {
+            handle_subscription(pending_rx, accepted_sink, handle).await;
         });
     }
 }
