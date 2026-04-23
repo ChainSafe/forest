@@ -29,6 +29,18 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.33.1 "Paradyzja"
+
+Non-mandatory release for all node operators. It includes support for the NV28 _FireHorse_ network upgrade for devnets (not calibnet or mainnet yet), a number of significant performance improvements and bug fixes.
+
+### Added
+
 - [#6913](https://github.com/ChainSafe/forest/issues/6913): Added support for NV28 for devnets. Use `FOREST_FIREHORSE_HEIGHT` environment variable to set the upgrade height.
 
 - [#6926](https://github.com/ChainSafe/forest/pull/6926): Added strict JSON validation to deny unknown fields in RPC request parameters and response results when `FOREST_STRICT_JSON` is enabled.

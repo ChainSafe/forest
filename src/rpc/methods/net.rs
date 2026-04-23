@@ -7,6 +7,7 @@ pub use types::*;
 use std::any::Any;
 use std::num::NonZeroU64;
 use std::str::FromStr;
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use crate::libp2p::chain_exchange::TipsetBundle;
@@ -282,14 +283,18 @@ impl RpcMethod<0> for NetVersion {
     const NAME_ALIAS: Option<&'static str> = Some("net_version");
 
     type Params = ();
-    type Ok = String;
+    type Ok = Arc<str>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.chain_config().eth_chain_id.to_string())
+        // `eth_chain_id` is fixed for the process lifetime; cache the decimal form.
+        static CACHED: OnceLock<Arc<str>> = OnceLock::new();
+        Ok(CACHED
+            .get_or_init(|| Arc::<str>::from(ctx.chain_config().eth_chain_id.to_string()))
+            .clone())
     }
 }
 
