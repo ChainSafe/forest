@@ -20,7 +20,7 @@ anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.12"
 futures = "0.3"
-get-size2 = { version = "0.7", features = ["derive", "hashbrown"] }
+get-size2 = { version = "0.8", features = ["derive", "hashbrown"] }
 hashlink = "0.11"
 libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
@@ -110,7 +110,7 @@ get-size2 = { workspace = true }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
-hashbrown = "0.16"
+hashbrown = "0.17"
 hashlink = { workspace = true }
 hex = { version = "0.4", features = ["serde"] }
 hickory-resolver = { version = "0.25", default-features = false, features = ["system-config", "tokio"] }
@@ -268,7 +268,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.327"
+ra_ap_syntax = "0.0.329"
 regex-automata = "0.4"
 rstest = "0.26"
 serial_test = "3"
