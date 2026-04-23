@@ -1788,6 +1788,8 @@ where
         state.verified_client_data_cap(self.blockstore(), id)
     }
 
+    /// Similar to [`StateTree::resolve_to_deterministic_addr`] but does not allow [`crate::shim::address::Protocol::Actor`] type of addresses.
+    /// Uses the [`Tipset`] `ts` to generate the VM state.
     pub async fn resolve_to_deterministic_address(
         self: &Arc<Self>,
         address: Address,

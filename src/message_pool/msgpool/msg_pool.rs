@@ -283,8 +283,8 @@ pub struct MessagePool<T> {
     pub bls_sig_cache: Arc<SizeTrackingLruCache<CidWrapper, Signature>>,
     /// A cache for BLS signature keyed by Cid
     pub sig_val_cache: Arc<SizeTrackingLruCache<CidWrapper, ()>>,
-    /// Cache for ID address to key address resolution.
-    pub key_cache: Arc<SizeTrackingLruCache<Address, Address>>,
+    /// Cache for ID address ID to key address resolution.
+    pub key_cache: Arc<SizeTrackingLruCache<u64, Address>>,
     /// Cache for state nonce lookups keyed by (`TipsetKey`, `Address`).
     pub state_nonce_cache: Arc<SizeTrackingLruCache<StateNonceCacheKey, u64>>,
     /// A set of republished messages identified by their Cid
@@ -303,25 +303,27 @@ pub struct MessagePool<T> {
 /// Non-ID addresses are returned unchanged.
 pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
     api: &T,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
+    key_cache: &SizeTrackingLruCache<u64, Address>,
     addr: &Address,
     cur_ts: &Tipset,
 ) -> Result<Address, Error> {
-    if addr.protocol() != Protocol::ID {
-        return Ok(*addr);
-    }
-    if let Some(resolved) = key_cache.get_cloned(addr) {
+    let id = addr.id().ok();
+    if let Some(id) = &id
+        && let Some(resolved) = key_cache.get_cloned(id)
+    {
         return Ok(resolved);
     }
-    let resolved = api.resolve_to_key(addr, cur_ts)?;
-    key_cache.push(*addr, resolved);
+    let resolved = api.resolve_to_deterministic_address_at_finality(addr, cur_ts)?;
+    if let Some(id) = id {
+        key_cache.push(id, resolved);
+    }
     Ok(resolved)
 }
 
 /// Get the state nonce for an address, accounting for messages already included in `cur_ts`.
 pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
     api: &T,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
+    key_cache: &SizeTrackingLruCache<u64, Address>,
     state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
     addr: &Address,
     cur_ts: &Tipset,
@@ -854,7 +856,7 @@ pub(in crate::message_pool) fn add_helper<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
+    key_cache: &SizeTrackingLruCache<u64, Address>,
     cur_ts: &Tipset,
     msg: SignedMessage,
     sequence: u64,
@@ -1572,11 +1574,16 @@ mod tests {
         .unwrap();
 
         // f0300 exists in lookback state (root_a) → resolves successfully.
-        let result = Provider::resolve_to_key(&cs, &Address::new_id(300), &head).unwrap();
+        let result = Provider::resolve_to_deterministic_address_at_finality(
+            &cs,
+            &Address::new_id(300),
+            &head,
+        )
+        .unwrap();
         assert_eq!(result, bls_a);
 
         // f0400 exists only in head state (root_b), not in lookback → fails.
-        Provider::resolve_to_key(&cs, &Address::new_id(400), &head)
+        Provider::resolve_to_deterministic_address_at_finality(&cs, &Address::new_id(400), &head)
             .expect_err("actor only in head state must not resolve via finality lookback");
     }
 }

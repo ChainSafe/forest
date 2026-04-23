@@ -820,7 +820,7 @@ pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
+    key_cache: &SizeTrackingLruCache<u64, Address>,
     from: Tipset,
     to: Tipset,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,

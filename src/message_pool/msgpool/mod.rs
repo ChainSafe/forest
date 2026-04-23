@@ -52,7 +52,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &SyncRwLock<Tipset>,
     republished: &SyncRwLock<HashSet<Cid>>,
     local_addrs: &SyncRwLock<Vec<Address>>,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
+    key_cache: &SizeTrackingLruCache<u64, Address>,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
@@ -223,7 +223,7 @@ pub async fn head_change<T>(
     republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &SyncRwLock<Tipset>,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
+    key_cache: &SizeTrackingLruCache<u64, Address>,
     state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
@@ -326,7 +326,7 @@ where
 
 pub(in crate::message_pool) struct MpoolCtx<'a, T> {
     pub api: &'a T,
-    pub key_cache: &'a SizeTrackingLruCache<Address, Address>,
+    pub key_cache: &'a SizeTrackingLruCache<u64, Address>,
     pub pending: &'a SyncRwLock<HashMap<Address, MsgSet>>,
     pub ts: &'a Tipset,
 }

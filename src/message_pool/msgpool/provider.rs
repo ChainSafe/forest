@@ -48,8 +48,13 @@ pub trait Provider {
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Tipset, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
-    /// Resolve an address to its key form using the tipset's parent state.
-    fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>;
+    /// Similar to [`crate::state_manager::StateManager::resolve_to_deterministic_address`] but fails if the ID address being resolved isn't reorg-stable yet.
+    /// It should not be used for consensus-critical subsystems.
+    fn resolve_to_deterministic_address_at_finality(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> Result<Address, Error>;
     /// Return all messages included in the given tipset.
     fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error>;
     // Get max number of messages per actor in the pool
@@ -103,9 +108,11 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
             .map_err(|err| err.into())
     }
 
-    /// Resolves an address to its deterministic key form using the state at
-    /// finality look-back, This ensures the resolved address is reorg-stable.
-    fn resolve_to_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+    fn resolve_to_deterministic_address_at_finality(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> Result<Address, Error> {
         match addr.protocol() {
             BLS | Secp256k1 | Delegated => Ok(*addr),
             Actor => Err(Error::Other(
@@ -121,6 +128,7 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
                         )
                         .map_err(|e| Error::Other(e.to_string()))?
                 } else {
+                    // Matches the logic at <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/stmgr/stmgr.go#L361>
                     ts.clone()
                 };
 
