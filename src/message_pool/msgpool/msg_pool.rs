@@ -43,11 +43,8 @@ use tracing::warn;
 use crate::message_pool::{
     config::MpoolConfig,
     errors::Error,
-    head_change, metrics,
-    msgpool::{
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, RBF_DENOM, RBF_NUM, recover_sig,
-        republish_pending_messages,
-    },
+    head_change,
+    msgpool::{BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, recover_sig, republish_pending_messages},
     provider::Provider,
     utils::get_base_fee_lower_bound,
 };
@@ -66,7 +63,6 @@ pub(crate) struct StateNonceCacheKey {
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
-const MAX_NONCE_GAP: u64 = 4;
 /// Maximum size of a serialized message in bytes. This is an anti-DOS measure to prevent
 /// large messages from being added to the message pool.
 const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
@@ -79,193 +75,7 @@ pub enum TrustPolicy {
     Untrusted,
 }
 
-/// Strictness policy for pending insertion enforces nonce-gap and replace-by-fee-during-gap rules.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StrictnessPolicy {
-    Strict,
-    Relaxed,
-}
-
-/// Simple structure that contains a hash-map of messages where k: a message
-/// from address, v: a message which corresponds to that address.
-#[derive(Clone, Default, Debug)]
-pub struct MsgSet {
-    pub(in crate::message_pool) msgs: HashMap<u64, SignedMessage>,
-    next_sequence: u64,
-}
-
-impl MsgSet {
-    /// Generate a new `MsgSet` with an empty hash-map and setting the sequence
-    /// specifically.
-    pub fn new(sequence: u64) -> Self {
-        MsgSet {
-            msgs: HashMap::new(),
-            next_sequence: sequence,
-        }
-    }
-
-    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
-    /// message has a sequence greater than any existing message sequence.
-    /// Use this method when pushing a message coming from trusted sources.
-    pub fn add_trusted<T>(
-        &mut self,
-        api: &T,
-        m: SignedMessage,
-        strictness: StrictnessPolicy,
-    ) -> Result<(), Error>
-    where
-        T: Provider,
-    {
-        self.add(api, m, strictness, true)
-    }
-
-    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
-    /// message has a sequence greater than any existing message sequence.
-    /// Use this method when pushing a message coming from untrusted sources.
-    pub fn add_untrusted<T>(
-        &mut self,
-        api: &T,
-        m: SignedMessage,
-        strictness: StrictnessPolicy,
-    ) -> Result<(), Error>
-    where
-        T: Provider,
-    {
-        self.add(api, m, strictness, false)
-    }
-
-    /// Insert a message into this set, maintaining `next_sequence`.
-    ///
-    /// - If the message nonce equals `next_sequence`, advance past any
-    ///   consecutive existing messages (gap-filling loop).
-    /// - If the nonce exceeds `next_sequence + max_nonce_gap` and [`StrictnessPolicy::Strict`],
-    ///   reject with [`Error::NonceGap`].
-    /// - Replace-by-fee for an existing nonce is rejected when strict and
-    ///   a nonce gap is present.
-    ///
-    /// [`StrictnessPolicy`] and `trusted` are independent: strictness controls whether
-    /// nonce gap checks run, while `trusted` sets `max_nonce_gap` [`MAX_NONCE_GAP`]
-    /// and the per-actor pending message limit.
-    pub(in crate::message_pool) fn add<T>(
-        &mut self,
-        api: &T,
-        m: SignedMessage,
-        strictness: StrictnessPolicy,
-        trusted: bool,
-    ) -> Result<(), Error>
-    where
-        T: Provider,
-    {
-        let strict = matches!(strictness, StrictnessPolicy::Strict);
-        let max_nonce_gap: u64 = if trusted { MAX_NONCE_GAP } else { 0 };
-        let max_actor_pending_messages = if trusted {
-            api.max_actor_pending_messages()
-        } else {
-            api.max_untrusted_actor_pending_messages()
-        };
-
-        let mut next_nonce = self.next_sequence;
-        let nonce_gap = if m.sequence() == next_nonce {
-            next_nonce += 1;
-            while self.msgs.contains_key(&next_nonce) {
-                next_nonce += 1;
-            }
-            false
-        } else if strict && m.sequence() > next_nonce + max_nonce_gap {
-            tracing::debug!(
-                nonce = m.sequence(),
-                next_nonce,
-                "message nonce has too big a gap from expected nonce"
-            );
-            return Err(Error::NonceGap);
-        } else {
-            m.sequence() > next_nonce
-        };
-
-        let has_existing = if let Some(exms) = self.msgs.get(&m.sequence()) {
-            if strict && nonce_gap {
-                tracing::debug!(
-                    nonce = m.sequence(),
-                    next_nonce,
-                    "rejecting replace by fee because of nonce gap"
-                );
-                return Err(Error::NonceGap);
-            }
-            if m.cid() != exms.cid() {
-                let premium = &exms.message().gas_premium;
-                let min_price = premium.clone()
-                    + ((premium * RBF_NUM).div_floor(RBF_DENOM))
-                    + TokenAmount::from_atto(1u8);
-                if m.message().gas_premium <= min_price {
-                    return Err(Error::GasPriceTooLow);
-                }
-            } else {
-                return Err(Error::DuplicateSequence);
-            }
-            true
-        } else {
-            false
-        };
-
-        // Only check the limit when adding a new message, not when replacing an existing one (RBF)
-        if !has_existing && self.msgs.len() as u64 >= max_actor_pending_messages {
-            return Err(Error::TooManyPendingMessages(
-                m.message.from().to_string(),
-                trusted,
-            ));
-        }
-
-        if strict && nonce_gap {
-            tracing::debug!(
-                from = %m.from(),
-                nonce = m.sequence(),
-                next_nonce,
-                "adding nonce-gapped message"
-            );
-        }
-
-        self.next_sequence = next_nonce;
-        if self.msgs.insert(m.sequence(), m).is_none() {
-            metrics::MPOOL_MESSAGE_TOTAL.inc();
-        }
-        Ok(())
-    }
-
-    /// Remove the message at `sequence` and adjust `next_sequence`.
-    ///
-    /// - **Applied** (included on-chain): advance `next_sequence` to
-    ///   `sequence + 1` if needed. For messages not in our pool, also run
-    ///   the gap-filling loop to advance past consecutive known messages.
-    /// - **Pruned** (evicted): rewind `next_sequence` to `sequence` if the
-    ///   removal creates a gap.
-    pub fn rm(&mut self, sequence: u64, applied: bool) {
-        if self.msgs.remove(&sequence).is_none() {
-            if applied && sequence >= self.next_sequence {
-                self.next_sequence = sequence + 1;
-                while self.msgs.contains_key(&self.next_sequence) {
-                    self.next_sequence += 1;
-                }
-            }
-            return;
-        }
-        metrics::MPOOL_MESSAGE_TOTAL.dec();
-
-        // adjust next sequence
-        if applied {
-            // we removed a (known) message because it was applied in a tipset
-            // we can't possibly have filled a gap in this case
-            if sequence >= self.next_sequence {
-                self.next_sequence = sequence + 1;
-            }
-            return;
-        }
-        // we removed a message because it was pruned
-        // we have to adjust the sequence if it creates a gap or rewinds state
-        if sequence < self.next_sequence {
-            self.next_sequence = sequence;
-        }
-    }
-}
+pub use super::msg_set::{MsgSet, MsgSetLimits, StrictnessPolicy};
 
 /// This contains all necessary information needed for the message pool.
 /// Keeps track of messages to apply, as well as context needed for verifying
@@ -867,14 +677,15 @@ where
     api.put_message(&ChainMessage::Unsigned(msg.message().clone().into()))?;
 
     let resolved_from = resolve_to_key(api, key_cache, &msg.from(), cur_ts)?;
+    let limits = MsgSetLimits::new(
+        api.max_actor_pending_messages(),
+        api.max_untrusted_actor_pending_messages(),
+    );
     let mut pending = pending.write();
     let mset = pending
         .entry(resolved_from)
         .or_insert_with(|| MsgSet::new(sequence));
-    match trust_policy {
-        TrustPolicy::Trusted => mset.add_trusted(api, msg, strictness)?,
-        TrustPolicy::Untrusted => mset.add_untrusted(api, msg, strictness)?,
-    }
+    mset.add(msg, strictness, trust_policy, limits)?;
 
     Ok(())
 }
@@ -988,41 +799,6 @@ mod tests {
             StrictnessPolicy::Relaxed,
         );
         assert!(res.is_ok());
-    }
-
-    // Test that RBF (Replace By Fee) is allowed even when at max_actor_pending_messages capacity
-    // This matches Lotus behavior where the check is: https://github.com/filecoin-project/lotus/blob/5f32d00550ddd2f2d0f9abe97dbae07615f18547/chain/messagepool/messagepool.go#L296-L299
-    #[test]
-    fn test_rbf_at_capacity() {
-        let api = TestApi::with_max_actor_pending_messages(10);
-        let mut mset = MsgSet::new(0);
-
-        // Fill up to capacity (10 messages)
-        for i in 0..10 {
-            let res = mset.add_trusted(
-                &api,
-                make_smsg(Address::default(), i, 100),
-                StrictnessPolicy::Relaxed,
-            );
-            assert!(res.is_ok(), "Failed to add message {i}");
-        }
-
-        // Should reject adding a NEW message (sequence 10) when at capacity
-        let res = mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 10, 100),
-            StrictnessPolicy::Relaxed,
-        );
-        assert!(matches!(res, Err(Error::TooManyPendingMessages(_, _))));
-
-        // Should ALLOW replacing an existing message (RBF) even when at capacity
-        // Replace message with sequence 5 with higher gas premium
-        let res = mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 5, 200),
-            StrictnessPolicy::Relaxed,
-        );
-        assert!(res.is_ok(), "RBF should be allowed at capacity");
     }
 
     #[test]
@@ -1153,226 +929,6 @@ mod tests {
         let next_seq = mset.get(&resolved_for_id).unwrap().next_sequence;
         let expected = std::cmp::max(state_seq, next_seq);
         assert_eq!(expected, 2, "should reflect both pending messages");
-    }
-
-    #[test]
-    fn test_gap_filling_advances_next_sequence() {
-        let api = TestApi::default();
-        let mut mset = MsgSet::new(0);
-
-        mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 0, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-        assert_eq!(mset.next_sequence, 1);
-
-        mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 2, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-        assert_eq!(mset.next_sequence, 1, "gap at 1, so next_sequence stays");
-
-        mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 1, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-        assert_eq!(
-            mset.next_sequence, 3,
-            "filling the gap should advance past all consecutive messages"
-        );
-    }
-
-    #[test]
-    fn test_trusted_allows_any_nonce_gap() {
-        let api = TestApi::default();
-        let mut mset = MsgSet::new(0);
-
-        mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 0, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-        let res = mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 10, 100),
-            StrictnessPolicy::Relaxed,
-        );
-        assert!(
-            res.is_ok(),
-            "trusted adds skip nonce gap enforcement (StrictnessPolicy::Relaxed)"
-        );
-    }
-
-    #[test]
-    fn test_strict_allows_small_nonce_gap() {
-        let api = TestApi::default();
-        let mut mset = MsgSet::new(0);
-
-        // Strict + trusted -> max_nonce_gap=4 (non-local add path)
-        mset.add(
-            &api,
-            make_smsg(Address::default(), 0, 100),
-            StrictnessPolicy::Strict,
-            true,
-        )
-        .unwrap();
-        let res = mset.add(
-            &api,
-            make_smsg(Address::default(), 3, 100),
-            StrictnessPolicy::Strict,
-            true,
-        );
-        assert!(
-            res.is_ok(),
-            "strict+trusted: gap of 2 (within MAX_NONCE_GAP=4) should succeed"
-        );
-    }
-
-    #[test]
-    fn test_strict_rejects_large_nonce_gap() {
-        let api = TestApi::default();
-        let mut mset = MsgSet::new(0);
-
-        // Strict + trusted -> max_nonce_gap=4
-        mset.add(
-            &api,
-            make_smsg(Address::default(), 0, 100),
-            StrictnessPolicy::Strict,
-            true,
-        )
-        .unwrap();
-        let res = mset.add(
-            &api,
-            make_smsg(Address::default(), 6, 100),
-            StrictnessPolicy::Strict,
-            true,
-        );
-        assert_eq!(
-            res,
-            Err(Error::NonceGap),
-            "strict+trusted: gap of 5 (exceeds MAX_NONCE_GAP=4) should be rejected"
-        );
-    }
-
-    #[test]
-    fn test_strict_untrusted_rejects_any_gap() {
-        let api = TestApi::default();
-        let mut mset = MsgSet::new(0);
-
-        // Strict + untrusted -> max_nonce_gap=0
-        mset.add(
-            &api,
-            make_smsg(Address::default(), 0, 100),
-            StrictnessPolicy::Strict,
-            false,
-        )
-        .unwrap();
-        let res = mset.add(
-            &api,
-            make_smsg(Address::default(), 2, 100),
-            StrictnessPolicy::Strict,
-            false,
-        );
-        assert_eq!(
-            res,
-            Err(Error::NonceGap),
-            "strict+untrusted: any gap (maxNonceGap=0) is rejected"
-        );
-    }
-
-    #[test]
-    fn test_non_strict_untrusted_skips_gap_check() {
-        let api = TestApi::default();
-        let mut mset = MsgSet::new(0);
-
-        // Relaxed + untrusted -> gap check skipped (PushUntrusted path)
-        mset.add_untrusted(
-            &api,
-            make_smsg(Address::default(), 0, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-        let res = mset.add_untrusted(
-            &api,
-            make_smsg(Address::default(), 5, 100),
-            StrictnessPolicy::Relaxed,
-        );
-        assert!(
-            res.is_ok(),
-            "non-strict untrusted (PushUntrusted) skips gap enforcement"
-        );
-    }
-
-    #[test]
-    fn test_strict_rbf_during_gap_rejected() {
-        let api = TestApi::default();
-        let mut mset = MsgSet::new(0);
-
-        // Set up a gap using relaxed trusted (local push path)
-        mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 0, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-        mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 2, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-
-        // Strict RBF at nonce 2 should be rejected due to gap at nonce 1
-        let res = mset.add(
-            &api,
-            make_smsg(Address::default(), 2, 200),
-            StrictnessPolicy::Strict,
-            true,
-        );
-        assert_eq!(
-            res,
-            Err(Error::NonceGap),
-            "strict RBF should be rejected when nonce gap exists"
-        );
-    }
-
-    #[test]
-    fn test_rbf_without_gap_still_works() {
-        let api = TestApi::default();
-        let mut mset = MsgSet::new(0);
-
-        mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 0, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-        mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 1, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-        mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 2, 100),
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
-
-        let res = mset.add_trusted(
-            &api,
-            make_smsg(Address::default(), 1, 200),
-            StrictnessPolicy::Relaxed,
-        );
-        assert!(res.is_ok(), "RBF without a nonce gap should succeed");
     }
 
     #[test]

@@ -3,6 +3,7 @@
 
 pub(in crate::message_pool) mod metrics;
 pub(in crate::message_pool) mod msg_pool;
+pub(in crate::message_pool) mod msg_set;
 pub(in crate::message_pool) mod provider;
 pub mod selection;
 #[cfg(test)]
