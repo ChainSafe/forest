@@ -37,7 +37,6 @@ use crate::{
     rpc::{self, prelude::*},
 };
 use anyhow::{Context as _, bail};
-use base64::{Engine, prelude::BASE64_STANDARD};
 use clap::Subcommand;
 use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
@@ -164,17 +163,17 @@ impl WalletBackend {
         }
     }
 
-    async fn wallet_sign(&self, address: Address, message: String) -> anyhow::Result<Signature> {
+    async fn wallet_sign(&self, address: Address, message: Vec<u8>) -> anyhow::Result<Signature> {
         if let Some(keystore) = &self.local {
             let key = crate::key_management::try_find_key(&address, keystore)?;
 
             Ok(crate::key_management::sign(
                 *key.key_info.key_type(),
                 key.key_info.private_key(),
-                &BASE64_STANDARD.decode(message)?,
+                &message,
             )?)
         } else {
-            Ok(WalletSign::call(&self.remote, (address, message.into_bytes())).await?)
+            Ok(WalletSign::call(&self.remote, (address, message)).await?)
         }
     }
 
@@ -257,6 +256,11 @@ pub enum WalletCommands {
         /// The address to be used to sign the message
         #[arg(short)]
         address: StrictAddress,
+        /// Sign the raw message bytes without the FRC-0102 envelope. Use this
+        /// for interoperating with pre-FRC-0102 tooling, or when the bytes are
+        /// already an on-chain Filecoin message (which must not be wrapped).
+        #[arg(long)]
+        raw: bool,
     },
     /// Validates whether a given string can be decoded as a well-formed address
     ValidateAddress {
@@ -275,6 +279,12 @@ pub enum WalletCommands {
         /// The signature of the message to verify
         #[arg(short)]
         signature: String,
+        /// Verify against the raw message bytes without applying the
+        /// FRC-0102 envelope. Use this for signatures produced by
+        /// pre-FRC-0102 tooling or for on-chain Filecoin messages (which are
+        /// signed raw, without the envelope).
+        #[arg(long)]
+        raw: bool,
     },
     /// Deletes the wallet associated with the given address.
     Delete {
@@ -441,9 +451,13 @@ impl WalletCommands {
                 Ok(())
             }
             Self::SetDefault { key } => backend.wallet_set_default(key.into()).await,
-            Self::Sign { address, message } => {
+            Self::Sign {
+                address,
+                message,
+                raw,
+            } => {
                 let message = hex::decode(message).context("Message has to be a hex string")?;
-                let message = BASE64_STANDARD.encode(message);
+                let message = if raw { message } else { wrap_frc0102(&message) };
 
                 let signature = backend.wallet_sign(address.into(), message).await?;
                 println!("{}", hex::encode(signature.to_bytes()));
@@ -458,10 +472,12 @@ impl WalletCommands {
                 message,
                 address,
                 signature,
+                raw,
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
+                let msg = if raw { msg } else { wrap_frc0102(&msg) };
 
                 let signature = Signature::from_bytes(sig_bytes)?;
                 let is_valid = backend
@@ -610,6 +626,15 @@ fn resolve_target_address(target_address: &str) -> anyhow::Result<(Address, bool
     }
 }
 
+const FRC_0102_FILECOIN_PREFIX: &[u8] = b"\x19Filecoin Signed Message:\n";
+
+/// Wraps `msg` with the FRC-0102 envelope: `0x19 || "Filecoin Signed Message:\n" || ascii(len(msg)) || msg`
+// See <https://github.com/filecoin-project/FIPs/blob/bdd5283279fd115c87c9bbf71d2e40c9d075f5aa/FRCs/frc-0102.md>.
+fn wrap_frc0102(msg: &[u8]) -> Vec<u8> {
+    let len = msg.len().to_string();
+    [FRC_0102_FILECOIN_PREFIX, len.as_bytes(), msg].concat()
+}
+
 fn resolve_method_num(from: &Address, to: &Address, is_0x_recipient: bool) -> u64 {
     if !is_eth_address(from) && !is_0x_recipient {
         return METHOD_SEND;
@@ -629,8 +654,9 @@ mod tests {
     use crate::rpc::eth::types::EthAddress;
     use crate::shim::address::{Address, CurrentNetwork, Network};
     use crate::shim::message::METHOD_SEND;
+    use rstest::rstest;
 
-    use super::{resolve_method_num, resolve_target_address};
+    use super::{SignatureType, resolve_method_num, resolve_target_address, wrap_frc0102};
 
     #[test]
     fn test_resolve_target_address_id() {
@@ -747,5 +773,63 @@ mod tests {
             .unwrap();
         let method = resolve_method_num(&from, &to, true);
         assert_eq!(method, EVMMethod::InvokeContract as u64);
+    }
+
+    #[rstest]
+    #[case::empty(&[])]
+    #[case::short(b"hello")]
+    #[case::longer(b"this is a longer test message")]
+    // Non-UTF-8 bytes must pass through unchanged.
+    #[case::binary(&[0x00, 0xFF, 0x10, 0x80])]
+    // The spec does not require any escaping; embedded newlines pass through.
+    #[case::newline(b"line1\nline2")]
+    fn test_wrap_frc0102(#[case] msg: &[u8]) {
+        // The envelope is always `0x19 || "Filecoin Signed Message:\n" || ascii(len) || msg`.
+        let mut expected = b"\x19Filecoin Signed Message:\n".to_vec();
+        expected.extend_from_slice(msg.len().to_string().as_bytes());
+        expected.extend_from_slice(msg);
+        assert_eq!(wrap_frc0102(msg), expected);
+    }
+
+    #[rstest]
+    // Length is encoded as decimal ASCII; check 1-, 2-, 3- and 4-digit boundaries.
+    #[case(0)]
+    #[case(9)]
+    #[case(10)]
+    #[case(99)]
+    #[case(100)]
+    #[case(999)]
+    #[case(1000)]
+    fn test_wrap_frc0102_length_boundaries(#[case] len: usize) {
+        let msg = vec![0xABu8; len];
+        let wrapped = wrap_frc0102(&msg);
+        let digits = len.to_string();
+        assert_eq!(&wrapped[..26], b"\x19Filecoin Signed Message:\n");
+        assert_eq!(&wrapped[26..26 + digits.len()], digits.as_bytes());
+        assert_eq!(&wrapped[26 + digits.len()..], msg.as_slice());
+    }
+
+    #[test]
+    fn test_frc0102_roundtrip_sign_verify_secp256k1() {
+        use crate::key_management::generate_key;
+        let key = generate_key(SignatureType::Secp256k1).unwrap();
+        let raw_msg = b"hello world";
+        let wrapped = wrap_frc0102(raw_msg);
+
+        // Sign the wrapped bytes (what `forest-wallet sign` does by default).
+        let signature = crate::key_management::sign(
+            *key.key_info.key_type(),
+            key.key_info.private_key(),
+            &wrapped,
+        )
+        .unwrap();
+
+        // `verify` on the wrapped bytes must succeed.
+        signature.verify(&wrapped, &key.address).unwrap();
+
+        assert!(
+            signature.verify(raw_msg, &key.address).is_err(),
+            "raw-bytes verify should fail when the signature was produced over the FRC-0102 envelope"
+        );
     }
 }
