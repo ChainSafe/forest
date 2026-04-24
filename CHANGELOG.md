@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
+
 ### Changed
 
 ### Removed
