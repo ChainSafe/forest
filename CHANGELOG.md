@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands. Addresses passed to `balance`, `export`, `has`, `delete`, `set-default`, `sign`, `verify` and the `--from` option of `send` are now parsed into `StrictAddress` at CLI-parse time, producing clearer errors for malformed inputs and rejecting mismatched network prefixes up-front. The `send` subcommand's positional `target_address` is intentionally left as a raw string so that ETH (`0x...`) recipients continue to be accepted.
+
 ### Changed
 
 ### Removed

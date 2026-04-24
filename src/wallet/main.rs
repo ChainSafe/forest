@@ -14,6 +14,19 @@ pub async fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<
 where
     ArgT: Into<OsString> + Clone,
 {
+    // Preliminary client without a token, used only to detect the target
+    // network. Must happen BEFORE `Cli::parse_from` so that clap-driven
+    // `StrictAddress` validation accepts testnet (`t0...`) addresses. Client
+    // construction errors propagate (mirroring `forest-cli` in #6011); if the
+    // daemon itself is unreachable, the global `CurrentNetwork` stays at its
+    // mainnet default and testnet addresses will be rejected at parse time.
+    let client = rpc::Client::default_or_from_env(None)?;
+    if let Ok(name) = StateNetworkName::call(&client, ()).await
+        && !matches!(NetworkChain::from_str(&name), Ok(NetworkChain::Mainnet))
+    {
+        CurrentNetwork::set_global(Network::Testnet);
+    }
+
     // Capture Cli inputs
     let Cli {
         opts,
@@ -24,11 +37,6 @@ where
 
     let client = rpc::Client::default_or_from_env(opts.token.as_deref())?;
 
-    let name = StateNetworkName::call(&client, ()).await?;
-    let chain = NetworkChain::from_str(&name)?;
-    if chain.is_testnet() {
-        CurrentNetwork::set_global(Network::Testnet);
-    }
     // Run command
     cmd.run(client, remote_wallet, encrypt).await
 }
