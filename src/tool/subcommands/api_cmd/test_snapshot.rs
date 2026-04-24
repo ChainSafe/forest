@@ -149,13 +149,19 @@ async fn ctx(
         genesis_header.clone(),
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
+    let mut services: JoinSet<anyhow::Result<()>> = JoinSet::new();
     let message_pool = MessagePool::new(
         chain_store.clone(),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        &mut JoinSet::new(),
+        &mut services,
     )?;
+    // Drain the message-pool service tasks on a detached task so their errors
+    // are surfaced instead of being silently dropped when `services` is moved
+    // out of scope. Detached (not awaited) to avoid blocking the caller — these
+    // services run for as long as the spawned task lives.
+    tokio::spawn(drain_mpool_services(services));
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
@@ -179,6 +185,21 @@ async fn ctx(
         temp_dir: Arc::new(std::env::temp_dir()),
     });
     Ok((rpc_state, network_rx, shutdown_recv))
+}
+
+/// Drains a `MessagePool` service [`JoinSet`] to completion, logging any
+/// errors or panics it produces. Intended to be used with `tokio::spawn` from
+/// test-utility `ctx()` helpers so that service-task errors are surfaced
+/// instead of being silently dropped when the `JoinSet` is dropped.
+pub(super) async fn drain_mpool_services(mut services: JoinSet<anyhow::Result<()>>) {
+    while let Some(result) = services.join_next().await {
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => tracing::warn!("message pool service task error: {e:#}"),
+            Err(je) if je.is_cancelled() => {}
+            Err(je) => tracing::warn!("message pool service task panicked: {je}"),
+        }
+    }
 }
 
 #[cfg(test)]

@@ -131,13 +131,16 @@ async fn ctx(
     );
 
     let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
+    let mut services: JoinSet<anyhow::Result<()>> = JoinSet::new();
     let message_pool = MessagePool::new(
         chain_store.clone(),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        &mut JoinSet::new(),
+        &mut services,
     )?;
+    // See `super::test_snapshot::drain_mpool_services` for rationale.
+    tokio::spawn(super::test_snapshot::drain_mpool_services(services));
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
