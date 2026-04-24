@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#6442](https://github.com/ChainSafe/forest/issues/6442): `forest-wallet sign` and `forest-wallet verify` now apply the FRC-0102 signing envelope (`\x19Filecoin Signed Message:\n<len>`) to the message by default, for interoperability with Ledger, Filsnap and other Filecoin wallets. Signatures produced with the new default are NOT verifiable by pre-FRC-0102 Forest/Lotus releases without passing `--raw` on the verifier side; use `--raw` on both sides to reproduce the previous raw-bytes behaviour (required when signing on-chain Filecoin messages, which must not be wrapped).
+
 ### Added
 
 ### Changed
