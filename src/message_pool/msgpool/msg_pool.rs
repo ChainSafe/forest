@@ -49,9 +49,7 @@ use crate::message_pool::{
     errors::Error,
     head_change,
     msgpool::{
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE,
-        events::MpoolUpdate,
-        pending_store::PendingStore,
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, pending_store::PendingStore,
         recover_sig, republish_pending_messages,
     },
     provider::Provider,

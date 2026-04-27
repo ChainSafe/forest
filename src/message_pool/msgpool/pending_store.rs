@@ -17,8 +17,8 @@ use tokio::sync::broadcast;
 use crate::message::SignedMessage;
 use crate::message_pool::errors::Error;
 use crate::message_pool::msgpool::events::{MPOOL_UPDATE_CHANNEL_CAPACITY, MpoolUpdate};
-use crate::message_pool::msgpool::msg_set::{MsgSet, MsgSetLimits, StrictnessPolicy};
 use crate::message_pool::msgpool::msg_pool::TrustPolicy;
+use crate::message_pool::msgpool::msg_set::{MsgSet, MsgSetLimits, StrictnessPolicy};
 use crate::shim::address::Address;
 
 /// A shared, event-emitting pending-message store.
@@ -137,7 +137,7 @@ mod tests {
     use crate::shim::message::Message as ShimMessage;
     use tokio::sync::broadcast::error::TryRecvError;
 
-    /// Default limits used by PendingStore unit tests. Picked high enough
+    /// Default limits used by `PendingStore` unit tests. Picked high enough
     /// that nonce/gap behaviour, not capacity, drives the outcomes.
     const TEST_LIMITS: MsgSetLimits = MsgSetLimits {
         trusted: 1000,
@@ -185,7 +185,10 @@ mod tests {
             .unwrap();
 
         assert_add(rx.try_recv().unwrap(), 0);
-        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)), "expected empty channel");
+        assert!(
+            matches!(rx.try_recv(), Err(TryRecvError::Empty)),
+            "expected empty channel"
+        );
         assert_eq!(store.snapshot_for(&addr).unwrap().next_sequence, 1);
     }
 
@@ -216,7 +219,10 @@ mod tests {
 
         assert_add(rx.try_recv().unwrap(), 0);
         assert_add(rx.try_recv().unwrap(), 0);
-        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)), "expected empty channel");
+        assert!(
+            matches!(rx.try_recv(), Err(TryRecvError::Empty)),
+            "expected empty channel"
+        );
     }
 
     #[test]
@@ -241,7 +247,10 @@ mod tests {
 
         // Second remove is a no-op — sender is already gone.
         assert!(store.remove(&addr, 0, true).is_none());
-        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)), "expected empty channel");
+        assert!(
+            matches!(rx.try_recv(), Err(TryRecvError::Empty)),
+            "expected empty channel"
+        );
     }
 
     #[test]
@@ -251,7 +260,10 @@ mod tests {
         let addr = Address::new_id(42);
 
         assert!(store.remove(&addr, 0, true).is_none());
-        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)), "expected empty channel");
+        assert!(
+            matches!(rx.try_recv(), Err(TryRecvError::Empty)),
+            "expected empty channel"
+        );
     }
 
     #[test]

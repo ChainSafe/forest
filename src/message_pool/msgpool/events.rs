@@ -21,7 +21,7 @@ pub(in crate::message_pool) const MPOOL_UPDATE_CHANNEL_CAPACITY: usize = 256;
 #[allow(dead_code)] // payloads consumed by external subscribers.
 #[derive(Clone, Debug)]
 pub enum MpoolUpdate {
-    /// A message was inserted into pending (fresh insert or RBF replacement).
+    /// A message was inserted into pending (fresh insert or `RBF` replacement).
     Add(SignedMessage),
     /// A message was removed from pending (applied on-chain or pruned).
     Remove(SignedMessage),
