@@ -28,7 +28,7 @@ use crate::state_manager::utils::is_valid_for_sending;
 use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashSet, HashSetExt};
 use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
@@ -37,14 +37,23 @@ use get_size2::GetSize;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
-use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
+use tokio::{
+    sync::broadcast::{self, error::RecvError},
+    task::JoinSet,
+    time::interval,
+};
 use tracing::warn;
 
 use crate::message_pool::{
     config::MpoolConfig,
     errors::Error,
     head_change,
-    msgpool::{BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, recover_sig, republish_pending_messages},
+    msgpool::{
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE,
+        events::MpoolUpdate,
+        pending_store::PendingStore,
+        recover_sig, republish_pending_messages,
+    },
     provider::Provider,
     utils::get_base_fee_lower_bound,
 };
@@ -75,7 +84,7 @@ pub enum TrustPolicy {
     Untrusted,
 }
 
-pub use super::msg_set::{MsgSet, MsgSetLimits, StrictnessPolicy};
+pub use super::msg_set::{MsgSetLimits, StrictnessPolicy};
 
 /// This contains all necessary information needed for the message pool.
 /// Keeps track of messages to apply, as well as context needed for verifying
@@ -83,8 +92,9 @@ pub use super::msg_set::{MsgSet, MsgSetLimits, StrictnessPolicy};
 pub struct MessagePool<T> {
     /// The local address of the client
     local_addrs: Arc<SyncRwLock<Vec<Address>>>,
-    /// A map of pending messages where the key is the resolved key address
-    pub pending: Arc<SyncRwLock<HashMap<Address, MsgSet>>>,
+    /// Pending messages, keyed by resolved-key address, together with the
+    /// broadcast channel for [`MpoolUpdate`] events. See [`PendingStore`].
+    pub(in crate::message_pool) pending_store: PendingStore,
     /// The current tipset (a set of blocks)
     pub cur_tipset: Arc<SyncRwLock<Tipset>>,
     /// The underlying provider
@@ -346,7 +356,7 @@ where
         add_helper(
             self.api.as_ref(),
             &self.bls_sig_cache,
-            self.pending.as_ref(),
+            &self.pending_store,
             &self.key_cache,
             &cur_ts,
             msg,
@@ -363,13 +373,11 @@ where
 
         let sequence = self.get_state_sequence(addr, &cur_ts)?;
 
-        let pending = self.pending.read();
-        let msgset = self
-            .resolve_to_key(addr, &cur_ts)
-            .ok()
-            .and_then(|resolved| pending.get(&resolved))
-            .or_else(|| pending.get(addr));
-        match msgset {
+        let resolved = self.resolve_to_key(addr, &cur_ts).ok();
+        let mset = resolved
+            .and_then(|r| self.pending_store.snapshot_for(&r))
+            .or_else(|| self.pending_store.snapshot_for(addr));
+        match mset {
             Some(mset) => {
                 if sequence > mset.next_sequence {
                     return Ok(sequence);
@@ -401,7 +409,7 @@ where
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
     pub fn pending(&self) -> (Vec<SignedMessage>, Tipset) {
-        let pending = self.pending.read().clone();
+        let pending = self.pending_store.snapshot();
         let len = pending.values().map(|mset| mset.msgs.len()).sum();
         let mut out = Vec::with_capacity(len);
 
@@ -427,19 +435,24 @@ where
             .resolve_to_key(a, &cur_ts)
             .inspect_err(|e| tracing::debug!(%a, "pending_for: failed to resolve address: {e:#}"))
             .ok()?;
-        let pending = self.pending.read();
-        let mset = pending.get(&resolved)?;
+        let mset = self.pending_store.snapshot_for(&resolved)?;
         if mset.msgs.is_empty() {
             return None;
         }
 
         Some(
             mset.msgs
-                .values()
-                .cloned()
+                .into_values()
                 .sorted_by_key(|v| v.message().sequence)
                 .collect(),
         )
+    }
+
+    /// Subscribe to [`MpoolUpdate`] events for every insertion into and
+    /// removal from the pending pool.
+    #[allow(dead_code)] // surfaces the MpoolUpdate API for external subscribers.
+    pub fn subscribe_to_updates(&self) -> broadcast::Receiver<MpoolUpdate> {
+        self.pending_store.subscribe()
     }
 
     /// Return Vector of signed messages given a block header for self.
@@ -507,7 +520,7 @@ where
             &self.bls_sig_cache,
             self.repub_trigger.clone(),
             self.republished.as_ref(),
-            self.pending.as_ref(),
+            &self.pending_store,
             self.cur_tipset.as_ref(),
             &self.key_cache,
             &self.state_nonce_cache,
@@ -534,7 +547,12 @@ where
         T: Provider,
     {
         let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
-        let pending = Arc::new(SyncRwLock::new(HashMap::new()));
+        // Per-actor limits are constant for the lifetime of this pool; capture
+        // them once here rather than re-reading on every insert.
+        let pending_store = PendingStore::new(MsgSetLimits::new(
+            api.max_actor_pending_messages(),
+            api.max_untrusted_actor_pending_messages(),
+        ));
         let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
         let bls_sig_cache =
             SizeTrackingLruCache::new_with_metrics("bls_sig".into(), BLS_SIG_CACHE_SIZE);
@@ -550,7 +568,7 @@ where
         let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
         let mut mp = MessagePool {
             local_addrs,
-            pending,
+            pending_store,
             cur_tipset: tipset,
             api: Arc::new(api),
             bls_sig_cache,
@@ -571,7 +589,7 @@ where
 
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.shallow_clone();
-        let pending = mp.pending.clone();
+        let pending_store = mp.pending_store.clone();
         let republished = mp.republished.clone();
         let key_cache = mp.key_cache.shallow_clone();
         let state_nonce_cache = mp.state_nonce_cache.shallow_clone();
@@ -589,7 +607,7 @@ where
                             &bls_sig_cache,
                             repub_trigger.clone(),
                             republished.as_ref(),
-                            pending.as_ref(),
+                            &pending_store,
                             &current_ts,
                             &key_cache,
                             &state_nonce_cache,
@@ -612,7 +630,7 @@ where
         });
 
         let api = mp.api.clone();
-        let pending = mp.pending.clone();
+        let pending_store = mp.pending_store.clone();
         let cur_tipset = mp.cur_tipset.clone();
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
@@ -631,7 +649,7 @@ where
                 if let Err(e) = republish_pending_messages(
                     api.as_ref(),
                     network_sender.as_ref(),
-                    pending.as_ref(),
+                    &pending_store,
                     cur_tipset.as_ref(),
                     republished.as_ref(),
                     local_addrs.as_ref(),
@@ -650,15 +668,15 @@ where
 
 // Helpers for MessagePool
 
-/// Finish verifying signed message before adding it to the pending `mset`
+/// Finish verifying the signed message before adding it to the pending `mset`
 /// hash-map. If an entry in the hash-map does not yet exist, create a new
-/// `mset` that will correspond to the from message and push it to the pending
+/// `mset` that will correspond to the form message and push it to the pending
 /// hash-map.
 #[allow(clippy::too_many_arguments)]
 pub(in crate::message_pool) fn add_helper<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
-    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
+    pending_store: &PendingStore,
     key_cache: &IdToAddressCache,
     cur_ts: &Tipset,
     msg: SignedMessage,
@@ -677,17 +695,7 @@ where
     api.put_message(&ChainMessage::Unsigned(msg.message().clone().into()))?;
 
     let resolved_from = resolve_to_key(api, key_cache, &msg.from(), cur_ts)?;
-    let limits = MsgSetLimits::new(
-        api.max_actor_pending_messages(),
-        api.max_untrusted_actor_pending_messages(),
-    );
-    let mut pending = pending.write();
-    let mset = pending
-        .entry(resolved_from)
-        .or_insert_with(|| MsgSet::new(sequence));
-    mset.add(msg, strictness, trust_policy, limits)?;
-
-    Ok(())
+    pending_store.insert(resolved_from, msg, sequence, trust_policy, strictness)
 }
 
 fn verify_msg_before_add(
@@ -723,30 +731,6 @@ fn verify_msg_before_add(
     Ok(local)
 }
 
-/// Remove a message from pending given the from address and sequence.
-/// The `from` address should already be resolved to its key form.
-pub fn remove(
-    from: &Address,
-    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    sequence: u64,
-    applied: bool,
-) -> Result<(), Error> {
-    let mut pending = pending.write();
-    let mset = if let Some(mset) = pending.get_mut(from) {
-        mset
-    } else {
-        return Ok(());
-    };
-
-    mset.rm(sequence, applied);
-
-    if mset.msgs.is_empty() {
-        pending.remove(from);
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use crate::blocks::RawBlockHeader;
@@ -772,6 +756,14 @@ mod tests {
         })
     }
 
+    /// Build a `PendingStore` sized from the [`TestApi`] provider's limits.
+    fn test_pending_store(api: &TestApi) -> PendingStore {
+        PendingStore::new(MsgSetLimits::new(
+            api.max_actor_pending_messages(),
+            api.max_untrusted_actor_pending_messages(),
+        ))
+    }
+
     // Regression test for https://github.com/ChainSafe/forest/pull/6118 which fixed a bogus 100M
     // gas limit. There are no limits on a single message.
     #[test]
@@ -779,7 +771,7 @@ mod tests {
         let api = TestApi::default();
         let bls_sig_cache = SizeTrackingLruCache::new_mocked();
         let key_cache = SizeTrackingLruCache::new_mocked();
-        let pending = SyncRwLock::new(HashMap::new());
+        let pending_store = test_pending_store(&api);
         let cur_ts = api.get_heaviest_tipset();
         let message = ShimMessage {
             gas_limit: 666_666_666,
@@ -790,7 +782,7 @@ mod tests {
         let res = add_helper(
             &api,
             &bls_sig_cache,
-            &pending,
+            &pending_store,
             &key_cache,
             &cur_ts,
             msg,
@@ -845,7 +837,7 @@ mod tests {
         let api = TestApi::default();
         let bls_sig_cache = SizeTrackingLruCache::new_mocked();
         let key_cache = SizeTrackingLruCache::new_mocked();
-        let pending = SyncRwLock::new(HashMap::new());
+        let pending_store = test_pending_store(&api);
         let cur_ts = api.get_heaviest_tipset();
 
         let id_addr = Address::new_id(200);
@@ -863,7 +855,7 @@ mod tests {
         add_helper(
             &api,
             &bls_sig_cache,
-            &pending,
+            &pending_store,
             &key_cache,
             &cur_ts,
             msg,
@@ -873,13 +865,12 @@ mod tests {
         )
         .unwrap();
 
-        let pending_read = pending.read();
         assert!(
-            pending_read.get(&key_addr).is_some(),
+            pending_store.snapshot_for(&key_addr).is_some(),
             "pending should be keyed by the resolved key address"
         );
         assert!(
-            pending_read.get(&id_addr).is_none(),
+            pending_store.snapshot_for(&id_addr).is_none(),
             "pending should NOT have an entry under the raw ID address"
         );
     }
@@ -889,7 +880,7 @@ mod tests {
         let api = TestApi::default();
         let bls_sig_cache = SizeTrackingLruCache::new_mocked();
         let key_cache = SizeTrackingLruCache::new_mocked();
-        let pending = SyncRwLock::new(HashMap::new());
+        let pending_store = test_pending_store(&api);
         let cur_ts = api.get_heaviest_tipset();
 
         let id_addr = Address::new_id(300);
@@ -909,7 +900,7 @@ mod tests {
             add_helper(
                 &api,
                 &bls_sig_cache,
-                &pending,
+                &pending_store,
                 &key_cache,
                 &cur_ts,
                 msg,
@@ -925,8 +916,10 @@ mod tests {
         let resolved_for_key = resolve_to_key(&api, &key_cache, &key_addr, &cur_ts).unwrap();
         assert_eq!(resolved_for_id, resolved_for_key);
 
-        let mset = pending.read();
-        let next_seq = mset.get(&resolved_for_id).unwrap().next_sequence;
+        let next_seq = pending_store
+            .snapshot_for(&resolved_for_id)
+            .unwrap()
+            .next_sequence;
         let expected = std::cmp::max(state_seq, next_seq);
         assert_eq!(expected, 2, "should reflect both pending messages");
     }

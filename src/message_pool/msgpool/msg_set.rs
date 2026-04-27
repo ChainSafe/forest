@@ -164,16 +164,19 @@ impl MsgSet {
     ///   the gap-filling loop to advance past consecutive known messages.
     /// - **Pruned** (evicted): rewind `next_sequence` to `sequence` if the
     ///   removal creates a gap.
-    pub fn rm(&mut self, sequence: u64, applied: bool) {
-        if self.msgs.remove(&sequence).is_none() {
+    ///
+    /// Returns the removed message when one was present.
+    /// If the sequence was not in the set, no event is removed and [`None`] is returned.
+    pub fn rm(&mut self, sequence: u64, applied: bool) -> Option<SignedMessage> {
+        let Some(removed) = self.msgs.remove(&sequence) else {
             if applied && sequence >= self.next_sequence {
                 self.next_sequence = sequence + 1;
                 while self.msgs.contains_key(&self.next_sequence) {
                     self.next_sequence += 1;
                 }
             }
-            return;
-        }
+            return None;
+        };
         metrics::MPOOL_MESSAGE_TOTAL.dec();
 
         // adjust next sequence
@@ -183,13 +186,12 @@ impl MsgSet {
             if sequence >= self.next_sequence {
                 self.next_sequence = sequence + 1;
             }
-            return;
-        }
-        // we removed a message because it was pruned
-        // we have to adjust the sequence if it creates a gap or rewinds state
-        if sequence < self.next_sequence {
+        } else if sequence < self.next_sequence {
+            // we removed a message because it was pruned
+            // we have to adjust the sequence if it creates a gap or rewinds state
             self.next_sequence = sequence;
         }
+        Some(removed)
     }
 }
 
