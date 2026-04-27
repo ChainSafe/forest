@@ -45,6 +45,12 @@ impl ChainExchangeRequest {
     pub fn is_options_valid(&self) -> bool {
         self.include_blocks() || self.include_messages()
     }
+
+    /// Checks if the request length is within specified bounds (0, 800]. This is to prevent abuse of the protocol by requesting an excessively long chain exchange response.
+    pub fn is_request_len_valid(&self) -> bool {
+        const CHAIN_EXCHANGE_MAX_REQUEST_LENGTH: u64 = 800;
+        self.request_len > 0 && self.request_len <= CHAIN_EXCHANGE_MAX_REQUEST_LENGTH
+    }
 }
 
 /// Status codes of a `chain_exchange` response.
@@ -120,6 +126,16 @@ pub struct ChainExchangeResponse {
 }
 
 impl ChainExchangeResponse {
+    /// Build a [`ChainExchangeResponseStatus::GoAway`] response asking the
+    /// requester to back off (e.g. when concurrent-request caps are reached).
+    pub fn go_away(message: impl Into<String>) -> Self {
+        Self {
+            chain: Default::default(),
+            status: ChainExchangeResponseStatus::GoAway,
+            message: message.into(),
+        }
+    }
+
     /// Converts `chain_exchange` response into result.
     /// Returns an error if the response status is not `Ok`.
     /// Tipset bundle is converted into generic return type with `TryFrom` trait

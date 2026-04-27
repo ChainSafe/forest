@@ -21,11 +21,11 @@ pub fn make_chain_exchange_response<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    if !request.is_options_valid() {
+    if !request.is_options_valid() || !request.is_request_len_valid() {
         return ChainExchangeResponse {
             chain: Default::default(),
             status: ChainExchangeResponseStatus::BadRequest,
-            message: format!("Invalid options {}", request.options),
+            message: format!("Invalid chain exchange request {request:?}"),
         };
     }
 

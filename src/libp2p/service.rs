@@ -811,6 +811,23 @@ async fn handle_chain_exchange_event<DB>(
                 channel,
                 request_id,
             } => {
+                let Some(per_peer_permit) = chain_exchange.try_acquire_peer_permit(peer) else {
+                    debug!("Rejecting chain_exchange request from {peer}: per-peer cap reached");
+                    let _ = chain_exchange.send_response(
+                        channel,
+                        ChainExchangeResponse::go_away("per-peer concurrent request cap reached"),
+                    );
+                    return;
+                };
+                let Some(global_permit) = chain_exchange.try_acquire_request_permit() else {
+                    debug!("Rejecting chain_exchange request from {peer}: global cap reached");
+                    let _ = chain_exchange.send_response(
+                        channel,
+                        ChainExchangeResponse::go_away("global concurrent request cap reached"),
+                    );
+                    return;
+                };
+
                 trace!(
                     "Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",
                 );
@@ -822,6 +839,8 @@ async fn handle_chain_exchange_event<DB>(
 
                 let db = db.clone();
                 tokio::task::spawn(async move {
+                    let _per_peer_permit = per_peer_permit;
+                    let _global_permit = global_permit;
                     if let Err(e) = cx_response_tx.send((
                         request_id,
                         channel,
