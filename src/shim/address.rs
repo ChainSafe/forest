@@ -19,6 +19,8 @@ use std::sync::{
     atomic::{AtomicU8, Ordering},
 };
 
+pub type AddressId = u64;
+
 /// Zero address used to avoid allowing it to be used for verification.
 /// This is intentionally disallowed because it is an edge case with Filecoin's BLS
 /// signature verification.

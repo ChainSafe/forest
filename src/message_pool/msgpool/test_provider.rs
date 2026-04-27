@@ -226,7 +226,11 @@ impl Provider for TestApi {
         Ok(TokenAmount::from_atto(100))
     }
 
-    fn resolve_to_key(&self, addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
+    fn resolve_to_deterministic_address_at_finality(
+        &self,
+        addr: &Address,
+        _ts: &Tipset,
+    ) -> Result<Address, Error> {
         Ok(self.inner.lock().resolve_addr(addr))
     }
 
