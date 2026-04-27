@@ -345,8 +345,6 @@ impl<T: Provider> MpoolCtx<'_, T> {
             && let Ok(resolved) = resolve_to_key(self.api, self.key_cache, from, self.ts)
                 .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
         {
-            // Idempotent + event-emitting; the returned Option is unused
-            // here since callers only care that pending reflects reality.
             let _ = self.pending_store.remove(&resolved, sequence, true);
         }
         Ok(())

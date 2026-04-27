@@ -72,8 +72,7 @@ impl PendingStore {
         }
 
         if let Some(m) = event_msg {
-            // send() only fails when there are zero receivers; a race with
-            // the last receiver dropping is benign and intentionally ignored.
+            // send() only fails when there are zero receivers.
             let _ = self.inner.events.send(MpoolUpdate::Add(m));
         }
         Ok(())
