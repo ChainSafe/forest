@@ -9770,6 +9770,18 @@
               }
             ]
           },
+          "IpldOps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceIpld"
+            }
+          },
+          "Logs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "Msg": {
             "$ref": "#/components/schemas/MessageTrace"
           },
@@ -10407,6 +10419,10 @@
           "UpgradeWatermelonHeight": {
             "type": "integer",
             "format": "int64"
+          },
+          "UpgradeXxHeight": {
+            "type": "integer",
+            "format": "int64"
           }
         },
         "required": [
@@ -10441,7 +10457,8 @@
           "UpgradeTuktukHeight",
           "UpgradeTeepHeight",
           "UpgradeTockHeight",
-          "UpgradeGoldenWeekHeight"
+          "UpgradeGoldenWeekHeight",
+          "UpgradeXxHeight"
         ]
       },
       "GasTrace": {
@@ -11249,6 +11266,11 @@
           "ForkUpgradeParams": {
             "$ref": "#/components/schemas/ForkUpgradeParams"
           },
+          "GenesisTimestamp": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
           "NetworkName": {
             "type": "string"
           },
@@ -11263,7 +11285,8 @@
           "ConsensusMinerMinPower",
           "PreCommitChallengeDelay",
           "ForkUpgradeParams",
-          "Eip155ChainID"
+          "Eip155ChainID",
+          "GenesisTimestamp"
         ]
       },
       "NetworkVersion": {
@@ -11830,6 +11853,12 @@
           "APIVersion": {
             "$ref": "#/components/schemas/ShiftingVersion"
           },
+          "Agent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "BlockDelay": {
             "type": "integer",
             "format": "uint32",
@@ -12327,6 +12356,36 @@
           {
             "$ref": "#/components/schemas/EthCreateTraceAction"
           }
+        ]
+      },
+      "TraceIpld": {
+        "description": "IPLD operation details attached to an [`ExecutionTrace`].",
+        "type": "object",
+        "properties": {
+          "Cid": {
+            "$ref": "#/components/schemas/Cid"
+          },
+          "Op": {
+            "$ref": "#/components/schemas/TraceIpldOp"
+          },
+          "Size": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "Op",
+          "Cid",
+          "Size"
+        ]
+      },
+      "TraceIpldOp": {
+        "type": "string",
+        "enum": [
+          "Get",
+          "Put",
+          "Unknown"
         ]
       },
       "TraceResult": {

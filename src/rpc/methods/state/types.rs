@@ -17,8 +17,9 @@ use crate::shim::{
 use cid::Cid;
 use fvm_ipld_encoding::RawBytes;
 use num::Zero as _;
-use schemars::JsonSchema;
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -139,7 +140,52 @@ impl MessageGasCost {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+/// IPLD operation kind for [`TraceIpld`].
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    SerializeDisplay,
+    DeserializeFromStr,
+    strum::Display,
+    strum::EnumString,
+)]
+#[strum(serialize_all = "PascalCase")]
+pub enum TraceIpldOp {
+    Get,
+    Put,
+    #[strum(to_string = "Unknown", default)]
+    Unknown(String),
+}
+
+impl JsonSchema for TraceIpldOp {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "TraceIpldOp".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        schemars::json_schema!({
+            "type": "string",
+            "enum": ["Get", "Put", "Unknown"],
+        })
+    }
+}
+
+/// IPLD operation details attached to an [`ExecutionTrace`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct TraceIpld {
+    pub op: TraceIpldOp,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Cid>")]
+    pub cid: Cid,
+    pub size: u64,
+}
+
+lotus_json_with_self!(TraceIpld);
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ExecutionTrace {
     pub msg: MessageTrace,
@@ -149,6 +195,21 @@ pub struct ExecutionTrace {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Vec<ExecutionTrace>>")]
     pub subcalls: Vec<ExecutionTrace>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub logs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ipld_ops: Vec<TraceIpld>,
+}
+
+impl PartialEq for ExecutionTrace {
+    /// Ignore [`Self::logs`] and [`Self::ipld_ops`] as they are implementation-dependent
+    fn eq(&self, other: &Self) -> bool {
+        self.msg == other.msg
+            && self.msg_rct == other.msg_rct
+            && self.invoked_actor == other.invoked_actor
+            && self.gas_charges == other.gas_charges
+            && self.subcalls == other.subcalls
+    }
 }
 
 impl ExecutionTrace {
