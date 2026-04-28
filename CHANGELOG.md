@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#6972](https://github.com/ChainSafe/forest/pull/6972) `ChainExchange` hardening to limit the node memory usage.
+
 ## Forest v0.33.1 "Paradyzja"
 
 Non-mandatory release for all node operators. It includes support for the NV28 _FireHorse_ network upgrade for devnets (not calibnet or mainnet yet), a number of significant performance improvements and bug fixes.
