@@ -15,7 +15,7 @@ use serde::{Serialize, de::DeserializeOwned};
 /// duplication.
 ///
 /// Pick a tight `MAX_RESPONSE_BYTES` for fixed-shape protocols (Hello) and a
-/// generous one for bulk transfers (ChainExchange).
+/// generous one for bulk transfers (`ChainExchange`).
 #[derive(Clone)]
 pub struct CborRequestResponse<P, RQ, RS, const MAX_RESPONSE_BYTES: usize> {
     protocol: PhantomData<P>,
