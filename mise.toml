@@ -108,13 +108,7 @@ depends = ["lint:*"]
 
 [tasks."lint:all-rust"]
 description = "Run all Rust linting tasks."
-depends = [
-  "lint:deny",
-  "lint:spellcheck",
-  "lint:rust-fmt",
-  "lint:clippy",
-  "lint:unused-deps",
-]
+depends = ["lint:deny", "lint:spellcheck", "lint:rust-fmt", "lint:clippy", "lint:unused-deps"]
 
 [tasks."lint:yaml"]
 description = "Lint YAML files."
