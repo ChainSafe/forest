@@ -6607,6 +6607,8 @@ components:
     Message:
       type: object
       properties:
+        CID:
+          $ref: "#/components/schemas/Nullable_Cid"
         From:
           $ref: "#/components/schemas/Address"
         GasFeeCap:
