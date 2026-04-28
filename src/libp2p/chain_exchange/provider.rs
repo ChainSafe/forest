@@ -1,22 +1,74 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::{ChainStore, Error as ChainError};
+use std::{io, num::NonZeroUsize, sync::LazyLock};
+
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
+use nonzero_ext::nonzero;
 
 use super::{
     ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
     TipsetBundle,
 };
+use crate::{
+    blocks::{Tipset, TipsetKey},
+    chain::{ChainStore, Error as ChainError},
+    utils::misc::env::env_or_default_logged,
+};
+
+/// Maximum encoded byte size of a chain-exchange response we serve to peers.
+/// Building stops as soon as the running encoded size would exceed this cap;
+/// the response is returned with status
+/// [`ChainExchangeResponseStatus::PartialResponse`].
+static MAX_OUTBOUND_CHAIN_EXCHANGE_RESPONSE_BYTES: LazyLock<NonZeroUsize> = LazyLock::new(|| {
+    env_or_default_logged(
+        "FOREST_MAX_OUTBOUND_CHAIN_EXCHANGE_RESPONSE_BYTES",
+        nonzero!(10 * 1024 * 1024_usize),
+    )
+});
+
+/// `io::Write` that discards the bytes and only tracks how many were written.
+struct CountingSink(usize);
+
+impl io::Write for CountingSink {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0 += buf.len();
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn encoded_size<T: serde::Serialize>(value: &T) -> Result<usize, ChainError> {
+    let mut sink = CountingSink(0);
+    fvm_ipld_encoding::to_writer(&mut sink, value)?;
+    Ok(sink.0)
+}
 
 /// Builds chain exchange response out of chain data.
 pub fn make_chain_exchange_response<DB>(
     cs: &ChainStore<DB>,
     request: &ChainExchangeRequest,
+) -> ChainExchangeResponse
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    make_chain_exchange_response_with_cap(
+        cs,
+        request,
+        MAX_OUTBOUND_CHAIN_EXCHANGE_RESPONSE_BYTES.get(),
+    )
+}
+
+fn make_chain_exchange_response_with_cap<DB>(
+    cs: &ChainStore<DB>,
+    request: &ChainExchangeRequest,
+    max_bytes: usize,
 ) -> ChainExchangeResponse
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -44,22 +96,27 @@ where
             }
         };
 
-        let chain: Vec<_> = root
-            .chain(cs.blockstore())
-            .take(request.request_len as _)
-            .map(|tipset| {
-                let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-                if request.include_messages() {
-                    tipset_bundle.messages = Some(compact_messages(cs.blockstore(), &tipset)?);
-                }
+        let mut chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
+        let mut accumulated: usize = 0;
 
-                if request.include_blocks() {
-                    tipset_bundle.blocks = tipset.block_headers().iter().cloned().collect_vec();
-                }
+        for tipset in root.chain(cs.blockstore()).take(request.request_len as _) {
+            let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
+            if request.include_messages() {
+                tipset_bundle.messages = Some(compact_messages(cs.blockstore(), &tipset)?);
+            }
+            if request.include_blocks() {
+                tipset_bundle.blocks = tipset.block_headers().iter().cloned().collect_vec();
+            }
 
-                anyhow::Ok(tipset_bundle)
-            })
-            .try_collect()?;
+            let bundle_bytes = encoded_size(&tipset_bundle)?;
+            // Always include the first bundle so a peer can make forward
+            // progress even if a single tipset exceeds the cap.
+            if !chain.is_empty() && accumulated + bundle_bytes > max_bytes {
+                break;
+            }
+            accumulated += bundle_bytes;
+            chain.push(tipset_bundle);
+        }
 
         anyhow::Ok(ChainExchangeResponse {
             status: if request.request_len > chain.len() as u64 {
@@ -157,31 +214,31 @@ mod tests {
     use nunny::Vec as NonEmpty;
     use std::{io::Cursor, sync::Arc};
 
-    async fn populate_db() -> (NonEmpty<Cid>, Arc<MemoryDB>) {
+    async fn populate_chain_store() -> (NonEmpty<Cid>, ChainStore<MemoryDB>) {
         let db = Arc::new(MemoryDB::default());
-        // The cids are the tipset cids of the most recent tipset (39th)
+        // The cids are the tipset cids of the most recent tipset (39th).
         let header = load_car(&db, Cursor::new(EXPORT_SR_40)).await.unwrap();
-        (header.roots, db)
-    }
-
-    #[tokio::test]
-    async fn compact_messages_test() {
-        let (cids, db) = populate_db().await;
-
         let gen_block = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         });
+        let cs = ChainStore::new(
+            db.clone(),
+            db.clone(),
+            db,
+            Arc::new(ChainConfig::default()),
+            gen_block,
+        )
+        .unwrap();
+        (header.roots, cs)
+    }
+
+    #[tokio::test]
+    async fn compact_messages_test() {
+        let (cids, cs) = populate_chain_store().await;
 
         let response = make_chain_exchange_response(
-            &ChainStore::new(
-                db.clone(),
-                db.clone(),
-                db,
-                Arc::new(ChainConfig::default()),
-                gen_block,
-            )
-            .unwrap(),
+            &cs,
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,
@@ -237,5 +294,50 @@ mod tests {
         assert_eq!(ts_38_msgs.bls_msg_includes[0].len(), 11);
         assert_eq!(ts_38_msgs.secp_msg_includes[1].len(), 1);
         assert_eq!(ts_38_msgs.bls_msg_includes[1].len(), 11);
+    }
+
+    #[tokio::test]
+    async fn response_byte_cap_truncates_to_partial() {
+        let (cids, cs) = populate_chain_store().await;
+
+        // A 1-byte cap exercises the always-include-first invariant.
+        let response = make_chain_exchange_response_with_cap(
+            &cs,
+            &ChainExchangeRequest {
+                start: cids,
+                request_len: 5,
+                options: HEADERS | MESSAGES,
+            },
+            1,
+        );
+
+        assert_eq!(response.chain.len(), 1);
+        assert_eq!(
+            response.status,
+            ChainExchangeResponseStatus::PartialResponse
+        );
+    }
+
+    #[tokio::test]
+    async fn counting_sink_matches_to_vec() {
+        // Sanity: the sink's running count equals what `to_vec` produces, so the
+        // budget we apply is the same byte count we'd actually write on the wire.
+        // A real populated response exercises Vec, byte-array, and nested-struct
+        // serializations rather than a trivial primitive.
+        let (cids, cs) = populate_chain_store().await;
+        let response = make_chain_exchange_response(
+            &cs,
+            &ChainExchangeRequest {
+                start: cids,
+                request_len: 2,
+                options: HEADERS | MESSAGES,
+            },
+        );
+
+        let mut sink = CountingSink(0);
+        fvm_ipld_encoding::to_writer(&mut sink, &response).unwrap();
+        let to_vec_len = fvm_ipld_encoding::to_vec(&response).unwrap().len();
+        assert!(sink.0 > 0, "expected a non-empty encoded response");
+        assert_eq!(sink.0, to_vec_len);
     }
 }
