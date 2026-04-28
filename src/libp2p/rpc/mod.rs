@@ -13,14 +13,19 @@ use serde::{Serialize, de::DeserializeOwned};
 /// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy
 /// [`request_response::Codec`] for Hello and `ChainExchange` protocols without
 /// duplication.
+///
+/// Pick a tight `MAX_RESPONSE_BYTES` for fixed-shape protocols (Hello) and a
+/// generous one for bulk transfers (ChainExchange).
 #[derive(Clone)]
-pub struct CborRequestResponse<P, RQ, RS> {
+pub struct CborRequestResponse<P, RQ, RS, const MAX_RESPONSE_BYTES: usize> {
     protocol: PhantomData<P>,
     request: PhantomData<RQ>,
     response: PhantomData<RS>,
 }
 
-impl<P, RQ, RS> Default for CborRequestResponse<P, RQ, RS> {
+impl<P, RQ, RS, const MAX_RESPONSE_BYTES: usize> Default
+    for CborRequestResponse<P, RQ, RS, MAX_RESPONSE_BYTES>
+{
     fn default() -> Self {
         Self {
             protocol: PhantomData::<P>,
@@ -74,7 +79,8 @@ impl From<OutboundFailure> for RequestResponseError {
 }
 
 #[async_trait]
-impl<P, RQ, RS> request_response::Codec for CborRequestResponse<P, RQ, RS>
+impl<P, RQ, RS, const MAX_RESPONSE_BYTES: usize> request_response::Codec
+    for CborRequestResponse<P, RQ, RS, MAX_RESPONSE_BYTES>
 where
     P: AsRef<str> + Send + Clone,
     RQ: Serialize + DeserializeOwned + Send + Sync,
@@ -99,14 +105,7 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        // Cap buffered bytes per response to bound memory exposure. Over-cap
-        // streams get cut off; the decode then fails and chain-sync retries
-        // another peer. Matches Lotus's `maxExchangeMessageSize`:
-        // https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/exchange/client.go#L30
-        const MAX_RESPONSE_BYTES: u64 = 120 * 1024 * 1024;
-        let mut bytes = Vec::with_capacity(64 * 1024);
-        io.take(MAX_RESPONSE_BYTES).read_to_end(&mut bytes).await?;
-        serde_ipld_dagcbor::de::from_reader(bytes.as_slice()).map_err(io::Error::other)
+        timed_decode(io, MAX_RESPONSE_BYTES).await
     }
 
     async fn write_request<T>(
@@ -159,18 +158,23 @@ where
     IO: AsyncRead + Unpin,
     T: serde::de::DeserializeOwned,
 {
-    const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024; // messages over 2MB are likely malicious
-    const TIMEOUT: Duration = Duration::from_secs(30);
+    // Requests over 2 MiB are likely malicious for both protocols we support.
+    const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024;
+    timed_decode(io, MAX_BYTES_ALLOWED).await
+}
 
-    // Currently the protocol does not send length encoded message,
-    // and we use `decode-success-with-no-trailing-data` to detect end of frame
-    // just like what `FramedRead` does, so it's possible to cause deadlock at
-    // `io.poll_ready` Adding timeout here to mitigate the issue
-    match tokio::time::timeout(TIMEOUT, DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED)).await {
+/// Decodes a response from the given `io` with a timeout. This is used to prevent hanging when a peer fails to respond in a timely manner.
+async fn timed_decode<IO, T>(io: &mut IO, max_bytes: usize) -> io::Result<T>
+where
+    IO: AsyncRead + Unpin,
+    T: serde::de::DeserializeOwned,
+{
+    const DECODE_TIMEOUT: Duration = Duration::from_secs(30);
+    match tokio::time::timeout(DECODE_TIMEOUT, DagCborDecodingReader::new(io, max_bytes)).await {
         Ok(r) => r,
         Err(_) => {
-            let err = io::Error::other("read_and_decode timeout");
-            tracing::warn!("{err}");
+            let err = io::Error::from(io::ErrorKind::TimedOut);
+            tracing::debug!("{err}");
             Err(err)
         }
     }

@@ -13,5 +13,13 @@ use super::rpc::CborRequestResponse;
 pub const CHAIN_EXCHANGE_PROTOCOL_NAME: &str = "/fil/chain/xchg/0.0.1";
 
 /// `ChainExchange` protocol codec to be used within the RPC service.
-pub type ChainExchangeCodec =
-    CborRequestResponse<&'static str, ChainExchangeRequest, ChainExchangeResponse>;
+///
+/// Cap matches Lotus's [`maxExchangeMessageSize`] (15 blocks × 8 MiB messages).
+///
+/// [`maxExchangeMessageSize`]: https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/exchange/client.go#L30
+pub type ChainExchangeCodec = CborRequestResponse<
+    &'static str,
+    ChainExchangeRequest,
+    ChainExchangeResponse,
+    { 120 * 1024 * 1024 },
+>;
