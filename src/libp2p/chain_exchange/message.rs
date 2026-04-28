@@ -6,6 +6,7 @@ use std::convert::TryFrom;
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, CachingBlockHeader, FullTipset, Tipset};
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
+use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_encoding::tuple::*;
@@ -46,10 +47,12 @@ impl ChainExchangeRequest {
         self.include_blocks() || self.include_messages()
     }
 
-    /// Checks if the request length is within specified bounds (0, 800]. This is to prevent abuse of the protocol by requesting an excessively long chain exchange response.
+    /// Checks if the request length is within `(0, CHAIN_FINALITY]`, matching
+    /// Lotus's [`MaxRequestLength`].
+    ///
+    /// [`MaxRequestLength`]: https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/exchange/protocol.go#L30
     pub fn is_request_len_valid(&self) -> bool {
-        const CHAIN_EXCHANGE_MAX_REQUEST_LENGTH: u64 = 800;
-        self.request_len > 0 && self.request_len <= CHAIN_EXCHANGE_MAX_REQUEST_LENGTH
+        self.request_len > 0 && self.request_len <= CHAIN_FINALITY as u64
     }
 }
 
