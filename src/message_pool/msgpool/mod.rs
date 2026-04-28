@@ -11,6 +11,9 @@ pub mod selection;
 #[cfg(test)]
 pub mod test_provider;
 pub(in crate::message_pool) mod utils;
+// TODO: This will be used in https://github.com/ChainSafe/forest/pull/6941
+#[allow(unused_imports)]
+pub use events::MpoolUpdate;
 
 use std::{borrow::BorrowMut, cmp::Ordering};
 

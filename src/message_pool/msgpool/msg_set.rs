@@ -4,10 +4,7 @@
 //! Per-sender message set.
 //!
 //! [`MsgSet`] owns the pending messages for a single sender address and tracks
-//! the next sequence expected for the gap-filling / replace-by-fee rules. It is
-//! deliberately decoupled from the [`super::Provider`] trait: callers pass
-//! explicit [`MsgSetLimits`] so this type (and its tests) need no mock
-//! provider.
+//! the next sequence expected for the gap-filling / replace-by-fee rules.
 
 use ahash::{HashMap, HashMapExt};
 
@@ -20,7 +17,7 @@ use crate::shim::econ::TokenAmount;
 /// Maximum allowed nonce gap for trusted message inserts under [`StrictnessPolicy::Strict`].
 pub(in crate::message_pool) const MAX_NONCE_GAP: u64 = 4;
 
-/// Per-actor pending-message limits for [`MsgSet::add`].
+/// Per-actor pending-message limits.
 #[derive(Clone, Copy, Debug)]
 pub struct MsgSetLimits {
     /// Cap applied when a message is inserted via the trusted path.
@@ -35,16 +32,15 @@ impl MsgSetLimits {
     }
 }
 
-/// Strictness policy for pending insertion; enforces nonce-gap and
-/// replace-by-fee-during-gap rules when [`StrictnessPolicy::Strict`].
+/// Strictness policy for pending insertion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StrictnessPolicy {
     Strict,
     Relaxed,
 }
 
-/// Simple structure that contains a hash-map of messages where k: a message
-/// from address, v: a message which corresponds to that address.
+/// Simple structure that contains a hash-map of messages where k: message nonce,
+/// v: a message which corresponds to that nonce.
 #[derive(Clone, Default, Debug)]
 pub struct MsgSet {
     pub(in crate::message_pool) msgs: HashMap<u64, SignedMessage>,
