@@ -6,7 +6,7 @@ repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
-exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests", "go.work*"]
+exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests", "wallet-tests", "go.work*"]
 
 [lints]
 workspace = true
@@ -385,5 +385,5 @@ ref_option_ref = "deny"
 cast_lossless = "deny"
 
 [workspace]
-members = ["interop-tests"]
+members = ["interop-tests", "wallet-tests"]
 resolver = "3"

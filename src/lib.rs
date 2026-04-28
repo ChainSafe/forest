@@ -119,6 +119,32 @@ pub mod interop_tests_private {
     pub mod beacon {
         pub use crate::beacon::BeaconEntry;
     }
+    // Re-exports below are consumed by the `forest-wallet-tests` crate
+    // under `wallet-tests/` to drive calibnet wallet integration tests.
+    pub mod rpc {
+        pub use crate::rpc::*;
+    }
+    pub mod key_management {
+        pub use crate::key_management::*;
+    }
+    pub mod shim {
+        pub use crate::shim::*;
+    }
+    pub mod humantoken {
+        pub use crate::cli::humantoken::*;
+    }
+    pub mod eth {
+        pub use crate::eth::*;
+    }
+    pub mod message {
+        pub use crate::message::*;
+    }
+    pub mod lotus_json {
+        pub use crate::lotus_json::*;
+    }
+    pub mod networks {
+        pub use crate::networks::*;
+    }
 }
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013

@@ -1,0 +1,33 @@
+[package]
+name = "forest-wallet-tests"
+version = "0.1.0"
+authors = ["ChainSafe Systems <forest@chainsafe.io>"]
+repository = "https://github.com/ChainSafe/forest"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Calibnet wallet integration tests for Forest."
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "forest-wallet-tests"
+path = "src/bin/forest-wallet-tests.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+cid = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+directories = "6"
+forest = { package = "forest-filecoin", path = "../", default-features = false, features = [
+  "rustalloc",
+  "interop-tests-private",
+  "no-f3-sidecar",
+] }
+hex = "0.4"
+num-traits = "0.2"
+serde_json = { version = "1", features = ["raw_value"] }
+tokio = { workspace = true, features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

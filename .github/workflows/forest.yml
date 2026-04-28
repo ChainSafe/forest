@@ -102,6 +102,10 @@ jobs:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
         run: mise run install --slim quick
+      - name: Install forest-wallet-tests
+        env:
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+        run: cargo install --profile quick --locked --path wallet-tests --force
       - uses: actions/upload-artifact@v7
         with:
           name: "forest-${{ runner.os }}"

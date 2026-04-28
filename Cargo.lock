@@ -3474,6 +3474,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "forest-wallet-tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cid",
+ "clap",
+ "directories",
+ "forest-filecoin",
+ "hex",
+ "num-traits",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "forest_hash_utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
