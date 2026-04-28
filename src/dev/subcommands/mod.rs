@@ -4,6 +4,7 @@
 mod archive_missing_cmd;
 mod export_state_tree_cmd;
 mod export_tipset_lookup_cmd;
+mod probe_cmd;
 mod state_cmd;
 mod update_checkpoints_cmd;
 
@@ -53,6 +54,9 @@ pub enum Subcommand {
     ArchiveMissing(archive_missing_cmd::ArchiveMissingCommand),
     ExportTipsetLookup(export_tipset_lookup_cmd::ExportTipsetLookupCommand),
     ExportStateTree(export_state_tree_cmd::ExportStateTreeCommand),
+    /// Open an ephemeral libp2p peer, dial a single peer, and send Filecoin
+    /// protocol messages (Hello, ChainExchange, ...) over that connection.
+    Probe(probe_cmd::ProbeCommand),
 }
 
 impl Subcommand {
@@ -64,6 +68,7 @@ impl Subcommand {
             Self::ArchiveMissing(cmd) => cmd.run().await,
             Self::ExportTipsetLookup(cmd) => cmd.run().await,
             Self::ExportStateTree(cmd) => cmd.run().await,
+            Self::Probe(cmd) => cmd.run().await,
         }
     }
 }

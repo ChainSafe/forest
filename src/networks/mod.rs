@@ -106,14 +106,19 @@ impl NetworkChain {
     /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
     /// is the hard-coded genesis CID for either of those networks.
     pub fn from_genesis(cid: &Cid) -> Option<Self> {
-        if cid == &*mainnet::GENESIS_CID {
-            Some(Self::Mainnet)
-        } else if cid == &*calibnet::GENESIS_CID {
-            Some(Self::Calibnet)
-        } else if cid == &*butterflynet::GENESIS_CID {
-            Some(Self::Butterflynet)
-        } else {
-            None
+        [Self::Mainnet, Self::Calibnet, Self::Butterflynet]
+            .into_iter()
+            .find(|c| c.genesis_cid().as_ref() == Some(cid))
+    }
+
+    /// Returns the hard-coded genesis CID for the chain, or `None` for
+    /// devnets (whose genesis depends on local configuration).
+    pub fn genesis_cid(&self) -> Option<Cid> {
+        match self {
+            NetworkChain::Mainnet => Some(*mainnet::GENESIS_CID),
+            NetworkChain::Calibnet => Some(*calibnet::GENESIS_CID),
+            NetworkChain::Butterflynet => Some(*butterflynet::GENESIS_CID),
+            NetworkChain::Devnet(_) => None,
         }
     }
 
@@ -763,6 +768,23 @@ mod tests {
         assert_eq!(
             NetworkChain::Devnet("dummydevnet".into()).to_string(),
             "dummydevnet"
+        );
+    }
+
+    #[test]
+    fn genesis_cid_round_trip() {
+        for chain in [
+            NetworkChain::Mainnet,
+            NetworkChain::Calibnet,
+            NetworkChain::Butterflynet,
+        ] {
+            let cid = chain.genesis_cid().expect("known chain has genesis CID");
+            assert_eq!(NetworkChain::from_genesis(&cid), Some(chain));
+        }
+        assert_eq!(
+            NetworkChain::Devnet("local".into()).genesis_cid(),
+            None,
+            "devnet has no hard-coded genesis CID"
         );
     }
 
