@@ -4,6 +4,7 @@
 mod archive_missing_cmd;
 mod export_state_tree_cmd;
 mod export_tipset_lookup_cmd;
+mod migrate_cmd;
 mod state_cmd;
 mod update_checkpoints_cmd;
 
@@ -53,6 +54,9 @@ pub enum Subcommand {
     ArchiveMissing(archive_missing_cmd::ArchiveMissingCommand),
     ExportTipsetLookup(export_tipset_lookup_cmd::ExportTipsetLookupCommand),
     ExportStateTree(export_state_tree_cmd::ExportStateTreeCommand),
+    /// Run a single state migration on the head of a snapshot, backed by a
+    /// throwaway on-disk ParityDb. Primarily intended for benchmarking.
+    Migrate(migrate_cmd::MigrateCommand),
 }
 
 impl Subcommand {
@@ -64,6 +68,7 @@ impl Subcommand {
             Self::ArchiveMissing(cmd) => cmd.run().await,
             Self::ExportTipsetLookup(cmd) => cmd.run().await,
             Self::ExportStateTree(cmd) => cmd.run().await,
+            Self::Migrate(cmd) => cmd.run().await,
         }
     }
 }
