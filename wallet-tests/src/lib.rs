@@ -32,7 +32,10 @@ use forest::interop_tests_private::lotus_json::{HasLotusJson, LotusJson};
 use forest::interop_tests_private::message::SignedMessage;
 use forest::interop_tests_private::rpc::{
     self,
-    eth::{is_eth_address, types::EthAddress},
+    eth::{
+        Predefined, is_eth_address,
+        types::{BlockNumberOrPredefined, EthAddress},
+    },
     mpool::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
     prelude::*,
     types::ApiTipsetKey,
@@ -51,6 +54,12 @@ pub const POLL_RETRIES: u32 = 20;
 
 /// Duration between polling attempts.
 pub const POLL_INTERVAL: Duration = Duration::from_secs(30);
+
+/// Amount sent between test addresses in the wallet scenarios.
+pub const TRANSFER_AMOUNT: &str = "500 atto FIL";
+
+/// Initial funding for a freshly created delegated address.
+pub const DELEGATED_FUND_AMOUNT: &str = "3 micro FIL";
 
 /// Selects which wallet backend an operation targets, equivalent to the
 /// presence or absence of `--remote-wallet` on the `forest-wallet` CLI.
@@ -187,6 +196,18 @@ impl WalletHarness {
         }
     }
 
+    /// Preloaded address for the selected backend
+    pub async fn preloaded_address(&self, backend: Backend) -> anyhow::Result<Address> {
+        if let Some(default) = self.default_address(backend).await? {
+            return Ok(default);
+        }
+        self.list(backend)
+            .await?
+            .into_iter()
+            .next()
+            .context("wallet list is empty")
+    }
+
     /// Always-fresh balance lookup (always via RPC; the chain is the source of truth).
     pub async fn balance(&self, address: Address) -> anyhow::Result<TokenAmount> {
         Ok(WalletBalance::call(&self.remote, (address,)).await?)
@@ -194,10 +215,11 @@ impl WalletHarness {
 
     /// Convert a Filecoin address to its Ethereum equivalent via RPC.
     pub async fn filecoin_to_eth(&self, address: Address) -> anyhow::Result<EthAddress> {
-        Ok(FilecoinAddressToEthAddress::call(&self.remote, (address, None)).await?)
+        let block: BlockNumberOrPredefined = Predefined::Pending.into();
+        Ok(FilecoinAddressToEthAddress::call(&self.remote, (address, Some(block))).await?)
     }
 
-    /// Send `amount` from the selected backend's default address to `to`.
+    /// Send `amount` from the selected back-end's default address to `to`.
     ///
     /// Mirrors the local/remote signing split in
     /// `WalletCommands::Send` in `src/wallet/subcommands/wallet_cmd.rs`:
@@ -282,7 +304,7 @@ impl WalletHarness {
         Ok(signed.cid())
     }
 
-    /// Send `amount` from the selected backend's default address to an
+    /// Send `amount` from the selected back-end's default address to an
     /// Ethereum-format address (`0x…`). Equivalent to passing a `0x…`
     /// recipient to `forest-wallet send`.
     pub async fn send_to_eth(
@@ -360,7 +382,7 @@ impl WalletHarness {
     }
 }
 
-/// Polling combinator: invoke `f` up to `retries` times, sleeping `interval`
+/// Repeatedly poll: invoke `f` up to `retries` times, sleeping `interval`
 /// between attempts. Returns the first `Ok(Some(t))`. `Ok(None)` triggers
 /// another poll; an `Err` is logged and also triggers another poll so transient
 /// RPC failures don't abort the whole scenario.

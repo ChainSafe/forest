@@ -4,7 +4,7 @@
 //! Basic wallet integration test.
 
 use anyhow::{Context as _, bail};
-use forest::interop_tests_private::shim::{address::Address, crypto::SignatureType};
+use forest::interop_tests_private::shim::crypto::SignatureType;
 use tracing::info;
 
 use crate::{
@@ -18,11 +18,11 @@ use crate::{
 /// 1. Pick the preloaded address from the local backend.
 /// 2. Export/delete/import the key on both backends, asserting the address is
 ///    preserved across the round-trip.
-/// 3. Create a fresh local address (`addr_two`) and remote address
-///    (`addr_three`); set defaults; send 500 atto FIL to each.
+/// 3. Create `local_new` on the local backend and `remote_new` on the remote
+///    backend; set defaults; send [`crate::TRANSFER_AMOUNT`] to each.
 /// 4. Poll for the recipients' balances to become non-zero.
-/// 5. Resolve each address to its ETH form, send 500 atto FIL to that ETH
-///    address, and poll for further balance growth.
+/// 5. Resolve each address to its ETH form, send [`crate::TRANSFER_AMOUNT`]
+///    to that ETH address, and poll for further balance growth.
 /// 6. Smoke-test `delete` by creating a throwaway address, deleting it, and
 ///    asserting it is no longer listed.
 ///
@@ -64,108 +64,109 @@ pub async fn run() -> anyhow::Result<()> {
     // )
     // .await?;
 
-    let fil_amount = parse_amount("500 atto FIL")?;
+    let fil_amount = parse_amount(crate::TRANSFER_AMOUNT)?;
 
-    let addr_one = first_address(&harness, Backend::Local)
+    let preloaded = harness
+        .preloaded_address(Backend::Local)
         .await
         .context("expected a preloaded address in the local keystore")?;
-    info!(%addr_one, "selected preloaded address");
+    info!(%preloaded, "selected preloaded address");
 
     // Pause to allow the indexer to settle
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
     // Export / delete / import roundtrip
-    let exported = harness.export(Backend::Local, addr_one).await?;
+    let exported = harness.export(Backend::Local, preloaded).await?;
     let exported_blob = encode_exported_key(&exported)?;
     // Sanity-check the encoder by round-tripping through the parser.
     let parsed = parse_exported_key(&exported_blob)?;
     assert_eq_keys(&exported, &parsed)?;
 
-    harness.delete(Backend::Local, addr_one).await?;
-    harness.delete(Backend::Remote, addr_one).await?;
+    harness.delete(Backend::Local, preloaded).await?;
+    harness.delete(Backend::Remote, preloaded).await?;
 
     let roundtrip_local = harness.import(Backend::Local, exported.clone()).await?;
-    if roundtrip_local != addr_one {
+    if roundtrip_local != preloaded {
         bail!(
-            "local wallet address should be preserved across export/import (got {roundtrip_local}, expected {addr_one})"
+            "local wallet address should be preserved across export/import (got {roundtrip_local}, expected {preloaded})"
         );
     }
     let roundtrip_remote = harness.import(Backend::Remote, exported).await?;
-    if roundtrip_remote != addr_one {
+    if roundtrip_remote != preloaded {
         bail!(
-            "remote wallet address should be preserved across export/import (got {roundtrip_remote}, expected {addr_one})"
+            "remote wallet address should be preserved across export/import (got {roundtrip_remote}, expected {preloaded})"
         );
     }
 
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
     // Create new addresses and set defaults
-    info!("creating addr_two locally");
-    let addr_two = harness
+    info!("creating local_new (local backend)");
+    let local_new = harness
         .new_address(Backend::Local, SignatureType::Secp256k1)
         .await?;
-    info!(%addr_two, "created addr_two");
-    harness.set_default(Backend::Local, addr_one).await?;
+    info!(%local_new, "created local_new");
+    harness.set_default(Backend::Local, preloaded).await?;
 
-    info!("creating addr_three remotely");
-    let addr_three = harness
+    info!("creating remote_new (remote backend)");
+    let remote_new = harness
         .new_address(Backend::Remote, SignatureType::Secp256k1)
         .await?;
-    info!(%addr_three, "created addr_three");
-    harness.set_default(Backend::Remote, addr_one).await?;
+    info!(%remote_new, "created remote_new");
+    harness.set_default(Backend::Remote, preloaded).await?;
 
     // Initial sends to the new addresses
     let msg_local = harness
-        .send(Backend::Local, addr_two, fil_amount.clone())
+        .send(Backend::Local, local_new, fil_amount.clone())
         .await?;
-    info!(%msg_local, "submitted local send to addr_two");
+    info!(%msg_local, "submitted local send to local_new");
 
     let msg_remote = harness
-        .send(Backend::Remote, addr_three, fil_amount.clone())
+        .send(Backend::Remote, remote_new, fil_amount.clone())
         .await?;
-    info!(%msg_remote, "submitted remote send to addr_three");
+    info!(%msg_remote, "submitted remote send to remote_new");
 
-    let addr_two_balance =
-        wait_balance_nonzero(&harness, addr_two, "wait for addr_two balance").await?;
-    info!(%addr_two, balance = %addr_two_balance, "addr_two funded");
+    let local_balance =
+        wait_balance_nonzero(&harness, local_new, "wait for local_new balance").await?;
+    info!(%local_new, balance = %local_balance, "local_new funded");
 
-    let addr_three_balance =
-        wait_balance_nonzero(&harness, addr_three, "wait for addr_three balance").await?;
-    info!(%addr_three, balance = %addr_three_balance, "addr_three funded");
+    let remote_balance =
+        wait_balance_nonzero(&harness, remote_new, "wait for remote_new balance").await?;
+    info!(%remote_new, balance = %remote_balance, "remote_new funded");
 
     // ETH-format sends
-    let eth_addr_two = harness.filecoin_to_eth(addr_two).await?;
-    info!(%addr_two, eth_addr_two = ?eth_addr_two, "resolved ETH address for addr_two");
-    let eth_addr_three = harness.filecoin_to_eth(addr_three).await?;
-    info!(%addr_three, eth_addr_three = ?eth_addr_three, "resolved ETH address for addr_three");
+    let eth_local = harness.filecoin_to_eth(local_new).await?;
+    info!(%local_new, ?eth_local, "resolved ETH address for local_new");
+    let eth_remote = harness.filecoin_to_eth(remote_new).await?;
+    info!(%remote_new, ?eth_remote, "resolved ETH address for remote_new");
 
     let msg_eth_local = harness
-        .send_to_eth(Backend::Local, eth_addr_two, fil_amount.clone())
+        .send_to_eth(Backend::Local, eth_local, fil_amount.clone())
         .await?;
-    info!(%msg_eth_local, "submitted local send to ETH-mapped addr_two");
+    info!(%msg_eth_local, "submitted local send to ETH-mapped local_new");
 
     let msg_eth_remote = harness
-        .send_to_eth(Backend::Remote, eth_addr_three, fil_amount.clone())
+        .send_to_eth(Backend::Remote, eth_remote, fil_amount.clone())
         .await?;
-    info!(%msg_eth_remote, "submitted remote send to ETH-mapped addr_three");
+    info!(%msg_eth_remote, "submitted remote send to ETH-mapped remote_new");
 
-    let after_eth_two = wait_balance_above(
+    let after_eth_local = wait_balance_above(
         &harness,
-        addr_two,
-        addr_two_balance,
-        "wait for addr_two balance to increase post-ETH-send",
+        local_new,
+        local_balance,
+        "wait for local_new balance to increase post-ETH-send",
     )
     .await?;
-    info!(%addr_two, balance = %after_eth_two, "addr_two received ETH-routed send");
+    info!(%local_new, balance = %after_eth_local, "local_new received ETH-routed send");
 
-    let after_eth_three = wait_balance_above(
+    let after_eth_remote = wait_balance_above(
         &harness,
-        addr_three,
-        addr_three_balance,
-        "wait for addr_three balance to increase post-ETH-send",
+        remote_new,
+        remote_balance,
+        "wait for remote_new balance to increase post-ETH-send",
     )
     .await?;
-    info!(%addr_three, balance = %after_eth_three, "addr_three received ETH-routed send");
+    info!(%remote_new, balance = %after_eth_remote, "remote_new received ETH-routed send");
 
     // Final delete-and-list smoke test
     smoke_test_delete(&mut harness, Backend::Local).await?;
@@ -176,22 +177,14 @@ pub async fn run() -> anyhow::Result<()> {
     // amount sent. `TokenAmount` is already unitless atto-FIL, so we compare
     // directly without the bash `cut -d ' ' -f 1` dance.
     //
-    // if addr_two_balance != fil_amount {
+    // if local_balance != fil_amount {
     //     bail!(
-    //         "FIL amount should match: addr_two balance {addr_two_balance:?}, sent {fil_amount:?}"
+    //         "FIL amount should match: local_new balance {local_balance:?}, sent {fil_amount:?}"
     //     );
     // }
 
     info!("basic wallet scenario completed successfully");
     Ok(())
-}
-
-async fn first_address(harness: &WalletHarness, backend: Backend) -> anyhow::Result<Address> {
-    let addrs = harness.list(backend).await?;
-    addrs
-        .into_iter()
-        .next_back()
-        .context("wallet list is empty")
 }
 
 fn assert_eq_keys(
