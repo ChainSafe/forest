@@ -37,7 +37,7 @@
 
 - [#6972](https://github.com/ChainSafe/forest/pull/6972) `ChainExchange` hardening to limit the node memory usage.
 
-- [#6976](https://github.com/ChainSafe/forest/pull/6976) `Hello` and `ChainExchange` response timeouts to prevent hanging connections.
+- [#6976](https://github.com/ChainSafe/forest/pull/6976) `Hello` and `ChainExchange` response timeouts and additional bounds to prevent hanging connections.
 
 ## Forest v0.33.1 "Paradyzja"
 

@@ -1,11 +1,25 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
-use crate::libp2p::rpc::CborRequestResponse;
+use std::time::Duration;
 
-/// Hello protocol codec to be used within the RPC service.
+use super::*;
+use crate::libp2p::rpc::{CborRequestResponse, CodecConfig};
+
+/// Codec limits for the Hello protocol.
 ///
-/// `HelloResponse` is `[u64, u64]` — at most **19 bytes** CBOR-encoded
-/// (1-byte array header + two 9-byte `u64`s for `u64::MAX`).
-pub type HelloCodec = CborRequestResponse<&'static str, HelloRequest, HelloResponse, 32>;
+/// - Request: tipset CIDs + height + weight + genesis CID — comfortably under
+///   1 KiB even at the 15-blocks-per-tipset ceiling. 4 KiB cap.
+/// - Response: `[u64, u64]`, at most **19 bytes** CBOR-encoded. 32 byte cap.
+/// - Decode timeout: 10s — the response is tiny, anything stalling longer is
+///   misbehaving.
+pub struct HelloCodecConfig;
+
+impl CodecConfig for HelloCodecConfig {
+    const MAX_REQUEST_BYTES: usize = 4096;
+    const MAX_RESPONSE_BYTES: usize = 32;
+    const DECODE_TIMEOUT: Duration = Duration::from_secs(10);
+}
+
+pub type HelloCodec =
+    CborRequestResponse<&'static str, HelloRequest, HelloResponse, HelloCodecConfig>;
