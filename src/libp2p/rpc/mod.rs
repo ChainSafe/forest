@@ -99,8 +99,13 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut bytes = vec![];
-        io.read_to_end(&mut bytes).await?;
+        // Cap buffered bytes per response to bound memory exposure. Over-cap
+        // streams get cut off; the decode then fails and chain-sync retries
+        // another peer. Matches Lotus's `maxExchangeMessageSize`:
+        // https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/exchange/client.go#L30
+        const MAX_RESPONSE_BYTES: u64 = 120 * 1024 * 1024;
+        let mut bytes = Vec::with_capacity(64 * 1024);
+        io.take(MAX_RESPONSE_BYTES).read_to_end(&mut bytes).await?;
         serde_ipld_dagcbor::de::from_reader(bytes.as_slice()).map_err(io::Error::other)
     }
 
