@@ -11,7 +11,7 @@ use crate::libp2p::rpc::{CborRequestResponse, CodecConfig};
 /// - Request: tipset CIDs + height + weight + genesis CID — comfortably under
 ///   1 KiB even at the 15-blocks-per-tipset ceiling. 4 KiB cap.
 /// - Response: `[u64, u64]`, at most **19 bytes** CBOR-encoded. 32 byte cap.
-/// - Decode timeout: 10s — the response is tiny, anything stalling longer is
+/// - Decode timeout: 10 seconds — the response is tiny, anything stalling longer is
 ///   misbehaving.
 pub struct HelloCodecConfig;
 

@@ -18,7 +18,7 @@ pub const CHAIN_EXCHANGE_PROTOCOL_NAME: &str = "/fil/chain/xchg/0.0.1";
 ///
 /// - Request: tipset CIDs + length + options bitfield — well under 1 KiB. 4 KiB cap.
 /// - Response: cap matches Lotus's [`maxExchangeMessageSize`] (15 blocks × 8 MiB messages).
-/// - Decode timeout: 60s — accommodates ~32 MiB realistic responses at
+/// - Decode timeout: 60 seconds — accommodates ~32 MiB realistic responses at
 ///   ~5 Mbps per stream (we run up to 3 outbound chain-exchange streams in
 ///   parallel, so per-stream bandwidth is a fraction of the peer's link).
 ///
