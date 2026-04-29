@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6916](https://github.com/ChainSafe/forest/issues/6916): Added NV28 _FireHorse_ network upgrade support for calibnet. The upgrade epoch is set to `3694534` which corresponds to `2026-05-07T14:00:00Z`.
+
 ### Changed
 
 ### Removed
