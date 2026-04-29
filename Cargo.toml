@@ -248,31 +248,24 @@ termios = "0.3"
 
 [dev-dependencies]
 all_asserts = "2"
-ariadne = "0.6"
 assert_cmd = "2"
 bimap = "0.6"
-cargo_metadata = "0.23"
 criterion = { version = "0.8", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
 fvm_shared3 = { package = "fvm_shared", version = "~3.14", features = ["arb", "proofs", "testing"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.8", features = ["arb", "proofs", "testing"] }
-glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.8"
 predicates = "3"
-proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.329"
-regex-automata = "0.4"
 rstest = "0.26"
 serial_test = "3"
-syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
 
 [build-dependencies]
