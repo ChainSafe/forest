@@ -424,7 +424,7 @@
         "name": "Filecoin.ChainGetMessage.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/FlattenedApiMessage"
+          "$ref": "#/components/schemas/Message"
         }
       },
       "paramStructure": "by-position"
@@ -2272,7 +2272,7 @@
         "name": "Filecoin.GasEstimateMessageGas.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/FlattenedApiMessage"
+          "$ref": "#/components/schemas/Message"
         }
       },
       "paramStructure": "by-position"
@@ -10054,64 +10054,6 @@
           "Signature"
         ]
       },
-      "FlattenedApiMessage": {
-        "type": "object",
-        "properties": {
-          "CID": {
-            "$ref": "#/components/schemas/Cid"
-          },
-          "From": {
-            "$ref": "#/components/schemas/Address"
-          },
-          "GasFeeCap": {
-            "$ref": "#/components/schemas/TokenAmount",
-            "default": "0"
-          },
-          "GasLimit": {
-            "type": "integer",
-            "format": "uint64",
-            "default": 0,
-            "minimum": 0
-          },
-          "GasPremium": {
-            "$ref": "#/components/schemas/TokenAmount",
-            "default": "0"
-          },
-          "Method": {
-            "type": "integer",
-            "format": "uint64",
-            "default": 0,
-            "minimum": 0
-          },
-          "Nonce": {
-            "type": "integer",
-            "format": "uint64",
-            "default": 0,
-            "minimum": 0
-          },
-          "Params": {
-            "$ref": "#/components/schemas/Nullable_Base64String"
-          },
-          "To": {
-            "$ref": "#/components/schemas/Address"
-          },
-          "Value": {
-            "$ref": "#/components/schemas/TokenAmount",
-            "default": "0"
-          },
-          "Version": {
-            "type": "integer",
-            "format": "uint64",
-            "default": 0,
-            "minimum": 0
-          }
-        },
-        "required": [
-          "To",
-          "From",
-          "CID"
-        ]
-      },
       "ForestChainExportDiffParams": {
         "type": "object",
         "properties": {
@@ -10779,6 +10721,9 @@
       "Message": {
         "type": "object",
         "properties": {
+          "CID": {
+            "$ref": "#/components/schemas/Nullable_Cid"
+          },
           "From": {
             "$ref": "#/components/schemas/Address"
           },
@@ -10809,7 +10754,8 @@
             "minimum": 0
           },
           "Params": {
-            "$ref": "#/components/schemas/Nullable_Base64String"
+            "$ref": "#/components/schemas/Base64String",
+            "default": null
           },
           "To": {
             "$ref": "#/components/schemas/Address"
@@ -11553,16 +11499,6 @@
           "format": "uint64",
           "minimum": 0
         }
-      },
-      "Nullable_Base64String": {
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/Base64String"
-          },
-          {
-            "type": "null"
-          }
-        ]
       },
       "Nullable_Cid": {
         "anyOf": [

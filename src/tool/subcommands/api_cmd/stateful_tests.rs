@@ -344,14 +344,14 @@ async fn invoke_contract(client: &rpc::Client, tx: &TestTransaction) -> anyhow::
 
     let eth_tx_args = crate::eth::EthEip1559TxArgsBuilder::default()
         .chain_id(ETH_CHAIN_ID)
-        .unsigned_message(&unsigned_msg.message)?
+        .unsigned_message(&unsigned_msg)?
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build EIP-1559 transaction: {}", e))?;
     let eth_tx = crate::eth::EthTx::from(eth_tx_args);
     let data = eth_tx.rlp_unsigned_message(ETH_CHAIN_ID)?;
 
     let sig = client.call(WalletSign::request((tx.from, data))?).await?;
-    let smsg = SignedMessage::new_unchecked(unsigned_msg.message, sig);
+    let smsg = SignedMessage::new_unchecked(unsigned_msg, sig);
     let cid = smsg.cid();
 
     client.call(MpoolPush::request((smsg,))?).await?;

@@ -34,13 +34,9 @@ pub struct MessageLotusJson {
     gas_premium: TokenAmount,
     #[serde(default)]
     method: u64,
-    #[schemars(with = "LotusJson<Option<RawBytes>>")]
-    #[serde(
-        with = "crate::lotus_json",
-        skip_serializing_if = "Option::is_none",
-        default
-    )]
-    params: Option<RawBytes>,
+    #[schemars(with = "LotusJson<RawBytes>")]
+    #[serde(with = "crate::lotus_json", default)]
+    params: RawBytes,
     #[schemars(with = "LotusJson<Option<Cid>>")]
     #[serde(
         with = "crate::lotus_json",
@@ -100,7 +96,7 @@ impl HasLotusJson for Message {
             gas_fee_cap,
             gas_premium,
             method: method_num,
-            params: Some(params),
+            params,
             cid: Some(cid),
         }
     }
@@ -126,7 +122,7 @@ impl HasLotusJson for Message {
             sequence: nonce,
             value,
             method_num: method,
-            params: params.unwrap_or_default(),
+            params,
             gas_limit,
             gas_fee_cap,
             gas_premium,
