@@ -35,6 +35,20 @@
 
 ### Fixed
 
+## Forest v0.33.2 "Night Mare"
+
+Mandatory release for calibnet node operators. It includes support for the NV28 _FireHorse_ network upgrade for calibnet, which is set to activate at epoch `3694534` (2026-05-07T14:00:00Z). It also includes important fixes around the P2P protocols that could cause high memory usage.
+
+### Added
+
+- [#6916](https://github.com/ChainSafe/forest/issues/6916): Added NV28 _FireHorse_ network upgrade support for calibnet. The upgrade epoch is set to `3694534` which corresponds to `2026-05-07T14:00:00Z`.
+
+### Fixed
+
+- [#6972](https://github.com/ChainSafe/forest/pull/6972) `ChainExchange` hardening to limit the node memory usage.
+
+- [#6976](https://github.com/ChainSafe/forest/pull/6976) `Hello` and `ChainExchange` response timeouts and additional bounds to prevent hanging connections.
+
 ## Forest v0.33.1 "Paradyzja"
 
 Non-mandatory release for all node operators. It includes support for the NV28 _FireHorse_ network upgrade for devnets (not calibnet or mainnet yet), a number of significant performance improvements and bug fixes.

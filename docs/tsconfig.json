@@ -1,8 +1,11 @@
 {
-  // This file is not used in compilation. It is here just for a nice editor experience.
   "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
+    // Required: the parent sets baseUrl: ".", which TS 6.0 resolves relative to the parent's
+    // location in node_modules. Re-declaring here anchors @site/* path resolution to docs/.
     "baseUrl": ".",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // Silences TS5101 from the parent's deprecated baseUrl. Drop once @docusaurus/tsconfig removes it.
+    "ignoreDeprecations": "6.0"
   }
 }

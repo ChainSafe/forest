@@ -66,6 +66,7 @@ where
                 (Height::Teep, nv25::run_migration::<DB>),
                 (Height::TockFix, nv26fix::run_migration::<DB>),
                 (Height::GoldenWeek, nv27::run_migration::<DB>),
+                (Height::FireHorse, nv28::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {

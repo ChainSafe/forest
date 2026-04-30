@@ -6,6 +6,7 @@ use std::convert::TryFrom;
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, CachingBlockHeader, FullTipset, Tipset};
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
+use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_encoding::tuple::*;
@@ -44,6 +45,14 @@ impl ChainExchangeRequest {
     /// If either the [HEADERS] bit or the [MESSAGES] bit is set.
     pub fn is_options_valid(&self) -> bool {
         self.include_blocks() || self.include_messages()
+    }
+
+    /// Checks if the request length is within `(0, CHAIN_FINALITY]`, matching
+    /// Lotus's [`MaxRequestLength`].
+    ///
+    /// [`MaxRequestLength`]: https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/exchange/protocol.go#L30
+    pub fn is_request_len_valid(&self) -> bool {
+        self.request_len > 0 && self.request_len <= CHAIN_FINALITY as u64
     }
 }
 
@@ -120,6 +129,16 @@ pub struct ChainExchangeResponse {
 }
 
 impl ChainExchangeResponse {
+    /// Build a [`ChainExchangeResponseStatus::GoAway`] response asking the
+    /// requester to back off (e.g. when concurrent-request caps are reached).
+    pub fn go_away(message: impl Into<String>) -> Self {
+        Self {
+            chain: Default::default(),
+            status: ChainExchangeResponseStatus::GoAway,
+            message: message.into(),
+        }
+    }
+
     /// Converts `chain_exchange` response into result.
     /// Returns an error if the response status is not `Ok`.
     /// Tipset bundle is converted into generic return type with `TryFrom` trait
