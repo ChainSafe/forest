@@ -18,7 +18,7 @@ use tempfile::NamedTempFile;
 
 /// Calibnet address used as the funded source in every test. Imported into
 /// both backends by the harness before this binary runs.
-pub const PRELOADED_ADDRESS: &str = "t147upkwsnjhyabxuusawz3x42cselvdnp7j26kxy";
+pub const PRELOADED_ADDRESS: &str = "t1ac6ndwj6nghqbmtbovvnwcqo577p6ox2pt52q2y";
 
 /// Default amount transferred in value-transfer assertions.
 pub const FIL_AMT: &str = "500 atto FIL";
