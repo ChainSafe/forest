@@ -6,6 +6,8 @@ ignore = [
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
   "RUSTSEC-2024-0436", # paste is unmaintained
   "RUSTSEC-2025-0141", # bincode is unmaintained
+  "RUSTSEC-2026-0118", # hickory-*, waiting for libp2p to update and release
+  "RUSTSEC-2026-0119", # hickory-*, waiting for libp2p to update and release
 ]
 
 [licenses]

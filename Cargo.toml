@@ -113,7 +113,7 @@ group = "0.13"
 hashbrown = "0.17"
 hashlink = { workspace = true }
 hex = { version = "0.4", features = ["serde"] }
-hickory-resolver = { version = "0.25", default-features = false, features = ["system-config", "tokio"] }
+hickory-resolver = { version = "0.26", default-features = false, features = ["system-config", "tokio"] }
 http = "1"
 human-repr = { version = "1", features = ["iec", "space"] }
 humantime = "2"
