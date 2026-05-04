@@ -39,6 +39,16 @@ Memory and CPU depend highly on the expected load and enabled RPC methods. Disk 
 
 As a rule of thumb, an RPC node would require `200 GiB + 5 GiB per day of retention` of disk space. For example, if you want to retain 30 days of historical state, you would need `200 GiB + (5 GiB * 30) = 350 GiB` of disk space.
 
+## RPC Node (low traffic, 2 months retention)
+
+This setup should be sufficient for a self-hosted RPC node that serves a small number of requests (under 100 requests per minute) and retains 2 months of historical state. Note that if the methods called by the clients are more resource-intensive, you might need need to tweak the setup.
+
+|            | Recommended | Notes                                                           |
+| ---------- | ----------- | --------------------------------------------------------------- |
+| CPU        | 6-core      | Possible to run on 4-core, but might struggle at certain times. |
+| Memory     | 16 GiB      | Network upgrades can require more memory.                       |
+| Disk Space | 500 GiB     | SSD/NVMe recommended.                                           |
+
 ## Community: Portable Solar-Powered Forest Node
 
 <iframe
