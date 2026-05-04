@@ -5,7 +5,7 @@ sidebar_position: 1
 
 Forest is designed to be lightweight enough to run on consumer hardware. Below are recommendations for the minium and recommended hardware requirements for running a Forest node, depending on the use case. All requirements assume running the latest version of Forest on mainnet. The requirements on test networks are significantly lower (yes, solar-powered Raspberry Pi 5 is totally fine, check the bottom of the page).
 
-As a rule of thumb, an RPC node would require `200 GiB + 5 GiB per day of retention` of disk space. For example, if you want to retain 30 days of historical state, you would need `200 GiB + (5 GiB * 30) = 350 GiB` of disk space.
+As a rule of thumb, an RPC node would require `200 GiB + 5 GiB per day of retention` of disk space. For example, if you want to retain 60 days of historical state, you would need `200 GiB + (5 GiB * 60) = 500 GiB` of disk space.
 
 Also, if you disable GC, you can cut the disk space requirements in half, but you will need to manage the disk space manually (it's growing by ~2 GiB per day).
 
