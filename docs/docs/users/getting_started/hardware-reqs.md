@@ -41,7 +41,7 @@ As a rule of thumb, an RPC node would require `200 GiB + 5 GiB per day of retent
 
 ## RPC Node (low traffic, 2 months retention)
 
-This setup should be sufficient for a self-hosted RPC node that serves a small number of requests (under 100 requests per minute) and retains 2 months of historical state. Note that if the methods called by the clients are more resource-intensive, you might need need to tweak the setup.
+This setup should be sufficient for a self-hosted RPC node that serves a small number of requests (under 100 requests per minute) and retains 2 months of historical state. Note that if the methods called by the clients are more resource-intensive, you might need to tweak the setup.
 
 |            | Recommended | Notes                                                           |
 | ---------- | ----------- | --------------------------------------------------------------- |
