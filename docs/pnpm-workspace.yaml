@@ -1,4 +1,16 @@
 # https://pnpm.io/supply-chain-security
 
+allowBuilds:
+  core-js: false
+  core-js-pure: false
+  esbuild: false
+  puppeteer: false
 blockExoticSubdeps: true
 minimumReleaseAge: 10080 # 7 days
+
+overrides:
+  dompurify: ^3.4.0
+  lodash: ^4.18.1
+  lodash-es: ^4.18.1
+  serialize-javascript: ^7.0.5
+  uuid: ^14.0.0
