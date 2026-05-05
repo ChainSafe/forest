@@ -16,7 +16,6 @@ use crate::shim::{address::Address, econ::TokenAmount};
 use crate::state_manager::IdToAddressCache;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, bail, ensure};
-use parking_lot::RwLock;
 use rand::prelude::SliceRandom;
 use tracing::{debug, error, warn};
 
@@ -28,8 +27,7 @@ use super::{MpoolCtx, msg_pool::MessagePool, provider::Provider, utils::recover_
 use crate::message_pool::{
     Error, add_to_selected_msgs,
     msg_chain::{Chains, NodeKey, create_message_chains},
-    msg_pool::MsgSet,
-    msgpool::MIN_GAS,
+    msgpool::{MIN_GAS, pending_store::PendingStore},
 };
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
@@ -641,25 +639,13 @@ where
     }
 
     fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
-        let mut result: Pending = HashMap::new();
-        let mut in_sync = false;
+        let snapshot = self.pending_store.snapshot();
+        let mut result: Pending = HashMap::with_capacity(snapshot.len());
+        for (a, mset) in snapshot {
+            result.insert(a, mset.msgs);
+        }
+
         if cur_ts.epoch() == ts.epoch() && cur_ts == ts {
-            in_sync = true;
-        }
-
-        for (a, mset) in self.pending.read().iter() {
-            if in_sync {
-                result.insert(*a, mset.msgs.clone());
-            } else {
-                let mut mset_copy = HashMap::new();
-                for (nonce, m) in mset.msgs.iter() {
-                    mset_copy.insert(*nonce, m.clone());
-                }
-                result.insert(*a, mset_copy);
-            }
-        }
-
-        if in_sync {
             return Ok(result);
         }
 
@@ -667,7 +653,7 @@ where
         run_head_change(
             self.api.as_ref(),
             &self.bls_sig_cache,
-            &self.pending,
+            &self.pending_store,
             &self.key_cache,
             cur_ts.clone(),
             ts.clone(),
@@ -820,7 +806,7 @@ fn merge_and_trim(
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
+    pending_store: &PendingStore,
     key_cache: &IdToAddressCache,
     from: Tipset,
     to: Tipset,
@@ -867,7 +853,7 @@ where
         let mpool_ctx = MpoolCtx {
             api,
             key_cache,
-            pending,
+            pending_store,
             ts: &ts,
         };
         for b in ts.block_headers() {
@@ -988,11 +974,11 @@ mod test_selection {
             .unwrap();
 
         // we should now have no pending messages in the MessagePool
-        // let pending = mpool.pending.read().await;
+        let remaining = mpool.pending_store.snapshot();
         assert!(
-            mpool.pending.read().is_empty(),
+            remaining.is_empty(),
             "Expected no pending messages, but got {}",
-            mpool.pending.read().len()
+            remaining.len()
         );
 
         // create a block and advance the chain without applying to the mpool
