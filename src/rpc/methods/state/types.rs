@@ -291,7 +291,7 @@ pub struct GasTrace {
 lotus_json_with_self!(GasTrace);
 
 impl PartialEq for GasTrace {
-    /// Ignore [`Self::total_gas`] as it is implementation-dependent
+    /// Ignore [`Self::time_taken`] as it is implementation-dependent
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.total_gas == other.total_gas
