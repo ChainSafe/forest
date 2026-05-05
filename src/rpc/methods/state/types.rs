@@ -47,7 +47,7 @@ pub struct ForestComputeStateOutput {
 
 lotus_json_with_self!(ForestComputeStateOutput);
 
-#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]
