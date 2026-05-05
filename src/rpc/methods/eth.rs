@@ -3407,12 +3407,7 @@ where
     let state = ctx.state_manager.get_state_tree(&state_root)?;
 
     let mut entries = Vec::new();
-    let mut msg_idx = 0;
-    for ir in raw_traces {
-        if ir.msg.from == system::ADDRESS.into() {
-            continue;
-        }
-        msg_idx += 1;
+    for (msg_idx, ir) in non_system_traces_with_positions(raw_traces) {
         let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
         let tx_hash = tx_hash
             .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
@@ -3424,6 +3419,19 @@ where
     }
 
     Ok((state, entries))
+}
+
+/// Yields non-system traces paired with 0-indexed positions matching
+/// `transactionIndex` from `eth_getBlockByNumber`. System-actor messages
+/// are filtered out without consuming a position.
+fn non_system_traces_with_positions(
+    raw_traces: impl IntoIterator<Item = ApiInvocResult>,
+) -> impl Iterator<Item = (i64, ApiInvocResult)> {
+    raw_traces
+        .into_iter()
+        .filter(|ir| ir.msg.from != system::ADDRESS.into())
+        .enumerate()
+        .map(|(idx, ir)| (idx as i64, ir))
 }
 
 async fn eth_trace_block<DB>(
@@ -3988,6 +3996,40 @@ mod test {
         assert_eq!(encoded, format!("\"{i:#x}\""));
         let decoded: EthBigInt = serde_json::from_str(&encoded).unwrap();
         assert_eq!(r.0, decoded.0);
+    }
+
+    /// `transactionPosition` must be 0-indexed and system-actor messages must
+    /// be filtered without consuming a position.
+    #[test]
+    fn non_system_traces_with_positions_is_zero_indexed() {
+        use crate::shim::address::Address as ShimAddress;
+        use crate::shim::message::Message_v3;
+
+        let invoc_with_from = |from: ShimAddress| -> ApiInvocResult {
+            ApiInvocResult {
+                msg: Message_v3 {
+                    to: ShimAddress::new_id(1).into(),
+                    from: from.into(),
+                    ..Message_v3::default()
+                }
+                .into(),
+                ..Default::default()
+            }
+        };
+
+        let raw_traces = vec![
+            invoc_with_from(system::ADDRESS.into()),
+            invoc_with_from(ShimAddress::new_id(1000)),
+            invoc_with_from(system::ADDRESS.into()),
+            invoc_with_from(ShimAddress::new_id(1001)),
+            invoc_with_from(ShimAddress::new_id(1002)),
+        ];
+
+        let positions: Vec<i64> = non_system_traces_with_positions(raw_traces)
+            .map(|(pos, _)| pos)
+            .collect();
+
+        assert_eq!(positions, vec![0, 1, 2]);
     }
 
     #[test]
