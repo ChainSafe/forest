@@ -489,7 +489,7 @@ mod test {
 /// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
 pub mod structured {
     use crate::{
-        rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace},
+        rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace, TraceIpld},
         shim::kernel::ErrorNumber,
     };
     use std::collections::VecDeque;
@@ -626,6 +626,8 @@ pub mod structured {
             let mut gas_charges = vec![];
             let mut subcalls = vec![];
             let mut actor_trace = None;
+            let mut logs = vec![];
+            let mut ipld_ops = vec![];
 
             // we don't use a for loop over `events` so we can pass them to recursive calls
             while let Some(event) = events.pop_front() {
@@ -641,7 +643,10 @@ pub mod structured {
                     ExecutionEvent::CallReturn(ret) => Some(CallTreeReturn::Return(ret)),
                     ExecutionEvent::CallAbort(ab) => Some(CallTreeReturn::Abort(ab)),
                     ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
-                    ExecutionEvent::Log(_ignored) => None,
+                    ExecutionEvent::Log(log) => {
+                        logs.push(log);
+                        None
+                    }
                     ExecutionEvent::InvokeActor(cid) => {
                         actor_trace = match cid {
                             Either::Left(_cid) => None,
@@ -652,7 +657,14 @@ pub mod structured {
                         };
                         None
                     }
-                    ExecutionEvent::Ipld { .. } => None,
+                    ExecutionEvent::Ipld { op, cid, size } => {
+                        ipld_ops.push(TraceIpld {
+                            op: op.into(),
+                            cid,
+                            size: size as u64,
+                        });
+                        None
+                    }
                     // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
                     //       So that BuildExecutionTraceError::UnrecognisedEvent is never constructed
                     //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554
@@ -669,8 +681,8 @@ pub mod structured {
                         gas_charges,
                         subcalls,
                         invoked_actor: actor_trace,
-                        logs: vec![],
-                        ipld_ops: vec![],
+                        logs,
+                        ipld_ops,
                     });
                 }
             }

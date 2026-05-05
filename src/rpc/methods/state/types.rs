@@ -11,6 +11,7 @@ use crate::shim::{
     econ::TokenAmount,
     error::ExitCode,
     executor::Receipt,
+    fvm_latest::trace::IpldOperation,
     message::Message,
     state_tree::{ActorID, ActorState},
 };
@@ -172,6 +173,15 @@ impl JsonSchema for TraceIpldOp {
     }
 }
 
+impl From<IpldOperation> for TraceIpldOp {
+    fn from(op: IpldOperation) -> Self {
+        match op {
+            IpldOperation::Get => Self::Get,
+            IpldOperation::Put => Self::Put,
+        }
+    }
+}
+
 /// IPLD operation details attached to an [`ExecutionTrace`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -185,7 +195,7 @@ pub struct TraceIpld {
 
 lotus_json_with_self!(TraceIpld);
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ExecutionTrace {
     pub msg: MessageTrace,
@@ -195,21 +205,12 @@ pub struct ExecutionTrace {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Vec<ExecutionTrace>>")]
     pub subcalls: Vec<ExecutionTrace>,
+    /// See <https://github.com/filecoin-project/lotus/blob/master/chain/types/execresult.go#L115>
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub logs: Vec<String>,
+    /// See <https://github.com/filecoin-project/lotus/blob/master/chain/types/execresult.go#L116>
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ipld_ops: Vec<TraceIpld>,
-}
-
-impl PartialEq for ExecutionTrace {
-    /// Ignore [`Self::logs`] and [`Self::ipld_ops`] as they are implementation-dependent
-    fn eq(&self, other: &Self) -> bool {
-        self.msg == other.msg
-            && self.msg_rct == other.msg_rct
-            && self.invoked_actor == other.invoked_actor
-            && self.gas_charges == other.gas_charges
-            && self.subcalls == other.subcalls
-    }
 }
 
 impl ExecutionTrace {
