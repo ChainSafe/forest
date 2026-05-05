@@ -587,7 +587,7 @@ where
 
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.shallow_clone();
-        let pending_store = mp.pending_store.clone();
+        let pending_store = mp.pending_store.shallow_clone();
         let republished = mp.republished.clone();
         let key_cache = mp.key_cache.shallow_clone();
         let state_nonce_cache = mp.state_nonce_cache.shallow_clone();
@@ -628,7 +628,7 @@ where
         });
 
         let api = mp.api.clone();
-        let pending_store = mp.pending_store.clone();
+        let pending_store = mp.pending_store.shallow_clone();
         let cur_tipset = mp.cur_tipset.clone();
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();

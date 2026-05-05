@@ -15,10 +15,11 @@ use crate::message_pool::msgpool::events::{MPOOL_UPDATE_CHANNEL_CAPACITY, MpoolU
 use crate::message_pool::msgpool::msg_pool::TrustPolicy;
 use crate::message_pool::msgpool::msg_set::{MsgSet, MsgSetLimits, StrictnessPolicy};
 use crate::shim::address::Address;
+use crate::utils::ShallowClone;
+use crate::utils::broadcast::has_subscribers;
 
 /// Owns the per-actor [`MsgSet`] map and the [`MpoolUpdate`] broadcast
 /// channel. The single place where the pending map is mutated.
-#[derive(Clone)]
 pub(in crate::message_pool) struct PendingStore {
     inner: Arc<Inner>,
 }
@@ -30,6 +31,14 @@ struct Inner {
     events: broadcast::Sender<MpoolUpdate>,
     /// Per-actor pending-message caps captured once from the provider.
     limits: MsgSetLimits,
+}
+
+impl ShallowClone for PendingStore {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            inner: self.inner.shallow_clone(),
+        }
+    }
 }
 
 impl PendingStore {
@@ -57,7 +66,7 @@ impl PendingStore {
         trust: TrustPolicy,
         strictness: StrictnessPolicy,
     ) -> Result<(), Error> {
-        let event_msg = self.has_subscribers().then(|| msg.clone());
+        let event_msg = has_subscribers(&self.inner.events).then(|| msg.clone());
 
         {
             let mut pending = self.inner.pending.write();
@@ -95,7 +104,7 @@ impl PendingStore {
         };
 
         if let Some(msg) = &removed
-            && self.has_subscribers()
+            && has_subscribers(&self.inner.events)
         {
             let _ = self.inner.events.send(MpoolUpdate::Remove(msg.clone()));
         }
@@ -117,11 +126,6 @@ impl PendingStore {
     #[allow(dead_code)] // consumed by MessagePool::subscribe_to_updates / external subscribers.
     pub fn subscribe(&self) -> broadcast::Receiver<MpoolUpdate> {
         self.inner.events.subscribe()
-    }
-
-    /// `true` while at least one subscriber holds a live.
-    pub(in crate::message_pool) fn has_subscribers(&self) -> bool {
-        self.inner.events.receiver_count() > 0
     }
 }
 
@@ -270,7 +274,7 @@ mod tests {
         let store = PendingStore::new(TEST_LIMITS);
         let addr = Address::new_id(1);
 
-        assert!(!store.has_subscribers());
+        assert!(!has_subscribers(&store.inner.events));
         store
             .insert(
                 addr,
@@ -310,7 +314,7 @@ mod tests {
         // The handle pattern: cloning the store gives another view over the
         // same pending map and the same broadcast channel.
         let store = PendingStore::new(TEST_LIMITS);
-        let handle = store.clone();
+        let handle = store.shallow_clone();
         let mut rx = handle.subscribe();
         let addr = Address::new_id(7);
 
