@@ -2,63 +2,56 @@
 // https://github.com/ipld/serde_ipld_dagcbor/blob/379581691d82a68a774f87deb9462091ec3c8cb6/src/de.rs
 //
 // This is mostly a copy-paste of the original file, with the following changes:
-// - strings are de-serialized as `BadStr`. This is a workaround for the historical
+// - strings are de-serialized as `UncheckedStr`. This is a workaround for the historical
 // bug in Lotus where malformed UTF-8 strings were serialized as CBOR strings.
 // Allow everything so we don't stray from the original code too much.
 
-use self::cbor4ii_nonpub::*;
 use cbor4ii::core::dec::{self, Decode};
-use cbor4ii::core::types::BadStr;
+use cbor4ii::core::error::{Len, StaticStr};
 use cbor4ii::core::utils::IoReader;
-use cbor4ii::core::{major, types, utils::SliceReader};
+use cbor4ii::core::{major, marker, types, utils::SliceReader};
+use cbor4ii::serde::DecodeError;
 use cid::serde::CID_SERDE_PRIVATE_IDENTIFIER;
 use serde::de::{self, Visitor};
-use serde_ipld_dagcbor::DecodeError;
 use std::borrow::Cow;
 use std::convert::Infallible;
 
-// This module refers to the file:
-// https://github.com/ipld/serde_ipld_dagcbor/blob/379581691d82a68a774f87deb9462091ec3c8cb6/src/cbor4ii_nonpub.rs
-mod cbor4ii_nonpub {
-    use super::*;
-    use cbor4ii::core::dec;
+#[inline]
+fn err_mismatch<E>(name: StaticStr, found: u8) -> DecodeError<E> {
+    dec::Error::Mismatch { name, found }.into()
+}
 
-    // Copy from cbor4ii/core.rs.
-    #[allow(dead_code)]
-    pub(crate) mod marker {
-        pub const START: u8 = 0x1f;
-        pub const FALSE: u8 = 0xf4; // simple(20)
-        pub const TRUE: u8 = 0xf5; // simple(21)
-        pub const NULL: u8 = 0xf6; // simple(22)
-        pub const UNDEFINED: u8 = 0xf7; // simple(23)
-        pub const F16: u8 = 0xf9;
-        pub const F32: u8 = 0xfa;
-        pub const F64: u8 = 0xfb;
-        pub const BREAK: u8 = 0xff;
-    }
+#[inline]
+fn err_unsupported<E>(name: StaticStr, found: u8) -> DecodeError<E> {
+    dec::Error::Unsupported { name, found }.into()
+}
 
-    // Copy from cbor4ii/core/dec.rs.
-    #[inline]
-    pub(crate) fn peek_one<'a, R: dec::Read<'a>>(
-        reader: &mut R,
-    ) -> Result<u8, DecodeError<R::Error>> {
-        let buf = match reader.fill(1)? {
-            dec::Reference::Long(buf) => buf,
-            dec::Reference::Short(buf) => buf,
-        };
-        let byte = buf.first().copied().ok_or(DecodeError::Eof)?;
-        Ok(byte)
+#[inline]
+fn err_indefinite<E>(name: StaticStr) -> DecodeError<E> {
+    dec::Error::RequireLength {
+        name,
+        found: Len::Indefinite,
     }
+    .into()
+}
 
-    // Copy from cbor4ii/core/dec.rs.
-    #[inline]
-    pub(crate) fn pull_one<'a, R: dec::Read<'a>>(
-        reader: &mut R,
-    ) -> Result<u8, DecodeError<R::Error>> {
-        let byte = peek_one(reader)?;
-        reader.advance(1);
-        Ok(byte)
-    }
+#[inline]
+fn peek_one<'a, R: dec::Read<'a>>(reader: &mut R) -> Result<u8, dec::Error<R::Error>> {
+    let buf = match reader.fill(1)? {
+        dec::Reference::Long(buf) => buf,
+        dec::Reference::Short(buf) => buf,
+    };
+    buf.first().copied().ok_or(dec::Error::Eof {
+        name: &"peek",
+        expect: Len::Small(1),
+    })
+}
+
+#[inline]
+fn pull_one<'a, R: dec::Read<'a>>(reader: &mut R) -> Result<u8, dec::Error<R::Error>> {
+    let byte = peek_one(reader)?;
+    reader.advance(1);
+    Ok(byte)
 }
 
 /// Decodes a value from CBOR data in a slice.
@@ -150,7 +143,10 @@ impl<'de, R: dec::Read<'de>> Deserializer<R> {
         if self.reader.step_in() {
             Ok(scopeguard::guard(self, |de| de.reader.step_out()))
         } else {
-            Err(DecodeError::DepthLimit)
+            Err(dec::Error::DepthOverflow {
+                name: &"deserializer",
+            }
+            .into())
         }
     }
 
@@ -160,13 +156,10 @@ impl<'de, R: dec::Read<'de>> Deserializer<R> {
         V: Visitor<'de>,
     {
         const CBOR_TAGS_CID: u64 = 42; // serde_ipld_dagcbor::CBOR_TAGS_CID
-        let tag = dec::TagStart::decode(&mut self.reader)?;
-        match tag.0 {
+        let tag = <types::Tag<()>>::tag(&mut self.reader)?;
+        match tag {
             CBOR_TAGS_CID => visitor.visit_newtype_struct(&mut CidDeserializer(self)),
-            _ => Err(DecodeError::TypeMismatch {
-                name: "CBOR tag",
-                byte: tag.0 as u8,
-            }),
+            _ => Err(err_mismatch(&"CBOR tag", tag as u8)),
         }
     }
 
@@ -174,9 +167,9 @@ impl<'de, R: dec::Read<'de>> Deserializer<R> {
     /// trailing data in the input source.
     pub fn end(&mut self) -> Result<(), DecodeError<R::Error>> {
         match peek_one(&mut self.reader) {
-            Ok(_) => Err(DecodeError::TrailingData),
-            Err(DecodeError::Eof) => Ok(()),
-            Err(error) => Err(error),
+            Ok(_) => Err(de::Error::custom("trailing data")),
+            Err(dec::Error::Eof { .. }) => Ok(()),
+            Err(error) => Err(error.into()),
         }
     }
 }
@@ -210,7 +203,7 @@ impl<'de, R: dec::Read<'de>> serde::Deserializer<'de> for &mut Deserializer<R> {
 
         let byte = peek_one(&mut de.reader)?;
         if is_indefinite(byte) {
-            return Err(DecodeError::IndefiniteSize);
+            return Err(err_indefinite(&"any"));
         }
         match dec::if_major(byte) {
             major::UNSIGNED => de.deserialize_u64(visitor),
@@ -236,9 +229,9 @@ impl<'de, R: dec::Read<'de>> serde::Deserializer<'de> for &mut Deserializer<R> {
                 }
                 marker::F32 => de.deserialize_f32(visitor),
                 marker::F64 => de.deserialize_f64(visitor),
-                _ => Err(DecodeError::Unsupported { byte }),
+                _ => Err(err_unsupported(&"simple", byte)),
             },
-            _ => Err(DecodeError::Unsupported { byte }),
+            _ => Err(err_unsupported(&"any", byte)),
         }
     }
 
@@ -296,9 +289,9 @@ impl<'de, R: dec::Read<'de>> serde::Deserializer<'de> for &mut Deserializer<R> {
     where
         V: Visitor<'de>,
     {
-        match <BadStr<Cow<[u8]>>>::decode(&mut self.reader)?.0 {
+        match <types::UncheckedStr<Cow<[u8]>>>::decode(&mut self.reader)?.0 {
             Cow::Borrowed(buf) => visitor.visit_borrowed_bytes(buf),
-            Cow::Owned(buf) => visitor.visit_bytes(&buf),
+            Cow::Owned(buf) => visitor.visit_byte_buf(buf),
         }
     }
 
@@ -334,7 +327,7 @@ impl<'de, R: dec::Read<'de>> serde::Deserializer<'de> for &mut Deserializer<R> {
         if byte == marker::NULL {
             visitor.visit_unit()
         } else {
-            Err(DecodeError::TypeMismatch { name: "unit", byte })
+            Err(err_mismatch(&"unit", byte))
         }
     }
 
@@ -468,9 +461,9 @@ struct Accessor<'a, R> {
 impl<'de, 'a, R: dec::Read<'de>> Accessor<'a, R> {
     #[inline]
     pub fn array(de: &'a mut Deserializer<R>) -> Result<Accessor<'a, R>, DecodeError<R::Error>> {
-        let array_start = dec::ArrayStart::decode(&mut de.reader)?;
-        array_start.0.map_or_else(
-            || Err(DecodeError::IndefiniteSize),
+        let array_len = <types::Array<()>>::len(&mut de.reader)?;
+        array_len.map_or_else(
+            || Err(err_indefinite(&"array")),
             move |len| Ok(Accessor { de, len }),
         )
     }
@@ -480,24 +473,25 @@ impl<'de, 'a, R: dec::Read<'de>> Accessor<'a, R> {
         de: &'a mut Deserializer<R>,
         len: usize,
     ) -> Result<Accessor<'a, R>, DecodeError<R::Error>> {
-        let array_start = dec::ArrayStart::decode(&mut de.reader)?;
+        let array_len = <types::Array<()>>::len(&mut de.reader)?;
 
-        if array_start.0 == Some(len) {
+        if array_len == Some(len) {
             Ok(Accessor { de, len })
         } else {
-            Err(DecodeError::RequireLength {
-                name: "tuple",
-                expect: len,
-                value: array_start.0.unwrap_or(0),
-            })
+            let found = array_len.map_or(Len::Indefinite, Len::new);
+            Err(dec::Error::RequireLength {
+                name: &"tuple",
+                found,
+            }
+            .into())
         }
     }
 
     #[inline]
     pub fn map(de: &'a mut Deserializer<R>) -> Result<Accessor<'a, R>, DecodeError<R::Error>> {
-        let map_start = dec::MapStart::decode(&mut de.reader)?;
-        map_start.0.map_or_else(
-            || Err(DecodeError::IndefiniteSize),
+        let map_len = <types::Map<()>>::len(&mut de.reader)?;
+        map_len.map_or_else(
+            || Err(err_indefinite(&"map")),
             move |len| Ok(Accessor { de, len }),
         )
     }
@@ -576,7 +570,7 @@ impl<'de, 'a, R: dec::Read<'de>> EnumAccessor<'a, R> {
                 de.reader.advance(1);
                 Ok(EnumAccessor { de })
             }
-            _ => Err(DecodeError::TypeMismatch { name: "enum", byte }),
+            _ => Err(err_mismatch(&"enum", byte)),
         }
     }
 }
@@ -670,12 +664,12 @@ impl<'de, 'a, R: dec::Read<'de>> de::Deserializer<'de> for &'a mut CidDeserializ
                 match <types::Bytes<Cow<[u8]>>>::decode(&mut self.0.reader)?.0 {
                     Cow::Borrowed(buf) => match buf.split_first() {
                         Some((0, rest)) => visitor.visit_borrowed_bytes(rest),
-                        _ => Err(DecodeError::Msg("Invalid CID".into())),
+                        _ => Err(de::Error::custom("Invalid CID")),
                     },
                     #[allow(clippy::indexing_slicing)]
                     Cow::Owned(mut buf) => {
                         if buf.len() <= 1 || buf[0] != 0 {
-                            Err(DecodeError::Msg("Invalid CID".into()))
+                            Err(de::Error::custom("Invalid CID"))
                         } else {
                             buf.remove(0);
                             visitor.visit_byte_buf(buf)
@@ -683,7 +677,7 @@ impl<'de, 'a, R: dec::Read<'de>> de::Deserializer<'de> for &'a mut CidDeserializ
                     }
                 }
             }
-            _ => Err(DecodeError::Unsupported { byte }),
+            _ => Err(err_unsupported(&"cid", byte)),
         }
     }
 
