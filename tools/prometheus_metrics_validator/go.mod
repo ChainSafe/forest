@@ -3,7 +3,7 @@ module prometheus_metrics_validator/v2
 go 1.26.0
 
 require (
-	github.com/prometheus/prometheus v0.311.2
+	github.com/prometheus/prometheus v0.311.3
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.8.0
 )

@@ -1,0 +1,12 @@
+# https://pnpm.io/supply-chain-security
+#
+# Used by the Cloudflare Pages deploy CI step which runs `pnpm add wrangler`
+# at the repo root. wrangler pulls in workerd (local runtime) and esbuild;
+# both postinstalls are denied because `wrangler pages deploy` only uploads
+# pre-built static files and does not need either.
+
+blockExoticSubdeps: true
+
+allowBuilds:
+  esbuild: false
+  workerd: false

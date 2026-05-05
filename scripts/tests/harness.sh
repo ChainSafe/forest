@@ -83,7 +83,7 @@ function forest_run_node_stateless_detached {
 		data_dir = "/tmp/stateless_forest_data"
 
 		[network]
-		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
+		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0", "/ip4/127.0.0.1/udp/0/quic-v1"]
 	EOF
 
   $FOREST_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --stateless &

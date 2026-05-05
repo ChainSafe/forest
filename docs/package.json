@@ -39,8 +39,10 @@
     "@docusaurus/tsconfig": "^3.10.0",
     "@docusaurus/types": "^3.10.0",
     "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "browserslist": {
     "production": [
@@ -53,12 +55,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "resolutions": {
-    "dompurify": "^3.4.0",
-    "lodash": "^4.18.1",
-    "lodash-es": "^4.18.1",
-    "serialize-javascript": "^7.0.5",
-    "uuid": "^14.0.0"
   }
 }
