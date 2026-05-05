@@ -55,6 +55,7 @@ impl RpcMethod<0> for Version {
             // For the API v0, we don't support it but it should be `1.5.0`.
             api_version: ShiftingVersion::new(2, 3, 0),
             block_delay: ctx.chain_config().block_delay_secs,
+            agent: "forest".into(),
         })
     }
 }
@@ -106,6 +107,8 @@ pub struct PublicVersion {
     #[serde(rename = "APIVersion")]
     pub api_version: ShiftingVersion,
     pub block_delay: u32,
+    /// See <https://github.com/filecoin-project/lotus/blob/master/api/api_common.go#L78>
+    pub agent: String,
 }
 lotus_json_with_self!(PublicVersion);
 

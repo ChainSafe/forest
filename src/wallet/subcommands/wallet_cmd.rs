@@ -545,8 +545,7 @@ impl WalletCommands {
                         &backend.remote,
                         (message, spec, ApiTipsetKey(None)),
                     )
-                    .await?
-                    .message;
+                    .await?;
 
                     if message.gas_premium > message.gas_fee_cap {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")

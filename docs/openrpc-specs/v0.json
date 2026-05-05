@@ -432,7 +432,7 @@
         "name": "Filecoin.ChainGetMessage.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/FlattenedApiMessage"
+          "$ref": "#/components/schemas/Message"
         }
       },
       "paramStructure": "by-position"
@@ -2280,7 +2280,7 @@
         "name": "Filecoin.GasEstimateMessageGas.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/FlattenedApiMessage"
+          "$ref": "#/components/schemas/Message"
         }
       },
       "paramStructure": "by-position"
@@ -9556,6 +9556,20 @@
               }
             ]
           },
+          "IpldOps": {
+            "description": "See <https://github.com/filecoin-project/lotus/blob/master/chain/types/execresult.go#L116>",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceIpld"
+            }
+          },
+          "Logs": {
+            "description": "FVM invocation logs (not EVM actor / `eth_getLogs` event logs).\nSee <https://github.com/filecoin-project/lotus/blob/master/chain/types/execresult.go#L115>",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "Msg": {
             "$ref": "#/components/schemas/MessageTrace"
           },
@@ -9828,64 +9842,6 @@
           "Signature"
         ]
       },
-      "FlattenedApiMessage": {
-        "type": "object",
-        "properties": {
-          "CID": {
-            "$ref": "#/components/schemas/Cid"
-          },
-          "From": {
-            "$ref": "#/components/schemas/Address"
-          },
-          "GasFeeCap": {
-            "$ref": "#/components/schemas/TokenAmount",
-            "default": "0"
-          },
-          "GasLimit": {
-            "type": "integer",
-            "format": "uint64",
-            "default": 0,
-            "minimum": 0
-          },
-          "GasPremium": {
-            "$ref": "#/components/schemas/TokenAmount",
-            "default": "0"
-          },
-          "Method": {
-            "type": "integer",
-            "format": "uint64",
-            "default": 0,
-            "minimum": 0
-          },
-          "Nonce": {
-            "type": "integer",
-            "format": "uint64",
-            "default": 0,
-            "minimum": 0
-          },
-          "Params": {
-            "$ref": "#/components/schemas/Nullable_Base64String"
-          },
-          "To": {
-            "$ref": "#/components/schemas/Address"
-          },
-          "Value": {
-            "$ref": "#/components/schemas/TokenAmount",
-            "default": "0"
-          },
-          "Version": {
-            "type": "integer",
-            "format": "uint64",
-            "default": 0,
-            "minimum": 0
-          }
-        },
-        "required": [
-          "To",
-          "From",
-          "CID"
-        ]
-      },
       "ForestChainExportDiffParams": {
         "type": "object",
         "properties": {
@@ -10094,6 +10050,10 @@
             "type": "integer",
             "format": "int64"
           },
+          "UpgradeFireHorseHeight": {
+            "type": "integer",
+            "format": "int64"
+          },
           "UpgradeGoldenWeekHeight": {
             "type": "integer",
             "format": "int64"
@@ -10227,7 +10187,8 @@
           "UpgradeTuktukHeight",
           "UpgradeTeepHeight",
           "UpgradeTockHeight",
-          "UpgradeGoldenWeekHeight"
+          "UpgradeGoldenWeekHeight",
+          "UpgradeFireHorseHeight"
         ]
       },
       "GasTrace": {
@@ -10381,6 +10342,9 @@
       "Message": {
         "type": "object",
         "properties": {
+          "CID": {
+            "$ref": "#/components/schemas/Nullable_Cid"
+          },
           "From": {
             "$ref": "#/components/schemas/Address"
           },
@@ -10411,7 +10375,8 @@
             "minimum": 0
           },
           "Params": {
-            "$ref": "#/components/schemas/Nullable_Base64String"
+            "$ref": "#/components/schemas/Base64String",
+            "default": null
           },
           "To": {
             "$ref": "#/components/schemas/Address"
@@ -10868,6 +10833,12 @@
           "ForkUpgradeParams": {
             "$ref": "#/components/schemas/ForkUpgradeParams"
           },
+          "GenesisTimestamp": {
+            "description": "See <https://github.com/filecoin-project/lotus/blob/master/api/types.go#L163>",
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
           "NetworkName": {
             "type": "string"
           },
@@ -10882,7 +10853,8 @@
           "ConsensusMinerMinPower",
           "PreCommitChallengeDelay",
           "ForkUpgradeParams",
-          "Eip155ChainID"
+          "Eip155ChainID",
+          "GenesisTimestamp"
         ]
       },
       "NetworkVersion": {
@@ -11138,16 +11110,6 @@
           "format": "uint64",
           "minimum": 0
         }
-      },
-      "Nullable_Base64String": {
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/Base64String"
-          },
-          {
-            "type": "null"
-          }
-        ]
       },
       "Nullable_Cid": {
         "anyOf": [
@@ -11418,6 +11380,10 @@
           "APIVersion": {
             "$ref": "#/components/schemas/ShiftingVersion"
           },
+          "Agent": {
+            "description": "See <https://github.com/filecoin-project/lotus/blob/master/api/api_common.go#L78>",
+            "type": "string"
+          },
           "BlockDelay": {
             "type": "integer",
             "format": "uint32",
@@ -11430,7 +11396,8 @@
         "required": [
           "Version",
           "APIVersion",
-          "BlockDelay"
+          "BlockDelay",
+          "Agent"
         ]
       },
       "Receipt": {
@@ -11915,6 +11882,36 @@
           {
             "$ref": "#/components/schemas/EthCreateTraceAction"
           }
+        ]
+      },
+      "TraceIpld": {
+        "description": "IPLD operation details attached to an [`ExecutionTrace`].",
+        "type": "object",
+        "properties": {
+          "Cid": {
+            "$ref": "#/components/schemas/Cid"
+          },
+          "Op": {
+            "$ref": "#/components/schemas/TraceIpldOp"
+          },
+          "Size": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "Op",
+          "Cid",
+          "Size"
+        ]
+      },
+      "TraceIpldOp": {
+        "type": "string",
+        "enum": [
+          "Get",
+          "Put",
+          "Unknown"
         ]
       },
       "TraceResult": {
