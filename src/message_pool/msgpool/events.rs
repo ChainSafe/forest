@@ -8,7 +8,7 @@ use crate::message::SignedMessage;
 pub(in crate::message_pool) const MPOOL_UPDATE_CHANNEL_CAPACITY: usize = 256;
 
 /// A change to the pending pool.
-#[allow(dead_code)] // payloads consumed by external subscribers.
+#[allow(dead_code)] // TODO: This will be used in https://github.com/ChainSafe/forest/pull/6941
 #[derive(Clone, Debug)]
 pub enum MpoolUpdate {
     Add(SignedMessage),

@@ -1,12 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Pending message storage.
-//!
-//! [`PendingStore`] owns the per-actor [`MsgSet`] map and the
-//! [`MpoolUpdate`] broadcast channel. It is the single place in the code
-//! where the pending map is mutated, which lets observers subscribe to one
-//! event stream.
+//! Pending message storage and event broadcast.
 
 use std::sync::Arc;
 
@@ -21,7 +16,8 @@ use crate::message_pool::msgpool::msg_pool::TrustPolicy;
 use crate::message_pool::msgpool::msg_set::{MsgSet, MsgSetLimits, StrictnessPolicy};
 use crate::shim::address::Address;
 
-/// A shared, event-emitting pending-message store.
+/// Owns the per-actor [`MsgSet`] map and the [`MpoolUpdate`] broadcast
+/// channel. The single place where the pending map is mutated.
 #[derive(Clone)]
 pub(in crate::message_pool) struct PendingStore {
     inner: Arc<Inner>,
