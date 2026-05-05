@@ -3191,6 +3191,7 @@ pub struct NetworkParams {
     fork_upgrade_params: ForkUpgradeParams,
     #[serde(rename = "Eip155ChainID")]
     eip155_chain_id: EthChainId,
+    /// See <https://github.com/filecoin-project/lotus/blob/master/api/types.go#L163>
     genesis_timestamp: u64,
 }
 
