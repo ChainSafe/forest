@@ -18,7 +18,7 @@ echo "Stateless node peer id: $STATELESS_NODE_PEER_ID"
 CONFIG_PATH="./forest_config.toml"
 cat <<- EOF > $CONFIG_PATH
 	[network]
-	listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
+	listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0", "/ip4/127.0.0.1/udp/0/quic-v1"]
 	bootstrap_peers = ["$STATELESS_NODE_ADDRESS"]
 	mdns = false
 	kademlia = true

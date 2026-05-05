@@ -11,14 +11,14 @@ forest_init_stateless
 STATELESS_NODE_ADDRESS=$($FOREST_CLI_PATH net listen | tail -n 1)
 echo "Stateless node address: $STATELESS_NODE_ADDRESS"
 # Example format: 12D3KooWAB9z7vZ1x1v9t4BViVkX1Hy1ScoRnWV2GgGy5ec6pfUZ
-STATELESS_NODE_PEER_ID=$(echo "$STATELESS_NODE_ADDRESS" | cut --delimiter="/" --fields=7 --zero-terminated)
+STATELESS_NODE_PEER_ID=$(echo "$STATELESS_NODE_ADDRESS" | rev | cut --delimiter="/" --fields=1 --zero-terminated | rev)
 echo "Stateless node peer id: $STATELESS_NODE_PEER_ID"
 
 # Run a normal forest node that only connects to the stateless node
 CONFIG_PATH="./forest_config.toml"
 cat <<- EOF > $CONFIG_PATH
 	[network]
-	listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
+	listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0", "/ip4/127.0.0.1/udp/0/quic-v1"]
 	bootstrap_peers = ["$STATELESS_NODE_ADDRESS"]
 	mdns = false
 	kademlia = false

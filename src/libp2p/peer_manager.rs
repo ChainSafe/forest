@@ -162,6 +162,7 @@ impl PeerManager {
         let peer_stats = peers.full_peers.entry(*peer).or_default();
         peer_stats.successes += 1;
         log_time(peer_stats, dur);
+        metrics::FULL_PEERS.set(peers.full_peers.len() as i64);
     }
 
     /// Logs a failure for the given peer, and updates the average request
@@ -177,6 +178,7 @@ impl PeerManager {
         let peer_stats = peers.full_peers.entry(*peer).or_default();
         peer_stats.failures += 1;
         log_time(peer_stats, dur);
+        metrics::FULL_PEERS.set(peers.full_peers.len() as i64);
     }
 
     /// Removes a peer from the set and returns true if the value was present
@@ -316,7 +318,7 @@ impl PeerManager {
 
 fn remove_peer(peers: &mut PeerSets, peer_id: &PeerId) {
     if peers.full_peers.remove(peer_id).is_some() {
-        metrics::FULL_PEERS.set(peers.full_peers.len() as _);
+        metrics::FULL_PEERS.set(peers.full_peers.len() as i64);
     }
     trace!(
         "removing peer {peer_id}, remaining chain exchange peers: {}",
