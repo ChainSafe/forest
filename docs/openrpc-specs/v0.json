@@ -11378,10 +11378,7 @@
             "$ref": "#/components/schemas/ShiftingVersion"
           },
           "Agent": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string"
           },
           "BlockDelay": {
             "type": "integer",
@@ -11395,7 +11392,8 @@
         "required": [
           "Version",
           "APIVersion",
-          "BlockDelay"
+          "BlockDelay",
+          "Agent"
         ]
       },
       "Receipt": {

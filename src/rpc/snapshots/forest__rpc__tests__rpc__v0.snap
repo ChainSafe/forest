@@ -7281,9 +7281,7 @@ components:
         APIVersion:
           $ref: "#/components/schemas/ShiftingVersion"
         Agent:
-          type:
-            - string
-            - "null"
+          type: string
         BlockDelay:
           type: integer
           format: uint32
@@ -7294,6 +7292,7 @@ components:
         - Version
         - APIVersion
         - BlockDelay
+        - Agent
     Receipt:
       type: object
       properties:
