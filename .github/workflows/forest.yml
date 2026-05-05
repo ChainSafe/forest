@@ -242,6 +242,25 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
+      - name: Configure SCCache variables
+        run: |
+          # External PRs do not have access to 'vars' or 'secrets'.
+          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
+          fi
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.10
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
+      - uses: jdx/mise-action@v4
       - name: Wallet commands check
         env:
           CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
