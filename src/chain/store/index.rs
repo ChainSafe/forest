@@ -120,10 +120,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
     /// Find tipset at epoch `to` in the chain of ancestors starting at `from`.
     ///
-    /// Returns [`None`] when the chain walk from `from` does not contain a
-    /// matching epoch (including when parent links are missing in the store).
-    /// Returns an error if `to` is greater than `from.epoch()`, or for
-    /// blockstore/genesis failures.
+    /// On success, returns [`Some`] tipset wrapped in [`Ok`]. Returns an error if `to`
+    /// is greater than `from.epoch()`, if the walk completes without resolving `to`
+    /// (including when ancestor tipsets are missing), or for blockstore/genesis failures.
     ///
     /// # Why pass in the `from` argument?
     ///
@@ -228,7 +227,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
                 }
             }
         }
-        Ok(None)
+        Err(Error::Other(format!(
+            "Tipset with epoch={to} does not exist"
+        )))
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
@@ -358,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn tipset_by_height_not_on_chain_returns_none() {
+    fn tipset_by_height_broken_ancestor_chain_returns_error() {
         let db = Arc::new(MemoryDB::default());
         let genesis = genesis_tipset();
         // Epoch 3 header points at a parent key we never persist — `Tipset::chain` stops
@@ -370,9 +371,8 @@ mod tests {
         let index = ChainIndex::new(db);
         assert!(
             index
-                .tipset_by_height(2, epoch3.clone(), ResolveNullTipset::TakeOlder)
-                .unwrap()
-                .is_none()
+                .tipset_by_height(2, epoch3, ResolveNullTipset::TakeOlder)
+                .is_err()
         );
     }
 }

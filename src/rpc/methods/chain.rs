@@ -1232,21 +1232,16 @@ impl ChainGetTipSetFinalityStatus {
                 -1
             }
         };
-        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
-        let finalized = if depth >= 0 {
-            match ctx.chain_index().tipset_by_height(
+        let finalized = if depth >= 0
+            && let Ok(Some(ts)) = ctx.chain_index().tipset_by_height(
                 (head.epoch() - depth).max(0),
                 head.shallow_clone(),
                 ResolveNullTipset::TakeOlder,
-            )? {
-                Some(ts) => Some(ts),
-                None => ctx.chain_index().tipset_by_height(
-                    ec_finality_epoch,
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?,
-            }
+            ) {
+            Some(ts)
         } else {
+            let ec_finality_epoch =
+                (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
             ctx.chain_index().tipset_by_height(
                 ec_finality_epoch,
                 head,
