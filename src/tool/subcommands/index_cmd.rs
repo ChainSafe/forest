@@ -3,7 +3,7 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use anyhow::bail;
+use anyhow::{Context as _, bail};
 use clap::Subcommand;
 
 use crate::chain::ChainStore;
@@ -101,11 +101,10 @@ impl IndexCommands {
                     // ensure from epoch is not greater than head epoch. This can happen if the
                     // assumed head is actually a null tipset.
                     let from = std::cmp::min(*from, head_ts.epoch());
-                    chain_store.chain_index().tipset_by_height(
-                        from,
-                        head_ts,
-                        ResolveNullTipset::TakeOlder,
-                    )?
+                    chain_store
+                        .chain_index()
+                        .tipset_by_height(from, head_ts, ResolveNullTipset::TakeOlder)?
+                        .with_context(|| format!("tipset not found at epoch {from}"))?
                 } else {
                     head_ts
                 };

@@ -95,11 +95,14 @@ impl RpcMethod<1> for GetTipsetByEpoch {
         (epoch,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_index().tipset_by_height(
-            epoch,
-            ctx.chain_store().heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let ts = ctx
+            .chain_index()
+            .tipset_by_height(
+                epoch,
+                ctx.chain_store().heaviest_tipset(),
+                ResolveNullTipset::TakeOlder,
+            )?
+            .with_context(|| format!("tipset not found at epoch {epoch}"))?;
         Ok(ts.into())
     }
 }

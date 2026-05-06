@@ -62,7 +62,8 @@ where
         };
         let rand_ts = self
             .chain_index
-            .tipset_by_height(search_height, ts, resolve)?;
+            .tipset_by_height(search_height, ts, resolve)?
+            .with_context(|| format!("tipset not found at height {search_height}"))?;
 
         Ok(digest(
             rand_ts
@@ -149,9 +150,10 @@ where
             ResolveNullTipset::TakeNewer
         };
 
-        self.chain_index
-            .tipset_by_height(search_height, ts, resolve)
-            .map_err(|e| e.into())
+        Ok(self
+            .chain_index
+            .tipset_by_height(search_height, ts, resolve)?
+            .with_context(|| format!("tipset not found at height {search_height}"))?)
     }
 }
 

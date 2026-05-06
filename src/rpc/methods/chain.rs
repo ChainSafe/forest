@@ -394,9 +394,10 @@ impl RpcMethod<1> for ForestChainExport {
         start_export();
 
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let start_ts =
-            ctx.chain_index()
-                .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
+        let start_ts = ctx
+            .chain_index()
+            .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?
+            .with_context(|| format!("tipset not found at height {epoch}"))?;
 
         let options = ExportOptions {
             skip_checksum,
@@ -592,9 +593,10 @@ impl RpcMethod<1> for ForestChainExportDiff {
         }
 
         let head = ctx.chain_store().heaviest_tipset();
-        let start_ts =
-            ctx.chain_index()
-                .tipset_by_height(from, head, ResolveNullTipset::TakeOlder)?;
+        let start_ts = ctx
+            .chain_index()
+            .tipset_by_height(from, head, ResolveNullTipset::TakeOlder)?
+            .with_context(|| format!("tipset not found at height {from}"))?;
 
         crate::tool::subcommands::archive_cmd::do_export(
             &ctx.store_owned(),
@@ -893,7 +895,8 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
             .load_required_tipset_or_heaviest(&tipset_key)?;
         let tss = ctx
             .chain_index()
-            .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
+            .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?
+            .with_context(|| format!("tipset not found at height {height}"))?;
         Ok(tss)
     }
 }
@@ -923,7 +926,8 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
             .load_required_tipset_or_heaviest(&tipset_key)?;
         let tss = ctx
             .chain_index()
-            .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
+            .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?
+            .with_context(|| format!("tipset not found after height {height}"))?;
         Ok(tss)
     }
 }
@@ -1064,18 +1068,17 @@ impl ChainGetTipSetV2 {
         if finalized.epoch() >= safe_height {
             Ok(finalized)
         } else {
-            Ok(ctx.chain_index().tipset_by_height(
-                safe_height,
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?)
+            Ok(ctx
+                .chain_index()
+                .tipset_by_height(safe_height, head, ResolveNullTipset::TakeOlder)?
+                .with_context(|| format!("tipset not found at safe height {safe_height}"))?)
         }
     }
 
     pub async fn get_latest_finalized_tipset(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {
-        ChainGetTipSetFinalityStatus::get_finality_status(ctx)
+        ChainGetTipSetFinalityStatus::get_finality_status(ctx)?
             .finalized_tip_set
             .context("failed to resolve finalized tipset")
     }
@@ -1093,11 +1096,10 @@ impl ChainGetTipSetV2 {
         // Get tipset by height.
         if let Some(height) = &selector.height {
             let anchor = Self::get_tipset_by_anchor(ctx, height.anchor.as_ref()).await?;
-            let ts = ctx.chain_index().tipset_by_height(
-                height.at,
-                anchor,
-                height.resolve_null_tipset_policy(),
-            )?;
+            let ts = ctx
+                .chain_index()
+                .tipset_by_height(height.at, anchor, height.resolve_null_tipset_policy())?
+                .with_context(|| format!("tipset not found at height {}", height.at))?;
             return Ok(ts);
         }
         // Get tipset by tag, either latest or finalized.
@@ -1131,10 +1133,10 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
 pub enum ChainGetTipSetFinalityStatus {}
 
 impl ChainGetTipSetFinalityStatus {
-    pub fn get_finality_status(ctx: &Ctx<impl Blockstore>) -> ChainFinalityStatus {
+    pub fn get_finality_status(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<ChainFinalityStatus> {
         let head = ctx.chain_store().heaviest_tipset();
         let (ec_finality_threshold_depth, ec_finalized_tip_set) =
-            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone());
+            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone())?;
         let f3_finalized_tip_set = ctx.chain_store().f3_finalized_tipset();
         let finalized_tip_set = match (&ec_finalized_tip_set, &f3_finalized_tip_set) {
             (Some(ec), Some(f3)) => {
@@ -1148,38 +1150,38 @@ impl ChainGetTipSetFinalityStatus {
             (None, Some(f3)) => Some(f3.shallow_clone()),
             (None, None) => None,
         };
-        ChainFinalityStatus {
+        Ok(ChainFinalityStatus {
             ec_finality_threshold_depth,
             ec_finalized_tip_set,
             f3_finalized_tip_set,
             finalized_tip_set,
             head,
-        }
+        })
     }
 
     pub fn get_ec_finality_threshold_depth_and_tipset_with_cache(
         ctx: &Ctx<impl Blockstore>,
         head: Tipset,
-    ) -> (i64, Option<Tipset>) {
+    ) -> anyhow::Result<(i64, Option<Tipset>)> {
         static CACHE: parking_lot::Mutex<Option<(Tipset, i64, Option<Tipset>)>> =
             parking_lot::Mutex::new(None);
         let mut cache = CACHE.lock();
         if let Some((cached_head, cached_threshold, cached_tipset)) = &*cache
             && cached_head == &head
         {
-            (*cached_threshold, cached_tipset.shallow_clone())
+            Ok((*cached_threshold, cached_tipset.shallow_clone()))
         } else {
             let (threshold, tipset) =
-                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head.shallow_clone());
+                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head.shallow_clone())?;
             *cache = Some((head, threshold, tipset.shallow_clone()));
-            (threshold, tipset)
+            Ok((threshold, tipset))
         }
     }
 
     fn get_ec_finality_threshold_depth_and_tipset(
         ctx: &Ctx<impl Blockstore>,
         head: Tipset,
-    ) -> (i64, Option<Tipset>) {
+    ) -> anyhow::Result<(i64, Option<Tipset>)> {
         use crate::chain::ec_finality::calculator::{
             DEFAULT_BLOCKS_PER_EPOCH, DEFAULT_BYZANTINE_FRACTION, DEFAULT_GUARANTEE,
             find_threshold_depth,
@@ -1230,21 +1232,28 @@ impl ChainGetTipSetFinalityStatus {
                 -1
             }
         };
-        let finalized = if depth >= 0
-            && let Ok(ts) = ctx.chain_index().tipset_by_height(
+        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
+        let finalized = if depth >= 0 {
+            match ctx.chain_index().tipset_by_height(
                 (head.epoch() - depth).max(0),
                 head.shallow_clone(),
                 ResolveNullTipset::TakeOlder,
-            ) {
-            Some(ts)
+            )? {
+                Some(ts) => Some(ts),
+                None => ctx.chain_index().tipset_by_height(
+                    ec_finality_epoch,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?,
+            }
         } else {
-            let ec_finality_epoch =
-                (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
-            ctx.chain_index()
-                .tipset_by_height(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)
-                .ok()
+            ctx.chain_index().tipset_by_height(
+                ec_finality_epoch,
+                head,
+                ResolveNullTipset::TakeOlder,
+            )?
         };
-        (depth, finalized)
+        Ok((depth, finalized))
     }
 }
 
@@ -1264,7 +1273,7 @@ impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(Self::get_finality_status(&ctx))
+        Ok(Self::get_finality_status(&ctx)?)
     }
 }
 

@@ -256,11 +256,25 @@ where
             let bundle_metadata = state.get_actor_bundle_metadata()?;
             if expected_bundle_metadata != bundle_metadata {
                 let current_epoch = head.epoch();
-                let target_head = self.chain_index().tipset_by_height(
-                    (expected_height_info.epoch - 1).max(0),
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
+                let target_head = self
+                    .chain_index()
+                    .tipset_by_height(
+                        (expected_height_info.epoch - 1).max(0),
+                        head,
+                        ResolveNullTipset::TakeOlder,
+                    )
+                    .with_context(|| {
+                        format!(
+                            "failed to look up rewind tipset at actor bundle transition height {}",
+                            (expected_height_info.epoch - 1).max(0)
+                        )
+                    })?
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "no tipset found at height {} for chain rewind (heaviest epoch {current_epoch})",
+                            (expected_height_info.epoch - 1).max(0)
+                        )
+                    })?;
                 let target_epoch = target_head.epoch();
                 let bundle_version = &bundle_metadata.version;
                 let expected_bundle_version = &expected_bundle_metadata.version;
@@ -454,13 +468,14 @@ where
     pub async fn load_tipset_state(self: &Arc<Self>, ts: &Tipset) -> anyhow::Result<TipsetState> {
         if let Some(state) = self.cache.get_map(ts.key(), |et| et.into()) {
             Ok(state)
-        } else if let Ok(receipt_ts) = self.chain_store().load_child_tipset(ts) {
-            Ok(TipsetState {
-                state_root: *receipt_ts.parent_state(),
-                receipt_root: *receipt_ts.parent_message_receipts(),
-            })
         } else {
-            Ok(self.load_executed_tipset(ts).await?.into())
+            match self.chain_store().load_child_tipset(ts)? {
+                Some(receipt_ts) => Ok(TipsetState {
+                    state_root: *receipt_ts.parent_state(),
+                    receipt_root: *receipt_ts.parent_message_receipts(),
+                }),
+                None => Ok(self.load_executed_tipset(ts).await?.into()),
+            }
         }
     }
 
@@ -481,7 +496,7 @@ where
         }
         self.cache
             .get_or_else(ts.key(), || async move {
-                let receipt_ts = self.chain_store().load_child_tipset(ts).ok();
+                let receipt_ts = self.chain_store().load_child_tipset(ts)?;
                 self.load_executed_tipset_inner(ts, receipt_ts.as_ref())
                     .await
             })
@@ -1691,9 +1706,15 @@ where
             .tipset_by_height(*epochs.end(), heaviest, ResolveNullTipset::TakeOlder)
             .with_context(|| {
                 format!(
-            "couldn't get a tipset at height {} behind heaviest tipset at height {heaviest_epoch}",
-            *epochs.end(),
-        )
+                    "couldn't look up tipset at height {} from heaviest tipset at height {heaviest_epoch}",
+                    *epochs.end(),
+                )
+            })?
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "couldn't get a tipset at height {} behind heaviest tipset at height {heaviest_epoch}",
+                    *epochs.end(),
+                )
             })?;
 
         // lookup tipset parents as we go along, iterating DOWN from `end`

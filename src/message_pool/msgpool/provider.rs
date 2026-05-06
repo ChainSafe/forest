@@ -127,6 +127,12 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
                             ResolveNullTipset::TakeOlder,
                         )
                         .map_err(|e| Error::Other(e.to_string()))?
+                        .ok_or_else(|| {
+                            Error::Other(format!(
+                                "tipset not found at finality lookback height {}",
+                                ts.epoch() - self.chain_config().policy.chain_finality
+                            ))
+                        })?
                 } else {
                     // Matches the logic at <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/stmgr/stmgr.go#L361>
                     ts.clone()

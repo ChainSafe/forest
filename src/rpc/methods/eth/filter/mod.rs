@@ -430,11 +430,14 @@ impl EthEventHandler {
                 } else {
                     *range.end()
                 };
-                let max_tipset = ctx.chain_index().tipset_by_height(
-                    max_height,
-                    ctx.chain_store().heaviest_tipset(),
-                    ResolveNullTipset::TakeOlder,
-                )?;
+                let max_tipset = ctx
+                    .chain_index()
+                    .tipset_by_height(
+                        max_height,
+                        ctx.chain_store().heaviest_tipset(),
+                        ResolveNullTipset::TakeOlder,
+                    )?
+                    .with_context(|| format!("tipset not found at max_height {max_height}"))?;
                 let tipsets = max_tipset
                     .chain(ctx.store())
                     .take_while(|ts| ts.epoch() >= *range.start());

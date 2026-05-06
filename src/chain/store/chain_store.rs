@@ -313,27 +313,23 @@ where
         }
     }
 
-    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Tipset, Error> {
+    /// Returns [`None`] when `ts` has no known child on the current heaviest chain
+    /// (e.g. `ts` is the chain head). Blockstore errors are returned as [`Err`].
+    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Option<Tipset>, Error> {
         let head = self.heaviest_tipset();
         if head.parents() == ts.key() {
-            Ok(head)
+            Ok(Some(head))
         } else if head.epoch() > ts.epoch() {
-            let maybe_child = self.chain_index().tipset_by_height(
+            match self.chain_index().tipset_by_height(
                 ts.epoch() + 1,
                 head,
                 ResolveNullTipset::TakeNewer,
-            )?;
-            if maybe_child.parents() == ts.key() {
-                Ok(maybe_child)
-            } else {
-                Err(Error::NotFound(
-                    format!("child of tipset@{}", ts.epoch()).into(),
-                ))
+            )? {
+                Some(maybe_child) if maybe_child.parents() == ts.key() => Ok(Some(maybe_child)),
+                _ => Ok(None),
             }
         } else {
-            Err(Error::NotFound(
-                format!("child of tipset@{}", ts.epoch()).into(),
-            ))
+            Ok(None)
         }
     }
 
@@ -436,8 +432,13 @@ where
                 lbr + 1,
                 heaviest_tipset.clone(),
                 ResolveNullTipset::TakeNewer,
-            )
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
+            )?
+            .ok_or_else(|| {
+                Error::Other(format!(
+                    "Could not get tipset at height {} (lookback round {round}, lbr {lbr})",
+                    lbr + 1
+                ))
+            })?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(
                 "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",

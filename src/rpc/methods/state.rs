@@ -1567,21 +1567,26 @@ impl RpcMethod<3> for ForestStateCompute {
         let force_recompute = force_recompute.unwrap_or_default();
         let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
         let to_epoch = from_epoch + n_epochs - 1;
-        let to_ts = ctx.chain_index().tipset_by_height(
-            to_epoch,
-            ctx.chain_store().heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let to_ts = ctx
+            .chain_index()
+            .tipset_by_height(
+                to_epoch,
+                ctx.chain_store().heaviest_tipset(),
+                ResolveNullTipset::TakeOlder,
+            )?
+            .with_context(|| format!("tipset not found at epoch {to_epoch}"))?;
         let from_ts = if from_epoch >= to_ts.epoch() {
             // When `from_epoch` is a null epoch or `n_epochs` is 1,
             // `to_ts.epoch()` could be less than or equal to `from_epoch`
             to_ts.shallow_clone()
         } else {
-            ctx.chain_index().tipset_by_height(
-                from_epoch,
-                to_ts.shallow_clone(),
-                ResolveNullTipset::TakeOlder,
-            )?
+            ctx.chain_index()
+                .tipset_by_height(
+                    from_epoch,
+                    to_ts.shallow_clone(),
+                    ResolveNullTipset::TakeOlder,
+                )?
+                .with_context(|| format!("tipset not found at epoch {from_epoch}"))?
         };
 
         let mut futures = FuturesOrdered::new();

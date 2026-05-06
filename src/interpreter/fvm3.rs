@@ -137,8 +137,8 @@ impl<DB: Blockstore> Chain for ForestExterns<DB> {
                 epoch,
                 self.heaviest_tipset.clone(),
                 ResolveNullTipset::TakeOlder,
-            )
-            .context("Failed to get tipset cid")?;
+            )?
+            .with_context(|| format!("tipset not found at epoch {epoch}"))?;
         ts.key().cid()
     }
 }

@@ -119,8 +119,11 @@ impl<DB: Blockstore> ChainIndex<DB> {
     }
 
     /// Find tipset at epoch `to` in the chain of ancestors starting at `from`.
-    /// If the tipset is _not_ in the chain of ancestors (i.e., if the `to`
-    /// epoch is higher than `from.epoch()`), an error will be returned.
+    ///
+    /// Returns [`None`] when the chain walk from `from` does not contain a
+    /// matching epoch (including when parent links are missing in the store).
+    /// Returns an error if `to` is greater than `from.epoch()`, or for
+    /// blockstore/genesis failures.
     ///
     /// # Why pass in the `from` argument?
     ///
@@ -162,7 +165,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         to: ChainEpoch,
         mut from: Tipset,
         resolve: ResolveNullTipset,
-    ) -> Result<Tipset, Error> {
+    ) -> Result<Option<Tipset>, Error> {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
         // use `20` as checkpoint interval to match Lotus:
@@ -190,7 +193,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         if to == 0 {
-            return Ok(Tipset::from(from.genesis(&self.db)?));
+            return Ok(Some(Tipset::from(from.genesis(&self.db)?)));
         }
         if to > from.epoch() {
             return Err(Error::Other(format!(
@@ -215,19 +218,17 @@ impl<DB: Blockstore> ChainIndex<DB> {
             }
 
             if to == child.epoch() {
-                return Ok(child);
+                return Ok(Some(child));
             }
             if to > parent.epoch() {
                 // We're at a point where child.epoch() > x > parent.epoch().
                 match resolve {
-                    ResolveNullTipset::TakeOlder => return Ok(parent),
-                    ResolveNullTipset::TakeNewer => return Ok(child),
+                    ResolveNullTipset::TakeOlder => return Ok(Some(parent)),
+                    ResolveNullTipset::TakeNewer => return Ok(Some(child)),
                 }
             }
         }
-        Err(Error::Other(format!(
-            "Tipset with epoch={to} does not exist"
-        )))
+        Ok(None)
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
@@ -304,14 +305,16 @@ mod tests {
         assert_eq!(
             index
                 .tipset_by_height(2, epoch4.clone(), ResolveNullTipset::TakeOlder)
-                .unwrap(),
+                .unwrap()
+                .expect("epoch 2 resolved"),
             epoch1
         );
 
         assert_eq!(
             index
                 .tipset_by_height(2, epoch4, ResolveNullTipset::TakeNewer)
-                .unwrap(),
+                .unwrap()
+                .expect("epoch 2 resolved"),
             epoch3
         );
     }
@@ -340,15 +343,36 @@ mod tests {
         assert_eq!(
             index
                 .tipset_by_height(2, epoch3a, ResolveNullTipset::TakeOlder)
-                .unwrap(),
+                .unwrap()
+                .expect("epoch 2 on branch a"),
             epoch2a
         );
 
         assert_eq!(
             index
                 .tipset_by_height(2, epoch3b, ResolveNullTipset::TakeOlder)
-                .unwrap(),
+                .unwrap()
+                .expect("epoch 2 on branch b"),
             epoch2b
+        );
+    }
+
+    #[test]
+    fn tipset_by_height_not_on_chain_returns_none() {
+        let db = Arc::new(MemoryDB::default());
+        let genesis = genesis_tipset();
+        // Epoch 3 header points at a parent key we never persist — `Tipset::chain` stops
+        // after this tipset, so `tipset_by_height` finds no `(child, parent)` window.
+        let epoch3 = tipset_child(&tipset_child(&genesis, 2), 3);
+        persist_tipset(&genesis, &db);
+        persist_tipset(&epoch3, &db);
+
+        let index = ChainIndex::new(db);
+        assert!(
+            index
+                .tipset_by_height(2, epoch3.clone(), ResolveNullTipset::TakeOlder)
+                .unwrap()
+                .is_none()
         );
     }
 }

@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::rpc::chain::{ChainGetTipSetFinalityStatus, SAFE_HEIGHT_DISTANCE};
+use anyhow::Context as _;
 
 pub struct TipsetResolver<'a, DB>
 where
@@ -160,11 +161,11 @@ where
     pub fn get_ec_safe_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        Ok(self.ctx.chain_index().tipset_by_height(
-            safe_height,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?)
+        Ok(self
+            .ctx
+            .chain_index()
+            .tipset_by_height(safe_height, head, ResolveNullTipset::TakeOlder)?
+            .with_context(|| format!("tipset not found at safe height {safe_height}"))?)
     }
 
     /// Returns the tipset considered finalized by the expected-consensus finality calculator(`FRC-0089`).
@@ -174,7 +175,7 @@ where
             ChainGetTipSetFinalityStatus::get_ec_finality_threshold_depth_and_tipset_with_cache(
                 self.ctx,
                 head.clone(),
-            );
+            )?;
         ec_finalized_tipset.context("failed to resolve EC finalized tipset")
     }
 }
