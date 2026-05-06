@@ -954,10 +954,10 @@ fn resolve_block_number_tipset<DB: Blockstore>(
     if height > head.epoch() - 1 {
         bail!("requested a future epoch (beyond \"latest\")");
     }
-    Ok(chain
+    chain
         .chain_index()
         .tipset_by_height(height, head, resolve)?
-        .with_context(|| format!("tipset not found at height {height}"))?)
+        .with_context(|| format!("tipset not found at height {height}"))
 }
 
 fn resolve_block_hash_tipset<DB: Blockstore>(

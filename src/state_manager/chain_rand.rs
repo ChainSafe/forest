@@ -150,10 +150,9 @@ where
             ResolveNullTipset::TakeNewer
         };
 
-        Ok(self
-            .chain_index
+        self.chain_index
             .tipset_by_height(search_height, ts, resolve)?
-            .with_context(|| format!("tipset not found at height {search_height}"))?)
+            .with_context(|| format!("tipset not found at height {search_height}"))
     }
 }
 

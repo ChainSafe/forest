@@ -161,11 +161,10 @@ where
     pub fn get_ec_safe_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        Ok(self
-            .ctx
+        self.ctx
             .chain_index()
             .tipset_by_height(safe_height, head, ResolveNullTipset::TakeOlder)?
-            .with_context(|| format!("tipset not found at safe height {safe_height}"))?)
+            .with_context(|| format!("tipset not found at safe height {safe_height}"))
     }
 
     /// Returns the tipset considered finalized by the expected-consensus finality calculator(`FRC-0089`).
