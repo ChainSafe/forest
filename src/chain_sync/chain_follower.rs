@@ -19,7 +19,7 @@
 use super::network_context::SyncNetworkContext;
 use crate::{
     blocks::{Block, FullTipset, Tipset, TipsetKey},
-    chain::ChainStore,
+    chain::{ChainStore, index::ResolveNullTipset},
     chain_sync::{
         ForkSyncInfo, ForkSyncStage, SyncStatus, SyncStatusReport, TipsetValidator,
         bad_block_cache::{BadBlockCache, SeenBlockCache},
@@ -695,6 +695,16 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 
         // Check if tipset already exists
         if self.tipsets.contains_key(tipset.key()) {
+            return;
+        }
+
+        // Skip if tipset is part of the current chain.
+        if let Ok(Some(ts)) = self.cs.chain_index().tipset_by_height(
+            tipset.epoch(),
+            self.cs.heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        ) && ts.key() == tipset.key()
+        {
             return;
         }
 
