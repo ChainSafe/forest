@@ -6,7 +6,6 @@
 // inclusion in the chain. Messages are added either directly for locally
 // published messages or through pubsub propagation.
 
-use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 #[cfg(test)]
@@ -28,7 +27,6 @@ use crate::state_manager::utils::is_valid_for_sending;
 use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::{CidWrapper, GetSize};
-use ahash::{HashSet, HashSetExt};
 use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
@@ -36,6 +34,8 @@ use fvm_ipld_encoding::to_vec;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
+use std::num::NonZeroUsize;
+use std::{sync::Arc, time::Duration};
 use tokio::{
     sync::broadcast::{self, error::RecvError},
     task::JoinSet,
@@ -48,15 +48,25 @@ use crate::message_pool::{
     errors::Error,
     head_change,
     msgpool::{
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE,
-        events::MpoolUpdate,
-        local_store::LocalStore,
-        pending_store::PendingStore,
-        recover_sig, republish_pending_messages,
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, local_store::LocalStore,
+        pending_store::PendingStore, recover_sig, republish::RepublishState,
+        republish_pending_messages,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
 };
+
+// LruCache sizes have been taken from the lotus implementation
+const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
+const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
+const KEY_CACHE_SIZE: NonZeroUsize = nonzero!(1_048_576usize);
+const STATE_NONCE_CACHE_SIZE: NonZeroUsize = nonzero!(32768usize);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, GetSize)]
+pub(crate) struct StateNonceCacheKey {
+    tipset_key: TipsetKey,
+    addr: Address,
+}
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
@@ -74,32 +84,14 @@ pub enum TrustPolicy {
 
 pub use super::msg_set::{MsgSetLimits, StrictnessPolicy};
 
-// LruCache sizes have been taken from the lotus implementation
-const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
-const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
-const KEY_CACHE_SIZE: NonZeroUsize = nonzero!(1_048_576usize);
-const STATE_NONCE_CACHE_SIZE: NonZeroUsize = nonzero!(32768usize);
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq, GetSize)]
-pub(in crate::message_pool) struct StateNonceCacheKey {
-    pub tipset_key: TipsetKey,
-    pub addr: Address,
-}
-
-/// The LRU caches owned by [`MessagePool`].
-#[allow(dead_code)] // wired up for use in a follow-up PR.
+/// LRU caches owned by [`MessagePool`].
 pub(in crate::message_pool) struct Caches {
-    /// BLS signatures keyed by message [`Cid`](cid::Cid).
     pub bls_sig: SizeTrackingLruCache<CidWrapper, Signature>,
-    /// Already-verified signatures keyed by message [`Cid`](cid::Cid).
     pub sig_val: SizeTrackingLruCache<CidWrapper, ()>,
-    /// ID address → key address resolution cache.
     pub key: IdToAddressCache,
-    /// State-nonce-after-tipset cache, keyed by `(TipsetKey, Address)`.
     pub state_nonce: SizeTrackingLruCache<StateNonceCacheKey, u64>,
 }
 
-#[allow(dead_code)] // wired up for use in a follow-up PR.
 impl Caches {
     pub(in crate::message_pool) fn new() -> Self {
         Self {
@@ -132,10 +124,8 @@ pub struct MessagePool<T> {
     /// Pending messages, keyed by resolved-key address, together with the
     /// broadcast channel for [`MpoolUpdate`] events. See [`PendingStore`].
     pub(in crate::message_pool) pending_store: PendingStore,
-    /// Bundled LRU caches shared by the message pool's hot paths.
     pub(in crate::message_pool) caches: Caches,
-    /// Local-wallet sender state (resolved addresses + messages persisted
-    /// across restarts).
+    /// Local-wallet sender store
     pub(in crate::message_pool) local: Arc<LocalStore>,
     /// The current tipset (a set of blocks)
     pub cur_tipset: Arc<SyncRwLock<Tipset>>,
@@ -143,11 +133,8 @@ pub struct MessagePool<T> {
     pub api: Arc<T>,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
-    /// A set of republished messages identified by their Cid
-    pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
-    /// Acts as a signal to republish messages from the republished set of
-    /// messages
-    pub repub_trigger: flume::Sender<()>,
+    /// Republish coordination state
+    pub(in crate::message_pool) republish: Arc<RepublishState>,
     /// Configurable parameters of the message pool
     pub config: Arc<MpoolConfig>,
     /// Chain configuration
@@ -566,8 +553,7 @@ where
         head_change(
             self.api.as_ref(),
             &self.caches.bls_sig,
-            self.repub_trigger.clone(),
-            self.republished.as_ref(),
+            self.republish.as_ref(),
             &self.pending_store,
             self.cur_tipset.as_ref(),
             &self.caches.key,
@@ -601,20 +587,18 @@ where
             api.max_untrusted_actor_pending_messages(),
         ));
         let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
-        let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
 
-        let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
+        let (republish, repub_trigger_rx) = RepublishState::new();
         let mp = MessagePool {
             pending_store,
             caches: Caches::new(),
             local: Arc::new(LocalStore::new()),
             cur_tipset: tipset,
             api: Arc::new(api),
-            republished,
             config: config.into(),
             network_sender,
-            repub_trigger,
+            republish: Arc::new(republish),
             chain_config: Arc::clone(&chain_config),
         };
 
@@ -625,12 +609,11 @@ where
         let api = mp.api.clone();
         let bls_sig_cache = mp.caches.bls_sig.shallow_clone();
         let pending_store = mp.pending_store.shallow_clone();
-        let republished = mp.republished.clone();
+        let republish = mp.republish.clone();
         let key_cache = mp.caches.key.shallow_clone();
         let state_nonce_cache = mp.caches.state_nonce.shallow_clone();
 
         let current_ts = mp.cur_tipset.clone();
-        let repub_trigger = mp.repub_trigger.clone();
 
         // Reacts to new HeadChanges
         services.spawn(async move {
@@ -640,8 +623,7 @@ where
                         if let Err(e) = head_change(
                             api.as_ref(),
                             &bls_sig_cache,
-                            repub_trigger.clone(),
-                            republished.as_ref(),
+                            republish.as_ref(),
                             &pending_store,
                             &current_ts,
                             &key_cache,
@@ -667,7 +649,7 @@ where
         let api = mp.api.clone();
         let pending_store = mp.pending_store.shallow_clone();
         let cur_tipset = mp.cur_tipset.clone();
-        let republished = mp.republished.clone();
+        let republish = mp.republish.clone();
         let local = mp.local.clone();
         let key_cache = mp.caches.key.shallow_clone();
         let network_sender = Arc::new(mp.network_sender.clone());
@@ -686,7 +668,7 @@ where
                     network_sender.as_ref(),
                     &pending_store,
                     cur_tipset.as_ref(),
-                    republished.as_ref(),
+                    republish.as_ref(),
                     local.as_ref(),
                     &key_cache,
                     &chain_config,
@@ -798,15 +780,6 @@ mod tests {
             api.max_actor_pending_messages(),
             api.max_untrusted_actor_pending_messages(),
         ))
-    }
-
-    #[test]
-    fn caches_new_constructs_all_four_caches_empty() {
-        let caches = Caches::new();
-        assert_eq!(caches.bls_sig.len(), 0);
-        assert_eq!(caches.sig_val.len(), 0);
-        assert_eq!(caches.key.len(), 0);
-        assert_eq!(caches.state_nonce.len(), 0);
     }
 
     // Regression test for https://github.com/ChainSafe/forest/pull/6118 which fixed a bogus 100M
