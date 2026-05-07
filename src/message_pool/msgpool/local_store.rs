@@ -1,11 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Tracks local-wallet senders and the messages they've published.
+//! Tracks local-wallet senders and the messages they have published.
 //!
-//! "Local" means "originated from a wallet on this node" — these are the
-//! only senders whose pending messages get republished, and whose messages
-//! get persisted across restarts.
+//! Only messages from these senders are eligible for republishing, and only
+//! these messages are replayed into the pending store on `load_local`.
 
 use ahash::HashSet;
 use parking_lot::RwLock as SyncRwLock;
@@ -13,16 +12,12 @@ use parking_lot::RwLock as SyncRwLock;
 use crate::message::SignedMessage;
 use crate::shim::address::Address;
 
-#[allow(dead_code)] // wired up for use in a follow-up PR.
 #[derive(Default)]
 pub(in crate::message_pool) struct LocalStore {
-    /// Resolved-key addresses for which this node owns the signing key.
     local_addrs: SyncRwLock<Vec<Address>>,
-    /// Locally-published messages, persisted across restarts.
     local_msgs: SyncRwLock<HashSet<SignedMessage>>,
 }
 
-#[allow(dead_code)] // wired up for use in a follow-up PR.
 impl LocalStore {
     pub(in crate::message_pool) fn new() -> Self {
         Self::default()
