@@ -266,7 +266,7 @@ jobs:
           CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
         run: |
           if [[ "$CALIBNET_WALLET" != "" ]]; then
-            ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+            mise run test:wallet "$CALIBNET_WALLET"
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v1:

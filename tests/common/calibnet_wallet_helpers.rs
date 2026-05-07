@@ -16,64 +16,73 @@ use parking_lot::Mutex;
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
-/// Calibnet address used as the funded source in every test. Imported into
-/// both backends by the harness before this binary runs.
-pub const PRELOADED_ADDRESS: &str = "t1ac6ndwj6nghqbmtbovvnwcqo577p6ox2pt52q2y";
+/// Preloaded address from `forest-wallet default` (harness `set-default`s it after import).
+pub static PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
+    wallet(Backend::Local, &["default"])
+        .expect("`forest-wallet default` failed — run harness `forest_wallet_init`")
+});
 
-/// Default amount transferred in value-transfer assertions.
 pub const FIL_AMT: &str = "500 atto FIL";
 /// Sentinel `forest-wallet balance --exact-balance` returns for an unfunded address.
 pub const FIL_ZERO: &str = "0 FIL";
 /// Amount used to seed a freshly-created delegated wallet.
 pub const DELEGATE_FUND_AMT: &str = "3 micro FIL";
 
-/// Maximum number of times to retry a balance poll before timing out.
 pub const POLL_RETRIES: usize = 20;
-/// Delay between balance-poll attempts.
 pub const POLL_DELAY: Duration = Duration::from_secs(30);
 
-/// Retries for `Filecoin.StateSearchMsg` polling.
 pub const SEARCH_MSG_RETRIES: usize = 30;
-/// Delay between `StateSearchMsg` attempts.
 pub const SEARCH_MSG_DELAY: Duration = Duration::from_secs(5);
 
-/// Serializes `forest-wallet` invocations against the local keystore so
-/// concurrent tests don't lose entries through last-writer-wins on the
-/// keystore file. The daemon already serializes its own keystore handlers,
-/// so remote invocations skip this lock.
-static LOCAL_KEYSTORE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-/// Run `forest-wallet <args>` against the local keystore and return trimmed
-/// stdout on success.
-pub fn wallet(args: &[&str]) -> anyhow::Result<String> {
-    Ok(String::from_utf8(run_local_raw(args)?)?.trim().to_string())
+/// Selects which `forest-wallet` keystore an operation targets.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Backend {
+    Local,
+    Remote,
 }
 
-/// Run `forest-wallet --remote-wallet <args>` and return trimmed stdout on
-/// success.
-pub fn wallet_remote(args: &[&str]) -> anyhow::Result<String> {
-    let mut full = Vec::with_capacity(args.len() + 1);
-    full.push("--remote-wallet");
-    full.extend_from_slice(args);
-    Ok(String::from_utf8(run_raw("forest-wallet", &full)?)?
+impl Backend {
+    fn extra_args(self) -> &'static [&'static str] {
+        match self {
+            Self::Local => &[],
+            Self::Remote => &["--remote-wallet"],
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::Remote => "remote",
+        }
+    }
+}
+
+/// Serializes local keystore file access.
+static LOCAL_KEYSTORE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+/// Run `forest-wallet [--remote-wallet] <args>` and return trimmed stdout.
+pub fn wallet(backend: Backend, args: &[&str]) -> anyhow::Result<String> {
+    Ok(String::from_utf8(run_wallet_raw(backend, args)?)?
         .trim()
         .to_string())
 }
 
-fn run_local_raw(args: &[&str]) -> anyhow::Result<Vec<u8>> {
-    let _guard = LOCAL_KEYSTORE_LOCK.lock();
-    run_raw("forest-wallet", args)
-}
+/// Same as [`wallet`] but yields raw stdout bytes (used by `export`).
+pub fn run_wallet_raw(backend: Backend, args: &[&str]) -> anyhow::Result<Vec<u8>> {
+    let _guard = (backend == Backend::Local).then(|| LOCAL_KEYSTORE_LOCK.lock());
 
-fn run_raw(bin: &str, args: &[&str]) -> anyhow::Result<Vec<u8>> {
-    let output = Command::new(bin)
-        .args(args)
+    let mut full = Vec::with_capacity(backend.extra_args().len() + args.len());
+    full.extend_from_slice(backend.extra_args());
+    full.extend_from_slice(args);
+
+    let output = Command::new("forest-wallet")
+        .args(&full)
         .output()
-        .with_context(|| format!("failed to spawn `{bin}`"))?;
+        .context("failed to spawn `forest-wallet`")?;
     if !output.status.success() {
         bail!(
-            "`{bin} {}` failed (status={}): {}",
-            args.join(" "),
+            "`forest-wallet {}` failed (status={}): {}",
+            full.join(" "),
             output.status,
             String::from_utf8_lossy(&output.stderr)
         );
@@ -83,12 +92,8 @@ fn run_raw(bin: &str, args: &[&str]) -> anyhow::Result<Vec<u8>> {
 
 /// Export `address` from the chosen backend into a temp file ready to feed
 /// back to `forest-wallet import`.
-pub fn export_to_temp_file(address: &str, remote: bool) -> anyhow::Result<NamedTempFile> {
-    let raw = if remote {
-        run_raw("forest-wallet", &["--remote-wallet", "export", address])?
-    } else {
-        run_local_raw(&["export", address])?
-    };
+pub fn export_to_temp_file(address: &str, backend: Backend) -> anyhow::Result<NamedTempFile> {
+    let raw = run_wallet_raw(backend, &["export", address])?;
     let mut file = NamedTempFile::new_in(std::env::temp_dir())
         .context("failed to create temp file for wallet export")?;
     file.write_all(&raw)?;
@@ -96,26 +101,48 @@ pub fn export_to_temp_file(address: &str, remote: bool) -> anyhow::Result<NamedT
     Ok(file)
 }
 
-/// Run `forest-wallet [--remote-wallet] balance <addr> --exact-balance`.
-pub fn balance(address: &str, remote: bool) -> anyhow::Result<String> {
-    let args = ["balance", address, "--exact-balance"];
-    if remote {
-        wallet_remote(&args)
-    } else {
-        wallet(&args)
+pub fn balance(address: &str, backend: Backend) -> anyhow::Result<String> {
+    wallet(backend, &["balance", address, "--exact-balance"])
+}
+
+/// Send with `--from`. `backend` chooses the signing keystore
+/// (local file vs `--remote-wallet`).
+///
+/// Retries on the transient `gas price is lower than min gas price` mpool
+/// error: the local CLI path estimates gas, then submits via `MpoolPush`,
+/// so a concurrent push that bumps the mempool's fee floor between
+/// estimate and push rejects an otherwise-valid message. Retry re-runs
+/// fee estimation so gas fields match whatever minimum gas price applies
+/// at the next submission.
+pub fn send_from(from: &str, to: &str, amount: &str, backend: Backend) -> anyhow::Result<String> {
+    let args = ["send", "--from", from, to, amount];
+    let mut attempt = 1;
+    loop {
+        match wallet(backend, &args) {
+            Ok(out) => return Ok(out),
+            Err(e) if attempt < SEND_RETRIES && is_min_gas_price_error(&e) => {
+                eprintln!(
+                    "send {from} -> {to} hit min-gas-price floor on attempt {attempt}/{SEND_RETRIES}, retrying"
+                );
+                std::thread::sleep(SEND_RETRY_DELAY);
+                attempt += 1;
+            }
+            Err(e) => return Err(e),
+        }
     }
 }
 
-/// Run `forest-wallet [--remote-wallet] send --from <from> <to> <amount>`.
-/// Always passing `--from` keeps tests independent of the shared
-/// `set-default` slot.
-pub fn send_from(from: &str, to: &str, amount: &str, remote: bool) -> anyhow::Result<String> {
-    let args = ["send", "--from", from, to, amount];
-    if remote {
-        wallet_remote(&args)
-    } else {
-        wallet(&args)
-    }
+/// Max attempts for [`send_from`].
+const SEND_RETRIES: usize = 3;
+/// Delay between [`send_from`] retries; one block-time at calibnet cadence
+/// is enough for the daemon's gas-price snapshot to refresh.
+const SEND_RETRY_DELAY: Duration = Duration::from_secs(15);
+
+fn is_min_gas_price_error(err: &anyhow::Error) -> bool {
+    err.chain().any(|e| {
+        e.to_string()
+            .contains("gas price is lower than min gas price")
+    })
 }
 
 /// Poll `check` up to [`POLL_RETRIES`] times with [`POLL_DELAY`] between
@@ -135,13 +162,10 @@ where
 }
 
 /// Poll until the balance reported for `address` is no longer [`FIL_ZERO`].
-pub async fn poll_until_funded(address: &str, remote: bool) -> anyhow::Result<String> {
-    let label = format!(
-        "{} balance for {address}",
-        if remote { "remote" } else { "local" }
-    );
+pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Result<String> {
+    let label = format!("{} balance for {address}", backend.label());
     poll(&label, || {
-        let bal = balance(address, remote)?;
+        let bal = balance(address, backend)?;
         Ok((bal != FIL_ZERO).then_some(bal))
     })
     .await
@@ -151,23 +175,21 @@ pub async fn poll_until_funded(address: &str, remote: bool) -> anyhow::Result<St
 pub async fn poll_until_changed(
     address: &str,
     baseline: &str,
-    remote: bool,
+    backend: Backend,
 ) -> anyhow::Result<String> {
-    let label = format!(
-        "{} balance change for {address}",
-        if remote { "remote" } else { "local" }
-    );
+    let label = format!("{} balance change for {address}", backend.label());
     let baseline = baseline.to_string();
     poll(&label, || {
-        let bal = balance(address, remote)?;
+        let bal = balance(address, backend)?;
         Ok((bal != baseline).then_some(bal))
     })
     .await
 }
 
-/// Parse `FULLNODE_API_INFO` (`<token>:/ip4/<host>/tcp/<port>/http`) into
-/// `(token, http_url)` where `http_url` is the v1 RPC endpoint.
-pub fn parse_fullnode_api_info() -> anyhow::Result<(String, String)> {
+static HTTP: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+
+/// Cached `(token, http_url)` parsed once from `FULLNODE_API_INFO`.
+static API: LazyLock<anyhow::Result<(String, String)>> = LazyLock::new(|| {
     let raw = std::env::var("FULLNODE_API_INFO").context("FULLNODE_API_INFO env var not set")?;
     let (token, multiaddr) = raw
         .split_once(':')
@@ -182,49 +204,26 @@ pub fn parse_fullnode_api_info() -> anyhow::Result<(String, String)> {
         .filter(|s| !s.is_empty())
         .with_context(|| format!("missing port in multiaddr `{multiaddr}`"))?;
     Ok((token.to_string(), format!("http://{host}:{port}/rpc/v1")))
+});
+
+fn api() -> anyhow::Result<&'static (String, String)> {
+    API.as_ref()
+        .map_err(|e| anyhow::anyhow!("FULLNODE_API_INFO unavailable: {e}"))
 }
 
-/// POST a JSON-RPC v1 request to the daemon and return the `result` field.
-pub async fn rpc_call(method: &str, params: Value) -> anyhow::Result<Value> {
-    let (token, url) = parse_fullnode_api_info()?;
-    let body = json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": method,
-        "params": params,
-    });
-    let resp: Value = reqwest::Client::new()
-        .post(&url)
-        .bearer_auth(&token)
-        .json(&body)
-        .send()
-        .await
-        .with_context(|| format!("POST {url} for {method}"))?
-        .error_for_status()
-        .with_context(|| format!("HTTP error from {method}"))?
-        .json()
-        .await
-        .with_context(|| format!("decoding JSON-RPC response for {method}"))?;
-    if let Some(err) = resp.get("error").filter(|e| !e.is_null()) {
-        bail!("RPC error from {method}: {err}");
-    }
-    resp.get("result")
-        .cloned()
-        .with_context(|| format!("missing `result` in response for {method}"))
-}
-
-/// Same as [`rpc_call`], but maps missing or null `result` to `Ok(None)`.
+/// POST a JSON-RPC v1 request and return the `result` field, or `None` if
+/// the server responded without one.
 pub async fn rpc_call_opt(method: &str, params: Value) -> anyhow::Result<Option<Value>> {
-    let (token, url) = parse_fullnode_api_info()?;
+    let (token, url) = api()?;
     let body = json!({
         "jsonrpc": "2.0",
         "id": 1,
         "method": method,
         "params": params,
     });
-    let resp: Value = reqwest::Client::new()
-        .post(&url)
-        .bearer_auth(&token)
+    let resp: Value = HTTP
+        .post(url)
+        .bearer_auth(token)
         .json(&body)
         .send()
         .await
@@ -244,7 +243,15 @@ pub async fn rpc_call_opt(method: &str, params: Value) -> anyhow::Result<Option<
     }
 }
 
-/// Extracts a CID string from a JSON-RPC value (Lotus `{ "/": "bafy..." }` or plain string).
+/// Like [`rpc_call_opt`] but treats a missing `result` as an error.
+pub async fn rpc_call(method: &str, params: Value) -> anyhow::Result<Value> {
+    rpc_call_opt(method, params)
+        .await?
+        .with_context(|| format!("missing `result` in response for {method}"))
+}
+
+/// Extract a CID string from either a Lotus `{ "/": "bafy..." }` map or a
+/// plain string.
 pub fn cid_from_lotus_json_result(result: &Value) -> anyhow::Result<String> {
     if let Some(s) = result.as_str() {
         return Ok(s.to_string());
@@ -256,8 +263,7 @@ pub fn cid_from_lotus_json_result(result: &Value) -> anyhow::Result<String> {
         .with_context(|| format!("expected CID (lotus JSON or string), got {result}"))
 }
 
-/// Polls `Filecoin.StateSearchMsg` until the message is found or retries are exhausted (same cadence as
-/// `scripts/tests/calibnet_wallet_check.sh`).
+/// Poll `Filecoin.StateSearchMsg` until the message is mined or retries exhaust.
 pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
     for i in 1..=SEARCH_MSG_RETRIES {
         tokio::time::sleep(SEARCH_MSG_DELAY).await;
