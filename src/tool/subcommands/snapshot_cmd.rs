@@ -482,7 +482,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
-        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .with_context(|| format!("couldn't get a tipset at height {epoch}"))?;
 
     let mut message_calls = vec![];

@@ -95,7 +95,7 @@ impl RpcMethod<1> for GetTipsetByEpoch {
         (epoch,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_index().tipset_by_height(
+        let ts = ctx.chain_index().load_required_tipset_by_height(
             epoch,
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,

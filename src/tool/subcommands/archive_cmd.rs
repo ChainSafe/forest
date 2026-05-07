@@ -581,12 +581,12 @@ pub async fn do_export(
     let index = ChainIndex::new(store.clone());
 
     let ts = index
-        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
     let seen = if let Some(diff) = diff {
         let diff_ts: Tipset = index
-            .tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
+            .load_required_tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
@@ -839,13 +839,13 @@ async fn show_tipset_diff(
         CurrentNetwork::set_global(Network::Testnet);
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
-    let tipset = chain_index.tipset_by_height(
+    let tipset = chain_index.load_required_tipset_by_height(
         epoch,
         heaviest_tipset.clone(),
         ResolveNullTipset::TakeOlder,
     )?;
 
-    let child_tipset = chain_index.tipset_by_height(
+    let child_tipset = chain_index.load_required_tipset_by_height(
         epoch + 1,
         heaviest_tipset.clone(),
         ResolveNullTipset::TakeNewer,

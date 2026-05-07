@@ -224,7 +224,7 @@ async fn benchmark_exporting(
     let store = Arc::new(open_store(input)?);
     let heaviest = store.heaviest_tipset()?;
     let idx = ChainIndex::new(store.clone());
-    let ts = idx.tipset_by_height(
+    let ts = idx.load_required_tipset_by_height(
         epoch.unwrap_or(heaviest.epoch()),
         heaviest,
         ResolveNullTipset::TakeOlder,

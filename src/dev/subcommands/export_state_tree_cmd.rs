@@ -83,7 +83,7 @@ impl ExportStateTreeCommand {
             genesis_header,
         )?);
 
-        let start_ts = chain_store.chain_index().tipset_by_height(
+        let start_ts = chain_store.chain_index().load_required_tipset_by_height(
             from,
             chain_store.heaviest_tipset(),
             ResolveNullTipset::TakeNewer,
