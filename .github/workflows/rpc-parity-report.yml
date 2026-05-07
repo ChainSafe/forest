@@ -1,4 +1,8 @@
 name: RPC parity conformance report
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
 on:
   workflow_dispatch:
     inputs:
@@ -11,7 +15,7 @@ on:
 jobs:
   rpc-parity:
     name: RPC parity report
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-x64-8x
     steps:
       - name: Relocate docker volumes folder
         run: |
@@ -48,8 +52,8 @@ jobs:
         if: always()
         run: |
           export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          echo ${WORKFLOW_URL}
-          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
+          echo "${WORKFLOW_URL}"
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
       - uses: JasonEtco/create-an-issue@v2
         if: github.ref == 'refs/heads/main' && failure()
         env:
@@ -60,7 +64,7 @@ jobs:
       - run: mise add_conformance_report
       - run: mise run docs:format
       # This is needed in order to have the commits signed.
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: generate-token
         with:
           app-id: ${{ secrets.LESHY_APP_ID }}

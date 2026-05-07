@@ -172,7 +172,7 @@ async fn update_chain_checkpoints(
                 println!("    Verify at: https://beryx.io/fil/{beryx_network}/block-cid/{cid}",);
             }
             Err(e) => {
-                println!("  ✗ Epoch {requested_epoch}: {e}");
+                println!("  ✗ Epoch {requested_epoch}: {e:#}");
             }
         }
     }

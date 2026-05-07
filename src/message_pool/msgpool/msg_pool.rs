@@ -8,13 +8,13 @@
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use crate::blocks::{CachingBlockHeader, Tipset};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
 use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
-use crate::message::{ChainMessage, Message, SignedMessage, valid_for_block_inclusion};
+use crate::message::{ChainMessage, MessageRead as _, SignedMessage, valid_for_block_inclusion};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use crate::rpc::eth::types::EthAddress;
 use crate::shim::{
@@ -23,27 +23,34 @@ use crate::shim::{
     econ::TokenAmount,
     gas::{Gas, price_list_by_network_version},
 };
+use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
+use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashSet, HashSetExt};
 use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
+use get_size2::GetSize;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
-use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
+use tokio::{
+    sync::broadcast::{self, error::RecvError},
+    task::JoinSet,
+    time::interval,
+};
 use tracing::warn;
 
 use crate::message_pool::{
     config::MpoolConfig,
     errors::Error,
-    head_change, metrics,
+    head_change,
     msgpool::{
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, RBF_DENOM, RBF_NUM, recover_sig,
-        republish_pending_messages,
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, pending_store::PendingStore,
+        recover_sig, republish_pending_messages,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -52,6 +59,14 @@ use crate::message_pool::{
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
+const KEY_CACHE_SIZE: NonZeroUsize = nonzero!(1_048_576usize);
+const STATE_NONCE_CACHE_SIZE: NonZeroUsize = nonzero!(32768usize);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, GetSize)]
+pub(crate) struct StateNonceCacheKey {
+    tipset_key: TipsetKey,
+    addr: Address,
+}
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
@@ -67,118 +82,7 @@ pub enum TrustPolicy {
     Untrusted,
 }
 
-/// Simple structure that contains a hash-map of messages where k: a message
-/// from address, v: a message which corresponds to that address.
-#[derive(Clone, Default, Debug)]
-pub struct MsgSet {
-    pub(in crate::message_pool) msgs: HashMap<u64, SignedMessage>,
-    next_sequence: u64,
-}
-
-impl MsgSet {
-    /// Generate a new `MsgSet` with an empty hash-map and setting the sequence
-    /// specifically.
-    pub fn new(sequence: u64) -> Self {
-        MsgSet {
-            msgs: HashMap::new(),
-            next_sequence: sequence,
-        }
-    }
-
-    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
-    /// message has a sequence greater than any existing message sequence.
-    /// Use this method when pushing a message coming from trusted sources.
-    pub fn add_trusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
-    where
-        T: Provider,
-    {
-        self.add(api, m, true)
-    }
-
-    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
-    /// message has a sequence greater than any existing message sequence.
-    /// Use this method when pushing a message coming from untrusted sources.
-    pub fn add_untrusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
-    where
-        T: Provider,
-    {
-        self.add(api, m, false)
-    }
-
-    fn add<T>(&mut self, api: &T, m: SignedMessage, trusted: bool) -> Result<(), Error>
-    where
-        T: Provider,
-    {
-        let max_actor_pending_messages = if trusted {
-            api.max_actor_pending_messages()
-        } else {
-            api.max_untrusted_actor_pending_messages()
-        };
-
-        if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
-            self.next_sequence = m.sequence() + 1;
-        }
-
-        let has_existing = if let Some(exms) = self.msgs.get(&m.sequence()) {
-            if m.cid() != exms.cid() {
-                let premium = &exms.message().gas_premium;
-                let min_price = premium.clone()
-                    + ((premium * RBF_NUM).div_floor(RBF_DENOM))
-                    + TokenAmount::from_atto(1u8);
-                if m.message().gas_premium <= min_price {
-                    return Err(Error::GasPriceTooLow);
-                }
-            } else {
-                return Err(Error::DuplicateSequence);
-            }
-            true
-        } else {
-            false
-        };
-
-        // Only check the limit when adding a new message, not when replacing an existing one (RBF)
-        if !has_existing && self.msgs.len() as u64 >= max_actor_pending_messages {
-            return Err(Error::TooManyPendingMessages(
-                m.message.from().to_string(),
-                trusted,
-            ));
-        }
-        if self.msgs.insert(m.sequence(), m).is_none() {
-            metrics::MPOOL_MESSAGE_TOTAL.inc();
-        }
-        Ok(())
-    }
-
-    /// Removes message with the given sequence. If applied, update the set's
-    /// next sequence.
-    pub fn rm(&mut self, sequence: u64, applied: bool) {
-        if self.msgs.remove(&sequence).is_none() {
-            if applied && sequence >= self.next_sequence {
-                self.next_sequence = sequence + 1;
-                while self.msgs.contains_key(&self.next_sequence) {
-                    self.next_sequence += 1;
-                }
-            }
-            return;
-        }
-        metrics::MPOOL_MESSAGE_TOTAL.dec();
-
-        // adjust next sequence
-        if applied {
-            // we removed a (known) message because it was applied in a tipset
-            // we can't possibly have filled a gap in this case
-            if sequence >= self.next_sequence {
-                self.next_sequence = sequence + 1;
-            }
-            return;
-        }
-        // we removed a message because it was pruned
-        // we have to adjust the sequence if it creates a gap or rewinds state
-        if sequence < self.next_sequence {
-            self.next_sequence = sequence;
-        }
-    }
-}
+pub use super::msg_set::{MsgSetLimits, StrictnessPolicy};
 
 /// This contains all necessary information needed for the message pool.
 /// Keeps track of messages to apply, as well as context needed for verifying
@@ -186,8 +90,9 @@ impl MsgSet {
 pub struct MessagePool<T> {
     /// The local address of the client
     local_addrs: Arc<SyncRwLock<Vec<Address>>>,
-    /// A map of pending messages where the key is the address
-    pub pending: Arc<SyncRwLock<HashMap<Address, MsgSet>>>,
+    /// Pending messages, keyed by resolved-key address, together with the
+    /// broadcast channel for [`MpoolUpdate`] events. See [`PendingStore`].
+    pub(in crate::message_pool) pending_store: PendingStore,
     /// The current tipset (a set of blocks)
     pub cur_tipset: Arc<SyncRwLock<Tipset>>,
     /// The underlying provider
@@ -195,9 +100,13 @@ pub struct MessagePool<T> {
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
-    pub bls_sig_cache: Arc<SizeTrackingLruCache<CidWrapper, Signature>>,
+    pub bls_sig_cache: SizeTrackingLruCache<CidWrapper, Signature>,
     /// A cache for BLS signature keyed by Cid
-    pub sig_val_cache: Arc<SizeTrackingLruCache<CidWrapper, ()>>,
+    pub sig_val_cache: SizeTrackingLruCache<CidWrapper, ()>,
+    /// Cache for ID address ID to key address resolution.
+    pub key_cache: IdToAddressCache,
+    /// Cache for state nonce lookups keyed by (`TipsetKey`, `Address`).
+    pub state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64>,
     /// A set of republished messages identified by their Cid
     pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of
@@ -210,6 +119,70 @@ pub struct MessagePool<T> {
     pub chain_config: Arc<ChainConfig>,
 }
 
+/// Resolve an address to its key form, checking the cache first.
+/// Non-ID addresses are returned unchanged.
+pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
+    api: &T,
+    key_cache: &IdToAddressCache,
+    addr: &Address,
+    cur_ts: &Tipset,
+) -> Result<Address, Error> {
+    let id = addr.id().ok();
+    if let Some(id) = &id
+        && let Some(resolved) = key_cache.get_cloned(id)
+    {
+        return Ok(resolved);
+    }
+    let resolved = api.resolve_to_deterministic_address_at_finality(addr, cur_ts)?;
+    if let Some(id) = id {
+        key_cache.push(id, resolved);
+    }
+    Ok(resolved)
+}
+
+/// Get the state nonce for an address, accounting for messages already included in `cur_ts`.
+pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
+    api: &T,
+    key_cache: &IdToAddressCache,
+    state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
+    addr: &Address,
+    cur_ts: &Tipset,
+) -> Result<u64, Error> {
+    let nk = StateNonceCacheKey {
+        tipset_key: cur_ts.key().clone(),
+        addr: *addr,
+    };
+
+    if let Some(cached) = state_nonce_cache.get_cloned(&nk) {
+        return Ok(cached);
+    }
+
+    let actor = api.get_actor_after(addr, cur_ts)?;
+    let mut next_nonce = actor.sequence;
+
+    if let (Ok(resolved), Ok(messages)) = (
+        resolve_to_key(api, key_cache, addr, cur_ts)
+            .inspect_err(|e| tracing::warn!(%addr, "failed to resolve address to key: {e:#}")),
+        api.messages_for_tipset(cur_ts)
+            .inspect_err(|e| tracing::warn!("failed to get messages for tipset: {e:#}")),
+    ) {
+        for msg in messages.iter() {
+            if let Ok(from) = resolve_to_key(api, key_cache, &msg.from(), cur_ts).inspect_err(
+                |e| tracing::warn!(from = %msg.from(), "failed to resolve message sender: {e:#}"),
+            ) && from == resolved
+            {
+                let n = msg.sequence() + 1;
+                if n > next_nonce {
+                    next_nonce = n;
+                }
+            }
+        }
+    }
+
+    state_nonce_cache.push(nk, next_nonce);
+    Ok(next_nonce)
+}
+
 impl<T> MessagePool<T>
 where
     T: Provider,
@@ -219,9 +192,15 @@ where
         self.cur_tipset.read().clone()
     }
 
+    pub fn resolve_to_key(&self, addr: &Address, cur_ts: &Tipset) -> Result<Address, Error> {
+        resolve_to_key(self.api.as_ref(), &self.key_cache, addr, cur_ts)
+    }
+
     /// Add a signed message to the pool and its address.
     fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
-        self.local_addrs.write().push(m.from());
+        let cur_ts = self.current_tipset();
+        let resolved = self.resolve_to_key(&m.from(), &cur_ts)?;
+        self.local_addrs.write().push(resolved);
         self.local_msgs.write().insert(m);
         Ok(())
     }
@@ -351,7 +330,12 @@ where
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
-        self.add_helper(msg, trust_policy)?;
+        let strictness = if local {
+            StrictnessPolicy::Relaxed
+        } else {
+            StrictnessPolicy::Strict
+        };
+        self.add_helper(msg, trust_policy, strictness)?;
         Ok(publish)
     }
 
@@ -359,16 +343,24 @@ where
     /// hash-map. If an entry in the hash-map does not yet exist, create a
     /// new `mset` that will correspond to the from message and push it to
     /// the pending hash-map.
-    fn add_helper(&self, msg: SignedMessage, trust_policy: TrustPolicy) -> Result<(), Error> {
+    fn add_helper(
+        &self,
+        msg: SignedMessage,
+        trust_policy: TrustPolicy,
+        strictness: StrictnessPolicy,
+    ) -> Result<(), Error> {
         let from = msg.from();
         let cur_ts = self.current_tipset();
         add_helper(
             self.api.as_ref(),
-            self.bls_sig_cache.as_ref(),
-            self.pending.as_ref(),
+            &self.bls_sig_cache,
+            &self.pending_store,
+            &self.key_cache,
+            &cur_ts,
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
             trust_policy,
+            strictness,
         )
     }
 
@@ -379,10 +371,11 @@ where
 
         let sequence = self.get_state_sequence(addr, &cur_ts)?;
 
-        let pending = self.pending.read();
-
-        let msgset = pending.get(addr);
-        match msgset {
+        let resolved = self.resolve_to_key(addr, &cur_ts).ok();
+        let mset = resolved
+            .and_then(|r| self.pending_store.snapshot_for(&r))
+            .or_else(|| self.pending_store.snapshot_for(addr));
+        match mset {
             Some(mset) => {
                 if sequence > mset.next_sequence {
                     return Ok(sequence);
@@ -395,8 +388,13 @@ where
 
     /// Get the state of the sequence for a given address in `cur_ts`.
     fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        let actor = self.api.get_actor_after(addr, cur_ts)?;
-        Ok(actor.sequence)
+        get_state_sequence(
+            self.api.as_ref(),
+            &self.key_cache,
+            &self.state_nonce_cache,
+            addr,
+            cur_ts,
+        )
     }
 
     /// Get the state balance for the actor that corresponds to the supplied
@@ -408,40 +406,51 @@ where
 
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
-    pub fn pending(&self) -> Result<(Vec<SignedMessage>, Tipset), Error> {
-        let mut out: Vec<SignedMessage> = Vec::new();
-        let pending = self.pending.read().clone();
+    pub fn pending(&self) -> (Vec<SignedMessage>, Tipset) {
+        let pending = self.pending_store.snapshot();
+        let len = pending.values().map(|mset| mset.msgs.len()).sum();
+        let mut out = Vec::with_capacity(len);
 
-        for (addr, _) in pending {
-            out.append(
-                self.pending_for(&addr)
-                    .ok_or(Error::InvalidFromAddr)?
-                    .as_mut(),
-            )
+        for mset in pending.into_values() {
+            out.extend(
+                mset.msgs
+                    .into_values()
+                    .sorted_unstable_by_key(|m| m.message().sequence),
+            );
         }
 
         let cur_ts = self.current_tipset();
 
-        Ok((out, cur_ts))
+        (out, cur_ts)
     }
 
     /// Return a Vector of signed messages for a given from address. This vector
     /// will be sorted by each `message`'s sequence. If no corresponding
     /// messages found, return None result type.
     pub fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
-        let pending = self.pending.read();
-        let mset = pending.get(a)?;
+        let cur_ts = self.current_tipset();
+        let resolved = self
+            .resolve_to_key(a, &cur_ts)
+            .inspect_err(|e| tracing::debug!(%a, "pending_for: failed to resolve address: {e:#}"))
+            .ok()?;
+        let mset = self.pending_store.snapshot_for(&resolved)?;
         if mset.msgs.is_empty() {
             return None;
         }
 
         Some(
             mset.msgs
-                .values()
-                .cloned()
+                .into_values()
                 .sorted_by_key(|v| v.message().sequence)
                 .collect(),
         )
+    }
+
+    /// Subscribe to [`MpoolUpdate`] events for every insertion into and
+    /// removal from the pending pool.
+    #[allow(dead_code)] // surfaces the MpoolUpdate API for external subscribers.
+    pub fn subscribe_to_updates(&self) -> broadcast::Receiver<MpoolUpdate> {
+        self.pending_store.subscribe()
     }
 
     /// Return Vector of signed messages given a block header for self.
@@ -456,7 +465,7 @@ where
 
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
-                let smsg = recover_sig(self.bls_sig_cache.as_ref(), msg)?;
+                let smsg = recover_sig(&self.bls_sig_cache, msg)?;
                 msg_vec.push(smsg)
             }
         }
@@ -494,6 +503,30 @@ where
         self.config = cfg;
         Ok(())
     }
+
+    #[cfg(test)]
+    pub async fn apply_head_change(
+        &self,
+        revert: Vec<crate::blocks::Tipset>,
+        apply: Vec<crate::blocks::Tipset>,
+    ) -> Result<(), Error>
+    where
+        T: 'static,
+    {
+        head_change(
+            self.api.as_ref(),
+            &self.bls_sig_cache,
+            self.repub_trigger.clone(),
+            self.republished.as_ref(),
+            &self.pending_store,
+            self.cur_tipset.as_ref(),
+            &self.key_cache,
+            &self.state_nonce_cache,
+            revert,
+            apply,
+        )
+        .await
+    }
 }
 
 impl<T> MessagePool<T>
@@ -512,16 +545,20 @@ where
         T: Provider,
     {
         let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
-        let pending = Arc::new(SyncRwLock::new(HashMap::new()));
+        // Per-actor limits are constant for the lifetime of this pool; capture
+        // them once here rather than re-reading on every insert.
+        let pending_store = PendingStore::new(MsgSetLimits::new(
+            api.max_actor_pending_messages(),
+            api.max_untrusted_actor_pending_messages(),
+        ));
         let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
-        let bls_sig_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
-            "bls_sig".into(),
-            BLS_SIG_CACHE_SIZE,
-        ));
-        let sig_val_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
-            "sig_val".into(),
-            SIG_VAL_CACHE_SIZE,
-        ));
+        let bls_sig_cache =
+            SizeTrackingLruCache::new_with_metrics("bls_sig".into(), BLS_SIG_CACHE_SIZE);
+        let sig_val_cache =
+            SizeTrackingLruCache::new_with_metrics("sig_val".into(), SIG_VAL_CACHE_SIZE);
+        let key_cache = SizeTrackingLruCache::new_with_metrics("mpool_key".into(), KEY_CACHE_SIZE);
+        let state_nonce_cache =
+            SizeTrackingLruCache::new_with_metrics("state_nonce".into(), STATE_NONCE_CACHE_SIZE);
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
         let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
@@ -529,11 +566,13 @@ where
         let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
         let mut mp = MessagePool {
             local_addrs,
-            pending,
+            pending_store,
             cur_tipset: tipset,
             api: Arc::new(api),
             bls_sig_cache,
             sig_val_cache,
+            key_cache,
+            state_nonce_cache,
             local_msgs,
             republished,
             config,
@@ -547,9 +586,11 @@ where
         let mut head_changes_rx = mp.api.subscribe_head_changes();
 
         let api = mp.api.clone();
-        let bls_sig_cache = mp.bls_sig_cache.clone();
-        let pending = mp.pending.clone();
+        let bls_sig_cache = mp.bls_sig_cache.shallow_clone();
+        let pending_store = mp.pending_store.shallow_clone();
         let republished = mp.republished.clone();
+        let key_cache = mp.key_cache.shallow_clone();
+        let state_nonce_cache = mp.state_nonce_cache.shallow_clone();
 
         let current_ts = mp.cur_tipset.clone();
         let repub_trigger = mp.repub_trigger.clone();
@@ -561,11 +602,13 @@ where
                     Ok(HeadChanges { reverts, applies }) => {
                         if let Err(e) = head_change(
                             api.as_ref(),
-                            bls_sig_cache.as_ref(),
+                            &bls_sig_cache,
                             repub_trigger.clone(),
                             republished.as_ref(),
-                            pending.as_ref(),
+                            &pending_store,
                             &current_ts,
+                            &key_cache,
+                            &state_nonce_cache,
                             reverts,
                             applies,
                         )
@@ -585,12 +628,13 @@ where
         });
 
         let api = mp.api.clone();
-        let pending = mp.pending.clone();
+        let pending_store = mp.pending_store.shallow_clone();
         let cur_tipset = mp.cur_tipset.clone();
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
+        let key_cache = mp.key_cache.shallow_clone();
         let network_sender = Arc::new(mp.network_sender.clone());
-        let republish_interval = (10 * block_delay + chain_config.propagation_delay_secs) as u64;
+        let republish_interval = u64::from(10 * block_delay + chain_config.propagation_delay_secs);
         // Reacts to republishing requests
         services.spawn(async move {
             let mut repub_trigger_rx = repub_trigger_rx.stream();
@@ -603,10 +647,11 @@ where
                 if let Err(e) = republish_pending_messages(
                     api.as_ref(),
                     network_sender.as_ref(),
-                    pending.as_ref(),
+                    &pending_store,
                     cur_tipset.as_ref(),
                     republished.as_ref(),
                     local_addrs.as_ref(),
+                    &key_cache,
                     &chain_config,
                 )
                 .await
@@ -621,17 +666,21 @@ where
 
 // Helpers for MessagePool
 
-/// Finish verifying signed message before adding it to the pending `mset`
+/// Finish verifying the signed message before adding it to the pending `mset`
 /// hash-map. If an entry in the hash-map does not yet exist, create a new
-/// `mset` that will correspond to the from message and push it to the pending
+/// `mset` that will correspond to the form message and push it to the pending
 /// hash-map.
+#[allow(clippy::too_many_arguments)]
 pub(in crate::message_pool) fn add_helper<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
-    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
+    pending_store: &PendingStore,
+    key_cache: &IdToAddressCache,
+    cur_ts: &Tipset,
     msg: SignedMessage,
     sequence: u64,
     trust_policy: TrustPolicy,
+    strictness: StrictnessPolicy,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -640,18 +689,11 @@ where
         bls_sig_cache.push(msg.cid().into(), msg.signature().clone());
     }
 
-    api.put_message(&ChainMessage::Signed(msg.clone()))?;
-    api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
+    api.put_message(&ChainMessage::Signed(msg.clone().into()))?;
+    api.put_message(&ChainMessage::Unsigned(msg.message().clone().into()))?;
 
-    let mut pending = pending.write();
-    let from = msg.from();
-    let mset = pending.entry(from).or_insert_with(|| MsgSet::new(sequence));
-    match trust_policy {
-        TrustPolicy::Untrusted => mset.add_untrusted(api, msg)?,
-        TrustPolicy::Trusted => mset.add_trusted(api, msg)?,
-    }
-
-    Ok(())
+    let resolved_from = resolve_to_key(api, key_cache, &msg.from(), cur_ts)?;
+    pending_store.insert(resolved_from, msg, sequence, trust_policy, strictness)
 }
 
 fn verify_msg_before_add(
@@ -687,35 +729,38 @@ fn verify_msg_before_add(
     Ok(local)
 }
 
-/// Remove a message from pending given the from address and sequence.
-pub fn remove(
-    from: &Address,
-    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    sequence: u64,
-    applied: bool,
-) -> Result<(), Error> {
-    let mut pending = pending.write();
-    let mset = if let Some(mset) = pending.get_mut(from) {
-        mset
-    } else {
-        return Ok(());
-    };
-
-    mset.rm(sequence, applied);
-
-    if mset.msgs.is_empty() {
-        pending.remove(from);
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::blocks::RawBlockHeader;
+    use crate::chain::ChainStore;
+    use crate::db::MemoryDB;
+    use crate::message_pool::provider::Provider;
     use crate::message_pool::test_provider::TestApi;
+    use crate::networks::ChainConfig;
+    use crate::shim::econ::TokenAmount;
+    use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
+    use crate::utils::db::CborStoreExt as _;
 
     use super::*;
     use crate::shim::message::Message as ShimMessage;
+
+    fn make_smsg(from: Address, seq: u64, premium: u64) -> SignedMessage {
+        SignedMessage::mock_bls_signed_message(ShimMessage {
+            from,
+            sequence: seq,
+            gas_premium: TokenAmount::from_atto(premium),
+            gas_limit: 1_000_000,
+            ..ShimMessage::default()
+        })
+    }
+
+    /// Build a `PendingStore` sized from the [`TestApi`] provider's limits.
+    fn test_pending_store(api: &TestApi) -> PendingStore {
+        PendingStore::new(MsgSetLimits::new(
+            api.max_actor_pending_messages(),
+            api.max_untrusted_actor_pending_messages(),
+        ))
+    }
 
     // Regression test for https://github.com/ChainSafe/forest/pull/6118 which fixed a bogus 100M
     // gas limit. There are no limits on a single message.
@@ -723,7 +768,9 @@ mod tests {
     fn add_helper_message_gas_limit_test() {
         let api = TestApi::default();
         let bls_sig_cache = SizeTrackingLruCache::new_mocked();
-        let pending = SyncRwLock::new(HashMap::new());
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let pending_store = test_pending_store(&api);
+        let cur_ts = api.get_heaviest_tipset();
         let message = ShimMessage {
             gas_limit: 666_666_666,
             ..ShimMessage::default()
@@ -733,58 +780,350 @@ mod tests {
         let res = add_helper(
             &api,
             &bls_sig_cache,
-            &pending,
+            &pending_store,
+            &key_cache,
+            &cur_ts,
             msg,
             sequence,
             TrustPolicy::Trusted,
+            StrictnessPolicy::Relaxed,
         );
         assert!(res.is_ok());
     }
 
-    // Test that RBF (Replace By Fee) is allowed even when at max_actor_pending_messages capacity
-    // This matches Lotus behavior where the check is: https://github.com/filecoin-project/lotus/blob/5f32d00550ddd2f2d0f9abe97dbae07615f18547/chain/messagepool/messagepool.go#L296-L299
     #[test]
-    fn test_rbf_at_capacity() {
-        use crate::shim::econ::TokenAmount;
+    fn test_resolve_to_key_returns_non_id_unchanged() {
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let ts = api.get_heaviest_tipset();
 
-        let api = TestApi::with_max_actor_pending_messages(10);
-        let mut mset = MsgSet::new(0);
+        let bls_addr = Address::new_bls(&[1u8; 48]).unwrap();
+        let result = resolve_to_key(&api, &key_cache, &bls_addr, &ts).unwrap();
+        assert_eq!(result, bls_addr);
+        assert_eq!(
+            key_cache.len(),
+            0,
+            "cache should not be populated for non-ID addresses"
+        );
+    }
 
-        // Fill up to capacity (10 messages)
-        for i in 0..10 {
+    #[test]
+    fn test_resolve_to_key_resolves_id_and_caches() {
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let ts = api.get_heaviest_tipset();
+
+        let id_addr = Address::new_id(100);
+        let key_addr = Address::new_bls(&[5u8; 48]).unwrap();
+        api.set_key_address_mapping(&id_addr, &key_addr);
+
+        let result = resolve_to_key(&api, &key_cache, &id_addr, &ts).unwrap();
+        assert_eq!(result, key_addr);
+        assert_eq!(
+            key_cache.len(),
+            1,
+            "cache should have one entry after resolution"
+        );
+
+        // Second call should hit the cache (no API call needed)
+        let result2 = resolve_to_key(&api, &key_cache, &id_addr, &ts).unwrap();
+        assert_eq!(result2, key_addr);
+    }
+
+    #[test]
+    fn test_add_helper_keys_pending_by_resolved_address() {
+        let api = TestApi::default();
+        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let pending_store = test_pending_store(&api);
+        let cur_ts = api.get_heaviest_tipset();
+
+        let id_addr = Address::new_id(200);
+        let key_addr = Address::new_bls(&[7u8; 48]).unwrap();
+        api.set_key_address_mapping(&id_addr, &key_addr);
+        api.set_state_sequence(&key_addr, 0);
+
+        let message = ShimMessage {
+            from: id_addr,
+            gas_limit: 1_000_000,
+            ..ShimMessage::default()
+        };
+        let msg = SignedMessage::mock_bls_signed_message(message);
+
+        add_helper(
+            &api,
+            &bls_sig_cache,
+            &pending_store,
+            &key_cache,
+            &cur_ts,
+            msg,
+            0,
+            TrustPolicy::Trusted,
+            StrictnessPolicy::Relaxed,
+        )
+        .unwrap();
+
+        assert!(
+            pending_store.snapshot_for(&key_addr).is_some(),
+            "pending should be keyed by the resolved key address"
+        );
+        assert!(
+            pending_store.snapshot_for(&id_addr).is_none(),
+            "pending should NOT have an entry under the raw ID address"
+        );
+    }
+
+    #[test]
+    fn test_get_sequence_works_with_both_address_forms() {
+        let api = TestApi::default();
+        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let pending_store = test_pending_store(&api);
+        let cur_ts = api.get_heaviest_tipset();
+
+        let id_addr = Address::new_id(300);
+        let key_addr = Address::new_bls(&[9u8; 48]).unwrap();
+        api.set_key_address_mapping(&id_addr, &key_addr);
+        api.set_state_sequence(&key_addr, 0);
+
+        // Add two messages from the ID address
+        for seq in 0..2 {
             let message = ShimMessage {
-                sequence: i,
-                gas_premium: TokenAmount::from_atto(100u64),
+                from: id_addr,
+                sequence: seq,
+                gas_limit: 1_000_000,
                 ..ShimMessage::default()
             };
             let msg = SignedMessage::mock_bls_signed_message(message);
-            let res = mset.add_trusted(&api, msg);
-            assert!(res.is_ok(), "Failed to add message {}: {:?}", i, res);
+            add_helper(
+                &api,
+                &bls_sig_cache,
+                &pending_store,
+                &key_cache,
+                &cur_ts,
+                msg,
+                0,
+                TrustPolicy::Trusted,
+                StrictnessPolicy::Relaxed,
+            )
+            .unwrap();
         }
 
-        // Should reject adding a NEW message (sequence 10) when at capacity
-        let message_new = ShimMessage {
-            sequence: 10,
-            gas_premium: TokenAmount::from_atto(100u64),
-            ..ShimMessage::default()
-        };
-        let msg_new = SignedMessage::mock_bls_signed_message(message_new);
-        let res_new = mset.add_trusted(&api, msg_new);
-        assert!(matches!(res_new, Err(Error::TooManyPendingMessages(_, _))));
+        let state_seq = api.get_actor_after(&id_addr, &cur_ts).unwrap().sequence;
+        let resolved_for_id = resolve_to_key(&api, &key_cache, &id_addr, &cur_ts).unwrap();
+        let resolved_for_key = resolve_to_key(&api, &key_cache, &key_addr, &cur_ts).unwrap();
+        assert_eq!(resolved_for_id, resolved_for_key);
 
-        // Should ALLOW replacing an existing message (RBF) even when at capacity
-        // Replace message with sequence 5 with higher gas premium
-        let message_rbf = ShimMessage {
-            sequence: 5,
-            gas_premium: TokenAmount::from_atto(200u64),
-            ..ShimMessage::default()
-        };
-        let msg_rbf = SignedMessage::mock_bls_signed_message(message_rbf);
-        let res_rbf = mset.add_trusted(&api, msg_rbf);
-        assert!(
-            res_rbf.is_ok(),
-            "RBF should be allowed at capacity: {:?}",
-            res_rbf
+        let next_seq = pending_store
+            .snapshot_for(&resolved_for_id)
+            .unwrap()
+            .next_sequence;
+        let expected = std::cmp::max(state_seq, next_seq);
+        assert_eq!(expected, 2, "should reflect both pending messages");
+    }
+
+    #[test]
+    fn test_get_state_sequence_accounts_for_tipset_messages() {
+        use crate::message_pool::test_provider::mock_block;
+
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let state_nonce_cache = SizeTrackingLruCache::new_mocked();
+
+        let sender = Address::new_bls(&[3u8; 48]).unwrap();
+        api.set_state_sequence(&sender, 5);
+
+        let block = mock_block(1, 1);
+        api.inner.lock().set_block_messages(
+            &block,
+            vec![make_smsg(sender, 5, 100), make_smsg(sender, 7, 100)],
         );
+        let ts = Tipset::from(block);
+
+        let nonce = get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts).unwrap();
+        assert_eq!(
+            nonce, 8,
+            "should account for non-consecutive tipset message at nonce 7"
+        );
+    }
+
+    #[test]
+    fn test_get_state_sequence_ignores_other_addresses() {
+        use crate::message_pool::test_provider::mock_block;
+
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let state_nonce_cache = SizeTrackingLruCache::new_mocked();
+
+        let addr_a = Address::new_bls(&[4u8; 48]).unwrap();
+        let addr_b = Address::new_bls(&[5u8; 48]).unwrap();
+        api.set_state_sequence(&addr_a, 0);
+        api.set_state_sequence(&addr_b, 0);
+
+        let block = mock_block(1, 1);
+        api.inner.lock().set_block_messages(
+            &block,
+            vec![
+                make_smsg(addr_b, 0, 100),
+                make_smsg(addr_b, 1, 100),
+                make_smsg(addr_b, 2, 100),
+            ],
+        );
+        let ts = Tipset::from(block);
+
+        let nonce_a =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &addr_a, &ts).unwrap();
+        assert_eq!(
+            nonce_a, 0,
+            "addr_a nonce should be unaffected by addr_b's messages"
+        );
+
+        let nonce_b =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &addr_b, &ts).unwrap();
+        assert_eq!(
+            nonce_b, 3,
+            "addr_b nonce should reflect its tipset messages"
+        );
+    }
+
+    #[test]
+    fn test_get_state_sequence_cache_hit() {
+        use crate::message_pool::test_provider::mock_block;
+
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64> =
+            SizeTrackingLruCache::new_mocked();
+
+        let sender = Address::new_bls(&[6u8; 48]).unwrap();
+        api.set_state_sequence(&sender, 5);
+
+        let block = mock_block(1, 1);
+        api.inner
+            .lock()
+            .set_block_messages(&block, vec![make_smsg(sender, 5, 100)]);
+        let ts = Tipset::from(block);
+
+        let nonce1 =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts).unwrap();
+        assert_eq!(nonce1, 6);
+
+        // Mutate the underlying state; the cache should still return the old value.
+        api.set_state_sequence(&sender, 99);
+        let nonce2 =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts).unwrap();
+        assert_eq!(
+            nonce2, 6,
+            "second call should return the cached value, not re-read state"
+        );
+    }
+
+    #[test]
+    fn test_get_state_sequence_cache_miss_on_different_tipset() {
+        use crate::message_pool::test_provider::mock_block;
+
+        let api = TestApi::default();
+        let key_cache = SizeTrackingLruCache::new_mocked();
+        let state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64> =
+            SizeTrackingLruCache::new_mocked();
+
+        let sender = Address::new_bls(&[7u8; 48]).unwrap();
+        api.set_state_sequence(&sender, 10);
+
+        let block_a = mock_block(1, 1);
+        let ts_a = Tipset::from(&block_a);
+
+        let nonce_a =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts_a).unwrap();
+        assert_eq!(nonce_a, 10);
+
+        // Different tipset should be a cache miss and re-read state.
+        api.set_state_sequence(&sender, 20);
+        let block_b = mock_block(2, 2);
+        let ts_b = Tipset::from(&block_b);
+
+        let nonce_b =
+            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts_b).unwrap();
+        assert_eq!(
+            nonce_b, 20,
+            "different tipset should miss the cache and read fresh state"
+        );
+    }
+
+    #[test]
+    fn resolve_to_key_uses_finality_lookback() {
+        let db = Arc::new(MemoryDB::default());
+
+        let mut cfg = ChainConfig::default();
+        cfg.policy.chain_finality = 1;
+        let cfg = Arc::new(cfg);
+
+        let bls_a = Address::new_bls(&[8u8; 48]).unwrap();
+        let bls_b = Address::new_bls(&[9u8; 48]).unwrap();
+
+        // root_a: only contains f0300
+        let mut st_a = StateTree::new(db.clone(), StateTreeVersion::V5).unwrap();
+        st_a.set_actor(
+            &Address::new_id(300),
+            ActorState::new_empty(Cid::default(), Some(bls_a)),
+        )
+        .unwrap();
+        let root_a = st_a.flush().unwrap();
+
+        // root_b: only contains f0400
+        let mut st_b = StateTree::new(db.clone(), StateTreeVersion::V5).unwrap();
+        st_b.set_actor(
+            &Address::new_id(400),
+            ActorState::new_empty(Cid::default(), Some(bls_b)),
+        )
+        .unwrap();
+        let root_b = st_b.flush().unwrap();
+
+        let genesis = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            state_root: root_a,
+            ..Default::default()
+        }));
+        db.put_cbor_default(genesis.block_headers().first())
+            .unwrap();
+
+        let ts1 = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            parents: genesis.key().clone(),
+            epoch: 1,
+            state_root: root_a,
+            timestamp: 1,
+            ..Default::default()
+        }));
+        db.put_cbor_default(ts1.block_headers().first()).unwrap();
+
+        let head = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            parents: ts1.key().clone(),
+            epoch: 2,
+            state_root: root_b,
+            timestamp: 2,
+            ..Default::default()
+        }));
+        db.put_cbor_default(head.block_headers().first()).unwrap();
+
+        let cs = ChainStore::new(
+            db.clone(),
+            db.clone(),
+            db,
+            cfg,
+            genesis.block_headers().first().clone(),
+        )
+        .unwrap();
+
+        // f0300 exists in lookback state (root_a) → resolves successfully.
+        let result = Provider::resolve_to_deterministic_address_at_finality(
+            &cs,
+            &Address::new_id(300),
+            &head,
+        )
+        .unwrap();
+        assert_eq!(result, bls_a);
+
+        // f0400 exists only in head state (root_b), not in lookback → fails.
+        Provider::resolve_to_deterministic_address_at_finality(&cs, &Address::new_id(400), &head)
+            .expect_err("actor only in head state must not resolve via finality lookback");
     }
 }

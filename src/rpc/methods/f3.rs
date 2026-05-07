@@ -15,7 +15,6 @@ pub use self::types::{
 };
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
-use crate::shim::actors::{miner, power};
 use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
@@ -28,11 +27,12 @@ use crate::{
     lotus_json::{HasLotusJson as _, LotusJson},
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
     shim::{
+        actors::{miner, power},
         address::{Address, Protocol},
         clock::ChainEpoch,
         crypto::Signature,
     },
-    utils::misc::env::is_env_set_and_truthy,
+    utils::{ShallowClone, misc::env::is_env_set_and_truthy},
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
@@ -41,8 +41,10 @@ use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
+use nonzero_ext::nonzero;
 use num::Signed as _;
 use parking_lot::RwLock;
+use std::num::NonZeroUsize;
 use std::{
     borrow::Cow,
     fmt::Display,
@@ -61,14 +63,20 @@ impl RpcMethod<0> for GetRawNetworkName {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = String;
+    type Ok = Arc<str>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.chain_config().network.genesis_name().into())
+        // Network is fixed for the process lifetime; cache the genesis name.
+        static CACHED: OnceLock<Arc<str>> = OnceLock::new();
+        Ok(CACHED
+            .get_or_init(|| {
+                Arc::<str>::from(String::from(ctx.chain_config().network.genesis_name()))
+            })
+            .clone())
     }
 }
 
@@ -87,7 +95,7 @@ impl RpcMethod<1> for GetTipsetByEpoch {
         (epoch,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_index().tipset_by_height(
+        let ts = ctx.chain_index().load_required_tipset_by_height(
             epoch,
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
@@ -166,16 +174,13 @@ impl GetPowerTable {
         ts: &Tipset,
     ) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
-        const BLOCKSTORE_CACHE_CAP: usize = 65536;
+        const BLOCKSTORE_CACHE_CAP: NonZeroUsize = nonzero!(65536_usize);
         static BLOCKSTORE_CACHE: LazyLock<LruBlockstoreReadCache> = LazyLock::new(|| {
-            LruBlockstoreReadCache::new_with_metrics(
-                "get_powertable".into(),
-                BLOCKSTORE_CACHE_CAP.try_into().expect("Infallible"),
-            )
+            LruBlockstoreReadCache::new_with_metrics("get_powertable".into(), BLOCKSTORE_CACHE_CAP)
         });
         let db = BlockstoreWithReadCache::new(
             ctx.store_owned(),
-            BLOCKSTORE_CACHE.clone(),
+            BLOCKSTORE_CACHE.shallow_clone(),
             Some(DefaultBlockstoreReadCacheStats::default()),
         );
 
@@ -406,6 +411,9 @@ impl GetPowerTable {
             power::State::V17(s) => {
                 handle_miner_state_v12_on!(v17, id_power_worker_mappings, &ts, s, &policy.into());
             }
+            power::State::V18(s) => {
+                handle_miner_state_v12_on!(v18, id_power_worker_mappings, &ts, s, &policy.into());
+            }
         }
         let mut power_entries = vec![];
         for (id, power, worker) in id_power_worker_mappings {
@@ -520,8 +528,9 @@ impl RpcMethod<1> for Finalize {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // Respect the environment variable when set, and fallback to chain config when not set.
-        let enabled = is_env_set_and_truthy("FOREST_F3_CONSENSUS_ENABLED")
-            .unwrap_or(ctx.chain_config().f3_consensus);
+        static ENV_ENABLED: LazyLock<Option<bool>> =
+            LazyLock::new(|| is_env_set_and_truthy("FOREST_F3_CONSENSUS_ENABLED"));
+        let enabled = ENV_ENABLED.unwrap_or(ctx.chain_config().f3_consensus);
         if !enabled {
             return Ok(());
         }
@@ -531,10 +540,10 @@ impl RpcMethod<1> for Finalize {
             Some(ts) => ts,
             None => ctx
                 .sync_network_context
-                .chain_exchange_headers(None, &tsk, 1.try_into().expect("Infallible"))
+                .chain_exchange_headers(None, &tsk, nonzero!(1_u64))
                 .await?
                 .first()
-                .cloned()
+                .map(ShallowClone::shallow_clone)
                 .with_context(|| format!("failed to get tipset via chain exchange. tsk: {tsk}"))?,
         };
         let head = ctx.chain_store().heaviest_tipset();
@@ -574,8 +583,10 @@ impl RpcMethod<1> for Finalize {
                 )?;
                 let ts = Arc::new(Tipset::from(fts));
                 ctx.chain_store().put_tipset(&ts)?;
-                ctx.chain_store().set_heaviest_tipset(finalized_ts)?;
+                ctx.chain_store()
+                    .set_heaviest_tipset(finalized_ts.shallow_clone())?;
             }
+            ctx.chain_store().set_f3_finalized_tipset(finalized_ts);
         }
         Ok(())
     }

@@ -186,12 +186,12 @@ where
     /// Replace the inner reader.
     /// It MUST point to the same underlying IO, else future calls to `get`
     /// will be incorrect.
-    pub fn map<T>(self, f: impl FnOnce(R) -> io::Result<T>) -> io::Result<Reader<T>> {
-        Ok(Reader {
-            inner: f(self.inner)?,
+    pub fn map<T>(self, f: impl FnOnce(R) -> T) -> Reader<T> {
+        Reader {
+            inner: f(self.inner),
             table_offset: self.table_offset,
             header: self.header,
-        })
+        }
     }
 }
 
@@ -201,19 +201,19 @@ pub struct ZstdSkipFramesEncodedDataReader<R> {
 }
 
 impl<R: ReadAt> ZstdSkipFramesEncodedDataReader<R> {
-    pub fn new(reader: R) -> io::Result<Self> {
+    pub fn new(reader: R) -> Self {
         let mut offset = 0;
         let mut skip_frame_header_offsets = vec![];
         while let Ok(data_len) = reader
             .read_u32_at::<LittleEndian>(offset + ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER.len() as u64)
         {
             skip_frame_header_offsets.push(offset);
-            offset += ZSTD_SKIP_FRAME_LEN + data_len as u64;
+            offset += ZSTD_SKIP_FRAME_LEN + u64::from(data_len);
         }
-        Ok(Self {
+        Self {
             reader,
             skip_frame_header_offsets,
-        })
+        }
     }
 
     pub fn inner(&self) -> &R {
@@ -796,8 +796,8 @@ mod tests {
     use super::*;
     use ahash::{HashMap, HashSet};
     use cid::Cid;
-    use futures::executor::block_on;
     use tap::Tap as _;
+    use tokio_test::block_on;
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
     fn do_hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
@@ -818,8 +818,7 @@ mod tests {
                         }
                     })?;
                     Ok(())
-                }))
-                .unwrap();
+                }));
             if multi_index_frame {
                 assert!(!r.skip_frame_header_offsets.is_empty());
             } else {
@@ -858,8 +857,7 @@ mod tests {
                     }
                 })?;
                 Ok(())
-            }))
-            .unwrap();
+            }));
             if multi_index_frame {
                 assert!(!r.skip_frame_header_offsets.is_empty());
             } else {
@@ -891,38 +889,59 @@ mod tests {
         }
     }
 
-    quickcheck::quickcheck! {
-        fn hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) -> () {
-            do_hashmap_of_cids(reference)
-        }
-        fn hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) -> () {
-            do_hashmap_of_hashes(reference)
-        }
-        fn everything_maps_to_first_slot(values: Vec<HashSet<u64>>) -> () {
-            let Some(initial_width) = initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR) else {
-                return;
-            };
-            let reference = HashMap::from_iter(iter::zip(hash::from_ideal_slot_ix(0, initial_width).unique(), values));
-            do_hashmap_of_hashes(reference)
-        }
-        fn everything_maps_to_first_10_slots(values: Vec<HashSet<u64>>) -> () {
-            let Some(initial_width) = initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR) else {
-                return;
-            };
-            let mut generators = Vec::from_iter((0..cmp::min(initial_width.get(), 10)).map(|it|hash::from_ideal_slot_ix(it, initial_width).unique()));
-            let hashes_in_first_10 = generators.iter_mut().flatten();
-            let reference = HashMap::from_iter(iter::zip(hashes_in_first_10, values));
-            do_hashmap_of_hashes(reference)
-        }
-        fn header(it: V1Header) -> () {
-            round_trip(&it);
-        }
-        fn slot(it: Slot) -> () {
-            round_trip(&it);
-        }
-        fn raw_slot(it: RawSlot) -> () {
-            round_trip(&it);
-        }
+    #[quickcheck_macros::quickcheck]
+    fn hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
+        do_hashmap_of_cids(reference)
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) {
+        do_hashmap_of_hashes(reference)
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn everything_maps_to_first_slot(values: Vec<HashSet<u64>>) {
+        let Some(initial_width) =
+            initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR)
+        else {
+            return;
+        };
+        let reference = HashMap::from_iter(iter::zip(
+            hash::from_ideal_slot_ix(0, initial_width).unique(),
+            values,
+        ));
+        do_hashmap_of_hashes(reference)
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn everything_maps_to_first_10_slots(values: Vec<HashSet<u64>>) {
+        let Some(initial_width) =
+            initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR)
+        else {
+            return;
+        };
+        let mut generators = Vec::from_iter(
+            (0..cmp::min(initial_width.get(), 10))
+                .map(|it| hash::from_ideal_slot_ix(it, initial_width).unique()),
+        );
+        let hashes_in_first_10 = generators.iter_mut().flatten();
+        let reference = HashMap::from_iter(iter::zip(hashes_in_first_10, values));
+        do_hashmap_of_hashes(reference)
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn header(it: V1Header) {
+        round_trip(&it);
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn slot(it: Slot) {
+        round_trip(&it);
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn raw_slot(it: RawSlot) {
+        round_trip(&it);
     }
 
     #[track_caller]

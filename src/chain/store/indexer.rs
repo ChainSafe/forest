@@ -261,10 +261,11 @@ where
             "cannot validate index at epoch {epoch}, can only validate at an epoch less than chain head epoch {}",
             head.epoch()
         );
-        let ts =
-            self.cs
-                .chain_index()
-                .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
+        let ts = self.cs.chain_index().load_required_tipset_by_height(
+            epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?;
         let is_index_empty: bool = sqlx::query(self.stmts.is_index_empty)
             .fetch_one(&self.db)
             .await?
@@ -388,7 +389,7 @@ where
     }
 
     fn get_next_tipset(&self, ts: &Tipset) -> anyhow::Result<Tipset> {
-        let child = self.cs.chain_index().tipset_by_height(
+        let child = self.cs.chain_index().load_required_tipset_by_height(
             ts.epoch() + 1,
             self.cs.heaviest_tipset(),
             ResolveNullTipset::TakeNewer,
@@ -445,7 +446,7 @@ where
             if let Some(events) = events {
                 events_count += events.len();
                 for event in events {
-                    event_entries_count += event.event().entries().len();
+                    event_entries_count += event.entries().len();
                 }
             }
         }
@@ -567,7 +568,7 @@ where
                         let codec: i64 = row2.get(2);
                         let value: Vec<u8> = row2.get(3);
                         event.event.entries.push(Entry {
-                            flags: Flags::from_bits_retain(flags as _),
+                            flags: Flags::from_bits_retain(u64::from(flags)),
                             key,
                             codec: codec as _,
                             value,
@@ -626,7 +627,7 @@ where
             receipts.len()
         );
         let mut executed = Vec::with_capacity(msgs.len());
-        for (message, receipt) in msgs.into_iter().zip(receipts.into_iter()) {
+        for (message, receipt) in msgs.iter().zip(receipts) {
             let events = if let Some(events_root) = receipt.events_root() {
                 Some(
                     match StampedEvent::get_events(self.cs.blockstore(), &events_root) {
@@ -642,7 +643,7 @@ where
             } else {
                 None
             };
-            executed.push((message, receipt, events));
+            executed.push((message.clone(), receipt, events));
         }
         Ok(executed)
     }
@@ -706,7 +707,7 @@ where
                     .await
                     .map_err(|e| anyhow::anyhow!("failed to insert empty tipset: {e}"))?;
             } else {
-                for (i, msg) in msgs.into_iter().enumerate() {
+                for (i, msg) in msgs.iter().enumerate() {
                     sqlx::query(self.stmts.insert_tipset_message)
                         .bind(&tsk_cid_bytes)
                         .bind(ts.epoch())
@@ -837,7 +838,7 @@ where
                         .await?
                         .last_insert_rowid();
 
-                    for entry in event.event().entries() {
+                    for entry in event.entries() {
                         let (flags, key, codec, value) = entry.into_parts();
                         sqlx::query(self.stmts.insert_event_entry)
                             .bind(event_id)

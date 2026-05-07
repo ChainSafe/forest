@@ -10,8 +10,8 @@ use crate::daemon::asyncify;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::daemon::db_util::load_all_forest_cars_with_cleanup;
 use crate::db::car::ManyCar;
-use crate::db::db_engine::{db_root, open_db};
-use crate::db::parity_db::ParityDb;
+use crate::db::db_engine::db_root;
+use crate::db::parity_db::{GarbageCollectableParityDb, ParityDb};
 use crate::db::{
     CAR_DB_DIR_NAME, DummyStore, EthMappingsStore, INDEX_DB_DIR_NAME, INDEX_DB_FILE_NAME,
 };
@@ -45,6 +45,7 @@ pub struct AppContext {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
+    pub temp_dir: std::path::PathBuf,
 }
 
 impl AppContext {
@@ -60,9 +61,9 @@ impl AppContext {
                 SqliteIndexer::new(
                     crate::utils::sqlite::open_file(db_meta_data.index_db_path()).await?,
                     state_manager.chain_store().clone(),
-                    SqliteIndexerOptions::default().with_gc_retention_epochs(
-                        cfg.chain_indexer.gc_retention_epochs.unwrap_or_default() as _,
-                    ),
+                    SqliteIndexerOptions::default().with_gc_retention_epochs(i64::from(
+                        cfg.chain_indexer.gc_retention_epochs.unwrap_or_default(),
+                    )),
                 )
                 .await?
                 .with_actor_to_delegated_address_func(Arc::new({
@@ -95,6 +96,8 @@ impl AppContext {
         } else {
             None
         };
+        let temp_dir = chain_path(cfg).join("tmp");
+        std::fs::create_dir_all(&temp_dir).context("Failed to create temporary directory")?;
         Ok(Self {
             net_keypair,
             p2p_peer_id,
@@ -105,6 +108,7 @@ impl AppContext {
             keystore,
             admin_jwt,
             snapshot_progress_tracker,
+            temp_dir,
         })
     }
 
@@ -124,7 +128,6 @@ fn get_chain_config_and_set_network(config: &Config) -> Arc<ChainConfig> {
     }
     Arc::new(ChainConfig {
         enable_indexer: config.chain_indexer.enable_indexer,
-        enable_receipt_event_caching: config.client.enable_rpc,
         default_max_fee: config.fee.max_fee.clone(),
         ..chain_config
     })
@@ -221,11 +224,11 @@ fn maybe_migrate_db(config: &Config) {
     // to avoid breaking the node.
     let db_migration = crate::db::migration::DbMigration::new(config);
     if let Err(e) = db_migration.migrate() {
-        warn!("Failed to migrate database: {e}");
+        warn!("Failed to migrate database: {e:#}");
     }
 }
 
-pub type DbType = ManyCar<Arc<ParityDb>>;
+pub type DbType = ManyCar<Arc<GarbageCollectableParityDb>>;
 
 pub(crate) struct DbMetadata {
     db_root_dir: PathBuf,
@@ -257,7 +260,10 @@ async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType
     maybe_migrate_db(config);
     let chain_data_path = chain_path(config);
     let db_root_dir = db_root(&chain_data_path)?;
-    let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config())?);
+    let db_writer = Arc::new(GarbageCollectableParityDb::new(ParityDb::to_options(
+        db_root_dir.clone(),
+        config.db_config(),
+    ))?);
     let db = Arc::new(ManyCar::new(db_writer.clone()));
     let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars_with_cleanup(&db, &forest_car_db_dir)?;

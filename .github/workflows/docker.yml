@@ -1,4 +1,7 @@
 name: Forest Docker
+permissions:
+  contents: read
+  packages: write
 
 # Cancel workflow if there is a new change to the branch.
 concurrency:
@@ -46,18 +49,16 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
-      - run: lscpu
-      - name: Show IP
-        run: curl ifconfig.me
-        continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: jdx/mise-action@v4
@@ -65,7 +66,7 @@ jobs:
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-        run: mise run install release
+        run: mise run install ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'release' || 'quick' }}
       - uses: actions/upload-artifact@v7
         with:
           name: "forest-linux-amd64"
@@ -85,21 +86,18 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
-          echo "SCCACHE_S3_KEY_PREFIX=aarch64" >> $GITHUB_ENV
-      - run: lscpu
-      - run: vmstat -s
-      - name: Show IP
-        run: curl ifconfig.me
-        continue-on-error: true
+          echo "SCCACHE_S3_KEY_PREFIX=aarch64" >> "$GITHUB_ENV"
       - name: Checkout Sources
         uses: actions/checkout@v6
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
@@ -196,6 +194,7 @@ jobs:
       # - date+sha, e.g. 2023-01-19-da4692d,
       # - tag (if pushed).
       - name: Docker Meta
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         id: meta
         uses: docker/metadata-action@v6
         with:
@@ -208,13 +207,13 @@ jobs:
             type=edge
 
       - name: Build slim image and push to GitHub Container Registry
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: docker/build-push-action@v7
         with:
           context: /tmp/forest
           file: ./Dockerfile-ci
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-          # Compile Docker image only for AMD64 for a regular PR to save some CI time.
-          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          push: true
+          platforms: linux/amd64,linux/arm64
           target: slim-image

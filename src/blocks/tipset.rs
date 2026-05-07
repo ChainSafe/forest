@@ -13,6 +13,7 @@ use crate::{
     networks::{calibnet, mainnet},
     shim::clock::ChainEpoch,
     utils::{
+        ShallowClone,
         cid::CidCborExt,
         db::{CborStoreExt, car_stream::CarBlock},
         get_size::nunny_vec_heap_size_helper,
@@ -195,6 +196,15 @@ pub struct Tipset {
     key: Arc<OnceLock<TipsetKey>>,
 }
 
+impl ShallowClone for Tipset {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            headers: self.headers.shallow_clone(),
+            key: self.key.shallow_clone(),
+        }
+    }
+}
+
 impl From<RawBlockHeader> for Tipset {
     fn from(value: RawBlockHeader) -> Self {
         Self::from(CachingBlockHeader::from(value))
@@ -267,6 +277,15 @@ pub enum CreateTipsetError {
     BadEpoch,
     #[error("duplicate miner address. All miners in a tipset must be unique.")]
     DuplicateMiner,
+}
+
+/// A trait for types that have the same properties as a Tipset.
+pub trait TipsetLike {
+    fn epoch(&self) -> ChainEpoch;
+    fn key(&self) -> &TipsetKey;
+    fn parents(&self) -> &TipsetKey;
+    #[allow(dead_code)]
+    fn parent_state(&self) -> &Cid;
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -451,6 +470,24 @@ impl Tipset {
     }
 }
 
+impl TipsetLike for Tipset {
+    fn epoch(&self) -> ChainEpoch {
+        self.epoch()
+    }
+
+    fn key(&self) -> &TipsetKey {
+        self.key()
+    }
+
+    fn parents(&self) -> &TipsetKey {
+        self.parents()
+    }
+
+    fn parent_state(&self) -> &Cid {
+        self.parent_state()
+    }
+}
+
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
 /// and messages.
 #[derive(Debug, Clone, Eq)]
@@ -458,6 +495,24 @@ pub struct FullTipset {
     blocks: Arc<NonEmpty<Block>>,
     // key is lazily initialized via `fn key()`.
     key: Arc<OnceLock<TipsetKey>>,
+}
+
+impl TipsetLike for FullTipset {
+    fn epoch(&self) -> ChainEpoch {
+        self.epoch()
+    }
+
+    fn key(&self) -> &TipsetKey {
+        self.key()
+    }
+
+    fn parents(&self) -> &TipsetKey {
+        self.parents()
+    }
+
+    fn parent_state(&self) -> &Cid {
+        self.parent_state()
+    }
 }
 
 impl std::hash::Hash for FullTipset {
@@ -686,10 +741,9 @@ mod lotus_json {
     }
 
     #[cfg(test)]
-    quickcheck::quickcheck! {
-        fn quickcheck(val: Tipset) -> () {
-            assert_unchanged_via_json(val)
-        }
+    #[quickcheck_macros::quickcheck]
+    fn quickcheck(val: Tipset) {
+        assert_unchanged_via_json(val)
     }
 }
 

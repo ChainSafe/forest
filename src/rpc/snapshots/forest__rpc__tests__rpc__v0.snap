@@ -5,7 +5,7 @@ expression: spec
 openrpc: 1.3.2
 info:
   title: forest
-  version: 0.32.4
+  version: 0.33.2
 methods:
   - name: Filecoin.AuthNew
     params:
@@ -2316,6 +2316,35 @@ methods:
       schema:
         type: string
     paramStructure: by-position
+  - name: Forest.NetChainExchange
+    description: Internal API for debugging chain exchange.
+    params:
+      - name: startTipsetKey
+        required: true
+        schema:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: "#/components/schemas/Cid"
+      - name: len
+        required: true
+        schema:
+          type: integer
+          format: uint64
+          minimum: 0
+      - name: options
+        required: true
+        schema:
+          type: integer
+          format: uint64
+          minimum: 0
+    result:
+      name: Forest.NetChainExchange.Result
+      required: true
+      schema:
+        type: string
+    paramStructure: by-position
   - name: Filecoin.NodeStatus
     params: []
     result:
@@ -2384,6 +2413,7 @@ methods:
         $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Forest.StateCompute
+    description: "Forest-specific RPC method that recomputes tipset state over an epoch range. It reuses cached executed tipsets only when the cached state root is loadable; otherwise it recomputes. Unlike Filecoin.StateCompute, it does not apply caller-supplied messages or return execution traces."
     params:
       - name: epoch
         required: true
@@ -2398,6 +2428,12 @@ methods:
             - "null"
           format: uint
           minimum: 1
+      - name: force_recompute
+        required: false
+        schema:
+          type:
+            - boolean
+            - "null"
     result:
       name: Forest.StateCompute.Result
       required: false
@@ -3515,7 +3551,7 @@ methods:
         $ref: "#/components/schemas/ApiInvocResult"
     paramStructure: by-position
   - name: Filecoin.StateSearchMsg
-    description: Returns the receipt and tipset the specified message was included in.
+    description: "Returns the receipt and tipset the specified message was included in, or null if the message was not found."
     params:
       - name: tipsetKey
         required: true
@@ -3540,12 +3576,14 @@ methods:
           type: boolean
     result:
       name: Filecoin.StateSearchMsg.Result
-      required: true
+      required: false
       schema:
-        $ref: "#/components/schemas/MessageLookup"
+        anyOf:
+          - $ref: "#/components/schemas/MessageLookup"
+          - type: "null"
     paramStructure: by-position
   - name: Filecoin.StateSearchMsgLimited
-    description: "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed."
+    description: "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed, or null if it was not found."
     params:
       - name: message_cid
         required: true
@@ -3558,9 +3596,11 @@ methods:
           format: int64
     result:
       name: Filecoin.StateSearchMsgLimited.Result
-      required: true
+      required: false
       schema:
-        $ref: "#/components/schemas/MessageLookup"
+        anyOf:
+          - $ref: "#/components/schemas/MessageLookup"
+          - type: "null"
     paramStructure: by-position
   - name: Filecoin.StateSectorExpiration
     description: Returns the epoch at which the specified sector will expire.
@@ -5759,19 +5799,19 @@ components:
         - type: boolean
         - type: object
           properties:
-            currentblock:
+            currentBlock:
               type: integer
               format: int64
-            highestblock:
+            highestBlock:
               type: integer
               format: int64
-            startingblock:
+            startingBlock:
               type: integer
               format: int64
           required:
-            - startingblock
-            - currentblock
-            - highestblock
+            - startingBlock
+            - currentBlock
+            - highestBlock
     EthTopicSpec:
       type: array
       items:
@@ -6334,6 +6374,9 @@ components:
         UpgradeDragonHeight:
           type: integer
           format: int64
+        UpgradeGoldenWeekHeight:
+          type: integer
+          format: int64
         UpgradeHyggeHeight:
           type: integer
           format: int64
@@ -6438,6 +6481,7 @@ components:
         - UpgradeTuktukHeight
         - UpgradeTeepHeight
         - UpgradeTockHeight
+        - UpgradeGoldenWeekHeight
     GasTrace:
       type: object
       properties:

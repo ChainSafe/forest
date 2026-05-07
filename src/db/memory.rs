@@ -13,6 +13,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
+use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
 
 #[derive(Debug, Default)]
@@ -24,6 +25,19 @@ pub struct MemoryDB {
 }
 
 impl MemoryDB {
+    pub fn blockstore_len(&self) -> usize {
+        self.blockchain_db.read().len() + self.blockchain_persistent_db.read().len()
+    }
+
+    pub fn blockstore_size_bytes(&self) -> usize {
+        self.blockchain_db
+            .read()
+            .iter()
+            .chain(self.blockchain_persistent_db.read().iter())
+            .map(|(k, v)| k.to_bytes().len() + v.len())
+            .sum()
+    }
+
     pub async fn export_forest_car<W: tokio::io::AsyncWrite + Unpin>(
         &self,
         writer: &mut W,
@@ -32,6 +46,14 @@ impl MemoryDB {
             SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)?
                 .context("chain head is not tracked and cannot be exported")?
                 .into_cids();
+        self.export_forest_car_with_roots(roots, writer).await
+    }
+
+    pub async fn export_forest_car_with_roots<W: tokio::io::AsyncWrite + Unpin>(
+        &self,
+        roots: NonEmpty<Cid>,
+        writer: &mut W,
+    ) -> anyhow::Result<()> {
         let blocks = {
             let blockchain_db = self.blockchain_db.read();
             let blockchain_persistent_db = self.blockchain_persistent_db.read();
@@ -95,8 +117,8 @@ impl EthMappingsStore for MemoryDB {
         let cids = self
             .eth_mappings_db
             .read()
-            .iter()
-            .filter_map(|(_, value)| fvm_ipld_encoding::from_slice::<(Cid, u64)>(value).ok())
+            .values()
+            .filter_map(|value| fvm_ipld_encoding::from_slice::<(Cid, u64)>(value).ok())
             .collect();
 
         Ok(cids)

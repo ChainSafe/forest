@@ -1,20 +1,19 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::blocks::TipsetKey;
-use crate::shim::executor::Receipt;
-use crate::state_manager::{DEFAULT_TIPSET_CACHE_SIZE, StateEvents};
+use crate::state_manager::DEFAULT_TIPSET_CACHE_SIZE;
+use crate::utils::ShallowClone;
 use crate::utils::cache::{LruValueConstraints, SizeTrackingLruCache};
-use nonzero_ext::nonzero;
-use parking_lot::Mutex as SyncMutex;
+use ahash::{HashMap, HashMapExt as _};
+use parking_lot::RwLock as SyncRwLock;
 use std::future::Future;
 use std::num::NonZeroUsize;
-use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 
 struct TipsetStateCacheInner<V: LruValueConstraints> {
     values: SizeTrackingLruCache<TipsetKey, V>,
-    pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
+    pending: HashMap<TipsetKey, Arc<TokioMutex<()>>>,
 }
 
 impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
@@ -24,7 +23,7 @@ impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
                 Self::cache_name(cache_identifier).into(),
                 cache_size,
             ),
-            pending: Vec::with_capacity(8),
+            pending: HashMap::with_capacity(8),
         }
     }
 
@@ -35,7 +34,7 @@ impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
 
 /// A generic cache that handles concurrent access and computation for tipset-related data.
 pub(crate) struct TipsetStateCache<V: LruValueConstraints> {
-    cache: Arc<SyncMutex<TipsetStateCacheInner<V>>>,
+    cache: Arc<SyncRwLock<TipsetStateCacheInner<V>>>,
 }
 
 enum CacheLookupStatus<V> {
@@ -50,19 +49,23 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
 
     pub fn with_size(cache_identifier: &str, cache_size: NonZeroUsize) -> Self {
         Self {
-            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::with_size(
+            cache: Arc::new(SyncRwLock::new(TipsetStateCacheInner::with_size(
                 cache_identifier,
                 cache_size,
             ))),
         }
     }
 
-    fn with_inner<F, T>(&self, func: F) -> T
+    fn get_or_insert<F1, F2, T>(&self, get_func: F1, or_insert_func: F2) -> T
     where
-        F: FnOnce(&mut TipsetStateCacheInner<V>) -> T,
+        F1: FnOnce(&TipsetStateCacheInner<V>) -> Option<T>,
+        F2: FnOnce(&mut TipsetStateCacheInner<V>) -> T,
     {
-        let mut lock = self.cache.lock();
-        func(&mut lock)
+        if let Some(v) = get_func(&self.cache.read()) {
+            v
+        } else {
+            or_insert_func(&mut self.cache.write())
+        }
     }
 
     pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<V>
@@ -71,24 +74,17 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
         Fut: Future<Output = anyhow::Result<V>> + Send,
         V: Send + Sync + 'static,
     {
-        let status = self.with_inner(|inner| match inner.values.get_cloned(key) {
-            Some(v) => CacheLookupStatus::Exist(v),
-            None => {
-                let option = inner
+        let status = self.get_or_insert(
+            |inner| inner.values.get_cloned(key).map(CacheLookupStatus::Exist),
+            |inner| {
+                let mutex = inner
                     .pending
-                    .iter()
-                    .find(|(k, _)| k == key)
-                    .map(|(_, mutex)| mutex);
-                match option {
-                    Some(mutex) => CacheLookupStatus::Empty(mutex.clone()),
-                    None => {
-                        let mutex = Arc::new(TokioMutex::new(()));
-                        inner.pending.push((key.clone(), mutex.clone()));
-                        CacheLookupStatus::Empty(mutex)
-                    }
-                }
-            }
-        });
+                    .entry(key.clone())
+                    .or_insert_with(|| Arc::new(TokioMutex::new(())))
+                    .shallow_clone();
+                CacheLookupStatus::Empty(mutex)
+            },
+        );
         match status {
             CacheLookupStatus::Exist(x) => {
                 crate::metrics::LRU_CACHE_HIT
@@ -112,9 +108,7 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
                         crate::metrics::LRU_CACHE_MISS
                             .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
                             .inc();
-
                         let value = compute().await?;
-
                         // Write back to cache, release lock and return value
                         self.insert(key.clone(), value.clone());
                         Ok(value)
@@ -124,169 +118,24 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
         }
     }
 
+    pub fn get_map<T>(&self, key: &TipsetKey, mapper: impl Fn(&V) -> T) -> Option<T> {
+        self.cache.read().values.get_map(key, mapper)
+    }
+
     pub fn get(&self, key: &TipsetKey) -> Option<V> {
-        self.with_inner(|inner| inner.values.get_cloned(key))
+        self.get_map(key, Clone::clone)
     }
 
     pub fn insert(&self, key: TipsetKey, value: V) {
-        self.with_inner(|inner| {
-            inner.pending.retain(|(k, _)| k != &key);
-            inner.values.push(key, value);
-        });
-    }
-}
-
-// Type alias for the compute function for receipts
-type ComputeReceiptFn =
-    Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<Receipt>>> + Send>> + Send>;
-
-// Type alias for the compute function for state events
-type ComputeEventsFn =
-    Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = anyhow::Result<StateEvents>> + Send>> + Send>;
-
-/// Defines the interface for caching and retrieving tipset-specific events and receipts.
-pub trait TipsetReceiptEventCacheHandler: Send + Sync + 'static {
-    fn insert_receipt(&self, key: &TipsetKey, receipt: Vec<Receipt>);
-    fn insert_events(&self, key: &TipsetKey, events: StateEvents);
-    #[allow(dead_code)]
-    fn get_events(&self, key: &TipsetKey) -> Option<StateEvents>;
-    #[allow(dead_code)]
-    fn get_receipts(&self, key: &TipsetKey) -> Option<Vec<Receipt>>;
-    fn get_receipt_or_else(
-        &self,
-        key: &TipsetKey,
-        compute: ComputeReceiptFn,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<Receipt>>> + Send + '_>>;
-    fn get_events_or_else(
-        &self,
-        key: &TipsetKey,
-        compute: ComputeEventsFn,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<StateEvents>> + Send + '_>>;
-}
-
-/// Cache for tipset-related events and receipts.
-pub struct EnabledTipsetDataCache {
-    events_cache: TipsetStateCache<StateEvents>,
-    receipt_cache: TipsetStateCache<Vec<Receipt>>,
-}
-
-impl EnabledTipsetDataCache {
-    pub fn new() -> Self {
-        const DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
-
-        Self {
-            events_cache: TipsetStateCache::with_size(
-                "events",
-                DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE,
-            ),
-            receipt_cache: TipsetStateCache::with_size(
-                "receipts",
-                DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE,
-            ),
-        }
-    }
-}
-
-impl TipsetReceiptEventCacheHandler for EnabledTipsetDataCache {
-    fn insert_receipt(&self, key: &TipsetKey, mut receipts: Vec<Receipt>) {
-        if !receipts.is_empty() {
-            receipts.shrink_to_fit();
-            self.receipt_cache.insert(key.clone(), receipts);
-        }
+        let mut cache = self.cache.write();
+        cache.pending.retain(|k, _| k != &key);
+        cache.values.push(key, value);
     }
 
-    fn insert_events(&self, key: &TipsetKey, mut events_data: StateEvents) {
-        if !events_data.events.is_empty() {
-            events_data.events.shrink_to_fit();
-            events_data.roots.shrink_to_fit();
-            self.events_cache.insert(key.clone(), events_data);
-        }
-    }
-
-    fn get_events(&self, key: &TipsetKey) -> Option<StateEvents> {
-        self.events_cache.get(key)
-    }
-
-    fn get_receipts(&self, key: &TipsetKey) -> Option<Vec<Receipt>> {
-        self.receipt_cache.get(key)
-    }
-
-    fn get_receipt_or_else(
-        &self,
-        key: &TipsetKey,
-        compute: ComputeReceiptFn,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<Receipt>>> + Send + '_>> {
-        let key = key.clone();
-        let receipt_cache = &self.receipt_cache;
-
-        Box::pin(async move {
-            receipt_cache
-                .get_or_else(&key, || async move { compute().await })
-                .await
-        })
-    }
-
-    fn get_events_or_else(
-        &self,
-        key: &TipsetKey,
-        compute: ComputeEventsFn,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<StateEvents>> + Send + '_>> {
-        let key = key.clone();
-        let events_cache = &self.events_cache;
-
-        Box::pin(async move {
-            events_cache
-                .get_or_else(&key, || async move { compute().await })
-                .await
-        })
-    }
-}
-
-/// Fake cache for tipset-related events and receipts.
-pub struct DisabledTipsetDataCache;
-
-impl DisabledTipsetDataCache {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl TipsetReceiptEventCacheHandler for DisabledTipsetDataCache {
-    fn insert_receipt(&self, _key: &TipsetKey, _receipts: Vec<Receipt>) {
-        // No-op
-    }
-
-    fn insert_events(&self, _key: &TipsetKey, _events_data: StateEvents) {
-        // No-op
-    }
-
-    fn get_events(&self, _key: &TipsetKey) -> Option<StateEvents> {
-        None
-    }
-
-    fn get_receipts(&self, _key: &TipsetKey) -> Option<Vec<Receipt>> {
-        None
-    }
-
-    fn get_receipt_or_else(
-        &self,
-        _key: &TipsetKey,
-        _compute: ComputeReceiptFn,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<Receipt>>> + Send + '_>> {
-        Box::pin(async move { Ok(vec![]) })
-    }
-
-    fn get_events_or_else(
-        &self,
-        _key: &TipsetKey,
-        _compute: ComputeEventsFn,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<StateEvents>> + Send + '_>> {
-        Box::pin(async move {
-            Ok(StateEvents {
-                events: vec![],
-                roots: vec![],
-            })
-        })
+    pub fn remove(&self, key: &TipsetKey) {
+        let mut cache = self.cache.write();
+        cache.pending.retain(|k, _| k != key);
+        cache.values.remove(key);
     }
 }
 
@@ -294,12 +143,11 @@ impl TipsetReceiptEventCacheHandler for DisabledTipsetDataCache {
 mod tests {
     use super::*;
     use crate::blocks::TipsetKey;
-    use crate::shim::executor::Receipt;
     use cid::Cid;
     use fvm_ipld_encoding::DAG_CBOR;
     use multihash_derive::MultihashDigest;
     use std::sync::Arc;
-    use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
+    use std::sync::atomic::{AtomicU8, Ordering};
     use std::time::Duration;
 
     fn create_test_tipset_key(i: u64) -> TipsetKey {
@@ -309,15 +157,6 @@ mod tests {
             crate::utils::multihash::MultihashCode::Blake2b256.digest(&bytes),
         );
         TipsetKey::from(nunny::vec![cid])
-    }
-
-    fn create_test_receipt(i: u64) -> Vec<Receipt> {
-        vec![Receipt::V4(fvm_shared4::receipt::Receipt {
-            exit_code: fvm_shared4::error::ExitCode::new(0),
-            return_data: fvm_ipld_encoding::RawBytes::default(),
-            gas_used: i * 100,
-            events_root: None,
-        })]
     }
 
     #[tokio::test]
@@ -426,100 +265,6 @@ mod tests {
         // All results should be returned as computation was performed once for each key
         for (i, result) in results.iter().enumerate() {
             assert_eq!(result.as_ref().unwrap(), &format!("value_{i}"));
-        }
-    }
-
-    #[tokio::test]
-    async fn test_enabled_cache_concurrent_access() {
-        let cache = Arc::new(EnabledTipsetDataCache::new());
-        let key = create_test_tipset_key(1);
-        let computation_count = Arc::new(AtomicU32::new(0));
-
-        let mut handles = vec![];
-        for i in 0..5 {
-            let cache_clone = Arc::clone(&cache);
-            let key_clone = key.clone();
-            let count_clone = Arc::clone(&computation_count);
-
-            let handle = tokio::spawn(async move {
-                cache_clone
-                    .get_receipt_or_else(
-                        &key_clone,
-                        Box::new(move || {
-                            let count = Arc::clone(&count_clone);
-                            Box::pin(async move {
-                                count.fetch_add(1, Ordering::SeqCst);
-                                tokio::time::sleep(Duration::from_millis(10)).await;
-                                Ok(create_test_receipt(i))
-                            })
-                        }),
-                    )
-                    .await
-            });
-            handles.push(handle);
-        }
-
-        let results: Vec<_> = futures::future::join_all(handles)
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-
-        // Computation should have been performed once
-        assert_eq!(computation_count.load(Ordering::SeqCst), 1);
-
-        // Only one result should be returned as computation was performed once,
-        // and all tasks will get the same result from the cache
-        let first_result = results[0].as_ref().unwrap();
-        for result in &results {
-            let receipts = result.as_ref().unwrap();
-            assert_eq!(receipts.len(), first_result.len());
-        }
-    }
-
-    #[tokio::test]
-    async fn test_disabled_cache_behavior() {
-        let cache = Arc::new(DisabledTipsetDataCache::new());
-        let key = create_test_tipset_key(1);
-        let computation_count = Arc::new(AtomicU32::new(0));
-
-        // Test that the disabled cache doesn't compute and returns empty results
-        let mut handles = vec![];
-        for i in 0..3 {
-            let cache_clone = Arc::clone(&cache);
-            let key_clone = key.clone();
-            let count_clone = Arc::clone(&computation_count);
-
-            let handle = tokio::spawn(async move {
-                cache_clone
-                    .get_receipt_or_else(
-                        &key_clone,
-                        Box::new(move || {
-                            let count = Arc::clone(&count_clone);
-                            Box::pin(async move {
-                                count.fetch_add(1, Ordering::SeqCst);
-                                Ok(create_test_receipt(i))
-                            })
-                        }),
-                    )
-                    .await
-            });
-            handles.push(handle);
-        }
-
-        let results: Vec<_> = futures::future::join_all(handles)
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-
-        // Disabled cache should never compute - it returns empty results immediately
-        assert_eq!(computation_count.load(Ordering::SeqCst), 0);
-
-        // All results should be empty
-        for result in &results {
-            let receipts = result.as_ref().unwrap();
-            assert!(receipts.is_empty());
         }
     }
 }

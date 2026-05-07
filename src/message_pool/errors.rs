@@ -28,6 +28,8 @@ pub enum Error {
     InvalidFromAddr,
     #[error("Message with sequence already in mempool")]
     DuplicateSequence,
+    #[error("unfulfilled nonce gap")]
+    NonceGap,
     #[error("Validation Error: {0}")]
     SoftValidationFailure(String),
     #[error("Too many pending messages from actor {0} (trusted: {1})")]
@@ -50,6 +52,6 @@ impl From<EncodeError> for Error {
 
 impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
-        Error::Other(e.to_string())
+        Error::Other(format!("{e:#}"))
     }
 }

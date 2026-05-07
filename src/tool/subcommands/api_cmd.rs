@@ -383,7 +383,7 @@ impl ApiCommands {
                             println!(" Succeeded");
                         }
                         Err(e) => {
-                            println!(" Failed: {e}");
+                            println!(" Failed: {e:#}");
                         }
                     };
                 }
@@ -400,7 +400,7 @@ impl ApiCommands {
                             );
                         }
                         Err(e) => {
-                            println!(" Failed: {e}");
+                            println!(" Failed: {e:#}");
                         }
                     };
                 }

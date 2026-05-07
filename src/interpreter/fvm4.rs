@@ -39,7 +39,7 @@ pub struct ForestExterns<DB> {
     heaviest_tipset: Tipset,
     epoch: ChainEpoch,
     root: Cid,
-    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_index: ChainIndex<DB>,
     chain_config: Arc<ChainConfig>,
     bail: AtomicBool,
 }
@@ -50,7 +50,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
         heaviest_tipset: Tipset,
         epoch: ChainEpoch,
         root: Cid,
-        chain_index: Arc<ChainIndex<Arc<DB>>>,
+        chain_index: ChainIndex<DB>,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
         ForestExterns {
@@ -132,7 +132,7 @@ impl<DB: Blockstore> Chain for ForestExterns<DB> {
     fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
         let ts = self
             .chain_index
-            .tipset_by_height(
+            .load_required_tipset_by_height(
                 epoch,
                 self.heaviest_tipset.clone(),
                 ResolveNullTipset::TakeOlder,

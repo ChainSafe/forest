@@ -85,7 +85,7 @@ impl Debug for FilecoinConsensus {
     }
 }
 
-pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
+pub fn weight<DB>(db: &DB, ts: &Tipset) -> anyhow::Result<Weight>
 where
     DB: Blockstore,
 {

@@ -11,8 +11,9 @@ use crate::shim::{
     address::Address, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
-use crate::state_manager::StateLookupPolicy;
+use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
+use crate::utils::ShallowClone as _;
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
@@ -23,7 +24,7 @@ use crate::{
 };
 use crate::{
     eth::is_valid_eth_tx_for_sending,
-    message::{Message as MessageTrait, valid_for_block_inclusion},
+    message::{MessageRead as _, valid_for_block_inclusion},
 };
 use ahash::HashMap;
 use cid::Cid;
@@ -110,8 +111,9 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
 
     let epoch = full_tipset.epoch();
-    let full_tipset_key = full_tipset.key().clone();
-    trace!("Tipset keys: {full_tipset_key}");
+    let parent_state = *full_tipset.parent_state();
+    let tipset_key = full_tipset.key();
+    trace!("Tipset keys: {tipset_key}");
     let blocks = full_tipset.into_blocks();
     let mut validations = JoinSet::new();
     for b in blocks {
@@ -126,14 +128,20 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
                     .add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {
-                warn!("Validating block [CID = {cid}] in EPOCH = {epoch} failed: {why}");
+                warn!(
+                    "Validating block [CID = {cid}, PARENT_STATE = {parent_state}] in EPOCH = {epoch} failed: {why}",
+                );
                 match &why {
                     TipsetSyncerError::TimeTravellingBlock(_, _) => {
                         // Do not mark a block as bad for temporary errors.
                         // See <https://github.com/filecoin-project/lotus/blob/v1.34.1/chain/sync.go#L602> in Lotus
                     }
                     _ => {
-                        if let Some(bad_block_cache) = bad_block_cache {
+                        // Do not mark block as bad if the parent state tree does not exist
+                        if StateTree::new_from_root(state_manager.blockstore_owned(), &parent_state)
+                            .is_ok()
+                            && let Some(bad_block_cache) = bad_block_cache
+                        {
                             bad_block_cache.push(cid);
                         }
                     }
@@ -224,24 +232,24 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 
     // Check block messages
     validations.spawn(check_block_messages(
-        state_manager.clone(),
-        block.clone(),
-        base_tipset.clone(),
+        state_manager.shallow_clone(),
+        block.shallow_clone(),
+        base_tipset.shallow_clone(),
     ));
 
     // Base fee check
     validations.spawn_blocking({
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
-        let xxx_height = state_manager.chain_config().epoch(Height::Xxx);
-        let base_tipset = base_tipset.clone();
+        let firehorse_height = state_manager.chain_config().epoch(Height::FireHorse);
+        let base_tipset = base_tipset.shallow_clone();
         let block_store = state_manager.blockstore_owned();
-        let block = Arc::clone(&block);
+        let block = block.shallow_clone();
         move || {
             let base_fee = crate::chain::compute_base_fee(
                 &block_store,
                 &base_tipset,
                 smoke_height,
-                xxx_height,
+                firehorse_height,
             )
             .map_err(|e| {
                 TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))
@@ -259,11 +267,11 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Parent weight calculation check
     validations.spawn_blocking({
         let block_store = state_manager.blockstore_owned();
-        let base_tipset = base_tipset.clone();
+        let base_tipset = base_tipset.shallow_clone();
         let weight = header.weight.clone();
         move || {
             let calc_weight = fil_cns::weight(&block_store, &base_tipset).map_err(|e| {
-                TipsetSyncerError::Calculation(format!("Error calculating weight: {e}"))
+                TipsetSyncerError::Calculation(format!("Error calculating weight: {e:#}"))
             })?;
             if weight != calc_weight {
                 return Err(TipsetSyncerError::Validation(format!(
@@ -280,11 +288,15 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         let block = block.clone();
         async move {
             let header = block.header();
-            let (state_root, receipt_root) = state_manager
-                .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
+            let ExecutedTipset {
+                state_root,
+                receipt_root,
+                ..
+            } = state_manager
+                .load_executed_tipset(&base_tipset)
                 .await
                 .map_err(|e| {
-                    TipsetSyncerError::Calculation(format!("Failed to calculate state: {e}"))
+                    TipsetSyncerError::Calculation(format!("Failed to calculate state: {e:#}"))
                 })?;
 
             if state_root != header.state_root {
@@ -398,7 +410,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
                          tree: &StateTree<DB>|
-     -> Result<(), anyhow::Error> {
+     -> anyhow::Result<()> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(to_vec(msg).unwrap().len());
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
@@ -441,14 +453,14 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     };
 
     let mut account_sequences: HashMap<Address, u64> = HashMap::default();
-    let (state_root, _) = state_manager
-        .tipset_state(&base_tipset, StateLookupPolicy::Disabled)
+    let ExecutedTipset { state_root, .. } = state_manager
+        .load_executed_tipset(&base_tipset)
         .await
-        .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e}")))?;
+        .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e:#}")))?;
     let tree =
         StateTree::new_from_root(state_manager.blockstore_owned(), &state_root).map_err(|e| {
             TipsetSyncerError::Calculation(format!(
-                "Could not load from new state root in state manager: {e}"
+                "Could not load from new state root in state manager: {e:#}"
             ))
         })?;
 
@@ -456,7 +468,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     for (i, msg) in block.bls_msgs().iter().enumerate() {
         check_msg(msg, &mut account_sequences, &tree).map_err(|e| {
             TipsetSyncerError::Validation(format!(
-                "Block had invalid BLS message at index {i}: {e}"
+                "Block had invalid BLS message at index {i}: {e:#}"
             ))
         })?;
     }
@@ -472,7 +484,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetSyncerError::Validation(format!(
-                "block had an invalid secp message at index {i}: {e}"
+                "block had an invalid secp message at index {i}: {e:#}"
             ))
         })?;
         // Resolve key address for signature verification

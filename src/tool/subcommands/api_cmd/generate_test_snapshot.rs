@@ -17,7 +17,7 @@ use crate::{
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite, Block64},
-    message_pool::MessagePool,
+    message_pool::{MessagePool, MpoolLocker, NonceTracker},
     networks::ChainConfig,
     shim::address::CurrentNetwork,
     state_manager::StateManager,
@@ -143,13 +143,13 @@ async fn ctx(
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
+    let nonce_tracker = NonceTracker::new();
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: Arc::new(message_pool),
         chain_indexer: Default::default(),
         bad_blocks: Default::default(),
-        msgs_in_tipset: Default::default(),
         sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
@@ -157,6 +157,9 @@ async fn ctx(
         shutdown,
         tipset_send,
         snapshot_progress_tracker: Default::default(),
+        mpool_locker: MpoolLocker::new(),
+        nonce_tracker,
+        temp_dir: Arc::new(std::env::temp_dir()),
     });
     Ok((rpc_state, network_rx, shutdown_recv))
 }
@@ -206,10 +209,7 @@ where
     }
 }
 
-impl<T> ReadOpsTrackingStore<T>
-where
-    T: Blockstore + SettingsStore,
-{
+impl<T> ReadOpsTrackingStore<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,

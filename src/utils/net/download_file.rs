@@ -33,14 +33,18 @@ use crate::utils::{RetryArgs, net::global_http_client, retry};
 use anyhow::{Context as _, ensure};
 use backon::{ExponentialBuilder, Retryable as _};
 use base64::{Engine, prelude::BASE64_STANDARD};
+use digest_io::IoWrapper;
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use human_repr::HumanCount as _;
 use humantime::format_duration;
 use md5::{Digest as _, Md5};
-use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::{
     ffi::OsStr,
+    fs::File,
+    io::BufReader,
     path::{Path, PathBuf},
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
@@ -113,7 +117,7 @@ pub async fn download_file_with_cache(
     }
 
     let cache_hit = match get_file_md5_hash(&cache_file_path) {
-        Some(file_md5) => match get_content_md5_hash_from_url(url.clone()).await? {
+        Ok(file_md5) => match get_content_md5_hash_from_url(url.clone()).await? {
             Some(url_md5) => {
                 if file_md5 == url_md5 {
                     true
@@ -130,7 +134,7 @@ pub async fn download_file_with_cache(
                 anyhow::bail!("failed to extract md5 content hash from remote url {url}");
             }
         },
-        None => false,
+        Err(_) => false,
     };
 
     if cache_hit {
@@ -160,12 +164,11 @@ pub async fn download_file_with_cache(
     })
 }
 
-fn get_file_md5_hash(path: &Path) -> Option<Vec<u8>> {
-    std::fs::read(path).ok().map(|bytes| {
-        let mut hasher = Md5::new();
-        hasher.update(bytes.as_slice());
-        hasher.finalize().to_vec()
-    })
+fn get_file_md5_hash(path: &Path) -> anyhow::Result<Vec<u8>> {
+    let mut hasher = IoWrapper(Md5::new());
+    let mut reader = BufReader::new(File::open(path)?);
+    std::io::copy(&mut reader, &mut hasher)?;
+    Ok(hasher.0.finalize().to_vec())
 }
 
 async fn get_content_md5_hash_from_url(url: Url) -> anyhow::Result<Option<Vec<u8>>> {
@@ -297,9 +300,11 @@ async fn download_http_parallel(
     // Progress tracking - log every 5 seconds like the forest::progress system
     let bytes_downloaded = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let last_logged_bytes = Arc::new(std::sync::atomic::AtomicU64::new(0));
-    let last_logged_time = Arc::new(parking_lot::Mutex::new(Instant::now()));
+    // Store elapsed millis since start_time to avoid needing a Mutex<Instant>.
+    let last_logged_millis = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let start_time = Instant::now();
     const UPDATE_FREQUENCY: Duration = Duration::from_secs(5);
+    const UPDATE_FREQUENCY_MS: u64 = UPDATE_FREQUENCY.as_millis() as u64;
 
     // Download chunks in parallel
     let download_tasks = (0..effective_connections).map(|i| {
@@ -308,7 +313,7 @@ async fn download_http_parallel(
         let tmp_path = tmp_dst_path.clone();
         let bytes_downloaded = Arc::clone(&bytes_downloaded);
         let last_logged_bytes = Arc::clone(&last_logged_bytes);
-        let last_logged_time = Arc::clone(&last_logged_time);
+        let last_logged_millis = Arc::clone(&last_logged_millis);
         let callback = callback.clone();
 
         let start = i * chunk_size;
@@ -345,65 +350,76 @@ async fn download_http_parallel(
 
                 // Stream bytes and update progress incrementally
                 let mut stream = response.bytes_stream();
-                let mut chunk_bytes_written = 0usize;
+                let mut chunk_bytes_written = 0u64;
 
-                while let Some(chunk_result) = stream.try_next().await? {
-                    // Write this chunk of data
-                    file.write_all(&chunk_result).await?;
-                    chunk_bytes_written += chunk_result.len();
+                let result: anyhow::Result<()> = async {
+                    while let Some(chunk_result) = stream.try_next().await? {
+                        file.write_all(&chunk_result).await?;
+                        chunk_bytes_written += chunk_result.len() as u64;
 
-                    // Update global progress counter
-                    let downloaded = bytes_downloaded.fetch_add(
-                        chunk_result.len() as u64,
-                        std::sync::atomic::Ordering::Relaxed,
-                    ) + chunk_result.len() as u64;
+                        let downloaded = bytes_downloaded
+                            .fetch_add(chunk_result.len() as u64, Ordering::Relaxed)
+                            + chunk_result.len() as u64;
 
-                    // Log progress every 5 seconds (forest::progress format)
-                    let now = Instant::now();
-                    let mut last_logged = last_logged_time.lock();
-                    if (now - *last_logged) > UPDATE_FREQUENCY {
-                        let last_bytes =
-                            last_logged_bytes.load(std::sync::atomic::Ordering::Relaxed);
-                        let elapsed_secs = (now - start_time).as_secs_f64();
-                        let seconds_since_last = (now - *last_logged).as_secs_f64().max(0.1);
-                        let speed = (downloaded - last_bytes) as f64 / seconds_since_last;
-                        let percent = if total_size > 0 {
-                            downloaded * 100 / total_size
-                        } else {
-                            0
-                        };
+                        // Log progress every 5 seconds (lockless fast path)
+                        let elapsed_ms = start_time.elapsed().as_millis() as u64;
+                        let prev_ms = last_logged_millis.load(Ordering::Relaxed);
+                        if elapsed_ms.saturating_sub(prev_ms) >= UPDATE_FREQUENCY_MS
+                            && last_logged_millis
+                                // Spurious failure is fine — another task logs instead.
+                                .compare_exchange_weak(
+                                    prev_ms,
+                                    elapsed_ms,
+                                    Ordering::Relaxed,
+                                    Ordering::Relaxed,
+                                )
+                                .is_ok()
+                        {
+                            let last_bytes = last_logged_bytes.load(Ordering::Relaxed);
+                            let elapsed_secs = elapsed_ms as f64 / 1000.0;
+                            let seconds_since_last = (elapsed_ms - prev_ms) as f64 / 1000.0;
+                            let speed = downloaded.saturating_sub(last_bytes) as f64
+                                / seconds_since_last.max(0.1);
+                            let percent = downloaded
+                                .checked_mul(100)
+                                .and_then(|v| v.checked_div(total_size))
+                                .unwrap_or(0);
+                            tracing::info!(
+                                target: "forest::progress",
+                                "Loading {} / {}, {}%, {}/s, elapsed time: {}",
+                                downloaded.human_count_bytes(),
+                                total_size.human_count_bytes(),
+                                percent,
+                                speed.human_count_bytes(),
+                                format_duration(Duration::from_secs(
+                                    elapsed_secs as u64
+                                ))
+                            );
 
-                        tracing::info!(
-                            target: "forest::progress",
-                            "Loading {} / {}, {}%, {}/s, elapsed time: {}",
-                            downloaded.human_count_bytes() ,
-                            total_size.human_count_bytes() ,
-                            percent,
-                            speed.human_count_bytes(),
-                            format_duration(Duration::from_secs(elapsed_secs as u64))
-                        );
+                            last_logged_bytes.store(downloaded, Ordering::Relaxed);
+                        }
 
-                        *last_logged = now;
-                        last_logged_bytes.store(downloaded, std::sync::atomic::Ordering::Relaxed);
+                        call_progress_callback(callback.as_deref(), downloaded, total_size);
                     }
 
-                    // Also call user callback if provided (for RPC state tracking)
-                    call_progress_callback(callback.as_deref(), downloaded, total_size);
-                }
-
-                file.flush().await?;
-
-                // Verify we got the expected amount of data
-                if chunk_bytes_written != expected_size {
-                    anyhow::bail!(
-                        "Chunk {} size mismatch: expected {} bytes, got {}",
-                        i,
-                        expected_size,
-                        chunk_bytes_written
+                    file.flush().await?;
+                    ensure!(
+                        chunk_bytes_written == expected_size as u64,
+                        "Chunk {i} size mismatch: expected {expected_size} \
+                         bytes, got {chunk_bytes_written}"
                     );
+                    Ok(())
                 }
+                .await;
 
-                Ok::<_, anyhow::Error>(())
+                // On failure, undo progress so retries don't push past 100%.
+                result.inspect_err(|e| {
+                    tracing::warn!(
+                        "Chunk {i} download failed after {}: {e:#}",
+                        chunk_bytes_written.human_count_bytes(),
+                    );
+                    bytes_downloaded.fetch_sub(chunk_bytes_written, Ordering::Relaxed);
+                })
             };
 
             download_chunk
@@ -575,9 +591,7 @@ mod test {
 
     /// MD5 hash of `TEST_FILE_CONTENT` (binary)
     fn test_file_md5() -> Vec<u8> {
-        let mut hasher = Md5::new();
-        hasher.update(TEST_FILE_CONTENT);
-        hasher.finalize().to_vec()
+        Md5::digest(TEST_FILE_CONTENT).to_vec()
     }
 
     /// Test server that supports range requests
@@ -616,9 +630,7 @@ mod test {
                     get(move |req: Request| async move {
                         let mut response = handle_file_request(req, content).await;
                         // Add MD5 hash as ETag (like filecoin-actors.chainsafe.dev)
-                        let mut hasher = Md5::new();
-                        hasher.update(content);
-                        let md5_hex = hex::encode(hasher.finalize());
+                        let md5_hex = hex::encode(Md5::digest(content));
                         response
                             .headers_mut()
                             .insert(header::ETAG, format!("\"{md5_hex}\"").parse().unwrap());
@@ -630,9 +642,7 @@ mod test {
                     get(move |req: Request| async move {
                         let mut response = handle_file_request(req, content).await;
                         // Add MD5 hash as x-ms-blob-content-md5 (like GitHub releases)
-                        let mut hasher = Md5::new();
-                        hasher.update(content);
-                        let md5 = hasher.finalize();
+                        let md5 = Md5::digest(content);
                         let md5_base64 = BASE64_STANDARD.encode(md5);
                         response
                             .headers_mut()
@@ -808,8 +818,8 @@ mod test {
         assert!(result.exists());
 
         // Verify the file is not corrupted by checking its MD5
-        let downloaded_md5 = get_file_md5_hash(&result);
-        assert_eq!(downloaded_md5, Some(test_file_md5()));
+        let downloaded_md5 = get_file_md5_hash(&result).unwrap();
+        assert_eq!(downloaded_md5, test_file_md5());
     }
 
     #[tokio::test]
@@ -832,8 +842,8 @@ mod test {
         assert!(result.exists());
 
         // Verify integrity
-        let downloaded_md5 = get_file_md5_hash(&result);
-        assert_eq!(downloaded_md5, Some(test_file_md5()));
+        let downloaded_md5 = get_file_md5_hash(&result).unwrap();
+        assert_eq!(downloaded_md5, test_file_md5());
     }
 
     #[tokio::test]

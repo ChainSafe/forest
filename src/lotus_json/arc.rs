@@ -23,3 +23,25 @@ impl<T: HasLotusJson + Clone> HasLotusJson for Arc<T> {
         Arc::new(T::from_lotus_json(lotus_json))
     }
 }
+
+// `Arc<str>` can't reuse the blanket impl above (which requires `T: Sized`,
+// and `str` is not). `Arc<str>` already satisfies every `HasLotusJson`
+// consumer bound directly (`Serialize + DeserializeOwned + JsonSchema +
+// Clone + 'static`), so we make `LotusJson = Self` and keep the conversions
+// as identity — serializing the cached value takes no allocation.
+impl HasLotusJson for Arc<str> {
+    type LotusJson = Self;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        self
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        lotus_json
+    }
+}

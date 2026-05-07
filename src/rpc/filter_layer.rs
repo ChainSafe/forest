@@ -50,7 +50,7 @@ impl<S> Filtering<S> {
             Ok(())
         } else {
             Err(ErrorObject::borrowed(
-                http::StatusCode::FORBIDDEN.as_u16() as _,
+                i32::from(http::StatusCode::FORBIDDEN.as_u16()),
                 "Forbidden",
                 None,
             ))

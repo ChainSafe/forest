@@ -33,8 +33,7 @@ fn shapshots() {
 }
 
 #[cfg(test)]
-quickcheck! {
-    fn quickcheck(val: Option<::cid::Cid>) -> () {
-        assert_unchanged_via_json(val)
-    }
+#[quickcheck_macros::quickcheck]
+fn quickcheck(val: Option<::cid::Cid>) {
+    assert_unchanged_via_json(val)
 }

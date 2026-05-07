@@ -45,8 +45,7 @@ impl NetCommands {
                     }
                     tokio::time::sleep(Duration::from_secs(interval)).await;
                 }
-                if n_success > 0 {
-                    let avg_ms = total_duration.as_millis() / n_success;
+                if let Some(avg_ms) = total_duration.as_millis().checked_div(n_success) {
                     println!("Average latency: {avg_ms}ms");
                 }
             }

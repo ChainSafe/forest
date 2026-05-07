@@ -236,14 +236,14 @@ impl BitswapRequestManager {
                     Err(e) => {
                         metrics::message_counter_inbound_response_block_update_db_failure().inc();
                         warn!(
-                            "Failed to update db: {e}, cid: {cid}, data: {:?}",
+                            "Failed to update db, cid: {cid}, data: {:?}, error: {e:#}",
                             block.data()
                         );
                         false
                     }
                 },
                 Err(e) => {
-                    warn!("Failed to construct block: {e}, cid: {cid}");
+                    warn!("Failed to construct block, cid: {cid}, error: {e:#}");
                     false
                 }
             };

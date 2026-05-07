@@ -42,8 +42,8 @@ impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
         let mut out_claims = make_map_with_root_and_bitwidth(&empty_claims, store, HAMT_BIT_WIDTH)?;
 
         in_claims.for_each(|key, claim: &ClaimV10| {
-            let new_proof_type = convert_window_post_proof_v1_to_v1p1(claim.window_post_proof_type)
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            let new_proof_type =
+                convert_window_post_proof_v1_to_v1p1(claim.window_post_proof_type)?;
             let out_claim = ClaimV11 {
                 window_post_proof_type: new_proof_type,
                 raw_byte_power: claim.raw_byte_power.clone(),

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{
-    blocks::Tipset,
     chain::{ChainStore, index::ResolveNullTipset},
     chain_sync::{load_full_tipset, tipset_syncer::validate_tipset},
     cli_shared::{chain_path, read_config},
@@ -11,9 +10,11 @@ use crate::{
     interpreter::VMTrace,
     networks::{ChainConfig, NetworkChain},
     shim::clock::ChainEpoch,
-    state_manager::{StateManager, StateOutput},
+    state_manager::{ExecutedTipset, StateManager},
     tool::subcommands::api_cmd::generate_test_snapshot,
+    utils::ShallowClone as _,
 };
+use anyhow::Context as _;
 use human_repr::HumanCount as _;
 use nonzero_ext::nonzero;
 use std::{num::NonZeroUsize, path::PathBuf, sync::Arc, time::Instant};
@@ -82,19 +83,21 @@ impl ComputeCommand {
             chain_config,
             genesis_header,
         )?);
+        let chain_index = chain_store.chain_index();
         let (ts, ts_next) = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_store.chain_index().tipset_by_height(
+            let ts = chain_index.load_required_tipset_by_height(
                 epoch,
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,
             )?;
-            let ts_next = chain_store.chain_index().tipset_by_height(
-                epoch + 1,
-                chain_store.heaviest_tipset(),
-                ResolveNullTipset::TakeNewer,
-            )?;
+            let ts_next = chain_store.load_child_tipset(&ts)?.with_context(|| {
+                format!(
+                    "no child tipset for epoch {} (may be chain head)",
+                    ts.epoch()
+                )
+            })?;
             db.resume_tracking();
             SettingsStoreExt::write_obj(
                 &db.tracker,
@@ -103,14 +106,14 @@ impl ComputeCommand {
             )?;
             // Only track the desired tipsets
             (
-                Tipset::load_required(&db, ts.key())?,
-                Tipset::load_required(&db, ts_next.key())?,
+                chain_index.load_required_tipset(ts.key())?,
+                chain_index.load_required_tipset(ts_next.key())?,
             )
         };
         let epoch = ts.epoch();
         let state_manager = Arc::new(StateManager::new(chain_store)?);
 
-        let StateOutput {
+        let ExecutedTipset {
             state_root,
             receipt_root,
             ..
@@ -161,8 +164,12 @@ impl ReplayComputeCommand {
             crate::state_manager::utils::state_compute::prepare_state_compute(&chain, &snapshot)
                 .await?;
         for _ in 0..n.get() {
-            crate::state_manager::utils::state_compute::state_compute(&sm, ts.clone(), &ts_next)
-                .await?;
+            crate::state_manager::utils::state_compute::state_compute(
+                &sm,
+                ts.shallow_clone(),
+                &ts_next,
+            )
+            .await?;
         }
         Ok(())
     }
@@ -212,10 +219,11 @@ impl ValidateCommand {
             chain_config,
             genesis_header,
         )?);
+        let chain_index = chain_store.chain_index();
         let ts = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_store.chain_index().tipset_by_height(
+            let ts = chain_index.load_required_tipset_by_height(
                 epoch,
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,
@@ -223,7 +231,7 @@ impl ValidateCommand {
             db.resume_tracking();
             SettingsStoreExt::write_obj(&db.tracker, crate::db::setting_keys::HEAD_KEY, ts.key())?;
             // Only track the desired tipset
-            Tipset::load_required(&db, ts.key())?
+            chain_index.load_required_tipset(ts.key())?
         };
         let epoch = ts.epoch();
         let fts = load_full_tipset(&chain_store, ts.key())?;

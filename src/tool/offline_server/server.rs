@@ -15,7 +15,7 @@ use crate::db::{
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::PeerManager;
-use crate::message_pool::MessagePool;
+use crate::message_pool::{MessagePool, MpoolLocker, NonceTracker};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{RPCState, start_rpc};
@@ -114,7 +114,7 @@ where
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
-
+    let nonce_tracker = NonceTracker::new();
     Ok((
         RPCState {
             state_manager,
@@ -122,7 +122,6 @@ where
             mpool: Arc::new(message_pool),
             chain_indexer: Default::default(),
             bad_blocks: Default::default(),
-            msgs_in_tipset: Default::default(),
             sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
             eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
             sync_network_context,
@@ -130,6 +129,9 @@ where
             shutdown,
             tipset_send,
             snapshot_progress_tracker: Default::default(),
+            mpool_locker: MpoolLocker::new(),
+            nonce_tracker,
+            temp_dir: Arc::new(std::env::temp_dir()),
         },
         shutdown_recv,
     ))

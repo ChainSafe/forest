@@ -1,6 +1,9 @@
 # Re-tag the given image and push it to the ghcr.io
 # Preserves the old tag.
 name: Docker Latest tag
+permissions:
+  contents: read
+  packages: write
 
 on:
   workflow_dispatch:

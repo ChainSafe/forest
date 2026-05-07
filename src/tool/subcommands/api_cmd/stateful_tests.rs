@@ -347,7 +347,7 @@ async fn invoke_contract(client: &rpc::Client, tx: &TestTransaction) -> anyhow::
         .unsigned_message(&unsigned_msg.message)?
         .build()
         .map_err(|e| anyhow::anyhow!("Failed to build EIP-1559 transaction: {}", e))?;
-    let eth_tx = crate::eth::EthTx::Eip1559(Box::new(eth_tx_args));
+    let eth_tx = crate::eth::EthTx::from(eth_tx_args);
     let data = eth_tx.rlp_unsigned_message(ETH_CHAIN_ID)?;
 
     let sig = client.call(WalletSign::request((tx.from, data))?).await?;
@@ -514,6 +514,14 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
             let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
                 let cid = invoke_contract(&client, &tx).await?;
 
+                // Get the Eth transaction hash for our CID directly, rather than
+                // reverse-mapping every hash from the filter results back to CIDs
+                // (which is fragile — the mapping can return None for recent txns).
+                let tx_hash = client
+                    .call(EthGetTransactionHashByCid::request((cid,))?)
+                    .await?
+                    .context("no Eth transaction hash for CID")?;
+
                 wait_pending_message(&client, cid).await?;
 
                 let filter_result = client
@@ -526,19 +534,9 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                         "prev_hashes={prev_hashes:?} hashes={hashes:?}"
                     );
 
-                    let mut cids = vec![];
-                    for hash in &hashes {
-                        if let Some(cid) = client
-                            .call(EthGetMessageCidByTransactionHash::request((*hash,))?)
-                            .await?
-                        {
-                            cids.push(cid);
-                        }
-                    }
-
                     anyhow::ensure!(
-                        cids.contains(&cid),
-                        "CID missing from filter results: cid={cid:?} cids={cids:?} hashes={hashes:?}"
+                        hashes.contains(&tx_hash),
+                        "transaction hash missing from filter results: tx_hash={tx_hash:?} cid={cid:?} hashes={hashes:?}"
                     );
 
                     Ok(())
@@ -665,6 +663,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
                 .name("eth_newPendingTransactionFilter works"),
             EthNewPendingTransactionFilter,
             EthGetFilterChanges,
+            EthGetTransactionHashByCid,
             EthUninstallFilter
         ),
         with_methods!(

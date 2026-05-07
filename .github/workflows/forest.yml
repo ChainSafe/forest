@@ -1,4 +1,7 @@
 name: Integration tests
+permissions:
+  contents: read
+  issues: write
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -45,23 +48,27 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "$AWS_ACCESS_KEY_ID" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
-          echo "SCCACHE_S3_KEY_PREFIX=macos" >> $GITHUB_ENV
+          echo "SCCACHE_S3_KEY_PREFIX=macos" >> "$GITHUB_ENV"
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - name: Cargo Check
-        run: cargo check
+      - uses: jdx/mise-action@v4
+      - run: cargo check
+      # nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
+      - run: mise test:docs
   build-ubuntu:
     name: Build Ubuntu
     runs-on: ubuntu-24.04
@@ -70,18 +77,16 @@ jobs:
         run: |
           # External PRs do not have access to 'vars' or 'secrets'.
           if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
           fi
-      - run: lscpu
-      - name: Show IP
-        run: curl ifconfig.me
-        continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: actions/setup-go@v6
@@ -103,24 +108,12 @@ jobs:
           path: |
             ~/.cargo/bin/forest*
           if-no-files-found: error
-  cargo-publish-dry-run:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v6
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - uses: jdx/mise-action@v4
-      - run: cargo publish --dry-run
   forest-cli-check:
     needs:
       - build-ubuntu
     name: Forest CLI checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
@@ -142,16 +135,11 @@ jobs:
     name: Calibnet check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -163,9 +151,7 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
+      - uses: jdx/mise-action@v4
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
@@ -178,17 +164,12 @@ jobs:
     name: Calibnet stateless mode check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -204,17 +185,12 @@ jobs:
     name: Calibnet stateless RPC check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -230,7 +206,6 @@ jobs:
     name: State migrations
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -247,12 +222,14 @@ jobs:
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-wallet-check:
+    concurrency:
+      group: calibnet-wallet-tests
+      cancel-in-progress: false
     needs:
       - build-ubuntu
     name: Wallet tests
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -274,14 +251,15 @@ jobs:
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-delegated-wallet-check:
-    # Disabling this job until message pool nonce calculation is fixed. See: https://github.com/ChainSafe/forest/issues/4899
-    if: false
+    concurrency:
+      group: calibnet-wallet-tests
+      cancel-in-progress: false
     needs:
       - build-ubuntu
+      - calibnet-wallet-check
     name: Delegated wallet tests
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -303,13 +281,12 @@ jobs:
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v1:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'Release')) }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
     needs:
       - build-ubuntu
     name: V1 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -326,12 +303,12 @@ jobs:
         run: ./scripts/tests/calibnet_export_check.sh v1
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v2:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
     needs:
       - build-ubuntu
     name: V2 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -348,12 +325,12 @@ jobs:
         run: ./scripts/tests/calibnet_export_check.sh v2
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-diff-check:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
     needs:
       - build-ubuntu
     name: Diff snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -375,7 +352,6 @@ jobs:
     name: Calibnet no discovery checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -396,7 +372,6 @@ jobs:
     name: Calibnet kademlia checks
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -417,17 +392,12 @@ jobs:
     name: Calibnet eth mapping check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -447,17 +417,12 @@ jobs:
     name: Calibnet api test-stateful check
     runs-on: ubuntu-24.04
     steps:
-      - run: lscpu
       - uses: actions/cache@v5
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -498,8 +463,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - build-ubuntu
-    env:
-      # We use a custom Dockerfile for CI to speed up the build process.
+    env: # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/cache@v5
@@ -513,8 +477,8 @@ jobs:
           docker volume create devnet_filecoin-proofs
           docker run --rm \
             -v devnet_filecoin-proofs:/proofs \
-            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            $SHELL_IMAGE \
+            -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
+            "$SHELL_IMAGE" \
             sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v8
@@ -534,63 +498,10 @@ jobs:
         run: |
           docker run --rm \
             -v devnet_filecoin-proofs:/proofs \
-            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            $SHELL_IMAGE \
+            -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
+            "$SHELL_IMAGE" \
             sh -c "cp /proofs/* /cache"
-          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
-  local-devnet-curio-check:
-    # Disabling this job as it is not providing any value until the curio setup is fixed. See: https://github.com/ChainSafe/forest/issues/5171
-    if: false
-    name: Devnet Curio checks
-    runs-on: ubuntu-24.04
-    needs:
-      - build-ubuntu
-    env:
-      # We use a custom Dockerfile for CI to speed up the build process.
-      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
-    steps:
-      - uses: actions/cache@v5
-        id: cache
-        with:
-          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
-          key: proof-params-2k
-      - name: Load cache into volume
-        if: steps.cache.outputs.cache-hit == 'true'
-        run: |
-          docker volume create devnet_filecoin-proofs
-          docker run --rm \
-            -v devnet_filecoin-proofs:/proofs \
-            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            $SHELL_IMAGE \
-            sh -c "cp /cache/* /proofs"
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-      - name: Devnet setup
-        run: |
-          cp ./scripts/devnet/setup.sh ./scripts/devnet-curio/setup.sh
-          chmod +x ./scripts/devnet-curio/setup.sh
-          ./scripts/devnet-curio/setup.sh
-        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
-      - name: Devnet check
-        run: |
-          cp ./scripts/devnet/check.sh ./scripts/devnet-curio/check.sh
-          chmod +x ./scripts/devnet-curio/check.sh
-          ./scripts/devnet-curio/check.sh
-        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
-      - name: Dump docker logs
-        if: always()
-        uses: jwalton/gh-docker-logs@v2
-      - name: Prepare cache folder for uploading
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          docker run --rm \
-            -v devnet_filecoin-proofs:/proofs \
-            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            $SHELL_IMAGE \
-            sh -c "cp /proofs/* /cache"
-          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
+          sudo chmod -R 755 "$FIL_PROOFS_PARAMETER_CACHE"
   bootstrap-checks-forest:
     needs:
       - build-ubuntu
@@ -641,7 +552,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet RPC checks
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-2404-x64-8x
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
@@ -668,14 +579,13 @@ jobs:
     needs:
       - build-macos
       - build-ubuntu
-      - cargo-publish-dry-run
       - forest-cli-check
       - calibnet-check
       - calibnet-stateless-mode-check
       - calibnet-stateless-rpc-check
       - state-migrations-check
       - calibnet-wallet-check
-      - calibnet-export-check-v2
+      - calibnet-delegated-wallet-check
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check
@@ -691,10 +601,12 @@ jobs:
       - run: echo "All integration tests passed."
 
   extra_tests:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'Release')) }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
     runs-on: ubuntu-24.04
     needs:
       - calibnet-export-check-v1
+      - calibnet-export-check-v2
+      - calibnet-export-diff-check
     name: Additional integration tests status
     steps:
       - run: echo "All extra integration tests passed."
@@ -702,8 +614,8 @@ jobs:
         if: always()
         run: |
           export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          echo ${WORKFLOW_URL}
-          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
+          echo "${WORKFLOW_URL}"
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
       - uses: JasonEtco/create-an-issue@v2
         if: github.ref == 'refs/heads/main' && failure()
         env:

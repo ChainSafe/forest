@@ -31,7 +31,7 @@ where
         nv: NetworkVersion,
         miner_address: &Address,
         rand: Randomness,
-    ) -> Result<Vec<ExtendedSectorInfo>, anyhow::Error> {
+    ) -> anyhow::Result<Vec<ExtendedSectorInfo>> {
         let store = self.blockstore();
 
         let actor = self
@@ -162,7 +162,7 @@ fn generate_winning_post_sector_challenge(
     prover_id: u64,
     mut rand: Randomness,
     eligible_sector_count: u64,
-) -> Result<Vec<u64>, anyhow::Error> {
+) -> anyhow::Result<Vec<u64>> {
     // Necessary to be valid bls12 381 element.
     if let Some(b31) = rand.0.get_mut(31) {
         *b31 &= 0x3f;
@@ -190,7 +190,7 @@ pub mod state_compute {
         genesis::read_genesis_header,
         interpreter::VMTrace,
         networks::{ChainConfig, NetworkChain},
-        state_manager::{StateManager, StateOutput},
+        state_manager::{ExecutedTipset, StateManager},
         utils::net::{DownloadFileOption, download_file_with_cache},
     };
     use directories::ProjectDirs;
@@ -260,10 +260,9 @@ pub mod state_compute {
         #[cfg(test)]
         {
             // To determine whether a test failure is caused by data corruption
-            use sha2::digest::Digest as _;
             println!(
                 "snapshot: {file}, sha256sum: {}",
-                hex::encode(sha2::Sha256::digest(std::fs::read(&path)?))
+                hex::encode(crate::utils::hash::digest_file::<sha2::Sha256>(&path)?)
             );
         }
         Ok(path)
@@ -310,7 +309,7 @@ pub mod state_compute {
         let expected_state_root = *ts_next.parent_state();
         let expected_receipt_root = *ts_next.parent_message_receipts();
         let start = Instant::now();
-        let StateOutput {
+        let ExecutedTipset {
             state_root,
             receipt_root,
             ..

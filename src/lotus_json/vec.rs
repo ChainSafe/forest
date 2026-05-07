@@ -66,8 +66,7 @@ fn snapshots() {
 }
 
 #[cfg(test)]
-quickcheck! {
-    fn quickcheck(val: Vec<::cid::Cid>) -> () {
-        assert_unchanged_via_json(val)
-    }
+#[quickcheck_macros::quickcheck]
+fn quickcheck(val: Vec<::cid::Cid>) {
+    assert_unchanged_via_json(val)
 }

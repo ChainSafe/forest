@@ -9,20 +9,18 @@
 
 use super::super::types::{EthAddress, EthBytes, EthHash};
 use super::super::utils::{decode_params, decode_return};
-use super::super::{
-    decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
-    lookup_eth_address,
-};
+use super::super::{decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi};
+use super::Environment;
 use super::types::{
     EthCallTraceAction, EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult, EthTrace,
-    TraceAction, TraceResult,
+    TraceAction, TraceError, TraceResult,
 };
+use super::utils::trace_to_address;
 use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::methods::state::ExecutionTrace;
-use crate::rpc::state::ActorTrace;
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
-use anyhow::{Context, bail};
+use anyhow::bail;
 use fil_actor_eam_state::v12 as eam12;
 use fil_actor_evm_state::v15 as evm12;
 use fil_actor_init_state::v12::ExecReturn;
@@ -31,48 +29,7 @@ use fvm_ipld_blockstore::Blockstore;
 use num::FromPrimitive;
 use tracing::debug;
 
-/// Error string used in Parity-format traces.
-const PARITY_TRACE_REVERT_ERROR: &str = "Reverted";
-const PARITY_EVM_INVALID_INSTRUCTION: &str = "invalid instruction";
-const PARITY_EVM_UNDEFINED_INSTRUCTION: &str = "undefined instruction";
-const PARITY_EVM_STACK_UNDERFLOW: &str = "stack underflow";
-const PARITY_EVM_STACK_OVERFLOW: &str = "stack overflow";
-const PARITY_EVM_ILLEGAL_MEMORY_ACCESS: &str = "illegal memory access";
-const PARITY_EVM_BAD_JUMPDEST: &str = "invalid jump destination";
-const PARITY_EVM_SELFDESTRUCT_FAILED: &str = "self destruct failed";
-const PARITY_EVM_OUT_OF_GAS: &str = "out of gas";
-
-#[derive(Default)]
-pub struct Environment {
-    caller: EthAddress,
-    is_evm: bool,
-    subtrace_count: i64,
-    pub traces: Vec<EthTrace>,
-    last_byte_code: Option<EthAddress>,
-}
-
-pub fn base_environment<BS: Blockstore + Send + Sync>(
-    state: &StateTree<BS>,
-    from: &Address,
-) -> anyhow::Result<Environment> {
-    let sender = lookup_eth_address(from, state)?
-        .with_context(|| format!("top-level message sender {from} could not be found"))?;
-    Ok(Environment {
-        caller: sender,
-        ..Environment::default()
-    })
-}
-
-fn trace_to_address(trace: &ActorTrace) -> EthAddress {
-    if let Some(addr) = trace.state.delegated_address
-        && let Ok(eth_addr) = EthAddress::from_filecoin_address(&addr.into())
-    {
-        return eth_addr;
-    }
-    EthAddress::from_actor_id(trace.id)
-}
-
-/// Returns true if the trace is a call to an EVM or EAM actor.
+/// Returns `true` if the invoked actor is an EVM contract or the Ethereum Account Manager.
 fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
     if let Some(invoked_actor) = &trace.invoked_actor {
         is_evm_actor(&invoked_actor.state.code)
@@ -82,48 +39,45 @@ fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
     }
 }
 
-/// Returns true if the trace is a call to an EVM or EAM actor.
-fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
+/// Converts a trace's exit code into a typed [`TraceError`].
+/// Returns `None` when the trace completed successfully.
+fn trace_err_msg(trace: &ExecutionTrace) -> Option<TraceError> {
     let code = trace.msg_rct.exit_code;
 
     if code.is_success() {
         return None;
     }
 
-    // EVM tools often expect this literal string.
     if code == ExitCode::SYS_OUT_OF_GAS {
-        return Some(PARITY_EVM_OUT_OF_GAS.into());
+        return Some(TraceError::OutOfGas);
     }
 
-    // indicate when we have a "system" error.
     if code < ExitCode::FIRST_ACTOR_ERROR_CODE.into() {
-        return Some(format!("vm error: {code}"));
+        return Some(TraceError::VmError(code.value()));
     }
 
-    // handle special exit codes from the EVM/EAM.
     if trace_is_evm_or_eam(trace) {
         match code.into() {
-            evm12::EVM_CONTRACT_REVERTED => return Some(PARITY_TRACE_REVERT_ERROR.into()), // capitalized for compatibility
+            evm12::EVM_CONTRACT_REVERTED => return Some(TraceError::Reverted),
             evm12::EVM_CONTRACT_INVALID_INSTRUCTION => {
-                return Some(PARITY_EVM_INVALID_INSTRUCTION.into());
+                return Some(TraceError::InvalidInstruction);
             }
             evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => {
-                return Some(PARITY_EVM_UNDEFINED_INSTRUCTION.into());
+                return Some(TraceError::UndefinedInstruction);
             }
-            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some(PARITY_EVM_STACK_UNDERFLOW.into()),
-            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some(PARITY_EVM_STACK_OVERFLOW.into()),
+            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some(TraceError::StackUnderflow),
+            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some(TraceError::StackOverflow),
             evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => {
-                return Some(PARITY_EVM_ILLEGAL_MEMORY_ACCESS.into());
+                return Some(TraceError::IllegalMemoryAccess);
             }
-            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some(PARITY_EVM_BAD_JUMPDEST.into()),
+            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some(TraceError::BadJumpDest),
             evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => {
-                return Some(PARITY_EVM_SELFDESTRUCT_FAILED.into());
+                return Some(TraceError::SelfDestructFailed);
             }
             _ => (),
         }
     }
-    // everything else...
-    Some(format!("actor error: {code}"))
+    Some(TraceError::ActorError(code.value()))
 }
 
 /// Recursively builds the traces for a given ExecutionTrace by walking the subcalls
@@ -177,7 +131,7 @@ pub fn build_traces(
 // `build_trace` processes the passed execution trace and updates the environment, if necessary.
 //
 // On success, it returns a trace to add (or `None` to skip) and the trace to recurse into (or `None` to skip).
-fn build_trace(
+pub fn build_trace(
     env: &mut Environment,
     address: &[i64],
     trace: ExecutionTrace,
@@ -646,7 +600,7 @@ fn trace_evm_private(
     }
 }
 
-pub(in crate::rpc::methods::eth) struct TipsetTraceEntry {
+pub struct TipsetTraceEntry {
     pub tx_hash: EthHash,
     pub msg_position: i64,
     pub invoc_result: crate::rpc::state::ApiInvocResult,
@@ -658,7 +612,7 @@ impl TipsetTraceEntry {
         &self,
         state: &StateTree<DB>,
     ) -> Result<Vec<EthTrace>, crate::rpc::error::ServerError> {
-        let mut env = base_environment(state, &self.invoc_result.msg.from).map_err(|e| {
+        let mut env = super::base_environment(state, &self.invoc_result.msg.from).map_err(|e| {
             format!(
                 "when processing message {}: {}",
                 self.invoc_result.msg_cid, e

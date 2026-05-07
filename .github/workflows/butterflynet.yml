@@ -1,4 +1,6 @@
 name: Butterflynet checks
+permissions:
+  contents: read
 on:
   workflow_dispatch:
 env:
@@ -20,7 +22,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: jdx/mise-action@v4
@@ -28,7 +30,7 @@ jobs:
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-        run: mise run install --slim
+        run: mise run install --slim quick
       - name: Run butterflynet checks
         run: ./scripts/tests/butterflynet_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}

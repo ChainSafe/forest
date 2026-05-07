@@ -12,6 +12,7 @@ use fil_actor_market_state::v14::policy::deal_provider_collateral_bounds as deal
 use fil_actor_market_state::v15::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v15;
 use fil_actor_market_state::v16::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v16;
 use fil_actor_market_state::v17::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v17;
+use fil_actor_market_state::v18::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v18;
 use fil_actor_miner_state::v11::initial_pledge_for_power as initial_pledge_for_power_v11;
 use fil_actor_miner_state::v12::initial_pledge_for_power as initial_pledge_for_power_v12;
 use fil_actor_miner_state::v13::initial_pledge_for_power as initial_pledge_for_power_v13;
@@ -19,6 +20,7 @@ use fil_actor_miner_state::v14::initial_pledge_for_power as initial_pledge_for_p
 use fil_actor_miner_state::v15::initial_pledge_for_power as initial_pledge_for_power_v15;
 use fil_actor_miner_state::v16::initial_pledge_for_power as initial_pledge_for_power_v16;
 use fil_actor_miner_state::v17::initial_pledge_for_power as initial_pledge_for_power_v17;
+use fil_actor_miner_state::v18::initial_pledge_for_power as initial_pledge_for_power_v18;
 use fvm_shared2::TOTAL_FILECOIN;
 use fvm_shared2::bigint::Integer;
 use fvm_shared2::smooth::FilterEstimate;
@@ -49,6 +51,7 @@ pub enum State {
     V15(fil_actor_reward_state::v15::State),
     V16(fil_actor_reward_state::v16::State),
     V17(fil_actor_reward_state::v17::State),
+    V18(fil_actor_reward_state::v18::State),
 }
 
 impl State {
@@ -59,14 +62,14 @@ impl State {
         effective_network_time: i64,
         effective_baseline_power: StoragePower,
         this_epoch_reward: fvm_shared4::econ::TokenAmount,
-        this_epoch_reward_smoothed: fil_actors_shared::v17::builtin::reward::smooth::FilterEstimate,
+        this_epoch_reward_smoothed: fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate,
         this_epoch_baseline_power: StoragePower,
         epoch: i64,
         total_storage_power_reward: fvm_shared4::econ::TokenAmount,
         simple_total: fvm_shared4::econ::TokenAmount,
         baseline_total: fvm_shared4::econ::TokenAmount,
     ) -> Self {
-        State::V17(fil_actor_reward_state::v17::State {
+        State::V18(fil_actor_reward_state::v18::State {
             cumsum_baseline,
             cumsum_realized,
             effective_network_time,
@@ -157,6 +160,15 @@ impl State {
             State::V17(st) => Ok(fil_actor_miner_state::v17::pre_commit_deposit_for_power(
                 &st.this_epoch_reward_smoothed,
                 &fil_actors_shared::v17::reward::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                &sector_weight,
+            )
+            .into()),
+            State::V18(st) => Ok(fil_actor_miner_state::v18::pre_commit_deposit_for_power(
+                &st.this_epoch_reward_smoothed,
+                &fil_actors_shared::v18::reward::FilterEstimate {
                     position: network_qa_power.position,
                     velocity: network_qa_power.velocity,
                 },
@@ -295,6 +307,16 @@ impl State {
                 );
                 (min.into(), max.into())
             }
+            State::V18(_) => {
+                let (min, max) = deal_provider_collateral_bounds_v18(
+                    &policy.into(),
+                    size.into(),
+                    raw_byte_power,
+                    baseline_power,
+                    &network_circulating_supply.into(),
+                );
+                (min.into(), max.into())
+            }
         }
     }
 
@@ -411,6 +433,24 @@ impl State {
                         velocity: st.this_epoch_reward_smoothed.velocity.clone(),
                     },
                     &fil_actors_shared::v17::reward::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &circ_supply.into(),
+                    epochs_since_ramp_start,
+                    ramp_duration_epochs,
+                );
+                Ok(pledge.into())
+            }
+            State::V18(st) => {
+                let pledge = initial_pledge_for_power_v18(
+                    qa_power,
+                    &st.this_epoch_baseline_power,
+                    &fil_actors_shared::v18::reward::FilterEstimate {
+                        position: st.this_epoch_reward_smoothed.position.clone(),
+                        velocity: st.this_epoch_reward_smoothed.velocity.clone(),
+                    },
+                    &fil_actors_shared::v18::reward::FilterEstimate {
                         position: network_qa_power.position,
                         velocity: network_qa_power.velocity,
                     },

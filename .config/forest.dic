@@ -1,4 +1,4 @@
-267
+271
 Algorand/M
 API's
 API/SM
@@ -142,6 +142,7 @@ LRU
 LTO
 macOS
 mainnet
+Mbps
 MD5
 MDBX
 MDNS
@@ -179,6 +180,7 @@ ParityDb
 parsable
 peerstore/S
 performant
+PMF
 pnpm
 PoC
 pointer/SM
@@ -208,6 +210,7 @@ semver
 serializable
 serializer/SM
 serverless
+Skellam
 skippable
 Sqlx
 statediff
@@ -242,6 +245,7 @@ TTY
 UI
 unclutter
 uncompress
+unparsable
 unrepresentable
 untrusted
 URL

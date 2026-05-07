@@ -9,6 +9,7 @@ use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::externs::Rand;
+use crate::utils::ShallowClone;
 use crate::utils::encoding::blake2b_256;
 use anyhow::{Context as _, bail};
 use blake2b_simd::Params;
@@ -20,17 +21,17 @@ use fvm_ipld_blockstore::Blockstore;
 pub struct ChainRand<DB> {
     chain_config: Arc<ChainConfig>,
     tipset: Tipset,
-    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_index: ChainIndex<DB>,
     beacon: Arc<BeaconSchedule>,
 }
 
-impl<DB> Clone for ChainRand<DB> {
-    fn clone(&self) -> Self {
+impl<DB> ShallowClone for ChainRand<DB> {
+    fn shallow_clone(&self) -> Self {
         ChainRand {
-            chain_config: self.chain_config.clone(),
-            tipset: self.tipset.clone(),
-            chain_index: self.chain_index.clone(),
-            beacon: self.beacon.clone(),
+            chain_config: self.chain_config.shallow_clone(),
+            tipset: self.tipset.shallow_clone(),
+            chain_index: self.chain_index.shallow_clone(),
+            beacon: self.beacon.shallow_clone(),
         }
     }
 }
@@ -59,9 +60,9 @@ where
         } else {
             ResolveNullTipset::TakeNewer
         };
-        let rand_ts = self
-            .chain_index
-            .tipset_by_height(search_height, ts, resolve)?;
+        let rand_ts =
+            self.chain_index
+                .load_required_tipset_by_height(search_height, ts, resolve)?;
 
         Ok(digest(
             rand_ts
@@ -149,7 +150,7 @@ where
         };
 
         self.chain_index
-            .tipset_by_height(search_height, ts, resolve)
+            .load_required_tipset_by_height(search_height, ts, resolve)
             .map_err(|e| e.into())
     }
 }

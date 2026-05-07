@@ -44,9 +44,24 @@ pub static INVALID_TIPSET_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
     );
     metric
 });
+pub static GOSSIP_BLOCK_REJECTED_TOTAL: LazyLock<Family<GossipRejectReasonLabel, Counter>> =
+    LazyLock::new(|| {
+        let metric = Family::default();
+        crate::metrics::default_registry().register(
+            "gossip_block_rejected_total",
+            "Total number of gossip blocks rejected by pre-validation",
+            metric.clone(),
+        );
+        metric
+    });
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, derive_more::Constructor)]
 pub struct Libp2pMessageKindLabel(&'static str);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet, derive_more::Constructor)]
+pub struct GossipRejectReasonLabel {
+    pub reason: &'static str,
+}
 
 impl EncodeLabelSet for Libp2pMessageKindLabel {
     fn encode(&self, mut encoder: LabelSetEncoder) -> Result<(), std::fmt::Error> {

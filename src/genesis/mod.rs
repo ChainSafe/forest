@@ -22,7 +22,7 @@ pub async fn read_genesis_header<DB>(
     genesis_fp: Option<&Path>,
     genesis_bytes: Option<&[u8]>,
     db: &DB,
-) -> Result<CachingBlockHeader, anyhow::Error>
+) -> anyhow::Result<CachingBlockHeader>
 where
     DB: Blockstore,
 {
@@ -43,7 +43,7 @@ where
     Ok(genesis)
 }
 
-async fn process_car<R, BS>(reader: R, db: &BS) -> Result<CachingBlockHeader, anyhow::Error>
+async fn process_car<R, BS>(reader: R, db: &BS) -> anyhow::Result<CachingBlockHeader>
 where
     R: AsyncBufRead + AsyncSeek + Unpin,
     BS: Blockstore,

@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.32.4"
+    "version": "0.33.2"
   },
   "methods": [
     {
@@ -22,6 +22,19 @@
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/Tipset"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.ChainGetTipSetFinalityStatus",
+      "description": "Returns a breakdown of how the node is currently determining finality.",
+      "params": [],
+      "result": {
+        "name": "Filecoin.ChainGetTipSetFinalityStatus.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/ChainFinalityStatus"
         }
       },
       "paramStructure": "by-position"
@@ -1272,6 +1285,41 @@
       "paramStructure": "by-position"
     },
     {
+      "name": "Forest.EthDebugTraceTransaction",
+      "description": "Replays a transaction and returns execution traces in Geth-compatible format.",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "opts",
+          "required": true,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GethDebugTracingOptions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "name": "Forest.EthDebugTraceTransaction.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/GethTrace"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
       "name": "Forest.EthTraceCall",
       "description": "Returns parity style trace results for the given transaction.",
       "params": [
@@ -1309,6 +1357,86 @@
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/EthTraceResults"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Forest.NetChainExchange",
+      "description": "Internal API for debugging chain exchange.",
+      "params": [
+        {
+          "name": "startTipsetKey",
+          "required": true,
+          "schema": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Cid"
+            }
+          }
+        },
+        {
+          "name": "len",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        {
+          "name": "options",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      ],
+      "result": {
+        "name": "Forest.NetChainExchange.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "debug_traceTransaction",
+      "description": "Replays a transaction and returns execution traces in Geth-compatible format.",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "opts",
+          "required": true,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GethDebugTracingOptions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "name": "debug_traceTransaction.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/GethTrace"
         }
       },
       "paramStructure": "by-position"
@@ -2448,6 +2576,48 @@
           "storage"
         ]
       },
+      "AccountState": {
+        "description": "Snapshot of a single account's state at a point in time.\nAll fields are optional; absent means \"not relevant\" or \"default\".",
+        "type": "object",
+        "properties": {
+          "balance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBytes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nonce": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthUint64"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "storage": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EthHash"
+            }
+          }
+        }
+      },
       "ActorState": {
         "type": "object",
         "properties": {
@@ -2893,6 +3063,40 @@
       "Bloom": {
         "type": "string"
       },
+      "ChainFinalityStatus": {
+        "description": "Describes how the node is currently determining finality,\ncombining probabilistic EC finality (based on observed chain health) with\nF3 fast finality when available.",
+        "type": "object",
+        "properties": {
+          "ecFinalityThresholdDepth": {
+            "description": "The shallowest epoch depth at which the\nprobability of a chain reorganization drops below 2^-30 (~one in a\nbillion). A value of -1 indicates the threshold was not met within the\nsearch range, which suggests degraded chain health.",
+            "type": "integer",
+            "format": "int64"
+          },
+          "ecFinalizedTipSet": {
+            "description": "The most recent tipset where the reorg probability\nis below 2^-30, based on observed block production. [`None`] if the\nthreshold is not met.",
+            "$ref": "#/components/schemas/Nullable_Tipset"
+          },
+          "f3FinalizedTipSet": {
+            "description": "The tipset finalized by F3 (Fast Finality), if F3\nis running and has issued a certificate. [`None`] if F3 is not available.",
+            "$ref": "#/components/schemas/Nullable_Tipset"
+          },
+          "finalizedTipSet": {
+            "description": "The overall finalized tipset used by the node,\ntaking the most recent of F3 and EC calculator results.",
+            "$ref": "#/components/schemas/Nullable_Tipset"
+          },
+          "head": {
+            "description": "The current chain head used for the computation.",
+            "$ref": "#/components/schemas/Tipset"
+          }
+        },
+        "required": [
+          "ecFinalityThresholdDepth",
+          "ecFinalizedTipSet",
+          "f3FinalizedTipSet",
+          "finalizedTipSet",
+          "head"
+        ]
+      },
       "ChangedType": {
         "description": "Represents a changed value with before and after states.",
         "type": "object",
@@ -3172,6 +3376,30 @@
           }
         ]
       },
+      "DiffMode": {
+        "description": "Account state differences between the transaction's pre and post-state.",
+        "type": "object",
+        "properties": {
+          "post": {
+            "description": "account state after the transaction is executed.",
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AccountState"
+            }
+          },
+          "pre": {
+            "description": "account state before the transaction is executed.",
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AccountState"
+            }
+          }
+        },
+        "required": [
+          "pre",
+          "post"
+        ]
+      },
       "ElectionProof": {
         "type": "object",
         "properties": {
@@ -3304,6 +3532,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBytes"
               },
               {
                 "type": "null"
@@ -3619,19 +3857,28 @@
         ]
       },
       "EthReplayBlockTransactionTrace": {
+        "description": "Result payload returned by `trace_call`.",
         "type": "object",
         "properties": {
           "output": {
+            "description": "Output bytes from the transaction execution.",
             "$ref": "#/components/schemas/EthBytes"
           },
           "stateDiff": {
-            "type": [
-              "string",
-              "null"
+            "description": "State diff showing all account changes.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StateDiff"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "trace": {
+            "description": "Call trace hierarchy (empty when not requested).",
             "type": "array",
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/EthTrace"
             }
@@ -3640,6 +3887,7 @@
             "$ref": "#/components/schemas/EthHash"
           },
           "vmTrace": {
+            "description": "`None` because FVM does not support opcode-level VM traces.",
             "type": [
               "string",
               "null"
@@ -3648,7 +3896,6 @@
         },
         "required": [
           "output",
-          "trace",
           "transactionHash"
         ]
       },
@@ -3660,23 +3907,23 @@
           {
             "type": "object",
             "properties": {
-              "currentblock": {
+              "currentBlock": {
                 "type": "integer",
                 "format": "int64"
               },
-              "highestblock": {
+              "highestBlock": {
                 "type": "integer",
                 "format": "int64"
               },
-              "startingblock": {
+              "startingBlock": {
                 "type": "integer",
                 "format": "int64"
               }
             },
             "required": [
-              "startingblock",
-              "currentblock",
-              "highestblock"
+              "startingBlock",
+              "currentBlock",
+              "highestBlock"
             ]
           }
         ]
@@ -4005,6 +4252,173 @@
           "dry_run"
         ]
       },
+      "GethCallFrame": {
+        "description": "Geth-style nested call frame returned by the `callTracer`.",
+        "type": "object",
+        "properties": {
+          "calls": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/GethCallFrame"
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "from": {
+            "$ref": "#/components/schemas/EthAddress"
+          },
+          "gas": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "gasUsed": {
+            "$ref": "#/components/schemas/EthUint64"
+          },
+          "input": {
+            "$ref": "#/components/schemas/EthBytes"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBytes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revertReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/GethCallType"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "from",
+          "gas",
+          "gasUsed",
+          "input"
+        ]
+      },
+      "GethCallType": {
+        "description": "EVM call/create operation type for Geth-style trace frames.\n\nMaps to the EVM opcodes: CALL, STATICCALL, DELEGATECALL, CREATE, CREATE2.\nUsed as the `type` field in [`GethCallFrame`].",
+        "type": "string",
+        "enum": [
+          "CALL",
+          "STATICCALL",
+          "DELEGATECALL",
+          "CREATE",
+          "CREATE2"
+        ]
+      },
+      "GethDebugBuiltInTracerType": {
+        "description": "The Available built-in tracer.",
+        "oneOf": [
+          {
+            "description": "The call tracer builds a hierarchical call tree, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)",
+            "type": "string",
+            "const": "callTracer"
+          },
+          {
+            "description": "The flat call tracer builds a flat list of all calls, showing the hierarchy of calls (e.g., `call`, `create`, `reward`)",
+            "type": "string",
+            "const": "flatCallTracer"
+          },
+          {
+            "description": "The prestate tracer builds a state snapshot of the accounts necessary to execute the transaction, and the state after the transaction.",
+            "type": "string",
+            "const": "prestateTracer"
+          },
+          {
+            "description": "The noop tracer does not build any traces.",
+            "type": "string",
+            "const": "noopTracer"
+          }
+        ]
+      },
+      "GethDebugTracingOptions": {
+        "description": "Options for the `debug_traceTransaction` API.",
+        "type": "object",
+        "properties": {
+          "tracer": {
+            "description": "The tracer to use for the transaction.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GethDebugBuiltInTracerType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tracerConfig": {
+            "description": "The configuration for the provided tracer.\nThe configuration is a JSON object that is specific to the tracer.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TracerConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "GethTrace": {
+        "description": "Tracing response objects",
+        "anyOf": [
+          {
+            "description": "Response object for the call tracer.",
+            "$ref": "#/components/schemas/GethCallFrame"
+          },
+          {
+            "description": "Response object for the flat call tracer.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EthBlockTrace"
+            }
+          },
+          {
+            "description": "Response object for the prestate tracer.",
+            "$ref": "#/components/schemas/PreStateFrame"
+          },
+          {
+            "description": "Response object for the noop tracer.",
+            "$ref": "#/components/schemas/NoopFrame"
+          }
+        ]
+      },
       "NonEmpty_Array_of_BlockHeader": {
         "type": "array",
         "items": {
@@ -4028,6 +4442,10 @@
       },
       "Nonce": {
         "type": "string"
+      },
+      "NoopFrame": {
+        "description": "Empty frame returned by the `noopTracer`.",
+        "type": "object"
       },
       "Nullable_Address": {
         "anyOf": [
@@ -4096,6 +4514,16 @@
           }
         ]
       },
+      "Nullable_Tipset": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/Tipset"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "PoStProof": {
         "type": "object",
         "properties": {
@@ -4110,6 +4538,26 @@
           "PoStProof",
           "ProofBytes"
         ]
+      },
+      "PreStateFrame": {
+        "description": "Return type for the `prestateTracer`.",
+        "anyOf": [
+          {
+            "description": "Default mode: returns the accounts necessary to execute a given transaction.",
+            "$ref": "#/components/schemas/PreStateMode"
+          },
+          {
+            "description": "Diff mode: returns the differences between the transaction's pre and post-state.",
+            "$ref": "#/components/schemas/DiffMode"
+          }
+        ]
+      },
+      "PreStateMode": {
+        "description": "Returns the account states necessary to execute a given transaction.",
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/AccountState"
+        }
       },
       "Signature": {
         "type": "object",
@@ -4291,6 +4739,9 @@
             "$ref": "#/components/schemas/EthCreateTraceResult"
           }
         ]
+      },
+      "TracerConfig": {
+        "description": "Opaque JSON blob for per-tracer configuration."
       },
       "Transactions": {
         "anyOf": [

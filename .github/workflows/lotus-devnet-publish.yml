@@ -1,4 +1,7 @@
 name: Lotus devnet image
+permissions:
+  contents: read
+  packages: write
 
 # Only build and publish this image on demand.
 # The compilation adds significant overhead to the CI and it is not supposed

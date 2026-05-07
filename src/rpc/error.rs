@@ -104,7 +104,7 @@ impl From<anyhow::Error> for ServerError {
             return eth_error.clone().into();
         }
 
-        // Default fallback
+        // Default fallback, not using `format!("{e:#}")` here to match Lotus error
         Self::internal_error(error.to_string(), None)
     }
 }

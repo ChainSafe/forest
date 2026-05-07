@@ -2,18 +2,23 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use itertools::Itertools;
 pub use types::*;
 
 use std::any::Any;
+use std::num::NonZeroU64;
 use std::str::FromStr;
+use std::sync::{Arc, OnceLock};
+use std::time::Instant;
 
+use crate::libp2p::chain_exchange::TipsetBundle;
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
+use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use anyhow::{Context as _, Result};
 use cid::multibase;
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools as _;
 
 pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
@@ -278,14 +283,18 @@ impl RpcMethod<0> for NetVersion {
     const NAME_ALIAS: Option<&'static str> = Some("net_version");
 
     type Params = ();
-    type Ok = String;
+    type Ok = Arc<str>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.chain_config().eth_chain_id.to_string())
+        // `eth_chain_id` is fixed for the process lifetime; cache the decimal form.
+        static CACHED: OnceLock<Arc<str>> = OnceLock::new();
+        Ok(CACHED
+            .get_or_init(|| Arc::<str>::from(ctx.chain_config().eth_chain_id.to_string()))
+            .clone())
     }
 }
 
@@ -383,5 +392,39 @@ impl RpcMethod<1> for NetProtectRemove {
             .await?;
         rx.recv_async().await?;
         Ok(())
+    }
+}
+
+pub enum NetChainExchange {}
+impl RpcMethod<3> for NetChainExchange {
+    const NAME: &'static str = "Forest.NetChainExchange";
+    const PARAM_NAMES: [&'static str; 3] = ["startTipsetKey", "len", "options"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: Option<&'static str> = Some("Internal API for debugging chain exchange.");
+
+    type Params = (ApiTipsetKey, u64, u64);
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (tsk, request_len, options): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let request_len =
+            NonZeroU64::new(request_len).context("request length must be greater than 0")?;
+        let tsk = tsk
+            .0
+            .unwrap_or_else(|| ctx.chain_store().heaviest_tipset().key().clone());
+        let timer = Instant::now();
+        let result: Vec<TipsetBundle> = ctx
+            .sync_network_context
+            .handle_chain_exchange_request(None, &tsk, request_len, options, |_| true)
+            .await?;
+        Ok(format!(
+            "fetched {} tipsets, took {}",
+            result.len(),
+            humantime::format_duration(timer.elapsed())
+        ))
     }
 }

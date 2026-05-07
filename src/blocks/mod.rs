@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::borrow::Cow;
 use thiserror::Error;
 
 mod block;
@@ -21,7 +22,7 @@ pub use election_proof::ElectionProof;
 pub use gossip_block::GossipBlock;
 pub use header::{CachingBlockHeader, RawBlockHeader};
 pub use ticket::Ticket;
-pub use tipset::{CreateTipsetError, FullTipset, Tipset, TipsetKey};
+pub use tipset::{CreateTipsetError, FullTipset, Tipset, TipsetKey, TipsetLike};
 pub use vrf_proof::VRFProof;
 
 /// Blockchain blocks error
@@ -29,10 +30,10 @@ pub use vrf_proof::VRFProof;
 pub enum Error {
     /// Invalid signature
     #[error("Invalid signature: {0}")]
-    InvalidSignature(String),
+    InvalidSignature(Cow<'static, str>),
     /// Error in validating arbitrary data
     #[error("Error validating data: {0}")]
-    Validation(String),
+    Validation(Cow<'static, str>),
 }
 
 #[cfg(test)]

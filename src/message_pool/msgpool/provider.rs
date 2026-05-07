@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
+use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChanges};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::message_pool::errors::Error;
@@ -10,7 +11,7 @@ use crate::message_pool::msg_pool::{
 };
 use crate::networks::Height;
 use crate::shim::{
-    address::Address,
+    address::{Address, Protocol::*},
     econ::TokenAmount,
     message::Message,
     state_tree::{ActorState, StateTree},
@@ -19,6 +20,7 @@ use crate::utils::db::CborStoreExt;
 use auto_impl::auto_impl;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use std::sync::Arc;
 use tokio::sync::broadcast;
 
 /// Provider Trait. This trait will be used by the message pool to interact with
@@ -46,6 +48,15 @@ pub trait Provider {
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Tipset, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
+    /// Similar to [`crate::state_manager::StateManager::resolve_to_deterministic_address`] but fails if the ID address being resolved isn't reorg-stable yet.
+    /// It should not be used for consensus-critical subsystems.
+    fn resolve_to_deterministic_address_at_finality(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> Result<Address, Error>;
+    /// Return all messages included in the given tipset.
+    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error>;
     // Get max number of messages per actor in the pool
     fn max_actor_pending_messages(&self) -> u64 {
         MAX_ACTOR_PENDING_MESSAGES
@@ -92,8 +103,46 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
 
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.chain_config().epoch(Height::Smoke);
-        let xxx_height = self.chain_config().epoch(Height::Xxx);
-        crate::chain::compute_base_fee(self.blockstore(), ts, smoke_height, xxx_height)
+        let firehorse_height = self.chain_config().epoch(Height::FireHorse);
+        crate::chain::compute_base_fee(self.blockstore(), ts, smoke_height, firehorse_height)
             .map_err(|err| err.into())
+    }
+
+    fn resolve_to_deterministic_address_at_finality(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> Result<Address, Error> {
+        match addr.protocol() {
+            BLS | Secp256k1 | Delegated => Ok(*addr),
+            Actor => Err(Error::Other(
+                "Cannot resolve actor address to key address".into(),
+            )),
+            _ => {
+                let lookback_ts = if ts.epoch() > self.chain_config().policy.chain_finality {
+                    self.chain_index()
+                        .load_required_tipset_by_height(
+                            ts.epoch() - self.chain_config().policy.chain_finality,
+                            ts.clone(),
+                            ResolveNullTipset::TakeOlder,
+                        )
+                        .map_err(|e| Error::Other(e.to_string()))?
+                } else {
+                    // Matches the logic at <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/stmgr/stmgr.go#L361>
+                    ts.clone()
+                };
+
+                let state =
+                    StateTree::new_from_root(self.blockstore().clone(), lookback_ts.parent_state())
+                        .map_err(|e| Error::Other(e.to_string()))?;
+                state
+                    .resolve_to_deterministic_addr(self.blockstore(), *addr)
+                    .map_err(|e| Error::Other(e.to_string()))
+            }
+        }
+    }
+
+    fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error> {
+        ChainStore::messages_for_tipset(self, ts).map_err(Into::into)
     }
 }

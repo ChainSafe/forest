@@ -125,6 +125,14 @@ impl VerifiedRegistryStateExt for State {
                     Ok(())
                 })?;
             }
+            State::V18(state) => {
+                let mut map = state.load_allocs(store)?;
+                map.for_each_in(address_id, |k, v| {
+                    let allocation_id = fil_actors_shared::v18::parse_uint_key(k)?;
+                    result.insert(allocation_id, v.into());
+                    Ok(())
+                })?;
+            }
         };
         Ok(result)
     }
@@ -145,6 +153,7 @@ impl VerifiedRegistryStateExt for State {
             State::V15(state) => list_all_inner!(state, store, v15, load_allocs, result),
             State::V16(state) => list_all_inner!(state, store, v16, load_allocs, result),
             State::V17(state) => list_all_inner!(state, store, v17, load_allocs, result),
+            State::V18(state) => list_all_inner!(state, store, v18, load_allocs, result),
         };
         Ok(result)
     }
@@ -232,6 +241,14 @@ impl VerifiedRegistryStateExt for State {
                     Ok(())
                 })?;
             }
+            Self::V18(s) => {
+                let mut claims = s.load_claims(store)?;
+                claims.for_each_in(provider_id, |k, v| {
+                    let claim_id = fil_actors_shared::v18::parse_uint_key(k)?;
+                    result.insert(claim_id, v.into());
+                    Ok(())
+                })?;
+            }
         };
         Ok(result)
     }
@@ -252,6 +269,7 @@ impl VerifiedRegistryStateExt for State {
             State::V15(state) => list_all_inner!(state, store, v15, load_claims, result),
             State::V16(state) => list_all_inner!(state, store, v16, load_claims, result),
             State::V17(state) => list_all_inner!(state, store, v17, load_claims, result),
+            State::V18(state) => list_all_inner!(state, store, v18, load_claims, result),
         };
         Ok(result)
     }

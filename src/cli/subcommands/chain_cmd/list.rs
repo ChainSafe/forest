@@ -17,6 +17,7 @@ use crate::{
         },
     },
     shim::econ::{BLOCK_GAS_LIMIT, TokenAmount},
+    utils::ShallowClone as _,
 };
 
 /// View a segment of the chain
@@ -43,7 +44,7 @@ impl ChainListCommand {
         };
         let mut tipsets = Vec::with_capacity(count);
         loop {
-            tipsets.push(ts.clone());
+            tipsets.push(ts.shallow_clone());
             if ts.epoch() == 0 || tipsets.len() >= count {
                 break;
             }

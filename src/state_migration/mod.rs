@@ -28,6 +28,7 @@ mod nv24;
 mod nv25;
 mod nv26fix;
 mod nv27;
+mod nv28;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -65,13 +66,11 @@ where
                 (Height::Teep, nv25::run_migration::<DB>),
                 (Height::TockFix, nv26fix::run_migration::<DB>),
                 (Height::GoldenWeek, nv27::run_migration::<DB>),
+                (Height::FireHorse, nv28::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
-            vec![
-                (Height::Teep, nv25::run_migration::<DB>),
-                (Height::GoldenWeek, nv27::run_migration::<DB>),
-            ]
+            vec![(Height::FireHorse, nv28::run_migration::<DB>)]
         }
         NetworkChain::Devnet(_) => {
             vec![
@@ -84,6 +83,7 @@ where
                 (Height::TukTuk, nv24::run_migration::<DB>),
                 (Height::Teep, nv25::run_migration::<DB>),
                 (Height::GoldenWeek, nv27::run_migration::<DB>),
+                (Height::FireHorse, nv28::run_migration::<DB>),
             ]
         }
     }

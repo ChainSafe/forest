@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod archive_missing_cmd;
+mod export_state_tree_cmd;
+mod export_tipset_lookup_cmd;
 mod state_cmd;
 mod update_checkpoints_cmd;
 
@@ -49,6 +51,8 @@ pub enum Subcommand {
     UpdateCheckpoints(update_checkpoints_cmd::UpdateCheckpointsCommand),
     /// Find missing archival snapshots on the Forest Archive for a given epoch range
     ArchiveMissing(archive_missing_cmd::ArchiveMissingCommand),
+    ExportTipsetLookup(export_tipset_lookup_cmd::ExportTipsetLookupCommand),
+    ExportStateTree(export_state_tree_cmd::ExportStateTreeCommand),
 }
 
 impl Subcommand {
@@ -58,6 +62,8 @@ impl Subcommand {
             Self::State(cmd) => cmd.run().await,
             Self::UpdateCheckpoints(cmd) => cmd.run().await,
             Self::ArchiveMissing(cmd) => cmd.run().await,
+            Self::ExportTipsetLookup(cmd) => cmd.run().await,
+            Self::ExportStateTree(cmd) => cmd.run().await,
         }
     }
 }
@@ -92,7 +98,7 @@ pub async fn fetch_state_tests() -> anyhow::Result<()> {
     }
     for result in joinset.join_all().await {
         if let Err(e) = result {
-            tracing::warn!("{e}");
+            tracing::warn!("{e:#}");
         }
     }
     Ok(())
@@ -112,7 +118,7 @@ async fn fetch_rpc_tests() -> anyhow::Result<()> {
     }
     for result in joinset.join_all().await {
         if let Err(e) = result {
-            tracing::warn!("{e}");
+            tracing::warn!("{e:#}");
         }
     }
     Ok(())
@@ -135,7 +141,7 @@ pub async fn fetch_rpc_test_snapshot<'a>(name: Cow<'a, str>) -> anyhow::Result<P
         || download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable),
     )
     .await
-    .map_err(|e| anyhow::anyhow!("failed to fetch rpc test snapshot {name} :{e}"))?
+    .with_context(|| format!("failed to fetch rpc test snapshot {name}"))?
     .path;
     Ok(path)
 }

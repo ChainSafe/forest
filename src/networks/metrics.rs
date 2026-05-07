@@ -89,7 +89,7 @@ where
         {
             let network_version = self.chain_config.network_version(epoch);
             let nv_gauge: Gauge = Default::default();
-            nv_gauge.set(u32::from(network_version) as _);
+            nv_gauge.set(i64::from(u32::from(network_version)));
             let metric_encoder = encoder.encode_descriptor(
                 "network_version",
                 "Network version of the current chain head",

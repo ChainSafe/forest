@@ -1,12 +1,14 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod broadcast;
 pub mod cache;
 pub mod cid;
 pub mod db;
 pub mod encoding;
 pub mod flume;
 pub mod get_size;
+pub mod hash;
 pub mod io;
 pub mod misc;
 pub mod multihash;
@@ -15,6 +17,8 @@ pub mod p2p;
 pub mod proofs_api;
 pub mod rand;
 pub mod reqwest_resume;
+mod shallow_clone;
+pub use shallow_clone::ShallowClone;
 pub mod sqlite;
 pub mod stats;
 pub mod stream;

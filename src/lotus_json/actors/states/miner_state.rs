@@ -155,7 +155,7 @@ impl HasLotusJson for State {
                 Default::default(),
                 Default::default(),
                 Default::default(),
-                fil_actor_miner_state::v17::VestingFunds(None),
+                fil_actor_miner_state::v18::VestingFunds(None),
                 Default::default(),
                 Default::default(),
                 Default::default(),
@@ -190,7 +190,7 @@ impl HasLotusJson for State {
 
         convert_miner_state! {
             cid_vesting_funds_handler for [V8, V9, V10, V11, V12, V13, V14, V15];
-            embedded_vesting_funds_handler for [V16, V17];
+            embedded_vesting_funds_handler for [V16, V17, V18];
         }
     }
 
@@ -198,7 +198,7 @@ impl HasLotusJson for State {
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         let vesting_funds = match &lotus_json.vesting_funds {
             Some(VestingFundsValue::Embedded(vesting_funds_json)) => {
-                use fil_actor_miner_state::v17::{VestingFund, VestingFunds, VestingFundsInner};
+                use fil_actor_miner_state::v18::{VestingFund, VestingFunds, VestingFundsInner};
                 VestingFunds(Some(VestingFundsInner {
                     head: VestingFund {
                         epoch: vesting_funds_json.head.epoch,
@@ -208,11 +208,11 @@ impl HasLotusJson for State {
                 }))
             }
             Some(VestingFundsValue::Cid(_)) => {
-                use fil_actor_miner_state::v17::VestingFunds;
+                use fil_actor_miner_state::v18::VestingFunds;
                 VestingFunds(None)
             }
             None => {
-                use fil_actor_miner_state::v17::VestingFunds;
+                use fil_actor_miner_state::v18::VestingFunds;
                 VestingFunds(None)
             }
         };

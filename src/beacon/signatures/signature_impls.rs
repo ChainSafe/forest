@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use zerocopy::FromBytes as _;
 
 impl From<G1Projective> for SignatureOnG1 {
     fn from(val: G1Projective) -> Self {
@@ -27,16 +28,9 @@ impl From<SignatureOnG1> for G1Affine {
 }
 
 fn g1_from_slice(raw: &[u8]) -> Result<G1Affine, Error> {
-    const SIZE: usize = G1Affine::compressed_size();
-
-    if raw.len() != SIZE {
-        return Err(Error::SizeMismatch);
-    }
-
-    let mut res = [0u8; SIZE];
-    res.copy_from_slice(raw);
-
-    Option::from(G1Affine::from_compressed(&res)).ok_or(Error::GroupDecode)
+    let res = <[u8; G1Affine::compressed_size()]>::ref_from_bytes(raw)
+        .map_err(|_| Error::SizeMismatch)?;
+    Option::from(G1Affine::from_compressed(res)).ok_or(Error::GroupDecode)
 }
 
 impl SignatureOnG1 {

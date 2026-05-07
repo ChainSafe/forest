@@ -10,7 +10,7 @@ use crate::{
     networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata},
     shim::actors::account,
 };
-use anyhow::{Context as _, anyhow, bail};
+use anyhow::{Context as _, bail};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{
@@ -211,18 +211,12 @@ where
                     addr.protocol() != crate::shim::address::Protocol::Delegated,
                     "Delegated addresses are not supported in FVMv2 state trees"
                 );
-                Ok(st
-                    .get_actor(&addr.into())
-                    .map_err(|e| anyhow!("{e}"))?
-                    .map(Into::into))
+                Ok(st.get_actor(&addr.into())?.map(Into::into))
             }
             StateTree::FvmV3(st) => {
                 let id = st.lookup_id(&addr.into())?;
                 if let Some(id) = id {
-                    Ok(st
-                        .get_actor(id)
-                        .map_err(|e| anyhow!("{e}"))?
-                        .map(Into::into))
+                    Ok(st.get_actor(id)?.map(Into::into))
                 } else {
                     Ok(None)
                 }
@@ -230,10 +224,7 @@ where
             StateTree::FvmV4(st) => {
                 let id = st.lookup_id(addr)?;
                 if let Some(id) = id {
-                    Ok(st
-                        .get_actor(id)
-                        .map_err(|e| anyhow!("{e}"))?
-                        .map(Into::into))
+                    Ok(st.get_actor(id)?.map(Into::into))
                 } else {
                     Ok(None)
                 }
@@ -241,10 +232,7 @@ where
             StateTree::V0(st) => {
                 let id = st.lookup_id(addr)?;
                 if let Some(id) = id {
-                    Ok(st
-                        .get_actor(&id)
-                        .map_err(|e| anyhow!("{e}"))?
-                        .map(Into::into))
+                    Ok(st.get_actor(&id)?.map(Into::into))
                 } else {
                     Ok(None)
                 }
@@ -281,7 +269,7 @@ where
     /// Get an ID address from any Address
     pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<ActorID>> {
         match self {
-            StateTree::FvmV2(st) => st.lookup_id(&addr.into()).map_err(|e| anyhow!("{e}")),
+            StateTree::FvmV2(st) => Ok(st.lookup_id(&addr.into())?),
             StateTree::FvmV3(st) => Ok(st.lookup_id(&addr.into())?),
             StateTree::FvmV4(st) => Ok(st.lookup_id(&addr.into())?),
             StateTree::V0(_) => bail!("StateTree::lookup_id not supported on old state trees"),
@@ -315,7 +303,7 @@ where
     /// Flush state tree and return Cid root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
         match self {
-            StateTree::FvmV2(st) => st.flush().map_err(|e| anyhow!("{e}")),
+            StateTree::FvmV2(st) => Ok(st.flush()?),
             StateTree::FvmV3(st) => Ok(st.flush()?),
             StateTree::FvmV4(st) => Ok(st.flush()?),
             StateTree::V0(_) => bail!("StateTree::flush not supported on old state trees"),
@@ -325,9 +313,10 @@ where
     /// Set actor state with an actor ID.
     pub fn set_actor(&mut self, addr: &Address, actor: ActorState) -> anyhow::Result<()> {
         match self {
-            StateTree::FvmV2(st) => st
-                .set_actor(&addr.into(), actor.into())
-                .map_err(|e| anyhow!("{e}")),
+            StateTree::FvmV2(st) => {
+                st.set_actor(&addr.into(), actor.into())?;
+                Ok(())
+            }
             StateTree::FvmV3(st) => {
                 let id = st
                     .lookup_id(&addr.into())?

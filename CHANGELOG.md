@@ -29,13 +29,81 @@
 
 ### Added
 
-- [#6710](https://github.com/ChainSafe/forest/pull/6710): Added support for f4 addresses in forest-wallet.
-
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+## Forest v0.33.2 "Night Mare"
+
+Mandatory release for calibnet node operators. It includes support for the NV28 _FireHorse_ network upgrade for calibnet, which is set to activate at epoch `3694534` (2026-05-07T14:00:00Z). It also includes important fixes around the P2P protocols that could cause high memory usage.
+
+### Added
+
+- [#6916](https://github.com/ChainSafe/forest/issues/6916): Added NV28 _FireHorse_ network upgrade support for calibnet. The upgrade epoch is set to `3694534` which corresponds to `2026-05-07T14:00:00Z`.
+
+### Fixed
+
+- [#6972](https://github.com/ChainSafe/forest/pull/6972) `ChainExchange` hardening to limit the node memory usage.
+
+- [#6976](https://github.com/ChainSafe/forest/pull/6976) `Hello` and `ChainExchange` response timeouts and additional bounds to prevent hanging connections.
+
+## Forest v0.33.1 "Paradyzja"
+
+Non-mandatory release for all node operators. It includes support for the NV28 _FireHorse_ network upgrade for devnets (not calibnet or mainnet yet), a number of significant performance improvements and bug fixes.
+
+### Added
+
+- [#6913](https://github.com/ChainSafe/forest/issues/6913): Added support for NV28 for devnets. Use `FOREST_FIREHORSE_HEIGHT` environment variable to set the upgrade height.
+
+- [#6926](https://github.com/ChainSafe/forest/pull/6926): Added strict JSON validation to deny unknown fields in RPC request parameters and response results when `FOREST_STRICT_JSON` is enabled.
+
+### Changed
+
+- [#6939](https://github.com/ChainSafe/forest/pull/6939): Refactored snapshot export and garbage collection logic to use disk-backed hash set for de-de-duplicating reachable blocks. This results in less RAM usage (~6-7GiB) and more disk usage (~7-8GiB on mainnet).
+
+### Removed
+
+- [#6948](https://github.com/ChainSafe/forest/pull/6948): Removed the `FOREST_FEES_FIP0115HEIGHT` environment variable. The `FIP-0115` will be automatically activated at `FireHorse` network upgrade.
+
+### Fixed
+
+- [#6951](https://github.com/ChainSafe/forest/pull/6951): Set the HTTP response compression threshold for the RPC server to 1 KiB. Configurable via `FOREST_RPC_COMPRESS_MIN_BODY_SIZE`; set a negative value to disable compression entirely. Small JSON-RPC responses such as `eth_chainId` are no longer gzip-encoded, yielding a large throughput and latency improvement on high-QPS workloads.
+
+## Forest v0.33.0 "Patroclus"
+
+Non-mandatory release with a couple of larger internal changes, especially around mempool and garbage collection. It also includes support for the new finality resolution mechanism. Also, a couple of fixes!
+
+### Added
+
+- [#6871](https://github.com/ChainSafe/forest/pull/6871): Added `--force` to `forest-cli state compute`.
+
+- [#6811](https://github.com/ChainSafe/forest/pull/6811): Added v2 RPC method `Filecoin.ChainGetTipSetFinalityStatus`.
+
+- [#6710](https://github.com/ChainSafe/forest/pull/6710): Added support for f4 addresses in forest-wallet.
+
+### Changed
+
+- [#6897](https://github.com/ChainSafe/forest/pull/6897): Integrated EC finality into Eth RPC methods.
+
+- [#6821](https://github.com/ChainSafe/forest/pull/6821): Added message receipt size and event size to `forest-tool archive info` output.
+
+- [#6830](https://github.com/ChainSafe/forest/pull/6830): Make base fee FIP-0115 activation configurable via `FOREST_FEES_FIP0115HEIGHT` environment variable. The FIP will NOT be automatically activated on the next network upgrade with this change, for now.
+
+### Fixed
+
+- [#6788](https://github.com/ChainSafe/forest/pull/6788): Fixed message pool nonce calculation to align with Lotus.
+
+- [#6707](https://github.com/ChainSafe/forest/issues/6707): Added missing `GoldenWeek` network upgrade entry in `Filecoin.StateGetNetworkParams` RPC method.
+
+- [#6817](https://github.com/ChainSafe/forest/pull/6817): Fixed `StateSearchMsg` to return null instead of error when not found to match Lotus behaviour.
+
+- [#6849](https://github.com/ChainSafe/forest/pull/6849): Included strict bound in blocks included for calculating gas premium `GasEstimateGasPremium`.
+
+- [#6856](https://github.com/ChainSafe/forest/pull/6856): Return ethereum compatible error `BlockRangeExceeded` with code `-32005` when block range exceeds in the eth filter and logs API.
+
+- [`#6893`](https://github.com/ChainSafe/forest/issues/6893): Fixed occasional lock contention during tipset validation.
 
 ## Forest v0.32.4 "Mild Inconvenience"
 

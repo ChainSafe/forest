@@ -22,11 +22,7 @@ Make a pull request with the following changes:
   [crates.io](https://crates.io/).
 - Make sure to run `cargo publish --dry-run` and include the `Cargo.lock` crate
   version change in the release.
-- Make sure to update RPC specs by running
-  ```
-  cargo test --lib -- rpc::tests::openrpc
-  cargo insta review
-  ```
+- Make sure to update RPC specs by running `mise insta`
 - The Pull Request must have the `Release` label.
 
 ## Release on GitHub

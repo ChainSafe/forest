@@ -5,6 +5,7 @@ use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 mod auth_layer;
 mod channel;
 mod client;
+mod compression_layer;
 mod filter_layer;
 mod filter_list;
 pub mod json_validator;
@@ -79,6 +80,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainGetPath);
         $callback!($crate::rpc::chain::ChainGetTipSet);
         $callback!($crate::rpc::chain::ChainGetTipSetV2);
+        $callback!($crate::rpc::chain::ChainGetTipSetFinalityStatus);
         $callback!($crate::rpc::chain::ChainGetTipSetAfterHeight);
         $callback!($crate::rpc::chain::ChainGetTipSetByHeight);
         $callback!($crate::rpc::chain::ChainHasObj);
@@ -144,6 +146,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthTraceCall);
         $callback!($crate::rpc::eth::EthTraceFilter);
         $callback!($crate::rpc::eth::EthTraceTransaction);
+        $callback!($crate::rpc::eth::EthDebugTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
@@ -192,6 +195,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::net::NetProtectList);
         $callback!($crate::rpc::net::NetProtectRemove);
         $callback!($crate::rpc::net::NetVersion);
+        $callback!($crate::rpc::net::NetChainExchange);
 
         // node vertical
         $callback!($crate::rpc::node::NodeStatus);
@@ -317,9 +321,9 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::misc::GetActorEventsRaw);
     };
 }
+use compression_layer::{COMPRESS_MIN_BODY_SIZE, CompressionLayer};
 pub(crate) use for_each_rpc_method;
 use sync::SnapshotProgressTracker;
-use tower_http::compression::CompressionLayer;
 use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
 
 #[allow(unused)]
@@ -475,7 +479,6 @@ pub struct RPCState<DB> {
     pub mpool: Arc<crate::message_pool::MessagePool<Arc<crate::chain::ChainStore<DB>>>>,
     pub chain_indexer: Option<Arc<crate::chain::indexer::SqliteIndexer<DB>>>,
     pub bad_blocks: Option<Arc<crate::chain_sync::BadBlockCache>>,
-    pub msgs_in_tipset: Arc<crate::chain::store::MsgsInTipsetCache>,
     pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,
@@ -483,6 +486,9 @@ pub struct RPCState<DB> {
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
     pub shutdown: mpsc::Sender<()>,
+    pub mpool_locker: crate::message_pool::MpoolLocker,
+    pub nonce_tracker: crate::message_pool::NonceTracker,
+    pub temp_dir: Arc<std::path::PathBuf>,
 }
 
 impl<DB: Blockstore> RPCState<DB> {
@@ -494,7 +500,7 @@ impl<DB: Blockstore> RPCState<DB> {
         self.state_manager.chain_store()
     }
 
-    pub fn chain_index(&self) -> &Arc<crate::chain::index::ChainIndex<Arc<DB>>> {
+    pub fn chain_index(&self) -> &crate::chain::index::ChainIndex<DB> {
         self.chain_store().chain_index()
     }
 
@@ -570,7 +576,7 @@ where
             )
             .set_http_middleware(
                 tower::ServiceBuilder::new()
-                    .layer(CompressionLayer::new())
+                    .option_layer(COMPRESS_MIN_BODY_SIZE.map(CompressionLayer::new))
                     // Mark the `Authorization` request header as sensitive so it doesn't show in logs
                     .layer(SetSensitiveRequestHeadersLayer::new(std::iter::once(
                         http::header::AUTHORIZATION,

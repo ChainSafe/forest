@@ -12,7 +12,7 @@ use crate::{
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     lotus_json::HasLotusJson,
-    message_pool::MessagePool,
+    message_pool::{MessagePool, MpoolLocker, NonceTracker},
     networks::{ChainConfig, NetworkChain},
     rpc::{
         ApiPaths, RPCState, RpcMethod, RpcMethodExt as _,
@@ -161,13 +161,13 @@ async fn ctx(
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
+    let nonce_tracker = NonceTracker::new();
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: Arc::new(message_pool),
         chain_indexer: Default::default(),
         bad_blocks: Default::default(),
-        msgs_in_tipset: Default::default(),
         sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
@@ -175,6 +175,9 @@ async fn ctx(
         shutdown,
         tipset_send,
         snapshot_progress_tracker: Default::default(),
+        mpool_locker: MpoolLocker::new(),
+        nonce_tracker,
+        temp_dir: Arc::new(std::env::temp_dir()),
     });
     Ok((rpc_state, network_rx, shutdown_recv))
 }
@@ -185,36 +188,51 @@ mod tests {
     use crate::Config;
     use crate::utils::proofs_api::ensure_proof_params_downloaded;
     use ahash::HashSet;
-    use std::time::Instant;
+    use std::sync::LazyLock;
+    use std::time::{Duration, Instant};
 
     // To run a single test: cargo test --lib filecoin_multisig_statedecodeparams_1754230255631789 -- --nocapture
     include!(concat!(env!("OUT_DIR"), "/__rpc_regression_tests_gen.rs"));
 
+    // Per-test timeout so a hang surfaces as a `fickle`-retryable panic
+    // instead of stalling the whole CI job.
+    const RPC_REGRESSION_TEST_TIMEOUT: Duration = Duration::from_secs(300);
+
+    // `std::env::set_var` is not thread-safe on Linux, so
+    // initialize once per process — never concurrently from parallel tests.
+    static INIT_RNG_SEED: LazyLock<()> = LazyLock::new(|| {
+        if std::env::var(crate::utils::rand::FIXED_RNG_SEED_ENV).is_err() {
+            unsafe { std::env::set_var(crate::utils::rand::FIXED_RNG_SEED_ENV, "4213666") };
+        }
+    });
+
     #[allow(dead_code)]
     async fn rpc_regression_test_run(name: &str) {
-        // Set proof parameter data dir and make sure the proofs are available
-        {
+        LazyLock::force(&INIT_RNG_SEED);
+        tokio::time::timeout(RPC_REGRESSION_TEST_TIMEOUT, async {
             crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
                 &Config::default().client.data_dir,
             );
             ensure_proof_params_downloaded().await.unwrap();
-        }
-        let path = crate::dev::subcommands::fetch_rpc_test_snapshot(name.into())
-            .await
-            .unwrap();
+            let path = crate::dev::subcommands::fetch_rpc_test_snapshot(name.into())
+                .await
+                .unwrap();
 
-        // We need to set RNG seed so that tests are run with deterministic
-        // output. The snapshots should be generated with a node running with the same seed, if
-        // they are testing methods that are not deterministic, e.g.,
-        // `[`crate::rpc::methods::gas::estimate_gas_premium`]`.
-        unsafe { std::env::set_var(crate::utils::rand::FIXED_RNG_SEED_ENV, "4213666") };
-        print!("Testing {name} ...");
-        let start = Instant::now();
-        run_test_from_snapshot(&path).await.unwrap();
-        println!(
-            "  succeeded, took {}.",
-            humantime::format_duration(start.elapsed())
-        );
+            print!("Testing {name} ...");
+            let start = Instant::now();
+            run_test_from_snapshot(&path).await.unwrap();
+            println!(
+                "  succeeded, took {}.",
+                humantime::format_duration(start.elapsed())
+            );
+        })
+        .await
+        .unwrap_or_else(|_| {
+            panic!(
+                "rpc regression test {name} timed out after {}",
+                humantime::format_duration(RPC_REGRESSION_TEST_TIMEOUT)
+            )
+        });
     }
 
     #[test]

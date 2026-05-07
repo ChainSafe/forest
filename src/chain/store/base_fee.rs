@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::message::Message;
+use crate::message::MessageReadWrite;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
 use ahash::{HashSet, HashSetExt};
@@ -54,17 +54,15 @@ pub fn compute_base_fee<DB>(
     db: &DB,
     ts: &Tipset,
     smoke_height: ChainEpoch,
-    xxx_height: ChainEpoch,
+    firehorse_height: ChainEpoch,
 ) -> Result<TokenAmount, crate::chain::Error>
 where
     DB: Blockstore,
 {
-    // FIP-0115: https://github.com/filecoin-project/FIPs/pull/1233
-    if ts.epoch() >= xxx_height {
-        return compute_next_base_fee_from_premiums(db, ts);
+    if ts.epoch() < firehorse_height {
+        return compute_next_base_fee_from_utlilization(db, ts, smoke_height);
     }
-
-    compute_next_base_fee_from_utlilization(db, ts, smoke_height)
+    compute_next_base_fee_from_premiums(db, ts)
 }
 
 fn compute_next_base_fee_from_premiums<DB>(
@@ -83,8 +81,8 @@ where
         let (bls_msgs, secp_msgs) = crate::chain::block_messages(db, b)?;
         for m in bls_msgs
             .iter()
-            .map(|m| m as &dyn Message)
-            .chain(secp_msgs.iter().map(|m| m as &dyn Message))
+            .map(|m| m as &dyn MessageReadWrite)
+            .chain(secp_msgs.iter().map(|m| m as &dyn MessageReadWrite))
         {
             if seen.insert((m.from(), m.sequence())) {
                 limits.push(m.gas_limit());
@@ -219,8 +217,8 @@ mod tests {
         });
         let ts = Tipset::from(h0);
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        let xxx_height = ChainConfig::default().epoch(Height::Xxx);
-        assert!(compute_base_fee(&blockstore, &ts, smoke_height, xxx_height).is_err());
+        let firehorse_height = ChainConfig::default().epoch(Height::FireHorse);
+        assert!(compute_base_fee(&blockstore, &ts, smoke_height, firehorse_height).is_err());
     }
 
     #[test]

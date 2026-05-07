@@ -32,6 +32,7 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
 };
 use crate::cid_collections::CidHashSet;
+use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
@@ -44,7 +45,9 @@ use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::executor::{Receipt, StampedEvent};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
-use crate::state_manager::{NO_CALLBACK, StateOutput, apply_block_messages};
+use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages};
+use crate::tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore;
+use crate::utils::ShallowClone as _;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
 use crate::utils::multihash::MultihashCode;
 use anyhow::{Context as _, bail};
@@ -311,7 +314,9 @@ pub struct ArchiveInfo {
     tipsets: ChainEpoch,
     messages: ChainEpoch,
     message_receipts: usize,
+    message_receipts_size: usize,
     events: usize,
+    events_size: usize,
     head: Tipset,
     snapshot_version: FilecoinSnapshotVersion,
     index_size_bytes: Option<u64>,
@@ -325,8 +330,18 @@ impl std::fmt::Display for ArchiveInfo {
         writeln!(f, "Epoch:            {}", self.epoch)?;
         writeln!(f, "State-roots:      {}", self.epoch - self.tipsets + 1)?;
         writeln!(f, "Messages sets:    {}", self.epoch - self.messages + 1)?;
-        writeln!(f, "Message receipts: {}", self.message_receipts)?;
+        writeln!(f, "Receipts:         {}", self.message_receipts)?;
+        writeln!(
+            f,
+            "Receipts size:    {}",
+            self.message_receipts_size.human_count_bytes()
+        )?;
         writeln!(f, "Events:           {}", self.events)?;
+        writeln!(
+            f,
+            "Events size:      {}",
+            self.events_size.human_count_bytes()
+        )?;
         let head_tipset_key_string = self
             .head
             .cids()
@@ -387,7 +402,7 @@ impl ArchiveInfo {
         let mut network: String = "unknown".into();
         let mut lowest_stateroot_epoch = root_epoch;
         let mut lowest_message_epoch = root_epoch;
-        let mut message_receipts_count = 0;
+        let mut message_receipt_count = 0;
         let mut events_count = 0;
 
         let iter = if progress {
@@ -405,7 +420,8 @@ impl ArchiveInfo {
                 network = butterflynet::NETWORK_COMMON_NAME.into();
             }
         };
-
+        let receipt_tracking_store = ReadOpsTrackingStore::new(store);
+        let event_tracking_store = ReadOpsTrackingStore::new(store);
         for (parent, tipset) in iter {
             if tipset.epoch() >= parent.epoch() && parent.epoch() != root_epoch {
                 bail!("Broken invariant: non-sequential epochs");
@@ -427,11 +443,13 @@ impl ArchiveInfo {
                 lowest_message_epoch = tipset.epoch();
             }
 
-            if let Ok(receipts) = Receipt::get_receipts(store, *tipset.parent_message_receipts()) {
-                message_receipts_count += 1;
+            if let Ok(receipts) =
+                Receipt::get_receipts(&receipt_tracking_store, *tipset.parent_message_receipts())
+            {
                 for receipt in receipts {
+                    message_receipt_count += 1;
                     if let Some(events_root) = receipt.events_root()
-                        && let Ok(e) = StampedEvent::get_events(store, &events_root)
+                        && let Ok(e) = StampedEvent::get_events(&event_tracking_store, &events_root)
                     {
                         events_count += e.len();
                     }
@@ -461,8 +479,10 @@ impl ArchiveInfo {
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
-            message_receipts: message_receipts_count,
+            message_receipts: message_receipt_count,
+            message_receipts_size: receipt_tracking_store.tracker.blockstore_size_bytes(),
             events: events_count,
+            events_size: event_tracking_store.tracker.blockstore_size_bytes(),
             head,
             snapshot_version,
             index_size_bytes,
@@ -561,12 +581,12 @@ pub async fn do_export(
     let index = ChainIndex::new(store.clone());
 
     let ts = index
-        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
     let seen = if let Some(diff) = diff {
         let diff_ts: Tipset = index
-            .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
+            .load_required_tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
@@ -574,11 +594,12 @@ pub async fn do_export(
             store.clone(),
             diff_ts.clone().chain_owned(store.clone()),
             diff_limit,
+            FileBackedCidHashSet::new_in_temp_dir()?,
         );
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
-        CidHashSet::default()
+        FileBackedCidHashSet::new_in_temp_dir()?
     };
 
     let output_path = build_output_path(network.to_string(), genesis.timestamp, epoch, output_path);
@@ -621,18 +642,18 @@ pub async fn do_export(
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     let writer = pb.wrap_async_write(writer);
 
-    crate::chain::export::<Sha256>(
+    crate::chain::export::<Sha256, _>(
         store,
         &ts,
         depth,
         writer,
-        Some(ExportOptions {
+        ExportOptions {
             skip_checksum: true,
             include_receipts: false,
             include_events: false,
             include_tipset_keys: false,
             seen,
-        }),
+        },
     )
     .await?;
 
@@ -677,7 +698,12 @@ async fn merge_snapshots(
     )?);
 
     // Stream all available blocks from heaviest_tipset to genesis.
-    let blocks = stream_graph(&store, heaviest_tipset.chain(&store), 0);
+    let blocks = stream_graph(
+        &store,
+        heaviest_tipset.chain(&store),
+        0,
+        CidHashSet::default(),
+    );
 
     // Encode Ipld key-value pairs in zstd frames
     let frames = forest::Encoder::compress_stream_default(blocks);
@@ -813,21 +839,21 @@ async fn show_tipset_diff(
         CurrentNetwork::set_global(Network::Testnet);
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
-    let tipset = chain_index.tipset_by_height(
+    let tipset = chain_index.load_required_tipset_by_height(
         epoch,
         heaviest_tipset.clone(),
         ResolveNullTipset::TakeOlder,
     )?;
 
-    let child_tipset = chain_index.tipset_by_height(
+    let child_tipset = chain_index.load_required_tipset_by_height(
         epoch + 1,
         heaviest_tipset.clone(),
         ResolveNullTipset::TakeNewer,
     )?;
 
-    let StateOutput { state_root, .. } = apply_block_messages(
+    let ExecutedTipset { state_root, .. } = apply_block_messages(
         timestamp,
-        Arc::new(chain_index),
+        chain_index,
         Arc::new(chain_config),
         beacon,
         &GLOBAL_MULTI_ENGINE,

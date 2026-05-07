@@ -5,7 +5,10 @@
 
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 mod go_ffi;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
 
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 use go_ffi::*;
@@ -146,8 +149,9 @@ pub fn import_f3_snapshot(
 /// Whether F3 sidecar via FFI is enabled.
 pub fn is_sidecar_ffi_enabled(chain_config: &ChainConfig) -> bool {
     // Respect the environment variable when set, and fallback to chain config when not set.
-    let enabled =
-        is_env_set_and_truthy("FOREST_F3_SIDECAR_FFI_ENABLED").unwrap_or(chain_config.f3_enabled);
+    static ENV_ENABLED: LazyLock<Option<bool>> =
+        LazyLock::new(|| is_env_set_and_truthy("FOREST_F3_SIDECAR_FFI_ENABLED"));
+    let enabled = ENV_ENABLED.unwrap_or(chain_config.f3_enabled);
     cfg_if::cfg_if! {
         if #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))] {
             enabled

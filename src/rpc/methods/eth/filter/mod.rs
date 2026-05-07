@@ -14,6 +14,7 @@
 //! - **Event Filter**: Captures blockchain events, such as smart contract log events, emitted by specific actors.
 //! - **TipSet Filter**: Tracks changes in the blockchain's tipset (the latest set of blocks).
 //! - **Mempool Filter**: Monitors the Ethereum mempool for new pending transactions that meet certain criteria.
+
 pub mod event;
 pub mod mempool;
 mod store;
@@ -28,6 +29,7 @@ use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
 use crate::rpc::eth::EVM_WORD_LENGTH;
+use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
@@ -38,11 +40,12 @@ use crate::rpc::types::{Event, EventEntry};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::{Entry, StampedEvent};
-use crate::state_manager::StateEvents;
+use crate::state_manager::{ExecutedMessage, ExecutedTipset};
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Error, anyhow, bail, ensure};
 use cid::Cid;
+use futures::{TryStreamExt as _, stream::FuturesOrdered};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
@@ -260,6 +263,33 @@ impl EthEventHandler {
         )
     }
 
+    pub async fn collect_events_for_tipsets<DB: Blockstore + Send + Sync + 'static>(
+        ctx: &Ctx<DB>,
+        tipsets: impl Iterator<Item = Tipset>,
+        spec: Option<&impl Matcher>,
+        skip_event: SkipEvent,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let mut tasks = FuturesOrdered::new();
+        for tipset in tipsets {
+            tasks.push_back(async move {
+                let mut events = vec![];
+                Self::collect_events(ctx, &tipset, spec, skip_event, &mut events).await?;
+                anyhow::Ok(events)
+            });
+        }
+        let max_filter_results = ctx.eth_event_handler.max_filter_results;
+        while let Some(events) = tasks.try_next().await? {
+            let remaining = max_filter_results.saturating_sub(collected_events.len());
+            ensure!(
+                events.len() <= remaining,
+                "filter matches too many events (maximum {max_filter_results}), try a more restricted filter"
+            );
+            collected_events.extend(events);
+        }
+        Ok(())
+    }
+
     pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Tipset,
@@ -267,89 +297,83 @@ impl EthEventHandler {
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
-        let tipset_key = tipset.key().clone();
+        let max_filter_results = ctx.eth_event_handler.max_filter_results;
         let height = tipset.epoch();
-
-        let messages = ctx.chain_store().messages_for_tipset(tipset)?;
-
-        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
-
-        ensure!(
-            messages.len() == events.len(),
-            "Length of messages ({}) and events ({}) do not match",
-            messages.len(),
-            events.len(),
-        );
-
+        let tipset_key = tipset.key();
+        let ExecutedTipset {
+            executed_messages, ..
+        } = ctx.state_manager.load_executed_tipset(tipset).await?;
+        let mut resolved_id_addrs = HashMap::default();
         let mut event_count = 0;
-        for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
-            for event in events.iter() {
-                let id_addr = Address::new_id(event.emitter());
-                let result = ctx
-                    .state_manager
-                    .resolve_to_deterministic_address(id_addr, tipset)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "resolving address {} failed (EPOCH = {})",
-                            id_addr,
-                            tipset.epoch()
-                        )
-                    });
-                let resolved = if let Ok(resolved) = result {
-                    resolved
-                } else {
-                    event_count += 1;
-                    if let SkipEvent::OnUnresolvedAddress = skip_event {
+        for (
+            msg_idx,
+            ExecutedMessage {
+                message, events, ..
+            },
+        ) in executed_messages.iter().enumerate()
+        {
+            if let Some(events) = events {
+                let event_idx_base = u64::try_from(event_count)?;
+                event_count += events.len();
+                for (event_idx, event) in (event_idx_base..).zip(events.iter()) {
+                    let emitter = event.emitter();
+                    let id_addr = Address::new_id(emitter);
+                    let resolved_opt = if let Some(r) = resolved_id_addrs.get(&emitter) {
+                        *r
+                    } else {
+                        let r = ctx
+                            .state_manager
+                            .resolve_to_deterministic_address(id_addr, tipset)
+                            .await
+                            .ok();
+                        resolved_id_addrs.insert(emitter, r);
+                        r
+                    };
+                    let resolved = if let Some(resolved) = resolved_opt {
+                        resolved
+                    } else if matches!(skip_event, SkipEvent::OnUnresolvedAddress) {
                         // Skip event
                         continue;
                     } else {
                         id_addr
-                    }
-                };
-
-                let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
-
-                let matched = if let Some(spec) = spec {
-                    let matched = spec.matches(&resolved, &entries)?;
-                    tracing::debug!(
-                        "Event {} {}match filter topics",
-                        event_count,
-                        if matched { "" } else { "do not " }
-                    );
-                    matched
-                } else {
-                    true
-                };
-                if matched {
-                    let entries: Vec<EventEntry> = entries
-                        .into_iter()
-                        .map(|entry| {
-                            let (flags, key, codec, value) = entry.into_parts();
-                            EventEntry {
-                                flags,
-                                key,
-                                codec,
-                                value: value.into(),
-                            }
-                        })
-                        .collect();
-
-                    let ce = CollectedEvent {
-                        entries,
-                        emitter_addr: resolved,
-                        event_idx: event_count,
-                        reverted: false,
-                        height,
-                        tipset_key: tipset_key.clone(),
-                        msg_idx: i as u64,
-                        msg_cid: message.cid(),
                     };
-                    if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
-                        bail!("filter matches too many events, try a more restricted filter");
+
+                    let entries = event.entries();
+                    let matched = if let Some(spec) = spec {
+                        spec.matches(&resolved, &entries)?
+                    } else {
+                        true
+                    };
+                    if matched {
+                        let entries = entries
+                            .into_iter()
+                            .map(|entry| {
+                                let (flags, key, codec, value) = entry.into_parts();
+                                EventEntry {
+                                    flags,
+                                    key,
+                                    codec,
+                                    value: value.into(),
+                                }
+                            })
+                            .collect();
+
+                        let ce = CollectedEvent {
+                            entries,
+                            emitter_addr: resolved,
+                            event_idx,
+                            reverted: false,
+                            height,
+                            tipset_key: tipset_key.clone(),
+                            msg_idx: msg_idx as u64,
+                            msg_cid: message.cid(),
+                        };
+                        ensure!(
+                            collected_events.len() <= max_filter_results,
+                            "filter matches too many events (maximum {max_filter_results} allowed), try a more restricted filter"
+                        );
+                        collected_events.push(ce);
                     }
-                    collected_events.push(ce);
-                    event_count += 1;
                 }
             }
         }
@@ -384,12 +408,11 @@ impl EthEventHandler {
         match &pf.tipsets {
             ParsedFilterTipsets::Hash(block_hash) => {
                 let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
-                let tipset = Arc::new(tipset);
                 Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
                     .await?;
             }
             ParsedFilterTipsets::Key(tsk) => {
-                let tipset = Arc::new(Tipset::load_required(ctx.store(), tsk)?);
+                let tipset = ctx.chain_index().load_required_tipset(tsk)?;
                 Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
                     .await?;
             }
@@ -407,19 +430,22 @@ impl EthEventHandler {
                 } else {
                     *range.end()
                 };
-
-                let max_tipset = ctx.chain_index().tipset_by_height(
+                let max_tipset = ctx.chain_index().load_required_tipset_by_height(
                     max_height,
                     ctx.chain_store().heaviest_tipset(),
                     ResolveNullTipset::TakeOlder,
                 )?;
-                for tipset in max_tipset
-                    .chain(&ctx.store())
-                    .take_while(|ts| ts.epoch() >= *range.start())
-                {
-                    Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
-                        .await?;
-                }
+                let tipsets = max_tipset
+                    .chain(ctx.store())
+                    .take_while(|ts| ts.epoch() >= *range.start());
+                Self::collect_events_for_tipsets(
+                    ctx,
+                    tipsets,
+                    Some(pf),
+                    skip_event,
+                    &mut collected_events,
+                )
+                .await?;
             }
         }
 
@@ -561,14 +587,12 @@ fn parse_block_range(
     if min_height == -1 && max_height > 0 {
         ensure!(
             max_height - heaviest <= max_range,
-            "invalid epoch range: to block is too far in the future (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range, max_height - heaviest),
         );
     } else if min_height >= 0 && max_height == -1 {
         ensure!(
             heaviest - min_height <= max_range,
-            "invalid epoch range: from block is too far in the past (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range, heaviest - min_height)
         );
     } else if min_height >= 0 && max_height >= 0 {
         ensure!(
@@ -579,8 +603,7 @@ fn parse_block_range(
         );
         ensure!(
             max_height - min_height <= max_range,
-            "invalid epoch range: range between to and from blocks is too large (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range, max_height - min_height)
         );
     }
 
@@ -938,6 +961,9 @@ mod tests {
 
     #[test]
     fn test_parse_block_range() {
+        use crate::rpc::error::RpcErrorData;
+        use crate::rpc::eth::errors::LIMIT_EXCEEDED_CODE;
+
         let heaviest = 50;
         let max_range = 100;
 
@@ -965,14 +991,17 @@ mod tests {
         assert_eq!(min_height, 1); // hex_str_to_epoch("0x1") = 1
         assert_eq!(max_height, 10); // hex_str_to_epoch("0xA") = 10
 
-        // Test case 3: Range too large
-        let result = parse_block_range(
+        // Test case 3: Range too large — returns BlockRangeExceeded with -32005 code
+        let err = parse_block_range(
             heaviest,
             Some(BlockNumberOrHash::from_str("earliest").unwrap()),
-            Some(BlockNumberOrHash::from_str("0x100").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x100").unwrap()), // epoch 256, range = 256 > 100
             max_range,
-        );
-        assert!(result.is_err());
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(eth_err, EthErrors::BlockRangeExceeded { .. }));
+        assert_eq!(eth_err.error_code(), Some(LIMIT_EXCEEDED_CODE));
 
         // Test case 4: from_block = "latest", to_block = "earliest"
         let result = parse_block_range(
@@ -1017,13 +1046,23 @@ mod tests {
         assert!(result.is_err());
 
         // Test case 8: Both blocks are non-negative, order is correct, but the range is too large.
-        let result = parse_block_range(
+        let err = parse_block_range(
             heaviest,
             Some(BlockNumberOrHash::from_str("earliest").unwrap()),
-            Some(BlockNumberOrHash::from_str("0x65").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x65").unwrap()), // epoch 101, range = 101 > 100
             max_range,
-        );
-        assert!(result.is_err());
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(
+            eth_err,
+            EthErrors::BlockRangeExceeded {
+                max: 100,
+                given: 101,
+                ..
+            }
+        ));
+        assert_eq!(eth_err.error_code(), Some(LIMIT_EXCEEDED_CODE));
 
         // Test case 9: Range exactly equal to max_range (boundary, should succeed).
         let result = parse_block_range(
@@ -1090,6 +1129,28 @@ mod tests {
         let (min_height, max_height) = result.unwrap();
         assert_eq!(min_height, heaviest);
         assert_eq!(max_height, -1);
+
+        // Test case 15: from_block too far in past (min >= 0, max == -1, heaviest - min > max_range)
+        let err = parse_block_range(
+            500,                                               // heaviest
+            Some(BlockNumberOrHash::from_str("0x1").unwrap()), // epoch 1, range = 500 - 1 = 499
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
+            max_range,
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(
+            eth_err,
+            EthErrors::BlockRangeExceeded {
+                max: 100,
+                given: 499,
+                ..
+            }
+        ));
+        assert_eq!(
+            eth_err.error_message().unwrap(),
+            "block range exceeds maximum of 100 (got 499)"
+        );
     }
 
     #[test]

@@ -3,7 +3,7 @@
 
 use crate::blocks::Tipset;
 use crate::lotus_json::{HasLotusJson as _, NotNullVec};
-use crate::message::SignedMessage;
+use crate::message::{MessageRead as _, SignedMessage};
 use crate::rpc::{self, prelude::*, types::ApiTipsetKey};
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
@@ -52,8 +52,6 @@ fn filter_messages(
     to: Option<&StrictAddress>,
     from: Option<&StrictAddress>,
 ) -> anyhow::Result<Vec<SignedMessage>> {
-    use crate::message::Message;
-
     let filtered = messages
         .into_iter()
         .filter(|msg| {
@@ -285,7 +283,6 @@ impl MpoolCommands {
 mod tests {
     use super::*;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use crate::message::{Message, SignedMessage};
     use crate::message_pool::tests::create_smsg;
     use crate::shim::crypto::SignatureType;
     use itertools::Itertools as _;

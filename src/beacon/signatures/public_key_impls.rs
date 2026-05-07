@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use zerocopy::FromBytes as _;
 
 impl PublicKeyOnG2 {
     pub fn as_affine(&self) -> G2Affine {
@@ -17,16 +18,10 @@ impl PublicKeyOnG2 {
     }
 
     pub fn from_bytes(raw: &[u8]) -> Result<Self, Error> {
-        const SIZE: usize = G2Affine::compressed_size();
-
-        if raw.len() != SIZE {
-            return Err(Error::SizeMismatch);
-        }
-
-        let mut res = [0u8; SIZE];
-        res.as_mut().copy_from_slice(raw);
+        let res = <[u8; G2Affine::compressed_size()]>::ref_from_bytes(raw)
+            .map_err(|_| Error::SizeMismatch)?;
         let affine: G2Affine =
-            Option::from(G2Affine::from_compressed(&res)).ok_or(Error::GroupDecode)?;
+            Option::from(G2Affine::from_compressed(res)).ok_or(Error::GroupDecode)?;
 
         Ok(PublicKeyOnG2(affine.into()))
     }

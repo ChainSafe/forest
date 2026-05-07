@@ -6,26 +6,28 @@
 //! `select_messages` API which selects an appropriate set of messages such that
 //! it optimizes miner reward and chain capacity. See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
-use std::{borrow::BorrowMut, cmp::Ordering};
+use std::cmp::Ordering;
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
-use crate::message::{Message, SignedMessage};
+use crate::message::{MessageRead as _, SignedMessage};
 use crate::message_pool::msg_chain::MsgChainNode;
 use crate::shim::crypto::SignatureType;
 use crate::shim::{address::Address, econ::TokenAmount};
+use crate::state_manager::IdToAddressCache;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, bail, ensure};
-use parking_lot::RwLock;
 use rand::prelude::SliceRandom;
 use tracing::{debug, error, warn};
 
-use super::{msg_pool::MessagePool, provider::Provider};
+use crate::shim::crypto::Signature;
+use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::get_size::CidWrapper;
+
+use super::{MpoolCtx, msg_pool::MessagePool, provider::Provider, utils::recover_sig};
 use crate::message_pool::{
     Error, add_to_selected_msgs,
     msg_chain::{Chains, NodeKey, create_message_chains},
-    msg_pool::MsgSet,
-    msgpool::MIN_GAS,
-    remove_from_selected_msgs,
+    msgpool::{MIN_GAS, pending_store::PendingStore},
 };
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
@@ -511,7 +513,7 @@ where
                     continue;
                 }
                 Err(e) => {
-                    debug!("Failed to add message chain with dependencies: {e}");
+                    debug!("Failed to add message chain with dependencies: {e:#}");
                 }
             }
 
@@ -570,7 +572,7 @@ where
 
                 match selected_msgs.try_to_add_with_deps(i, &mut chains, &base_fee) {
                     Ok(_) => continue,
-                    Err(e) => debug!("Failed to add message chain with dependencies: {e}"),
+                    Err(e) => debug!("Failed to add message chain with dependencies: {e:#}"),
                 }
 
                 continue 'tail_loop;
@@ -637,32 +639,22 @@ where
     }
 
     fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
-        let mut result: Pending = HashMap::new();
-        let mut in_sync = false;
+        let snapshot = self.pending_store.snapshot();
+        let mut result: Pending = HashMap::with_capacity(snapshot.len());
+        for (a, mset) in snapshot {
+            result.insert(a, mset.msgs);
+        }
+
         if cur_ts.epoch() == ts.epoch() && cur_ts == ts {
-            in_sync = true;
-        }
-
-        for (a, mset) in self.pending.read().iter() {
-            if in_sync {
-                result.insert(*a, mset.msgs.clone());
-            } else {
-                let mut mset_copy = HashMap::new();
-                for (nonce, m) in mset.msgs.iter() {
-                    mset_copy.insert(*nonce, m.clone());
-                }
-                result.insert(*a, mset_copy);
-            }
-        }
-
-        if in_sync {
             return Ok(result);
         }
 
         // Run head change to do reorg detection
         run_head_change(
             self.api.as_ref(),
-            &self.pending,
+            &self.bls_sig_cache,
+            &self.pending_store,
+            &self.key_cache,
             cur_ts.clone(),
             ts.clone(),
             &mut result,
@@ -813,7 +805,9 @@ fn merge_and_trim(
 // reorgs.
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
+    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
+    pending_store: &PendingStore,
+    key_cache: &IdToAddressCache,
     from: Tipset,
     to: Tipset,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
@@ -839,8 +833,16 @@ where
     for ts in left_chain {
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.block_headers() {
-            let (_, smsgs) = api.messages_for_block(block)?;
+            let (umsg, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
+            for msg in umsg {
+                let msg_cid = msg.cid();
+                if let Ok(smsg) = recover_sig(bls_sig_cache, msg) {
+                    msgs.push(smsg);
+                } else {
+                    tracing::debug!("could not recover signature for bls message {msg_cid}");
+                }
+            }
         }
         for msg in msgs {
             add_to_selected_msgs(msg, rmsgs);
@@ -848,19 +850,20 @@ where
     }
 
     for ts in right_chain {
+        let mpool_ctx = MpoolCtx {
+            api,
+            key_cache,
+            pending_store,
+            ts: &ts,
+        };
         for b in ts.block_headers() {
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                remove_from_selected_msgs(
-                    &msg.from(),
-                    pending,
-                    msg.sequence(),
-                    rmsgs.borrow_mut(),
-                )?;
+                mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), rmsgs)?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, rmsgs)?;
             }
         }
     }
@@ -871,21 +874,16 @@ where
 mod test_selection {
     use std::sync::Arc;
 
+    use super::*;
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use crate::message::Message;
+    use crate::message_pool::msgpool::{
+        test_provider::{TestApi, mock_block},
+        tests::{create_fake_smsg, create_smsg},
+    };
     use crate::shim::crypto::SignatureType;
     use crate::shim::econ::BLOCK_GAS_LIMIT;
     use tokio::task::JoinSet;
-
-    use super::*;
-    use crate::message_pool::{
-        head_change,
-        msgpool::{
-            test_provider::{TestApi, mock_block},
-            tests::{create_fake_smsg, create_smsg},
-        },
-    };
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 
@@ -897,29 +895,13 @@ mod test_selection {
 
     /// Creates a tipset with a mocked block and performs a head change to setup the
     /// [`MessagePool`] for testing.
-    async fn mock_tipset(mpool: &mut MessagePool<TestApi>) -> Tipset {
+    async fn mock_tipset(mpool: &MessagePool<TestApi>) -> Tipset {
         let b1 = mock_block(1, 1);
         let ts = Tipset::from(&b1);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = mpool.repub_trigger.clone();
-        let republished = mpool.republished.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
-
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(b1)])
+            .await
+            .unwrap();
         ts
     }
 
@@ -936,30 +918,14 @@ mod test_selection {
         let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let b1 = mock_block(1, 1);
-        let ts = Tipset::from(&b1);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = mpool.repub_trigger.clone();
-        let republished = mpool.republished.clone();
+        let ts = mock_tipset(&mpool).await;
 
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
-
-        api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
-        api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
+        mpool
+            .api
+            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
+        mpool
+            .api
+            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         // we create 10 messages from each actor to another, with the first actor paying
         // higher gas prices than the second; we expect message selection to
@@ -1002,25 +968,17 @@ mod test_selection {
         // now we make a block with all the messages and advance the chain
         let b2 = mpool.api.next_block();
         mpool.api.set_block_messages(&b2, msgs);
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b2)],
-        )
-        .await
-        .unwrap();
+        mpool
+            .apply_head_change(Vec::new(), vec![Tipset::from(b2)])
+            .await
+            .unwrap();
 
         // we should now have no pending messages in the MessagePool
-        // let pending = mpool.pending.read().await;
+        let remaining = mpool.pending_store.snapshot();
         assert!(
-            mpool.pending.read().is_empty(),
+            remaining.is_empty(),
             "Expected no pending messages, but got {}",
-            mpool.pending.read().len()
+            remaining.len()
         );
 
         // create a block and advance the chain without applying to the mpool
@@ -1032,6 +990,10 @@ mod test_selection {
         let b3 = mpool.api.next_block();
         let ts3 = Tipset::from(&b3);
         mpool.api.set_block_messages(&b3, msgs);
+
+        // Set state sequence to 20 so that nonces 20..30 don't exceed the nonce gap.
+        mpool.api.set_state_sequence(&a1, 20);
+        mpool.api.set_state_sequence(&a2, 20);
 
         // now create another set of messages and add them to the mpool
         for i in 20..30 {
@@ -1088,8 +1050,8 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_gas() {
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1139,8 +1101,8 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_msgs_basic() {
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1174,8 +1136,8 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_msgs_two_senders() {
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let keystore_1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1235,8 +1197,8 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_msgs_two_senders_complex() {
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let keystore_1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1338,7 +1300,7 @@ mod test_selection {
 
         let mut joinset = JoinSet::new();
         let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -1415,8 +1377,8 @@ mod test_selection {
         // the chain dependent merging algorithm should pick messages from the actor
         // from the start
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         // create two actors
@@ -1471,8 +1433,8 @@ mod test_selection {
         // actor paying (much) higher gas premium than the second.
         // We select with a low ticket quality; the chain dependent merging algorithm
         // should pick messages from the second actor from the start
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         // create two actors
@@ -1558,8 +1520,8 @@ mod test_selection {
         // actors. We select with a low ticket quality; the chain dependent
         // merging algorithm should pick messages from the median actor from the
         // start
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mut mpool).await;
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 
         let n_actors = 10;

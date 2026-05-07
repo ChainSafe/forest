@@ -187,7 +187,7 @@ impl HasLotusJson for State {
 
         convert_power_state! {
             power_state_fields_version_8_to_14 for [V8, V9, V10, V11, V12, V13, V14];
-            power_state_fields_version_15_onwards for [V15, V16, V17];
+            power_state_fields_version_15_onwards for [V15, V16, V17, V18];
         }
     }
 
@@ -202,7 +202,7 @@ impl HasLotusJson for State {
             lotus_json.this_epoch_raw_byte_power,
             lotus_json.this_epoch_quality_adj_power,
             lotus_json.this_epoch_pledge_collateral.into(),
-            fil_actors_shared::v17::builtin::reward::smooth::FilterEstimate {
+            fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate {
                 position: lotus_json.this_epoch_qa_power_smoothed.position,
                 velocity: lotus_json.this_epoch_qa_power_smoothed.velocity,
             },

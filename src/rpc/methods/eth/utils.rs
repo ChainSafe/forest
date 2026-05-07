@@ -184,7 +184,7 @@ const EVM_UINT_PADDING_LENGTH: usize = 24;
 /// Solidity's revert conventions.
 ///
 /// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
-fn parse_eth_revert(data: &[u8]) -> String {
+pub(crate) fn parse_eth_revert(data: &[u8]) -> String {
     // If it's not long enough to contain an ABI encoded response, return immediately.
     if data.len() < EVM_FUNC_SELECTOR_LENGTH + EVM_WORD_LENGTH {
         return format!("0x{}", hex::encode(data));

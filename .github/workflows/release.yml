@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     name: Build
+    permissions:
+      contents: write
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -39,7 +41,7 @@ jobs:
       - name: Pack artifacts
         run: |
           for bin in forest-${{ github.ref_name }}/*; do
-            sha256sum $bin > $bin.sha256
+            sha256sum "$bin" > "$bin".sha256
           done
           cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md forest-${{ github.ref_name }}
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
@@ -55,6 +57,8 @@ jobs:
 
   publish:
     name: cargo publish
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6

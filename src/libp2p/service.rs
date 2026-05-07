@@ -78,9 +78,7 @@ pub(in crate::libp2p) mod metrics {
     }
 }
 
-fn libp2p_metrics_enabled() -> bool {
-    crate::utils::misc::env::is_env_truthy("FOREST_LIBP2P_METRICS_ENABLED")
-}
+crate::def_is_env_truthy!(libp2p_metrics_enabled, "FOREST_LIBP2P_METRICS_ENABLED");
 
 /// `Gossipsub` Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
@@ -282,7 +280,7 @@ where
 
         // Bootstrap with Kademlia
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
-            warn!("Failed to bootstrap with Kademlia: {e}");
+            warn!("Failed to bootstrap with Kademlia: {e:#}");
         }
 
         let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
@@ -445,8 +443,16 @@ async fn handle_network_message(
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
-            if let Err(e) = swarm.behaviour_mut().publish(topic, message) {
-                warn!("Failed to send gossipsub message: {:?}", e);
+            match swarm.behaviour_mut().publish(topic, message) {
+                Ok(_) => (),
+                Err(gossipsub::PublishError::Duplicate) => {
+                    // Safe to ignore, the message has already been published and deduped by gossipsub, so no need to log this as a warning.
+                    // This matches `go-libp2p-pubsub` behavior https://github.com/libp2p/go-libp2p-pubsub/blob/v0.15.0/topic.go#L240-L242
+                    debug!("Failed to send gossipsub message: duplicate");
+                }
+                Err(e) => {
+                    warn!("Failed to send gossipsub message: {e:#}");
+                }
             }
         }
         NetworkMessage::HelloRequest {
@@ -649,7 +655,7 @@ async fn handle_gossip_event(
                     .await;
                 }
                 Err(e) => {
-                    warn!("Gossip Block from peer {source:?} could not be deserialized: {e}",);
+                    warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
                 }
             }
         } else if topic == pubsub_msg_str {
@@ -664,7 +670,7 @@ async fn handle_gossip_event(
                     .await;
                 }
                 Err(e) => {
-                    warn!("Gossip Message from peer {source:?} could not be deserialized: {e}");
+                    warn!("Gossip Message from peer {source:?} could not be deserialized: {e:#}");
                 }
             }
         } else {
@@ -805,6 +811,23 @@ async fn handle_chain_exchange_event<DB>(
                 channel,
                 request_id,
             } => {
+                let Some(per_peer_permit) = chain_exchange.try_acquire_peer_permit(peer) else {
+                    debug!("Rejecting chain_exchange request from {peer}: per-peer cap reached");
+                    let _ = chain_exchange.send_response(
+                        channel,
+                        ChainExchangeResponse::go_away("per-peer concurrent request cap reached"),
+                    );
+                    return;
+                };
+                let Some(global_permit) = chain_exchange.try_acquire_request_permit() else {
+                    debug!("Rejecting chain_exchange request from {peer}: global cap reached");
+                    let _ = chain_exchange.send_response(
+                        channel,
+                        ChainExchangeResponse::go_away("global concurrent request cap reached"),
+                    );
+                    return;
+                };
+
                 trace!(
                     "Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",
                 );
@@ -816,6 +839,8 @@ async fn handle_chain_exchange_event<DB>(
 
                 let db = db.clone();
                 tokio::task::spawn(async move {
+                    let _per_peer_permit = per_peer_permit;
+                    let _global_permit = global_permit;
                     if let Err(e) = cx_response_tx.send((
                         request_id,
                         channel,
@@ -910,7 +935,7 @@ async fn handle_forest_behaviour_event<DB>(
                 db.blockstore(),
                 event,
             ) {
-                warn!("bitswap: {e}");
+                warn!("bitswap: {e:#}");
             }
         }
         ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event).await,

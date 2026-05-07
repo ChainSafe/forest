@@ -6,11 +6,11 @@ use crate::db::car::forest::{
     FOREST_CAR_FILE_EXTENSION, TEMP_FOREST_CAR_FILE_EXTENSION, new_forest_car_temp_path_in,
 };
 use crate::db::car::{ForestCar, ManyCar};
-use crate::interpreter::VMTrace;
 use crate::networks::ChainConfig;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
-use crate::state_manager::{NO_CALLBACK, StateManager};
+use crate::state_manager::StateManager;
+use crate::utils::ShallowClone as _;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::net::{DownloadFileOption, download_to};
@@ -271,7 +271,7 @@ pub async fn import_chain_as_forest_car(
                 temp_f3_snap.path().display().to_string(),
             ) {
                 // Do not make it a hard error if anything is wrong with F3 snapshot
-                tracing::error!("Failed to import F3 snapshot: {e}");
+                tracing::error!("Failed to import F3 snapshot: {e:#}");
             }
         }
     }
@@ -339,9 +339,7 @@ where
     let epoch = ts.epoch();
     let tsk = ts.key().clone();
 
-    state_manager
-        .compute_tipset_state(ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
-        .await?;
+    state_manager.load_executed_tipset(ts).await?;
 
     delegated_messages.append(
         &mut state_manager
@@ -393,7 +391,7 @@ where
     match spec {
         RangeSpec::To(to_epoch) => {
             for ts in head_ts
-                .clone()
+                .shallow_clone()
                 .chain(&state_manager.chain_store().blockstore())
                 .take_while(|ts| ts.epoch() >= to_epoch)
             {
@@ -403,7 +401,7 @@ where
         }
         RangeSpec::NumTipsets(n_tipsets) => {
             for ts in head_ts
-                .clone()
+                .shallow_clone()
                 .chain(&state_manager.chain_store().blockstore())
                 .take(n_tipsets)
             {

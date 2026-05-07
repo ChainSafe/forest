@@ -35,7 +35,7 @@ impl From<String> for Error {
 
 impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
-        Error::other(e)
+        Error::other(format!("{e:#}"))
     }
 }
 

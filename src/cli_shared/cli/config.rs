@@ -6,7 +6,7 @@ use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
-use crate::utils::misc::env::is_env_set_and_truthy;
+use crate::utils::misc::env::is_env_truthy;
 use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -86,7 +86,7 @@ pub struct ChainIndexerConfig {
 impl Default for ChainIndexerConfig {
     fn default() -> Self {
         Self {
-            enable_indexer: is_env_set_and_truthy(FOREST_CHAIN_INDEXER_ENABLED).unwrap_or(false),
+            enable_indexer: is_env_truthy(FOREST_CHAIN_INDEXER_ENABLED),
             gc_retention_epochs: None,
         }
     }

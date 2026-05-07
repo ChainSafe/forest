@@ -4,6 +4,7 @@
 use super::*;
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
@@ -16,7 +17,7 @@ use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
-use crate::state_manager::{StateOutput, apply_block_messages};
+use crate::state_manager::{ExecutedTipset, apply_block_messages};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::ensure_proof_params_downloaded;
 use anyhow::{Context as _, bail};
@@ -143,7 +144,7 @@ impl SnapshotCommands {
                     println!("{}", out.display());
                     Ok(())
                 }
-                Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
+                Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e:#}"), 1),
             },
             Self::ValidateDiffs {
                 check_links,
@@ -333,7 +334,7 @@ async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: u32) -> anyhow::Re
 where
     DB: Blockstore + Send + Sync,
 {
-    let epoch_limit = ts.epoch() - epochs as i64;
+    let epoch_limit = ts.epoch() - i64::from(epochs);
 
     let pb = validation_spinner("Checking IPLD integrity:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("❌ Invalid IPLD data!".into()),
@@ -347,7 +348,7 @@ where
             pb.set_message(format!("{height} remaining epochs (spine)"));
         }
     });
-    let mut stream = stream_chain(&db, tipsets, epoch_limit);
+    let mut stream = stream_chain(&db, tipsets, epoch_limit, CidHashSet::default());
     while stream.try_next().await?.is_some() {}
 
     pb.finish_with_message("✅ verified!");
@@ -412,7 +413,7 @@ where
     // Fix off-by-1 bug: prevent validating more epochs than available in the snapshot.
     // Without +1, specifying --check-stateroots=900 would validate 901 epochs,
     // causing out-of-bounds errors when the snapshot contains only 900 recent state roots.
-    let last_epoch = ts.epoch() - epochs as i64 + 1;
+    let last_epoch = ts.epoch() - i64::from(epochs) + 1;
 
     // Set proof parameter data dir before downloading proofs.
     crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
@@ -425,11 +426,11 @@ where
         ensure_proof_params_downloaded(),
     )?;
 
-    let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));
+    let chain_index = ChainIndex::new(db.clone());
 
     // Prepare tipsets for validation
-    let tipsets = chain_index
-        .chain(ts)
+    let tipsets = ts
+        .chain(&db)
         .take_while(|tipset| tipset.epoch() >= last_epoch)
         .inspect(|tipset| {
             pb.set_message(format!("epoch queue: {}", tipset.epoch() - last_epoch));
@@ -441,9 +442,9 @@ where
     // iterator is consumed.
     crate::state_manager::validate_tipsets(
         genesis.timestamp,
-        chain_index.clone(),
-        chain_config,
-        beacon,
+        &chain_index,
+        &chain_config,
+        &beacon,
         &GLOBAL_MULTI_ENGINE,
         tipsets,
     )?;
@@ -481,14 +482,14 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
-        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .with_context(|| format!("couldn't get a tipset at height {epoch}"))?;
 
     let mut message_calls = vec![];
 
-    let StateOutput { state_root, .. } = apply_block_messages(
+    let ExecutedTipset { state_root, .. } = apply_block_messages(
         timestamp,
-        Arc::new(chain_index),
+        chain_index,
         Arc::new(chain_config),
         beacon,
         &GLOBAL_MULTI_ENGINE,
@@ -529,7 +530,7 @@ mod structured {
     use crate::state_manager::utils::structured;
     use crate::{
         interpreter::CalledAt,
-        message::{ChainMessage, Message as _},
+        message::{ChainMessage, MessageRead as _},
         shim::executor::ApplyRet,
     };
     use std::time::Duration;
@@ -574,7 +575,7 @@ mod structured {
                 "TotalCost": (chain_message.message().required_funds() - &apply_ret.refund()).into_lotus_json(),
             },
             "ExecutionTrace": structured::parse_events(apply_ret.exec_trace())?.into_lotus_json(),
-            "Duration": duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+            "Duration": duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
         }))
     }
 }

@@ -31,7 +31,7 @@ pub fn ideal_slot_ix(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> usize {
 
     // break 0..=u64::MAX into 'buckets' chunks and map each chunk to 0..len.
     // if buckets=2, 0..(u64::MAX/2) maps to 0, and (u64::MAX/2)..=u64::MAX maps to 1.
-    usize::try_from((hash.get() as u128 * num_buckets.get() as u128) >> 64).unwrap()
+    usize::try_from((u128::from(hash.get()) * num_buckets.get() as u128) >> 64).unwrap()
 }
 
 /// Reverse engineer hashes which will be mapped to `ideal`.
@@ -65,13 +65,14 @@ mod tests {
     use super::*;
     use crate::utils::{cid::CidCborExt as _, multihash::prelude::*};
 
-    quickcheck::quickcheck! {
-        fn always_in_range(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> bool {
-            ideal_slot_ix(hash, num_buckets) < num_buckets.get()
-        }
-        fn backwards(ideal: usize, num_buckets: NonZeroUsize) -> () {
-            do_backwards(ideal, num_buckets)
-        }
+    #[quickcheck_macros::quickcheck]
+    fn always_in_range(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> bool {
+        ideal_slot_ix(hash, num_buckets) < num_buckets.get()
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn backwards(ideal: usize, num_buckets: NonZeroUsize) {
+        do_backwards(ideal, num_buckets)
     }
 
     fn do_backwards(ideal: usize, num_buckets: NonZeroUsize) {

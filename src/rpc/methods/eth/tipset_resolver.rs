@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::rpc::chain::SAFE_HEIGHT_DISTANCE;
+use crate::rpc::chain::{ChainGetTipSetFinalityStatus, SAFE_HEIGHT_DISTANCE};
+use anyhow::Context as _;
 
 pub struct TipsetResolver<'a, DB>
 where
@@ -89,10 +90,13 @@ where
     async fn resolve_predefined_tipset_v1(&self, tag: Predefined) -> anyhow::Result<Tipset> {
         const ETH_V1_DISABLE_F3_FINALITY_RESOLUTION_ENV_KEY: &str =
             "FOREST_ETH_V1_DISABLE_F3_FINALITY_RESOLUTION";
-        static ETH_V1_F3_FINALITY_RESOLUTION_DISABLED: LazyLock<bool> =
-            LazyLock::new(|| is_env_truthy(ETH_V1_DISABLE_F3_FINALITY_RESOLUTION_ENV_KEY));
 
-        if *ETH_V1_F3_FINALITY_RESOLUTION_DISABLED {
+        crate::def_is_env_truthy!(
+            f3_finality_disabled,
+            ETH_V1_DISABLE_F3_FINALITY_RESOLUTION_ENV_KEY
+        );
+
+        if f3_finality_disabled() {
             if let Some(ts) = self.resolve_common_predefined_tipset(tag)? {
                 Ok(ts)
             } else {
@@ -157,24 +161,21 @@ where
     pub fn get_ec_safe_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        Ok(self.ctx.chain_index().tipset_by_height(
+        Ok(self.ctx.chain_index().load_required_tipset_by_height(
             safe_height,
             head,
             ResolveNullTipset::TakeOlder,
         )?)
     }
 
-    /// Returns the tipset considered finalized by expected-consensus finality.
-    ///
-    /// The finalized epoch is computed as head.epoch() minus the chain's `policy.chain_finality`, clamped to zero. The tipset at that epoch is returned; when the exact height is unavailable, an older tipset is selected.
+    /// Returns the tipset considered finalized by the expected-consensus finality calculator(`FRC-0089`).
     pub fn get_ec_finalized_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
-        let ec_finality_epoch =
-            (head.epoch() - self.ctx.chain_config().policy.chain_finality).max(0);
-        Ok(self.ctx.chain_index().tipset_by_height(
-            ec_finality_epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?)
+        let (_, ec_finalized_tipset) =
+            ChainGetTipSetFinalityStatus::get_ec_finality_threshold_depth_and_tipset_with_cache(
+                self.ctx,
+                head.clone(),
+            )?;
+        ec_finalized_tipset.context("failed to resolve EC finalized tipset")
     }
 }

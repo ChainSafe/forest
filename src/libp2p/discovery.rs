@@ -269,9 +269,9 @@ impl DiscoveryBehaviour {
     }
 
     /// Bootstrap Kademlia network
-    pub fn bootstrap(&mut self) -> Result<kad::QueryId, String> {
+    pub fn bootstrap(&mut self) -> anyhow::Result<kad::QueryId> {
         if let Some(active_kad) = self.discovery.kademlia.as_mut() {
-            active_kad.bootstrap().map_err(|e| e.to_string())
+            Ok(active_kad.bootstrap()?)
         } else {
             // Manually dial to seed peers when kademlia is disabled
             for (peer_id, address) in &self.custom_seed_peers {
@@ -282,7 +282,7 @@ impl DiscoveryBehaviour {
                         .build(),
                 );
             }
-            Err("Kademlia is not activated".to_string())
+            anyhow::bail!("Kademlia is not activated")
         }
     }
 
@@ -365,22 +365,18 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
     fn on_swarm_event(&mut self, event: FromSwarm) {
         match &event {
-            FromSwarm::ConnectionEstablished(e) => {
-                if e.other_established == 0 {
-                    self.n_node_connected += 1;
-                    self.peers.insert(e.peer_id);
-                    self.pending_events
-                        .push_back(DiscoveryEvent::PeerConnected(e.peer_id));
-                }
+            FromSwarm::ConnectionEstablished(e) if e.other_established == 0 => {
+                self.n_node_connected += 1;
+                self.peers.insert(e.peer_id);
+                self.pending_events
+                    .push_back(DiscoveryEvent::PeerConnected(e.peer_id));
             }
-            FromSwarm::ConnectionClosed(e) => {
-                if e.remaining_established == 0 {
-                    self.n_node_connected -= 1;
-                    self.peers.remove(&e.peer_id);
-                    self.peer_info.remove(&e.peer_id);
-                    self.pending_events
-                        .push_back(DiscoveryEvent::PeerDisconnected(e.peer_id));
-                }
+            FromSwarm::ConnectionClosed(e) if e.remaining_established == 0 => {
+                self.n_node_connected -= 1;
+                self.peers.remove(&e.peer_id);
+                self.peer_info.remove(&e.peer_id);
+                self.pending_events
+                    .push_back(DiscoveryEvent::PeerDisconnected(e.peer_id));
             }
             _ => {}
         };

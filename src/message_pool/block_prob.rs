@@ -121,6 +121,6 @@ fn test_winner_probability() {
         }
     }
 
-    let avg = sum / (n as f64);
+    let avg = sum / (f64::from(n));
     assert!((avg - 5.0).abs() > 0.01, "Average too far off ");
 }
