@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub(in crate::message_pool) mod events;
+pub(in crate::message_pool) mod local_store;
 pub(in crate::message_pool) mod metrics;
 pub(in crate::message_pool) mod msg_pool;
 pub(in crate::message_pool) mod msg_set;
@@ -35,10 +36,11 @@ use utils::{get_base_fee_lower_bound, recover_sig};
 use super::errors::Error;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
-    msg_pool::{StateNonceCacheKey, StrictnessPolicy, TrustPolicy, add_helper, resolve_to_key},
-    msgpool::pending_store::PendingStore,
+    msg_pool::{StrictnessPolicy, TrustPolicy, add_helper, resolve_to_key},
+    msgpool::{local_store::LocalStore, pending_store::PendingStore},
     provider::Provider,
 };
+use crate::message_pool::msgpool::msg_pool::StateNonceCacheKey;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -55,7 +57,7 @@ async fn republish_pending_messages<T>(
     pending_store: &PendingStore,
     cur_tipset: &SyncRwLock<Tipset>,
     republished: &SyncRwLock<HashSet<Cid>>,
-    local_addrs: &SyncRwLock<Vec<Address>>,
+    local: &LocalStore,
     key_cache: &IdToAddressCache,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
@@ -69,8 +71,8 @@ where
 
     // Only republish messages from local addresses, ie. transactions which were
     // sent to this node directly.
-    for actor in local_addrs.read().iter() {
-        let Ok(resolved) = resolve_to_key(api, key_cache, actor, &ts).inspect_err(|e| {
+    for actor in local.known_local_addrs() {
+        let Ok(resolved) = resolve_to_key(api, key_cache, &actor, &ts).inspect_err(|e| {
             tracing::debug!(%actor, "republish: failed to resolve address: {e:#}");
         }) else {
             continue;
@@ -522,7 +524,7 @@ pub mod tests {
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
         let cid = signed.cid();
-        pool.sig_val_cache.push(cid.into(), ());
+        pool.caches.sig_val.push(cid.into(), ());
         signed
     }
 
