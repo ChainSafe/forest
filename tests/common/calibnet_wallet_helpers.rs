@@ -189,7 +189,12 @@ pub async fn poll_until_changed(
     .await
 }
 
-static HTTP: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+static HTTP: LazyLock<reqwest::Client> = LazyLock::new(|| {
+    reqwest::Client::builder()
+        .timeout(Duration::from_secs(120))
+        .build()
+        .expect("failed to build reqwest client")
+});
 
 /// Cached `(token, http_url)` parsed once from `FULLNODE_API_INFO`.
 static API: LazyLock<anyhow::Result<(String, String)>> = LazyLock::new(|| {
