@@ -208,6 +208,7 @@ mise task run test:cargo ${usage_profile?}
 
 [tasks."test:wallet"]
 description = "Run calibnet wallet integration tests."
+shell = "bash -c"
 usage = '''
 arg "<preloaded_key>" help="Hex-encoded preloaded calibnet wallet key (e.g. $CALIBNET_WALLET secret)"
 '''
