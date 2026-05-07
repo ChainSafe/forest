@@ -213,7 +213,7 @@ usage = '''
 arg "<preloaded_key>" help="Hex-encoded preloaded calibnet wallet key (e.g. $CALIBNET_WALLET secret)"
 '''
 run = '''
-set -euxo pipefail
+set -euo pipefail
 source ./scripts/tests/harness.sh
 forest_wallet_init "${usage_preloaded_key?}"
 cargo test --profile quick-test --test calibnet_wallet -- --ignored --nocapture
