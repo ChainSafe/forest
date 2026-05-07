@@ -394,10 +394,11 @@ impl RpcMethod<1> for ForestChainExport {
         start_export();
 
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let start_ts = ctx
-            .chain_index()
-            .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?
-            .with_context(|| format!("tipset not found at height {epoch}"))?;
+        let start_ts = ctx.chain_index().load_required_tipset_by_height(
+            epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?;
 
         let options = ExportOptions {
             skip_checksum,
@@ -593,10 +594,11 @@ impl RpcMethod<1> for ForestChainExportDiff {
         }
 
         let head = ctx.chain_store().heaviest_tipset();
-        let start_ts = ctx
-            .chain_index()
-            .tipset_by_height(from, head, ResolveNullTipset::TakeOlder)?
-            .with_context(|| format!("tipset not found at height {from}"))?;
+        let start_ts = ctx.chain_index().load_required_tipset_by_height(
+            from,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?;
 
         crate::tool::subcommands::archive_cmd::do_export(
             &ctx.store_owned(),
@@ -893,10 +895,11 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
         let ts = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        let tss = ctx
-            .chain_index()
-            .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?
-            .with_context(|| format!("tipset not found at height {height}"))?;
+        let tss = ctx.chain_index().load_required_tipset_by_height(
+            height,
+            ts,
+            ResolveNullTipset::TakeOlder,
+        )?;
         Ok(tss)
     }
 }
@@ -924,10 +927,11 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
         let ts = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        let tss = ctx
-            .chain_index()
-            .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?
-            .with_context(|| format!("tipset not found after height {height}"))?;
+        let tss = ctx.chain_index().load_required_tipset_by_height(
+            height,
+            ts,
+            ResolveNullTipset::TakeNewer,
+        )?;
         Ok(tss)
     }
 }
@@ -1068,10 +1072,11 @@ impl ChainGetTipSetV2 {
         if finalized.epoch() >= safe_height {
             Ok(finalized)
         } else {
-            Ok(ctx
-                .chain_index()
-                .tipset_by_height(safe_height, head, ResolveNullTipset::TakeOlder)?
-                .with_context(|| format!("tipset not found at safe height {safe_height}"))?)
+            Ok(ctx.chain_index().load_required_tipset_by_height(
+                safe_height,
+                head,
+                ResolveNullTipset::TakeOlder,
+            )?)
         }
     }
 
@@ -1096,10 +1101,11 @@ impl ChainGetTipSetV2 {
         // Get tipset by height.
         if let Some(height) = &selector.height {
             let anchor = Self::get_tipset_by_anchor(ctx, height.anchor.as_ref()).await?;
-            let ts = ctx
-                .chain_index()
-                .tipset_by_height(height.at, anchor, height.resolve_null_tipset_policy())?
-                .with_context(|| format!("tipset not found at height {}", height.at))?;
+            let ts = ctx.chain_index().load_required_tipset_by_height(
+                height.at,
+                anchor,
+                height.resolve_null_tipset_policy(),
+            )?;
             return Ok(ts);
         }
         // Get tipset by tag, either latest or finalized.

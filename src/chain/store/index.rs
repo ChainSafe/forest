@@ -120,9 +120,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
     /// Find tipset at epoch `to` in the chain of ancestors starting at `from`.
     ///
-    /// On success, returns [`Some`] tipset wrapped in [`Ok`]. Returns an error if `to`
-    /// is greater than `from.epoch()`, if the walk completes without resolving `to`
-    /// (including when ancestor tipsets are missing), or for blockstore/genesis failures.
+    /// Returns `Ok(Some(tipset))` when epoch `to` resolves. Returns `Ok(None)` if the ancestor
+    /// walk completes without resolving `to` (for example missing parent tipsets). Returns `Err`
+    /// if `to` is greater than `from.epoch()` or genesis lookup fails when `to` is zero.
     ///
     /// # Why pass in the `from` argument?
     ///
@@ -227,9 +227,18 @@ impl<DB: Blockstore> ChainIndex<DB> {
                 }
             }
         }
-        Err(Error::Other(format!(
-            "Tipset with epoch={to} does not exist"
-        )))
+        Ok(None)
+    }
+
+    /// Same as [`Self::tipset_by_height`], but errors if that would return `None`.
+    pub fn load_required_tipset_by_height(
+        &self,
+        to: ChainEpoch,
+        from: Tipset,
+        resolve: ResolveNullTipset,
+    ) -> Result<Tipset, Error> {
+        self.tipset_by_height(to, from, resolve)?
+            .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
@@ -359,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn tipset_by_height_broken_ancestor_chain_returns_error() {
+    fn tipset_by_height_broken_ancestor_chain_returns_none() {
         let db = Arc::new(MemoryDB::default());
         let genesis = genesis_tipset();
         // Epoch 3 header points at a parent key we never persist — `Tipset::chain` stops
@@ -372,7 +381,8 @@ mod tests {
         assert!(
             index
                 .tipset_by_height(2, epoch3, ResolveNullTipset::TakeOlder)
-                .is_err()
+                .unwrap()
+                .is_none()
         );
     }
 }

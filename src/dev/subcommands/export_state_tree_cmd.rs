@@ -83,14 +83,11 @@ impl ExportStateTreeCommand {
             genesis_header,
         )?);
 
-        let start_ts = chain_store
-            .chain_index()
-            .tipset_by_height(
-                from,
-                chain_store.heaviest_tipset(),
-                ResolveNullTipset::TakeNewer,
-            )?
-            .with_context(|| format!("tipset not found at epoch {from}"))?;
+        let start_ts = chain_store.chain_index().load_required_tipset_by_height(
+            from,
+            chain_store.heaviest_tipset(),
+            ResolveNullTipset::TakeNewer,
+        )?;
 
         let mut ipld_roots = vec![];
         for (child, ts) in start_ts

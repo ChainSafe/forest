@@ -581,15 +581,13 @@ pub async fn do_export(
     let index = ChainIndex::new(store.clone());
 
     let ts = index
-        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
-        .context("unable to get a tipset at given height")?
-        .context("tipset not on chain at requested epoch")?;
+        .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .context("unable to get a tipset at given height")?;
 
     let seen = if let Some(diff) = diff {
-        let diff_ts: Tipset = index
-            .tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
-            .context("diff epoch must be smaller than target epoch")?
-            .context("tipset not on chain at diff epoch")?;
+        let diff_ts = index
+            .load_required_tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
+            .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
         let mut stream = stream_chain(
@@ -841,17 +839,17 @@ async fn show_tipset_diff(
         CurrentNetwork::set_global(Network::Testnet);
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
-    let tipset = chain_index
-        .tipset_by_height(epoch, heaviest_tipset.clone(), ResolveNullTipset::TakeOlder)?
-        .context("tipset not found at requested epoch")?;
+    let tipset = chain_index.load_required_tipset_by_height(
+        epoch,
+        heaviest_tipset.clone(),
+        ResolveNullTipset::TakeOlder,
+    )?;
 
-    let child_tipset = chain_index
-        .tipset_by_height(
-            epoch + 1,
-            heaviest_tipset.clone(),
-            ResolveNullTipset::TakeNewer,
-        )?
-        .context("child tipset not found at epoch+1")?;
+    let child_tipset = chain_index.load_required_tipset_by_height(
+        epoch + 1,
+        heaviest_tipset.clone(),
+        ResolveNullTipset::TakeNewer,
+    )?;
 
     let ExecutedTipset { state_root, .. } = apply_block_messages(
         timestamp,

@@ -19,7 +19,7 @@ use crate::shim::{
     version::NetworkVersion,
 };
 use crate::utils::encoding::from_slice_with_fallback;
-use anyhow::{Context as _, bail};
+use anyhow::bail;
 use cid::Cid;
 use fvm_ipld_blockstore::{
     Blockstore,
@@ -131,14 +131,11 @@ impl<DB: Blockstore + Send + Sync + 'static> Externs for ForestExterns<DB> {}
 
 impl<DB: Blockstore> Chain for ForestExterns<DB> {
     fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
-        let ts = self
-            .chain_index
-            .tipset_by_height(
-                epoch,
-                self.heaviest_tipset.clone(),
-                ResolveNullTipset::TakeOlder,
-            )?
-            .with_context(|| format!("tipset not found at epoch {epoch}"))?;
+        let ts = self.chain_index.load_required_tipset_by_height(
+            epoch,
+            self.heaviest_tipset.clone(),
+            ResolveNullTipset::TakeOlder,
+        )?;
         ts.key().cid()
     }
 }
