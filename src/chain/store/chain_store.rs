@@ -313,27 +313,23 @@ where
         }
     }
 
-    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Tipset, Error> {
+    /// Returns [`None`] when `ts` has no known child on the current heaviest chain
+    /// (e.g. `ts` is the chain head). Blockstore errors are returned as [`Err`].
+    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Option<Tipset>, Error> {
         let head = self.heaviest_tipset();
         if head.parents() == ts.key() {
-            Ok(head)
+            Ok(Some(head))
         } else if head.epoch() > ts.epoch() {
-            let maybe_child = self.chain_index().tipset_by_height(
+            match self.chain_index().tipset_by_height(
                 ts.epoch() + 1,
                 head,
                 ResolveNullTipset::TakeNewer,
-            )?;
-            if maybe_child.parents() == ts.key() {
-                Ok(maybe_child)
-            } else {
-                Err(Error::NotFound(
-                    format!("child of tipset@{}", ts.epoch()).into(),
-                ))
+            )? {
+                Some(maybe_child) if maybe_child.parents() == ts.key() => Ok(Some(maybe_child)),
+                _ => Ok(None),
             }
         } else {
-            Err(Error::NotFound(
-                format!("child of tipset@{}", ts.epoch()).into(),
-            ))
+            Ok(None)
         }
     }
 
@@ -432,7 +428,7 @@ where
         }
 
         let next_ts = chain_index
-            .tipset_by_height(
+            .load_required_tipset_by_height(
                 lbr + 1,
                 heaviest_tipset.clone(),
                 ResolveNullTipset::TakeNewer,

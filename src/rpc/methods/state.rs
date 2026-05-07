@@ -1567,7 +1567,7 @@ impl RpcMethod<3> for ForestStateCompute {
         let force_recompute = force_recompute.unwrap_or_default();
         let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
         let to_epoch = from_epoch + n_epochs - 1;
-        let to_ts = ctx.chain_index().tipset_by_height(
+        let to_ts = ctx.chain_index().load_required_tipset_by_height(
             to_epoch,
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
@@ -1577,7 +1577,7 @@ impl RpcMethod<3> for ForestStateCompute {
             // `to_ts.epoch()` could be less than or equal to `from_epoch`
             to_ts.shallow_clone()
         } else {
-            ctx.chain_index().tipset_by_height(
+            ctx.chain_index().load_required_tipset_by_height(
                 from_epoch,
                 to_ts.shallow_clone(),
                 ResolveNullTipset::TakeOlder,

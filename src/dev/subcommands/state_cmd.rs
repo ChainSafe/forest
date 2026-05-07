@@ -14,6 +14,7 @@ use crate::{
     tool::subcommands::api_cmd::generate_test_snapshot,
     utils::ShallowClone as _,
 };
+use anyhow::Context as _;
 use human_repr::HumanCount as _;
 use nonzero_ext::nonzero;
 use std::{num::NonZeroUsize, path::PathBuf, sync::Arc, time::Instant};
@@ -86,12 +87,17 @@ impl ComputeCommand {
         let (ts, ts_next) = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_index.tipset_by_height(
+            let ts = chain_index.load_required_tipset_by_height(
                 epoch,
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,
             )?;
-            let ts_next = chain_store.load_child_tipset(&ts)?;
+            let ts_next = chain_store.load_child_tipset(&ts)?.with_context(|| {
+                format!(
+                    "no child tipset for epoch {} (may be chain head)",
+                    ts.epoch()
+                )
+            })?;
             db.resume_tracking();
             SettingsStoreExt::write_obj(
                 &db.tracker,
@@ -217,7 +223,7 @@ impl ValidateCommand {
         let ts = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_index.tipset_by_height(
+            let ts = chain_index.load_required_tipset_by_height(
                 epoch,
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,

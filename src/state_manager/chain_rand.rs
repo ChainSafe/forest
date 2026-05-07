@@ -60,9 +60,9 @@ where
         } else {
             ResolveNullTipset::TakeNewer
         };
-        let rand_ts = self
-            .chain_index
-            .tipset_by_height(search_height, ts, resolve)?;
+        let rand_ts =
+            self.chain_index
+                .load_required_tipset_by_height(search_height, ts, resolve)?;
 
         Ok(digest(
             rand_ts
@@ -150,7 +150,7 @@ where
         };
 
         self.chain_index
-            .tipset_by_height(search_height, ts, resolve)
+            .load_required_tipset_by_height(search_height, ts, resolve)
             .map_err(|e| e.into())
     }
 }

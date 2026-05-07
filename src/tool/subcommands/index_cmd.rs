@@ -101,7 +101,7 @@ impl IndexCommands {
                     // ensure from epoch is not greater than head epoch. This can happen if the
                     // assumed head is actually a null tipset.
                     let from = std::cmp::min(*from, head_ts.epoch());
-                    chain_store.chain_index().tipset_by_height(
+                    chain_store.chain_index().load_required_tipset_by_height(
                         from,
                         head_ts,
                         ResolveNullTipset::TakeOlder,

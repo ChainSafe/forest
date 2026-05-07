@@ -430,7 +430,7 @@ impl EthEventHandler {
                 } else {
                     *range.end()
                 };
-                let max_tipset = ctx.chain_index().tipset_by_height(
+                let max_tipset = ctx.chain_index().load_required_tipset_by_height(
                     max_height,
                     ctx.chain_store().heaviest_tipset(),
                     ResolveNullTipset::TakeOlder,
