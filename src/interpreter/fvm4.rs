@@ -130,11 +130,14 @@ impl<DB: Blockstore + Send + Sync + 'static> Externs for ForestExterns<DB> {}
 
 impl<DB: Blockstore> Chain for ForestExterns<DB> {
     fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
-        let ts = self.chain_index.load_required_tipset_by_height(
-            epoch,
-            self.heaviest_tipset.clone(),
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let ts = self
+            .chain_index
+            .load_required_tipset_by_height(
+                epoch,
+                self.heaviest_tipset.clone(),
+                ResolveNullTipset::TakeOlder,
+            )
+            .context("Failed to get tipset cid")?;
         ts.key().cid()
     }
 }

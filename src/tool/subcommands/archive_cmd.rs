@@ -585,7 +585,7 @@ pub async fn do_export(
         .context("unable to get a tipset at given height")?;
 
     let seen = if let Some(diff) = diff {
-        let diff_ts = index
+        let diff_ts: Tipset = index
             .load_required_tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;

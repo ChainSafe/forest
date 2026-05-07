@@ -428,17 +428,12 @@ where
         }
 
         let next_ts = chain_index
-            .tipset_by_height(
+            .load_required_tipset_by_height(
                 lbr + 1,
                 heaviest_tipset.clone(),
                 ResolveNullTipset::TakeNewer,
-            )?
-            .ok_or_else(|| {
-                Error::Other(format!(
-                    "Could not get tipset at height {} (lookback round {round}, lbr {lbr})",
-                    lbr + 1
-                ))
-            })?;
+            )
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(
                 "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
