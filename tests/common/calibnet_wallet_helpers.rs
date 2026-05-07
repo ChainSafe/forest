@@ -16,10 +16,13 @@ use parking_lot::Mutex;
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
-/// Preloaded address from `forest-wallet default` (harness `set-default`s it after import).
+/// Funded preloaded address from env `PRELOADED_ADDRESS` (see `forest_wallet_init`).
 pub static PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
-    wallet(Backend::Local, &["default"])
-        .expect("`forest-wallet default` failed — run harness `forest_wallet_init`")
+    std::env::var("PRELOADED_ADDRESS")
+        .ok()
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .expect("PRELOADED_ADDRESS must be set")
 });
 
 pub const FIL_AMT: &str = "500 atto FIL";
