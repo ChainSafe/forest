@@ -41,7 +41,7 @@ use tokio::{
     task::JoinSet,
     time::interval,
 };
-use tracing::warn;
+use tracing::{error, warn};
 
 use crate::message_pool::{
     config::MpoolConfig,
@@ -517,6 +517,8 @@ where
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
                     self.local.remove_msg(&k);
+                } else {
+                    error!("error adding local message: {:?}", err);
                 }
             })
         }
@@ -561,7 +563,6 @@ where
             revert,
             apply,
         )
-        .await
     }
 }
 
@@ -630,9 +631,7 @@ where
                             &state_nonce_cache,
                             reverts,
                             applies,
-                        )
-                        .await
-                        {
+                        ) {
                             tracing::warn!("Error changing head: {e}");
                         }
                     }
