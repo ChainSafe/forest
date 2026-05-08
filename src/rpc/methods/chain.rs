@@ -131,7 +131,7 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     let handle = tokio::spawn(async move {
         while let Ok(changes) = head_changes_rx.recv().await {
             for ts in changes.applies {
-                match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
+                match eth_logs_with_filter(&ctx, &ts, filter.clone()).await {
                     Ok(logs) => {
                         if !logs.is_empty()
                             && let Err(e) = sender.send(logs)

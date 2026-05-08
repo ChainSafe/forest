@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7025](https://github.com/ChainSafe/forest/pull/7025): `FOREST_RPC_MAX_RESPONSE_BODY_SIZE` environment variable. Sets the JSON-RPC server's maximum response body size in bytes (default 64 MiB). Operators serving log-heavy `eth_getTransactionReceipt`/`eth_getBlockReceipts` calls can raise this above 64 MiB.
+
 ### Changed
 
 ### Removed
@@ -36,6 +38,8 @@
 ### Fixed
 
 - [#7001](https://github.com/ChainSafe/forest/pull/7001): Fix `transactionPosition` to be 0-indexed in `Filecoin.EthTraceBlock`, `Filecoin.EthTraceFilter`, and `Filecoin.EthTraceTransaction` responses, matching Lotus.
+
+- [#7025](https://github.com/ChainSafe/forest/pull/7025): `eth_getTransactionReceipt` no longer fails when another transaction in the same tipset emits a large number of events. `max_filter_results` now caps only multi-tipset event queries; single-block calls (`eth_getLogs` with `blockHash`, `eth_getBlockReceipts`, `eth_getTransactionReceipt`) bypass it. Public RPC operators should apply rate and response-size limits at the proxy layer for these calls; a single response can be large when a block contains log-heavy transactions. Ports [filecoin-project/lotus#13617](https://github.com/filecoin-project/lotus/pull/13617).
 
 ## Forest v0.33.3 "Dawn"
 

@@ -211,7 +211,7 @@ impl UrlClient {
                 jsonrpsee::ws_client::WsClientBuilder::new()
                     .set_headers(headers)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
-                    .max_response_size(MAX_RESPONSE_BODY_SIZE)
+                    .max_response_size(*MAX_RESPONSE_BODY_SIZE)
                     .request_timeout(ONE_DAY)
                     .build(&url)
                     .await?,
@@ -220,7 +220,7 @@ impl UrlClient {
                 jsonrpsee::http_client::HttpClientBuilder::new()
                     .set_headers(headers)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
-                    .max_response_size(MAX_RESPONSE_BODY_SIZE)
+                    .max_response_size(*MAX_RESPONSE_BODY_SIZE)
                     .request_timeout(ONE_DAY)
                     .build(&url)?,
             ),

@@ -1237,6 +1237,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     tipset: &Tipset,
     tx: &ApiEthTx,
+    msg_cid: Cid,
     msg_receipt: &Receipt,
 ) -> anyhow::Result<EthTxReceipt> {
     let mut tx_receipt = EthTxReceipt {
@@ -1282,7 +1283,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
 
     if msg_receipt.events_root().is_some() {
         let logs =
-            eth_logs_for_block_and_transaction(ctx, tipset, &tx.block_hash, &tx.hash).await?;
+            eth_logs_for_block_and_transaction(ctx, tipset, &tx.block_hash, &msg_cid).await?;
         if !logs.is_empty() {
             tx_receipt.logs = logs;
         }
@@ -1304,21 +1305,34 @@ pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + '
     ctx: &Ctx<DB>,
     ts: &Tipset,
     block_hash: &EthHash,
-    tx_hash: &EthHash,
+    msg_cid: &Cid,
 ) -> anyhow::Result<Vec<EthLog>> {
-    let spec = EthFilterSpec {
-        block_hash: Some(*block_hash),
-        ..Default::default()
-    };
+    // Refuse to serve events for tipsets at or after head (deferred execution).
+    let heaviest_epoch = ctx.chain_store().heaviest_tipset().epoch();
+    if ts.epoch() >= heaviest_epoch {
+        return Err(EthErrors::EventsNotYetAvailable.into());
+    }
 
-    eth_logs_with_filter(ctx, ts, Some(spec), Some(tx_hash)).await
+    let parsed_filter = ParsedFilter::new_with_tipset_and_msg(
+        ParsedFilterTipsets::Hash(*block_hash),
+        Some(*msg_cid),
+    );
+    let mut events = vec![];
+    EthEventHandler::collect_events(
+        ctx,
+        ts,
+        Some(&parsed_filter),
+        SkipEvent::OnUnresolvedAddress,
+        &mut events,
+    )
+    .await?;
+    eth_filter_logs_from_events(ctx, &events)
 }
 
 pub async fn eth_logs_with_filter<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     ts: &Tipset,
     spec: Option<EthFilterSpec>,
-    tx_hash: Option<&EthHash>,
 ) -> anyhow::Result<Vec<EthLog>> {
     let mut events = vec![];
     EthEventHandler::collect_events(
@@ -1329,15 +1343,7 @@ pub async fn eth_logs_with_filter<DB: Blockstore + Send + Sync + 'static>(
         &mut events,
     )
     .await?;
-
-    let logs = eth_filter_logs_from_events(ctx, &events)?;
-    Ok(match tx_hash {
-        Some(hash) => logs
-            .into_iter()
-            .filter(|log| &log.transaction_hash == hash)
-            .collect(),
-        None => logs, // no tx hash, keep all logs
-    })
+    eth_filter_logs_from_events(ctx, &events)
 }
 
 fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result<SignedMessage> {
@@ -1453,7 +1459,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
             i as u64,
         )?;
 
-        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, receipt).await?;
+        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, message.cid(), receipt).await?;
         eth_receipts.push(receipt);
     }
     Ok(eth_receipts)
@@ -2853,7 +2859,8 @@ async fn get_eth_transaction_receipt(
             )
         })?;
 
-    let tx_receipt = new_eth_tx_receipt(&ctx, &parent_ts, &tx, &message_lookup.receipt).await?;
+    let tx_receipt =
+        new_eth_tx_receipt(&ctx, &parent_ts, &tx, msg_cid, &message_lookup.receipt).await?;
 
     Ok(Some(tx_receipt))
 }
@@ -3060,20 +3067,6 @@ fn eth_tx_hash_from_message_cid<DB: Blockstore>(
     Ok(None)
 }
 
-fn transform_events<F>(events: &[CollectedEvent], f: F) -> anyhow::Result<Vec<EthLog>>
-where
-    F: Fn(&CollectedEvent) -> anyhow::Result<Option<EthLog>>,
-{
-    events
-        .iter()
-        .filter_map(|event| match f(event) {
-            Ok(Some(eth_log)) => Some(Ok(eth_log)),
-            Ok(None) => None,
-            Err(e) => Some(Err(e)),
-        })
-        .collect()
-}
-
 fn eth_filter_logs_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<Vec<EthHash>> {
     events
         .iter()
@@ -3108,25 +3101,55 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
     ctx: &Ctx<DB>,
     events: &[CollectedEvent],
 ) -> anyhow::Result<Vec<EthLog>> {
-    transform_events(events, |event| {
-        let (data, topics) = if let Some((data, topics)) = eth_log_from_event(&event.entries) {
-            (data, topics)
-        } else {
-            tracing::warn!("Ignoring event");
-            return Ok(None);
+    use ahash::AHashMap as HashMap;
+
+    let chain_id = ctx.state_manager.chain_config().eth_chain_id;
+    let mut tx_hash_by_msg: HashMap<Cid, EthHash> = HashMap::new();
+    let mut block_hash_by_tipset: HashMap<TipsetKey, EthHash> = HashMap::new();
+    let mut eth_addr_by_emitter: HashMap<FilecoinAddress, EthAddress> = HashMap::new();
+
+    let mut logs = Vec::with_capacity(events.len());
+    for event in events {
+        let (data, topics) = match eth_log_from_event(&event.entries) {
+            Some(parts) => parts,
+            None => {
+                tracing::warn!("Ignoring event");
+                continue;
+            }
         };
-        let transaction_hash = if let Some(transaction_hash) = eth_tx_hash_from_message_cid(
-            ctx.store(),
-            &event.msg_cid,
-            ctx.state_manager.chain_config().eth_chain_id,
-        )? {
-            transaction_hash
+
+        let transaction_hash = if let Some(h) = tx_hash_by_msg.get(&event.msg_cid) {
+            *h
         } else {
-            tracing::warn!("Ignoring event");
-            return Ok(None);
+            match eth_tx_hash_from_message_cid(ctx.store(), &event.msg_cid, chain_id)? {
+                Some(h) => {
+                    tx_hash_by_msg.insert(event.msg_cid, h);
+                    h
+                }
+                None => {
+                    tracing::warn!("Ignoring event");
+                    continue;
+                }
+            }
         };
-        let address = EthAddress::from_filecoin_address(&event.emitter_addr)?;
-        Ok(Some(EthLog {
+
+        let block_hash = if let Some(h) = block_hash_by_tipset.get(&event.tipset_key) {
+            *h
+        } else {
+            let h: EthHash = event.tipset_key.cid()?.into();
+            block_hash_by_tipset.insert(event.tipset_key.clone(), h);
+            h
+        };
+
+        let address = if let Some(a) = eth_addr_by_emitter.get(&event.emitter_addr) {
+            *a
+        } else {
+            let a = EthAddress::from_filecoin_address(&event.emitter_addr)?;
+            eth_addr_by_emitter.insert(event.emitter_addr, a);
+            a
+        };
+
+        logs.push(EthLog {
             address,
             data,
             topics,
@@ -3134,10 +3157,11 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
             log_index: event.event_idx.into(),
             transaction_index: event.msg_idx.into(),
             transaction_hash,
-            block_hash: event.tipset_key.cid()?.into(),
+            block_hash,
             block_number: (event.height as u64).into(),
-        }))
-    })
+        });
+    }
+    Ok(logs)
 }
 
 fn eth_filter_result_from_events<DB: Blockstore>(

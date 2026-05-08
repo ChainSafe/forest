@@ -75,12 +75,37 @@ pub trait Matcher {
         emitter_addr: &crate::shim::address::Address,
         entries: &[Entry],
     ) -> anyhow::Result<bool>;
+
+    /// Restricts a filter to events emitted by a single message. Returns `None`
+    /// when the filter applies to all messages in the matched tipset(s).
+    /// Defaults to `None`; only `ParsedFilter` overrides this.
+    fn msg_cid_filter(&self) -> Option<&Cid> {
+        None
+    }
 }
 
 /// Trait for managing filters. Provides common functionality for installing and removing filters.
 pub trait FilterManager {
     fn install(&self) -> Result<Arc<dyn Filter>, Error>;
     fn remove(&self, filter_id: &FilterID) -> Option<Arc<dyn Filter>>;
+}
+
+/// Decide whether to fire the cross-tipset event-filter cap.
+///
+/// `max_filter_results == 0` disables the cap entirely. Single-tipset queries
+/// (`tipsets_contributing <= 1`) always pass — the natural unit is the tipset.
+/// Once two or more tipsets have contributed events, returns an error if the
+/// running total exceeds `max_filter_results`.
+fn ensure_filter_cap(
+    max_filter_results: usize,
+    tipsets_contributing: usize,
+    total_events: usize,
+) -> anyhow::Result<()> {
+    ensure!(
+        max_filter_results == 0 || tipsets_contributing <= 1 || total_events <= max_filter_results,
+        "filter matches too many events across multiple tipsets (maximum {max_filter_results}); narrow the block range",
+    );
+    Ok(())
 }
 
 /// Handles Ethereum event filters, providing an interface for creating and managing filters.
@@ -279,13 +304,17 @@ impl EthEventHandler {
             });
         }
         let max_filter_results = ctx.eth_event_handler.max_filter_results;
+        let mut tipsets_contributing = 0usize;
         while let Some(events) = tasks.try_next().await? {
-            let remaining = max_filter_results.saturating_sub(collected_events.len());
-            ensure!(
-                events.len() <= remaining,
-                "filter matches too many events (maximum {max_filter_results}), try a more restricted filter"
-            );
+            if !events.is_empty() {
+                tipsets_contributing += 1;
+            }
             collected_events.extend(events);
+            ensure_filter_cap(
+                max_filter_results,
+                tipsets_contributing,
+                collected_events.len(),
+            )?;
         }
         Ok(())
     }
@@ -297,7 +326,7 @@ impl EthEventHandler {
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
-        let max_filter_results = ctx.eth_event_handler.max_filter_results;
+        let msg_cid_filter = spec.and_then(|s| s.msg_cid_filter()).copied();
         let height = tipset.epoch();
         let tipset_key = tipset.key();
         let ExecutedTipset {
@@ -312,6 +341,19 @@ impl EthEventHandler {
             },
         ) in executed_messages.iter().enumerate()
         {
+            if let Some(want) = msg_cid_filter
+                && message.cid() != want
+            {
+                // Update event_count to keep event_idx_base monotonic across the
+                // tipset, even though we skip these events: it mirrors the index
+                // a SQL-backed indexer would assign for the row (e.g. Lotus's
+                // `EventIdx: row.eventIndex`:
+                // <https://github.com/filecoin-project/lotus/blob/7c80bf30e832619b451af4aba2e8fb16b5ada919/chain/index/events.go#L488>).
+                if let Some(events) = events {
+                    event_count += events.len();
+                }
+                continue;
+            }
             if let Some(events) = events {
                 let event_idx_base = u64::try_from(event_count)?;
                 event_count += events.len();
@@ -332,7 +374,6 @@ impl EthEventHandler {
                     let resolved = if let Some(resolved) = resolved_opt {
                         resolved
                     } else if matches!(skip_event, SkipEvent::OnUnresolvedAddress) {
-                        // Skip event
                         continue;
                     } else {
                         id_addr
@@ -368,10 +409,6 @@ impl EthEventHandler {
                             msg_idx: msg_idx as u64,
                             msg_cid: message.cid(),
                         };
-                        ensure!(
-                            collected_events.len() <= max_filter_results,
-                            "filter matches too many events (maximum {max_filter_results} allowed), try a more restricted filter"
-                        );
                         collected_events.push(ce);
                     }
                 }
@@ -420,10 +457,9 @@ impl EthEventHandler {
                 // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
                 // in the next non-null tipset (because of Filecoin's "deferred execution" model)
                 let heaviest_epoch = ctx.chain_store().heaviest_tipset().epoch();
-                ensure!(
-                    *range.end() < heaviest_epoch,
-                    "max_height requested is greater than the heaviest tipset"
-                );
+                if *range.end() >= heaviest_epoch {
+                    return Err(EthErrors::EventsNotYetAvailable.into());
+                }
                 let max_height = if *range.end() == -1 {
                     // heaviest tipset doesn't have events because its messages haven't been executed yet
                     heaviest_epoch - 1
@@ -502,6 +538,7 @@ impl EthFilterSpec {
             tipsets,
             addresses,
             keys,
+            msg_cid: None,
         })
     }
 }
@@ -681,6 +718,11 @@ pub struct ParsedFilter {
     pub(crate) tipsets: ParsedFilterTipsets,
     pub(crate) addresses: Vec<Address>,
     pub(crate) keys: HashMap<String, Vec<ActorEventBlock>>,
+    /// When set, only events emitted by this message CID are returned. Mirrors
+    /// Lotus's `index.EventFilter.MsgCid`:
+    /// <https://github.com/filecoin-project/lotus/blob/7c80bf30e832619b451af4aba2e8fb16b5ada919/chain/index/interface.go#L48>.
+    /// Used by `eth_getTransactionReceipt`.
+    pub(crate) msg_cid: Option<Cid>,
 }
 
 impl ParsedFilter {
@@ -689,8 +731,19 @@ impl ParsedFilter {
             tipsets,
             addresses: vec![],
             keys: HashMap::new(),
+            msg_cid: None,
         }
     }
+
+    pub fn new_with_tipset_and_msg(tipsets: ParsedFilterTipsets, msg_cid: Option<Cid>) -> Self {
+        ParsedFilter {
+            tipsets,
+            addresses: vec![],
+            keys: HashMap::new(),
+            msg_cid,
+        }
+    }
+
     pub fn from_actor_event_filter(
         chain_height: ChainEpoch,
         _max_filter_height_range: ChainEpoch,
@@ -725,6 +778,7 @@ impl ParsedFilter {
             tipsets,
             addresses,
             keys,
+            msg_cid: None,
         })
     }
 }
@@ -754,6 +808,10 @@ impl Matcher for ParsedFilter {
         };
 
         Ok(match_addr && match_fields)
+    }
+
+    fn msg_cid_filter(&self) -> Option<&Cid> {
+        self.msg_cid.as_ref()
     }
 }
 
@@ -1468,6 +1526,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys: Default::default(),
+            msg_cid: None,
         };
 
         let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
@@ -1511,6 +1570,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![addr0],
             keys: Default::default(),
+            msg_cid: None,
         };
 
         assert!(filter0.matches(&addr0, &[]).unwrap());
@@ -1522,6 +1582,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![addr0, addr1],
             keys: Default::default(),
+            msg_cid: None,
         };
 
         assert!(filter1.matches(&addr0, &[]).unwrap());
@@ -1567,6 +1628,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys: Default::default(),
+            msg_cid: None,
         };
 
         assert!(empty_filter.matches(&addr0, &entries0).unwrap());
@@ -1586,6 +1648,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys,
+            msg_cid: None,
         };
 
         assert!(filter1.matches(&addr0, &entries0).unwrap());
@@ -1605,6 +1668,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys,
+            msg_cid: None,
         };
 
         assert!(!filter2.matches(&addr0, &entries0).unwrap());
@@ -1624,6 +1688,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys,
+            msg_cid: None,
         };
 
         assert!(!filter2.matches(&addr0, &entries0).unwrap());
@@ -1652,8 +1717,61 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys,
+            msg_cid: None,
         };
 
         assert!(!filter3.matches(&addr0, &entries0).unwrap());
+    }
+
+    #[test]
+    fn test_eth_filter_spec_msg_cid_filter_default_none() {
+        let spec = EthFilterSpec::default();
+        assert!(spec.msg_cid_filter().is_none());
+    }
+
+    #[test]
+    fn test_parsed_filter_msg_cid_filter_returns_field() {
+        let pf_none = ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(0..=0));
+        assert!(pf_none.msg_cid_filter().is_none());
+
+        let cid = Cid::from_str("bafy2bzaceaxm23epjsmh75yvzcecsrbavlmkcxnva66bkdebdcnyw3bjrc74u")
+            .unwrap();
+        let pf_some =
+            ParsedFilter::new_with_tipset_and_msg(ParsedFilterTipsets::Range(0..=0), Some(cid));
+        assert_eq!(pf_some.msg_cid_filter(), Some(&cid));
+    }
+
+    #[test]
+    fn test_ensure_filter_cap_disabled_when_max_zero() {
+        // max=0 means "no cap"; never errors regardless of state.
+        assert!(ensure_filter_cap(0, 0, 0).is_ok());
+        assert!(ensure_filter_cap(0, 1, 1_000_000).is_ok());
+        assert!(ensure_filter_cap(0, 5, 1_000_000).is_ok());
+    }
+
+    #[test]
+    fn test_ensure_filter_cap_single_tipset_bypasses() {
+        // tipsets_contributing <= 1: cap never fires regardless of total.
+        assert!(ensure_filter_cap(10, 0, 0).is_ok());
+        assert!(ensure_filter_cap(10, 1, 5).is_ok());
+        assert!(ensure_filter_cap(10, 1, 100).is_ok()); // exceeds max but only one tipset
+    }
+
+    #[test]
+    fn test_ensure_filter_cap_multi_tipset_within_limit() {
+        // tipsets_contributing >= 2 and total <= max: ok.
+        assert!(ensure_filter_cap(10, 2, 5).is_ok());
+        assert!(ensure_filter_cap(10, 2, 10).is_ok()); // boundary
+        assert!(ensure_filter_cap(10, 5, 10).is_ok());
+    }
+
+    #[test]
+    fn test_ensure_filter_cap_multi_tipset_exceeds_limit() {
+        // tipsets_contributing >= 2 and total > max: error.
+        let err = ensure_filter_cap(10, 2, 11).unwrap_err();
+        assert!(err.to_string().contains("filter matches too many events"));
+        assert!(err.to_string().contains("maximum 10"));
+
+        assert!(ensure_filter_cap(100, 3, 101).is_err());
     }
 }

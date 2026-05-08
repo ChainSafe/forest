@@ -432,6 +432,7 @@ use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
 use crate::blocks::FullTipset;
+use crate::utils::misc::env::env_or_default;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{
     Methods,
@@ -474,7 +475,15 @@ pub fn default_max_connections() -> u32 {
 }
 
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
-const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
+
+/// Maximum JSON-RPC response body size in bytes. Defaults to 64 MiB.
+///
+/// `eth_getTransactionReceipt` and `eth_getBlockReceipts` can return very
+/// large responses for log-heavy transactions (a single tx emitting hundreds
+/// of thousands of events can exceed 64 MiB). Operators serving such queries
+/// can raise this with `FOREST_RPC_MAX_RESPONSE_BODY_SIZE` (in bytes).
+static MAX_RESPONSE_BODY_SIZE: LazyLock<u32> =
+    LazyLock::new(|| env_or_default("FOREST_RPC_MAX_RESPONSE_BODY_SIZE", MAX_REQUEST_BODY_SIZE));
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
@@ -571,9 +580,9 @@ where
         svc_builder: Server::builder()
             .set_config(
                 ServerConfig::builder()
-                    // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
                     .max_request_body_size(MAX_REQUEST_BODY_SIZE)
-                    .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+                    // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+                    .max_response_body_size(*MAX_RESPONSE_BODY_SIZE)
                     .max_connections(default_max_connections())
                     .set_id_provider(RandomHexStringIdProvider::new())
                     .build(),
