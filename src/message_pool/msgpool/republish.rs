@@ -36,9 +36,12 @@ impl RepublishState {
 
     /// Wake the republish task early.
     pub(in crate::message_pool) fn trigger(&self) -> Result<(), Error> {
-        self.trigger
-            .try_send(())
-            .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))
+        match self.trigger.try_send(()) {
+            Ok(()) | Err(flume::TrySendError::Full(_)) => Ok(()),
+            Err(flume::TrySendError::Disconnected(_)) => {
+                Err(Error::Other("republish receiver dropped".into()))
+            }
+        }
     }
 
     pub(in crate::message_pool) fn replace_with<I: IntoIterator<Item = Cid>>(&self, cids: I) {
@@ -81,5 +84,26 @@ mod tests {
         state.trigger().expect("send should succeed");
         rx.try_recv()
             .expect("trigger should be observable on the receiver");
+    }
+
+    #[test]
+    fn trigger_drops_silently_when_buffer_full() {
+        let (state, _rx) = RepublishState::new();
+        state.trigger().expect("first trigger should send");
+        // Buffer (capacity 1) is now full; a second trigger must coalesce
+        // silently instead of failing head_change.
+        state
+            .trigger()
+            .expect("overflow trigger should be dropped silently");
+    }
+
+    #[test]
+    fn trigger_errors_when_receiver_disconnected() {
+        let (state, rx) = RepublishState::new();
+        drop(rx);
+        let err = state
+            .trigger()
+            .expect_err("disconnected receiver should surface as an error");
+        assert!(matches!(err, Error::Other(_)));
     }
 }
