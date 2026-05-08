@@ -214,7 +214,7 @@ where
 /// The state nonce cache is naturally invalidated when the tipset changes, since
 /// it is keyed by [`TipsetKey`](crate::blocks::TipsetKey).
 #[allow(clippy::too_many_arguments)]
-pub(in crate::message_pool) async fn head_change<T>(
+pub(in crate::message_pool) fn head_change<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     republish: &RepublishState,
@@ -274,13 +274,13 @@ where
 
             for msg in smsgs {
                 mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), &mut rmsgs)?;
-                if !repub && republish.mark_republished(msg.cid()) {
+                if !repub && republish.was_republished(&msg.cid()) {
                     repub = true;
                 }
             }
             for msg in msgs {
                 mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, &mut rmsgs)?;
-                if !repub && republish.mark_republished(msg.cid()) {
+                if !repub && republish.was_republished(&msg.cid()) {
                     repub = true;
                 }
             }
@@ -288,7 +288,7 @@ where
         *cur_tipset.write() = ts;
     }
     if repub {
-        republish.trigger().await?;
+        republish.trigger()?;
     }
     let cur_ts = cur_tipset.read().shallow_clone();
     let mpool_ctx = MpoolCtx {

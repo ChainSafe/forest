@@ -10,7 +10,7 @@ use parking_lot::RwLock as SyncRwLock;
 
 use crate::message_pool::Error;
 
-const REPUB_TRIGGER_CAPACITY: usize = 4;
+const REPUB_TRIGGER_CAPACITY: usize = 1;
 
 pub(in crate::message_pool) struct RepublishState {
     republished: SyncRwLock<HashSet<Cid>>,
@@ -29,17 +29,15 @@ impl RepublishState {
         )
     }
 
-    /// Returns `true` if the CID was newly inserted — callers use this to
-    /// decide whether to wake the republish loop.
-    pub(in crate::message_pool) fn mark_republished(&self, cid: Cid) -> bool {
-        self.republished.write().insert(cid)
+    /// Returns `true` if `cid` was seen by the republished state.
+    pub(in crate::message_pool) fn was_republished(&self, cid: &Cid) -> bool {
+        self.republished.read().contains(cid)
     }
 
     /// Wake the republish task early.
-    pub(in crate::message_pool) async fn trigger(&self) -> Result<(), Error> {
+    pub(in crate::message_pool) fn trigger(&self) -> Result<(), Error> {
         self.trigger
-            .send_async(())
-            .await
+            .try_send(())
             .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))
     }
 
@@ -55,41 +53,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mark_republished_returns_true_only_on_first_insert() {
+    fn was_republished_reflects_replace_with() {
         let (state, _rx) = RepublishState::new();
         let cid = Cid::default();
 
-        assert!(state.mark_republished(cid), "first insert should be new");
         assert!(
-            !state.mark_republished(cid),
-            "second insert should be a no-op",
+            !state.was_republished(&cid),
+            "fresh state should not contain any CIDs",
         );
-    }
 
-    #[tokio::test]
-    async fn trigger_succeeds_when_receiver_is_alive() {
-        let (state, rx) = RepublishState::new();
-        state.trigger().await.expect("send should succeed");
-        rx.try_recv()
-            .expect("trigger should be observable on the receiver");
-    }
-
-    #[test]
-    fn replace_with_clears_then_inserts() {
-        let (state, _rx) = RepublishState::new();
-        let prior = Cid::default();
-        state.mark_republished(prior);
+        state.replace_with([cid]);
+        assert!(
+            state.was_republished(&cid),
+            "replace_with should populate the set",
+        );
 
         state.replace_with(std::iter::empty());
         assert!(
-            state.mark_republished(prior),
-            "set should be empty after clear-and-extend with empty iter",
+            !state.was_republished(&cid),
+            "replace_with with empty iter should clear the set",
         );
+    }
 
-        state.replace_with([prior]);
-        assert!(
-            !state.mark_republished(prior),
-            "prior CID should be present after replace_with",
-        );
+    #[test]
+    fn trigger_succeeds_when_receiver_is_alive() {
+        let (state, rx) = RepublishState::new();
+        state.trigger().expect("send should succeed");
+        rx.try_recv()
+            .expect("trigger should be observable on the receiver");
     }
 }
