@@ -1472,9 +1472,12 @@ impl RpcMethod<2> for StateFetchRoot {
                             if let Some(car_tx) = &car_tx {
                                 car_tx.send(CarBlock {
                                     cid: new_cid,
-                                    data: db.get(&new_cid)?.with_context(|| {
-                                        format!("Failed to get cid {new_cid} from block store")
-                                    })?,
+                                    data: db
+                                        .get(&new_cid)?
+                                        .with_context(|| {
+                                            format!("Failed to get cid {new_cid} from block store")
+                                        })?
+                                        .into(),
                                 })?;
                             }
                         } else {
@@ -1512,9 +1515,12 @@ impl RpcMethod<2> for StateFetchRoot {
                             if let Some(car_tx) = &car_tx {
                                 car_tx.send(CarBlock {
                                     cid,
-                                    data: db.get(&cid)?.with_context(|| {
-                                        format!("Failed to get cid {cid} from block store")
-                                    })?,
+                                    data: db
+                                        .get(&cid)?
+                                        .with_context(|| {
+                                            format!("Failed to get cid {cid} from block store")
+                                        })?
+                                        .into(),
                                 })?;
                             }
 

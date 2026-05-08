@@ -54,7 +54,7 @@ pub struct CarV2Header {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CarBlock {
     pub cid: Cid,
-    pub data: Vec<u8>,
+    pub data: Bytes,
 }
 
 impl CarBlock {
@@ -72,11 +72,8 @@ impl CarBlock {
         let mut cursor = bytes.reader();
         let cid = Cid::read_bytes(&mut cursor)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let bytes = cursor.into_inner();
-        Ok(CarBlock {
-            cid,
-            data: bytes.to_vec(),
-        })
+        let data = cursor.into_inner();
+        Ok(CarBlock { cid, data })
     }
 
     pub fn valid(&self) -> bool {

@@ -4058,6 +4058,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5b6f7d040889b1980e31d03585f0150223f44eeada7a69c525cbb74c38266f6"
 dependencies = [
+ "bytes",
  "get-size-derive2",
  "hashbrown 0.17.0",
 ]

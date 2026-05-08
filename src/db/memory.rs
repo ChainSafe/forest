@@ -65,7 +65,7 @@ impl MemoryDB {
                 .map(|(&cid, data)| {
                     anyhow::Ok(CarBlock {
                         cid,
-                        data: data.clone(),
+                        data: data.clone().into(),
                     })
                 })
                 .collect_vec()
