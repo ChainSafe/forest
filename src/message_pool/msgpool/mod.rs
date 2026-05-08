@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub(in crate::message_pool) mod events;
-pub(in crate::message_pool) mod local_store;
 pub(in crate::message_pool) mod metrics;
 pub(in crate::message_pool) mod msg_pool;
 pub(in crate::message_pool) mod msg_set;
@@ -40,7 +39,7 @@ use crate::message_pool::msgpool::msg_pool::StateNonceCacheKey;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
     msg_pool::{StrictnessPolicy, TrustPolicy, add_helper, resolve_to_key},
-    msgpool::{local_store::LocalStore, pending_store::PendingStore, republish::RepublishState},
+    msgpool::{pending_store::PendingStore, republish::RepublishState},
     provider::Provider,
 };
 
@@ -59,8 +58,7 @@ async fn republish_pending_messages<T>(
     pending_store: &PendingStore,
     cur_tipset: &SyncRwLock<Tipset>,
     republish: &RepublishState,
-    local: &LocalStore,
-    key_cache: &IdToAddressCache,
+    local_addrs: &SyncRwLock<HashSet<Address>>,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
@@ -69,19 +67,13 @@ where
     let ts = cur_tipset.read().shallow_clone();
     let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
 
-    // Only republish messages from local addresses, ie. transactions which were
+    // Only republish messages from local addresses, i.e., transactions which were
     // sent to this node directly.
-    for actor in local.known_local_addrs() {
-        let Ok(resolved) = resolve_to_key(api, key_cache, &actor, &ts).inspect_err(|e| {
-            tracing::debug!(%actor, "republish: failed to resolve address: {e:#}");
-        }) else {
-            continue;
-        };
-        if let Some(mset) = pending_store.snapshot_for(&resolved) {
-            if mset.msgs.is_empty() {
-                continue;
-            }
-            pending_map.insert(resolved, mset.msgs);
+    for actor in local_addrs.read().iter() {
+        if let Some(mset) = pending_store.snapshot_for(actor)
+            && !mset.msgs.is_empty()
+        {
+            pending_map.insert(*actor, mset.msgs);
         }
     }
 

@@ -27,6 +27,7 @@ use crate::state_manager::utils::is_valid_for_sending;
 use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::{CidWrapper, GetSize};
+use ahash::HashSet;
 use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
@@ -41,16 +42,15 @@ use tokio::{
     task::JoinSet,
     time::interval,
 };
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::message_pool::{
     config::MpoolConfig,
     errors::Error,
     head_change,
     msgpool::{
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, local_store::LocalStore,
-        pending_store::PendingStore, recover_sig, republish::RepublishState,
-        republish_pending_messages,
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, pending_store::PendingStore,
+        recover_sig, republish::RepublishState, republish_pending_messages,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -125,8 +125,8 @@ pub struct MessagePool<T> {
     /// broadcast channel for [`MpoolUpdate`] events. See [`PendingStore`].
     pub(in crate::message_pool) pending_store: PendingStore,
     pub(in crate::message_pool) caches: Caches,
-    /// Local-wallet sender store
-    pub(in crate::message_pool) local: Arc<LocalStore>,
+    /// Resolved-key senders of locally submitted messages.
+    pub(in crate::message_pool) local_addrs: Arc<SyncRwLock<HashSet<Address>>>,
     /// The current tipset (a set of blocks)
     pub cur_tipset: Arc<SyncRwLock<Tipset>>,
     /// The underlying provider
@@ -235,11 +235,12 @@ where
         resolve_to_key(self.api.as_ref(), &self.caches.key, addr, cur_ts)
     }
 
-    /// Add a signed message to the pool and its address.
-    fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
+    /// Record the resolved-key sender of a locally-submitted message so the
+    /// republish loop can find it on its next sweep.
+    fn add_local(&self, m: &SignedMessage) -> Result<(), Error> {
         let cur_ts = self.current_tipset();
         let resolved = self.resolve_to_key(&m.from(), &cur_ts)?;
-        self.local.add(m, resolved);
+        self.local_addrs.write().insert(resolved);
         Ok(())
     }
 
@@ -256,7 +257,7 @@ where
         let publish = self.add_tipset(msg.clone(), &cur_ts, true, trust_policy)?;
         let msg_ser = to_vec(&msg)?;
         let network_name = self.chain_config.network.genesis_name();
-        self.add_local(msg)?;
+        self.add_local(&msg)?;
         if publish {
             self.network_sender
                 .send_async(NetworkMessage::PubsubMessage {
@@ -510,22 +511,6 @@ where
         Ok(msg_vec)
     }
 
-    /// Loads local messages to the message pool to be applied.
-    pub fn load_local(&self) -> Result<(), Error> {
-        for k in self.local.snapshot_msgs() {
-            self.add(k.clone()).unwrap_or_else(|err| {
-                if err == Error::SequenceTooLow {
-                    warn!("error adding message: {:?}", err);
-                    self.local.remove_msg(&k);
-                } else {
-                    error!("error adding local message: {:?}", err);
-                }
-            })
-        }
-
-        Ok(())
-    }
-
     #[cfg(test)]
     pub fn get_config(&self) -> &MpoolConfig {
         &self.config
@@ -594,7 +579,7 @@ where
         let mp = MessagePool {
             pending_store,
             caches: Caches::new(),
-            local: Arc::new(LocalStore::new()),
+            local_addrs: Arc::new(SyncRwLock::new(HashSet::default())),
             cur_tipset: tipset,
             api: Arc::new(api),
             config: config.into(),
@@ -602,8 +587,6 @@ where
             republish: Arc::new(republish),
             chain_config: Arc::clone(&chain_config),
         };
-
-        mp.load_local()?;
 
         let mut head_changes_rx = mp.api.subscribe_head_changes();
 
@@ -649,8 +632,7 @@ where
         let pending_store = mp.pending_store.shallow_clone();
         let cur_tipset = mp.cur_tipset.clone();
         let republish = mp.republish.clone();
-        let local = mp.local.clone();
-        let key_cache = mp.caches.key.shallow_clone();
+        let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
         let republish_interval = u64::from(10 * block_delay + chain_config.propagation_delay_secs);
         // Reacts to republishing requests
@@ -668,8 +650,7 @@ where
                     &pending_store,
                     cur_tipset.as_ref(),
                     republish.as_ref(),
-                    local.as_ref(),
-                    &key_cache,
+                    local_addrs.as_ref(),
                     &chain_config,
                 )
                 .await
