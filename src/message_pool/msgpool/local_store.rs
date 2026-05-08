@@ -14,8 +14,8 @@ use crate::shim::address::Address;
 
 #[derive(Default)]
 pub(in crate::message_pool) struct LocalStore {
-    local_addrs: SyncRwLock<Vec<Address>>,
-    local_msgs: SyncRwLock<HashSet<SignedMessage>>,
+    addrs: SyncRwLock<HashSet<Address>>,
+    msgs: SyncRwLock<HashSet<SignedMessage>>,
 }
 
 impl LocalStore {
@@ -24,20 +24,20 @@ impl LocalStore {
     }
 
     pub(in crate::message_pool) fn add(&self, msg: SignedMessage, resolved_from: Address) {
-        self.local_addrs.write().push(resolved_from);
-        self.local_msgs.write().insert(msg);
+        self.addrs.write().insert(resolved_from);
+        self.msgs.write().insert(msg);
     }
 
-    pub(in crate::message_pool) fn known_local_addrs(&self) -> Vec<Address> {
-        self.local_addrs.read().clone()
+    pub(in crate::message_pool) fn known_local_addrs(&self) -> HashSet<Address> {
+        self.addrs.read().clone()
     }
 
     pub(in crate::message_pool) fn snapshot_msgs(&self) -> Vec<SignedMessage> {
-        self.local_msgs.read().iter().cloned().collect()
+        self.msgs.read().iter().cloned().collect()
     }
 
     pub(in crate::message_pool) fn remove_msg(&self, msg: &SignedMessage) {
-        self.local_msgs.write().remove(msg);
+        self.msgs.write().remove(msg);
     }
 }
 
