@@ -125,6 +125,22 @@ methods:
       schema:
         $ref: "#/components/schemas/EthAddress"
     paramStructure: by-position
+  - name: Filecoin.EthBaseFee
+    params: []
+    result:
+      name: Filecoin.EthBaseFee.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthBigInt"
+    paramStructure: by-position
+  - name: eth_baseFee
+    params: []
+    result:
+      name: eth_baseFee.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthBigInt"
+    paramStructure: by-position
   - name: Filecoin.EthBlockNumber
     params: []
     result:
