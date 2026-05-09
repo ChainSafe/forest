@@ -832,7 +832,8 @@ impl RpcMethod<0> for EthBaseFee {
             .get(&Height::FireHorse)
             .context("Missing FireHorse height")?
             .epoch;
-        let base_fee = compute_base_fee(ctx.store(), &ts, smoke_height, firehorse_height)?;
+        let base_fee = compute_base_fee(ctx.store(), &ts, smoke_height, firehorse_height)
+            .context("failed to compute base fee for eth_baseFee")?;
         Ok(EthBigInt(base_fee.atto().clone()))
     }
 }
