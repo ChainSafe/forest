@@ -5,7 +5,6 @@ use super::*;
 use crate::shim::address::{Payload, Protocol};
 use anyhow::Context as _;
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
-use fvm_shared4::address::Protocol::{Actor, BLS, Delegated, ID, Secp256k1};
 
 impl<DB> StateManager<DB>
 where

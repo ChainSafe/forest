@@ -10,7 +10,6 @@ use crate::utils::ShallowClone as _;
 use anyhow::{Context as _, bail, ensure};
 use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
 use itertools::Itertools as _;
-use rayon::prelude::ParallelBridge;
 use tracing::{error, info, instrument};
 
 impl<DB> StateManager<DB>
@@ -303,7 +302,7 @@ pub(in crate::state_manager) struct TipsetExecutor<'a, DB: Blockstore + Send + S
 }
 
 impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
-    fn new(
+    pub(in crate::state_manager) fn new(
         chain_index: ChainIndex<DB>,
         chain_config: Arc<ChainConfig>,
         beacon: Arc<BeaconSchedule>,
@@ -327,7 +326,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
         }
     }
 
-    fn create_vm(
+    pub(in crate::state_manager) fn create_vm(
         &self,
         state_root: Cid,
         epoch: ChainEpoch,
@@ -591,7 +590,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn compute_state<DB>(
+pub(in crate::state_manager) fn compute_state<DB>(
     _height: ChainEpoch,
     messages: Vec<Message>,
     tipset: Tipset,
