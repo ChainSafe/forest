@@ -43,9 +43,12 @@ where
 
     /// Retrieves miner info.
     pub fn miner_info(&self, addr: &Address, ts: &Tipset) -> Result<MinerInfo, Error> {
-        let actor = self
-            .get_actor(addr, *ts.parent_state())?
-            .ok_or_else(|| Error::state("Miner actor not found"))?;
+        let actor = self.get_actor(addr, *ts.parent_state())?.ok_or_else(|| {
+            Error::state(format!(
+                "Miner actor {addr} not found at epoch {}",
+                ts.epoch()
+            ))
+        })?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
         Ok(state.info(self.blockstore())?)
@@ -67,9 +70,12 @@ where
         ts: &Tipset,
         get_sector: impl Fn(Partition<'_>) -> BitField,
     ) -> Result<BitField, Error> {
-        let actor = self
-            .get_actor(addr, *ts.parent_state())?
-            .ok_or_else(|| Error::state("Miner actor not found"))?;
+        let actor = self.get_actor(addr, *ts.parent_state())?.ok_or_else(|| {
+            Error::state(format!(
+                "Miner actor {addr} not found at epoch {}",
+                ts.epoch()
+            ))
+        })?;
 
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -170,7 +176,12 @@ where
         let act = self
             .get_actor(&Address::DATACAP_TOKEN_ACTOR, *ts.parent_state())
             .map_err(Error::state)?
-            .ok_or_else(|| Error::state("Miner actor not found"))?;
+            .ok_or_else(|| {
+                Error::state(format!(
+                    "Data cap actor {} not found",
+                    Address::DATACAP_TOKEN_ACTOR
+                ))
+            })?;
 
         let state = datacap::State::load(self.blockstore(), act.code, act.state)?;
 

@@ -423,7 +423,7 @@ where
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
-            .ok_or_else(|| Error::state("Miner actor not found"))?;
+            .ok_or_else(|| Error::state(format!("Miner actor {addr} not found")))?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
         state.load_sectors_ext(self.blockstore(), None)
     }
