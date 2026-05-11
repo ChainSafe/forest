@@ -6,10 +6,11 @@
 // inclusion in the chain. Messages are added either directly for locally
 // published messages or through pubsub propagation.
 
+use std::num::NonZeroUsize;
+use std::{sync::Arc, time::Duration};
+
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
-#[cfg(test)]
-use crate::db::SettingsStore;
 use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{ChainMessage, MessageRead as _, SignedMessage, valid_for_block_inclusion};
@@ -23,19 +24,17 @@ use crate::shim::{
 };
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
-use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
-use crate::utils::get_size::{CidWrapper, GetSize};
+use crate::utils::get_size::CidWrapper;
 use ahash::HashSet;
 use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
+use get_size2::GetSize;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
-use std::num::NonZeroUsize;
-use std::{sync::Arc, time::Duration};
 use tokio::{
     sync::broadcast::{self, error::RecvError},
     task::JoinSet,
@@ -46,14 +45,19 @@ use tracing::warn;
 use crate::message_pool::{
     config::MpoolConfig,
     errors::Error,
-    head_change,
     msgpool::{
         BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, pending_store::PendingStore,
-        recover_sig, republish::RepublishState, republish_pending_messages,
+        recover_sig, republish::RepublishState,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
 };
+
+pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
+pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+/// Maximum size of a serialized message in bytes. This is an anti-DOS measure to prevent
+/// large messages from being added to the message pool.
+const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
@@ -62,16 +66,10 @@ const KEY_CACHE_SIZE: NonZeroUsize = nonzero!(1_048_576usize);
 const STATE_NONCE_CACHE_SIZE: NonZeroUsize = nonzero!(32768usize);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, GetSize)]
-pub(crate) struct StateNonceCacheKey {
+pub(in crate::message_pool) struct StateNonceCacheKey {
     tipset_key: TipsetKey,
     addr: Address,
 }
-
-pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
-pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
-/// Maximum size of a serialized message in bytes. This is an anti-DOS measure to prevent
-/// large messages from being added to the message pool.
-const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 
 /// Trust policy for whether a message is from a trusted or untrusted source.
 /// Untrusted sources are subject to stricter limits.
@@ -111,7 +109,7 @@ impl Caches {
 pub struct MessagePool<T> {
     /// Pending messages, keyed by resolved-key address, together with the
     /// broadcast channel for [`MpoolUpdate`] events. See [`PendingStore`].
-    pub(in crate::message_pool) pending_store: PendingStore,
+    pub(in crate::message_pool) pending: PendingStore,
     pub(in crate::message_pool) caches: Caches,
     /// Resolved-key senders of locally submitted messages.
     pub(in crate::message_pool) local_addrs: Arc<SyncRwLock<HashSet<Address>>>,
@@ -121,12 +119,13 @@ pub struct MessagePool<T> {
     pub api: Arc<T>,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
-    /// Republish coordination state
-    pub(in crate::message_pool) republish: Arc<RepublishState>,
-    /// Configurable parameters of the message pool
-    pub config: MpoolConfig,
+    /// Republish coordination state — the set of CIDs already republished
+    /// this cycle plus the `flume` trigger that wakes the republish task.
+    pub(in crate::message_pool) republish: RepublishState,
+    /// Configurable parameters of the message pool.
+    pub(in crate::message_pool) config: MpoolConfig,
     /// Chain configuration
-    pub chain_config: Arc<ChainConfig>,
+    pub(in crate::message_pool) chain_config: Arc<ChainConfig>,
 }
 
 /// Resolve an address to its key form, checking the cache first.
@@ -148,49 +147,6 @@ pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
         key_cache.push(id, resolved);
     }
     Ok(resolved)
-}
-
-/// Get the state nonce for an address, accounting for messages already included in `cur_ts`.
-pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
-    api: &T,
-    key_cache: &IdToAddressCache,
-    state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
-    addr: &Address,
-    cur_ts: &Tipset,
-) -> Result<u64, Error> {
-    let nk = StateNonceCacheKey {
-        tipset_key: cur_ts.key().clone(),
-        addr: *addr,
-    };
-
-    if let Some(cached) = state_nonce_cache.get_cloned(&nk) {
-        return Ok(cached);
-    }
-
-    let actor = api.get_actor_after(addr, cur_ts)?;
-    let mut next_nonce = actor.sequence;
-
-    if let (Ok(resolved), Ok(messages)) = (
-        resolve_to_key(api, key_cache, addr, cur_ts)
-            .inspect_err(|e| tracing::warn!(%addr, "failed to resolve address to key: {e:#}")),
-        api.messages_for_tipset(cur_ts)
-            .inspect_err(|e| tracing::warn!("failed to get messages for tipset: {e:#}")),
-    ) {
-        for msg in messages.iter() {
-            if let Ok(from) = resolve_to_key(api, key_cache, &msg.from(), cur_ts).inspect_err(
-                |e| tracing::warn!(from = %msg.from(), "failed to resolve message sender: {e:#}"),
-            ) && from == resolved
-            {
-                let n = msg.sequence() + 1;
-                if n > next_nonce {
-                    next_nonce = n;
-                }
-            }
-        }
-    }
-
-    state_nonce_cache.push(nk, next_nonce);
-    Ok(next_nonce)
 }
 
 impl<T> MessagePool<T>
@@ -225,20 +181,28 @@ where
         self.check_message(&msg)?;
         let cid = msg.cid();
         let cur_ts = self.current_tipset();
-        let publish = self.add_tipset(msg.clone(), &cur_ts, true, trust_policy)?;
-        let msg_ser = to_vec(&msg)?;
-        let network_name = self.chain_config.network.genesis_name();
+        let publish = self.add_to_pool(msg.clone(), &cur_ts, true, trust_policy)?;
         self.add_local(&msg)?;
         if publish {
-            self.network_sender
-                .send_async(NetworkMessage::PubsubMessage {
-                    topic: Topic::new(format!("{PUBSUB_MSG_STR}/{network_name}")),
-                    message: msg_ser,
-                })
-                .await
-                .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
+            self.publish_pubsub(&msg).await?;
         }
         Ok(cid)
+    }
+
+    /// Broadcast a signed message on the network's gossipsub topic.
+    pub(in crate::message_pool) async fn publish_pubsub(
+        &self,
+        msg: &SignedMessage,
+    ) -> Result<(), Error> {
+        let message = to_vec(msg)?;
+        let network_name = self.chain_config.network.genesis_name();
+        self.network_sender
+            .send_async(NetworkMessage::PubsubMessage {
+                topic: Topic::new(format!("{PUBSUB_MSG_STR}/{network_name}")),
+                message,
+            })
+            .await
+            .map_err(|_| Error::Other("Network receiver dropped".to_string()))
     }
 
     /// Push a signed message to the `MessagePool` from an trusted source.
@@ -276,7 +240,7 @@ where
     pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg)?;
         let ts = self.current_tipset();
-        self.add_tipset(msg, &ts, false, TrustPolicy::Trusted)?;
+        self.add_to_pool(msg, &ts, false, TrustPolicy::Trusted)?;
         Ok(())
     }
 
@@ -298,10 +262,11 @@ where
         Ok(())
     }
 
-    /// Verify the `state_sequence` and balance for the sender of the message
-    /// given then call `add_locked` to finish adding the `signed_message`
-    /// to pending.
-    fn add_tipset(
+    /// Validate the message against the current state and add it to the
+    /// pending store. Returns `publish: bool` — `true` when the message
+    /// should be gossiped, `false` when it failed the soft base-fee check
+    /// for a local sender (kept in the pool for later retry).
+    pub(in crate::message_pool) fn add_to_pool(
         &self,
         msg: SignedMessage,
         cur_ts: &Tipset,
@@ -345,33 +310,36 @@ where
         } else {
             StrictnessPolicy::Strict
         };
-        self.add_helper(msg, trust_policy, strictness)?;
+        self.add_to_pool_unchecked(cur_ts, msg, trust_policy, strictness)?;
         Ok(publish)
     }
 
-    /// Finish verifying signed message before adding it to the pending `mset`
-    /// hash-map. If an entry in the hash-map does not yet exist, create a
-    /// new `mset` that will correspond to the from message and push it to
-    /// the pending hash-map.
-    fn add_helper(
+    /// Insert a message into the pending pool *without* running validation
+    /// (size, sig, base-fee, sender-actor checks). The reorg replay path
+    /// uses this directly to restore reverted messages even when they no
+    /// longer pass the add-time filters — mirrors Lotus's `addSkipChecks`.
+    pub(in crate::message_pool) fn add_to_pool_unchecked(
         &self,
+        cur_ts: &Tipset,
         msg: SignedMessage,
         trust_policy: TrustPolicy,
         strictness: StrictnessPolicy,
     ) -> Result<(), Error> {
-        let from = msg.from();
-        let cur_ts = self.current_tipset();
-        add_helper(
-            self.api.as_ref(),
-            &self.caches.bls_sig,
-            &self.pending_store,
-            &self.caches.key,
-            &cur_ts,
-            msg,
-            self.get_state_sequence(&from, &cur_ts)?,
-            trust_policy,
-            strictness,
-        )
+        if msg.signature().signature_type() == SignatureType::Bls {
+            self.caches
+                .bls_sig
+                .push(msg.cid().into(), msg.signature().clone());
+        }
+
+        self.api
+            .put_message(&ChainMessage::Signed(msg.clone().into()))?;
+        self.api
+            .put_message(&ChainMessage::Unsigned(msg.message().clone().into()))?;
+
+        let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
+        let resolved_from = self.resolve_to_key(&msg.from(), cur_ts)?;
+        self.pending
+            .insert(resolved_from, msg, sequence, trust_policy, strictness)
     }
 
     /// Get the sequence for a given address, return Error if there is a failure
@@ -383,8 +351,8 @@ where
 
         let resolved = self.resolve_to_key(addr, &cur_ts).ok();
         let mset = resolved
-            .and_then(|r| self.pending_store.snapshot_for(&r))
-            .or_else(|| self.pending_store.snapshot_for(addr));
+            .and_then(|r| self.pending.snapshot_for(&r))
+            .or_else(|| self.pending.snapshot_for(addr));
         match mset {
             Some(mset) => {
                 if sequence > mset.next_sequence {
@@ -396,15 +364,48 @@ where
         }
     }
 
-    /// Get the state of the sequence for a given address in `cur_ts`.
-    fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        get_state_sequence(
-            self.api.as_ref(),
-            &self.caches.key,
-            &self.caches.state_nonce,
-            addr,
-            cur_ts,
-        )
+    /// Get the state nonce for an address in `cur_ts`, accounting for
+    /// messages already included in that tipset. Cached by `(TipsetKey,
+    /// Address)`.
+    pub(in crate::message_pool) fn get_state_sequence(
+        &self,
+        addr: &Address,
+        cur_ts: &Tipset,
+    ) -> Result<u64, Error> {
+        let nk = StateNonceCacheKey {
+            tipset_key: cur_ts.key().clone(),
+            addr: *addr,
+        };
+
+        if let Some(cached) = self.caches.state_nonce.get_cloned(&nk) {
+            return Ok(cached);
+        }
+
+        let actor = self.api.get_actor_after(addr, cur_ts)?;
+        let mut next_nonce = actor.sequence;
+
+        if let (Ok(resolved), Ok(messages)) = (
+            self.resolve_to_key(addr, cur_ts)
+                .inspect_err(|e| tracing::warn!(%addr, "failed to resolve address to key: {e:#}")),
+            self.api
+                .messages_for_tipset(cur_ts)
+                .inspect_err(|e| tracing::warn!("failed to get messages for tipset: {e:#}")),
+        ) {
+            for msg in messages.iter() {
+                if let Ok(from) = self.resolve_to_key(&msg.from(), cur_ts).inspect_err(
+                    |e| tracing::warn!(from = %msg.from(), "failed to resolve message sender: {e:#}"),
+                ) && from == resolved
+                {
+                    let n = msg.sequence() + 1;
+                    if n > next_nonce {
+                        next_nonce = n;
+                    }
+                }
+            }
+        }
+
+        self.caches.state_nonce.push(nk, next_nonce);
+        Ok(next_nonce)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied
@@ -417,11 +418,11 @@ where
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
     pub fn pending(&self) -> (Vec<SignedMessage>, Tipset) {
-        let pending = self.pending_store.snapshot();
-        let len = pending.values().map(|mset| mset.msgs.len()).sum();
+        let snapshot = self.pending.snapshot();
+        let len = snapshot.values().map(|mset| mset.msgs.len()).sum();
         let mut out = Vec::with_capacity(len);
 
-        for mset in pending.into_values() {
+        for mset in snapshot.into_values() {
             out.extend(
                 mset.msgs
                     .into_values()
@@ -443,7 +444,7 @@ where
             .resolve_to_key(a, &cur_ts)
             .inspect_err(|e| tracing::debug!(%a, "pending_for: failed to resolve address: {e:#}"))
             .ok()?;
-        let mset = self.pending_store.snapshot_for(&resolved)?;
+        let mset = self.pending.snapshot_for(&resolved)?;
         if mset.msgs.is_empty() {
             return None;
         }
@@ -460,7 +461,7 @@ where
     /// removal from the pending pool.
     #[allow(dead_code)] // surfaces the MpoolUpdate API for external subscribers.
     pub fn subscribe_to_updates(&self) -> broadcast::Receiver<MpoolUpdate> {
-        self.pending_store.subscribe()
+        self.pending.subscribe()
     }
 
     /// Return Vector of signed messages given a block header for self.
@@ -482,43 +483,8 @@ where
         Ok(msg_vec)
     }
 
-    #[cfg(test)]
-    pub fn get_config(&self) -> &MpoolConfig {
-        &self.config
-    }
-
-    #[cfg(test)]
-    pub fn set_config<DB: SettingsStore>(
-        &mut self,
-        db: &DB,
-        cfg: MpoolConfig,
-    ) -> Result<(), Error> {
-        cfg.save_config(db)
-            .map_err(|e| Error::Other(e.to_string()))?;
-        self.config = cfg;
-        Ok(())
-    }
-
-    #[cfg(test)]
-    pub async fn apply_head_change(
-        &self,
-        revert: Vec<crate::blocks::Tipset>,
-        apply: Vec<crate::blocks::Tipset>,
-    ) -> Result<(), Error>
-    where
-        T: 'static,
-    {
-        head_change(
-            self.api.as_ref(),
-            &self.caches.bls_sig,
-            self.republish.as_ref(),
-            &self.pending_store,
-            self.cur_tipset.as_ref(),
-            &self.caches.key,
-            &self.caches.state_nonce,
-            revert,
-            apply,
-        )
+    pub fn gas_limit_overestimation(&self) -> f64 {
+        self.config.gas_limit_overestimation
     }
 }
 
@@ -533,138 +499,81 @@ where
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
         services: &mut JoinSet<anyhow::Result<()>>,
-    ) -> Result<MessagePool<T>, Error>
+    ) -> Result<Arc<Self>, Error>
     where
         T: Provider,
     {
         // Per-actor limits are constant for the lifetime of this pool; capture
         // them once here rather than re-reading on every insert.
-        let pending_store = PendingStore::new(MsgSetLimits::new(
+        let pending = PendingStore::new(MsgSetLimits::new(
             api.max_actor_pending_messages(),
             api.max_untrusted_actor_pending_messages(),
         ));
-        let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
-        let block_delay = chain_config.block_delay_secs;
-
+        let cur_tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
+        let republish_interval =
+            u64::from(10 * chain_config.block_delay_secs + chain_config.propagation_delay_secs);
         let (republish, repub_trigger_rx) = RepublishState::new();
+
         let mp = MessagePool {
-            pending_store,
+            pending,
             caches: Caches::new(),
             local_addrs: Arc::new(SyncRwLock::new(HashSet::default())),
-            cur_tipset: tipset,
+            republish,
+            cur_tipset,
             api: Arc::new(api),
-            config,
             network_sender,
-            republish: Arc::new(republish),
-            chain_config: Arc::clone(&chain_config),
+            config,
+            chain_config,
         };
 
-        let mut head_changes_rx = mp.api.subscribe_head_changes();
-
-        let api = mp.api.clone();
-        let bls_sig_cache = mp.caches.bls_sig.shallow_clone();
-        let pending_store = mp.pending_store.shallow_clone();
-        let republish = mp.republish.clone();
-        let key_cache = mp.caches.key.shallow_clone();
-        let state_nonce_cache = mp.caches.state_nonce.shallow_clone();
-
-        let current_ts = mp.cur_tipset.clone();
+        let mp = Arc::new(mp);
 
         // Reacts to new HeadChanges
-        services.spawn(async move {
-            loop {
-                match head_changes_rx.recv().await {
-                    Ok(HeadChanges { reverts, applies }) => {
-                        if let Err(e) = head_change(
-                            api.as_ref(),
-                            &bls_sig_cache,
-                            republish.as_ref(),
-                            &pending_store,
-                            &current_ts,
-                            &key_cache,
-                            &state_nonce_cache,
-                            reverts,
-                            applies,
-                        ) {
-                            tracing::warn!("Error changing head: {e}");
+        {
+            let mp = Arc::clone(&mp);
+            let mut head_changes_rx = mp.api.subscribe_head_changes();
+            services.spawn(async move {
+                loop {
+                    match head_changes_rx.recv().await {
+                        Ok(HeadChanges { reverts, applies }) => {
+                            if let Err(e) = mp.apply_head_change(reverts, applies).await {
+                                tracing::warn!("Error changing head: {e}");
+                            }
+                        }
+                        Err(RecvError::Lagged(e)) => {
+                            warn!("Head change subscriber lagged: skipping {e} events");
+                        }
+                        Err(RecvError::Closed) => {
+                            break Ok(());
                         }
                     }
-                    Err(RecvError::Lagged(e)) => {
-                        warn!("Head change subscriber lagged: skipping {e} events");
-                    }
-                    Err(RecvError::Closed) => {
-                        break Ok(());
-                    }
                 }
-            }
-        });
+            });
+        }
 
-        let api = mp.api.clone();
-        let pending_store = mp.pending_store.shallow_clone();
-        let cur_tipset = mp.cur_tipset.clone();
-        let republish = mp.republish.clone();
-        let local_addrs = mp.local_addrs.clone();
-        let network_sender = Arc::new(mp.network_sender.clone());
-        let republish_interval = u64::from(10 * block_delay + chain_config.propagation_delay_secs);
         // Reacts to republishing requests
-        services.spawn(async move {
-            let mut repub_trigger_rx = repub_trigger_rx.stream();
-            let mut interval = interval(Duration::from_secs(republish_interval));
-            loop {
-                tokio::select! {
-                    _ = interval.tick() => (),
-                    _ = repub_trigger_rx.next() => (),
+        {
+            let mp = Arc::clone(&mp);
+            services.spawn(async move {
+                let mut repub_trigger_rx = repub_trigger_rx.stream();
+                let mut interval = interval(Duration::from_secs(republish_interval));
+                loop {
+                    tokio::select! {
+                        _ = interval.tick() => (),
+                        _ = repub_trigger_rx.next() => (),
+                    }
+                    if let Err(e) = mp.run_republish_cycle().await {
+                        warn!("Failed to republish pending messages: {}", e.to_string());
+                    }
                 }
-                if let Err(e) = republish_pending_messages(
-                    api.as_ref(),
-                    network_sender.as_ref(),
-                    &pending_store,
-                    cur_tipset.as_ref(),
-                    republish.as_ref(),
-                    local_addrs.as_ref(),
-                    &chain_config,
-                )
-                .await
-                {
-                    warn!("Failed to republish pending messages: {}", e.to_string());
-                }
-            }
-        });
+            });
+        }
+
         Ok(mp)
     }
 }
 
 // Helpers for MessagePool
-
-/// Finish verifying the signed message before adding it to the pending `mset`
-/// hash-map. If an entry in the hash-map does not yet exist, create a new
-/// `mset` that will correspond to the form message and push it to the pending
-/// hash-map.
-#[allow(clippy::too_many_arguments)]
-pub(in crate::message_pool) fn add_helper<T>(
-    api: &T,
-    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
-    pending_store: &PendingStore,
-    key_cache: &IdToAddressCache,
-    cur_ts: &Tipset,
-    msg: SignedMessage,
-    sequence: u64,
-    trust_policy: TrustPolicy,
-    strictness: StrictnessPolicy,
-) -> Result<(), Error>
-where
-    T: Provider,
-{
-    if msg.signature().signature_type() == SignatureType::Bls {
-        bls_sig_cache.push(msg.cid().into(), msg.signature().clone());
-    }
-
-    api.put_message(&ChainMessage::Signed(msg.clone().into()))?;
-    api.put_message(&ChainMessage::Unsigned(msg.message().clone().into()))?;
-
-    let resolved_from = resolve_to_key(api, key_cache, &msg.from(), cur_ts)?;
-    pending_store.insert(resolved_from, msg, sequence, trust_policy, strictness)
-}
 
 fn verify_msg_before_add(
     m: &SignedMessage,
@@ -714,6 +623,8 @@ mod tests {
     use super::*;
     use crate::shim::message::Message as ShimMessage;
 
+    use tokio::task::JoinSet;
+
     fn make_smsg(from: Address, seq: u64, premium: u64) -> SignedMessage {
         SignedMessage::mock_bls_signed_message(ShimMessage {
             from,
@@ -724,94 +635,93 @@ mod tests {
         })
     }
 
-    /// Build a `PendingStore` sized from the [`TestApi`] provider's limits.
-    fn test_pending_store(api: &TestApi) -> PendingStore {
-        PendingStore::new(MsgSetLimits::new(
-            api.max_actor_pending_messages(),
-            api.max_untrusted_actor_pending_messages(),
-        ))
+    /// Construct a [`MessagePool`] over a [`TestApi`] for unit tests.
+    /// Returns the pool plus the JoinSet that owns the spawned background
+    /// tasks; callers must hold both alive for the duration of the test.
+    fn make_test_mpool(api: TestApi) -> (Arc<MessagePool<TestApi>>, JoinSet<anyhow::Result<()>>) {
+        let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
+        let mpool = MessagePool::new(
+            api,
+            tx,
+            Default::default(),
+            Default::default(),
+            &mut services,
+        )
+        .unwrap();
+        (mpool, services)
     }
 
     // Regression test for https://github.com/ChainSafe/forest/pull/6118 which fixed a bogus 100M
     // gas limit. There are no limits on a single message.
-    #[test]
-    fn add_helper_message_gas_limit_test() {
+    #[tokio::test]
+    async fn add_to_pool_unchecked_accepts_high_gas_limit() {
         let api = TestApi::default();
-        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let pending_store = test_pending_store(&api);
-        let cur_ts = api.get_heaviest_tipset();
+        let (mpool, _services) = make_test_mpool(api);
+        let cur_ts = mpool.current_tipset();
         let message = ShimMessage {
             gas_limit: 666_666_666,
             ..ShimMessage::default()
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
-        let sequence = msg.message().sequence;
-        let res = add_helper(
-            &api,
-            &bls_sig_cache,
-            &pending_store,
-            &key_cache,
+        let res = mpool.add_to_pool_unchecked(
             &cur_ts,
             msg,
-            sequence,
             TrustPolicy::Trusted,
             StrictnessPolicy::Relaxed,
         );
         assert!(res.is_ok());
     }
 
-    #[test]
-    fn test_resolve_to_key_returns_non_id_unchanged() {
+    #[tokio::test]
+    async fn test_resolve_to_key_returns_non_id_unchanged() {
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let ts = api.get_heaviest_tipset();
+        let (mpool, _services) = make_test_mpool(api);
+        let ts = mpool.current_tipset();
 
         let bls_addr = Address::new_bls(&[1u8; 48]).unwrap();
-        let result = resolve_to_key(&api, &key_cache, &bls_addr, &ts).unwrap();
+        let result = mpool.resolve_to_key(&bls_addr, &ts).unwrap();
         assert_eq!(result, bls_addr);
         assert_eq!(
-            key_cache.len(),
+            mpool.caches.key.len(),
             0,
             "cache should not be populated for non-ID addresses"
         );
     }
 
-    #[test]
-    fn test_resolve_to_key_resolves_id_and_caches() {
+    #[tokio::test]
+    async fn test_resolve_to_key_resolves_id_and_caches() {
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let ts = api.get_heaviest_tipset();
-
         let id_addr = Address::new_id(100);
         let key_addr = Address::new_bls(&[5u8; 48]).unwrap();
         api.set_key_address_mapping(&id_addr, &key_addr);
 
-        let result = resolve_to_key(&api, &key_cache, &id_addr, &ts).unwrap();
+        let (mpool, _services) = make_test_mpool(api);
+        let ts = mpool.current_tipset();
+
+        let result = mpool.resolve_to_key(&id_addr, &ts).unwrap();
         assert_eq!(result, key_addr);
         assert_eq!(
-            key_cache.len(),
+            mpool.caches.key.len(),
             1,
             "cache should have one entry after resolution"
         );
 
         // Second call should hit the cache (no API call needed)
-        let result2 = resolve_to_key(&api, &key_cache, &id_addr, &ts).unwrap();
+        let result2 = mpool.resolve_to_key(&id_addr, &ts).unwrap();
         assert_eq!(result2, key_addr);
     }
 
-    #[test]
-    fn test_add_helper_keys_pending_by_resolved_address() {
+    #[tokio::test]
+    async fn test_add_to_pool_unchecked_keys_pending_by_resolved_address() {
         let api = TestApi::default();
-        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let pending_store = test_pending_store(&api);
-        let cur_ts = api.get_heaviest_tipset();
-
         let id_addr = Address::new_id(200);
         let key_addr = Address::new_bls(&[7u8; 48]).unwrap();
         api.set_key_address_mapping(&id_addr, &key_addr);
         api.set_state_sequence(&key_addr, 0);
+
+        let (mpool, _services) = make_test_mpool(api);
+        let cur_ts = mpool.current_tipset();
 
         let message = ShimMessage {
             from: id_addr,
@@ -820,41 +730,35 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
 
-        add_helper(
-            &api,
-            &bls_sig_cache,
-            &pending_store,
-            &key_cache,
-            &cur_ts,
-            msg,
-            0,
-            TrustPolicy::Trusted,
-            StrictnessPolicy::Relaxed,
-        )
-        .unwrap();
+        mpool
+            .add_to_pool_unchecked(
+                &cur_ts,
+                msg,
+                TrustPolicy::Trusted,
+                StrictnessPolicy::Relaxed,
+            )
+            .unwrap();
 
         assert!(
-            pending_store.snapshot_for(&key_addr).is_some(),
+            mpool.pending.snapshot_for(&key_addr).is_some(),
             "pending should be keyed by the resolved key address"
         );
         assert!(
-            pending_store.snapshot_for(&id_addr).is_none(),
+            mpool.pending.snapshot_for(&id_addr).is_none(),
             "pending should NOT have an entry under the raw ID address"
         );
     }
 
-    #[test]
-    fn test_get_sequence_works_with_both_address_forms() {
+    #[tokio::test]
+    async fn test_get_sequence_works_with_both_address_forms() {
         let api = TestApi::default();
-        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let pending_store = test_pending_store(&api);
-        let cur_ts = api.get_heaviest_tipset();
-
         let id_addr = Address::new_id(300);
         let key_addr = Address::new_bls(&[9u8; 48]).unwrap();
         api.set_key_address_mapping(&id_addr, &key_addr);
         api.set_state_sequence(&key_addr, 0);
+
+        let (mpool, _services) = make_test_mpool(api);
+        let cur_ts = mpool.current_tipset();
 
         // Add two messages from the ID address
         for seq in 0..2 {
@@ -865,26 +769,27 @@ mod tests {
                 ..ShimMessage::default()
             };
             let msg = SignedMessage::mock_bls_signed_message(message);
-            add_helper(
-                &api,
-                &bls_sig_cache,
-                &pending_store,
-                &key_cache,
-                &cur_ts,
-                msg,
-                0,
-                TrustPolicy::Trusted,
-                StrictnessPolicy::Relaxed,
-            )
-            .unwrap();
+            mpool
+                .add_to_pool_unchecked(
+                    &cur_ts,
+                    msg,
+                    TrustPolicy::Trusted,
+                    StrictnessPolicy::Relaxed,
+                )
+                .unwrap();
         }
 
-        let state_seq = api.get_actor_after(&id_addr, &cur_ts).unwrap().sequence;
-        let resolved_for_id = resolve_to_key(&api, &key_cache, &id_addr, &cur_ts).unwrap();
-        let resolved_for_key = resolve_to_key(&api, &key_cache, &key_addr, &cur_ts).unwrap();
+        let state_seq = mpool
+            .api
+            .get_actor_after(&id_addr, &cur_ts)
+            .unwrap()
+            .sequence;
+        let resolved_for_id = mpool.resolve_to_key(&id_addr, &cur_ts).unwrap();
+        let resolved_for_key = mpool.resolve_to_key(&key_addr, &cur_ts).unwrap();
         assert_eq!(resolved_for_id, resolved_for_key);
 
-        let next_seq = pending_store
+        let next_seq = mpool
+            .pending
             .snapshot_for(&resolved_for_id)
             .unwrap()
             .next_sequence;
@@ -892,14 +797,11 @@ mod tests {
         assert_eq!(expected, 2, "should reflect both pending messages");
     }
 
-    #[test]
-    fn test_get_state_sequence_accounts_for_tipset_messages() {
+    #[tokio::test]
+    async fn test_get_state_sequence_accounts_for_tipset_messages() {
         use crate::message_pool::test_provider::mock_block;
 
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let state_nonce_cache = SizeTrackingLruCache::new_mocked();
-
         let sender = Address::new_bls(&[3u8; 48]).unwrap();
         api.set_state_sequence(&sender, 5);
 
@@ -910,21 +812,20 @@ mod tests {
         );
         let ts = Tipset::from(block);
 
-        let nonce = get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts).unwrap();
+        let (mpool, _services) = make_test_mpool(api);
+
+        let nonce = mpool.get_state_sequence(&sender, &ts).unwrap();
         assert_eq!(
             nonce, 8,
             "should account for non-consecutive tipset message at nonce 7"
         );
     }
 
-    #[test]
-    fn test_get_state_sequence_ignores_other_addresses() {
+    #[tokio::test]
+    async fn test_get_state_sequence_ignores_other_addresses() {
         use crate::message_pool::test_provider::mock_block;
 
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let state_nonce_cache = SizeTrackingLruCache::new_mocked();
-
         let addr_a = Address::new_bls(&[4u8; 48]).unwrap();
         let addr_b = Address::new_bls(&[5u8; 48]).unwrap();
         api.set_state_sequence(&addr_a, 0);
@@ -941,30 +842,26 @@ mod tests {
         );
         let ts = Tipset::from(block);
 
-        let nonce_a =
-            get_state_sequence(&api, &key_cache, &state_nonce_cache, &addr_a, &ts).unwrap();
+        let (mpool, _services) = make_test_mpool(api);
+
+        let nonce_a = mpool.get_state_sequence(&addr_a, &ts).unwrap();
         assert_eq!(
             nonce_a, 0,
             "addr_a nonce should be unaffected by addr_b's messages"
         );
 
-        let nonce_b =
-            get_state_sequence(&api, &key_cache, &state_nonce_cache, &addr_b, &ts).unwrap();
+        let nonce_b = mpool.get_state_sequence(&addr_b, &ts).unwrap();
         assert_eq!(
             nonce_b, 3,
             "addr_b nonce should reflect its tipset messages"
         );
     }
 
-    #[test]
-    fn test_get_state_sequence_cache_hit() {
+    #[tokio::test]
+    async fn test_get_state_sequence_cache_hit() {
         use crate::message_pool::test_provider::mock_block;
 
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64> =
-            SizeTrackingLruCache::new_mocked();
-
         let sender = Address::new_bls(&[6u8; 48]).unwrap();
         api.set_state_sequence(&sender, 5);
 
@@ -974,46 +871,42 @@ mod tests {
             .set_block_messages(&block, vec![make_smsg(sender, 5, 100)]);
         let ts = Tipset::from(block);
 
-        let nonce1 =
-            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts).unwrap();
+        let (mpool, _services) = make_test_mpool(api);
+
+        let nonce1 = mpool.get_state_sequence(&sender, &ts).unwrap();
         assert_eq!(nonce1, 6);
 
         // Mutate the underlying state; the cache should still return the old value.
-        api.set_state_sequence(&sender, 99);
-        let nonce2 =
-            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts).unwrap();
+        mpool.api.set_state_sequence(&sender, 99);
+        let nonce2 = mpool.get_state_sequence(&sender, &ts).unwrap();
         assert_eq!(
             nonce2, 6,
             "second call should return the cached value, not re-read state"
         );
     }
 
-    #[test]
-    fn test_get_state_sequence_cache_miss_on_different_tipset() {
+    #[tokio::test]
+    async fn test_get_state_sequence_cache_miss_on_different_tipset() {
         use crate::message_pool::test_provider::mock_block;
 
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64> =
-            SizeTrackingLruCache::new_mocked();
-
         let sender = Address::new_bls(&[7u8; 48]).unwrap();
         api.set_state_sequence(&sender, 10);
+
+        let (mpool, _services) = make_test_mpool(api);
 
         let block_a = mock_block(1, 1);
         let ts_a = Tipset::from(&block_a);
 
-        let nonce_a =
-            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts_a).unwrap();
+        let nonce_a = mpool.get_state_sequence(&sender, &ts_a).unwrap();
         assert_eq!(nonce_a, 10);
 
         // Different tipset should be a cache miss and re-read state.
-        api.set_state_sequence(&sender, 20);
+        mpool.api.set_state_sequence(&sender, 20);
         let block_b = mock_block(2, 2);
         let ts_b = Tipset::from(&block_b);
 
-        let nonce_b =
-            get_state_sequence(&api, &key_cache, &state_nonce_cache, &sender, &ts_b).unwrap();
+        let nonce_b = mpool.get_state_sequence(&sender, &ts_b).unwrap();
         assert_eq!(
             nonce_b, 20,
             "different tipset should miss the cache and read fresh state"

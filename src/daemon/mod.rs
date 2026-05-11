@@ -330,8 +330,7 @@ fn create_mpool(
         MpoolConfig::load_config(ctx.db.writer().as_ref())?,
         ctx.state_manager.chain_config().clone(),
         services,
-    )
-    .map(Arc::new)?)
+    )?)
 }
 
 fn create_chain_follower(

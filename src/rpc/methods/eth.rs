@@ -1810,7 +1810,7 @@ where
         )
     }) {
         let ret = gas_search(data, &msg, &prior_messages, ts).await?;
-        Ok(((ret as f64) * data.mpool.config.gas_limit_overestimation) as u64)
+        Ok(((ret as f64) * data.mpool.gas_limit_overestimation()) as u64)
     } else {
         anyhow::bail!(
             "message execution failed: exit {}, reason: {}",

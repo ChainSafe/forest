@@ -147,7 +147,7 @@ async fn ctx(
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
-        mpool: Arc::new(message_pool),
+        mpool: message_pool,
         bad_blocks: Default::default(),
         sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),

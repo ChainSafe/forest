@@ -54,7 +54,7 @@ mod tests {
     use tokio::task::JoinSet;
 
     fn make_test_pool_and_wallet() -> (
-        MessagePool<TestApi>,
+        Arc<MessagePool<TestApi>>,
         Wallet,
         Address,
         flume::Receiver<crate::libp2p::NetworkMessage>,
@@ -120,7 +120,6 @@ mod tests {
         const N: usize = 10;
         let tracker = Arc::new(NonceTracker::new());
         let (mpool, mut wallet, sender, _rx) = make_test_pool_and_wallet();
-        let mpool = Arc::new(mpool);
         let key = Arc::new(wallet.find_key(&sender).unwrap());
         let eth_chain_id: EthChainId = crate::networks::calibnet::ETH_CHAIN_ID;
 

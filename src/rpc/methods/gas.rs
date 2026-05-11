@@ -329,7 +329,7 @@ where
 {
     if msg.gas_limit == 0 {
         let gl = GasEstimateGasLimit::estimate_gas_limit(data, msg.clone(), &tsk).await?;
-        let gl = gl as f64 * data.mpool.config.gas_limit_overestimation;
+        let gl = gl as f64 * data.mpool.gas_limit_overestimation();
         msg.set_gas_limit((gl as u64).min(BLOCK_GAS_LIMIT));
     }
     if msg.gas_premium.is_zero() {
