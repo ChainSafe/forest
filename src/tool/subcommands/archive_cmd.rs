@@ -744,7 +744,7 @@ async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> a
             DAG_CBOR,
             MultihashCode::Blake2b256.digest(&snap_meta_cbor_encoded),
         ),
-        data: snap_meta_cbor_encoded,
+        data: snap_meta_cbor_encoded.into(),
     };
 
     let roots = nunny::vec![snap_meta_block.cid];

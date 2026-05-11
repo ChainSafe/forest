@@ -11,6 +11,7 @@ use get_size2::GetSize as _;
 pub use many::{ManyCar, ReloadableManyCar};
 pub use plain::PlainCar;
 
+use bytes::Bytes;
 use cid::Cid;
 use positioned_io::{ReadAt, Size};
 use std::{
@@ -59,7 +60,7 @@ pub struct ZstdFrameCache {
     current_size: Arc<AtomicUsize>,
     // use `hashbrown::HashMap` here because its `GetSize` implementation is accurate
     // (thanks to `hashbrown::HashMap::allocation_size`).
-    lru: SizeTrackingLruCache<(FrameOffset, CacheKey), hashbrown::HashMap<CidWrapper, Vec<u8>>>,
+    lru: SizeTrackingLruCache<(FrameOffset, CacheKey), hashbrown::HashMap<CidWrapper, Bytes>>,
 }
 
 impl ShallowClone for ZstdFrameCache {
@@ -89,7 +90,7 @@ impl ZstdFrameCache {
 
     /// Return a clone of the value associated with `cid`. If a value is found,
     /// the cache entry is moved to the top of the queue.
-    pub fn get(&self, offset: FrameOffset, key: CacheKey, cid: Cid) -> Option<Option<Vec<u8>>> {
+    pub fn get(&self, offset: FrameOffset, key: CacheKey, cid: Cid) -> Option<Option<Bytes>> {
         self.lru
             .cache()
             .write()
@@ -102,7 +103,7 @@ impl ZstdFrameCache {
         &self,
         offset: FrameOffset,
         key: CacheKey,
-        mut index: hashbrown::HashMap<CidWrapper, Vec<u8>>,
+        mut index: hashbrown::HashMap<CidWrapper, Bytes>,
     ) {
         index.shrink_to_fit();
 
@@ -164,14 +165,14 @@ mod tests {
         }
     }
 
-    fn gen_index(rng: &mut impl Rng) -> hashbrown::HashMap<CidWrapper, Vec<u8>> {
+    fn gen_index(rng: &mut impl Rng) -> hashbrown::HashMap<CidWrapper, Bytes> {
         let mut map = hashbrown::HashMap::default();
         for _ in 0..10 {
             let vec_len = rng.gen_range(64..1024);
             let mut data = vec![0; vec_len];
             rng.fill_bytes(&mut data);
             let cid = Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data));
-            map.insert(cid.into(), data);
+            map.insert(cid.into(), data.into());
         }
         map
     }

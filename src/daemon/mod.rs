@@ -42,6 +42,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
+use tokio::sync::broadcast::error::RecvError;
 use tokio::{
     net::TcpListener,
     signal::{
@@ -614,11 +615,19 @@ fn maybe_start_indexer_service(
 
             // Continuously listen for head changes
             loop {
-                for ts in head_changes_rx.recv().await?.applies {
-                    tracing::debug!("Indexing tipset {}", ts.key());
-                    let delegated_messages =
-                        chain_store.headers_delegated_messages(ts.block_headers().iter())?;
-                    chain_store.process_signed_messages(&delegated_messages)?;
+                match head_changes_rx.recv().await {
+                    Ok(changes) => {
+                        for ts in changes.applies {
+                            tracing::debug!("Indexing tipset {}", ts.key());
+                            let delegated_messages = chain_store
+                                .headers_delegated_messages(ts.block_headers().iter())?;
+                            chain_store.process_signed_messages(&delegated_messages)?;
+                        }
+                    }
+                    Err(RecvError::Lagged(n)) => {
+                        warn!("indexer service lagged: skipping {n} events")
+                    }
+                    Err(RecvError::Closed) => break Ok(()),
                 }
             }
         });

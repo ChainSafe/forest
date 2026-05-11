@@ -61,7 +61,10 @@ impl TipsetKey {
     pub fn car_block(&self) -> anyhow::Result<CarBlock> {
         let data = fvm_ipld_encoding::to_vec(&self.bytes())?;
         let cid = Cid::from_cbor_encoded_raw_bytes_blake2b256(&data);
-        Ok(CarBlock { cid, data })
+        Ok(CarBlock {
+            cid,
+            data: data.into(),
+        })
     }
 
     /// Returns `true` if the tipset key contains the given CID.

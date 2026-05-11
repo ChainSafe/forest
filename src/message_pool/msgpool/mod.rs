@@ -306,7 +306,13 @@ where
     };
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence = mpool_ctx.get_state_sequence(state_nonce_cache, &msg.from())?;
+            let sequence = match mpool_ctx.get_state_sequence(state_nonce_cache, &msg.from()) {
+                Ok(seq) => seq,
+                Err(e) => {
+                    tracing::debug!("Failed to get the state sequence: {}", e);
+                    continue;
+                }
+            };
             if let Err(e) = add_helper(
                 api,
                 bls_sig_cache,
