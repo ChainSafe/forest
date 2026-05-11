@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7001](https://github.com/ChainSafe/forest/pull/7001): Fix `transactionPosition` to be 0-indexed in `Filecoin.EthTraceBlock`, `Filecoin.EthTraceFilter`, and `Filecoin.EthTraceTransaction` responses, matching Lotus.
+
 ## Forest v0.33.3 "Dawn"
 
 Non-mandatory release for all node operators. It includes a few fixes to make the chain following logic more robust and eliminate a few non-critical warnings.
