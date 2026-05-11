@@ -232,7 +232,9 @@ where
 {
     info!("Starting offline RPC Server");
     let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), rpc_port);
-    let rpc_listener = tokio::net::TcpListener::bind(rpc_address).await?;
+    let rpc_listener =
+        crate::utils::net::bind_tcp_listener(rpc_address, crate::rpc::default_max_connections())
+            .await?;
     let mut terminate = signal(SignalKind::terminate())?;
     let (stop_handle, server_handle) = stop_channel();
     let result = tokio::select! {
