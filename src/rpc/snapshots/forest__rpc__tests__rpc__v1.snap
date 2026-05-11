@@ -6097,12 +6097,11 @@ components:
             - $ref: "#/components/schemas/ActorTrace"
             - type: "null"
         IpldOps:
-          description: "See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L116>"
           type: array
           items:
             $ref: "#/components/schemas/TraceIpld"
         Logs:
-          description: "FVM invocation logs (not EVM actor / `eth_getLogs` event logs).\nSee <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L115>"
+          description: "FVM invocation logs (not EVM actor / `eth_getLogs` event logs)."
           type: array
           items:
             type: string
@@ -7142,7 +7141,6 @@ components:
         ForkUpgradeParams:
           $ref: "#/components/schemas/ForkUpgradeParams"
         GenesisTimestamp:
-          description: "See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/api/types.go#L163>"
           type: integer
           format: uint64
           minimum: 0
@@ -7520,7 +7518,6 @@ components:
         APIVersion:
           $ref: "#/components/schemas/ShiftingVersion"
         Agent:
-          description: "See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/api/api_common.go#L78>"
           type: string
         BlockDelay:
           type: integer

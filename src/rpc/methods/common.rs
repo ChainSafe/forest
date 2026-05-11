@@ -107,7 +107,7 @@ pub struct PublicVersion {
     #[serde(rename = "APIVersion")]
     pub api_version: ShiftingVersion,
     pub block_delay: u32,
-    /// See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/api/api_common.go#L78>
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/api/api_common.go#L78>
     pub agent: String,
 }
 lotus_json_with_self!(PublicVersion);

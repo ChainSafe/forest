@@ -206,10 +206,10 @@ pub struct ExecutionTrace {
     #[schemars(with = "LotusJson<Vec<ExecutionTrace>>")]
     pub subcalls: Vec<ExecutionTrace>,
     /// FVM invocation logs (not EVM actor / `eth_getLogs` event logs).
-    /// See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L115>
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L115>
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub logs: Vec<String>,
-    /// See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L116>
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L116>
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ipld_ops: Vec<TraceIpld>,
 }
