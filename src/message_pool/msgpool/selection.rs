@@ -672,7 +672,7 @@ where
     ) -> Result<SelectedMessages, Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
         let gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
-        let min_gas = 1298450;
+        let min_gas = MIN_GAS;
 
         // 1. Get priority actor chains
         let priority = self.config.priority_addrs();
@@ -1347,14 +1347,8 @@ mod test_selection {
 
         let mut joinset = JoinSet::new();
         let (tx, _rx) = flume::bounded(50);
-        let mpool = MessagePool::new(
-            TestApi::default(),
-            tx,
-            cfg,
-            Arc::default(),
-            &mut joinset,
-        )
-        .unwrap();
+        let mpool =
+            MessagePool::new(TestApi::default(), tx, cfg, Arc::default(), &mut joinset).unwrap();
         let ts = mock_tipset(&mpool).await;
         let api = mpool.api.clone();
 

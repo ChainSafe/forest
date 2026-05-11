@@ -119,8 +119,7 @@ pub struct MessagePool<T> {
     pub api: Arc<T>,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
-    /// Republish coordination state — the set of CIDs already republished
-    /// this cycle plus the `flume` trigger that wakes the republish task.
+    /// Republish coordination state
     pub(in crate::message_pool) republish: RepublishState,
     /// Configurable parameters of the message pool.
     pub(in crate::message_pool) config: MpoolConfig,
@@ -189,7 +188,7 @@ where
         Ok(cid)
     }
 
-    /// Broadcast a signed message on the network's gossipsub topic.
+    /// Broadcast a signed message on the network's `gossipsub` topic.
     pub(in crate::message_pool) async fn publish_pubsub(
         &self,
         msg: &SignedMessage,
@@ -317,7 +316,7 @@ where
     /// Insert a message into the pending pool *without* running validation
     /// (size, sig, base-fee, sender-actor checks). The reorg replay path
     /// uses this directly to restore reverted messages even when they no
-    /// longer pass the add-time filters — mirrors Lotus's `addSkipChecks`.
+    /// longer pass the add-time filters.
     pub(in crate::message_pool) fn add_to_pool_unchecked(
         &self,
         cur_ts: &Tipset,
@@ -635,9 +634,6 @@ mod tests {
         })
     }
 
-    /// Construct a [`MessagePool`] over a [`TestApi`] for unit tests.
-    /// Returns the pool plus the JoinSet that owns the spawned background
-    /// tasks; callers must hold both alive for the duration of the test.
     fn make_test_mpool(api: TestApi) -> (Arc<MessagePool<TestApi>>, JoinSet<anyhow::Result<()>>) {
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();

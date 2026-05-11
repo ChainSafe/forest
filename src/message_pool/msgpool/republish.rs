@@ -65,9 +65,6 @@ impl RepublishState {
 }
 
 impl<T: Provider> MessagePool<T> {
-    /// Body of one republish cycle: iterate local addresses, score their
-    /// pending messages, broadcast the picks via gossipsub, and rebuild the
-    /// republished set.
     pub(in crate::message_pool) async fn run_republish_cycle(&self) -> Result<(), Error> {
         let ts = self.cur_tipset.read().shallow_clone();
 

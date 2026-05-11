@@ -27,8 +27,7 @@ where
     ///   pending pool with `applied = true`.
     /// - **Revert**: messages from the reverted tipset are re-added to the
     ///   pool with [`StrictnessPolicy::Relaxed`] and [`TrustPolicy::Trusted`],
-    ///   allowing them back without nonce-gap restrictions (mirrors Lotus's
-    ///   `addSkipChecks`).
+    ///   allowing them back without nonce-gap restrictions.
     ///
     /// The state-nonce cache is naturally invalidated when the tipset
     /// changes, since it is keyed by `(TipsetKey, Address)`.
