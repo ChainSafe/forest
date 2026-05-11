@@ -102,11 +102,11 @@ mod tests {
             let mut blocks = Vec::with_capacity(n);
             for _ in 0..n {
                 // use small len here to increase the chance of duplication
-                let data = [u8::arbitrary(g), u8::arbitrary(g)];
+                let data = vec![u8::arbitrary(g), u8::arbitrary(g)];
                 let cid = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data));
                 let block = CarBlock {
                     cid,
-                    data: data.to_vec(),
+                    data: data.into(),
                 };
                 blocks.push(block);
             }

@@ -35,6 +35,22 @@
 
 ### Fixed
 
+## Forest v0.33.3 "Dawn"
+
+Non-mandatory release for all node operators. It includes a few fixes to make the chain following logic more robust and eliminate a few non-critical warnings.
+
+### Breaking
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#7019](https://github.com/ChainSafe/forest/pull/7019): [chain follower] skip a sync target tipset if it's part of the current chain.
+
 ## Forest v0.33.2 "Night Mare"
 
 Mandatory release for calibnet node operators. It includes support for the NV28 _FireHorse_ network upgrade for calibnet, which is set to activate at epoch `3694534` (2026-05-07T14:00:00Z). It also includes important fixes around the P2P protocols that could cause high memory usage.

@@ -3,6 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
+use bytes::Bytes;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -116,7 +117,7 @@ async fn validate(
             block.validate()?;
         }
         if let Some(ref db) = optional_db {
-            anyhow::ensure!(db.get(&block.cid).ok().flatten() == Some(block.data));
+            anyhow::ensure!(db.get(&block.cid).ok().flatten().map(Bytes::from) == Some(block.data));
         }
     }
     Ok(())
@@ -181,14 +182,17 @@ mod tests {
         let data = msg.as_bytes().to_vec();
         CarBlock {
             cid: Cid::new_v1(0, MultihashCode::Blake2b256.digest(&data)),
-            data,
+            data: data.into(),
         }
     }
 
     fn invalid_block(msg: &str) -> CarBlock {
         let cid = Cid::new_v1(0, MultihashCode::Identity.digest(&[]));
         let data = msg.as_bytes().to_vec();
-        CarBlock { cid, data }
+        CarBlock {
+            cid,
+            data: data.into(),
+        }
     }
 
     async fn create_raw_car_file(

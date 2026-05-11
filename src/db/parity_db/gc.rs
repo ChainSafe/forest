@@ -210,7 +210,10 @@ mod tests {
         }
         // check blocks are present
         for b in &blocks {
-            assert_eq!(Blockstore::get(&db, &b.cid)?.as_ref(), Some(&b.data));
+            assert_eq!(
+                Blockstore::get(&db, &b.cid)?.map(Bytes::from).as_ref(),
+                Some(&b.data)
+            );
         }
         // reset gc columns
         db.reset_gc_columns()?;
@@ -224,7 +227,10 @@ mod tests {
         }
         // check blocks are present
         for b in &blocks {
-            assert_eq!(Blockstore::get(&db, &b.cid)?.as_ref(), Some(&b.data));
+            assert_eq!(
+                Blockstore::get(&db, &b.cid)?.map(Bytes::from).as_ref(),
+                Some(&b.data)
+            );
         }
         Ok(())
     }

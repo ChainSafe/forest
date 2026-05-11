@@ -617,8 +617,8 @@ where
                             tracing::warn!("Error changing head: {e}");
                         }
                     }
-                    Err(RecvError::Lagged(e)) => {
-                        warn!("Head change subscriber lagged: skipping {e} events");
+                    Err(RecvError::Lagged(n)) => {
+                        warn!("Head change subscriber lagged: skipping {n} events");
                     }
                     Err(RecvError::Closed) => {
                         break Ok(());
