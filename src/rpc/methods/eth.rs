@@ -813,6 +813,8 @@ impl RpcMethod<0> for EthBaseFee {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the calculated base fee of the upcoming tipset in attoFIL");
 
     type Params = ();
     type Ok = EthBigInt;
