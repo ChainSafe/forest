@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
 
-/// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (see `forest_wallet_init`).
+/// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (`forest_wallet_init` in `scripts/tests/harness.sh`).
 pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
     std::env::var("FOREST_TEST_PRELOADED_ADDRESS")
         .ok()
@@ -24,11 +24,11 @@ pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
         .expect("FOREST_TEST_PRELOADED_ADDRESS must be set")
 });
 
-/// Test amount to be transferred in integration tests.
+/// Test amount to be transferred between accounts in wallet tests.
 pub const FIL_AMT: &str = "500 atto FIL";
 /// Sentinel `forest-wallet balance --exact-balance` returns for an unfunded address.
 pub const FIL_ZERO: &str = "0 FIL";
-/// Test amount to seed a freshly-created delegated wallet.
+/// Amount to seed a freshly-created delegated wallet.
 pub const DELEGATE_FUND_AMT: &str = "3 micro FIL";
 
 pub const POLL_RETRIES: usize = 20;
