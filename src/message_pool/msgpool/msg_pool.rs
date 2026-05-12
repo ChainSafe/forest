@@ -53,8 +53,8 @@ use crate::message_pool::{
     utils::get_base_fee_lower_bound,
 };
 
-pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
-pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+pub(in crate::message_pool) const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
+pub(in crate::message_pool) const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
 /// Maximum size of a serialized message in bytes. This is an anti-DOS measure to prevent
 /// large messages from being added to the message pool.
 const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
@@ -74,7 +74,7 @@ pub(in crate::message_pool) struct StateNonceCacheKey {
 /// Trust policy for whether a message is from a trusted or untrusted source.
 /// Untrusted sources are subject to stricter limits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TrustPolicy {
+pub(in crate::message_pool) enum TrustPolicy {
     Trusted,
     Untrusted,
 }
@@ -83,10 +83,10 @@ pub use super::msg_set::{MsgSetLimits, StrictnessPolicy};
 
 /// LRU caches owned by [`MessagePool`].
 pub(in crate::message_pool) struct Caches {
-    pub bls_sig: SizeTrackingLruCache<CidWrapper, Signature>,
-    pub sig_val: SizeTrackingLruCache<CidWrapper, ()>,
-    pub key: IdToAddressCache,
-    pub state_nonce: SizeTrackingLruCache<StateNonceCacheKey, u64>,
+    pub(in crate::message_pool) bls_sig: SizeTrackingLruCache<CidWrapper, Signature>,
+    pub(in crate::message_pool) sig_val: SizeTrackingLruCache<CidWrapper, ()>,
+    pub(in crate::message_pool) key: IdToAddressCache,
+    pub(in crate::message_pool) state_nonce: SizeTrackingLruCache<StateNonceCacheKey, u64>,
 }
 
 impl Caches {
@@ -114,11 +114,11 @@ pub struct MessagePool<T> {
     /// Resolved-key senders of locally submitted messages.
     pub(in crate::message_pool) local_addrs: Arc<SyncRwLock<HashSet<Address>>>,
     /// The current tipset (a set of blocks)
-    pub cur_tipset: Arc<SyncRwLock<Tipset>>,
+    pub(in crate::message_pool) cur_tipset: Arc<SyncRwLock<Tipset>>,
     /// The underlying provider
-    pub api: Arc<T>,
+    pub(in crate::message_pool) api: Arc<T>,
     /// Sender half to send messages to other components
-    pub network_sender: flume::Sender<NetworkMessage>,
+    pub(in crate::message_pool) network_sender: flume::Sender<NetworkMessage>,
     /// Republish coordination state
     pub(in crate::message_pool) republish: RepublishState,
     /// Configurable parameters of the message pool.
@@ -157,7 +157,11 @@ where
         self.cur_tipset.read().clone()
     }
 
-    pub fn resolve_to_key(&self, addr: &Address, cur_ts: &Tipset) -> Result<Address, Error> {
+    pub(in crate::message_pool) fn resolve_to_key(
+        &self,
+        addr: &Address,
+        cur_ts: &Tipset,
+    ) -> Result<Address, Error> {
         resolve_to_key(self.api.as_ref(), &self.caches.key, addr, cur_ts)
     }
 
@@ -172,7 +176,7 @@ where
 
     /// Push a signed message to the `MessagePool`. Additionally performs basic
     /// checks on the validity of a message.
-    pub async fn push_internal(
+    async fn push_internal(
         &self,
         msg: SignedMessage,
         trust_policy: TrustPolicy,
@@ -366,11 +370,7 @@ where
     /// Get the state nonce for an address in `cur_ts`, accounting for
     /// messages already included in that tipset. Cached by `(TipsetKey,
     /// Address)`.
-    pub(in crate::message_pool) fn get_state_sequence(
-        &self,
-        addr: &Address,
-        cur_ts: &Tipset,
-    ) -> Result<u64, Error> {
+    fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         let nk = StateNonceCacheKey {
             tipset_key: cur_ts.key().clone(),
             addr: *addr,
