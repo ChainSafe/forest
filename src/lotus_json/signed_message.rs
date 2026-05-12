@@ -52,6 +52,9 @@ impl HasLotusJson for SignedMessage {
                     "To": "f00",
                     "Value": "0",
                     "Version": 0,
+                    "CID": {
+                        "/": "bafy2bzaced3xdk2uf6azekyxgcttujvy3fzyeqmibtpjf2fxcpfdx2zcx4s3g"
+                    },
                 },
                 "Signature": {"Type": 2, "Data": "aGVsbG8gd29ybGQh"},
                 "CID": {

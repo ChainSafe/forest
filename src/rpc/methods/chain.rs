@@ -182,7 +182,7 @@ impl RpcMethod<1> for ChainGetMessage {
     const DESCRIPTION: Option<&'static str> = Some("Returns the message with the specified CID.");
 
     type Params = (Cid,);
-    type Ok = FlattenedApiMessage;
+    type Ok = Message;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -198,8 +198,7 @@ impl RpcMethod<1> for ChainGetMessage {
             ChainMessage::Unsigned(m) => Arc::unwrap_or_clone(m),
         };
 
-        let cid = message.cid();
-        Ok(FlattenedApiMessage { message, cid })
+        Ok(message)
     }
 }
 
@@ -1520,18 +1519,6 @@ pub struct ApiMessage {
 }
 
 lotus_json_with_self!(ApiMessage);
-
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, Eq, PartialEq)]
-pub struct FlattenedApiMessage {
-    #[serde(flatten, with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Message>")]
-    pub message: Message,
-    #[serde(rename = "CID", with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Cid>")]
-    pub cid: Cid,
-}
-
-lotus_json_with_self!(FlattenedApiMessage);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ForestChainExportParams {

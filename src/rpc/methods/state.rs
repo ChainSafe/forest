@@ -3178,6 +3178,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
             fork_upgrade_params: ForkUpgradeParams::try_from(config)
                 .context("Failed to get fork upgrade params")?,
             eip155_chain_id: config.eth_chain_id,
+            genesis_timestamp: ctx.chain_store().genesis_block_header().timestamp,
         };
 
         Ok(params)
@@ -3196,6 +3197,8 @@ pub struct NetworkParams {
     fork_upgrade_params: ForkUpgradeParams,
     #[serde(rename = "Eip155ChainID")]
     eip155_chain_id: EthChainId,
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/api/types.go#L163>
+    genesis_timestamp: u64,
 }
 
 lotus_json_with_self!(NetworkParams);
@@ -3235,6 +3238,7 @@ pub struct ForkUpgradeParams {
     upgrade_teep_height: ChainEpoch,
     upgrade_tock_height: ChainEpoch,
     upgrade_golden_week_height: ChainEpoch,
+    upgrade_fire_horse_height: ChainEpoch,
     //upgrade_xxx_height: ChainEpoch,
 }
 
@@ -3284,7 +3288,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_teep_height: get_height(Teep)?,
             upgrade_tock_height: get_height(Tock)?,
             upgrade_golden_week_height: get_height(GoldenWeek)?,
-            //upgrade_firehorse_height: get_height(FireHorse)?,
+            upgrade_fire_horse_height: get_height(FireHorse)?,
         })
     }
 }

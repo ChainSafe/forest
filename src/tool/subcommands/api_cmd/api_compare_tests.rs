@@ -2375,9 +2375,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 shared_tipset.key().into(),
             ))
             .unwrap(),
-            |forest_api_msg, lotus_api_msg| {
-                let forest_msg = forest_api_msg.message;
-                let lotus_msg = lotus_api_msg.message;
+            |forest_msg, lotus_msg| {
                 // Validate that the gas limit is identical (must be deterministic)
                 if forest_msg.gas_limit != lotus_msg.gas_limit {
                     return false;

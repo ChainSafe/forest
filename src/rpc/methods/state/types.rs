@@ -11,14 +11,16 @@ use crate::shim::{
     econ::TokenAmount,
     error::ExitCode,
     executor::Receipt,
+    fvm_latest::trace::IpldOperation,
     message::Message,
     state_tree::{ActorID, ActorState},
 };
 use cid::Cid;
 use fvm_ipld_encoding::RawBytes;
 use num::Zero as _;
-use schemars::JsonSchema;
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -139,6 +141,60 @@ impl MessageGasCost {
     }
 }
 
+/// IPLD operation kind for [`TraceIpld`].
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    SerializeDisplay,
+    DeserializeFromStr,
+    strum::Display,
+    strum::EnumString,
+)]
+#[strum(serialize_all = "PascalCase")]
+pub enum TraceIpldOp {
+    Get,
+    Put,
+    #[strum(to_string = "Unknown", default)]
+    Unknown(String),
+}
+
+impl JsonSchema for TraceIpldOp {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "TraceIpldOp".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        schemars::json_schema!({
+            "type": "string",
+            "enum": ["Get", "Put", "Unknown"],
+        })
+    }
+}
+
+impl From<IpldOperation> for TraceIpldOp {
+    fn from(op: IpldOperation) -> Self {
+        match op {
+            IpldOperation::Get => Self::Get,
+            IpldOperation::Put => Self::Put,
+        }
+    }
+}
+
+/// IPLD operation details attached to an [`ExecutionTrace`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct TraceIpld {
+    pub op: TraceIpldOp,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Cid>")]
+    pub cid: Cid,
+    pub size: u64,
+}
+
+lotus_json_with_self!(TraceIpld);
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ExecutionTrace {
@@ -149,6 +205,13 @@ pub struct ExecutionTrace {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Vec<ExecutionTrace>>")]
     pub subcalls: Vec<ExecutionTrace>,
+    /// FVM invocation logs (not EVM actor / `eth_getLogs` event logs).
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L115>
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub logs: Vec<String>,
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L116>
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ipld_ops: Vec<TraceIpld>,
 }
 
 impl ExecutionTrace {
@@ -228,7 +291,7 @@ pub struct GasTrace {
 lotus_json_with_self!(GasTrace);
 
 impl PartialEq for GasTrace {
-    /// Ignore [`Self::total_gas`] as it is implementation-dependent
+    /// Ignore [`Self::time_taken`] as it is implementation-dependent
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.total_gas == other.total_gas

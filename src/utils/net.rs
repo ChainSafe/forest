@@ -31,8 +31,9 @@ use url::Url;
 /// kernel silently drops the completed handshakes and clients only retry
 /// after `TCP_RTO_MIN` (~1s on Linux). The kernel further clamps the
 /// requested backlog to `/proc/sys/net/core/somaxconn`, so it is safe to
-/// ask for a large value.
-const MIN_LISTEN_BACKLOG: u32 = 1024;
+/// ask for a large value. 4096 matches the Linux default `somaxconn` on
+/// kernels 5.4 and newer, and what Lotus and most other servers use.
+const MIN_LISTEN_BACKLOG: u32 = 4096;
 
 /// Bind a TCP listener with an explicit listen backlog, floored at
 /// [`MIN_LISTEN_BACKLOG`]. Use this for any externally-facing listener that

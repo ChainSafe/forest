@@ -5,7 +5,6 @@ use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
-use crate::rpc::chain::FlattenedApiMessage;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
@@ -305,7 +304,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
         Some("Returns the estimated gas for the given parameters.");
 
     type Params = (Message, Option<MessageSendSpec>, ApiTipsetKey);
-    type Ok = FlattenedApiMessage;
+    type Ok = Message;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -313,8 +312,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let message = estimate_message_gas(&ctx, msg, spec, tsk).await?;
-        let cid = message.cid();
-        Ok(FlattenedApiMessage { message, cid })
+        Ok(message)
     }
 }
 
