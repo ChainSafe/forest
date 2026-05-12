@@ -6,19 +6,52 @@ pub use download_file::*;
 
 use crate::utils::io::WithProgress;
 use crate::utils::reqwest_resume;
+use anyhow::Context as _;
 use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
 use reqwest::Response;
+use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 use tap::Pipe;
 use tokio::io::AsyncBufRead;
+use tokio::net::TcpListener;
 use tokio_util::{
     compat::TokioAsyncReadCompatExt,
     either::Either::{Left, Right},
 };
 use tracing::info;
 use url::Url;
+
+/// Minimum listen backlog applied by [`bind_tcp_listener`].
+///
+/// `tokio::net::TcpListener::bind` (via `mio` and the Rust standard library)
+/// uses a fixed backlog of 128, which is too small to absorb bursts of
+/// simultaneous connection attempts: when the accept queue overflows, the
+/// kernel silently drops the completed handshakes and clients only retry
+/// after `TCP_RTO_MIN` (~1s on Linux). The kernel further clamps the
+/// requested backlog to `/proc/sys/net/core/somaxconn`, so it is safe to
+/// ask for a large value.
+const MIN_LISTEN_BACKLOG: u32 = 1024;
+
+/// Bind a TCP listener with an explicit listen backlog, floored at
+/// [`MIN_LISTEN_BACKLOG`]. Use this for any externally-facing listener that
+/// might face a burst of simultaneous connection attempts.
+pub async fn bind_tcp_listener(addr: SocketAddr, backlog: u32) -> anyhow::Result<TcpListener> {
+    let socket = if addr.is_ipv6() {
+        tokio::net::TcpSocket::new_v6()
+    } else {
+        tokio::net::TcpSocket::new_v4()
+    }
+    .with_context(|| format!("could not create TCP socket for {addr}"))?;
+    let _ = socket.set_reuseaddr(true);
+    socket
+        .bind(addr)
+        .with_context(|| format!("could not bind to {addr}"))?;
+    socket
+        .listen(backlog.max(MIN_LISTEN_BACKLOG))
+        .with_context(|| format!("could not listen on {addr}"))
+}
 
 pub fn global_http_client() -> reqwest::Client {
     static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
