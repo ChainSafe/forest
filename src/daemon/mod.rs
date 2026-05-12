@@ -44,7 +44,6 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::{
-    net::TcpListener,
     signal::{
         ctrl_c,
         unix::{SignalKind, signal},
@@ -226,10 +225,8 @@ async fn maybe_start_metrics_service(
     ctx: &AppContext,
 ) -> anyhow::Result<()> {
     if config.client.enable_metrics_endpoint {
-        // Start Prometheus server port
-        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
-            .await
-            .with_context(|| format!("could not bind to {}", config.client.metrics_address))?;
+        let prometheus_listener =
+            crate::utils::net::bind_tcp_listener(config.client.metrics_address, 0).await?;
         info!(
             "Prometheus server started at {}",
             config.client.metrics_address
@@ -382,7 +379,7 @@ async fn maybe_start_health_check_service(
         };
         let healthcheck_address = forest_state.config.client.healthcheck_address;
         info!("Healthcheck endpoint will listen at {healthcheck_address}");
-        let listener = tokio::net::TcpListener::bind(healthcheck_address).await?;
+        let listener = crate::utils::net::bind_tcp_listener(healthcheck_address, 0).await?;
         services.spawn(async move {
             crate::health::init_healthcheck_server(forest_state, listener)
                 .await
@@ -472,12 +469,11 @@ fn maybe_start_rpc_service(
             let mpool_locker = MpoolLocker::new();
             let temp_dir = Arc::new(ctx.temp_dir.clone());
             async move {
-                let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
-                    .await
-                    .map_err(|e| {
-                        anyhow::anyhow!("Unable to listen on RPC endpoint {rpc_address}: {e}")
-                    })
-                    .unwrap();
+                let rpc_listener = crate::utils::net::bind_tcp_listener(
+                    rpc_address,
+                    crate::rpc::default_max_connections(),
+                )
+                .await?;
                 start_rpc(
                     RPCState {
                         state_manager,
