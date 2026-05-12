@@ -31,6 +31,8 @@
 
 - [#7025](https://github.com/ChainSafe/forest/pull/7025): `FOREST_RPC_MAX_RESPONSE_BODY_SIZE` environment variable. Sets the JSON-RPC server's maximum response body size in bytes (default 64 MiB). Operators serving log-heavy `eth_getTransactionReceipt`/`eth_getBlockReceipts` calls can raise this above 64 MiB.
 
+- [#6917](https://github.com/ChainSafe/forest/issues/6917): Set the mainnet NV28 _FireHorse_ network upgrade epoch to `6052800` which corresponds to `Wed May 27 02:00:00 PM UTC 2026`.
+
 ### Changed
 
 ### Removed
