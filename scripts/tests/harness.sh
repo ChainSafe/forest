@@ -156,8 +156,8 @@ function forest_wallet_init {
 
   forest_init "$@"
 
-  PRELOADED_ADDRESS="$($FOREST_WALLET_PATH import preloaded_wallet.key)"
-  export PRELOADED_ADDRESS
+  FOREST_TEST_PRELOADED_ADDRESS="$($FOREST_WALLET_PATH import preloaded_wallet.key)"
+  export FOREST_TEST_PRELOADED_ADDRESS
 
   $FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key
 }

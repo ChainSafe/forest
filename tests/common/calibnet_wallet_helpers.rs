@@ -4,8 +4,6 @@
 //! Helpers for the calibnet wallet integration tests in
 //! [`tests/calibnet_wallet.rs`](../../calibnet_wallet.rs).
 
-#![allow(dead_code)]
-
 use std::io::Write as _;
 use std::process::Command;
 use std::sync::LazyLock;
@@ -15,20 +13,22 @@ use anyhow::{Context as _, bail};
 use parking_lot::Mutex;
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
+use tokio::sync::OnceCell;
 
-/// Funded preloaded address from env `PRELOADED_ADDRESS` (see `forest_wallet_init`).
-pub static PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
-    std::env::var("PRELOADED_ADDRESS")
+/// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (see `forest_wallet_init`).
+pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
+    std::env::var("FOREST_TEST_PRELOADED_ADDRESS")
         .ok()
         .map(|s| s.trim().to_owned())
         .filter(|s| !s.is_empty())
-        .expect("PRELOADED_ADDRESS must be set")
+        .expect("FOREST_TEST_PRELOADED_ADDRESS must be set")
 });
 
+/// Test amount to be transferred in integration tests.
 pub const FIL_AMT: &str = "500 atto FIL";
 /// Sentinel `forest-wallet balance --exact-balance` returns for an unfunded address.
 pub const FIL_ZERO: &str = "0 FIL";
-/// Amount used to seed a freshly-created delegated wallet.
+/// Test amount to seed a freshly-created delegated wallet.
 pub const DELEGATE_FUND_AMT: &str = "3 micro FIL";
 
 pub const POLL_RETRIES: usize = 20;
@@ -187,6 +187,39 @@ pub async fn poll_until_changed(
         Ok((bal != baseline).then_some(bal))
     })
     .await
+}
+
+static FUNDED_DELEGATED: OnceCell<String> = OnceCell::const_new();
+
+/// Delegated signer: create once on local, fund locally, mirror to remote
+/// for tests that query or sign.
+pub async fn funded_delegated_addr() -> &'static str {
+    let addr = FUNDED_DELEGATED
+        .get_or_try_init(|| async {
+            let addr = wallet(Backend::Local, &["new", "delegated"]).unwrap();
+            let fund_msg = send_from(
+                &FOREST_TEST_PRELOADED_ADDRESS,
+                &addr,
+                DELEGATE_FUND_AMT,
+                Backend::Local,
+            )
+            .unwrap();
+            eprintln!("delegated funding send to {addr} msg: {fund_msg}");
+            let funded = poll_until_funded(&addr, Backend::Local).await.unwrap();
+            eprintln!("delegated wallet {addr} funded balance: {funded}");
+
+            let exported = export_to_temp_file(&addr, Backend::Local).unwrap();
+            let path = exported
+                .path()
+                .to_str()
+                .expect("temp path is not valid UTF-8");
+            let mirrored = wallet(Backend::Remote, &["import", path]).unwrap();
+            assert_eq!(mirrored, addr, "mirror mismatch: {mirrored} != {addr}");
+            Ok::<_, anyhow::Error>(addr)
+        })
+        .await
+        .unwrap();
+    addr.as_str()
 }
 
 static HTTP: LazyLock<reqwest::Client> = LazyLock::new(|| {
