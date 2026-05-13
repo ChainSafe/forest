@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::db::EthMappingsStore;
 use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 mod auth_layer;
 mod channel;
@@ -552,7 +553,7 @@ pub async fn start_rpc<DB>(
     filter_list: Option<FilterList>,
 ) -> anyhow::Result<()>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     let filter_list = filter_list.unwrap_or_default();
     // `Arc` is needed because we will share the state between two modules
@@ -705,7 +706,7 @@ where
 
 fn create_modules<DB>(state: Arc<RPCState<DB>>) -> HashMap<ApiPaths, RpcModule<RPCState<DB>>>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     let mut modules = HashMap::default();
     for api_version in ApiPaths::value_variants() {

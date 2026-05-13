@@ -59,6 +59,7 @@
 //! ```
 //!
 
+use crate::db::EthMappingsStore;
 use crate::rpc::eth::pubsub_trait::{
     EthPubSubApiServer, LogFilter, SubscriptionKind, SubscriptionParams,
 };
@@ -77,7 +78,7 @@ pub struct EthPubSub<DB> {
 #[async_trait::async_trait]
 impl<DB> EthPubSubApiServer for EthPubSub<DB>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     async fn subscribe(
         &self,
@@ -111,7 +112,7 @@ where
 
 impl<DB> EthPubSub<DB>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     async fn handle_new_heads_subscription(
         &self,

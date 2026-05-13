@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::rpc::chain::{ChainGetTipSetFinalityStatus, SAFE_HEIGHT_DISTANCE};
+use crate::{
+    db::EthMappingsStore,
+    rpc::chain::{ChainGetTipSetFinalityStatus, SAFE_HEIGHT_DISTANCE},
+};
 use anyhow::Context as _;
 
 pub struct TipsetResolver<'a, DB>
@@ -15,7 +18,7 @@ where
 
 impl<'a, DB> TipsetResolver<'a, DB>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     /// Creates a TipsetResolver that holds a reference to the given chain context and the API version to use for tipset resolution.
     pub fn new(ctx: &'a Ctx<DB>, api_version: ApiPaths) -> Self {

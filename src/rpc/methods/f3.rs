@@ -21,7 +21,7 @@ use crate::{
     chain_sync::TipsetValidator,
     db::{
         BlockstoreReadCacheStats as _, BlockstoreWithReadCache, DefaultBlockstoreReadCacheStats,
-        LruBlockstoreReadCache,
+        EthMappingsStore, LruBlockstoreReadCache,
     },
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::{HasLotusJson as _, LotusJson},
@@ -91,7 +91,7 @@ impl RpcMethod<1> for GetTipsetByEpoch {
     type Ok = F3TipSet;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore>,
         (epoch,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -170,7 +170,7 @@ pub enum GetPowerTable {}
 
 impl GetPowerTable {
     async fn compute(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: &Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         ts: &Tipset,
     ) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
@@ -447,7 +447,7 @@ impl RpcMethod<1> for GetPowerTable {
     type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (f3_tsk,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -603,7 +603,7 @@ impl RpcMethod<2> for SignMessage {
     type Ok = Signature;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (pubkey, message): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -714,7 +714,7 @@ impl RpcMethod<1> for F3GetECPowerTable {
     type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk_opt),): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

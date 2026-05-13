@@ -27,6 +27,7 @@ use crate::{
         tipset_syncer::{TipsetSyncerError, validate_tipset},
         validation::GossipBlockValidator,
     },
+    db::EthMappingsStore,
     libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
     message_pool::MessagePool,
     networks::calculate_expected_epoch,
@@ -146,7 +147,10 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         );
     }
 
-    pub async fn run(&self) -> anyhow::Result<()> {
+    pub async fn run(&self) -> anyhow::Result<()>
+    where
+        DB: EthMappingsStore,
+    {
         chain_follower(
             &self.tasks,
             &self.state_machine,
@@ -166,7 +170,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
 
 #[allow(clippy::too_many_arguments)]
 // We receive new full tipsets from the p2p swarm, and from miners that use Forest as their frontend.
-async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
+async fn chain_follower<DB: Blockstore + EthMappingsStore + Sync + Send + 'static>(
     tasks: &Arc<Mutex<HashSet<SyncTask>>>,
     state_machine: &Arc<Mutex<SyncStateMachine<DB>>>,
     state_manager: &Arc<StateManager<DB>>,
@@ -671,7 +675,10 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         }
     }
 
-    fn add_full_tipset(&mut self, tipset: FullTipset) {
+    fn add_full_tipset(&mut self, tipset: FullTipset)
+    where
+        DB: EthMappingsStore,
+    {
         if let Err(why) = TipsetValidator(&tipset).validate(
             &self.cs,
             self.bad_block_cache.as_ref().map(AsRef::as_ref),
@@ -799,7 +806,10 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         }
     }
 
-    pub fn update(&mut self, event: SyncEvent) {
+    pub fn update(&mut self, event: SyncEvent)
+    where
+        DB: EthMappingsStore,
+    {
         tracing::trace!("update: {event}");
         match event {
             SyncEvent::NewFullTipsets(tipsets) => {
@@ -893,7 +903,7 @@ impl std::fmt::Display for SyncTask {
 }
 
 impl SyncTask {
-    async fn execute<DB: Blockstore + Sync + Send + 'static>(
+    async fn execute<DB: Blockstore + EthMappingsStore + Sync + Send + 'static>(
         self,
         network: SyncNetworkContext<DB>,
         state_manager: Arc<StateManager<DB>>,

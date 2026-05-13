@@ -4,6 +4,7 @@
 use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
+use crate::db::EthMappingsStore;
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
 use crate::shim::executor::ApplyRet;
@@ -204,7 +205,7 @@ impl RpcMethod<2> for GasEstimateGasLimit {
     type Ok = i64;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (msg, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -219,7 +220,7 @@ impl GasEstimateGasLimit {
         ApiTipsetKey(tsk): &ApiTipsetKey,
     ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Tipset)>
     where
-        DB: Blockstore + Send + Sync + 'static,
+        DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
     {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
@@ -273,7 +274,7 @@ impl GasEstimateGasLimit {
         tsk: &ApiTipsetKey,
     ) -> Result<i64>
     where
-        DB: Blockstore + Send + Sync + 'static,
+        DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
     {
         let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk)
             .await
@@ -307,7 +308,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
     type Ok = Message;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (msg, spec, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -323,7 +324,7 @@ pub async fn estimate_message_gas<DB>(
     tsk: ApiTipsetKey,
 ) -> Result<Message, ServerError>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     if msg.gas_limit == 0 {
         let gl = GasEstimateGasLimit::estimate_gas_limit(data, msg.clone(), &tsk).await?;

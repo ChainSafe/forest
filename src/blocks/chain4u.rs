@@ -257,6 +257,14 @@ impl<T: EthMappingsStore> EthMappingsStore for Chain4U<T> {
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         self.blockstore.delete(keys)
     }
+
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+        self.blockstore.tipset_key_by_epoch(epoch)
+    }
+
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
+        self.blockstore.set_tipset_key_at_epoch(ts)
+    }
 }
 
 #[derive(Default)]

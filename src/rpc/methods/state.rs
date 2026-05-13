@@ -10,6 +10,7 @@ use crate::beacon::Beacon as _;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
+use crate::db::EthMappingsStore;
 use crate::eth::EthChainId;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
@@ -84,7 +85,7 @@ const INITIAL_PLEDGE_DEN: u64 = 100;
 pub enum StateCall {}
 
 impl StateCall {
-    pub fn run<DB: Blockstore + Send + Sync + 'static>(
+    pub fn run<DB: Blockstore + EthMappingsStore + Send + Sync + 'static>(
         state_manager: &StateManager<DB>,
         message: &Message,
         tsk: Option<TipsetKey>,
@@ -109,7 +110,7 @@ impl RpcMethod<2> for StateCall {
     type Ok = ApiInvocResult;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (message, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -133,7 +134,7 @@ impl RpcMethod<2> for StateReplay {
     /// returns the result of executing the indicated message, assuming it was
     /// executed in the indicated tipset.
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk), message_cid): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -203,7 +204,7 @@ impl RpcMethod<2> for StateAccountKey {
     type Ok = Address;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -329,7 +330,7 @@ impl RpcMethod<2> for StateGetActorV2 {
     type Ok = Option<ActorState>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (address, selector): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -352,7 +353,7 @@ impl RpcMethod<2> for StateGetID {
     type Ok = Address;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (address, selector): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1566,7 +1567,7 @@ impl RpcMethod<3> for ForestStateCompute {
     type Ok = Vec<ForestComputeStateOutput>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (from_epoch, n_epochs, force_recompute): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1666,7 +1667,7 @@ impl RpcMethod<3> for StateCompute {
     type Ok = ComputeStateOutput;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (height, messages, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1720,7 +1721,7 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
     type Ok = Vec<u8>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore>,
         (personalization, rand_epoch, entropy, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1750,7 +1751,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
     type Ok = Vec<u8>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore>,
         (rand_epoch, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1777,7 +1778,7 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     type Ok = Vec<u8>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore>,
         (personalization, rand_epoch, entropy, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1807,7 +1808,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
     type Ok = Vec<u8>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore>,
         (rand_epoch, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -3129,7 +3130,7 @@ impl RpcMethod<2> for StateGetAllocationForPendingDeal {
     type Ok = Option<Allocation>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (deal_id, tsk): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

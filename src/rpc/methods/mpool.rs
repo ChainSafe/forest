@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas::estimate_message_gas;
+use crate::db::EthMappingsStore;
 use crate::lotus_json::NotNullVec;
 use crate::message::SignedMessage;
 use crate::rpc::error::ServerError;
@@ -30,7 +31,7 @@ impl RpcMethod<1> for MpoolGetNonce {
     type Ok = u64;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -52,7 +53,7 @@ impl RpcMethod<1> for MpoolPending {
     type Ok = NotNullVec<SignedMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (ApiTipsetKey(tipset_key),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -126,7 +127,7 @@ impl RpcMethod<2> for MpoolSelect {
     type Ok = Vec<SignedMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (ApiTipsetKey(tipset_key), ticket_quality): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -150,7 +151,7 @@ impl RpcMethod<1> for MpoolPush {
     type Ok = Cid;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (message,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -173,7 +174,7 @@ impl RpcMethod<1> for MpoolBatchPush {
     type Ok = Vec<Cid>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (messages,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -199,7 +200,7 @@ impl RpcMethod<1> for MpoolPushUntrusted {
     type Ok = Cid;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (message,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -225,7 +226,7 @@ impl RpcMethod<1> for MpoolBatchPushUntrusted {
     type Ok = Vec<Cid>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (messages,): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -248,7 +249,7 @@ impl RpcMethod<2> for MpoolPushMessage {
     type Ok = SignedMessage;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (message, send_spec): Self::Params,
         extensions: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

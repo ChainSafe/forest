@@ -3,6 +3,7 @@
 
 use super::circulating_supply::GenesisInfo;
 use super::*;
+use crate::db::EthMappingsStore;
 use crate::interpreter::{BlockMessages, ExecutionContext, VM, VMTrace};
 use crate::shim::message::Message;
 use crate::state_migration::run_state_migrations;
@@ -14,7 +15,7 @@ use tracing::{error, info, instrument};
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     /// Load the state of a tipset, including state root, message receipts
     pub async fn load_tipset_state(self: &Arc<Self>, ts: &Tipset) -> anyhow::Result<TipsetState> {

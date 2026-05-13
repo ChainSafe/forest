@@ -28,6 +28,7 @@ use crate::blocks::Tipset;
 use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
+use crate::db::EthMappingsStore;
 use crate::rpc::eth::EVM_WORD_LENGTH;
 use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
@@ -288,7 +289,9 @@ impl EthEventHandler {
         )
     }
 
-    pub async fn collect_events_for_tipsets<DB: Blockstore + Send + Sync + 'static>(
+    pub async fn collect_events_for_tipsets<
+        DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
+    >(
         ctx: &Ctx<DB>,
         tipsets: impl Iterator<Item = Tipset>,
         spec: Option<&impl Matcher>,
@@ -319,7 +322,7 @@ impl EthEventHandler {
         Ok(())
     }
 
-    pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
+    pub async fn collect_events<DB: Blockstore + EthMappingsStore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Tipset,
         spec: Option<&impl Matcher>,
@@ -435,7 +438,9 @@ impl EthEventHandler {
         Ok(chain_events)
     }
 
-    pub async fn get_events_for_parsed_filter<DB: Blockstore + Send + Sync + 'static>(
+    pub async fn get_events_for_parsed_filter<
+        DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
+    >(
         &self,
         ctx: &Ctx<DB>,
         pf: &ParsedFilter,

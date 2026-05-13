@@ -301,6 +301,14 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         EthMappingsStore::delete(self.writer(), keys)
     }
+
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+        EthMappingsStore::tipset_key_by_epoch(self.writer(), epoch)
+    }
+
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
+        EthMappingsStore::set_tipset_key_at_epoch(self.writer(), ts)
+    }
 }
 
 impl<T: Blockstore + SettingsStore> super::super::HeaviestTipsetKeyProvider for ManyCar<T> {
