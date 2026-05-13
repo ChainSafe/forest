@@ -41,7 +41,7 @@ fn forest_headless_no_encrypt_no_passphrase_should_succeed() {
 fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() {
     let (config_file, data_dir) = create_tmp_config();
     daemon()
-        .env(FOREST_KEYSTORE_PHRASE_ENV, "hunter2")
+        .env(FOREST_KEYSTORE_PHRASE_ENV, "hunter3")
         .common_args()
         .arg("--config")
         .arg(config_file)
