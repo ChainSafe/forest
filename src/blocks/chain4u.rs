@@ -10,6 +10,7 @@ use crate::{
     beacon::BeaconEntry,
     blocks::*,
     db::{EthMappingsStore, MemoryDB, SettingsStore, car::PlainCar},
+    libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite},
     networks,
     rpc::eth::types::EthHash,
     shim::{
@@ -264,6 +265,24 @@ impl<T: EthMappingsStore> EthMappingsStore for Chain4U<T> {
 
     fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
         self.blockstore.set_tipset_key_at_epoch(ts)
+    }
+}
+
+impl<T: BitswapStoreRead> BitswapStoreRead for Chain4U<T> {
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
+        self.blockstore.contains(cid)
+    }
+
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.blockstore.get(cid)
+    }
+}
+
+impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for Chain4U<T> {
+    type Hashes = <T as BitswapStoreReadWrite>::Hashes;
+
+    fn insert(&self, block: &crate::libp2p_bitswap::Block64<Self::Hashes>) -> anyhow::Result<()> {
+        self.blockstore.insert(block)
     }
 }
 

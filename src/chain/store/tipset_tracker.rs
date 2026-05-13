@@ -17,12 +17,12 @@ use tracing::{debug, warn};
 #[derive(Default)]
 pub(in crate::chain) struct TipsetTracker<DB> {
     entries: Mutex<BTreeMap<ChainEpoch, Vec<Cid>>>,
-    db: Arc<DB>,
+    db: DB,
     chain_config: Arc<ChainConfig>,
 }
 
 impl<DB: Blockstore> TipsetTracker<DB> {
-    pub fn new(db: Arc<DB>, chain_config: Arc<ChainConfig>) -> Self {
+    pub fn new(db: DB, chain_config: Arc<ChainConfig>) -> Self {
         Self {
             entries: Default::default(),
             db,

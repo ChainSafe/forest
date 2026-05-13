@@ -10,6 +10,7 @@ use crate::networks::{ChainConfig, Height};
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{executor::Receipt, message::Message, version::NetworkVersion};
+use crate::state_manager::ExecutedTipset;
 use crate::utils::ShallowClone;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
@@ -28,10 +29,6 @@ use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
 use crate::{
     interpreter::{BlockMessages, VMTrace},
     rpc::chain::PathChanges,
-};
-use crate::{
-    libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite},
-    state_manager::ExecutedTipset,
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
@@ -83,7 +80,7 @@ pub struct ChainStore<DB> {
     chain_index: ChainIndex,
 
     /// Tracks blocks for the purpose of forming tipsets.
-    tipset_tracker: TipsetTracker<DB>,
+    tipset_tracker: TipsetTracker<DbImpl>,
 
     genesis_block_header: CachingBlockHeader,
 
@@ -100,34 +97,7 @@ pub struct ChainStore<DB> {
     messages_in_tipset_cache: MessagesInTipsetCache,
 }
 
-impl<DB> BitswapStoreRead for ChainStore<DB>
-where
-    DB: BitswapStoreRead,
-{
-    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        self.db.contains(cid)
-    }
-
-    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.db.get(cid)
-    }
-}
-
-impl<DB> BitswapStoreReadWrite for ChainStore<DB>
-where
-    DB: BitswapStoreReadWrite,
-{
-    type Hashes = <DB as BitswapStoreReadWrite>::Hashes;
-
-    fn insert(&self, block: &crate::libp2p_bitswap::Block64<Self::Hashes>) -> anyhow::Result<()> {
-        self.db.insert(block)
-    }
-}
-
-impl<DB> ChainStore<DB>
-where
-    DB: Blockstore,
-{
+impl<DB: Blockstore> ChainStore<DB> {
     pub fn new(
         db: Arc<DB>,
         heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
@@ -168,7 +138,7 @@ where
         let cs = Self {
             head_changes_tx: publisher,
             chain_index,
-            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
+            tipset_tracker: TipsetTracker::new(db.clone().into(), chain_config.clone()),
             db,
             heaviest_tipset_key_provider,
             heaviest_tipset,

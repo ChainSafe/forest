@@ -7,7 +7,8 @@ use super::{
     *,
 };
 use crate::{
-    tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore, utils::ShallowClone,
+    libp2p_bitswap::*, tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore,
+    utils::ShallowClone,
 };
 use ambassador::Delegate;
 use spire_enum::prelude::delegated_enum;
@@ -16,6 +17,8 @@ use std::sync::Arc;
 #[derive(Delegate)]
 #[delegate(SettingsStore)]
 #[delegate(EthMappingsStore)]
+#[delegate(BitswapStoreRead)]
+#[delegate(BitswapStoreReadWrite)]
 #[delegated_enum(impl_conversions)]
 pub enum DbImpl {
     ManyCarWithGarbageCollectableParityDb(Arc<ManyCar<Arc<GarbageCollectableParityDb>>>),
@@ -35,15 +38,15 @@ impl ShallowClone for DbImpl {
 
 impl Blockstore for DbImpl {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        delegate_db_impl!(self.get(k))
+        delegate_db_impl!(self => |i| Blockstore::get(i, k))
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        delegate_db_impl!(self.put_keyed(k, block))
+        delegate_db_impl!(self => |i| Blockstore::put_keyed(i, k, block))
     }
 
     fn has(&self, k: &Cid) -> anyhow::Result<bool> {
-        delegate_db_impl!(self.has(k))
+        delegate_db_impl!(self => |i| Blockstore::has(i, k))
     }
 
     #[allow(clippy::disallowed_types)]
@@ -56,7 +59,7 @@ impl Blockstore for DbImpl {
         Self: Sized,
         D: AsRef<[u8]>,
     {
-        delegate_db_impl!(self.put(mh_code, block))
+        delegate_db_impl!(self => |i| Blockstore::put(i, mh_code, block))
     }
 
     #[allow(clippy::disallowed_types)]
@@ -66,7 +69,7 @@ impl Blockstore for DbImpl {
         D: AsRef<[u8]>,
         I: IntoIterator<Item = (multihash_codetable::Code, fvm_ipld_blockstore::Block<D>)>,
     {
-        delegate_db_impl!(self.put_many(blocks))
+        delegate_db_impl!(self => |i| Blockstore::put_many(i, blocks))
     }
 
     fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
@@ -75,6 +78,6 @@ impl Blockstore for DbImpl {
         D: AsRef<[u8]>,
         I: IntoIterator<Item = (Cid, D)>,
     {
-        delegate_db_impl!(self.put_many_keyed(blocks))
+        delegate_db_impl!(self => |i| Blockstore::put_many_keyed(i, blocks))
     }
 }

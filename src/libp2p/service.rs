@@ -6,7 +6,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
+use crate::{blocks::GossipBlock, rpc::net::NetInfoResult, utils::ShallowClone as _};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use crate::{
     libp2p_bitswap::{
@@ -339,8 +339,8 @@ where
                     Some(message) => {
                         handle_network_message(
                             swarm_stream.get_mut(),
-                            self.cs.clone(),
-                            bitswap_request_manager.clone(),
+                            self.cs.blockstore().shallow_clone(),
+                            bitswap_request_manager.shallow_clone(),
                             message,
                             &self.network_sender_out,
                             &self.peer_manager).await;
