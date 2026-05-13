@@ -20,22 +20,11 @@ pub use events::MpoolUpdate;
 
 pub(in crate::message_pool) use utils::recover_sig;
 
-use crate::message::{MessageRead as _, SignedMessage};
-use crate::shim::address::Address;
-use ahash::HashMap;
-
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
 const RBF_DENOM: u64 = 256;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const MIN_GAS: u64 = 1298450;
-
-pub(in crate::message_pool) fn add_to_selected_msgs(
-    m: SignedMessage,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-) {
-    rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
-}
 
 #[cfg(test)]
 pub mod tests {
@@ -44,7 +33,7 @@ pub mod tests {
     use crate::blocks::Tipset;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
     use crate::libp2p::NetworkMessage;
-    use crate::message::SignedMessage;
+    use crate::message::{MessageRead as _, SignedMessage};
     use crate::networks::ChainConfig;
     use crate::shim::{
         address::Address,

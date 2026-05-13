@@ -23,9 +23,9 @@ use crate::shim::crypto::Signature;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
 
-use super::{msg_pool::MessagePool, provider::Provider, utils::recover_sig};
+use super::{msg_pool::MessagePool, provider::Provider, utils, utils::recover_sig};
 use crate::message_pool::{
-    Error, add_to_selected_msgs,
+    Error,
     msg_chain::{Chains, NodeKey, create_message_chains},
     msg_pool::resolve_to_key,
     msgpool::{MIN_GAS, pending_store::PendingStore},
@@ -846,7 +846,7 @@ where
             }
         }
         for msg in msgs {
-            add_to_selected_msgs(msg, rmsgs);
+            utils::add_to_selected_msgs(msg, rmsgs);
         }
     }
 

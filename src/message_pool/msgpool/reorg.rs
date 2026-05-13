@@ -8,10 +8,11 @@ use tracing::error;
 
 use crate::blocks::Tipset;
 use crate::message::{MessageRead as _, SignedMessage};
+use crate::message_pool::msgpool::utils;
 use crate::message_pool::{
     Error,
     msg_pool::{StrictnessPolicy, TrustPolicy},
-    msgpool::{add_to_selected_msgs, msg_pool::MessagePool, recover_sig},
+    msgpool::{msg_pool::MessagePool, recover_sig},
     provider::Provider,
 };
 use crate::shim::address::Address;
@@ -63,7 +64,7 @@ where
             }
 
             for msg in msgs {
-                add_to_selected_msgs(msg, &mut rmsgs);
+                utils::add_to_selected_msgs(msg, &mut rmsgs);
             }
         }
 

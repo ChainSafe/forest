@@ -21,6 +21,7 @@ use crate::shim::{
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     gas::{Gas, price_list_by_network_version},
+    state_tree::ActorState,
 };
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
@@ -42,6 +43,7 @@ use tokio::{
 };
 use tracing::warn;
 
+use crate::message_pool::msgpool::utils;
 use crate::message_pool::{
     config::MpoolConfig,
     errors::Error,
@@ -53,11 +55,12 @@ use crate::message_pool::{
     utils::get_base_fee_lower_bound,
 };
 
+/// Maximum size of a serialized message in bytes. Anti-DoS measure to keep
+/// the pool from ingesting pathologically large messages.
+const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
+
 pub(in crate::message_pool) const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub(in crate::message_pool) const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
-/// Maximum size of a serialized message in bytes. This is an anti-DOS measure to prevent
-/// large messages from being added to the message pool.
-const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
@@ -174,17 +177,15 @@ where
         Ok(())
     }
 
-    /// Push a signed message to the `MessagePool`. Additionally performs basic
-    /// checks on the validity of a message.
+    /// Push a signed message to the `MessagePool`. Records the sender as
+    /// local and broadcasts on gossip if validation marks it publishable.
     async fn push_internal(
         &self,
         msg: SignedMessage,
         trust_policy: TrustPolicy,
     ) -> Result<Cid, Error> {
-        self.check_message(&msg)?;
         let cid = msg.cid();
-        let cur_ts = self.current_tipset();
-        let publish = self.add_to_pool(msg.clone(), &cur_ts, true, trust_policy)?;
+        let publish = self.add_to_pool(msg.clone(), true, trust_policy)?;
         self.add_local(&msg)?;
         if publish {
             self.publish_pubsub(&msg).await?;
@@ -218,102 +219,57 @@ where
         self.push_internal(msg, TrustPolicy::Untrusted).await
     }
 
-    fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
-        if to_vec(msg)?.len() > MAX_MESSAGE_SIZE {
-            return Err(Error::MessageTooBig);
-        }
-        let to = msg.message().to();
-        if to.protocol() == Protocol::Delegated {
-            EthAddress::from_filecoin_address(&to).context(format!(
-                "message recipient {to} is a delegated address but not a valid Eth Address"
-            ))?;
-        }
-        valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
-        if msg.value() > *crate::shim::econ::TOTAL_FILECOIN {
-            return Err(Error::MessageValueTooHigh);
-        }
-        if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {
-            return Err(Error::GasFeeCapTooLow);
-        }
-        self.verify_msg_sig(msg)
-    }
-
-    /// This is a helper to push that will help to make sure that the message
-    /// fits the parameters to be pushed to the `MessagePool`.
+    /// Insert a message received via gossip. Runs full validation. Does
+    /// not publish back to the network.
     pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
-        self.check_message(&msg)?;
-        let ts = self.current_tipset();
-        self.add_to_pool(msg, &ts, false, TrustPolicy::Trusted)?;
+        self.add_to_pool(msg, false, TrustPolicy::Trusted)?;
         Ok(())
     }
 
-    /// Verify the message signature. first check if it has already been
-    /// verified and put into cache. If it has not, then manually verify it
-    /// then put it into cache for future use.
-    fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
-        let cid = msg.cid();
+    /// Message validation.
+    ///
+    /// Returns `publish: bool` — `true` when the message should be gossiped
+    /// after insertion; `false` when a local sender's message failed the
+    /// soft base-fee floor (kept locally, not broadcast).
+    pub(in crate::message_pool) fn validate_for_pool(
+        &self,
+        msg: &SignedMessage,
+        cur_ts: &Tipset,
+        local: bool,
+    ) -> Result<bool, Error> {
+        validate_static(msg)?;
+        validate_signature(msg, &self.caches.sig_val, self.chain_config.eth_chain_id)?;
 
-        if let Some(()) = self.caches.sig_val.get_cloned(&(cid).into()) {
-            return Ok(());
-        }
+        let expected_sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
+        let sender_actor = self.api.get_actor_after(&msg.from(), cur_ts)?;
 
-        msg.verify(self.chain_config.eth_chain_id)
-            .map_err(|e| Error::Other(e.to_string()))?;
-
-        self.caches.sig_val.push(cid.into(), ());
-
-        Ok(())
+        validate_with_state(
+            msg,
+            &self.chain_config,
+            cur_ts,
+            &sender_actor,
+            expected_sequence,
+            local,
+        )
     }
 
-    /// Validate the message against the current state and add it to the
-    /// pending store. Returns `publish: bool` — `true` when the message
-    /// should be gossiped, `false` when it failed the soft base-fee check
-    /// for a local sender (kept in the pool for later retry).
+    /// Validate `msg` and insert it into the pending pool.
+    ///
+    /// Returns `publish: bool` (see [`Self::validate_for_pool`]).
     pub(in crate::message_pool) fn add_to_pool(
         &self,
         msg: SignedMessage,
-        cur_ts: &Tipset,
         local: bool,
         trust_policy: TrustPolicy,
     ) -> Result<bool, Error> {
-        let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
-
-        if sequence > msg.message().sequence {
-            return Err(Error::SequenceTooLow);
-        }
-
-        let sender_actor = self.api.get_actor_after(&msg.message().from(), cur_ts)?;
-
-        // This message can only be included in the next epoch and beyond, hence the +1.
-        let nv = self.chain_config.network_version(cur_ts.epoch() + 1);
-        let eth_chain_id = self.chain_config.eth_chain_id;
-        if msg.signature().signature_type() == SignatureType::Delegated
-            && !is_valid_eth_tx_for_sending(eth_chain_id, nv, &msg)
-        {
-            return Err(Error::Other(
-                "Invalid Ethereum message for the current network version".to_owned(),
-            ));
-        }
-        if !is_valid_for_sending(nv, &sender_actor) {
-            return Err(Error::Other(
-                "Sender actor is not a valid top-level sender".to_owned(),
-            ));
-        }
-
-        let publish = verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
-
-        let balance = self.get_state_balance(&msg.from(), cur_ts)?;
-
-        let msg_balance = msg.required_funds();
-        if balance < msg_balance {
-            return Err(Error::NotEnoughFunds);
-        }
+        let cur_ts = self.current_tipset();
+        let publish = self.validate_for_pool(&msg, &cur_ts, local)?;
         let strictness = if local {
             StrictnessPolicy::Relaxed
         } else {
             StrictnessPolicy::Strict
         };
-        self.add_to_pool_unchecked(cur_ts, msg, trust_policy, strictness)?;
+        self.add_to_pool_unchecked(&cur_ts, msg, trust_policy, strictness)?;
         Ok(publish)
     }
 
@@ -370,7 +326,11 @@ where
     /// Get the state nonce for an address in `cur_ts`, accounting for
     /// messages already included in that tipset. Cached by `(TipsetKey,
     /// Address)`.
-    fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
+    pub(in crate::message_pool) fn get_state_sequence(
+        &self,
+        addr: &Address,
+        cur_ts: &Tipset,
+    ) -> Result<u64, Error> {
         let nk = StateNonceCacheKey {
             tipset_key: cur_ts.key().clone(),
             addr: *addr,
@@ -405,13 +365,6 @@ where
 
         self.caches.state_nonce.push(nk, next_nonce);
         Ok(next_nonce)
-    }
-
-    /// Get the state balance for the actor that corresponds to the supplied
-    /// address and tipset, if this actor does not exist, return an error.
-    fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
-        let actor = self.api.get_actor_after(addr, ts)?;
-        Ok(TokenAmount::from(&actor.balance))
     }
 
     /// Return a tuple that contains a vector of all signed messages and the
@@ -572,39 +525,102 @@ where
     }
 }
 
-// Helpers for MessagePool
+fn validate_static(msg: &SignedMessage) -> Result<(), Error> {
+    if to_vec(msg)?.len() > MAX_MESSAGE_SIZE {
+        return Err(Error::MessageTooBig);
+    }
+    let to = msg.message().to();
+    if to.protocol() == Protocol::Delegated {
+        EthAddress::from_filecoin_address(&to).context(format!(
+            "message recipient {to} is a delegated address but not a valid Eth Address"
+        ))?;
+    }
+    valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
+    if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {
+        return Err(Error::GasFeeCapTooLow);
+    }
+    Ok(())
+}
 
-fn verify_msg_before_add(
-    m: &SignedMessage,
+fn validate_signature(
+    msg: &SignedMessage,
+    sig_val_cache: &SizeTrackingLruCache<CidWrapper, ()>,
+    eth_chain_id: u64,
+) -> Result<(), Error> {
+    let cid = msg.cid();
+    if sig_val_cache.get_cloned(&cid.into()).is_some() {
+        return Ok(());
+    }
+    msg.verify(eth_chain_id)
+        .map_err(|e| Error::Other(e.to_string()))?;
+    sig_val_cache.push(cid.into(), ());
+    Ok(())
+}
+
+/// Check the message against the pre-resolved chain state.
+fn validate_with_state(
+    msg: &SignedMessage,
+    chain_config: &ChainConfig,
+    cur_ts: &Tipset,
+    sender_actor: &ActorState,
+    expected_sequence: u64,
+    local: bool,
+) -> Result<bool, Error> {
+    if expected_sequence > msg.message().sequence {
+        return Err(Error::SequenceTooLow);
+    }
+
+    // The message can only be included in the next epoch and beyond, hence the +1.
+    let nv_next = chain_config.network_version(cur_ts.epoch() + 1);
+    if msg.is_delegated() && !is_valid_eth_tx_for_sending(chain_config.eth_chain_id, nv_next, msg) {
+        return Err(Error::Other(
+            "Invalid Ethereum message for the current network version".to_owned(),
+        ));
+    }
+    if !is_valid_for_sending(nv_next, sender_actor) {
+        return Err(Error::Other(
+            "Sender actor is not a valid top-level sender".to_owned(),
+        ));
+    }
+
+    let nv_cur = chain_config.network_version(cur_ts.epoch());
+    let min_gas = price_list_by_network_version(nv_cur).on_chain_message(msg.chain_length()?);
+    valid_for_block_inclusion(msg.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
+
+    let publish = check_base_fee_floor(msg, cur_ts, local)?;
+
+    let balance = TokenAmount::from(&sender_actor.balance);
+    if balance < msg.required_funds() {
+        return Err(Error::NotEnoughFunds);
+    }
+
+    Ok(publish)
+}
+
+/// Base-Fee floor check.
+pub(in crate::message_pool) fn check_base_fee_floor(
+    msg: &SignedMessage,
     cur_ts: &Tipset,
     local: bool,
-    chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
-    let epoch = cur_ts.epoch();
-    let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
-        .on_chain_message(m.chain_length()?);
-    valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
-    if !cur_ts.block_headers().is_empty() {
-        let base_fee = &cur_ts.block_headers().first().parent_base_fee;
-        let base_fee_lower_bound =
-            get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
-        if m.gas_fee_cap() < base_fee_lower_bound {
-            if local {
-                warn!(
-                    "local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",
-                    m.gas_fee_cap(),
-                    base_fee_lower_bound
-                );
-                return Ok(false);
-            }
-            return Err(Error::SoftValidationFailure(format!(
-                "GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
-                m.gas_fee_cap(),
-                base_fee_lower_bound
-            )));
-        }
+    let base_fee = &cur_ts.block_headers().first().parent_base_fee;
+    let lb = get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
+    if msg.gas_fee_cap() >= lb {
+        return Ok(local);
     }
-    Ok(local)
+    if local {
+        warn!(
+            "local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",
+            msg.gas_fee_cap(),
+            lb
+        );
+        return Ok(false);
+    }
+    Err(Error::SoftValidationFailure(format!(
+        "GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
+        msg.gas_fee_cap(),
+        lb
+    )))
 }
 
 #[cfg(test)]
