@@ -6,7 +6,8 @@
     "pnpm": ">=10"
   },
   "devDependencies": {
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "web3-core-js": "^1.0.0"
   },
   "scripts": {
     "prettier-version": "prettier --version",
