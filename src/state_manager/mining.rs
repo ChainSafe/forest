@@ -4,6 +4,7 @@
 use super::chain_rand::draw_randomness;
 use super::*;
 use crate::beacon::BeaconEntry;
+use crate::db::EthMappingsStore;
 use crate::rpc::types::MiningBaseInfo;
 use crate::shim::randomness::Randomness;
 use crate::shim::runtime::Policy;
@@ -76,7 +77,10 @@ where
         tipset: Tipset,
         addr: Address,
         epoch: ChainEpoch,
-    ) -> anyhow::Result<Option<MiningBaseInfo>> {
+    ) -> anyhow::Result<Option<MiningBaseInfo>>
+    where
+        DB: EthMappingsStore,
+    {
         let prev_beacon = self
             .chain_store()
             .chain_index()

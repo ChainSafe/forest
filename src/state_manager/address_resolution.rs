@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::db::EthMappingsStore;
 use crate::shim::address::{Payload, Protocol};
 use anyhow::Context as _;
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
@@ -53,7 +54,10 @@ where
         self: &Arc<Self>,
         addr: &Address,
         ts: &Tipset,
-    ) -> anyhow::Result<Address> {
+    ) -> anyhow::Result<Address>
+    where
+        DB: EthMappingsStore,
+    {
         match addr.protocol() {
             Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated => return Ok(*addr),
             Protocol::Actor => {
@@ -85,7 +89,10 @@ where
         self: &Arc<Self>,
         address: Address,
         ts: &Tipset,
-    ) -> anyhow::Result<Address> {
+    ) -> anyhow::Result<Address>
+    where
+        DB: EthMappingsStore,
+    {
         use crate::shim::address::Protocol::*;
         match address.protocol() {
             BLS | Secp256k1 | Delegated => Ok(address),

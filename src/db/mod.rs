@@ -18,7 +18,7 @@ mod either;
 pub mod migration;
 pub use either::Either;
 
-use crate::blocks::TipsetKey;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::rpc::eth::types::EthHash;
 use anyhow::{Context as _, bail};
 use cid::Cid;
@@ -107,6 +107,12 @@ pub trait EthMappingsStore {
 
     /// Deletes `keys` if keys exist in store.
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()>;
+
+    /// Reads the tipset key for a given epoch(height) from the store.
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>>;
+
+    /// Writes the tipset key for a given epoch(height) to the store.
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()>;
 }
 
 pub struct DummyStore {}
@@ -132,6 +138,14 @@ impl EthMappingsStore for DummyStore {
     }
 
     fn delete(&self, _keys: Vec<EthHash>) -> anyhow::Result<()> {
+        bail!(INDEXER_ERROR)
+    }
+
+    fn tipset_key_by_epoch(&self, _epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+        bail!(INDEXER_ERROR)
+    }
+
+    fn set_tipset_key_at_epoch(&self, _ts: &Tipset) -> anyhow::Result<()> {
         bail!(INDEXER_ERROR)
     }
 }

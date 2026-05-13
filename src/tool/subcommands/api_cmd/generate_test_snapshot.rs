@@ -3,13 +3,12 @@
 
 use super::*;
 use crate::chain_sync::SyncStatusReport;
-use crate::daemon::bundle::load_actor_bundles;
 use crate::{
     KeyStore, KeyStoreConfig,
-    blocks::TipsetKey,
+    blocks::{Tipset, TipsetKey},
     chain::ChainStore,
     chain_sync::network_context::SyncNetworkContext,
-    daemon::db_util::load_all_forest_cars,
+    daemon::{bundle::load_actor_bundles, db_util::load_all_forest_cars},
     db::{
         CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
         SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
@@ -336,5 +335,13 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         self.inner.delete(keys)
+    }
+
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+        self.inner.tipset_key_by_epoch(epoch)
+    }
+
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
+        self.inner.set_tipset_key_at_epoch(ts)
     }
 }

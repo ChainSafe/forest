@@ -315,7 +315,10 @@ where
 
     /// Returns [`None`] when `ts` has no known child on the current heaviest chain
     /// (e.g. `ts` is the chain head). Blockstore errors are returned as [`Err`].
-    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Option<Tipset>, Error> {
+    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Option<Tipset>, Error>
+    where
+        DB: EthMappingsStore,
+    {
         let head = self.heaviest_tipset();
         if head.parents() == ts.key() {
             Ok(Some(head))
@@ -394,7 +397,7 @@ where
         round: ChainEpoch,
     ) -> Result<(Tipset, Cid), Error>
     where
-        DB: Send + Sync + 'static,
+        DB: EthMappingsStore + Send + Sync + 'static,
     {
         let version = chain_config.network_version(round);
         let lb = if version <= NetworkVersion::V3 {

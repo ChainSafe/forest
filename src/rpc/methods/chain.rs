@@ -11,6 +11,7 @@ use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
+use crate::db::EthMappingsStore;
 use crate::ipld::DfsIter;
 use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -82,7 +83,7 @@ static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
 ///
 /// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
 /// allowing manual cleanup if needed.
-pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
+pub(crate) fn new_heads<DB: Blockstore + EthMappingsStore + Send + Sync + 'static>(
     data: Ctx<DB>,
 ) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
@@ -118,7 +119,7 @@ pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
 ///
 /// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
 /// allowing manual cleanup if needed.
-pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
+pub(crate) fn logs<DB: Blockstore + EthMappingsStore + Sync + Send + 'static>(
     ctx: &Ctx<DB>,
     filter: Option<EthFilterSpec>,
 ) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
@@ -165,7 +166,7 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -363,7 +364,7 @@ impl RpcMethod<1> for ForestChainExport {
     type Ok = ApiExportResult;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -567,7 +568,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
     type Ok = ();
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -626,7 +627,7 @@ impl RpcMethod<1> for ChainExport {
     type Ok = ApiExportResult;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (ChainExportParams {
             epoch,
             recent_roots,
@@ -887,7 +888,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore>,
         (height, ApiTipsetKey(tipset_key)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -919,7 +920,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore>,
         (height, ApiTipsetKey(tipset_key)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1031,7 +1032,7 @@ pub enum ChainGetTipSetV2 {}
 
 impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_anchor(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: &Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         anchor: Option<&TipsetAnchor>,
     ) -> anyhow::Result<Tipset> {
         if let Some(anchor) = anchor {
@@ -1052,7 +1053,7 @@ impl ChainGetTipSetV2 {
     }
 
     pub async fn get_tipset_by_tag(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: &Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         tag: TipsetTag,
     ) -> anyhow::Result<Tipset> {
         match tag {
@@ -1063,7 +1064,7 @@ impl ChainGetTipSetV2 {
     }
 
     pub async fn get_latest_safe_tipset(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: &Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {
         let finalized = Self::get_latest_finalized_tipset(ctx).await?;
         let head = ctx.chain_store().heaviest_tipset();
@@ -1080,7 +1081,7 @@ impl ChainGetTipSetV2 {
     }
 
     pub async fn get_latest_finalized_tipset(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: &Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
     ) -> anyhow::Result<Tipset> {
         ChainGetTipSetFinalityStatus::get_finality_status(ctx)?
             .finalized_tip_set
@@ -1088,7 +1089,7 @@ impl ChainGetTipSetV2 {
     }
 
     pub async fn get_tipset(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: &Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         selector: &TipsetSelector,
     ) -> anyhow::Result<Tipset> {
         selector.validate()?;
@@ -1127,7 +1128,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (selector,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1138,7 +1139,9 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
 pub enum ChainGetTipSetFinalityStatus {}
 
 impl ChainGetTipSetFinalityStatus {
-    pub fn get_finality_status(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<ChainFinalityStatus> {
+    pub fn get_finality_status(
+        ctx: &Ctx<impl Blockstore + EthMappingsStore>,
+    ) -> anyhow::Result<ChainFinalityStatus> {
         let head = ctx.chain_store().heaviest_tipset();
         let (ec_finality_threshold_depth, ec_finalized_tip_set) =
             Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone())?;
@@ -1165,7 +1168,7 @@ impl ChainGetTipSetFinalityStatus {
     }
 
     pub fn get_ec_finality_threshold_depth_and_tipset_with_cache(
-        ctx: &Ctx<impl Blockstore>,
+        ctx: &Ctx<impl Blockstore + EthMappingsStore>,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
         static CACHE: parking_lot::Mutex<Option<(Tipset, i64, Option<Tipset>)>> =
@@ -1184,7 +1187,7 @@ impl ChainGetTipSetFinalityStatus {
     }
 
     fn get_ec_finality_threshold_depth_and_tipset(
-        ctx: &Ctx<impl Blockstore>,
+        ctx: &Ctx<impl Blockstore + EthMappingsStore>,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
         use crate::chain::ec_finality::calculator::{
@@ -1269,7 +1272,7 @@ impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
     type Ok = ChainFinalityStatus;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

@@ -3,6 +3,7 @@
 
 use std::any::Any;
 
+use crate::db::EthMappingsStore;
 use crate::key_management::{Key, KeyInfo};
 use crate::message::SignedMessage;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
@@ -214,7 +215,7 @@ impl RpcMethod<2> for WalletSign {
     type Ok = Signature;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (address, message): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -248,7 +249,7 @@ impl RpcMethod<2> for WalletSignMessage {
     type Ok = SignedMessage;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (address, message): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

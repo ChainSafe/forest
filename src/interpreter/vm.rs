@@ -7,6 +7,7 @@ use crate::blocks::Tipset;
 use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
 use crate::chain::store::Error;
+use crate::db::EthMappingsStore;
 use crate::interpreter::{
     fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3,
     fvm4::ForestExterns as ForestExternsV4,
@@ -138,7 +139,7 @@ impl BlockMessages {
 /// Interpreter which handles execution of state transitioning messages and
 /// returns receipts from the VM execution.
 #[delegated_enum(impl_conversions)]
-pub enum VM<DB: Blockstore + Send + Sync + 'static> {
+pub enum VM<DB: Blockstore + EthMappingsStore + Send + Sync + 'static> {
     VM2(ForestExecutorV2<DB>),
     VM3(ForestExecutorV3<DB>),
     VM4(ForestExecutorV4<DB>),
@@ -169,7 +170,7 @@ pub struct ExecutionContext<DB> {
 
 impl<DB> VM<DB>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + EthMappingsStore + Send + Sync,
 {
     pub fn new(
         ExecutionContext {

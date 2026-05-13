@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use crate::chain_sync::BadBlockCache;
+use crate::db::EthMappingsStore;
 use crate::networks::Height;
 use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
 use crate::shim::crypto::SignatureType;
@@ -95,7 +96,7 @@ impl TipsetSyncerError {
 /// executed), adding the successful ones to the tipset tracker, and the failed
 /// ones to the bad block cache, depending on strategy. Any bad block fails
 /// validation.
-pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
+pub async fn validate_tipset<DB: Blockstore + EthMappingsStore + Send + Sync + 'static>(
     state_manager: &Arc<StateManager<DB>>,
     full_tipset: FullTipset,
     bad_block_cache: Option<Arc<BadBlockCache>>,
@@ -173,7 +174,7 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
 /// * Checking that the messages in the block correspond to the agreed upon
 ///   total ordering
 /// * That the block is a deterministic derivative of the underlying consensus
-async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
+async fn validate_block<DB: Blockstore + EthMappingsStore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetSyncerError)> {
@@ -367,7 +368,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 ///
 /// NB: This loads/computes the state resulting from the execution of the parent
 /// tipset.
-async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
+async fn check_block_messages<DB: Blockstore + EthMappingsStore + Send + Sync + 'static>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
     base_tipset: Tipset,

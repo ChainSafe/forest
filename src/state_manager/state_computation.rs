@@ -3,6 +3,7 @@
 
 use super::circulating_supply::GenesisInfo;
 use super::*;
+use crate::db::EthMappingsStore;
 use crate::interpreter::{BlockMessages, ExecutionContext, VM, VMTrace};
 use crate::shim::message::Message;
 use crate::state_migration::run_state_migrations;
@@ -14,7 +15,7 @@ use tracing::{error, info, instrument};
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     /// Load the state of a tipset, including state root, message receipts
     pub async fn load_tipset_state(self: &Arc<Self>, ts: &Tipset) -> anyhow::Result<TipsetState> {
@@ -247,7 +248,7 @@ pub fn validate_tipsets<DB, T>(
     tipsets: T,
 ) -> anyhow::Result<()>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
     T: Iterator<Item = Tipset> + Send,
 {
     // Validate one tipset at a time. Parallelizing the outer loop across tipsets
@@ -332,7 +333,10 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
         epoch: ChainEpoch,
         timestamp: u64,
         trace: VMTrace,
-    ) -> anyhow::Result<VM<DB>> {
+    ) -> anyhow::Result<VM<DB>>
+    where
+        DB: EthMappingsStore,
+    {
         let circ_supply = self.genesis_info.get_vm_circulating_supply(
             epoch,
             self.chain_index.db(),
@@ -364,6 +368,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
         cron_callback: &mut Option<F>,
     ) -> anyhow::Result<(Cid, ChainEpoch, Vec<BlockMessages>)>
     where
+        DB: EthMappingsStore,
         F: FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>,
     {
         use crate::shim::clock::EPOCH_DURATION_SECONDS;
@@ -491,7 +496,7 @@ pub fn apply_block_messages<DB>(
     enable_tracing: VMTrace,
 ) -> anyhow::Result<ExecutedTipset>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     // This function will:
     // 1. handle the genesis block as a special case
@@ -603,7 +608,7 @@ pub(in crate::state_manager) fn compute_state<DB>(
     enable_tracing: VMTrace,
 ) -> anyhow::Result<ExecutedTipset>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     if !messages.is_empty() {
         anyhow::bail!("Applying messages is not yet implemented.");

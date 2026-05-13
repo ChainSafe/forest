@@ -6,6 +6,7 @@ use std::{io::Write, sync::Arc};
 use crate::beacon::{Beacon as _, BeaconEntry, BeaconSchedule};
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::db::EthMappingsStore;
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::externs::Rand;
@@ -38,7 +39,7 @@ impl<DB> ShallowClone for ChainRand<DB> {
 
 impl<DB> ChainRand<DB>
 where
-    DB: Blockstore,
+    DB: Blockstore + EthMappingsStore,
 {
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
     /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
@@ -157,7 +158,7 @@ where
 
 impl<DB> Rand for ChainRand<DB>
 where
-    DB: Blockstore,
+    DB: Blockstore + EthMappingsStore,
 {
     fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         self.get_chain_randomness_v2(round)

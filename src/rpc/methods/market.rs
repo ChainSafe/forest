@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::db::EthMappingsStore;
 use crate::rpc::error::ServerError;
 use crate::rpc::mpool::MpoolPushMessage;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
@@ -24,7 +25,7 @@ impl RpcMethod<3> for MarketAddBalance {
     type Ok = Cid;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (wallet, address, amount): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

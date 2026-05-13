@@ -25,6 +25,7 @@ use crate::chain::{
     ChainStore,
     index::{ChainIndex, ResolveNullTipset},
 };
+use crate::db::EthMappingsStore;
 use crate::interpreter::MessageCallbackCtx;
 use crate::interpreter::resolve_to_key_addr;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
@@ -221,12 +222,18 @@ where
     /// A valid head has
     ///     - state tree in the blockstore
     ///     - actor bundle version in the state tree that matches chain configuration
-    pub fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()> {
+    pub fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()>
+    where
+        DB: EthMappingsStore,
+    {
         while self.maybe_rewind_heaviest_tipset_once()? {}
         Ok(())
     }
 
-    fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool> {
+    fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool>
+    where
+        DB: EthMappingsStore,
+    {
         let head = self.heaviest_tipset();
         if let Some(info) = self
             .chain_config()

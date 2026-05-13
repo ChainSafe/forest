@@ -5,6 +5,7 @@ use std::{fmt::Debug, sync::Arc};
 use crate::beacon::BeaconSchedule;
 use crate::blocks::{Block, Tipset};
 use crate::chain::{Error as ChainStoreError, Weight};
+use crate::db::EthMappingsStore;
 use crate::state_manager::{Error as StateManagerError, StateManager};
 use anyhow::anyhow;
 use fvm_ipld_blockstore::Blockstore;
@@ -68,7 +69,7 @@ pub struct FilecoinConsensus {
 }
 
 impl FilecoinConsensus {
-    pub async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
+    pub async fn validate_block<DB: Blockstore + EthMappingsStore + Sync + Send + 'static>(
         &self,
         state_manager: Arc<StateManager<DB>>,
         block: Arc<Block>,

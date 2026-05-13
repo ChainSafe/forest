@@ -13,7 +13,7 @@ use std::ops::RangeInclusive;
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     /// Replays the given message and returns the result of executing the
     /// indicated message, assuming it was executed in the indicated tipset.

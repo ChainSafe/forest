@@ -7,6 +7,7 @@ use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND};
 use crate::blocks::{Block, CachingBlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
+use crate::db::EthMappingsStore;
 use crate::networks::{ChainConfig, Height};
 use crate::shim::actors::PowerActorStateLoad as _;
 use crate::shim::actors::power;
@@ -46,7 +47,9 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Sanity checks
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
-pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
+pub(in crate::fil_cns) async fn validate_block<
+    DB: Blockstore + EthMappingsStore + Sync + Send + 'static,
+>(
     state_manager: Arc<StateManager<DB>>,
     beacon_schedule: Arc<BeaconSchedule>,
     block: Arc<Block>,

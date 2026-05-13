@@ -35,6 +35,7 @@ use crate::cid_collections::CidHashSet;
 use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
+use crate::db::EthMappingsStore;
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
 use crate::f3::snapshot::F3SnapshotHeader;
 use crate::interpreter::VMTrace;
@@ -552,7 +553,7 @@ fn build_output_path(
 
 #[allow(clippy::too_many_arguments)]
 pub async fn do_export(
-    store: &Arc<impl Blockstore + Send + Sync + 'static>,
+    store: &Arc<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
     root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
@@ -1021,7 +1022,7 @@ fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::R
 
 /// Given a block store, export a lite snapshot for a given epoch.
 async fn export_lite_snapshot(
-    store: Arc<impl Blockstore + Send + Sync + 'static>,
+    store: Arc<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
     root: Tipset,
     network: &str,
     genesis_timestamp: u64,
@@ -1054,7 +1055,7 @@ async fn export_lite_snapshot(
 
 /// Given a block store, export a diff snapshot for a given epoch.
 async fn export_diff_snapshot(
-    store: Arc<impl Blockstore + Send + Sync + 'static>,
+    store: Arc<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
     root: Tipset,
     network: &str,
     genesis_timestamp: u64,
@@ -1211,7 +1212,10 @@ mod tests {
     #[tokio::test]
     async fn export() {
         let output_path = TempDir::new().unwrap();
-        let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
+        let store: ManyCar = AnyCar::try_from(calibnet::DEFAULT_GENESIS)
+            .unwrap()
+            .try_into()
+            .unwrap();
         let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
             &store.into(),

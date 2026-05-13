@@ -9,7 +9,7 @@ use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
-use crate::db::{MemoryDB, PersistentStore};
+use crate::db::{EthMappingsStore, MemoryDB, PersistentStore};
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::ipld::stream_chain;
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -297,7 +297,7 @@ async fn validate_with_blockstore<BlockstoreT>(
     check_stateroots: u32,
 ) -> anyhow::Result<()>
 where
-    BlockstoreT: PersistentStore + Send + Sync + 'static,
+    BlockstoreT: PersistentStore + EthMappingsStore + Send + Sync + 'static,
 {
     if check_links != 0 {
         validate_ipld_links(root.clone(), &store, check_links).await?;
@@ -399,7 +399,7 @@ async fn validate_stateroots<DB>(
     epochs: u32,
 ) -> anyhow::Result<()>
 where
-    DB: PersistentStore + Send + Sync + 'static,
+    DB: PersistentStore + EthMappingsStore + Send + Sync + 'static,
 {
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let genesis = ts.genesis(db)?;
@@ -466,7 +466,7 @@ fn validation_spinner(prefix: &'static str) -> indicatif::ProgressBar {
 
 fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> anyhow::Result<()> {
     // Initialize Blockstore
-    let store = Arc::new(AnyCar::try_from(snapshot.as_path())?);
+    let store: Arc<ManyCar> = Arc::new(AnyCar::try_from(snapshot.as_path())?.try_into()?);
 
     // Prepare call to apply_block_messages
     let ts = store.heaviest_tipset()?;

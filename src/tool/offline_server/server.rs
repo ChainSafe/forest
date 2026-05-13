@@ -228,7 +228,7 @@ async fn start_offline_rpc<DB>(
     mut shutdown_recv: mpsc::Receiver<()>,
 ) -> anyhow::Result<()>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     info!("Starting offline RPC Server");
     let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), rpc_port);

@@ -21,7 +21,7 @@ pub mod jsonrpc_types;
 mod parser;
 mod util;
 
-use crate::lotus_json::HasLotusJson;
+use crate::{db::EthMappingsStore, lotus_json::HasLotusJson};
 
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
@@ -78,7 +78,7 @@ pub trait RpcMethod<const ARITY: usize> {
     type Ok: HasLotusJson;
     /// Logic for this method.
     fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         params: Self::Params,
         ext: &Extensions,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
@@ -249,7 +249,9 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn register(
         modules: &mut HashMap<
             ApiPaths,
-            RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
+            RpcModule<
+                crate::rpc::RPCState<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
+            >,
         >,
         calling_convention: ParamStructure,
     ) -> Result<(), jsonrpsee::core::RegisterMethodError>

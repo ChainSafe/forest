@@ -4,6 +4,7 @@
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChanges};
+use crate::db::EthMappingsStore;
 use crate::message::{ChainMessage, SignedMessage};
 use crate::message_pool::errors::Error;
 use crate::message_pool::msg_pool::{
@@ -67,7 +68,7 @@ pub trait Provider {
     }
 }
 
-impl<DB: Blockstore> Provider for ChainStore<DB> {
+impl<DB: Blockstore + EthMappingsStore> Provider for ChainStore<DB> {
     fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
         self.subscribe_head_changes()
     }

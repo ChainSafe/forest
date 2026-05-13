@@ -7,6 +7,7 @@ use crate::blocks::{ElectionProof, RawBlockHeader};
 
 use crate::chain::{ChainStore, compute_base_fee};
 
+use crate::db::EthMappingsStore;
 use crate::fil_cns::weight;
 use crate::interpreter::VMTrace;
 use crate::key_management::{Key, KeyStore};
@@ -111,7 +112,7 @@ impl RpcMethod<1> for MinerCreateBlock {
     type Ok = BlockMessage;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (block_template,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -294,7 +295,7 @@ impl RpcMethod<3> for MinerGetBaseInfo {
     type Ok = Option<MiningBaseInfo>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
         (miner_address, epoch, ApiTipsetKey(tipset_key)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

@@ -6,6 +6,7 @@ use crate::db::car::forest::{
     FOREST_CAR_FILE_EXTENSION, TEMP_FOREST_CAR_FILE_EXTENSION, new_forest_car_temp_path_in,
 };
 use crate::db::car::{ForestCar, ManyCar};
+use crate::db::{Blockstore, EthMappingsStore};
 use crate::networks::ChainConfig;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
@@ -334,7 +335,7 @@ async fn process_ts<DB>(
     delegated_messages: &mut Vec<(crate::message::SignedMessage, u64)>,
 ) -> anyhow::Result<()>
 where
-    DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     let epoch = ts.epoch();
     let tsk = ts.key().clone();
@@ -380,7 +381,7 @@ pub async fn backfill_db<DB>(
     spec: RangeSpec,
 ) -> anyhow::Result<()>
 where
-    DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     tracing::info!("Starting index backfill...");
 

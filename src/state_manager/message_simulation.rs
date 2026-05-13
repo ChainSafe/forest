@@ -4,6 +4,7 @@
 use super::circulating_supply::GenesisInfo;
 use super::utils::structured;
 use super::*;
+use crate::db::EthMappingsStore;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
 use crate::message::{MessageRead as _, MessageReadWrite as _, SignedMessage};
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
@@ -15,6 +16,7 @@ use crate::utils::ShallowClone as _;
 use fvm_shared4::crypto::signature::SECP_SIG_LEN;
 use std::time::Duration;
 use tracing::instrument;
+
 impl<DB> StateManager<DB>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -26,7 +28,10 @@ where
         msg: &Message,
         rand: ChainRand<DB>,
         tipset: &Tipset,
-    ) -> Result<ApiInvocResult, Error> {
+    ) -> Result<ApiInvocResult, Error>
+    where
+        DB: EthMappingsStore,
+    {
         let mut msg = msg.clone();
 
         let state_cid = state_cid.unwrap_or(*tipset.parent_state());
@@ -98,7 +103,10 @@ where
 
     /// runs the given message and returns its result without any persisted
     /// changes.
-    pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error> {
+    pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error>
+    where
+        DB: EthMappingsStore,
+    {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let chain_rand = self.chain_rand(ts.shallow_clone());
         self.call_raw(None, message, chain_rand, &ts)
@@ -111,7 +119,10 @@ where
         state_cid: Cid,
         message: &Message,
         tipset: Option<Tipset>,
-    ) -> Result<ApiInvocResult, Error> {
+    ) -> Result<ApiInvocResult, Error>
+    where
+        DB: EthMappingsStore,
+    {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(ts.shallow_clone());
         self.call_raw(Some(state_cid), message, chain_rand, &ts)
@@ -122,7 +133,10 @@ where
         tipset: Option<Tipset>,
         msg: Message,
         vm_flush: VMFlush,
-    ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
+    ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)>
+    where
+        DB: EthMappingsStore,
+    {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
         let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
@@ -173,7 +187,10 @@ where
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
-    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
+    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error>
+    where
+        DB: EthMappingsStore,
+    {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let TipsetState { state_root, .. } = self
             .load_tipset_state(&ts)
