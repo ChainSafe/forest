@@ -12,17 +12,17 @@ pub use many::{ManyCar, ReloadableManyCar};
 pub use plain::PlainCar;
 
 use bytes::Bytes;
-use cid::Cid;
 use positioned_io::{ReadAt, Size};
 use std::{
     num::NonZeroUsize,
     sync::{
-        Arc, LazyLock,
+        LazyLock,
         atomic::{AtomicUsize, Ordering},
     },
 };
 
-use crate::utils::{ShallowClone, cache::SizeTrackingLruCache, get_size::CidWrapper};
+use crate::prelude::*;
+use crate::utils::{cache::SizeTrackingLruCache, get_size::CidWrapper};
 
 pub trait RandomAccessFileReader: ReadAt + Size + Send + Sync + 'static {}
 impl<X: ReadAt + Size + Send + Sync + 'static> RandomAccessFileReader for X {}

@@ -3,6 +3,7 @@
 
 use crate::auth::{JWT_IDENTIFIER, verify_token};
 use crate::key_management::KeyStore;
+use crate::prelude::*;
 use crate::rpc::{CANCEL_METHOD_NAME, Permission, RpcMethod as _, chain};
 use ahash::{HashMap, HashMapExt as _};
 use futures::future::Either;
@@ -10,14 +11,13 @@ use http::{
     HeaderMap,
     header::{AUTHORIZATION, HeaderValue},
 };
-use itertools::Itertools as _;
 use jsonrpsee::MethodResponse;
 use jsonrpsee::core::middleware::{Batch, BatchEntry, BatchEntryErr, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::Id;
 use jsonrpsee::types::{ErrorObject, error::ErrorCode};
 use parking_lot::RwLock;
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 use tower::Layer;
 use tracing::debug;
 

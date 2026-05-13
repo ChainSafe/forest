@@ -9,7 +9,6 @@ use crate::chain::{
     ChainStore,
     index::{ChainIndex, ResolveNullTipset},
 };
-use crate::db::DbImpl;
 use crate::interpreter::errors::Error;
 use crate::interpreter::resolve_to_key_addr;
 use crate::networks::{ChainConfig, Height, NetworkChain};
@@ -63,7 +62,7 @@ impl ForestExterns {
     }
 
     fn get_lookback_tipset_state_root_for_round(&self, height: ChainEpoch) -> anyhow::Result<Cid> {
-        let (_, st) = ChainStore::<DbImpl>::get_lookback_tipset_for_round(
+        let (_, st) = ChainStore::get_lookback_tipset_for_round(
             &self.chain_index,
             &self.chain_config,
             &self.heaviest_tipset,
@@ -85,7 +84,7 @@ impl ForestExterns {
         }
 
         let prev_root = self.get_lookback_tipset_state_root_for_round(height)?;
-        let lb_state = StateTree::new_from_root(self.chain_index.db_owned(), &prev_root)?;
+        let lb_state = StateTree::new_from_root(self.chain_index.db(), &prev_root)?;
 
         let actor = lb_state
             .get_actor(miner_addr)?
@@ -97,7 +96,7 @@ impl ForestExterns {
 
         let worker = ms.info(&tbs)?.worker;
 
-        let state = StateTree::new_from_root(self.chain_index.db_owned(), &self.root)?;
+        let state = StateTree::new_from_root(self.chain_index.db(), &self.root)?;
 
         let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
 

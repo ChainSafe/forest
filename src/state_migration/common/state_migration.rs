@@ -71,8 +71,8 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         &self,
         store: &BS,
         prior_epoch: ChainEpoch,
-        actors_in: StateTree<Arc<BS>>,
-        mut actors_out: StateTree<Arc<BS>>,
+        actors_in: StateTree<BS>,
+        mut actors_out: StateTree<BS>,
     ) -> anyhow::Result<Cid> {
         // Checks if the migration specification is correct
         if let Some(verifier) = &self.verifier {

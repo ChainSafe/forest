@@ -10,17 +10,12 @@ use crate::shim::{
 use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt as _;
 use fvm_ipld_blockstore::Blockstore;
-use std::sync::Arc;
 
 pub struct EamPostMigrator;
 
 impl<BS: Blockstore> PostMigrator<BS> for EamPostMigrator {
     /// Creates the Ethereum Account Manager actor in the state tree.
-    fn post_migrate_state(
-        &self,
-        store: &BS,
-        actors_out: &mut StateTree<Arc<BS>>,
-    ) -> anyhow::Result<()> {
+    fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
         let sys_actor = actors_out.get_required_actor(&Address::SYSTEM_ACTOR)?;
         let sys_state: SystemStateNew = store.get_cbor_required(&sys_actor.state)?;
 

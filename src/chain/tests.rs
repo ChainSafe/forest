@@ -10,6 +10,7 @@ use crate::{
 };
 use sha2::{Digest as _, Sha256};
 use std::fs::File;
+use std::sync::Arc;
 
 #[test]
 fn test_snapshot_version_cbor_serde() {

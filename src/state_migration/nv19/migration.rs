@@ -1,31 +1,27 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
-
+use super::{SystemStateOld, miner, power, system, verifier::Verifier};
 use crate::networks::{ChainConfig, Height};
+use crate::prelude::*;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     machine::{BuiltinActor, BuiltinActorManifest},
     state_tree::{StateTree, StateTreeVersion},
 };
+use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
 use anyhow::anyhow;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 
-use super::{SystemStateOld, miner, power, system, verifier::Verifier};
-use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
-
-impl<BS: Blockstore> StateMigration<BS> {
+impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
     pub fn add_nv19_migrations(
         &mut self,
-        store: &Arc<BS>,
+        store: &BS,
         state: &Cid,
         new_manifest: &Cid,
     ) -> anyhow::Result<()> {
-        let state_tree = StateTree::new_from_root(store.clone(), state)?;
+        let state_tree = StateTree::new_from_root(store, state)?;
         let system_actor = state_tree
             .get_actor(&Address::new_id(0))?
             .ok_or_else(|| anyhow!("system actor not found"))?;
@@ -66,12 +62,12 @@ impl<BS: Blockstore> StateMigration<BS> {
 /// Runs the migration for `NV19`. Returns the new state root.
 pub fn run_migration<DB>(
     chain_config: &ChainConfig,
-    blockstore: &Arc<DB>,
+    blockstore: &DB,
     state: &Cid,
     epoch: ChainEpoch,
 ) -> anyhow::Result<Cid>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     let new_manifest_cid = chain_config
         .height_infos
@@ -94,8 +90,8 @@ where
     let mut migration = StateMigration::<DB>::new(Some(verifier));
     migration.add_nv19_migrations(blockstore, state, new_manifest_cid)?;
 
-    let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
-    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
+    let actors_in = StateTree::new_from_root(blockstore, state)?;
+    let actors_out = StateTree::new(blockstore, StateTreeVersion::V5)?;
     let new_state = migration.migrate_state_tree(blockstore, epoch, actors_in, actors_out)?;
 
     Ok(new_state)

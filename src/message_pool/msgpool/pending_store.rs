@@ -3,8 +3,6 @@
 
 //! Pending message storage and event broadcast.
 
-use std::sync::Arc;
-
 use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock as SyncRwLock;
 use tokio::sync::broadcast;
@@ -14,8 +12,8 @@ use crate::message_pool::errors::Error;
 use crate::message_pool::msgpool::events::{MPOOL_UPDATE_CHANNEL_CAPACITY, MpoolUpdate};
 use crate::message_pool::msgpool::msg_pool::TrustPolicy;
 use crate::message_pool::msgpool::msg_set::{MsgSet, MsgSetLimits, StrictnessPolicy};
+use crate::prelude::*;
 use crate::shim::address::Address;
-use crate::utils::ShallowClone;
 use crate::utils::broadcast::has_subscribers;
 
 /// Owns the per-actor [`MsgSet`] map and the [`MpoolUpdate`] broadcast

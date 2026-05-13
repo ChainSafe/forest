@@ -3,20 +3,21 @@
 
 use super::{
     car::ManyCar,
-    parity_db::{GarbageCollectableParityDb, ParityDb},
+    parity_db::{GarbageCollectableDb, GarbageCollectableParityDb, ParityDb},
     *,
 };
 use crate::{
-    libp2p_bitswap::*, tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore,
-    utils::ShallowClone,
+    db::car::ReloadableManyCar, libp2p_bitswap::*, prelude::*,
+    tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore,
 };
 use ambassador::Delegate;
 use spire_enum::prelude::delegated_enum;
-use std::sync::Arc;
+use std::path::PathBuf;
 
 #[derive(Delegate)]
 #[delegate(SettingsStore)]
 #[delegate(EthMappingsStore)]
+#[delegate(HeaviestTipsetKeyProvider)]
 #[delegate(BitswapStoreRead)]
 #[delegate(BitswapStoreReadWrite)]
 #[delegated_enum(impl_conversions)]
@@ -26,8 +27,6 @@ pub enum DbImpl {
     ManyCarParityDb(Arc<ManyCar<ParityDb>>),
     Memory(Arc<MemoryDB>),
     ReadOpsTrackingManyCarParityDb(Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>),
-    #[cfg(test)]
-    Chain4U(Arc<crate::blocks::Chain4U<ManyCar>>),
 }
 
 impl ShallowClone for DbImpl {
@@ -79,5 +78,52 @@ impl Blockstore for DbImpl {
         I: IntoIterator<Item = (Cid, D)>,
     {
         delegate_db_impl!(self => |i| Blockstore::put_many_keyed(i, blocks))
+    }
+}
+
+impl GarbageCollectableDb for DbImpl {
+    fn reset_gc_columns(&self) -> anyhow::Result<()> {
+        match self {
+            Self::ManyCarWithGarbageCollectableParityDb(db) => db.reset_gc_columns(),
+            _ => anyhow::bail!("db is not garbage collectable"),
+        }
+    }
+}
+
+impl BlockstoreWriteOpsSubscribable for DbImpl {
+    fn subscribe_write_ops(
+        &self,
+    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>>> {
+        if let Self::ManyCarWithGarbageCollectableParityDb(db) = self {
+            db.subscribe_write_ops()
+        } else {
+            anyhow::bail!("not supported")
+        }
+    }
+
+    fn unsubscribe_write_ops(&self) {
+        if let Self::ManyCarWithGarbageCollectableParityDb(db) = self {
+            db.unsubscribe_write_ops();
+        }
+    }
+}
+
+impl ReloadableManyCar for DbImpl {
+    fn clear_and_reload_cars(&self, files: impl Iterator<Item = PathBuf>) -> anyhow::Result<()> {
+        match self {
+            Self::ManyCarWithGarbageCollectableParityDb(db) => db.clear_and_reload_cars(files),
+            Self::ManyCarWithMemoryDB(db) => db.clear_and_reload_cars(files),
+            Self::ManyCarParityDb(db) => db.clear_and_reload_cars(files),
+            _ => anyhow::bail!("not supported"),
+        }
+    }
+
+    fn heaviest_car_tipset(&self) -> anyhow::Result<Tipset> {
+        match self {
+            Self::ManyCarWithGarbageCollectableParityDb(db) => db.heaviest_car_tipset(),
+            Self::ManyCarWithMemoryDB(db) => db.heaviest_car_tipset(),
+            Self::ManyCarParityDb(db) => db.heaviest_car_tipset(),
+            _ => anyhow::bail!("not supported"),
+        }
     }
 }

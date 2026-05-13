@@ -4,32 +4,27 @@
 //! This module contains the migration logic for the `nv26fix` upgrade. See the parent module for
 //! details on the fix.
 
-use std::sync::Arc;
-
+use super::{SystemStateOld, system, verifier::Verifier};
 use crate::networks::{ChainConfig, Height};
+use crate::prelude::*;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     machine::BuiltinActorManifest,
     state_tree::{StateTree, StateTreeVersion},
 };
-use crate::utils::db::CborStoreExt as _;
-use anyhow::{Context as _, ensure};
-use cid::Cid;
-
-use fvm_ipld_blockstore::Blockstore;
-
-use super::{SystemStateOld, system, verifier::Verifier};
 use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
+use crate::utils::db::CborStoreExt as _;
+use anyhow::ensure;
 
-impl<BS: Blockstore> StateMigration<BS> {
+impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
     pub fn add_nv26fix_migrations(
         &mut self,
-        store: &Arc<BS>,
+        store: &BS,
         state: &Cid,
         new_manifest: &BuiltinActorManifest,
     ) -> anyhow::Result<()> {
-        let state_tree = StateTree::new_from_root(store.clone(), state)?;
+        let state_tree = StateTree::new_from_root(store, state)?;
         let system_actor = state_tree.get_required_actor(&Address::SYSTEM_ACTOR)?;
         let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;
 
@@ -55,12 +50,12 @@ impl<BS: Blockstore> StateMigration<BS> {
 /// Runs the migration for `nv26fix`. Returns the new state root.
 pub fn run_migration<DB>(
     chain_config: &ChainConfig,
-    blockstore: &Arc<DB>,
+    blockstore: &DB,
     state: &Cid,
     epoch: ChainEpoch,
 ) -> anyhow::Result<Cid>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     // Technically the manifest for this just won't be there for mainnet, but better safe than
     // sorry.
@@ -87,8 +82,8 @@ where
     let mut migration = StateMigration::<DB>::new(Some(verifier));
     migration.add_nv26fix_migrations(blockstore, state, &new_manifest)?;
 
-    let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
-    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
+    let actors_in = StateTree::new_from_root(blockstore, state)?;
+    let actors_out = StateTree::new(blockstore, StateTreeVersion::V5)?;
     let new_state = migration.migrate_state_tree(blockstore, epoch, actors_in, actors_out)?;
 
     Ok(new_state)

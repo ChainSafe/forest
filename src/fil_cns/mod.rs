@@ -1,14 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
 
 use crate::beacon::BeaconSchedule;
 use crate::blocks::{Block, Tipset};
 use crate::chain::{Error as ChainStoreError, Weight};
-use crate::db::EthMappingsStore;
+use crate::prelude::*;
 use crate::state_manager::{Error as StateManagerError, StateManager};
 use anyhow::anyhow;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use nunny::Vec as NonEmpty;
 use thiserror::Error;
@@ -69,12 +68,12 @@ pub struct FilecoinConsensus {
 }
 
 impl FilecoinConsensus {
-    pub async fn validate_block<DB: Blockstore + EthMappingsStore + Sync + Send + 'static>(
+    pub async fn validate_block(
         &self,
-        state_manager: Arc<StateManager<DB>>,
+        state_manager: StateManager,
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
-        validation::validate_block::<_>(state_manager, self.beacon.clone(), block).await
+        validation::validate_block(state_manager, self.beacon.clone(), block).await
     }
 }
 
@@ -88,7 +87,7 @@ impl Debug for FilecoinConsensus {
 
 pub fn weight<DB>(db: &DB, ts: &Tipset) -> anyhow::Result<Weight>
 where
-    DB: Blockstore,
+    DB: Blockstore + ShallowClone,
 {
-    weight::weight(&Arc::new(db), ts).map_err(|s| anyhow!(s))
+    weight::weight(db, ts).map_err(|s| anyhow!(s))
 }

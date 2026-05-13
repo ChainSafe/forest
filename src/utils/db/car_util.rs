@@ -1,8 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::prelude::*;
 use futures::{Stream, StreamExt as _, TryStreamExt as _};
-use fvm_ipld_blockstore::Blockstore;
 use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
 use crate::cid_collections::CidHashSet;
@@ -46,11 +46,9 @@ mod tests {
     use crate::utils::multihash::prelude::*;
     use ahash::HashSet;
     use async_compression::tokio::write::ZstdEncoder;
-    use cid::Cid;
     use futures::executor::block_on_stream;
     use futures::{StreamExt, TryStreamExt};
     use fvm_ipld_encoding::DAG_CBOR;
-    use itertools::Itertools;
     use nunny::{Vec as NonEmpty, vec as nonempty};
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;

@@ -1,17 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::{
-    Arc,
-    atomic::{self, AtomicBool},
-};
+use std::sync::atomic::{self, AtomicBool};
 
+use crate::db::BlockstoreWithWriteBuffer;
 use crate::networks::{ChainConfig, Height, NetworkChain};
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
-use crate::{db::BlockstoreWithWriteBuffer, utils::ShallowClone};
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
 pub(in crate::state_migration) mod common;
@@ -31,11 +27,11 @@ mod nv27;
 mod nv28;
 mod type_migrations;
 
-type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
+type RunMigration<DB> = fn(&ChainConfig, &DB, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
 
 pub fn get_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, RunMigration<DB>)>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     match chain {
         NetworkChain::Mainnet => {

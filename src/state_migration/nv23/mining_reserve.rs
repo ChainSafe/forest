@@ -10,7 +10,6 @@ use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use std::sync::Arc;
 
 pub struct MiningReservePostMigrator {
     pub new_account_code_cid: Cid,
@@ -21,7 +20,7 @@ impl<BS: Blockstore> PostMigrator<BS> for MiningReservePostMigrator {
     fn post_migrate_state(
         &self,
         store: &BS,
-        actors_out: &mut crate::shim::state_tree::StateTree<Arc<BS>>,
+        actors_out: &mut crate::shim::state_tree::StateTree<BS>,
     ) -> anyhow::Result<()> {
         let f090_old_actor = actors_out.get_required_actor(&Address::RESERVE_ACTOR)?;
         // only migrate f090 if it is a `multisig`

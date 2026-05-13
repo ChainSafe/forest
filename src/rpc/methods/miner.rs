@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::beacon::BeaconEntry;
-use crate::blocks::{CachingBlockHeader, Ticket, TipsetKey};
-use crate::blocks::{ElectionProof, RawBlockHeader};
+use crate::blocks::{CachingBlockHeader, ElectionProof, RawBlockHeader, Ticket, TipsetKey};
 use crate::chain::{ChainStore, compute_base_fee};
-use crate::db::{DbImpl, EthMappingsStore};
 use crate::fil_cns::weight;
 use crate::interpreter::VMTrace;
 use crate::key_management::{Key, KeyStore};
@@ -13,6 +11,7 @@ use crate::lotus_json::LotusJson;
 use crate::lotus_json::lotus_json_with_self;
 use crate::message::SignedMessage;
 use crate::networks::Height;
+use crate::prelude::*;
 use crate::rpc::reflect::Permission;
 use crate::rpc::types::{ApiTipsetKey, MiningBaseInfo};
 use crate::rpc::{ApiPaths, Ctx, RpcMethod, ServerError};
@@ -23,15 +22,12 @@ use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::sector::PoStProof;
 use crate::state_manager::ExecutedTipset;
 use crate::utils::db::CborStoreExt;
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use bls_signatures::Serialize as _;
-use cid::Cid;
 use enumflags2::BitFlags;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use group::prime::PrimeCurveAffine as _;
-use itertools::Itertools;
 use parking_lot::RwLock;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -105,16 +101,16 @@ impl RpcMethod<1> for MinerCreateBlock {
     type Ok = BlockMessage;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
+        ctx: Ctx,
         (block_template,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.store();
+        let store = ctx.db();
         let parent_tipset = ctx
             .chain_index()
             .load_required_tipset(&block_template.parents)?;
 
-        let lookback_state = ChainStore::<DbImpl>::get_lookback_tipset_for_round(
+        let lookback_state = ChainStore::get_lookback_tipset_for_round(
             ctx.chain_index(),
             ctx.chain_config(),
             &parent_tipset,
@@ -164,14 +160,14 @@ impl RpcMethod<1> for MinerCreateBlock {
         for msg in block_template.messages {
             match msg.signature().signature_type() {
                 SignatureType::Bls => {
-                    let cid = ctx.store().put_cbor_default(&msg.message)?;
+                    let cid = ctx.db().put_cbor_default(&msg.message)?;
                     bls_msg_cids.push(cid);
                     bls_sigs.push(msg.signature);
                     bls_messages.push(msg.message);
                 }
                 SignatureType::Secp256k1 | SignatureType::Delegated => {
                     if msg.signature.is_valid_secpk_sig_type(network_version) {
-                        let cid = ctx.store().put_cbor_default(&msg)?;
+                        let cid = ctx.db().put_cbor_default(&msg)?;
                         secpk_msg_cids.push(cid);
                         secpk_messages.push(msg);
                     } else {
@@ -184,7 +180,7 @@ impl RpcMethod<1> for MinerCreateBlock {
             }
         }
 
-        let store = ctx.store();
+        let store = ctx.db();
         let mut message_array = Amt::<Cid, _>::new(store);
         for (i, cid) in bls_msg_cids.iter().enumerate() {
             message_array.set(i as u64, *cid)?;
@@ -288,7 +284,7 @@ impl RpcMethod<3> for MinerGetBaseInfo {
     type Ok = Option<MiningBaseInfo>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
+        ctx: Ctx,
         (miner_address, epoch, ApiTipsetKey(tipset_key)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

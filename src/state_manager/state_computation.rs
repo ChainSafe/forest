@@ -3,22 +3,17 @@
 
 use super::circulating_supply::GenesisInfo;
 use super::*;
-use crate::db::EthMappingsStore;
 use crate::interpreter::{BlockMessages, ExecutionContext, VM, VMTrace};
+use crate::prelude::*;
 use crate::shim::message::Message;
 use crate::state_migration::run_state_migrations;
-use crate::utils::ShallowClone as _;
-use anyhow::{Context as _, bail, ensure};
+use anyhow::{bail, ensure};
 use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
-use itertools::Itertools as _;
 use tracing::{error, info, instrument};
 
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
+impl StateManager {
     /// Load the state of a tipset, including state root, message receipts
-    pub async fn load_tipset_state(self: &Arc<Self>, ts: &Tipset) -> anyhow::Result<TipsetState> {
+    pub async fn load_tipset_state(&self, ts: &Tipset) -> anyhow::Result<TipsetState> {
         if let Some(state) = self.cache.get_map(ts.key(), |et| et.into()) {
             Ok(state)
         } else {
@@ -33,15 +28,12 @@ where
     }
 
     /// Load an executed tipset, including state root, message receipts and events with caching.
-    pub async fn load_executed_tipset(
-        self: &Arc<Self>,
-        ts: &Tipset,
-    ) -> anyhow::Result<ExecutedTipset> {
+    pub async fn load_executed_tipset(&self, ts: &Tipset) -> anyhow::Result<ExecutedTipset> {
         // validate the existence of state trees for post-chain-head-epoch tipsets in case chain head is reset(e.g. manually or via GC).
         if ts.epoch() >= self.heaviest_tipset().epoch()
             && let Some(cached) = self.cache.get(ts.key())
         {
-            if StateTree::new_from_root(self.blockstore_owned(), &cached.state_root).is_ok() {
+            if StateTree::new_from_root(self.db(), &cached.state_root).is_ok() {
                 return Ok(cached);
             } else {
                 self.cache.remove(ts.key());
@@ -57,7 +49,7 @@ where
     }
 
     async fn load_executed_tipset_inner(
-        self: &Arc<Self>,
+        &self,
         msg_ts: &Tipset,
         // when `msg_ts` is the current head, `receipt_ts` is `None`
         receipt_ts: Option<&Tipset>,
@@ -71,7 +63,7 @@ where
         let mut recomputed = false;
         let (state_root, receipt_root, receipts) = match receipt_ts.and_then(|ts| {
             let receipt_root = *ts.parent_message_receipts();
-            Receipt::get_receipts(self.cs.blockstore(), receipt_root)
+            Receipt::get_receipts(self.cs.db(), receipt_root)
                 .ok()
                 .map(|r| (*ts.parent_state(), receipt_root, r))
         }) {
@@ -84,7 +76,7 @@ where
                 (
                     state_output.state_root,
                     state_output.receipt_root,
-                    Receipt::get_receipts(self.cs.blockstore(), state_output.receipt_root)?,
+                    Receipt::get_receipts(self.cs.db(), state_output.receipt_root)?,
                 )
             }
         };
@@ -99,22 +91,20 @@ where
         let mut executed_messages = Vec::with_capacity(messages.len());
         for (message, receipt) in messages.iter().cloned().zip(receipts) {
             let events = if let Some(events_root) = receipt.events_root() {
-                Some(
-                    match StampedEvent::get_events(self.cs.blockstore(), &events_root) {
-                        Ok(events) => events,
-                        Err(e) if recomputed => return Err(e),
-                        Err(_) => {
-                            self.compute_tipset_state(
-                                msg_ts.shallow_clone(),
-                                NO_CALLBACK,
-                                VMTrace::NotTraced,
-                            )
-                            .await?;
-                            recomputed = true;
-                            StampedEvent::get_events(self.cs.blockstore(), &events_root)?
-                        }
-                    },
-                )
+                Some(match StampedEvent::get_events(self.cs.db(), &events_root) {
+                    Ok(events) => events,
+                    Err(e) if recomputed => return Err(e),
+                    Err(_) => {
+                        self.compute_tipset_state(
+                            msg_ts.shallow_clone(),
+                            NO_CALLBACK,
+                            VMTrace::NotTraced,
+                        )
+                        .await?;
+                        recomputed = true;
+                        StampedEvent::get_events(self.cs.db(), &events_root)?
+                    }
+                })
             } else {
                 None
             };
@@ -153,12 +143,12 @@ where
     /// For details, see the documentation for [`apply_block_messages`].
     ///
     pub async fn compute_tipset_state(
-        self: &Arc<Self>,
+        &self,
         tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
     ) -> Result<ExecutedTipset, Error> {
-        let this = Arc::clone(self);
+        let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || {
             this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
         })
@@ -200,14 +190,14 @@ where
 
     #[instrument(skip_all)]
     pub async fn compute_state(
-        self: &Arc<Self>,
+        &self,
         height: ChainEpoch,
         messages: Vec<Message>,
         tipset: Tipset,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
     ) -> Result<ExecutedTipset, Error> {
-        let this = Arc::clone(self);
+        let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || {
             this.compute_state_blocking(height, messages, tipset, callback, enable_tracing)
         })

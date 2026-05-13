@@ -1,9 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::any::Any;
-
-use crate::db::EthMappingsStore;
 use crate::key_management::{Key, KeyInfo};
 use crate::message::SignedMessage;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
@@ -15,7 +12,6 @@ use crate::shim::{
     state_tree::StateTree,
 };
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 
 pub enum WalletBalance {}
 impl RpcMethod<1> for WalletBalance {
@@ -29,14 +25,14 @@ impl RpcMethod<1> for WalletBalance {
     type Ok = TokenAmount;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let heaviest_ts = ctx.chain_store().heaviest_tipset();
         let cid = heaviest_ts.parent_state();
 
-        Ok(StateTree::new_from_root(ctx.store_owned(), cid)?
+        Ok(StateTree::new_from_root(ctx.db(), cid)?
             .get_actor(&address)?
             .map(|it| it.balance.clone().into())
             .unwrap_or_default())
@@ -54,7 +50,7 @@ impl RpcMethod<0> for WalletDefaultAddress {
     type Ok = Option<Address>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -74,7 +70,7 @@ impl RpcMethod<1> for WalletExport {
     type Ok = KeyInfo;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -97,7 +93,7 @@ impl RpcMethod<1> for WalletHas {
     type Ok = bool;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -117,7 +113,7 @@ impl RpcMethod<1> for WalletImport {
     type Ok = Address;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (key_info,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -141,7 +137,7 @@ impl RpcMethod<0> for WalletList {
     type Ok = Vec<Address>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -161,7 +157,7 @@ impl RpcMethod<1> for WalletNew {
     type Ok = Address;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (signature_type,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -189,7 +185,7 @@ impl RpcMethod<1> for WalletSetDefault {
     type Ok = ();
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -215,7 +211,7 @@ impl RpcMethod<2> for WalletSign {
     type Ok = Signature;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, message): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -249,7 +245,7 @@ impl RpcMethod<2> for WalletSignMessage {
     type Ok = SignedMessage;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, message): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -277,7 +273,7 @@ impl RpcMethod<1> for WalletValidateAddress {
     type Ok = Address;
 
     async fn handle(
-        _: Ctx<impl Any>,
+        _: Ctx,
         (s,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -296,7 +292,7 @@ impl RpcMethod<3> for WalletVerify {
     type Ok = bool;
 
     async fn handle(
-        _: Ctx<impl Any>,
+        _: Ctx,
         (address, message, signature): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -315,7 +311,7 @@ impl RpcMethod<1> for WalletDelete {
     type Ok = ();
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

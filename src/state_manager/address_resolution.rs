@@ -2,23 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::db::EthMappingsStore;
+use crate::prelude::*;
 use crate::shim::address::{Payload, Protocol};
-use anyhow::Context as _;
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+impl StateManager {
     /// Returns a BLS public key from provided address
     pub fn get_bls_public_key(
-        db: &Arc<DB>,
+        db: &(impl Blockstore + ShallowClone),
         addr: &Address,
         state_cid: Cid,
     ) -> Result<BlsPublicKey, Error> {
-        let state = StateTree::new_from_root(Arc::clone(db), &state_cid)
-            .map_err(|e| Error::Other(e.to_string()))?;
+        let state =
+            StateTree::new_from_root(db, &state_cid).map_err(|e| Error::Other(e.to_string()))?;
         let kaddr =
             resolve_to_key_addr(&state, db, addr).context("Failed to resolve key address")?;
 
@@ -34,8 +30,8 @@ where
 
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
-            .map_err(|e| format!("{e:?}"))?;
+        let state_tree =
+            StateTree::new_from_root(self.db(), ts.parent_state()).map_err(|e| format!("{e:?}"))?;
         Ok(state_tree
             .lookup_id(addr)
             .map_err(|e| Error::Other(e.to_string()))?
@@ -51,13 +47,10 @@ where
     /// Similar to `resolve_to_key_addr` in the `forest_vm` [`crate::state_manager`] but does not
     /// allow `Actor` type of addresses. Uses `ts` to generate the VM state.
     pub async fn resolve_to_key_addr(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
         ts: &Tipset,
-    ) -> anyhow::Result<Address>
-    where
-        DB: EthMappingsStore,
-    {
+    ) -> anyhow::Result<Address> {
         match addr.protocol() {
             Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated => return Ok(*addr),
             Protocol::Actor => {
@@ -71,28 +64,25 @@ where
 
         // First try to resolve the actor in the parent state, so we don't have to
         // compute anything.
-        let state = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())?;
-        if let Ok(addr) = resolve_to_key_addr(&state, self.blockstore(), addr) {
+        let state = StateTree::new_from_root(self.db(), ts.parent_state())?;
+        if let Ok(addr) = resolve_to_key_addr(&state, self.db(), addr) {
             return Ok(addr);
         }
 
         // If that fails, compute the tip-set and try again.
         let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
+        let state = StateTree::new_from_root(self.db(), &state_root)?;
 
-        resolve_to_key_addr(&state, self.blockstore(), addr)
+        resolve_to_key_addr(&state, self.db(), addr)
     }
 
     /// Similar to [`StateTree::resolve_to_deterministic_addr`] but does not allow [`crate::shim::address::Protocol::Actor`] type of addresses.
     /// Uses the [`Tipset`] `ts` to generate the VM state.
     pub async fn resolve_to_deterministic_address(
-        self: &Arc<Self>,
+        &self,
         address: Address,
         ts: &Tipset,
-    ) -> anyhow::Result<Address>
-    where
-        DB: EthMappingsStore,
-    {
+    ) -> anyhow::Result<Address> {
         use crate::shim::address::Protocol::*;
         match address.protocol() {
             BLS | Secp256k1 | Delegated => Ok(address),
@@ -104,16 +94,16 @@ where
                 }
                 // First try to resolve the actor in the parent state, so we don't have to compute anything.
                 let resolved = if let Ok(state) =
-                    StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
-                    && let Ok(address) = state
-                        .resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+                    StateTree::new_from_root(self.db(), ts.parent_state())
+                    && let Ok(address) =
+                        state.resolve_to_deterministic_addr(self.chain_store().db(), address)
                 {
                     address
                 } else {
                     // If that fails, compute the tip-set and try again.
                     let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
-                    let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
-                    state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)?
+                    let state = StateTree::new_from_root(self.db(), &state_root)?;
+                    state.resolve_to_deterministic_addr(self.chain_store().db(), address)?
                 };
                 self.id_to_deterministic_address_cache.push(id, resolved);
                 Ok(resolved)

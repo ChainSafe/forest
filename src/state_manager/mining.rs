@@ -4,7 +4,6 @@
 use super::chain_rand::draw_randomness;
 use super::*;
 use crate::beacon::BeaconEntry;
-use crate::db::EthMappingsStore;
 use crate::rpc::types::MiningBaseInfo;
 use crate::shim::randomness::Randomness;
 use crate::shim::runtime::Policy;
@@ -13,10 +12,8 @@ use fil_actors_shared::v12::runtime::DomainSeparationTag;
 use fvm_ipld_encoding::to_vec;
 use num::BigInt;
 use num_traits::identities::Zero;
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+
+impl StateManager {
     /// Checks the eligibility of the miner. This is used in the validation that
     /// a block's miner has the requirements to mine a block.
     pub fn eligible_to_mine(
@@ -41,17 +38,17 @@ where
             .get_actor(&Address::POWER_ACTOR, *base_tipset.parent_state())?
             .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
 
-        let power_state = power::State::load(self.blockstore(), actor.code, actor.state)?;
+        let power_state = power::State::load(self.db(), actor.code, actor.state)?;
 
         let actor = self
             .get_actor(address, *base_tipset.parent_state())?
             .ok_or_else(|| Error::state("Miner actor address could not be resolved"))?;
 
-        let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+        let miner_state = miner::State::load(self.db(), actor.code, actor.state)?;
 
         // Non-empty power claim.
         let claim = power_state
-            .miner_power(self.blockstore(), address)?
+            .miner_power(self.db(), address)?
             .ok_or_else(|| Error::Other("Could not get claim".to_string()))?;
         if claim.quality_adj_power <= BigInt::zero() {
             return Ok(false);
@@ -63,7 +60,7 @@ where
         }
 
         // No active consensus faults.
-        let info = miner_state.info(self.blockstore())?;
+        let info = miner_state.info(self.db())?;
         if base_tipset.epoch() <= info.consensus_fault_elapsed {
             return Ok(false);
         }
@@ -72,15 +69,12 @@ where
     }
 
     pub async fn miner_get_base_info(
-        self: &Arc<Self>,
+        &self,
         beacon_schedule: &BeaconSchedule,
         tipset: Tipset,
         addr: Address,
         epoch: ChainEpoch,
-    ) -> anyhow::Result<Option<MiningBaseInfo>>
-    where
-        DB: EthMappingsStore,
-    {
+    ) -> anyhow::Result<Option<MiningBaseInfo>> {
         let prev_beacon = self
             .chain_store()
             .chain_index()
@@ -97,7 +91,7 @@ where
 
         let base = entries.last().unwrap_or(&prev_beacon);
 
-        let (lb_tipset, lb_state_root) = ChainStore::<DB>::get_lookback_tipset_for_round(
+        let (lb_tipset, lb_state_root) = ChainStore::get_lookback_tipset_for_round(
             self.chain_index(),
             self.chain_config(),
             &tipset,
@@ -113,7 +107,7 @@ where
             return Ok(None);
         }
 
-        let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+        let miner_state = miner::State::load(self.db(), actor.code, actor.state)?;
 
         let addr_buf = to_vec(&addr)?;
         let rand = draw_randomness(
@@ -139,7 +133,7 @@ where
             .get_power(&lb_state_root, Some(&addr))?
             .context("failed to get power")?;
 
-        let info = miner_state.info(self.blockstore())?;
+        let info = miner_state.info(self.db())?;
 
         let worker_key = self
             .resolve_to_deterministic_address(info.worker, &tipset)
@@ -169,8 +163,8 @@ where
         let actor = self
             .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
             .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
-        let ps = power::State::load(self.blockstore(), actor.code, actor.state)?;
+        let ps = power::State::load(self.db(), actor.code, actor.state)?;
 
-        ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), addr)
+        ps.miner_nominal_power_meets_consensus_minimum(policy, self.db(), addr)
     }
 }

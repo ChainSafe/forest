@@ -4,16 +4,14 @@ use super::actors::LoadActorStateFromBlockstore;
 pub use super::fvm_shared_latest::{ActorID, state::StateRoot};
 use crate::{
     blocks::Tipset,
+    prelude::*,
     shim::{actors::AccountActorStateLoad as _, address::Address, econ::TokenAmount},
-    utils::ShallowClone,
 };
 use crate::{
     networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata},
     shim::actors::account,
 };
-use anyhow::{Context as _, bail};
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
+use anyhow::bail;
 use fvm_ipld_encoding::{
     CborStore as _,
     repr::{Deserialize_repr, Serialize_repr},
@@ -150,19 +148,19 @@ where
     S: Blockstore + ShallowClone,
 {
     /// Constructor for a HAMT state tree given an IPLD store
-    pub fn new(store: S, version: StateTreeVersion) -> anyhow::Result<Self> {
+    pub fn new(store: &S, version: StateTreeVersion) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV4::new(store.shallow_clone(), version.try_into()?) {
             Ok(StateTree::FvmV4(st))
         } else if let Ok(st) = StateTreeV3::new(store.shallow_clone(), version.try_into()?) {
             Ok(StateTree::FvmV3(st))
-        } else if let Ok(st) = StateTreeV2::new(store, version.try_into()?) {
+        } else if let Ok(st) = StateTreeV2::new(store.shallow_clone(), version.try_into()?) {
             Ok(StateTree::FvmV2(st))
         } else {
             bail!("Can't create a valid state tree for the given version.");
         }
     }
 
-    pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
+    pub fn new_from_root(store: &S, c: &Cid) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV4::new_from_root(store.shallow_clone(), c) {
             Ok(StateTree::FvmV4(st))
         } else if let Ok(st) = StateTreeV3::new_from_root(store.shallow_clone(), c) {
@@ -186,7 +184,7 @@ where
         }
     }
 
-    pub fn new_from_tipset(store: S, ts: &Tipset) -> anyhow::Result<Self> {
+    pub fn new_from_tipset(store: &S, ts: &Tipset) -> anyhow::Result<Self> {
         Self::new_from_root(store, ts.parent_state())
     }
 }
@@ -534,12 +532,11 @@ mod tests {
 
     // refactored from `StateManager::get_network_name`
     fn get_network_name(car: &'static [u8], genesis_cid: Cid) -> String {
-        let forest_car = AnyCar::new(car).unwrap();
+        let forest_car = Arc::new(AnyCar::new(car).unwrap());
         let genesis_block = CachingBlockHeader::load(&forest_car, genesis_cid)
             .unwrap()
             .unwrap();
-        let state_tree =
-            StateTree::new_from_root(Arc::new(&forest_car), &genesis_block.state_root).unwrap();
+        let state_tree = StateTree::new_from_root(&forest_car, &genesis_block.state_root).unwrap();
         let state: init::State = state_tree.get_actor_state().unwrap();
         state.into_network_name()
     }

@@ -9,25 +9,23 @@
 use crate::{
     beacon::BeaconEntry,
     blocks::*,
-    db::{EthMappingsStore, MemoryDB, SettingsStore, car::PlainCar},
-    libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite},
+    db::{MemoryDB, car::PlainCar},
     networks,
-    rpc::eth::types::EthHash,
+    prelude::*,
     shim::{
         address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
         sector::PoStProof,
     },
 };
 use chain4u::header::{FILECOIN_GENESIS_BLOCK, FILECOIN_GENESIS_CID, GENESIS_BLOCK_PARENTS};
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use itertools::Itertools as _;
 use num_bigint::BigInt;
 use petgraph::Direction;
-use std::{borrow::Borrow, fmt::Debug, hash::Hash};
 use std::{
+    borrow::Borrow,
     collections::hash_map::Entry::{Occupied, Vacant},
+    fmt::Debug,
+    hash::Hash,
     iter,
 };
 
@@ -175,6 +173,11 @@ impl<T> Chain4U<T> {
             inner: Default::default(),
         }
     }
+
+    pub fn blockstore(&self) -> &T {
+        &self.blockstore
+    }
+
     pub fn get<Q>(&self, ident: &Q) -> Option<RawBlockHeader>
     where
         String: Borrow<Q>,
@@ -182,9 +185,11 @@ impl<T> Chain4U<T> {
     {
         self.inner.lock().ident2header.get(ident).cloned()
     }
+
     pub fn tipset(&self, of: &[&str]) -> Tipset {
         Tipset::new(of.iter().map(|it| self.get(*it).unwrap())).unwrap()
     }
+
     /// Insert a header.
     /// Header fields (epoch etc) will be set accordingly.
     pub fn insert(
@@ -205,84 +210,6 @@ impl<T> Chain4U<T> {
             .put_keyed(&header.cid(), &fvm_ipld_encoding::to_vec(&header).unwrap())
             .unwrap();
         header
-    }
-}
-
-impl<T: Blockstore> Blockstore for Chain4U<T> {
-    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.blockstore.get(k)
-    }
-
-    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.blockstore.put_keyed(k, block)
-    }
-}
-
-impl<T: SettingsStore> SettingsStore for Chain4U<T> {
-    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
-        self.blockstore.read_bin(key)
-    }
-
-    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
-        self.blockstore.write_bin(key, value)
-    }
-
-    fn exists(&self, key: &str) -> anyhow::Result<bool> {
-        self.blockstore.exists(key)
-    }
-
-    #[allow(dead_code)]
-    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
-        self.blockstore.setting_keys()
-    }
-}
-
-impl<T: EthMappingsStore> EthMappingsStore for Chain4U<T> {
-    fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
-        self.blockstore.read_bin(key)
-    }
-
-    fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()> {
-        self.blockstore.write_bin(key, value)
-    }
-
-    #[allow(dead_code)]
-    fn exists(&self, key: &EthHash) -> anyhow::Result<bool> {
-        self.blockstore.exists(key)
-    }
-
-    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
-        self.blockstore.get_message_cids()
-    }
-
-    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
-        self.blockstore.delete(keys)
-    }
-
-    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
-        self.blockstore.tipset_key_by_epoch(epoch)
-    }
-
-    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
-        self.blockstore.set_tipset_key_at_epoch(ts)
-    }
-}
-
-impl<T: BitswapStoreRead> BitswapStoreRead for Chain4U<T> {
-    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        self.blockstore.contains(cid)
-    }
-
-    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.blockstore.get(cid)
-    }
-}
-
-impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for Chain4U<T> {
-    type Hashes = <T as BitswapStoreReadWrite>::Hashes;
-
-    fn insert(&self, block: &crate::libp2p_bitswap::Block64<Self::Hashes>) -> anyhow::Result<()> {
-        self.blockstore.insert(block)
     }
 }
 
@@ -763,7 +690,11 @@ fn test_chain4u() {
     itertools::assert_equal(
         iter::successors(Some(t3.clone()), |t| match t.epoch() {
             0 => None,
-            _ => Some(Tipset::load(&c4u, t.parents()).unwrap().unwrap()),
+            _ => Some(
+                Tipset::load(c4u.blockstore(), t.parents())
+                    .unwrap()
+                    .unwrap(),
+            ),
         }),
         [t3, t2, t1, t0],
     );

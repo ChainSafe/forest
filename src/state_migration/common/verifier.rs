@@ -15,7 +15,7 @@ pub(in crate::state_migration) trait ActorMigrationVerifier<BS> {
         &self,
         store: &BS,
         migrations: &CidHashMap<Migrator<BS>>,
-        actors_in: &StateTree<Arc<BS>>,
+        actors_in: &StateTree<BS>,
     ) -> anyhow::Result<()>;
 }
 

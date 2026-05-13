@@ -7,40 +7,30 @@ use super::{
     tipset_tracker::TipsetTracker,
 };
 use crate::networks::{ChainConfig, Height};
+use crate::prelude::*;
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{executor::Receipt, message::Message, version::NetworkVersion};
 use crate::state_manager::ExecutedTipset;
-use crate::utils::ShallowClone;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
-    db::HeaviestTipsetKeyProvider,
-};
-use crate::{
-    db::DbImpl,
+    db::{DbImpl, HeaviestTipsetKeyProvider},
     message::{ChainMessage, SignedMessage},
 };
-use crate::{
-    db::{EthMappingsStore, EthMappingsStoreExt},
-    rpc::chain::PathChange,
-};
+use crate::{db::EthMappingsStoreExt, rpc::chain::PathChange};
 use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
 use crate::{
     interpreter::{BlockMessages, VMTrace},
     rpc::chain::PathChanges,
 };
 use ahash::{HashMap, HashSet};
-use anyhow::Context as _;
-use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::{Mutex, RwLock};
 use serde::{Serialize, de::DeserializeOwned};
-use std::{num::NonZeroUsize, sync::Arc};
+use std::num::NonZeroUsize;
 use tokio::sync::broadcast;
 use tracing::{debug, error, trace, warn};
 
@@ -60,15 +50,9 @@ pub type HeadChanges = PathChanges<Tipset>;
 /// Stores chain data such as heaviest tipset and cached tipset info at each
 /// epoch. This structure is thread-safe, and all caches are wrapped in a mutex
 /// to allow a consistent `ChainStore` to be shared across tasks.
-pub struct ChainStore<DB> {
+pub struct ChainStore {
     /// Publisher for head change events
     head_changes_tx: broadcast::Sender<HeadChanges>,
-
-    /// key-value `datastore`.
-    db: Arc<DB>,
-
-    /// Heaviest tipset key provider
-    heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
 
     /// Heaviest tipset cache
     heaviest_tipset: Arc<RwLock<Tipset>>,
@@ -82,13 +66,10 @@ pub struct ChainStore<DB> {
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DbImpl>,
 
-    genesis_block_header: CachingBlockHeader,
+    genesis_block_header: Arc<CachingBlockHeader>,
 
     /// validated blocks
-    pub(crate) validated_blocks: Mutex<HashSet<Cid>>,
-
-    /// Ethereum mappings store
-    eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
+    pub(crate) validated_blocks: Arc<Mutex<HashSet<Cid>>>,
 
     /// Needed by the Ethereum mapping.
     chain_config: Arc<ChainConfig>,
@@ -97,20 +78,31 @@ pub struct ChainStore<DB> {
     messages_in_tipset_cache: MessagesInTipsetCache,
 }
 
-impl<DB: Blockstore> ChainStore<DB> {
+impl ShallowClone for ChainStore {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            head_changes_tx: self.head_changes_tx.clone(),
+            heaviest_tipset: self.heaviest_tipset.shallow_clone(),
+            f3_finalized_tipset: self.f3_finalized_tipset.shallow_clone(),
+            chain_index: self.chain_index.shallow_clone(),
+            tipset_tracker: self.tipset_tracker.shallow_clone(),
+            genesis_block_header: self.genesis_block_header.shallow_clone(),
+            validated_blocks: self.validated_blocks.shallow_clone(),
+            chain_config: self.chain_config.shallow_clone(),
+            messages_in_tipset_cache: self.messages_in_tipset_cache.shallow_clone(),
+        }
+    }
+}
+
+impl ChainStore {
     pub fn new(
-        db: Arc<DB>,
-        heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
-        eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
+        db: impl Into<DbImpl>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: CachingBlockHeader,
-    ) -> anyhow::Result<Self>
-    where
-        Arc<DB>: Into<DbImpl>,
-    {
+    ) -> anyhow::Result<Self> {
+        let db = db.into();
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let validated_blocks = Mutex::new(HashSet::default());
-        let head = if let Some(head_tsk) = heaviest_tipset_key_provider
+        let head = if let Some(head_tsk) = db
             .heaviest_tipset_key()
             .context("failed to load head tipset key")?
         {
@@ -121,7 +113,7 @@ impl<DB: Blockstore> ChainStore<DB> {
         };
         let heaviest_tipset = Arc::new(RwLock::new(head));
         let f3_finalized_tipset: Arc<RwLock<Option<Tipset>>> = Default::default();
-        let chain_index = ChainIndex::new(db.clone()).with_is_tipset_finalized(Arc::new({
+        let chain_index = ChainIndex::new(db.shallow_clone()).with_is_tipset_finalized(Arc::new({
             let chain_finality = chain_config.policy.chain_finality;
             let heaviest_tipset = heaviest_tipset.clone();
             let f3_finalized_tipset = f3_finalized_tipset.clone();
@@ -138,14 +130,11 @@ impl<DB: Blockstore> ChainStore<DB> {
         let cs = Self {
             head_changes_tx: publisher,
             chain_index,
-            tipset_tracker: TipsetTracker::new(db.clone().into(), chain_config.clone()),
-            db,
-            heaviest_tipset_key_provider,
+            tipset_tracker: TipsetTracker::new(db, chain_config.clone()),
             heaviest_tipset,
             f3_finalized_tipset,
-            genesis_block_header,
-            validated_blocks,
-            eth_mappings,
+            genesis_block_header: genesis_block_header.into(),
+            validated_blocks: Default::default(),
             chain_config,
             messages_in_tipset_cache: Default::default(),
         };
@@ -170,9 +159,8 @@ impl<DB: Blockstore> ChainStore<DB> {
 
     /// Sets heaviest tipset
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
-        head.key().save(self.blockstore())?;
-        self.heaviest_tipset_key_provider
-            .set_heaviest_tipset_key(head.key())?;
+        head.key().save(self.db())?;
+        self.db().set_heaviest_tipset_key(head.key())?;
         let old_head = std::mem::replace(&mut *self.heaviest_tipset.write(), head.clone());
 
         if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
@@ -207,7 +195,7 @@ impl<DB: Blockstore> ChainStore<DB> {
     /// Writes tipset block headers to data store and updates heaviest tipset
     /// with other compatible tracked headers.
     pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
-        persist_objects(self.blockstore(), ts.block_headers().iter())?;
+        persist_objects(self.db(), ts.block_headers().iter())?;
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
@@ -217,21 +205,18 @@ impl<DB: Blockstore> ChainStore<DB> {
 
     /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
     pub fn get_required_tipset_key(&self, hash: &EthHash) -> Result<TipsetKey, Error> {
-        Ok(TipsetKey::load(self.blockstore(), &hash.to_cid())?)
+        Ok(TipsetKey::load(self.db(), &hash.to_cid())?)
     }
 
     /// Writes with timestamp the `Hash` to `Cid` mapping to the blockstore for `EthAPI` queries.
     pub fn put_mapping(&self, k: EthHash, v: Cid, timestamp: u64) -> Result<(), Error> {
-        self.eth_mappings.write_obj(&k, &(v, timestamp))?;
+        self.db().write_obj(&k, &(v, timestamp))?;
         Ok(())
     }
 
     /// Reads the `Cid` from the blockstore for `EthAPI` queries.
     pub fn get_mapping(&self, hash: &EthHash) -> Result<Option<Cid>, Error> {
-        Ok(self
-            .eth_mappings
-            .read_obj::<(Cid, u64)>(hash)?
-            .map(|(cid, _)| cid))
+        Ok(self.db().read_obj::<(Cid, u64)>(hash)?.map(|(cid, _)| cid))
     }
 
     /// Expands tipset to tipset with all other headers in the same epoch using
@@ -259,9 +244,14 @@ impl<DB: Blockstore> ChainStore<DB> {
         self.head_changes_tx.subscribe()
     }
 
-    /// Returns key-value store instance.
-    pub fn blockstore(&self) -> &Arc<DB> {
-        &self.db
+    /// Returns a borrowed key-value store instance.
+    pub fn db(&self) -> &DbImpl {
+        self.chain_index().db()
+    }
+
+    /// Returns an owned key-value store instance.
+    pub fn db_owned(&self) -> DbImpl {
+        self.chain_index().db_owned()
     }
 
     /// Returns the chain index
@@ -291,10 +281,7 @@ impl<DB: Blockstore> ChainStore<DB> {
 
     /// Returns [`None`] when `ts` has no known child on the current heaviest chain
     /// (e.g. `ts` is the chain head). Blockstore errors are returned as [`Err`].
-    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Option<Tipset>, Error>
-    where
-        DB: EthMappingsStore,
-    {
+    pub fn load_child_tipset(&self, ts: &Tipset) -> Result<Option<Tipset>, Error> {
         let head = self.heaviest_tipset();
         if head.parents() == ts.key() {
             Ok(Some(head))
@@ -316,9 +303,9 @@ impl<DB: Blockstore> ChainStore<DB> {
     /// tipset
     fn update_heaviest(&self, ts: Tipset) -> Result<(), Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
-        let heaviest_weight = fil_cns::weight(self.blockstore(), &self.heaviest_tipset())?;
+        let heaviest_weight = fil_cns::weight(self.db(), &self.heaviest_tipset())?;
 
-        let new_weight = fil_cns::weight(self.blockstore(), &ts)?;
+        let new_weight = fil_cns::weight(self.db(), &ts)?;
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
@@ -353,7 +340,7 @@ impl<DB: Blockstore> ChainStore<DB> {
         Ok(self
             .messages_in_tipset_cache()
             .get_or_insert_with(ts.key(), || {
-                let bmsgs = BlockMessages::for_tipset(&self.db, ts)?;
+                let bmsgs = BlockMessages::for_tipset(self.db(), ts)?;
                 Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect_vec())
             })?)
     }
@@ -371,10 +358,7 @@ impl<DB: Blockstore> ChainStore<DB> {
         chain_config: &Arc<ChainConfig>,
         heaviest_tipset: &Tipset,
         round: ChainEpoch,
-    ) -> Result<(Tipset, Cid), Error>
-    where
-        DB: EthMappingsStore + Send + Sync + 'static,
-    {
+    ) -> Result<(Tipset, Cid), Error> {
         let version = chain_config.network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
@@ -429,10 +413,7 @@ impl<DB: Blockstore> ChainStore<DB> {
     }
 
     /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.
-    pub fn process_signed_messages(&self, messages: &[(SignedMessage, u64)]) -> anyhow::Result<()>
-    where
-        DB: fvm_ipld_blockstore::Blockstore,
-    {
+    pub fn process_signed_messages(&self, messages: &[(SignedMessage, u64)]) -> anyhow::Result<()> {
         let eth_txs: Vec<(EthHash, Cid, u64, usize)> = messages
             .iter()
             .enumerate()
@@ -466,10 +447,7 @@ impl<DB: Blockstore> ChainStore<DB> {
     pub fn headers_delegated_messages<'a>(
         &self,
         headers: impl Iterator<Item = &'a CachingBlockHeader>,
-    ) -> anyhow::Result<Vec<(SignedMessage, u64)>>
-    where
-        DB: fvm_ipld_blockstore::Blockstore,
-    {
+    ) -> anyhow::Result<Vec<(SignedMessage, u64)>> {
         let mut delegated_messages = vec![];
 
         // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
@@ -478,7 +456,7 @@ impl<DB: Blockstore> ChainStore<DB> {
             headers.filter(|bh| bh.epoch >= self.chain_config.epoch(Height::Hygge));
 
         for bh in filtered_headers {
-            if let Ok((_, secp_cids)) = block_messages(self.blockstore(), bh) {
+            if let Ok((_, secp_cids)) = block_messages(self.db(), bh) {
                 let mut messages: Vec<_> = secp_cids
                     .into_iter()
                     .filter(|msg| msg.is_delegated())
@@ -665,6 +643,14 @@ impl Default for MessagesInTipsetCache {
     }
 }
 
+impl ShallowClone for MessagesInTipsetCache {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            cache: self.cache.shallow_clone(),
+        }
+    }
+}
+
 /// Returns messages from key-value store based on a slice of [`Cid`]s.
 pub fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
@@ -702,7 +688,6 @@ mod tests {
     use super::*;
     use crate::utils::multihash::prelude::*;
     use crate::{blocks::RawBlockHeader, shim::address::Address};
-    use cid::Cid;
     use fvm_ipld_encoding::DAG_CBOR;
 
     #[test]
@@ -719,22 +704,21 @@ mod tests {
             message_receipts: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
             ..Default::default()
         });
-        let cs =
-            ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block.clone()).unwrap();
+        let cs = ChainStore::new(db, chain_config, gen_block.clone()).unwrap();
 
         assert_eq!(cs.genesis_block_header(), &gen_block);
     }
 
     #[test]
     fn block_validation_cache_basic() {
-        let db = Arc::new(crate::db::MemoryDB::default());
+        let db = DbImpl::from(Arc::new(crate::db::MemoryDB::default()));
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         });
 
-        let cs = ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block).unwrap();
+        let cs = ChainStore::new(db, chain_config, gen_block).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));

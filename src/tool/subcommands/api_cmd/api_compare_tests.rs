@@ -8,6 +8,7 @@ use crate::db::car::ManyCar;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
 use crate::message::{MessageRead as _, SignedMessage};
+use crate::prelude::*;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
@@ -498,8 +499,8 @@ fn chain_tests(offline: bool) -> Vec<RpcTest> {
     ]
 }
 
-fn chain_tests_with_tipset<DB: Blockstore>(
-    store: &Arc<DB>,
+fn chain_tests_with_tipset<DB: Blockstore + ShallowClone>(
+    store: &DB,
     offline: bool,
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
@@ -715,8 +716,8 @@ fn node_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn event_tests_with_tipset<DB: Blockstore>(
-    _store: &Arc<DB>,
+fn event_tests_with_tipset<DB: Blockstore + ShallowClone>(
+    _store: &DB,
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let epoch = tipset.epoch();
@@ -791,8 +792,8 @@ fn event_tests_with_tipset<DB: Blockstore>(
     ])
 }
 
-fn miner_tests_with_tipset<DB: Blockstore>(
-    store: &Arc<DB>,
+fn miner_tests_with_tipset<DB: Blockstore + ShallowClone>(
+    store: &DB,
     tipset: &Tipset,
     miner_address: Option<Address>,
 ) -> anyhow::Result<Vec<RpcTest>> {
@@ -863,8 +864,8 @@ fn miner_create_block_no_messages_test(miner: Address, tipset: &Tipset) -> RpcTe
     RpcTest::identity(MinerCreateBlock::request((block_template,)).unwrap())
 }
 
-fn state_tests_with_tipset<DB: Blockstore>(
-    store: &Arc<DB>,
+fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
+    store: &DB,
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
@@ -1019,7 +1020,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
 
     // Get deals
     let (deals, deals_map) = {
-        let state = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let state = StateTree::new_from_root(store, tipset.parent_state())?;
         let actor = state.get_required_actor(&Address::MARKET_ACTOR)?;
         let market_state = market::State::load(&store, actor.code, actor.state)?;
         let proposals = market_state.proposals(&store)?;
@@ -1580,8 +1581,8 @@ fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
     tests
 }
 
-fn eth_tests_with_tipset<DB: Blockstore>(
-    store: &Arc<DB>,
+fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
+    store: &DB,
     shared_tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let block_cid = shared_tipset.key().cid()?;
@@ -2290,16 +2291,15 @@ fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     Ok(tests)
 }
 
-fn eth_state_tests_with_tipset<DB: Blockstore>(
-    store: &Arc<DB>,
+fn eth_state_tests_with_tipset<DB: Blockstore + ShallowClone>(
+    store: &DB,
     shared_tipset: &Tipset,
     eth_chain_id: EthChainIdType,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
 
     for block in shared_tipset.block_headers() {
-        let state = StateTree::new_from_root(store.clone(), shared_tipset.parent_state())?;
-
+        let state = StateTree::new_from_root(store, shared_tipset.parent_state())?;
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
             let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
@@ -2574,14 +2574,8 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
         &db,
     )
     .await?;
-    let chain_store = Arc::new(ChainStore::new(
-        db.clone(),
-        db.clone(),
-        db.clone(),
-        chain_config,
-        genesis_header.clone(),
-    )?);
-    let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
+    let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header.clone())?;
+    let state_manager = StateManager::new(chain_store)?;
     let head_ts = db.heaviest_tipset()?;
 
     // Set proof parameter data dir and make sure the proofs are available. Otherwise,

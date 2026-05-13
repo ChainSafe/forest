@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::db::EthMappingsStore;
+use crate::db::DbImpl;
 use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 mod auth_layer;
 mod channel;
@@ -434,7 +434,6 @@ use crate::{chain_sync::network_context::SyncNetworkContext, key_management::Key
 
 use crate::blocks::FullTipset;
 use crate::utils::misc::env::env_or_default;
-use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{
     Methods,
     core::middleware::RpcServiceBuilder,
@@ -488,14 +487,14 @@ static MAX_RESPONSE_BODY_SIZE: LazyLock<u32> =
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
-pub struct RPCState<DB> {
+pub struct RPCState {
     pub keystore: Arc<RwLock<KeyStore>>,
-    pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
-    pub mpool: Arc<crate::message_pool::MessagePool<Arc<crate::chain::ChainStore<DB>>>>,
-    pub bad_blocks: Option<Arc<crate::chain_sync::BadBlockCache>>,
+    pub state_manager: crate::state_manager::StateManager,
+    pub mpool: Arc<crate::message_pool::MessagePool<crate::chain::ChainStore>>,
+    pub bad_blocks: Option<crate::chain_sync::BadBlockCache>,
     pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,
-    pub sync_network_context: SyncNetworkContext<DB>,
+    pub sync_network_context: SyncNetworkContext,
     pub tipset_send: flume::Sender<FullTipset>,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
@@ -505,12 +504,12 @@ pub struct RPCState<DB> {
     pub temp_dir: Arc<std::path::PathBuf>,
 }
 
-impl<DB: Blockstore> RPCState<DB> {
+impl RPCState {
     pub fn beacon(&self) -> &Arc<crate::beacon::BeaconSchedule> {
         self.state_manager.beacon_schedule()
     }
 
-    pub fn chain_store(&self) -> &Arc<crate::chain::ChainStore<DB>> {
+    pub fn chain_store(&self) -> &crate::chain::ChainStore {
         self.state_manager.chain_store()
     }
 
@@ -522,12 +521,12 @@ impl<DB: Blockstore> RPCState<DB> {
         self.state_manager.chain_config()
     }
 
-    pub fn store(&self) -> &Arc<DB> {
-        self.chain_store().blockstore()
+    pub fn db(&self) -> &DbImpl {
+        self.state_manager.db()
     }
 
-    pub fn store_owned(&self) -> Arc<DB> {
-        self.state_manager.blockstore_owned()
+    pub fn db_owned(&self) -> DbImpl {
+        self.state_manager.db_owned()
     }
 
     pub fn network_send(&self) -> &flume::Sender<crate::libp2p::NetworkMessage> {
@@ -546,15 +545,12 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
     keystore: Arc<RwLock<KeyStore>>,
 }
 
-pub async fn start_rpc<DB>(
-    state: RPCState<DB>,
+pub async fn start_rpc(
+    state: RPCState,
     rpc_listener: tokio::net::TcpListener,
     stop_handle: StopHandle,
     filter_list: Option<FilterList>,
-) -> anyhow::Result<()>
-where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
+) -> anyhow::Result<()> {
     let filter_list = filter_list.unwrap_or_default();
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
@@ -704,10 +700,7 @@ where
     Ok(())
 }
 
-fn create_modules<DB>(state: Arc<RPCState<DB>>) -> HashMap<ApiPaths, RpcModule<RPCState<DB>>>
-where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
+fn create_modules(state: Arc<RPCState>) -> HashMap<ApiPaths, RpcModule<RPCState>> {
     let mut modules = HashMap::default();
     for api_version in ApiPaths::value_variants() {
         modules.insert(*api_version, RpcModule::from_arc(state.clone()));

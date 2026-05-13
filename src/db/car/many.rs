@@ -16,9 +16,9 @@ use crate::db::{
     SettingsStoreExt,
 };
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
+use crate::prelude::*;
 use crate::rpc::eth::types::EthHash;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::ShallowClone as _;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::multihash::prelude::*;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
@@ -325,7 +325,9 @@ impl<T: Blockstore + SettingsStore> super::super::HeaviestTipsetKeyProvider for 
 }
 
 impl<WriterT: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for ManyCar<WriterT> {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>> {
+    fn subscribe_write_ops(
+        &self,
+    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>>> {
         self.writer().subscribe_write_ops()
     }
 

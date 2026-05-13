@@ -4,7 +4,6 @@
 use super::circulating_supply::GenesisInfo;
 use super::utils::structured;
 use super::*;
-use crate::db::EthMappingsStore;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
 use crate::message::{MessageRead as _, MessageReadWrite as _, SignedMessage};
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
@@ -12,15 +11,11 @@ use crate::shim::address::Protocol;
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::Message;
-use crate::utils::ShallowClone as _;
 use fvm_shared4::crypto::signature::SECP_SIG_LEN;
 use std::time::Duration;
 use tracing::instrument;
 
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+impl StateManager {
     #[instrument(skip(self, rand))]
     fn call_raw(
         &self,
@@ -28,10 +23,7 @@ where
         msg: &Message,
         rand: ChainRand,
         tipset: &Tipset,
-    ) -> Result<ApiInvocResult, Error>
-    where
-        DB: EthMappingsStore,
-    {
+    ) -> Result<ApiInvocResult, Error> {
         let mut msg = msg.clone();
 
         let state_cid = state_cid.unwrap_or(*tipset.parent_state());
@@ -58,7 +50,7 @@ where
                 base_fee: tipset.block_headers().first().parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
-                    self.blockstore(),
+                    self.db(),
                     &state_cid,
                 )?,
                 chain_config: self.chain_config().shallow_clone(),
@@ -77,7 +69,7 @@ where
         // This is needed to get the correct nonce from the actor state to match the VM
         let state_cid = vm.flush()?;
 
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+        let state = StateTree::new_from_root(self.db(), &state_cid)?;
 
         let from_actor = state
             .get_actor(&msg.from())?
@@ -103,10 +95,7 @@ where
 
     /// runs the given message and returns its result without any persisted
     /// changes.
-    pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error>
-    where
-        DB: EthMappingsStore,
-    {
+    pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let chain_rand = self.chain_rand(ts.shallow_clone());
         self.call_raw(None, message, chain_rand, &ts)
@@ -119,24 +108,18 @@ where
         state_cid: Cid,
         message: &Message,
         tipset: Option<Tipset>,
-    ) -> Result<ApiInvocResult, Error>
-    where
-        DB: EthMappingsStore,
-    {
+    ) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(ts.shallow_clone());
         self.call_raw(Some(state_cid), message, chain_rand, &ts)
     }
 
     pub async fn apply_on_state_with_gas(
-        self: &Arc<Self>,
+        &self,
         tipset: Option<Tipset>,
         msg: Message,
         vm_flush: VMFlush,
-    ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)>
-    where
-        DB: EthMappingsStore,
-    {
+    ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
         let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
@@ -182,15 +165,12 @@ where
     /// Computes message on the given [Tipset] state, after applying other
     /// messages and returns the values computed in the VM.
     pub async fn call_with_gas(
-        self: &Arc<Self>,
+        &self,
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
-    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error>
-    where
-        DB: EthMappingsStore,
-    {
+    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let TipsetState { state_root, .. } = self
             .load_tipset_state(&ts)

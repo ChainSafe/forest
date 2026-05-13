@@ -6,28 +6,20 @@ use super::utils::structured;
 use super::*;
 use crate::interpreter::{CalledAt, VMTrace};
 use crate::rpc::state::{ApiInvocResult, MessageGasCost};
-use crate::utils::ShallowClone as _;
 use anyhow::{Context as _, bail};
 use num_traits::identities::Zero;
 use std::ops::RangeInclusive;
 
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
+impl StateManager {
     /// Replays the given message and returns the result of executing the
     /// indicated message, assuming it was executed in the indicated tipset.
-    pub async fn replay(self: &Arc<Self>, ts: Tipset, mcid: Cid) -> Result<ApiInvocResult, Error> {
-        let this = Arc::clone(self);
+    pub async fn replay(&self, ts: Tipset, mcid: Cid) -> Result<ApiInvocResult, Error> {
+        let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || this.replay_blocking(ts, mcid)).await?
     }
 
     /// Blocking version of `replay`
-    pub fn replay_blocking(
-        self: &Arc<Self>,
-        ts: Tipset,
-        mcid: Cid,
-    ) -> Result<ApiInvocResult, Error> {
+    pub fn replay_blocking(&self, ts: Tipset, mcid: Cid) -> Result<ApiInvocResult, Error> {
         const REPLAY_HALT: &str = "replay_halt";
 
         let mut api_invoc_result = None;
@@ -65,11 +57,11 @@ where
     /// Replays a tipset up to a target message, capturing the state root before
     /// and after execution.
     pub async fn replay_for_prestate(
-        self: &Arc<Self>,
+        &self,
         ts: Tipset,
         target_message_cid: Cid,
     ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
-        let this = Arc::clone(self);
+        let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || {
             this.replay_for_prestate_blocking(ts, target_message_cid)
         })
@@ -78,7 +70,7 @@ where
     }
 
     fn replay_for_prestate_blocking(
-        self: &Arc<Self>,
+        &self,
         ts: Tipset,
         target_msg_cid: Cid,
     ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
@@ -207,7 +199,7 @@ where
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
         let tipsets = end
-            .chain(self.blockstore())
+            .chain(self.db())
             .take_while(|ts| ts.epoch() >= *epochs.start());
 
         self.validate_tipsets(tipsets)

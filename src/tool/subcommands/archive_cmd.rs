@@ -41,6 +41,7 @@ use crate::f3::snapshot::F3SnapshotHeader;
 use crate::interpreter::VMTrace;
 use crate::ipld::{stream_chain, stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
+use crate::prelude::*;
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::executor::{Receipt, StampedEvent};
@@ -48,16 +49,13 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages};
 use crate::tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore;
-use crate::utils::ShallowClone;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
 use crate::utils::multihash::MultihashCode;
 use anyhow::{Context as _, bail};
 use chrono::DateTime;
-use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::{StreamExt as _, TryStreamExt as _};
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use human_repr::HumanCount as _;
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
@@ -68,7 +66,6 @@ use std::fs::File;
 use std::io::{BufReader, Seek as _, SeekFrom};
 use std::ops::Range;
 use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
 
@@ -563,7 +560,7 @@ pub async fn do_export<DB>(
     force: bool,
 ) -> anyhow::Result<()>
 where
-    DB: Blockstore + ShallowClone + Into<DbImpl> + Send + Sync + 'static,
+    DB: Blockstore + ShallowClone + Into<DbImpl> + Unpin + Send + Sync + 'static,
 {
     let ts = root;
 
@@ -648,7 +645,7 @@ where
     let writer = pb.wrap_async_write(writer);
 
     crate::chain::export::<Sha256, _>(
-        &Arc::new(store.shallow_clone()),
+        store,
         &ts,
         depth,
         writer,
@@ -1033,7 +1030,7 @@ async fn export_lite_snapshot<DB>(
     epoch: ChainEpoch,
 ) -> anyhow::Result<PathBuf>
 where
-    DB: Blockstore + ShallowClone + Into<DbImpl> + Send + Sync + 'static,
+    DB: Blockstore + ShallowClone + Into<DbImpl> + Unpin + Send + Sync + 'static,
 {
     let output_path: PathBuf = format_lite_snapshot(network, genesis_timestamp, epoch)?.into();
 
@@ -1069,7 +1066,7 @@ async fn export_diff_snapshot<DB>(
     epoch: ChainEpoch,
 ) -> anyhow::Result<PathBuf>
 where
-    DB: Blockstore + ShallowClone + Into<DbImpl> + Send + Sync + 'static,
+    DB: Blockstore + ShallowClone + Into<DbImpl> + Unpin + Send + Sync + 'static,
 {
     let output_path: PathBuf = format_diff_snapshot(network, genesis_timestamp, epoch)?.into();
 

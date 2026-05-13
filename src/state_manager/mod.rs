@@ -25,12 +25,13 @@ use crate::chain::{
     ChainStore,
     index::{ChainIndex, ResolveNullTipset},
 };
-use crate::db::{DbImpl, EthMappingsStore};
+use crate::db::DbImpl;
 use crate::interpreter::MessageCallbackCtx;
 use crate::interpreter::resolve_to_key_addr;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::ChainMessage;
 use crate::networks::ChainConfig;
+use crate::prelude::*;
 use crate::rpc::types::SectorOnChainInfo;
 use crate::shim::actors::init::{self, State};
 use crate::shim::actors::*;
@@ -48,17 +49,14 @@ use crate::shim::{
     version::NetworkVersion,
 };
 use crate::state_manager::cache::TipsetStateCache;
-use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::{GetSize, vec_heap_size_helper};
 use anyhow::Context as _;
 use chain_rand::ChainRand;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use nonzero_ext::nonzero;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::{num::NonZeroUsize, sync::Arc};
+use std::num::NonZeroUsize;
 use tracing::warn;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -165,14 +163,28 @@ lotus_json_with_self!(MarketBalance);
 /// handles chain data, to allow for interactions with the underlying state of
 /// the chain. The state manager not only allows interfacing with state, but
 /// also is used when performing state transitions.
-pub struct StateManager<DB> {
+pub struct StateManager {
     /// Chain store
-    cs: Arc<ChainStore<DB>>,
+    cs: ChainStore,
     /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
     cache: TipsetStateCache<ExecutedTipset>,
     id_to_deterministic_address_cache: IdToAddressCache,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
+}
+
+impl ShallowClone for StateManager {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            cs: self.cs.shallow_clone(),
+            cache: self.cache.shallow_clone(),
+            id_to_deterministic_address_cache: self
+                .id_to_deterministic_address_cache
+                .shallow_clone(),
+            beacon: self.beacon.shallow_clone(),
+            engine: self.engine.shallow_clone(),
+        }
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -186,18 +198,12 @@ pub enum VMFlush {
     Skip,
 }
 
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore,
-{
-    pub fn new(cs: Arc<ChainStore<DB>>) -> anyhow::Result<Self> {
+impl StateManager {
+    pub fn new(cs: ChainStore) -> anyhow::Result<Self> {
         Self::new_with_engine(cs, GLOBAL_MULTI_ENGINE.clone())
     }
 
-    pub fn new_with_engine(
-        cs: Arc<ChainStore<DB>>,
-        engine: Arc<MultiEngine>,
-    ) -> anyhow::Result<Self> {
+    pub fn new_with_engine(cs: ChainStore, engine: Arc<MultiEngine>) -> anyhow::Result<Self> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(cs.chain_config().get_beacon_schedule(genesis.timestamp));
 
@@ -222,25 +228,19 @@ where
     /// A valid head has
     ///     - state tree in the blockstore
     ///     - actor bundle version in the state tree that matches chain configuration
-    pub fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()>
-    where
-        DB: EthMappingsStore,
-    {
+    pub fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()> {
         while self.maybe_rewind_heaviest_tipset_once()? {}
         Ok(())
     }
 
-    fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool>
-    where
-        DB: EthMappingsStore,
-    {
+    fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool> {
         let head = self.heaviest_tipset();
         if let Some(info) = self
             .chain_config()
             .network_height_with_actor_bundle(head.epoch())
         {
             let expected_height_info = info.info;
-            let expected_bundle = info.manifest(self.blockstore())?;
+            let expected_bundle = info.manifest(self.db())?;
             let expected_bundle_metadata = expected_bundle.metadata()?;
             let state = self.get_state_tree(head.parent_state())?;
             let bundle_metadata = state.get_actor_bundle_metadata()?;
@@ -258,7 +258,7 @@ where
                     tracing::warn!(
                         "rewinding chain head from {current_epoch} to {target_epoch}, actor bundle: {bundle_version}, expected: {expected_bundle_version}"
                     );
-                    if self.blockstore().has(target_head.parent_state())? {
+                    if self.db().has(target_head.parent_state())? {
                         self.chain_store().set_heaviest_tipset(target_head)?;
                         return Ok(true);
                     } else {
@@ -284,7 +284,7 @@ where
 
     /// Gets the state tree
     pub fn get_state_tree(&self, state_cid: &Cid) -> anyhow::Result<StateTree<DbImpl>> {
-        StateTree::new_from_root(self.chain_index().db_owned(), state_cid)
+        StateTree::new_from_root(self.chain_index().db(), state_cid)
     }
 
     /// Gets actor from given [`Cid`], if it exists.
@@ -321,16 +321,16 @@ where
     }
 
     /// Returns a reference to the state manager's [`Blockstore`].
-    pub fn blockstore(&self) -> &Arc<DB> {
-        self.cs.blockstore()
+    pub fn db(&self) -> &DbImpl {
+        self.cs.db()
     }
 
-    pub fn blockstore_owned(&self) -> Arc<DB> {
-        self.blockstore().clone()
+    pub fn db_owned(&self) -> DbImpl {
+        self.cs.db_owned()
     }
 
     /// Returns reference to the state manager's [`ChainStore`].
-    pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
+    pub fn chain_store(&self) -> &ChainStore {
         &self.cs
     }
 
@@ -361,11 +361,9 @@ where
         let init_act = self
             .get_actor(&init::ADDRESS.into(), state_cid)?
             .ok_or_else(|| Error::state("Init actor address could not be resolved"))?;
-        Ok(
-            State::load(self.blockstore(), init_act.code, init_act.state)?
-                .into_network_name()
-                .into(),
-        )
+        Ok(State::load(self.db(), init_act.code, init_act.state)?
+            .into_network_name()
+            .into())
     }
 
     /// Returns true if miner has been slashed or is considered invalid.
@@ -374,18 +372,17 @@ where
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
             .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
 
-        let spas = power::State::load(self.blockstore(), actor.code, actor.state)?;
+        let spas = power::State::load(self.db(), actor.code, actor.state)?;
 
-        Ok(spas.miner_power(self.blockstore(), addr)?.is_none())
+        Ok(spas.miner_power(self.db(), addr)?.is_none())
     }
 
     /// Returns raw work address of a miner given the state root.
     pub fn get_miner_work_addr(&self, state_cid: Cid, addr: &Address) -> Result<Address, Error> {
-        let state =
-            StateTree::new_from_root(self.blockstore_owned(), &state_cid).map_err(Error::other)?;
+        let state = StateTree::new_from_root(self.db(), &state_cid).map_err(Error::other)?;
         let ms: miner::State = state.get_actor_state_from_address(addr)?;
-        let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
-        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
+        let info = ms.info(self.db()).map_err(|e| e.to_string())?;
+        let addr = resolve_to_key_addr(&state, self.db(), &info.worker())?;
         Ok(addr)
     }
 
@@ -400,18 +397,18 @@ where
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
             .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
 
-        let spas = power::State::load(self.blockstore(), actor.code, actor.state)?;
+        let spas = power::State::load(self.db(), actor.code, actor.state)?;
 
         let t_pow = spas.total_power();
 
         if let Some(maddr) = addr {
             let m_pow = spas
-                .miner_power(self.blockstore(), maddr)?
+                .miner_power(self.db(), maddr)?
                 .ok_or_else(|| Error::state(format!("Miner for address {maddr} not found")))?;
 
             let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
                 &self.chain_config().policy,
-                self.blockstore(),
+                self.db(),
                 maddr,
             )?;
             if min_pow {
@@ -431,7 +428,7 @@ where
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::state(format!("Miner actor {addr} not found")))?;
-        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
-        state.load_sectors_ext(self.blockstore(), None)
+        let state = miner::State::load(self.db(), actor.code, actor.state)?;
+        state.load_sectors_ext(self.db(), None)
     }
 }

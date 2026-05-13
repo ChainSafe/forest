@@ -24,7 +24,7 @@ pub use memory::MemoryDB;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::rpc::eth::types::EthHash;
 use ambassador::delegatable_trait;
-use anyhow::{Context as _, bail};
+use anyhow::Context as _;
 use cid::Cid;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -120,41 +120,6 @@ pub trait EthMappingsStore {
     fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()>;
 }
 
-pub struct DummyStore {}
-
-const INDEXER_ERROR: &str =
-    "indexer disabled, enable with chain_indexer.enable_indexer / FOREST_CHAIN_INDEXER_ENABLED";
-
-impl EthMappingsStore for DummyStore {
-    fn read_bin(&self, _key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn write_bin(&self, _key: &EthHash, _value: &[u8]) -> anyhow::Result<()> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn exists(&self, _key: &EthHash) -> anyhow::Result<bool> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn delete(&self, _keys: Vec<EthHash>) -> anyhow::Result<()> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn tipset_key_by_epoch(&self, _epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn set_tipset_key_at_epoch(&self, _ts: &Tipset) -> anyhow::Result<()> {
-        bail!(INDEXER_ERROR)
-    }
-}
-
 pub trait EthMappingsStoreExt {
     fn read_obj<V: DeserializeOwned>(&self, key: &EthHash) -> anyhow::Result<Option<V>>;
     fn write_obj<V: Serialize>(&self, key: &EthHash, value: &V) -> anyhow::Result<()>;
@@ -205,6 +170,7 @@ impl PersistentStore for MemoryBlockstore {
 }
 
 #[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
 pub trait HeaviestTipsetKeyProvider {
     /// Returns the currently tracked heaviest tipset.
     fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>>;
@@ -215,7 +181,9 @@ pub trait HeaviestTipsetKeyProvider {
 
 #[auto_impl::auto_impl(&, Arc)]
 pub trait BlockstoreWriteOpsSubscribable {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>>;
+    fn subscribe_write_ops(
+        &self,
+    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>>>;
 
     fn unsubscribe_write_ops(&self);
 }

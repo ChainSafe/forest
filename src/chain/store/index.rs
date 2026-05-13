@@ -1,17 +1,16 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, sync::Arc};
+use std::num::NonZeroUsize;
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
 use crate::db::{DbImpl, EthMappingsStore as _};
 use crate::metrics;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::ShallowClone;
 use crate::utils::cache::SizeTrackingLruCache;
-use itertools::Itertools;
 use nonzero_ext::nonzero;
 use num::Integer;
 
@@ -73,7 +72,7 @@ impl ChainIndex {
     }
 
     pub fn db_owned(&self) -> DbImpl {
-        self.db.shallow_clone()
+        self.db().shallow_clone()
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
@@ -266,7 +265,7 @@ impl ChainIndex {
 mod tests {
     use super::*;
     use crate::blocks::{CachingBlockHeader, RawBlockHeader};
-    use crate::db::{Blockstore, MemoryDB};
+    use crate::db::MemoryDB;
     use crate::utils::db::CborStoreExt;
     use std::sync::{
         Arc,

@@ -1,14 +1,14 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND};
 use crate::blocks::{Block, CachingBlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
-use crate::db::EthMappingsStore;
 use crate::networks::{ChainConfig, Height};
+use crate::prelude::*;
 use crate::shim::actors::PowerActorStateLoad as _;
 use crate::shim::actors::power;
 use crate::shim::crypto::{
@@ -22,14 +22,10 @@ use crate::shim::{
     version::NetworkVersion,
 };
 use crate::state_manager::StateManager;
-use crate::utils::ShallowClone;
 use crate::utils::encoding::prover_id_from_u64;
-use cid::Cid;
 use fil_actors_shared::filecoin_proofs_api::{PublicReplicaInfo, SectorId, post};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, to_vec};
-use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 use tokio::task::JoinSet;
 
@@ -47,14 +43,12 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Sanity checks
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
-pub(in crate::fil_cns) async fn validate_block<
-    DB: Blockstore + EthMappingsStore + Sync + Send + 'static,
->(
-    state_manager: Arc<StateManager<DB>>,
+pub(in crate::fil_cns) async fn validate_block(
+    state_manager: StateManager,
     beacon_schedule: Arc<BeaconSchedule>,
     block: Arc<Block>,
 ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
-    let chain_store = state_manager.chain_store().clone();
+    let chain_store = state_manager.chain_store().shallow_clone();
     let header = block.header();
 
     block_sanity_checks(header).map_err(to_errs)?;
@@ -70,7 +64,7 @@ pub(in crate::fil_cns) async fn validate_block<
     let win_p_nv = state_manager.get_network_version(base_tipset.epoch());
 
     // Retrieve lookback tipset for validation
-    let (lookback_tipset, lookback_state) = ChainStore::<DB>::get_lookback_tipset_for_round(
+    let (lookback_tipset, lookback_state) = ChainStore::get_lookback_tipset_for_round(
         chain_store.chain_index(),
         state_manager.chain_config(),
         &base_tipset,
@@ -97,9 +91,9 @@ pub(in crate::fil_cns) async fn validate_block<
 
     // Miner validations
     validations.spawn_blocking({
-        let state_manager = state_manager.clone();
+        let state_manager = state_manager.shallow_clone();
         let base_tipset = base_tipset.shallow_clone();
-        let block = block.clone();
+        let block = block.shallow_clone();
         move || {
             validate_miner(
                 &state_manager,
@@ -111,11 +105,11 @@ pub(in crate::fil_cns) async fn validate_block<
 
     // Winner election PoSt validations
     validations.spawn_blocking({
-        let block = block.clone();
-        let prev_beacon = prev_beacon.clone();
+        let block = block.shallow_clone();
+        let prev_beacon = prev_beacon.shallow_clone();
         let base_tipset = base_tipset.shallow_clone();
-        let state_manager = state_manager.clone();
-        let lookback_state = lookback_state.clone();
+        let state_manager = state_manager.shallow_clone();
+        let lookback_state = lookback_state.shallow_clone();
         move || {
             validate_winner_election(
                 block.header(),
@@ -163,7 +157,7 @@ pub(in crate::fil_cns) async fn validate_block<
 
     // Winning PoSt proof validation
     validations.spawn_blocking(move || {
-        verify_winning_post_proof::<_>(
+        verify_winning_post_proof(
             &state_manager,
             win_p_nv,
             block.header(),
@@ -222,8 +216,8 @@ fn block_timestamp_checks(
 
 // Check that the miner power can be loaded.
 // Doesn't check that the miner actually has any power.
-fn validate_miner<DB: Blockstore>(
-    state_manager: &StateManager<DB>,
+fn validate_miner(
+    state_manager: &StateManager,
     miner_addr: &Address,
     tipset_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
@@ -232,24 +226,24 @@ fn validate_miner<DB: Blockstore>(
         .map_err(|_| FilecoinConsensusError::PowerActorUnavailable)?
         .ok_or(FilecoinConsensusError::PowerActorUnavailable)?;
 
-    let state = power::State::load(state_manager.blockstore(), actor.code, actor.state)
+    let state = power::State::load(state_manager.db(), actor.code, actor.state)
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     state
-        .miner_power(state_manager.blockstore(), miner_addr)
+        .miner_power(state_manager.db(), miner_addr)
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     Ok(())
 }
 
-fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
+fn validate_winner_election(
     header: &CachingBlockHeader,
     base_tipset: &Tipset,
     lookback_tipset: &Tipset,
     lookback_state: &Cid,
     prev_beacon: &BeaconEntry,
     work_addr: &Address,
-    state_manager: &StateManager<DB>,
+    state_manager: &StateManager,
 ) -> Result<(), FilecoinConsensusError> {
     // Safe to unwrap because checked to `Some` in sanity check
     let election_proof = header.election_proof.as_ref().unwrap();
@@ -343,8 +337,8 @@ fn verify_election_post_vrf(
     verify_bls_sig(evrf, rand, worker).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-fn verify_winning_post_proof<DB: Blockstore>(
-    state_manager: &StateManager<DB>,
+fn verify_winning_post_proof(
+    state_manager: &StateManager,
     network_version: NetworkVersion,
     header: &CachingBlockHeader,
     prev_beacon_entry: &BeaconEntry,

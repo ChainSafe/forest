@@ -8,31 +8,26 @@ use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::{RangeSpec, backfill_db};
-use crate::db::{
-    DbImpl, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore, car::ManyCar,
-};
+use crate::db::{DbImpl, MemoryDB, car::ManyCar};
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::PeerManager;
 use crate::message_pool::{MessagePool, MpoolLocker, NonceTracker};
 use crate::networks::{ChainConfig, NetworkChain};
+use crate::prelude::*;
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{RPCState, start_rpc};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
-use crate::utils::ShallowClone as _;
 use crate::utils::net::{DownloadFileOption, download_to};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, JWT_IDENTIFIER};
-use anyhow::Context as _;
-use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::server::stop_channel;
 use parking_lot::RwLock;
 use std::{
     mem::discriminant,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
-    sync::Arc,
 };
 use tokio::{
     signal::{
@@ -46,23 +41,14 @@ use tracing::{info, warn};
 
 /// Builds offline RPC state and returns it with a shutdown receiver.
 /// The receiver is notified when RPC shutdown is requested.
-pub async fn offline_rpc_state<DB>(
+pub async fn offline_rpc_state(
     chain: NetworkChain,
-    db: Arc<DB>,
+    db: impl Into<DbImpl>,
     genesis_fp: Option<&Path>,
     save_jwt_token: Option<&Path>,
     services: &mut JoinSet<anyhow::Result<()>>,
-) -> anyhow::Result<(RPCState<DB>, mpsc::Receiver<()>)>
-where
-    DB: Blockstore
-        + SettingsStore
-        + HeaviestTipsetKeyProvider
-        + EthMappingsStore
-        + Send
-        + Sync
-        + 'static,
-    Arc<DB>: Into<DbImpl>,
-{
+) -> anyhow::Result<(RPCState, mpsc::Receiver<()>)> {
+    let db = db.into();
     let chain_config = Arc::new(handle_chain_config(&chain)?);
     let events_config = Arc::new(EventsConfig::default());
     let genesis_header = read_genesis_header(
@@ -72,19 +58,13 @@ where
     )
     .await?;
     // let head_ts = db.heaviest_tipset()?;
-    let chain_store = Arc::new(ChainStore::new(
-        db.shallow_clone(),
-        db.shallow_clone(),
-        db.shallow_clone(),
-        chain_config,
-        genesis_header.clone(),
-    )?);
-    let state_manager = Arc::new(StateManager::new(chain_store.shallow_clone())?);
+    let chain_store = ChainStore::new(db.shallow_clone(), chain_config, genesis_header.clone())?;
+    let state_manager = StateManager::new(chain_store.shallow_clone())?;
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
 
     let message_pool = MessagePool::new(
-        chain_store.clone(),
+        chain_store,
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
@@ -114,7 +94,7 @@ where
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
-        SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
+        SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
     let nonce_tracker = NonceTracker::new();
     Ok((
         RPCState {
@@ -213,7 +193,7 @@ pub async fn start_offline_server(
     if validate_until_epoch <= head_ts.epoch() {
         state_manager.validate_tipsets(
             head_ts
-                .chain(rpc_state.store())
+                .chain(rpc_state.db())
                 .take_while(|ts| ts.epoch() >= validate_until_epoch),
         )?;
     }
@@ -223,14 +203,11 @@ pub async fn start_offline_server(
     Ok(())
 }
 
-async fn start_offline_rpc<DB>(
-    state: RPCState<DB>,
+async fn start_offline_rpc(
+    state: RPCState,
     rpc_port: u16,
     mut shutdown_recv: mpsc::Receiver<()>,
-) -> anyhow::Result<()>
-where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
+) -> anyhow::Result<()> {
     info!("Starting offline RPC Server");
     let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), rpc_port);
     let rpc_listener =

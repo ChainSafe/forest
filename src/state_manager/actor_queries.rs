@@ -10,14 +10,11 @@ use fil_actor_verifreg_state::v12::DataCap;
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+impl StateManager {
     /// Retrieves market state
     pub fn market_state(&self, ts: &Tipset) -> Result<market::State, Error> {
         let actor = self.get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
-        let market_state = market::State::load(self.blockstore(), actor.code, actor.state)?;
+        let market_state = market::State::load(self.db(), actor.code, actor.state)?;
         Ok(market_state)
     }
 
@@ -26,16 +23,8 @@ where
         let market_state = self.market_state(ts)?;
         let new_addr = self.lookup_required_id(addr, ts)?;
         let out = MarketBalance {
-            escrow: {
-                market_state
-                    .escrow_table(self.blockstore())?
-                    .get(&new_addr)?
-            },
-            locked: {
-                market_state
-                    .locked_table(self.blockstore())?
-                    .get(&new_addr)?
-            },
+            escrow: { market_state.escrow_table(self.db())?.get(&new_addr)? },
+            locked: { market_state.locked_table(self.db())?.get(&new_addr)? },
         };
 
         Ok(out)
@@ -49,9 +38,9 @@ where
                 ts.epoch()
             ))
         })?;
-        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+        let state = miner::State::load(self.db(), actor.code, actor.state)?;
 
-        Ok(state.info(self.blockstore())?)
+        Ok(state.info(self.db())?)
     }
 
     /// Retrieves miner faults.
@@ -77,20 +66,16 @@ where
             ))
         })?;
 
-        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+        let state = miner::State::load(self.db(), actor.code, actor.state)?;
 
         let mut partitions = Vec::new();
 
-        state.for_each_deadline(
-            &self.chain_config().policy,
-            self.blockstore(),
-            |_, deadline| {
-                deadline.for_each(self.blockstore(), |_, partition| {
-                    partitions.push(get_sector(partition));
-                    Ok(())
-                })
-            },
-        )?;
+        state.for_each_deadline(&self.chain_config().policy, self.db(), |_, deadline| {
+            deadline.for_each(self.db(), |_, partition| {
+                partitions.push(get_sector(partition));
+                Ok(())
+            })
+        })?;
 
         Ok(BitField::union(partitions.iter()))
     }
@@ -120,7 +105,7 @@ where
             .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
             .map_err(Error::state)?
             .ok_or_else(|| Error::state("actor not found"))?;
-        verifreg::State::load(self.blockstore(), act.code, act.state)
+        verifreg::State::load(self.db(), act.code, act.state)
     }
     pub fn get_claim(
         &self,
@@ -130,12 +115,12 @@ where
     ) -> anyhow::Result<Option<Claim>> {
         let id_address = self.lookup_required_id(addr, ts)?;
         let state = self.get_verified_registry_actor_state(ts)?;
-        state.get_claim(self.blockstore(), id_address, claim_id)
+        state.get_claim(self.db(), id_address, claim_id)
     }
 
     pub fn get_all_claims(&self, ts: &Tipset) -> anyhow::Result<HashMap<ClaimID, Claim>> {
         let state = self.get_verified_registry_actor_state(ts)?;
-        state.get_all_claims(self.blockstore())
+        state.get_all_claims(self.db())
     }
 
     pub fn get_allocation(
@@ -146,7 +131,7 @@ where
     ) -> anyhow::Result<Option<Allocation>> {
         let id_address = self.lookup_required_id(addr, ts)?;
         let state = self.get_verified_registry_actor_state(ts)?;
-        state.get_allocation(self.blockstore(), id_address.id()?, allocation_id)
+        state.get_allocation(self.db(), id_address.id()?, allocation_id)
     }
 
     pub fn get_all_allocations(
@@ -154,7 +139,7 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<HashMap<AllocationID, Allocation>> {
         let state = self.get_verified_registry_actor_state(ts)?;
-        state.get_all_allocations(self.blockstore())
+        state.get_all_allocations(self.db())
     }
 
     pub fn verified_client_status(
@@ -170,7 +155,7 @@ where
         // Original: https://github.com/filecoin-project/lotus/blob/5e76b05b17771da6939c7b0bf65127c3dc70ee23/node/impl/full/state.go#L1627-L1664.
         if (u32::from(network_version.0)) < 17 {
             let state = self.get_verified_registry_actor_state(ts)?;
-            return state.verified_client_data_cap(self.blockstore(), id);
+            return state.verified_client_data_cap(self.db(), id);
         }
 
         let act = self
@@ -183,8 +168,8 @@ where
                 ))
             })?;
 
-        let state = datacap::State::load(self.blockstore(), act.code, act.state)?;
+        let state = datacap::State::load(self.db(), act.code, act.state)?;
 
-        state.verified_client_data_cap(self.blockstore(), id)
+        state.verified_client_data_cap(self.db(), id)
     }
 }

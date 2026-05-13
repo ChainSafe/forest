@@ -28,7 +28,6 @@ use crate::blocks::Tipset;
 use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
-use crate::db::EthMappingsStore;
 use crate::rpc::eth::EVM_WORD_LENGTH;
 use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
@@ -47,7 +46,6 @@ use ahash::AHashMap as HashMap;
 use anyhow::{Context, Error, anyhow, bail, ensure};
 use cid::Cid;
 use futures::{TryStreamExt as _, stream::FuturesOrdered};
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
 use std::ops::RangeInclusive;
@@ -277,9 +275,9 @@ impl EthEventHandler {
         }
     }
 
-    pub fn parse_eth_filter_spec<DB: Blockstore>(
+    pub fn parse_eth_filter_spec(
         &self,
-        ctx: &Ctx<DB>,
+        ctx: &Ctx,
         filter_spec: &EthFilterSpec,
     ) -> anyhow::Result<ParsedFilter> {
         EthFilterSpec::parse_eth_filter_spec(
@@ -289,10 +287,8 @@ impl EthEventHandler {
         )
     }
 
-    pub async fn collect_events_for_tipsets<
-        DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-    >(
-        ctx: &Ctx<DB>,
+    pub async fn collect_events_for_tipsets(
+        ctx: &Ctx,
         tipsets: impl Iterator<Item = Tipset>,
         spec: Option<&impl Matcher>,
         skip_event: SkipEvent,
@@ -322,8 +318,8 @@ impl EthEventHandler {
         Ok(())
     }
 
-    pub async fn collect_events<DB: Blockstore + EthMappingsStore + Send + Sync + 'static>(
-        ctx: &Ctx<DB>,
+    pub async fn collect_events(
+        ctx: &Ctx,
         tipset: &Tipset,
         spec: Option<&impl Matcher>,
         skip_event: SkipEvent,
@@ -422,27 +418,21 @@ impl EthEventHandler {
     }
 
     /// Gets events by event root.
-    pub fn get_events_by_event_root<DB: Blockstore + Send + Sync + 'static>(
-        ctx: &Ctx<DB>,
-        events_root: &Cid,
-    ) -> anyhow::Result<Vec<Event>> {
-        let state_events =
-            match StampedEvent::get_events(ctx.chain_store().blockstore(), events_root) {
-                Ok(e) => e,
-                Err(e) => {
-                    return Err(anyhow::anyhow!("load events amt: {}", e));
-                }
-            };
+    pub fn get_events_by_event_root(ctx: &Ctx, events_root: &Cid) -> anyhow::Result<Vec<Event>> {
+        let state_events = match StampedEvent::get_events(ctx.chain_store().db(), events_root) {
+            Ok(e) => e,
+            Err(e) => {
+                return Err(anyhow::anyhow!("load events amt: {}", e));
+            }
+        };
 
         let chain_events: Vec<Event> = state_events.into_iter().map(Into::into).collect();
         Ok(chain_events)
     }
 
-    pub async fn get_events_for_parsed_filter<
-        DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-    >(
+    pub async fn get_events_for_parsed_filter(
         &self,
-        ctx: &Ctx<DB>,
+        ctx: &Ctx,
         pf: &ParsedFilter,
         skip_event: SkipEvent,
     ) -> anyhow::Result<Vec<CollectedEvent>> {
@@ -477,7 +467,7 @@ impl EthEventHandler {
                     ResolveNullTipset::TakeOlder,
                 )?;
                 let tipsets = max_tipset
-                    .chain(ctx.store())
+                    .chain(ctx.db())
                     .take_while(|ts| ts.epoch() >= *range.start());
                 Self::collect_events_for_tipsets(
                     ctx,

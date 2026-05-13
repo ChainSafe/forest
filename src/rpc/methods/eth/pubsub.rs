@@ -59,27 +59,22 @@
 //! ```
 //!
 
-use crate::db::EthMappingsStore;
 use crate::rpc::eth::pubsub_trait::{
     EthPubSubApiServer, LogFilter, SubscriptionKind, SubscriptionParams,
 };
 use crate::rpc::{RPCState, chain};
-use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::PendingSubscriptionSink;
 use jsonrpsee::core::{SubscriptionError, SubscriptionResult};
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, error::RecvError};
 
 #[derive(derive_more::Constructor)]
-pub struct EthPubSub<DB> {
-    ctx: Arc<RPCState<DB>>,
+pub struct EthPubSub {
+    ctx: Arc<RPCState>,
 }
 
 #[async_trait::async_trait]
-impl<DB> EthPubSubApiServer for EthPubSub<DB>
-where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
+impl EthPubSubApiServer for EthPubSub {
     async fn subscribe(
         &self,
         pending: PendingSubscriptionSink,
@@ -110,14 +105,11 @@ where
     }
 }
 
-impl<DB> EthPubSub<DB>
-where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
+impl EthPubSub {
     async fn handle_new_heads_subscription(
         &self,
         accepted_sink: jsonrpsee::SubscriptionSink,
-        ctx: Arc<RPCState<DB>>,
+        ctx: Arc<RPCState>,
     ) {
         let (subscriber, handle) = chain::new_heads(ctx);
         tokio::spawn(async move {
@@ -128,7 +120,7 @@ where
     async fn handle_logs_subscription(
         &self,
         accepted_sink: jsonrpsee::SubscriptionSink,
-        ctx: Arc<RPCState<DB>>,
+        ctx: Arc<RPCState>,
         filter_spec: Option<LogFilter>,
     ) {
         let filter_spec = filter_spec.map(Into::into);

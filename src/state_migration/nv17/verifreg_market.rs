@@ -17,7 +17,6 @@ use anyhow::Context as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_hamt::BytesKey;
 use fvm_ipld_blockstore::Blockstore;
-use std::sync::Arc;
 
 pub(super) struct VerifregMarketPostMigrator {
     pub prior_epoch: ChainEpoch,
@@ -32,11 +31,7 @@ pub(super) struct VerifregMarketPostMigrator {
 }
 
 impl<BS: Blockstore> PostMigrator<BS> for VerifregMarketPostMigrator {
-    fn post_migrate_state(
-        &self,
-        store: &BS,
-        actors_out: &mut StateTree<Arc<BS>>,
-    ) -> anyhow::Result<()> {
+    fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
         use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
         // `migrateVerifreg`

@@ -4,8 +4,8 @@
 use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
-use crate::db::EthMappingsStore;
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
+use crate::prelude::*;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
@@ -15,11 +15,8 @@ use crate::shim::{
     message::Message,
 };
 use crate::state_manager::VMFlush;
-use crate::utils::ShallowClone as _;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools as _;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
@@ -43,7 +40,7 @@ impl RpcMethod<3> for GasEstimateFeeCap {
     type Ok = String;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (msg, max_queue_blks, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -51,8 +48,8 @@ impl RpcMethod<3> for GasEstimateFeeCap {
     }
 }
 
-fn estimate_fee_cap<DB: Blockstore>(
-    data: &Ctx<DB>,
+fn estimate_fee_cap(
+    data: &Ctx,
     msg: &Message,
     max_queue_blks: i64,
     ApiTipsetKey(ts_key): &ApiTipsetKey,
@@ -91,7 +88,7 @@ impl RpcMethod<4> for GasEstimateGasPremium {
     type Ok = String;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (nblocksincl, _sender, _gas_limit, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -107,8 +104,8 @@ struct GasMeta {
     pub limit: u64,
 }
 
-pub async fn estimate_gas_premium<DB: Blockstore>(
-    ctx: &Ctx<DB>,
+pub async fn estimate_gas_premium(
+    ctx: &Ctx,
     nblocksincl: u64,
     ApiTipsetKey(ts_key): &ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
@@ -205,7 +202,7 @@ impl RpcMethod<2> for GasEstimateGasLimit {
     type Ok = i64;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
+        ctx: Ctx,
         (msg, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -214,14 +211,11 @@ impl RpcMethod<2> for GasEstimateGasLimit {
 }
 
 impl GasEstimateGasLimit {
-    pub async fn estimate_call_with_gas<DB>(
-        data: &Ctx<DB>,
+    pub async fn estimate_call_with_gas(
+        data: &Ctx,
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
-    ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Tipset)>
-    where
-        DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-    {
+    ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Tipset)> {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
         msg.set_gas_premium(TokenAmount::from_atto(0));
@@ -268,14 +262,7 @@ impl GasEstimateGasLimit {
         Ok((invoc_res, apply_ret, prior_messages, ts))
     }
 
-    pub async fn estimate_gas_limit<DB>(
-        data: &Ctx<DB>,
-        msg: Message,
-        tsk: &ApiTipsetKey,
-    ) -> Result<i64>
-    where
-        DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-    {
+    pub async fn estimate_gas_limit(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> Result<i64> {
         let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk)
             .await
             .context("gas estimation failed")?;
@@ -308,7 +295,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
     type Ok = Message;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + EthMappingsStore + Send + Sync + 'static>,
+        ctx: Ctx,
         (msg, spec, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -317,15 +304,12 @@ impl RpcMethod<3> for GasEstimateMessageGas {
     }
 }
 
-pub async fn estimate_message_gas<DB>(
-    data: &Ctx<DB>,
+pub async fn estimate_message_gas(
+    data: &Ctx,
     mut msg: Message,
     msg_spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
-) -> Result<Message, ServerError>
-where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
+) -> Result<Message, ServerError> {
     if msg.gas_limit == 0 {
         let gl = GasEstimateGasLimit::estimate_gas_limit(data, msg.clone(), &tsk).await?;
         let gl = gl as f64 * data.mpool.config.gas_limit_overestimation;

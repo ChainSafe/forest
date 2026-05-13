@@ -16,6 +16,7 @@ use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::genesis::read_genesis_header;
 use crate::networks::NetworkChain;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use crate::tool::offline_server::server::handle_chain_config;
@@ -80,15 +81,9 @@ impl IndexCommands {
                 )
                 .await?;
 
-                let chain_store = Arc::new(ChainStore::new(
-                    db.clone(),
-                    db.clone(),
-                    db.clone(),
-                    chain_config,
-                    genesis_header.clone(),
-                )?);
+                let chain_store = ChainStore::new(db, chain_config, genesis_header.clone())?;
 
-                let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
+                let state_manager = StateManager::new(chain_store.shallow_clone())?;
 
                 let head_ts = chain_store.heaviest_tipset();
 
