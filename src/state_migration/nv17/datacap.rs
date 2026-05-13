@@ -17,7 +17,7 @@ use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
 use std::ops::Deref;
 use std::str::FromStr;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use super::util::hamt_addr_key_to_key;
 
@@ -34,7 +34,11 @@ pub(super) struct DataCapPostMigrator {
 }
 
 impl<BS: Blockstore> PostMigrator<BS> for DataCapPostMigrator {
-    fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
+    fn post_migrate_state(
+        &self,
+        store: &BS,
+        actors_out: &mut StateTree<Arc<BS>>,
+    ) -> anyhow::Result<()> {
         use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
         let verified_clients = fil_actors_shared::v8::make_map_with_root::<BS, BigInt>(

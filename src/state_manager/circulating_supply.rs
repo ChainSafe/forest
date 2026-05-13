@@ -19,6 +19,7 @@ use crate::shim::{
     econ::{TOTAL_FILECOIN, TokenAmount},
     state_tree::{ActorState, StateTree},
 };
+use crate::utils::ShallowClone;
 use anyhow::{Context as _, bail};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -68,26 +69,25 @@ impl GenesisInfo {
     ///
     /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_state_circulating_supply`], that's being
     /// calculated differently.
-    pub fn get_vm_circulating_supply<DB: Blockstore>(
+    pub fn get_vm_circulating_supply<DB: Blockstore + ShallowClone>(
         &self,
         height: ChainEpoch,
-        db: &Arc<DB>,
+        db: &DB,
         root: &Cid,
     ) -> anyhow::Result<TokenAmount> {
         let detailed = self.get_vm_circulating_supply_detailed(height, db, root)?;
-
         Ok(detailed.fil_circulating)
     }
 
     /// Calculate total FIL circulating supply based on Genesis configuration and state of particular
     /// actors at a given height and state root.
-    pub fn get_vm_circulating_supply_detailed<DB: Blockstore>(
+    pub fn get_vm_circulating_supply_detailed<DB: Blockstore + ShallowClone>(
         &self,
         height: ChainEpoch,
-        db: &Arc<DB>,
+        db: &DB,
         root: &Cid,
     ) -> anyhow::Result<CirculatingSupply> {
-        let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
+        let state_tree = StateTree::new_from_root(db.shallow_clone(), root)?;
 
         let fil_vested = get_fil_vested(self, height);
         let fil_mined = get_fil_mined(&state_tree)?;

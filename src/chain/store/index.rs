@@ -6,11 +6,11 @@ use std::{num::NonZeroUsize, sync::Arc};
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
+use crate::db::DbImpl;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::ShallowClone;
 use crate::utils::cache::SizeTrackingLruCache;
-use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use num::Integer;
@@ -25,18 +25,18 @@ type IsTipsetFinalizedFn = Arc<dyn Fn(&Tipset) -> bool + Send + Sync>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
-pub struct ChainIndex<DB> {
+pub struct ChainIndex {
     /// tipset key to tipset mappings.
     ts_cache: TipsetCache,
     /// epoch to tipset key mappings.
     ts_height_cache: TipsetHeightCache,
     /// `Blockstore` pointer needed to load tipsets from cold storage.
-    db: Arc<DB>,
+    db: DbImpl,
     /// check whether a tipset is finalized
     is_tipset_finalized: Option<IsTipsetFinalizedFn>,
 }
 
-impl<DB> ShallowClone for ChainIndex<DB> {
+impl ShallowClone for ChainIndex {
     fn shallow_clone(&self) -> Self {
         Self {
             ts_cache: self.ts_cache.shallow_clone(),
@@ -56,8 +56,9 @@ pub enum ResolveNullTipset {
     TakeOlder,
 }
 
-impl<DB: Blockstore> ChainIndex<DB> {
-    pub fn new(db: Arc<DB>) -> Self {
+impl ChainIndex {
+    pub fn new(db: impl Into<DbImpl>) -> Self {
+        let db = db.into();
         let ts_cache =
             SizeTrackingLruCache::new_with_metrics("tipset".into(), DEFAULT_TIPSET_CACHE_SIZE);
         let ts_height_cache: SizeTrackingLruCache<ChainEpoch, TipsetKey> =
@@ -80,8 +81,12 @@ impl<DB: Blockstore> ChainIndex<DB> {
         self
     }
 
-    pub fn db(&self) -> &Arc<DB> {
+    pub fn db(&self) -> &DbImpl {
         &self.db
+    }
+
+    pub fn db_owned(&self) -> DbImpl {
+        self.db.shallow_clone()
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
@@ -266,15 +271,14 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
+    use crate::db::{Blockstore, MemoryDB};
+    use crate::utils::db::CborStoreExt;
     use std::sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
     };
-
-    use super::*;
-    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
-    use crate::db::MemoryDB;
-    use crate::utils::db::CborStoreExt;
 
     fn persist_tipset(tipset: &Tipset, db: &impl Blockstore) {
         for block in tipset.block_headers() {

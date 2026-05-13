@@ -29,7 +29,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
     pub fn add_nv17_migrations(
         &mut self,
         store: &Arc<BS>,
-        actors_in: &mut StateTree<BS>,
+        actors_in: &mut StateTree<Arc<BS>>,
         new_manifest: &BuiltinActorManifest,
         prior_epoch: ChainEpoch,
         chain: NetworkChain,

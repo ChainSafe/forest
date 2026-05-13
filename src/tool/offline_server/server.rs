@@ -7,10 +7,9 @@ use crate::chain_sync::SyncStatusReport;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
-use crate::daemon::db_util::RangeSpec;
-use crate::daemon::db_util::backfill_db;
+use crate::daemon::db_util::{RangeSpec, backfill_db};
 use crate::db::{
-    EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore, car::ManyCar,
+    DbImpl, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore, car::ManyCar,
 };
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
@@ -21,6 +20,7 @@ use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{RPCState, start_rpc};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
+use crate::utils::ShallowClone as _;
 use crate::utils::net::{DownloadFileOption, download_to};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, JWT_IDENTIFIER};
@@ -61,6 +61,7 @@ where
         + Send
         + Sync
         + 'static,
+    Arc<DB>: Into<DbImpl>,
 {
     let chain_config = Arc::new(handle_chain_config(&chain)?);
     let events_config = Arc::new(EventsConfig::default());
@@ -72,13 +73,13 @@ where
     .await?;
     // let head_ts = db.heaviest_tipset()?;
     let chain_store = Arc::new(ChainStore::new(
-        db.clone(),
-        db.clone(),
-        db.clone(),
+        db.shallow_clone(),
+        db.shallow_clone(),
+        db.shallow_clone(),
         chain_config,
         genesis_header.clone(),
     )?);
-    let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
+    let state_manager = Arc::new(StateManager::new(chain_store.shallow_clone())?);
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
 

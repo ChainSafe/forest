@@ -6,10 +6,10 @@ use std::sync::{
     atomic::{self, AtomicBool},
 };
 
-use crate::db::BlockstoreWithWriteBuffer;
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
+use crate::{db::BlockstoreWithWriteBuffer, utils::ShallowClone};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -94,11 +94,11 @@ where
 pub fn run_state_migrations<DB>(
     epoch: ChainEpoch,
     chain_config: &ChainConfig,
-    db: &Arc<DB>,
+    db: &DB,
     parent_state: &Cid,
 ) -> anyhow::Result<Option<Cid>>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     // ~10MB RAM per 10k buffer
     let db_write_buffer = match std::env::var("FOREST_STATE_MIGRATION_DB_WRITE_BUFFER") {
@@ -130,7 +130,7 @@ where
             tracing::info!("Running {height} migration at epoch {epoch}");
             let start_time = std::time::Instant::now();
             let db = Arc::new(BlockstoreWithWriteBuffer::new_with_capacity(
-                db.clone(),
+                db.shallow_clone(),
                 db_write_buffer,
             ));
             let new_state = migrate(chain_config, &db, parent_state, epoch)?;

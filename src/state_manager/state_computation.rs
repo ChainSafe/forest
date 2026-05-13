@@ -238,16 +238,15 @@ where
     }
 }
 
-pub fn validate_tipsets<DB, T>(
+pub fn validate_tipsets<T>(
     genesis_timestamp: u64,
-    chain_index: &ChainIndex<DB>,
+    chain_index: &ChainIndex,
     chain_config: &Arc<ChainConfig>,
     beacon: &Arc<BeaconSchedule>,
     engine: &MultiEngine,
     tipsets: T,
 ) -> anyhow::Result<()>
 where
-    DB: Blockstore + Send + Sync + 'static,
     T: Iterator<Item = Tipset> + Send,
 {
     // Validate one tipset at a time. Parallelizing the outer loop across tipsets
@@ -292,18 +291,18 @@ where
 ///
 /// Encapsulates randomness source, genesis info, VM construction,
 /// null-epoch cron handling, and state migrations.
-pub(in crate::state_manager) struct TipsetExecutor<'a, DB: Blockstore + Send + Sync + 'static> {
+pub(in crate::state_manager) struct TipsetExecutor<'a> {
     tipset: Tipset,
-    rand: ChainRand<DB>,
+    rand: ChainRand,
     chain_config: Arc<ChainConfig>,
-    chain_index: ChainIndex<DB>,
+    chain_index: ChainIndex,
     genesis_info: GenesisInfo,
     engine: &'a MultiEngine,
 }
 
-impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
+impl<'a> TipsetExecutor<'a> {
     pub(in crate::state_manager) fn new(
-        chain_index: ChainIndex<DB>,
+        chain_index: ChainIndex,
         chain_config: Arc<ChainConfig>,
         beacon: Arc<BeaconSchedule>,
         engine: &'a MultiEngine,
@@ -332,7 +331,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
         epoch: ChainEpoch,
         timestamp: u64,
         trace: VMTrace,
-    ) -> anyhow::Result<VM<DB>> {
+    ) -> anyhow::Result<VM> {
         let circ_supply = self.genesis_info.get_vm_circulating_supply(
             epoch,
             self.chain_index.db(),
@@ -480,19 +479,16 @@ impl<'a, DB: Blockstore + Send + Sync + 'static> TipsetExecutor<'a, DB> {
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
 /// The `ChainStore` caches recent tipsets to make these scans faster.
 #[allow(clippy::too_many_arguments)]
-pub fn apply_block_messages<DB>(
+pub fn apply_block_messages(
     genesis_timestamp: u64,
-    chain_index: ChainIndex<DB>,
+    chain_index: ChainIndex,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
     engine: &MultiEngine,
     tipset: Tipset,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
-) -> anyhow::Result<ExecutedTipset>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+) -> anyhow::Result<ExecutedTipset> {
     // This function will:
     // 1. handle the genesis block as a special case
     // 2. run 'cron' for any null-tipsets between the current tipset and our parent tipset
@@ -590,21 +586,18 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(in crate::state_manager) fn compute_state<DB>(
+pub(in crate::state_manager) fn compute_state(
     _height: ChainEpoch,
     messages: Vec<Message>,
     tipset: Tipset,
     genesis_timestamp: u64,
-    chain_index: ChainIndex<DB>,
+    chain_index: ChainIndex,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
     engine: &MultiEngine,
     callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
-) -> anyhow::Result<ExecutedTipset>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+) -> anyhow::Result<ExecutedTipset> {
     if !messages.is_empty() {
         anyhow::bail!("Applying messages is not yet implemented.");
     }

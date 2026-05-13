@@ -212,7 +212,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         .map_err(|why| (*block_cid, TipsetSyncerError::TipsetParentNotFound(why)))?;
 
     // Retrieve lookback tipset for validation
-    let lookback_state = ChainStore::get_lookback_tipset_for_round(
+    let lookback_state = ChainStore::<DB>::get_lookback_tipset_for_round(
         state_manager.chain_store().chain_index(),
         state_manager.chain_config(),
         &base_tipset,
@@ -409,7 +409,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     // Check messages for validity
     let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
-                         tree: &StateTree<DB>|
+                         tree: &StateTree<Arc<DB>>|
      -> anyhow::Result<()> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(to_vec(msg).unwrap().len());

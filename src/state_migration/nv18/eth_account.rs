@@ -12,12 +12,17 @@ use crate::utils::db::CborStoreExt as _;
 use anyhow::anyhow;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use std::sync::Arc;
 
 pub struct EthAccountPostMigrator;
 
 impl<BS: Blockstore> PostMigrator<BS> for EthAccountPostMigrator {
     /// Creates the Ethereum Account actor in the state tree.
-    fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
+    fn post_migrate_state(
+        &self,
+        store: &BS,
+        actors_out: &mut StateTree<Arc<BS>>,
+    ) -> anyhow::Result<()> {
         let init_actor = actors_out.get_required_actor(&Address::INIT_ACTOR)?;
         let init_state: fil_actor_init_state::v10::State =
             store.get_cbor_required(&init_actor.state)?;

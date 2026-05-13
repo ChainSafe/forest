@@ -21,6 +21,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, index::ResolveNullTipset};
 use crate::chain_sync::NodeSyncStatus;
 use crate::cid_collections::CidHashSet;
+use crate::db::DbImpl;
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
@@ -1216,7 +1217,7 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
 
 fn new_eth_tx<DB: Blockstore>(
     ctx: &Ctx<DB>,
-    state: &StateTree<DB>,
+    state: &StateTree<DbImpl>,
     block_height: ChainEpoch,
     msg_tipset_cid: &Cid,
     msg_cid: &Cid,
@@ -3416,7 +3417,7 @@ async fn execute_tipset_traces<DB>(
     ctx: &Ctx<DB>,
     ts: &Tipset,
     ext: &http::Extensions,
-) -> Result<(StateTree<DB>, Vec<trace::TipsetTraceEntry>), ServerError>
+) -> Result<(StateTree<DbImpl>, Vec<trace::TipsetTraceEntry>), ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {

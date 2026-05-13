@@ -4,34 +4,29 @@
 use crate::beacon::BeaconEntry;
 use crate::blocks::{CachingBlockHeader, Ticket, TipsetKey};
 use crate::blocks::{ElectionProof, RawBlockHeader};
-
 use crate::chain::{ChainStore, compute_base_fee};
-
+use crate::db::DbImpl;
 use crate::fil_cns::weight;
 use crate::interpreter::VMTrace;
 use crate::key_management::{Key, KeyStore};
-use crate::lotus_json::lotus_json_with_self;
-
 use crate::lotus_json::LotusJson;
+use crate::lotus_json::lotus_json_with_self;
 use crate::message::SignedMessage;
 use crate::networks::Height;
-
 use crate::rpc::reflect::Permission;
 use crate::rpc::types::{ApiTipsetKey, MiningBaseInfo};
 use crate::rpc::{ApiPaths, Ctx, RpcMethod, ServerError};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::crypto::{Signature, SignatureType};
-use crate::state_manager::ExecutedTipset;
-use enumflags2::BitFlags;
-
-use crate::shim::sector::PoStProof;
-use crate::utils::db::CborStoreExt;
-
 use crate::shim::crypto::BLS_SIG_LEN;
+use crate::shim::crypto::{Signature, SignatureType};
+use crate::shim::sector::PoStProof;
+use crate::state_manager::ExecutedTipset;
+use crate::utils::db::CborStoreExt;
 use anyhow::{Context as _, Result};
 use bls_signatures::Serialize as _;
 use cid::Cid;
+use enumflags2::BitFlags;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
@@ -40,7 +35,6 @@ use itertools::Itertools;
 use parking_lot::RwLock;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
@@ -120,7 +114,7 @@ impl RpcMethod<1> for MinerCreateBlock {
             .chain_index()
             .load_required_tipset(&block_template.parents)?;
 
-        let lookback_state = ChainStore::get_lookback_tipset_for_round(
+        let lookback_state = ChainStore::<DbImpl>::get_lookback_tipset_for_round(
             ctx.chain_index(),
             ctx.chain_config(),
             &parent_tipset,

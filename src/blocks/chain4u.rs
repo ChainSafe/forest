@@ -9,8 +9,9 @@
 use crate::{
     beacon::BeaconEntry,
     blocks::*,
-    db::{MemoryDB, car::PlainCar},
+    db::{EthMappingsStore, MemoryDB, SettingsStore, car::PlainCar},
     networks,
+    rpc::eth::types::EthHash,
     shim::{
         address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
         sector::PoStProof,
@@ -213,6 +214,48 @@ impl<T: Blockstore> Blockstore for Chain4U<T> {
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.blockstore.put_keyed(k, block)
+    }
+}
+
+impl<T: SettingsStore> SettingsStore for Chain4U<T> {
+    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        self.blockstore.read_bin(key)
+    }
+
+    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
+        self.blockstore.write_bin(key, value)
+    }
+
+    fn exists(&self, key: &str) -> anyhow::Result<bool> {
+        self.blockstore.exists(key)
+    }
+
+    #[allow(dead_code)]
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
+        self.blockstore.setting_keys()
+    }
+}
+
+impl<T: EthMappingsStore> EthMappingsStore for Chain4U<T> {
+    fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
+        self.blockstore.read_bin(key)
+    }
+
+    fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()> {
+        self.blockstore.write_bin(key, value)
+    }
+
+    #[allow(dead_code)]
+    fn exists(&self, key: &EthHash) -> anyhow::Result<bool> {
+        self.blockstore.exists(key)
+    }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        self.blockstore.get_message_cids()
+    }
+
+    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
+        self.blockstore.delete(keys)
     }
 }
 

@@ -394,7 +394,9 @@ mod tests {
             .unwrap();
     }
 
-    fn make_input_tree<BS: Blockstore>(store: &Arc<BS>) -> (StateTree<BS>, BuiltinActorManifest) {
+    fn make_input_tree<BS: Blockstore>(
+        store: &Arc<BS>,
+    ) -> (StateTree<Arc<BS>>, BuiltinActorManifest) {
         let mut tree = StateTree::new(store.clone(), StateTreeVersion::V5).unwrap();
 
         let (_manifest_cid, manifest) = make_test_manifest(&store, "fil/11/");
@@ -429,7 +431,7 @@ mod tests {
     }
 
     fn init_actor<BS: Blockstore>(
-        tree: &mut StateTree<BS>,
+        tree: &mut StateTree<Arc<BS>>,
         state: Cid,
         code: Cid,
         addr: &Address,

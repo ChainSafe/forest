@@ -513,7 +513,7 @@ impl<DB: Blockstore> RPCState<DB> {
         self.state_manager.chain_store()
     }
 
-    pub fn chain_index(&self) -> &crate::chain::index::ChainIndex<DB> {
+    pub fn chain_index(&self) -> &crate::chain::index::ChainIndex {
         self.chain_store().chain_index()
     }
 

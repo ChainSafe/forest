@@ -94,8 +94,8 @@ pub fn create_masked_id_eth_address(actor_id: u64) -> EthAddress {
 
 pub struct TestStateTrees {
     pub store: Arc<MemoryDB>,
-    pub pre_state: StateTree<MemoryDB>,
-    pub post_state: StateTree<MemoryDB>,
+    pub pre_state: StateTree<Arc<MemoryDB>>,
+    pub post_state: StateTree<Arc<MemoryDB>>,
 }
 
 impl TestStateTrees {

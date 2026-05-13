@@ -4,25 +4,28 @@
 mod blockstore_with_read_cache;
 mod blockstore_with_write_buffer;
 pub mod car;
-mod memory;
-pub mod parity_db;
-pub mod parity_db_config;
-
-pub mod gc;
-pub mod ttl;
-pub use blockstore_with_read_cache::*;
-pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
-pub use memory::MemoryDB;
+mod db_impl;
 mod db_mode;
 mod either;
+pub mod gc;
+mod memory;
 pub mod migration;
+pub mod parity_db;
+pub mod parity_db_config;
+pub mod ttl;
+
+pub use blockstore_with_read_cache::*;
+pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
+pub use db_impl::DbImpl;
 pub use either::Either;
+pub use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
+pub use memory::MemoryDB;
 
 use crate::blocks::TipsetKey;
 use crate::rpc::eth::types::EthHash;
+use ambassador::delegatable_trait;
 use anyhow::{Context as _, bail};
 use cid::Cid;
-pub use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -38,6 +41,7 @@ pub mod setting_keys {
 /// Interface used to store and retrieve settings from the database.
 /// To store IPLD blocks, use the `BlockStore` trait.
 #[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
 pub trait SettingsStore {
     /// Reads binary field from the Settings store. This should be used for
     /// non-serializable data. For serializable data, use [`SettingsStoreExt::read_obj`].
@@ -89,6 +93,7 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
 /// Interface used to store and retrieve Ethereum mappings from the database.
 /// To store IPLD blocks, use the `BlockStore` trait.
 #[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
 pub trait EthMappingsStore {
     /// Reads binary field from the `EthMappings` store. This should be used for
     /// non-serializable data. For serializable data, use [`EthMappingsStoreExt::read_obj`].

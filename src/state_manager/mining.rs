@@ -93,7 +93,7 @@ where
 
         let base = entries.last().unwrap_or(&prev_beacon);
 
-        let (lb_tipset, lb_state_root) = ChainStore::get_lookback_tipset_for_round(
+        let (lb_tipset, lb_state_root) = ChainStore::<DB>::get_lookback_tipset_for_round(
             self.chain_index(),
             self.chain_config(),
             &tipset,

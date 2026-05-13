@@ -55,7 +55,11 @@ struct PostMigrationVerifier {
 }
 
 impl<BS: Blockstore> PostMigrationCheck<BS> for PostMigrationVerifier {
-    fn post_migrate_check(&self, store: &BS, actors_out: &StateTree<BS>) -> anyhow::Result<()> {
+    fn post_migrate_check(
+        &self,
+        store: &BS,
+        actors_out: &StateTree<Arc<BS>>,
+    ) -> anyhow::Result<()> {
         let actors_in = StateTree::new_from_root(Arc::new(store), &self.state_pre)?;
         let system_actor = actors_in.get_required_actor(&Address::new_id(0))?;
 

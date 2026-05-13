@@ -23,7 +23,7 @@ macro_rules! impl_verifier {
                     &self,
                     store: &BS,
                     migrations: &CidHashMap<Migrator<BS>>,
-                    actors_in: &StateTree<BS>,
+                    actors_in: &StateTree<std::sync::Arc<BS>>,
                 ) -> anyhow::Result<()> {
                     let system_actor = actors_in
                         .get_required_actor(&Address::SYSTEM_ACTOR)?;

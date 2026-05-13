@@ -6,7 +6,6 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::message::{ChainMessage, SignedMessage};
 use crate::networks::{ChainConfig, Height};
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::ChainEpoch;
@@ -16,6 +15,10 @@ use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
     db::HeaviestTipsetKeyProvider,
+};
+use crate::{
+    db::DbImpl,
+    message::{ChainMessage, SignedMessage},
 };
 use crate::{
     db::{EthMappingsStore, EthMappingsStoreExt},
@@ -77,7 +80,7 @@ pub struct ChainStore<DB> {
     f3_finalized_tipset: Arc<RwLock<Option<Tipset>>>,
 
     /// Used as a cache for tipset `lookbacks`.
-    chain_index: ChainIndex<DB>,
+    chain_index: ChainIndex,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
@@ -131,7 +134,10 @@ where
         eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: CachingBlockHeader,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Self>
+    where
+        Arc<DB>: Into<DbImpl>,
+    {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let validated_blocks = Mutex::new(HashSet::default());
         let head = if let Some(head_tsk) = heaviest_tipset_key_provider
@@ -289,7 +295,7 @@ where
     }
 
     /// Returns the chain index
-    pub fn chain_index(&self) -> &ChainIndex<DB> {
+    pub fn chain_index(&self) -> &ChainIndex {
         &self.chain_index
     }
 
@@ -388,14 +394,11 @@ where
     /// is usually 900. The `heaviest_tipset` is a reference point in the
     /// blockchain. It must be a child of the look-back tipset.
     pub fn get_lookback_tipset_for_round(
-        chain_index: &ChainIndex<DB>,
+        chain_index: &ChainIndex,
         chain_config: &Arc<ChainConfig>,
         heaviest_tipset: &Tipset,
         round: ChainEpoch,
-    ) -> Result<(Tipset, Cid), Error>
-    where
-        DB: Send + Sync + 'static,
-    {
+    ) -> Result<(Tipset, Cid), Error> {
         let version = chain_config.network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)

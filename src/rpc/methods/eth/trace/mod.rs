@@ -25,11 +25,13 @@ pub(crate) use state_diff::build_state_diff;
 
 use super::lookup_eth_address;
 use super::types::EthAddress;
+use crate::{
+    shim::{address::Address, state_tree::StateTree},
+    utils::ShallowClone,
+};
 use anyhow::Context;
 use fvm_ipld_blockstore::Blockstore;
 use types::EthTrace;
-
-use crate::shim::{address::Address, state_tree::StateTree};
 
 /// Shared mutable context threaded through recursive trace building.
 ///
@@ -44,7 +46,7 @@ pub(super) struct Environment {
     pub(super) last_byte_code: Option<EthAddress>,
 }
 
-pub(super) fn base_environment<BS: Blockstore + Send + Sync>(
+pub(super) fn base_environment<BS: Blockstore + ShallowClone + Send + Sync>(
     state: &StateTree<BS>,
     from: &Address,
 ) -> anyhow::Result<Environment> {

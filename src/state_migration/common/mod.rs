@@ -101,14 +101,19 @@ pub(in crate::state_migration) trait ActorMigration<BS: Blockstore> {
 pub(in crate::state_migration) trait PostMigrator<BS: Blockstore>:
     Send + Sync
 {
-    fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()>;
+    fn post_migrate_state(
+        &self,
+        store: &BS,
+        actors_out: &mut StateTree<Arc<BS>>,
+    ) -> anyhow::Result<()>;
 }
 
 /// Trait defining the interface for actor migration verifier.
 pub(in crate::state_migration) trait PostMigrationCheck<BS: Blockstore>:
     Send + Sync
 {
-    fn post_migrate_check(&self, store: &BS, actors_out: &StateTree<BS>) -> anyhow::Result<()>;
+    fn post_migrate_check(&self, store: &BS, actors_out: &StateTree<Arc<BS>>)
+    -> anyhow::Result<()>;
 }
 
 /// Sized wrapper of [`PostMigrator`].

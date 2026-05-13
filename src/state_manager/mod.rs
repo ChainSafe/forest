@@ -25,6 +25,7 @@ use crate::chain::{
     ChainStore,
     index::{ChainIndex, ResolveNullTipset},
 };
+use crate::db::DbImpl;
 use crate::interpreter::MessageCallbackCtx;
 use crate::interpreter::resolve_to_key_addr;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
@@ -276,8 +277,8 @@ where
     }
 
     /// Gets the state tree
-    pub fn get_state_tree(&self, state_cid: &Cid) -> anyhow::Result<StateTree<DB>> {
-        StateTree::new_from_root(self.blockstore_owned(), state_cid)
+    pub fn get_state_tree(&self, state_cid: &Cid) -> anyhow::Result<StateTree<DbImpl>> {
+        StateTree::new_from_root(self.chain_index().db_owned(), state_cid)
     }
 
     /// Gets actor from given [`Cid`], if it exists.
@@ -328,7 +329,7 @@ where
     }
 
     /// Returns reference to the state manager's [`ChainIndex`].
-    pub fn chain_index(&self) -> &ChainIndex<DB> {
+    pub fn chain_index(&self) -> &ChainIndex {
         self.cs.chain_index()
     }
 
@@ -337,7 +338,7 @@ where
         self.cs.chain_config()
     }
 
-    pub fn chain_rand(&self, tipset: Tipset) -> ChainRand<DB> {
+    pub fn chain_rand(&self, tipset: Tipset) -> ChainRand {
         ChainRand::new(
             self.chain_config().shallow_clone(),
             tipset,

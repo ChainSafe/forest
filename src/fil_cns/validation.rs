@@ -67,7 +67,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     let win_p_nv = state_manager.get_network_version(base_tipset.epoch());
 
     // Retrieve lookback tipset for validation
-    let (lookback_tipset, lookback_state) = ChainStore::get_lookback_tipset_for_round(
+    let (lookback_tipset, lookback_state) = ChainStore::<DB>::get_lookback_tipset_for_round(
         chain_store.chain_index(),
         state_manager.chain_config(),
         &base_tipset,

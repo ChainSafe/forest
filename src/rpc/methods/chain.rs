@@ -600,7 +600,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
         )?;
 
         crate::tool::subcommands::archive_cmd::do_export(
-            &ctx.store_owned(),
+            ctx.chain_index().db(),
             start_ts,
             output_path,
             None,

@@ -7,6 +7,7 @@ use crate::blocks::Tipset;
 use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
 use crate::chain::store::Error;
+use crate::db::DbImpl;
 use crate::interpreter::{
     fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3,
     fvm4::ForestExterns as ForestExternsV4,
@@ -25,6 +26,7 @@ use crate::shim::{
     state_tree::ActorState,
     version::NetworkVersion,
 };
+use crate::utils::ShallowClone as _;
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::bail;
 use cid::Cid;
@@ -56,24 +58,19 @@ use num::Zero;
 use spire_enum::prelude::delegated_enum;
 use std::time::{Duration, Instant};
 
-pub(in crate::interpreter) type ForestMachineV2<DB> =
-    DefaultMachine_v2<Arc<DB>, ForestExternsV2<DB>>;
-pub(in crate::interpreter) type ForestMachineV3<DB> =
-    DefaultMachine_v3<Arc<DB>, ForestExternsV3<DB>>;
-pub(in crate::interpreter) type ForestMachineV4<DB> =
-    DefaultMachine_v4<Arc<DB>, ForestExternsV4<DB>>;
+pub(in crate::interpreter) type ForestMachineV2 = DefaultMachine_v2<DbImpl, ForestExternsV2>;
+pub(in crate::interpreter) type ForestMachineV3 = DefaultMachine_v3<DbImpl, ForestExternsV3>;
+pub(in crate::interpreter) type ForestMachineV4 = DefaultMachine_v4<DbImpl, ForestExternsV4>;
 
-type ForestKernelV2<DB> =
-    fvm2::DefaultKernel<fvm2::call_manager::DefaultCallManager<ForestMachineV2<DB>>>;
-type ForestKernelV3<DB> =
-    fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3<DB>>>;
-type ForestKernelV4<DB> = fvm4::kernel::filecoin::DefaultFilecoinKernel<
-    fvm4::call_manager::DefaultCallManager<ForestMachineV4<DB>>,
+type ForestKernelV2 = fvm2::DefaultKernel<fvm2::call_manager::DefaultCallManager<ForestMachineV2>>;
+type ForestKernelV3 = fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3>>;
+type ForestKernelV4 = fvm4::kernel::filecoin::DefaultFilecoinKernel<
+    fvm4::call_manager::DefaultCallManager<ForestMachineV4>,
 >;
 
-type ForestExecutorV2<DB> = DefaultExecutor_v2<ForestKernelV2<DB>>;
-type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
-type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
+type ForestExecutorV2 = DefaultExecutor_v2<ForestKernelV2>;
+type ForestExecutorV3 = DefaultExecutor_v3<ForestKernelV3>;
+type ForestExecutorV4 = DefaultExecutor_v4<ForestKernelV4>;
 
 pub type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
@@ -138,13 +135,13 @@ impl BlockMessages {
 /// Interpreter which handles execution of state transitioning messages and
 /// returns receipts from the VM execution.
 #[delegated_enum(impl_conversions)]
-pub enum VM<DB: Blockstore + Send + Sync + 'static> {
-    VM2(ForestExecutorV2<DB>),
-    VM3(ForestExecutorV3<DB>),
-    VM4(ForestExecutorV4<DB>),
+pub enum VM {
+    VM2(ForestExecutorV2),
+    VM3(ForestExecutorV3),
+    VM4(ForestExecutorV4),
 }
 
-pub struct ExecutionContext<DB> {
+pub struct ExecutionContext {
     // This tipset identifies of the blockchain. It functions as a starting
     // point when searching for ancestors. It may be any tipset as long as its
     // epoch is at or higher than the epoch in `epoch`.
@@ -162,15 +159,12 @@ pub struct ExecutionContext<DB> {
     // The chain config is used to determine which consensus rules to use.
     pub chain_config: Arc<ChainConfig>,
     // Caching interface to the DB
-    pub chain_index: ChainIndex<DB>,
+    pub chain_index: ChainIndex,
     // UNIX timestamp for epoch
     pub timestamp: u64,
 }
 
-impl<DB> VM<DB>
-where
-    DB: Blockstore + Send + Sync,
-{
+impl VM {
     pub fn new(
         ExecutionContext {
             heaviest_tipset,
@@ -182,7 +176,7 @@ where
             chain_config,
             chain_index,
             timestamp,
-        }: ExecutionContext<DB>,
+        }: ExecutionContext,
         multi_engine: &MultiEngine,
         enable_tracing: VMTrace,
     ) -> anyhow::Result<Self> {
@@ -201,9 +195,9 @@ where
             context.set_circulating_supply(circ_supply.into());
             context.tracing = enable_tracing.is_traced();
 
-            let fvm: ForestMachineV4<DB> = ForestMachineV4::new(
+            let fvm = ForestMachineV4::new(
                 &context,
-                Arc::clone(chain_index.db()),
+                chain_index.db().shallow_clone(),
                 ForestExternsV4::new(
                     RandWrapper::from(rand),
                     heaviest_tipset,
@@ -213,7 +207,7 @@ where
                     chain_config,
                 ),
             )?;
-            let exec: ForestExecutorV4<DB> = DefaultExecutor_v4::new(engine, fvm)?;
+            let exec = DefaultExecutor_v4::new(engine, fvm)?;
             Ok(VM::VM4(exec))
         } else if network_version >= NetworkVersion::V18 {
             let mut config = NetworkConfig_v3::new(network_version.into());
@@ -229,9 +223,9 @@ where
             context.set_circulating_supply(circ_supply.into());
             context.tracing = enable_tracing.is_traced();
 
-            let fvm: ForestMachineV3<DB> = ForestMachineV3::new(
+            let fvm = ForestMachineV3::new(
                 &context,
-                Arc::clone(chain_index.db()),
+                chain_index.db().shallow_clone(),
                 ForestExternsV3::new(
                     RandWrapper::from(rand),
                     heaviest_tipset,
@@ -241,7 +235,7 @@ where
                     chain_config,
                 ),
             )?;
-            let exec: ForestExecutorV3<DB> = DefaultExecutor_v3::new(engine, fvm)?;
+            let exec = DefaultExecutor_v3::new(engine, fvm)?;
             Ok(VM::VM3(exec))
         } else {
             let config = NetworkConfig_v2::new(network_version.into());
@@ -251,10 +245,10 @@ where
             context.set_circulating_supply(circ_supply.into());
             context.tracing = enable_tracing.is_traced();
 
-            let fvm: ForestMachineV2<DB> = ForestMachineV2::new(
+            let fvm = ForestMachineV2::new(
                 &engine,
                 &context,
-                Arc::clone(chain_index.db()),
+                chain_index.db().shallow_clone(),
                 ForestExternsV2::new(
                     RandWrapper::from(rand),
                     heaviest_tipset,
@@ -264,7 +258,7 @@ where
                     chain_config,
                 ),
             )?;
-            let exec: ForestExecutorV2<DB> = DefaultExecutor_v2::new(fvm);
+            let exec = DefaultExecutor_v2::new(fvm);
             Ok(VM::VM2(exec))
         }
     }

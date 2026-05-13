@@ -24,7 +24,7 @@ where
         &self,
         state_cid: Option<Cid>,
         msg: &Message,
-        rand: ChainRand<DB>,
+        rand: ChainRand,
         tipset: &Tipset,
     ) -> Result<ApiInvocResult, Error> {
         let mut msg = msg.clone();
@@ -197,7 +197,7 @@ where
                     base_fee: ts.block_headers().first().parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
-                        self.blockstore(),
+                        self.chain_index().db(),
                         &state_root,
                     )?,
                     chain_config: self.chain_config().shallow_clone(),
