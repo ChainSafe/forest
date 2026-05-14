@@ -1399,10 +1399,14 @@ fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
             (),
             use_alias,
         )?));
-        tests.push(RpcTest::basic(EthBlockNumber::request_with_alias(
-            (),
-            use_alias,
-        )?));
+        tests.push(match server_mode {
+            ServerMode::Online => {
+                RpcTest::identity(EthBlockNumber::request_with_alias((), use_alias)?)
+            }
+            ServerMode::Offline => {
+                RpcTest::basic(EthBlockNumber::request_with_alias((), use_alias)?)
+            }
+        });
         tests.push(RpcTest::identity(EthChainId::request_with_alias(
             (),
             use_alias,
