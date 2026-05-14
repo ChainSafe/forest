@@ -1384,7 +1384,7 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
     tests
 }
 
-fn eth_tests() -> anyhow::Result<Vec<RpcTest>> {
+fn eth_tests(offline: bool) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     for use_alias in [false, true] {
         tests.push(RpcTest::identity(EthAccounts::request_with_alias(
@@ -1434,6 +1434,11 @@ fn eth_tests() -> anyhow::Result<Vec<RpcTest>> {
             (),
             use_alias,
         )?));
+        tests.push(if offline {
+            RpcTest::basic(EthBaseFee::request_with_alias((), use_alias)?)
+        } else {
+            RpcTest::identity(EthBaseFee::request_with_alias((), use_alias)?)
+        });
 
         let cases = [
             (
@@ -2528,7 +2533,7 @@ pub(super) async fn create_tests(
     tests.extend(net_tests());
     tests.extend(node_tests());
     tests.extend(wallet_tests(worker_address));
-    tests.extend(eth_tests()?);
+    tests.extend(eth_tests(offline)?);
     tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files.clone())?);

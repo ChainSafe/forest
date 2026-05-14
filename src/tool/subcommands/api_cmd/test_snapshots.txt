@@ -48,6 +48,7 @@ filecoin_eam_statedecodeparams_1756139121347364.rpcsnap.json.zst
 filecoin_ethaccount_statedecodeparams_1756186350854913.rpcsnap.json.zst
 filecoin_ethaccounts_1737446676689764.rpcsnap.json.zst
 filecoin_ethaddresstofilecoinaddress_1740132538465536.rpcsnap.json.zst
+filecoin_ethbasefee_1778755118342258.rpcsnap.json.zst
 filecoin_ethblocknumber_1741272348346171.rpcsnap.json.zst
 filecoin_ethcall_1744204533050503.rpcsnap.json.zst
 filecoin_ethcall_1744204533058637.rpcsnap.json.zst
