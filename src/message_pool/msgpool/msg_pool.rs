@@ -757,6 +757,7 @@ mod tests {
     use crate::networks::ChainConfig;
     use crate::shim::econ::TokenAmount;
     use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
+    use crate::test_utils::dummy_ticket;
     use crate::utils::db::CborStoreExt as _;
 
     use super::*;
@@ -1098,6 +1099,7 @@ mod tests {
         let root_b = st_b.flush().unwrap();
 
         let genesis = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
             state_root: root_a,
             ..Default::default()
         }));
@@ -1106,6 +1108,7 @@ mod tests {
 
         let ts1 = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: genesis.key().clone(),
+            ticket: dummy_ticket(1),
             epoch: 1,
             state_root: root_a,
             timestamp: 1,
@@ -1115,6 +1118,7 @@ mod tests {
 
         let head = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: ts1.key().clone(),
+            ticket: dummy_ticket(2),
             epoch: 2,
             state_root: root_b,
             timestamp: 2,
