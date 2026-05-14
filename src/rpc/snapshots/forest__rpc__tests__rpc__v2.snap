@@ -126,6 +126,7 @@ methods:
         $ref: "#/components/schemas/EthAddress"
     paramStructure: by-position
   - name: Filecoin.EthBaseFee
+    description: Returns the calculated base fee of the upcoming tipset in attoFIL
     params: []
     result:
       name: Filecoin.EthBaseFee.Result
@@ -134,6 +135,7 @@ methods:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: eth_baseFee
+    description: Returns the calculated base fee of the upcoming tipset in attoFIL
     params: []
     result:
       name: eth_baseFee.Result
