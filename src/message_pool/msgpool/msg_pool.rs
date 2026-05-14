@@ -111,9 +111,30 @@ pub struct MessagePool<T> {
     pub repub_trigger: flume::Sender<()>,
     local_msgs: Arc<SyncRwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
-    pub config: MpoolConfig,
+    pub config: Arc<MpoolConfig>,
     /// Chain configuration
     pub chain_config: Arc<ChainConfig>,
+}
+
+impl<T> ShallowClone for MessagePool<T> {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            local_addrs: self.local_addrs.shallow_clone(),
+            pending_store: self.pending_store.shallow_clone(),
+            cur_tipset: self.cur_tipset.shallow_clone(),
+            api: self.api.shallow_clone(),
+            network_sender: self.network_sender.clone(),
+            bls_sig_cache: self.bls_sig_cache.shallow_clone(),
+            sig_val_cache: self.sig_val_cache.shallow_clone(),
+            key_cache: self.key_cache.shallow_clone(),
+            state_nonce_cache: self.state_nonce_cache.shallow_clone(),
+            republished: self.republished.shallow_clone(),
+            repub_trigger: self.repub_trigger.clone(),
+            local_msgs: self.local_msgs.clone(),
+            config: self.config.shallow_clone(),
+            chain_config: self.chain_config.shallow_clone(),
+        }
+    }
 }
 
 /// Resolve an address to its key form, checking the cache first.
@@ -497,7 +518,7 @@ where
     ) -> Result<(), Error> {
         cfg.save_config(db)
             .map_err(|e| Error::Other(e.to_string()))?;
-        self.config = cfg;
+        self.config = cfg.into();
         Ok(())
     }
 
@@ -572,7 +593,7 @@ where
             state_nonce_cache,
             local_msgs,
             republished,
-            config,
+            config: config.into(),
             network_sender,
             repub_trigger,
             chain_config: Arc::clone(&chain_config),

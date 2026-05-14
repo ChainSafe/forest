@@ -310,21 +310,20 @@ fn create_mpool(
     services: &mut JoinSet<anyhow::Result<()>>,
     p2p_service: &Libp2pService,
     ctx: &AppContext,
-) -> anyhow::Result<Arc<MessagePool<ChainStore>>> {
+) -> anyhow::Result<MessagePool<ChainStore>> {
     Ok(MessagePool::new(
         ctx.state_manager.chain_store().shallow_clone(),
         p2p_service.network_sender().clone(),
         MpoolConfig::load_config(ctx.db.writer().as_ref())?,
         ctx.state_manager.chain_config().clone(),
         services,
-    )
-    .map(Arc::new)?)
+    )?)
 }
 
 fn create_chain_follower(
     opts: &CliOpts,
     p2p_service: &Libp2pService,
-    mpool: Arc<MessagePool<ChainStore>>,
+    mpool: MessagePool<ChainStore>,
     ctx: &AppContext,
 ) -> anyhow::Result<ChainFollower> {
     let network_send = p2p_service.network_sender().clone();
@@ -424,7 +423,7 @@ fn maybe_start_gc_service(
 fn maybe_start_rpc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    mpool: Arc<MessagePool<ChainStore>>,
+    mpool: MessagePool<ChainStore>,
     chain_follower: &ChainFollower,
     start_time: chrono::DateTime<chrono::Utc>,
     shutdown: mpsc::Sender<()>,
@@ -679,12 +678,12 @@ pub(super) async fn start_services(
 
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
-    let chain_follower = create_chain_follower(opts, &p2p_service, mpool.clone(), &ctx)?;
+    let chain_follower = create_chain_follower(opts, &p2p_service, mpool.shallow_clone(), &ctx)?;
 
     maybe_start_rpc_service(
         &mut services,
         &config,
-        mpool.clone(),
+        mpool.shallow_clone(),
         &chain_follower,
         start_time,
         shutdown_send.clone(),

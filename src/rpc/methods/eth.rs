@@ -2877,7 +2877,7 @@ impl RpcMethod<1> for EthSendRawTransaction {
     ) -> Result<Self::Ok, ServerError> {
         let tx_args = parse_eth_transaction(&raw_tx.0)?;
         let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
-        let cid = ctx.mpool.as_ref().push(smsg).await?;
+        let cid = ctx.mpool.push(smsg).await?;
         Ok(cid.into())
     }
 }
@@ -2900,7 +2900,7 @@ impl RpcMethod<1> for EthSendRawTransactionUntrusted {
     ) -> Result<Self::Ok, ServerError> {
         let tx_args = parse_eth_transaction(&raw_tx.0)?;
         let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
-        let cid = ctx.mpool.as_ref().push_untrusted(smsg).await?;
+        let cid = ctx.mpool.push_untrusted(smsg).await?;
         Ok(cid.into())
     }
 }

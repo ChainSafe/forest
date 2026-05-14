@@ -82,7 +82,7 @@ pub struct ChainFollower {
     stateless_mode: bool,
 
     /// Message pool
-    mem_pool: Arc<MessagePool<ChainStore>>,
+    mem_pool: MessagePool<ChainStore>,
 }
 
 impl ShallowClone for ChainFollower {
@@ -111,7 +111,7 @@ impl ChainFollower {
         genesis: Tipset,
         net_handler: flume::Receiver<NetworkEvent>,
         stateless_mode: bool,
-        mem_pool: Arc<MessagePool<ChainStore>>,
+        mem_pool: MessagePool<ChainStore>,
     ) -> Self {
         crate::def_is_env_truthy!(cache_disabled, "FOREST_DISABLE_BAD_BLOCK_CACHE");
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
@@ -190,7 +190,7 @@ async fn chain_follower(
     network_rx: Arc<flume::Receiver<NetworkEvent>>,
     tipset_receiver: Arc<flume::Receiver<FullTipset>>,
     network: &SyncNetworkContext,
-    mem_pool: &Arc<MessagePool<ChainStore>>,
+    mem_pool: &MessagePool<ChainStore>,
     sync_status: &SyncStatus,
     genesis: &Tipset,
     stateless_mode: bool,

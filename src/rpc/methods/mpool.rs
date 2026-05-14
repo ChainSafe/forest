@@ -77,20 +77,14 @@ impl RpcMethod<1> for MpoolPending {
                 }
 
                 // mpts has different blocks than ts
-                let have = ctx
-                    .mpool
-                    .as_ref()
-                    .messages_for_blocks(ts.block_headers().iter())?;
+                let have = ctx.mpool.messages_for_blocks(ts.block_headers().iter())?;
 
                 for sm in have {
                     have_cids.insert(sm.cid());
                 }
             }
 
-            let msgs = ctx
-                .mpool
-                .as_ref()
-                .messages_for_blocks(ts.block_headers().iter())?;
+            let msgs = ctx.mpool.messages_for_blocks(ts.block_headers().iter())?;
 
             for m in msgs {
                 if have_cids.contains(&m.cid()) {
@@ -153,7 +147,7 @@ impl RpcMethod<1> for MpoolPush {
         (message,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let cid = ctx.mpool.as_ref().push(message).await?;
+        let cid = ctx.mpool.push(message).await?;
         Ok(cid)
     }
 }
@@ -178,7 +172,7 @@ impl RpcMethod<1> for MpoolBatchPush {
     ) -> Result<Self::Ok, ServerError> {
         let mut cids = vec![];
         for msg in messages {
-            cids.push(ctx.mpool.as_ref().push(msg).await?);
+            cids.push(ctx.mpool.push(msg).await?);
         }
         Ok(cids)
     }
@@ -205,7 +199,7 @@ impl RpcMethod<1> for MpoolPushUntrusted {
         // Lotus implements a few extra sanity checks that we skip. We skip them
         // because those checks aren't used for messages received from peers and
         // therefore aren't safety critical.
-        let cid = ctx.mpool.as_ref().push_untrusted(message).await?;
+        let cid = ctx.mpool.push_untrusted(message).await?;
         Ok(cid)
     }
 }
@@ -299,7 +293,7 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         let smsg = ctx
             .nonce_tracker
-            .sign_and_push(ctx.mpool.as_ref(), message, &key, eth_chain_id)
+            .sign_and_push(&ctx.mpool, message, &key, eth_chain_id)
             .await?;
 
         Ok(smsg)

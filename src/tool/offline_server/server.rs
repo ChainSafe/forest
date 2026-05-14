@@ -100,7 +100,7 @@ pub async fn offline_rpc_state(
         RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(keystore)),
-            mpool: Arc::new(message_pool),
+            mpool: message_pool,
             bad_blocks: Default::default(),
             sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
             eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),

@@ -490,7 +490,7 @@ static MAX_RESPONSE_BODY_SIZE: LazyLock<u32> =
 pub struct RPCState {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub state_manager: crate::state_manager::StateManager,
-    pub mpool: Arc<crate::message_pool::MessagePool<crate::chain::ChainStore>>,
+    pub mpool: crate::message_pool::MessagePool<crate::chain::ChainStore>,
     pub bad_blocks: Option<crate::chain_sync::BadBlockCache>,
     pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,

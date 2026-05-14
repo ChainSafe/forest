@@ -22,6 +22,14 @@ pub(in crate::message_pool) struct PendingStore {
     inner: Arc<Inner>,
 }
 
+impl ShallowClone for PendingStore {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            inner: self.inner.shallow_clone(),
+        }
+    }
+}
+
 struct Inner {
     /// Per-resolved-address pending messages.
     pending: SyncRwLock<HashMap<Address, MsgSet>>,
@@ -29,14 +37,6 @@ struct Inner {
     events: broadcast::Sender<MpoolUpdate>,
     /// Per-actor pending-message caps captured once from the provider.
     limits: MsgSetLimits,
-}
-
-impl ShallowClone for PendingStore {
-    fn shallow_clone(&self) -> Self {
-        Self {
-            inner: self.inner.shallow_clone(),
-        }
-    }
 }
 
 impl PendingStore {
