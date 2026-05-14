@@ -14,6 +14,7 @@ use crate::{
     lotus_json::HasLotusJson,
     message_pool::{MessagePool, MpoolLocker, NonceTracker},
     networks::{ChainConfig, NetworkChain},
+    prelude::*,
     rpc::{
         ApiPaths, RPCState, RpcMethod, RpcMethodExt as _,
         eth::{filter::EthEventHandler, types::EthHash},
@@ -133,7 +134,7 @@ async fn ctx(
     db: Arc<ManyCar<MemoryDB>>,
     chain_config: Arc<ChainConfig>,
 ) -> anyhow::Result<(
-    Arc<RPCState<ManyCar<MemoryDB>>>,
+    Arc<RPCState>,
     flume::Receiver<NetworkMessage>,
     tokio::sync::mpsc::Receiver<()>,
 )> {
@@ -141,16 +142,10 @@ async fn ctx(
     let (tipset_send, _) = flume::bounded(5);
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
-    let chain_store = Arc::new(ChainStore::new(
-        db.clone(),
-        db.clone(),
-        db,
-        chain_config,
-        genesis_header.clone(),
-    )?);
-    let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
+    let chain_store = ChainStore::new(db, chain_config, genesis_header.clone())?;
+    let state_manager = StateManager::new(chain_store.shallow_clone()).unwrap();
     let message_pool = MessagePool::new(
-        chain_store.clone(),
+        chain_store,
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
@@ -159,13 +154,13 @@ async fn ctx(
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
-        SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
+        SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
     let nonce_tracker = NonceTracker::new();
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
-        mpool: Arc::new(message_pool),
+        mpool: message_pool,
         bad_blocks: Default::default(),
         sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),

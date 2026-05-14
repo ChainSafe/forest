@@ -16,6 +16,7 @@ use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::genesis::read_genesis_header;
 use crate::networks::NetworkChain;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use crate::tool::offline_server::server::handle_chain_config;
@@ -66,8 +67,8 @@ impl IndexCommands {
                 let chain_data_path = chain_path(&config);
                 let db_root_dir = db_root(&chain_data_path)?;
 
-                let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config())?);
-                let db = Arc::new(ManyCar::new(db_writer.clone()));
+                let db_writer = open_db(db_root_dir.clone(), config.db_config())?;
+                let db = Arc::new(ManyCar::new(db_writer));
                 let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
 
                 load_all_forest_cars(&db, &forest_car_db_dir)?;
@@ -80,15 +81,9 @@ impl IndexCommands {
                 )
                 .await?;
 
-                let chain_store = Arc::new(ChainStore::new(
-                    db.clone(),
-                    db.clone(),
-                    db.clone(),
-                    chain_config,
-                    genesis_header.clone(),
-                )?);
+                let chain_store = ChainStore::new(db, chain_config, genesis_header.clone())?;
 
-                let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
+                let state_manager = StateManager::new(chain_store.shallow_clone())?;
 
                 let head_ts = chain_store.heaviest_tipset();
 

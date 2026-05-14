@@ -11,21 +11,21 @@ use crate::{
     blocks::*,
     db::{MemoryDB, car::PlainCar},
     networks,
+    prelude::*,
     shim::{
         address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
         sector::PoStProof,
     },
 };
 use chain4u::header::{FILECOIN_GENESIS_BLOCK, FILECOIN_GENESIS_CID, GENESIS_BLOCK_PARENTS};
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use itertools::Itertools as _;
 use num_bigint::BigInt;
 use petgraph::Direction;
-use std::{borrow::Borrow, fmt::Debug, hash::Hash};
 use std::{
+    borrow::Borrow,
     collections::hash_map::Entry::{Occupied, Vacant},
+    fmt::Debug,
+    hash::Hash,
     iter,
 };
 
@@ -173,6 +173,11 @@ impl<T> Chain4U<T> {
             inner: Default::default(),
         }
     }
+
+    pub fn blockstore(&self) -> &T {
+        &self.blockstore
+    }
+
     pub fn get<Q>(&self, ident: &Q) -> Option<RawBlockHeader>
     where
         String: Borrow<Q>,
@@ -180,9 +185,11 @@ impl<T> Chain4U<T> {
     {
         self.inner.lock().ident2header.get(ident).cloned()
     }
+
     pub fn tipset(&self, of: &[&str]) -> Tipset {
         Tipset::new(of.iter().map(|it| self.get(*it).unwrap())).unwrap()
     }
+
     /// Insert a header.
     /// Header fields (epoch etc) will be set accordingly.
     pub fn insert(
@@ -203,16 +210,6 @@ impl<T> Chain4U<T> {
             .put_keyed(&header.cid(), &fvm_ipld_encoding::to_vec(&header).unwrap())
             .unwrap();
         header
-    }
-}
-
-impl<T: Blockstore> Blockstore for Chain4U<T> {
-    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.blockstore.get(k)
-    }
-
-    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.blockstore.put_keyed(k, block)
     }
 }
 
@@ -693,7 +690,11 @@ fn test_chain4u() {
     itertools::assert_equal(
         iter::successors(Some(t3.clone()), |t| match t.epoch() {
             0 => None,
-            _ => Some(Tipset::load(&c4u, t.parents()).unwrap().unwrap()),
+            _ => Some(
+                Tipset::load(c4u.blockstore(), t.parents())
+                    .unwrap()
+                    .unwrap(),
+            ),
         }),
         [t3, t2, t1, t0],
     );

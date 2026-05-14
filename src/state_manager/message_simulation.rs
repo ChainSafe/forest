@@ -11,20 +11,17 @@ use crate::shim::address::Protocol;
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::Message;
-use crate::utils::ShallowClone as _;
 use fvm_shared4::crypto::signature::SECP_SIG_LEN;
 use std::time::Duration;
 use tracing::instrument;
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+
+impl StateManager {
     #[instrument(skip(self, rand))]
     fn call_raw(
         &self,
         state_cid: Option<Cid>,
         msg: &Message,
-        rand: ChainRand<DB>,
+        rand: ChainRand,
         tipset: &Tipset,
     ) -> Result<ApiInvocResult, Error> {
         let mut msg = msg.clone();
@@ -53,7 +50,7 @@ where
                 base_fee: tipset.block_headers().first().parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
-                    self.blockstore(),
+                    self.db(),
                     &state_cid,
                 )?,
                 chain_config: self.chain_config().shallow_clone(),
@@ -72,7 +69,7 @@ where
         // This is needed to get the correct nonce from the actor state to match the VM
         let state_cid = vm.flush()?;
 
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+        let state = StateTree::new_from_root(self.db(), &state_cid)?;
 
         let from_actor = state
             .get_actor(&msg.from())?
@@ -118,7 +115,7 @@ where
     }
 
     pub async fn apply_on_state_with_gas(
-        self: &Arc<Self>,
+        &self,
         tipset: Option<Tipset>,
         msg: Message,
         vm_flush: VMFlush,
@@ -168,7 +165,7 @@ where
     /// Computes message on the given [Tipset] state, after applying other
     /// messages and returns the values computed in the VM.
     pub async fn call_with_gas(
-        self: &Arc<Self>,
+        &self,
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
@@ -197,7 +194,7 @@ where
                     base_fee: ts.block_headers().first().parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
-                        self.blockstore(),
+                        self.chain_index().db(),
                         &state_root,
                     )?,
                     chain_config: self.chain_config().shallow_clone(),

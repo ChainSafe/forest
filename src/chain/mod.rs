@@ -15,7 +15,7 @@ use crate::cid_collections::CidHashSetLike;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::ipld::stream_chain;
-use crate::utils::ShallowClone as _;
+use crate::prelude::*;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
@@ -23,13 +23,11 @@ use crate::utils::stream::par_buffer;
 use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt as _;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
 use sha2::digest::{self, Digest};
 use std::io::{Read, Seek, SeekFrom};
-use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 pub struct ExportOptions<S> {
@@ -53,7 +51,7 @@ impl<S: Default> Default for ExportOptions<S> {
 }
 
 pub async fn export_from_head<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
-    db: &Arc<impl Blockstore + SettingsStore + Send + Sync + 'static>,
+    db: &(impl Blockstore + ShallowClone + SettingsStore + Unpin + Send + Sync + 'static),
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
     options: ExportOptions<S>,
@@ -68,7 +66,7 @@ pub async fn export_from_head<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
 /// Exports a Filecoin snapshot in v1 format
 /// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v1-specification>
 pub async fn export<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
-    db: &Arc<impl Blockstore + Send + Sync + 'static>,
+    db: &(impl Blockstore + ShallowClone + Unpin + Send + Sync + 'static),
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
@@ -81,7 +79,7 @@ pub async fn export<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
 /// Exports a Filecoin snapshot in v2 format
 /// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v2-specification>
 pub async fn export_v2<D: Digest, F: Seek + Read, S: CidHashSetLike + Send + Sync + 'static>(
-    db: &Arc<impl Blockstore + Send + Sync + 'static>,
+    db: &(impl Blockstore + ShallowClone + Unpin + Send + Sync + 'static),
     mut f3: Option<(Cid, F)>,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
@@ -148,7 +146,7 @@ pub async fn export_v2<D: Digest, F: Seek + Read, S: CidHashSetLike + Send + Syn
 async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
     roots: NonEmpty<Cid>,
     prefix_data_frames: Option<Vec<anyhow::Result<ForestCarFrame>>>,
-    db: &Arc<impl Blockstore + Send + Sync + 'static>,
+    db: &(impl Blockstore + ShallowClone + Unpin + Send + Sync + 'static),
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,

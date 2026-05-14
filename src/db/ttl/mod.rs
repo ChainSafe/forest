@@ -6,13 +6,12 @@ use crate::message::ChainMessage;
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fvm_ipld_blockstore::Blockstore;
-use std::sync::Arc;
 use std::time::Duration;
 
 use super::EthMappingsStore;
 
 pub struct EthMappingCollector<DB> {
-    db: Arc<DB>,
+    db: DB,
     eth_chain_id: EthChainId,
     ttl: std::time::Duration,
 }
@@ -20,7 +19,7 @@ pub struct EthMappingCollector<DB> {
 impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollector<DB> {
     /// Creates a `TTL` collector for the Ethereum mapping.
     ///
-    pub fn new(db: Arc<DB>, eth_chain_id: EthChainId, retention_epochs: ChainEpoch) -> Self {
+    pub fn new(db: DB, eth_chain_id: EthChainId, retention_epochs: ChainEpoch) -> Self {
         // Convert retention_epochs to number of seconds
         let secs = EPOCH_DURATION_SECONDS * retention_epochs;
         Self {
@@ -41,7 +40,7 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
                 duration.saturating_sub(Duration::from_secs(*timestamp)) > self.ttl
             })
             .filter_map(|(cid, _)| {
-                let message = crate::chain::get_chain_message(self.db.as_ref(), cid);
+                let message = crate::chain::get_chain_message(&self.db, cid);
                 if let Ok(ChainMessage::Signed(smsg)) = message {
                     let result = eth_tx_from_signed_eth_message(&smsg, self.eth_chain_id);
                     if let Ok((_, tx)) = result {
@@ -72,7 +71,6 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
     pub async fn run(&mut self) -> anyhow::Result<()> {
         loop {
             tokio::time::sleep(self.ttl).await;
-
             let duration = Duration::from_secs(chrono::Utc::now().timestamp() as u64);
             self.ttl_workflow(duration)?;
         }
@@ -82,6 +80,7 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
 #[cfg(test)]
 mod test {
     use std::convert::TryFrom;
+    use std::sync::Arc;
 
     use chrono::{DateTime, TimeZone, Utc};
     use cid::Cid;

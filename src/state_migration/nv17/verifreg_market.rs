@@ -4,6 +4,8 @@
 //! This module contains the migration logic for the `NV17` upgrade for the `verifreg` and `market`
 //! actor.
 
+use super::super::ChainEpoch;
+use super::super::common::PostMigrator;
 use crate::shim::{
     address::Address,
     deal::DealID,
@@ -15,9 +17,6 @@ use anyhow::Context as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_hamt::BytesKey;
 use fvm_ipld_blockstore::Blockstore;
-
-use super::super::ChainEpoch;
-use super::super::common::PostMigrator;
 
 pub(super) struct VerifregMarketPostMigrator {
     pub prior_epoch: ChainEpoch,

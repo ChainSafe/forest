@@ -1,31 +1,30 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{io::Write, sync::Arc};
+use std::io::Write;
 
 use crate::beacon::{Beacon as _, BeaconEntry, BeaconSchedule};
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::networks::ChainConfig;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::externs::Rand;
-use crate::utils::ShallowClone;
 use crate::utils::encoding::blake2b_256;
-use anyhow::{Context as _, bail};
+use anyhow::bail;
 use blake2b_simd::Params;
 use byteorder::{BigEndian, WriteBytesExt};
-use fvm_ipld_blockstore::Blockstore;
 
 /// Allows for deriving the randomness from a particular tipset.
 #[derive(derive_more::Constructor)]
-pub struct ChainRand<DB> {
+pub struct ChainRand {
     chain_config: Arc<ChainConfig>,
     tipset: Tipset,
-    chain_index: ChainIndex<DB>,
+    chain_index: ChainIndex,
     beacon: Arc<BeaconSchedule>,
 }
 
-impl<DB> ShallowClone for ChainRand<DB> {
+impl ShallowClone for ChainRand {
     fn shallow_clone(&self) -> Self {
         ChainRand {
             chain_config: self.chain_config.shallow_clone(),
@@ -36,10 +35,7 @@ impl<DB> ShallowClone for ChainRand<DB> {
     }
 }
 
-impl<DB> ChainRand<DB>
-where
-    DB: Blockstore,
-{
+impl ChainRand {
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
     /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
     pub fn get_chain_randomness(
@@ -155,10 +151,7 @@ where
     }
 }
 
-impl<DB> Rand for ChainRand<DB>
-where
-    DB: Blockstore,
-{
+impl Rand for ChainRand {
     fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         self.get_chain_randomness_v2(round)
     }

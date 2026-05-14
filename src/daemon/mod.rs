@@ -16,15 +16,13 @@ use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
-use crate::daemon::{
-    context::{AppContext, DbType},
-    db_util::import_chain_as_forest_car,
-};
+use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolLocker, NonceTracker};
 use crate::networks::{self, ChainConfig};
+use crate::prelude::*;
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::start_rpc;
@@ -32,7 +30,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
 use crate::utils::misc::env::is_env_truthy;
-use crate::utils::{self, ShallowClone as _};
+use crate::utils::{self};
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
 use backon::{ExponentialBuilder, Retryable};
@@ -53,7 +51,7 @@ use tokio::{
 };
 use tracing::{debug, info, warn};
 
-pub static GLOBAL_SNAPSHOT_GC: OnceLock<Arc<SnapshotGarbageCollector<DbType>>> = OnceLock::new();
+pub static GLOBAL_SNAPSHOT_GC: OnceLock<Arc<SnapshotGarbageCollector>> = OnceLock::new();
 
 /// Increase the file descriptor limit to a reasonable number.
 /// This prevents the node from failing if the default soft limit is too low.
@@ -181,7 +179,7 @@ async fn maybe_import_snapshot(
         let validation_range = validation_range(current_height, validate_from)?;
         // `validate_range` is CPU-bound (drives rayon-parallel VM execution) and
         // can run for minutes. Safer to spawn it on a blocking thread.
-        let state_manager = ctx.state_manager.clone();
+        let state_manager = ctx.state_manager.shallow_clone();
         tokio::task::spawn_blocking(move || state_manager.validate_range(validation_range))
             .await??;
     }
@@ -235,30 +233,21 @@ async fn maybe_start_metrics_service(
         let db = ctx.db.writer().clone();
 
         let get_chain_head_height = Arc::new({
-            // Use `Weak` to not dead lock GC.
-            let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
-            move || {
-                chain_store
-                    .upgrade()
-                    .map(|cs| cs.heaviest_tipset().epoch())
-                    .unwrap_or_default()
-            }
+            let cs = ctx.state_manager.chain_store().shallow_clone();
+            move || cs.heaviest_tipset().epoch()
         });
         let get_chain_head_actor_version = Arc::new({
-            // Use `Weak` to not dead lock GC.
-            let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
+            let cs = ctx.state_manager.chain_store().shallow_clone();
             move || {
-                if let Some(cs) = chain_store.upgrade()
-                    && let Ok(state) = StateTree::new_from_root(
-                        cs.blockstore().clone(),
-                        cs.heaviest_tipset().parent_state(),
-                    )
+                if let Ok(state) =
+                    StateTree::new_from_root(cs.db(), cs.heaviest_tipset().parent_state())
                     && let Ok(bundle_meta) = state.get_actor_bundle_metadata()
                     && let Ok(actor_version) = bundle_meta.actor_major_version()
                 {
-                    return actor_version;
+                    actor_version
+                } else {
+                    0
                 }
-                0
             }
         });
         services.spawn({
@@ -296,7 +285,7 @@ async fn create_p2p_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &mut Config,
     ctx: &AppContext,
-) -> anyhow::Result<Libp2pService<DbType>> {
+) -> anyhow::Result<Libp2pService> {
     // if bootstrap peers are not set, set them
     if config.network.bootstrap_peers.is_empty() {
         config.network.bootstrap_peers = ctx.state_manager.chain_config().bootstrap_peers.clone();
@@ -307,7 +296,7 @@ async fn create_p2p_service(
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
-        Arc::clone(ctx.state_manager.chain_store()),
+        ctx.state_manager.chain_store().shallow_clone(),
         peer_manager.clone(),
         ctx.net_keypair.clone(),
         config.chain.genesis_name(),
@@ -319,41 +308,40 @@ async fn create_p2p_service(
 
 fn create_mpool(
     services: &mut JoinSet<anyhow::Result<()>>,
-    p2p_service: &Libp2pService<DbType>,
+    p2p_service: &Libp2pService,
     ctx: &AppContext,
-) -> anyhow::Result<Arc<MessagePool<Arc<ChainStore<DbType>>>>> {
+) -> anyhow::Result<MessagePool<ChainStore>> {
     Ok(MessagePool::new(
-        ctx.state_manager.chain_store().clone(),
+        ctx.state_manager.chain_store().shallow_clone(),
         p2p_service.network_sender().clone(),
         MpoolConfig::load_config(ctx.db.writer().as_ref())?,
         ctx.state_manager.chain_config().clone(),
         services,
-    )
-    .map(Arc::new)?)
+    )?)
 }
 
 fn create_chain_follower(
     opts: &CliOpts,
-    p2p_service: &Libp2pService<DbType>,
-    mpool: Arc<MessagePool<Arc<ChainStore<DbType>>>>,
+    p2p_service: &Libp2pService,
+    mpool: MessagePool<ChainStore>,
     ctx: &AppContext,
-) -> anyhow::Result<Arc<ChainFollower<DbType>>> {
+) -> anyhow::Result<ChainFollower> {
     let network_send = p2p_service.network_sender().clone();
     let peer_manager = p2p_service.peer_manager().clone();
-    let network = SyncNetworkContext::new(network_send, peer_manager, ctx.db.clone());
-    Ok(Arc::new(ChainFollower::new(
-        ctx.state_manager.clone(),
+    let network = SyncNetworkContext::new(network_send, peer_manager, ctx.db.clone().into());
+    Ok(ChainFollower::new(
+        ctx.state_manager.shallow_clone(),
         network,
         Tipset::from(ctx.state_manager.chain_store().genesis_block_header()),
         p2p_service.network_receiver(),
         opts.stateless,
         mpool,
-    )))
+    ))
 }
 
 fn start_chain_follower_service(
     services: &mut JoinSet<anyhow::Result<()>>,
-    chain_follower: Arc<ChainFollower<DbType>>,
+    chain_follower: ChainFollower,
 ) {
     services.spawn(async move { chain_follower.run().await });
 }
@@ -361,8 +349,8 @@ fn start_chain_follower_service(
 async fn maybe_start_health_check_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    p2p_service: &Libp2pService<DbType>,
-    chain_follower: &ChainFollower<DbType>,
+    p2p_service: &Libp2pService,
+    chain_follower: &ChainFollower,
     ctx: &AppContext,
 ) -> anyhow::Result<()> {
     if config.client.enable_health_check {
@@ -395,7 +383,7 @@ fn maybe_start_gc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
     config: &Config,
-    chain_follower: Arc<ChainFollower<DbType>>,
+    chain_follower: ChainFollower,
 ) -> anyhow::Result<()> {
     // If the node is stateless, GC shouldn't get triggered even on demand.
     if opts.stateless {
@@ -435,8 +423,8 @@ fn maybe_start_gc_service(
 fn maybe_start_rpc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    mpool: Arc<MessagePool<Arc<ChainStore<DbType>>>>,
-    chain_follower: &ChainFollower<DbType>,
+    mpool: MessagePool<ChainStore>,
+    chain_follower: &ChainFollower,
     start_time: chrono::DateTime<chrono::Utc>,
     shutdown: mpsc::Sender<()>,
     rpc_stop_handle: jsonrpsee::server::StopHandle,
@@ -552,7 +540,7 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) -> 
             }
         });
         tokio::task::spawn({
-            let chain_store = ctx.chain_store().clone();
+            let chain_store = ctx.chain_store().shallow_clone();
             async move {
                 // wait 1s to let F3 RPC server start
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -605,7 +593,7 @@ fn maybe_start_indexer_service(
         && !ctx.state_manager.chain_config().is_devnet()
     {
         let mut head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
-        let chain_store = ctx.state_manager.chain_store().clone();
+        let chain_store = ctx.state_manager.chain_store().shallow_clone();
         services.spawn(async move {
             tracing::info!("Starting indexer service");
 
@@ -630,12 +618,12 @@ fn maybe_start_indexer_service(
 
         // Run the collector only if chain indexer is enabled
         if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
-            let chain_store = ctx.state_manager.chain_store().clone();
+            let chain_store = ctx.state_manager.chain_store().shallow_clone();
             let chain_config = ctx.state_manager.chain_config().clone();
             services.spawn(async move {
                 tracing::info!("Starting collector for eth_mappings");
                 let mut collector = EthMappingCollector::new(
-                    chain_store.blockstore().clone(),
+                    chain_store.db_owned(),
                     chain_config.eth_chain_id,
                     retention_epochs.into(),
                 );
@@ -690,12 +678,12 @@ pub(super) async fn start_services(
 
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
-    let chain_follower = create_chain_follower(opts, &p2p_service, mpool.clone(), &ctx)?;
+    let chain_follower = create_chain_follower(opts, &p2p_service, mpool.shallow_clone(), &ctx)?;
 
     maybe_start_rpc_service(
         &mut services,
         &config,
-        mpool.clone(),
+        mpool.shallow_clone(),
         &chain_follower,
         start_time,
         shutdown_send.clone(),
@@ -711,7 +699,7 @@ pub(super) async fn start_services(
     }
 
     warmup_in_background(&ctx);
-    maybe_start_gc_service(&mut services, opts, &config, chain_follower.clone())?;
+    maybe_start_gc_service(&mut services, opts, &config, chain_follower.shallow_clone())?;
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_f3_service(opts, &config, &ctx)?;
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
@@ -731,7 +719,7 @@ pub(super) async fn start_services(
 
 fn warmup_in_background(ctx: &AppContext) {
     // Populate `tipset_by_height` cache
-    let cs = ctx.chain_store().clone();
+    let cs = ctx.chain_store().shallow_clone();
     tokio::task::spawn_blocking(move || {
         let start = Instant::now();
         match cs.chain_index().tipset_by_height(

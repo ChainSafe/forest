@@ -94,15 +94,15 @@ pub fn create_masked_id_eth_address(actor_id: u64) -> EthAddress {
 
 pub struct TestStateTrees {
     pub store: Arc<MemoryDB>,
-    pub pre_state: StateTree<MemoryDB>,
-    pub post_state: StateTree<MemoryDB>,
+    pub pre_state: StateTree<Arc<MemoryDB>>,
+    pub post_state: StateTree<Arc<MemoryDB>>,
 }
 
 impl TestStateTrees {
     pub fn new() -> anyhow::Result<Self> {
         let store = Arc::new(MemoryDB::default());
-        let pre_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-        let post_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
+        let pre_state = StateTree::new(&store, StateTreeVersion::V5)?;
+        let post_state = StateTree::new(&store, StateTreeVersion::V5)?;
         Ok(Self {
             store,
             pre_state,
@@ -117,8 +117,8 @@ impl TestStateTrees {
         post_actor: ActorState,
     ) -> anyhow::Result<Self> {
         let store = Arc::new(MemoryDB::default());
-        let mut pre_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-        let mut post_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
+        let mut pre_state = StateTree::new(&store, StateTreeVersion::V5)?;
+        let mut post_state = StateTree::new(&store, StateTreeVersion::V5)?;
         let addr = FilecoinAddress::new_id(actor_id);
         pre_state.set_actor(&addr, pre_actor)?;
         post_state.set_actor(&addr, post_actor)?;
@@ -132,8 +132,8 @@ impl TestStateTrees {
     /// Create state trees with actor only in post (creation scenario).
     pub fn with_created_actor(actor_id: u64, post_actor: ActorState) -> anyhow::Result<Self> {
         let store = Arc::new(MemoryDB::default());
-        let pre_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-        let mut post_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
+        let pre_state = StateTree::new(&store, StateTreeVersion::V5)?;
+        let mut post_state = StateTree::new(&store, StateTreeVersion::V5)?;
         let addr = FilecoinAddress::new_id(actor_id);
         post_state.set_actor(&addr, post_actor)?;
         Ok(Self {
@@ -146,8 +146,8 @@ impl TestStateTrees {
     /// Create state trees with actor only in pre (deletion scenario).
     pub fn with_deleted_actor(actor_id: u64, pre_actor: ActorState) -> anyhow::Result<Self> {
         let store = Arc::new(MemoryDB::default());
-        let mut pre_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
-        let post_state = StateTree::new(store.clone(), StateTreeVersion::V5)?;
+        let mut pre_state = StateTree::new(&store, StateTreeVersion::V5)?;
+        let post_state = StateTree::new(&store, StateTreeVersion::V5)?;
         let addr = FilecoinAddress::new_id(actor_id);
         pre_state.set_actor(&addr, pre_actor)?;
         Ok(Self {

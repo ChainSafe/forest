@@ -1,17 +1,16 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, sync::Arc};
+use std::num::NonZeroUsize;
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
+use crate::db::{DbImpl, EthMappingsStore as _};
 use crate::metrics;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::ShallowClone;
 use crate::utils::cache::SizeTrackingLruCache;
-use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools;
 use nonzero_ext::nonzero;
 use num::Integer;
 
@@ -19,28 +18,23 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize);
 
 type TipsetCache = SizeTrackingLruCache<TipsetKey, Tipset>;
 
-type TipsetHeightCache = SizeTrackingLruCache<ChainEpoch, TipsetKey>;
-
 type IsTipsetFinalizedFn = Arc<dyn Fn(&Tipset) -> bool + Send + Sync>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
-pub struct ChainIndex<DB> {
+pub struct ChainIndex {
     /// tipset key to tipset mappings.
     ts_cache: TipsetCache,
-    /// epoch to tipset key mappings.
-    ts_height_cache: TipsetHeightCache,
     /// `Blockstore` pointer needed to load tipsets from cold storage.
-    db: Arc<DB>,
+    db: DbImpl,
     /// check whether a tipset is finalized
     is_tipset_finalized: Option<IsTipsetFinalizedFn>,
 }
 
-impl<DB> ShallowClone for ChainIndex<DB> {
+impl ShallowClone for ChainIndex {
     fn shallow_clone(&self) -> Self {
         Self {
             ts_cache: self.ts_cache.shallow_clone(),
-            ts_height_cache: self.ts_height_cache.shallow_clone(),
             db: self.db.shallow_clone(),
             is_tipset_finalized: self.is_tipset_finalized.clone(),
         }
@@ -56,20 +50,13 @@ pub enum ResolveNullTipset {
     TakeOlder,
 }
 
-impl<DB: Blockstore> ChainIndex<DB> {
-    pub fn new(db: Arc<DB>) -> Self {
+impl ChainIndex {
+    pub fn new(db: impl Into<DbImpl>) -> Self {
+        let db = db.into();
         let ts_cache =
             SizeTrackingLruCache::new_with_metrics("tipset".into(), DEFAULT_TIPSET_CACHE_SIZE);
-        let ts_height_cache: SizeTrackingLruCache<ChainEpoch, TipsetKey> =
-            SizeTrackingLruCache::new_with_metrics(
-                "tipset_by_height".into(),
-                // 1048576 * 20 = 20971520 which is sufficient for mainnet
-                // Maximum ~32MiB RAM usage
-                nonzero!(1048576_usize),
-            );
         Self {
             ts_cache,
-            ts_height_cache,
             db,
             is_tipset_finalized: None,
         }
@@ -80,8 +67,12 @@ impl<DB: Blockstore> ChainIndex<DB> {
         self
     }
 
-    pub fn db(&self) -> &Arc<DB> {
+    pub fn db(&self) -> &DbImpl {
         &self.db
+    }
+
+    pub fn db_owned(&self) -> DbImpl {
+        self.db().shallow_clone()
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
@@ -181,8 +172,8 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
         let mut checkpoint_from_epoch = to;
         while checkpoint_from_epoch < from_epoch {
-            if let Some(checkpoint_from_key) =
-                self.ts_height_cache.get_cloned(&checkpoint_from_epoch)
+            if let Ok(Some(checkpoint_from_key)) =
+                self.db.tipset_key_by_epoch(checkpoint_from_epoch)
                 && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)
             {
                 from = checkpoint_from;
@@ -211,9 +202,15 @@ impl<DB: Blockstore> ChainIndex<DB> {
         };
         for (child, parent) in from.chain(&self.db).tuple_windows() {
             // update cache only when child is finalized.
-            if is_checkpoint(child.epoch()) && is_finalized(&child) {
-                self.ts_height_cache
-                    .push(child.epoch(), child.key().clone());
+            if is_checkpoint(child.epoch())
+                && is_finalized(&child)
+                && let Err(e) = self.db.set_tipset_key_at_epoch(&child)
+            {
+                tracing::warn!(
+                    "failed to update tipset height cache, epoch: {}, key: {}, error: {e}",
+                    child.epoch(),
+                    child.key()
+                );
             }
 
             if to == child.epoch() {
@@ -266,15 +263,14 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    };
-
     use super::*;
     use crate::blocks::{CachingBlockHeader, RawBlockHeader};
     use crate::db::MemoryDB;
     use crate::utils::db::CborStoreExt;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    };
 
     fn persist_tipset(tipset: &Tipset, db: &impl Blockstore) {
         for block in tipset.block_headers() {

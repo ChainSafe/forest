@@ -13,6 +13,7 @@ use std::{
 
 use crate::{
     blocks::{FullTipset, Tipset, TipsetKey, TipsetLike},
+    db::DbImpl,
     libp2p::{
         NetworkMessage, PeerId, PeerManager,
         chain_exchange::{
@@ -21,14 +22,13 @@ use crate::{
         hello::{HelloRequest, HelloResponse},
         rpc::RequestResponseError,
     },
+    prelude::*,
     utils::{
-        ShallowClone,
         misc::{AdaptiveValueProvider, ExponentialAdaptiveValueProvider},
         stats::Stats,
     },
 };
 use anyhow::Context as _;
-use fvm_ipld_blockstore::Blockstore;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::future::Future;
@@ -58,16 +58,16 @@ static MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: LazyLock<NonZeroUsize> = LazyLock
 /// This contains the peer manager, P2P service interface, and [`Blockstore`]
 /// required to make network requests.
 #[derive(derive_more::Constructor)]
-pub struct SyncNetworkContext<DB> {
+pub struct SyncNetworkContext {
     /// Channel to send network messages through P2P service
     network_send: flume::Sender<NetworkMessage>,
     /// Manages peers to send requests to and updates request stats for the
     /// respective peers.
     peer_manager: Arc<PeerManager>,
-    db: Arc<DB>,
+    db: DbImpl,
 }
 
-impl<DB> ShallowClone for SyncNetworkContext<DB> {
+impl ShallowClone for SyncNetworkContext {
     fn shallow_clone(&self) -> Self {
         Self {
             network_send: self.network_send.clone(),
@@ -125,10 +125,7 @@ where
     }
 }
 
-impl<DB> SyncNetworkContext<DB>
-where
-    DB: Blockstore,
-{
+impl SyncNetworkContext {
     /// Returns a reference to the peer manager of the network context.
     pub fn peer_manager(&self) -> &PeerManager {
         self.peer_manager.as_ref()

@@ -28,7 +28,6 @@ use super::error::ServerError as Error;
 use ahash::HashMap;
 use anyhow::Context as _;
 use enumflags2::{BitFlags, bitflags, make_bitflags};
-use fvm_ipld_blockstore::Blockstore;
 use http::{Extensions, Uri};
 use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
@@ -42,7 +41,7 @@ use std::{future::Future, str::FromStr, sync::Arc};
 use strum::EnumString;
 
 /// Type to be used by [`RpcMethod::handle`].
-pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
+pub type Ctx = Arc<crate::rpc::RPCState>;
 
 /// A definition of an RPC method handler which:
 /// - can be [registered](RpcMethodExt::register) with an [`RpcModule`].
@@ -78,7 +77,7 @@ pub trait RpcMethod<const ARITY: usize> {
     type Ok: HasLotusJson;
     /// Logic for this method.
     fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         params: Self::Params,
         ext: &Extensions,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
@@ -247,10 +246,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
 
     /// Register a method with an [`RpcModule`].
     fn register(
-        modules: &mut HashMap<
-            ApiPaths,
-            RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
-        >,
+        modules: &mut HashMap<ApiPaths, RpcModule<crate::rpc::RPCState>>,
         calling_convention: ParamStructure,
     ) -> Result<(), jsonrpsee::core::RegisterMethodError>
     where

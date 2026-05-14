@@ -4,17 +4,13 @@
 use super::*;
 use crate::blocks::TipsetKey;
 use crate::message::MessageRead as _;
-use crate::utils::ShallowClone as _;
 use ahash::{HashMap, HashMapExt as _};
 use anyhow::Context as _;
 use futures::{FutureExt, channel::oneshot, select};
 use tokio::sync::{RwLock, broadcast::error::RecvError};
 use tracing::warn;
 
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+impl StateManager {
     /// Check if tipset had executed the message, by loading the receipt based
     /// on the index of the message in the block.
     fn tipset_executed_message(
@@ -62,7 +58,7 @@ where
                 } else {
                     let block_header = tipset.block_headers().first();
                     crate::chain::get_parent_receipt(
-                        self.blockstore(),
+                        self.db(),
                         block_header,
                         index,
                     )
@@ -150,7 +146,7 @@ where
 
     /// Returns a message receipt from a given tipset and message CID.
     pub fn get_receipt(&self, tipset: Tipset, msg: Cid) -> Result<Receipt, Error> {
-        let m = crate::chain::get_chain_message(self.blockstore(), &msg)
+        let m = crate::chain::get_chain_message(self.db(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_receipt = self.tipset_executed_message(&tipset, &m, true)?;
         if let Some(receipt) = message_receipt {
@@ -171,7 +167,7 @@ where
     /// guarantees that the message has been on chain for at least
     /// confidence epochs without being reverted before returning.
     pub async fn wait_for_message(
-        self: &Arc<Self>,
+        &self,
         msg_cid: Cid,
         confidence: i64,
         look_back_limit: Option<ChainEpoch>,
@@ -179,7 +175,7 @@ where
     ) -> Result<(Option<Tipset>, Option<Receipt>), Error> {
         let mut head_changes_rx = self.cs.subscribe_head_changes();
         let (sender, mut receiver) = oneshot::channel::<()>();
-        let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
+        let message = crate::chain::get_chain_message(self.db(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
         let current_tipset = self.heaviest_tipset();
         let maybe_message_receipt =
@@ -210,7 +206,7 @@ where
 
         let reverts: Arc<RwLock<HashMap<TipsetKey, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
-        let sm_cloned = Arc::clone(self);
+        let sm_cloned = self.shallow_clone();
 
         // Wait for message to be included in head change.
         let mut subscriber_poll = tokio::task::spawn(async move {
@@ -310,7 +306,7 @@ where
         allow_replaced: Option<bool>,
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
         let from = from.unwrap_or_else(|| self.heaviest_tipset());
-        let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
+        let message = crate::chain::get_chain_message(self.db(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
         let current_tipset = self.heaviest_tipset();
         let maybe_message_receipt =

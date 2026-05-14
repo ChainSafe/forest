@@ -6,7 +6,7 @@
 // inclusion in the chain. Messages are added either directly for locally
 // published messages or through pubsub propagation.
 
-use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, time::Duration};
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
@@ -16,6 +16,7 @@ use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{ChainMessage, MessageRead as _, SignedMessage, valid_for_block_inclusion};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
+use crate::prelude::*;
 use crate::rpc::eth::types::EthAddress;
 use crate::shim::{
     address::{Address, Protocol},
@@ -25,16 +26,12 @@ use crate::shim::{
 };
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
-use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
 use ahash::{HashSet, HashSetExt};
-use anyhow::Context as _;
-use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
 use get_size2::GetSize;
-use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
 use tokio::{
@@ -114,9 +111,30 @@ pub struct MessagePool<T> {
     pub repub_trigger: flume::Sender<()>,
     local_msgs: Arc<SyncRwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
-    pub config: MpoolConfig,
+    pub config: Arc<MpoolConfig>,
     /// Chain configuration
     pub chain_config: Arc<ChainConfig>,
+}
+
+impl<T> ShallowClone for MessagePool<T> {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            local_addrs: self.local_addrs.shallow_clone(),
+            pending_store: self.pending_store.shallow_clone(),
+            cur_tipset: self.cur_tipset.shallow_clone(),
+            api: self.api.shallow_clone(),
+            network_sender: self.network_sender.clone(),
+            bls_sig_cache: self.bls_sig_cache.shallow_clone(),
+            sig_val_cache: self.sig_val_cache.shallow_clone(),
+            key_cache: self.key_cache.shallow_clone(),
+            state_nonce_cache: self.state_nonce_cache.shallow_clone(),
+            republished: self.republished.shallow_clone(),
+            repub_trigger: self.repub_trigger.clone(),
+            local_msgs: self.local_msgs.clone(),
+            config: self.config.shallow_clone(),
+            chain_config: self.chain_config.shallow_clone(),
+        }
+    }
 }
 
 /// Resolve an address to its key form, checking the cache first.
@@ -500,7 +518,7 @@ where
     ) -> Result<(), Error> {
         cfg.save_config(db)
             .map_err(|e| Error::Other(e.to_string()))?;
-        self.config = cfg;
+        self.config = cfg.into();
         Ok(())
     }
 
@@ -575,7 +593,7 @@ where
             state_nonce_cache,
             local_msgs,
             republished,
-            config,
+            config: config.into(),
             network_sender,
             repub_trigger,
             chain_config: Arc::clone(&chain_config),
@@ -733,7 +751,7 @@ fn verify_msg_before_add(
 mod tests {
     use crate::blocks::RawBlockHeader;
     use crate::chain::ChainStore;
-    use crate::db::MemoryDB;
+    use crate::db::{DbImpl, MemoryDB};
     use crate::message_pool::provider::Provider;
     use crate::message_pool::test_provider::TestApi;
     use crate::networks::ChainConfig;
@@ -1052,7 +1070,7 @@ mod tests {
 
     #[test]
     fn resolve_to_key_uses_finality_lookback() {
-        let db = Arc::new(MemoryDB::default());
+        let db: DbImpl = Arc::new(MemoryDB::default()).into();
 
         let mut cfg = ChainConfig::default();
         cfg.policy.chain_finality = 1;
@@ -1062,7 +1080,7 @@ mod tests {
         let bls_b = Address::new_bls(&[9u8; 48]).unwrap();
 
         // root_a: only contains f0300
-        let mut st_a = StateTree::new(db.clone(), StateTreeVersion::V5).unwrap();
+        let mut st_a = StateTree::new(&db, StateTreeVersion::V5).unwrap();
         st_a.set_actor(
             &Address::new_id(300),
             ActorState::new_empty(Cid::default(), Some(bls_a)),
@@ -1071,7 +1089,7 @@ mod tests {
         let root_a = st_a.flush().unwrap();
 
         // root_b: only contains f0400
-        let mut st_b = StateTree::new(db.clone(), StateTreeVersion::V5).unwrap();
+        let mut st_b = StateTree::new(&db, StateTreeVersion::V5).unwrap();
         st_b.set_actor(
             &Address::new_id(400),
             ActorState::new_empty(Cid::default(), Some(bls_b)),
@@ -1104,14 +1122,7 @@ mod tests {
         }));
         db.put_cbor_default(head.block_headers().first()).unwrap();
 
-        let cs = ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db,
-            cfg,
-            genesis.block_headers().first().clone(),
-        )
-        .unwrap();
+        let cs = ChainStore::new(db, cfg, genesis.block_headers().first().clone()).unwrap();
 
         // f0300 exists in lookback state (root_a) → resolves successfully.
         let result = Provider::resolve_to_deterministic_address_at_finality(

@@ -1,26 +1,20 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::prelude::*;
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use crate::{
-    libp2p_bitswap::{
-        BitswapStoreRead, BitswapStoreReadWrite, request_manager::BitswapRequestManager,
-    },
+    libp2p_bitswap::{BitswapStoreReadWrite, request_manager::BitswapRequestManager},
     utils::flume::FlumeSenderExt as _,
 };
 use crate::{message::SignedMessage, networks::GenesisNetworkName};
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
-use cid::Cid;
 use flume::Sender;
 use futures::{select, stream::StreamExt as _};
-use fvm_ipld_blockstore::Blockstore;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
     PeerId, Swarm, SwarmBuilder,
@@ -164,10 +158,10 @@ pub enum NetRPCMethods {
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
-pub struct Libp2pService<DB> {
+pub struct Libp2pService {
     swarm: Swarm<ForestBehaviour>,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
-    cs: Arc<ChainStore<DB>>,
+    cs: ChainStore,
     peer_manager: Arc<PeerManager>,
     network_receiver_in: flume::Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,
@@ -177,13 +171,10 @@ pub struct Libp2pService<DB> {
     genesis_cid: Cid,
 }
 
-impl<DB> Libp2pService<DB>
-where
-    DB: Blockstore + BitswapStoreReadWrite + Sync + Send + 'static,
-{
+impl Libp2pService {
     pub async fn new(
         config: Libp2pConfig,
-        cs: Arc<ChainStore<DB>>,
+        cs: ChainStore,
         peer_manager: Arc<PeerManager>,
         net_keypair: Keypair,
         network_name: GenesisNetworkName,
@@ -339,8 +330,8 @@ where
                     Some(message) => {
                         handle_network_message(
                             swarm_stream.get_mut(),
-                            self.cs.clone(),
-                            bitswap_request_manager.clone(),
+                            self.cs.db_owned(),
+                            bitswap_request_manager.shallow_clone(),
                             message,
                             &self.network_sender_out,
                             &self.peer_manager).await;
@@ -435,7 +426,7 @@ fn handle_peer_ops(
 
 async fn handle_network_message(
     swarm: &mut Swarm<ForestBehaviour>,
-    store: Arc<impl BitswapStoreReadWrite>,
+    store: impl BitswapStoreReadWrite + ShallowClone,
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
@@ -791,19 +782,17 @@ async fn handle_ping_event(ping_event: ping::Event) {
     }
 }
 
-async fn handle_chain_exchange_event<DB>(
+async fn handle_chain_exchange_event(
     chain_exchange: &mut ChainExchangeBehaviour,
     ce_event: request_response::Event<ChainExchangeRequest, ChainExchangeResponse>,
-    db: &Arc<ChainStore<DB>>,
+    db: &ChainStore,
     network_sender_out: &Sender<NetworkEvent>,
     cx_response_tx: Sender<(
         request_response::InboundRequestId,
         request_response::ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
     )>,
-) where
-    DB: Blockstore + Sync + Send + 'static,
-{
+) {
     match ce_event {
         request_response::Event::Message { peer, message, .. } => match message {
             request_response::Message::Request {
@@ -837,7 +826,7 @@ async fn handle_chain_exchange_event<DB>(
                 )
                 .await;
 
-                let db = db.clone();
+                let db = db.shallow_clone();
                 tokio::task::spawn(async move {
                     let _per_peer_permit = per_peer_permit;
                     let _global_permit = global_permit;
@@ -886,12 +875,12 @@ async fn handle_chain_exchange_event<DB>(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn handle_forest_behaviour_event<DB>(
+async fn handle_forest_behaviour_event(
     swarm: &mut Swarm<ForestBehaviour>,
     bitswap_request_manager: &Arc<BitswapRequestManager>,
     peer_manager: &PeerManager,
     event: ForestBehaviourEvent,
-    db: &Arc<ChainStore<DB>>,
+    db: &ChainStore,
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
     cx_response_tx: Sender<(
@@ -901,9 +890,7 @@ async fn handle_forest_behaviour_event<DB>(
     )>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
-) where
-    DB: Blockstore + BitswapStoreRead + Sync + Send + 'static,
-{
+) {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
             handle_discovery_event(
@@ -932,7 +919,7 @@ async fn handle_forest_behaviour_event<DB>(
         ForestBehaviourEvent::Bitswap(event) => {
             if let Err(e) = bitswap_request_manager.handle_event(
                 &mut swarm.behaviour_mut().bitswap,
-                db.blockstore(),
+                db.db(),
                 event,
             ) {
                 warn!("bitswap: {e:#}");

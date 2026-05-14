@@ -1,14 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::blocks::TipsetKey;
+use crate::prelude::*;
 use crate::state_manager::DEFAULT_TIPSET_CACHE_SIZE;
-use crate::utils::ShallowClone;
 use crate::utils::cache::{LruValueConstraints, SizeTrackingLruCache};
 use ahash::{HashMap, HashMapExt as _};
 use parking_lot::RwLock as SyncRwLock;
 use std::future::Future;
 use std::num::NonZeroUsize;
-use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 
 struct TipsetStateCacheInner<V: LruValueConstraints> {
@@ -35,6 +34,14 @@ impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
 /// A generic cache that handles concurrent access and computation for tipset-related data.
 pub(crate) struct TipsetStateCache<V: LruValueConstraints> {
     cache: Arc<SyncRwLock<TipsetStateCacheInner<V>>>,
+}
+
+impl<V: LruValueConstraints> ShallowClone for TipsetStateCache<V> {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            cache: self.cache.shallow_clone(),
+        }
+    }
 }
 
 enum CacheLookupStatus<V> {

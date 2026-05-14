@@ -5,7 +5,6 @@ use std::collections::BTreeMap;
 
 use cid::Cid;
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +30,7 @@ impl RpcMethod<1> for GetActorEventsRaw {
     type Params = (Option<ActorEventFilter>,);
     type Ok = Vec<ActorEvent>;
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (filter,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

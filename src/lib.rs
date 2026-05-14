@@ -75,6 +75,14 @@ mod tool;
 mod utils;
 mod wallet;
 
+mod prelude {
+    pub use crate::{db::Blockstore, utils::ShallowClone};
+    pub use anyhow::Context as _;
+    pub use cid::Cid;
+    pub use itertools::Itertools as _;
+    pub use std::sync::Arc;
+}
+
 /// These items are semver-exempt, and exist for forest author use only
 // We want to have doctests, but don't want our internals to be public because:
 // - We don't want to be concerned with library compat

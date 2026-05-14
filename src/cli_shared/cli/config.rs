@@ -44,8 +44,21 @@ impl Default for DaemonConfig {
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct EventsConfig {
+    /// Caps the events returned by event-filter queries used by the actor
+    /// events API and the Ethereum event and receipt APIs (`eth_getLogs`,
+    /// `eth_getFilterLogs`, `eth_getFilterChanges`). Set to `0` for no limit.
+    ///
+    /// The cap is a hard limit only when a query's events come from more than
+    /// one tipset. A range whose events all live in a single tipset may
+    /// exceed this value; queries scoped to a single tipset (`block_hash`,
+    /// `eth_getBlockReceipts`) bypass it entirely. `eth_getTransactionReceipt`
+    /// narrows to a single message and is also unaffected.
+    ///
+    /// Self-hosted nodes serving trusted callers can use `0` or a high value.
+    /// Public RPC operators should keep it bounded.
     #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
     pub max_filter_results: usize,
+    /// Maximum block-range span (in epochs) accepted in event-filter queries.
     pub max_filter_height_range: ChainEpoch,
 }
 

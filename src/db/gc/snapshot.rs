@@ -41,12 +41,14 @@ use crate::chain::{ChainStore, ExportOptions};
 use crate::chain_sync::ChainFollower;
 use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::chain_path;
+use crate::db::DbImpl;
 use crate::db::{
-    BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore,
+    BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider,
     car::{ForestCar, ReloadableManyCar, forest::new_forest_car_temp_path_in},
     db_engine::db_root,
     parity_db::GarbageCollectableDb,
 };
+use crate::prelude::*;
 use crate::shim::clock::EPOCHS_IN_DAY;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::HashMap;
@@ -57,21 +59,18 @@ use parking_lot::RwLock;
 use sha2::Sha256;
 use std::{
     path::PathBuf,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
 use tokio::task::JoinSet;
 
-pub struct SnapshotGarbageCollector<DB> {
+pub struct SnapshotGarbageCollector {
     chain_tmp_root: PathBuf,
     car_db_dir: PathBuf,
     recent_state_roots: i64,
     running: AtomicBool,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
-    chain_follower: Arc<ChainFollower<DB>>,
+    chain_follower: ChainFollower,
     // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
     memory_db: RwLock<Option<HashMap<Cid, bytes::Bytes>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
@@ -81,22 +80,8 @@ pub struct SnapshotGarbageCollector<DB> {
     progress_tx: RwLock<Option<flume::Sender<()>>>,
 }
 
-impl<DB> SnapshotGarbageCollector<DB>
-where
-    DB: Blockstore
-        + GarbageCollectableDb
-        + ReloadableManyCar
-        + SettingsStore
-        + HeaviestTipsetKeyProvider
-        + BlockstoreWriteOpsSubscribable
-        + Send
-        + Sync
-        + 'static,
-{
-    pub fn new(
-        chain_follower: Arc<ChainFollower<DB>>,
-        config: &crate::Config,
-    ) -> anyhow::Result<Self> {
+impl SnapshotGarbageCollector {
+    pub fn new(chain_follower: ChainFollower, config: &crate::Config) -> anyhow::Result<Self> {
         let chain_data_path = chain_path(config);
         let chain_tmp_root = chain_data_path.join("tmp");
         std::fs::create_dir_all(&chain_tmp_root)?;
@@ -231,7 +216,7 @@ where
         );
         let temp_path = new_forest_car_temp_path_in(&self.car_db_dir)?;
         let file = tokio::fs::File::create(&temp_path).await?;
-        let mut db_write_ops_rx = db.subscribe_write_ops();
+        let mut db_write_ops_rx = db.subscribe_write_ops()?;
         let mut joinset = JoinSet::new();
         joinset.spawn(async move {
             let mut map = HashMap::default();
@@ -306,7 +291,7 @@ where
 
             // Reset parity-db columns
             tokio::task::spawn_blocking({
-                let db = db.clone();
+                let db = db.shallow_clone();
                 move || db.reset_gc_columns()
             })
             .await??;
@@ -396,12 +381,12 @@ where
         Ok(())
     }
 
-    fn cs(&self) -> &Arc<ChainStore<DB>> {
+    fn cs(&self) -> &ChainStore {
         self.chain_follower.state_manager.chain_store()
     }
 
-    fn db(&self) -> &Arc<DB> {
-        self.chain_follower.state_manager.blockstore()
+    fn db(&self) -> &DbImpl {
+        self.chain_follower.state_manager.db()
     }
 
     fn sync_status(&self) -> &crate::chain_sync::SyncStatus {

@@ -1,14 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use super::Error;
 use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::networks::ChainConfig;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use tracing::{debug, warn};
@@ -16,13 +15,23 @@ use tracing::{debug, warn};
 /// Tracks blocks by their height for the purpose of forming tipsets.
 #[derive(Default)]
 pub(in crate::chain) struct TipsetTracker<DB> {
-    entries: Mutex<BTreeMap<ChainEpoch, Vec<Cid>>>,
-    db: Arc<DB>,
+    entries: Arc<Mutex<BTreeMap<ChainEpoch, Vec<Cid>>>>,
+    db: DB,
     chain_config: Arc<ChainConfig>,
 }
 
+impl<DB: ShallowClone> ShallowClone for TipsetTracker<DB> {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            entries: self.entries.shallow_clone(),
+            db: self.db.shallow_clone(),
+            chain_config: self.chain_config.shallow_clone(),
+        }
+    }
+}
+
 impl<DB: Blockstore> TipsetTracker<DB> {
-    pub fn new(db: Arc<DB>, chain_config: Arc<ChainConfig>) -> Self {
+    pub fn new(db: DB, chain_config: Arc<ChainConfig>) -> Self {
         Self {
             entries: Default::default(),
             db,
@@ -114,10 +123,8 @@ impl<DB: Blockstore> TipsetTracker<DB> {
 
 #[cfg(test)]
 mod test {
-    use crate::db::MemoryDB;
-    use itertools::Itertools as _;
-
     use super::*;
+    use crate::db::MemoryDB;
 
     #[test]
     fn ensure_tipset_is_bounded() {
@@ -136,7 +143,7 @@ mod test {
         let tipset_tracker = TipsetTracker {
             db: Arc::new(db),
             chain_config: chain_config.clone(),
-            entries: Mutex::new(entries),
+            entries: Arc::new(Mutex::new(entries)),
         };
 
         tipset_tracker.prune_entries(head_epoch);

@@ -4,9 +4,6 @@
 use std::{io, num::NonZeroUsize, sync::LazyLock};
 
 use ahash::{HashMap, HashMapExt};
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools;
 use nonzero_ext::nonzero;
 
 use super::{
@@ -16,6 +13,7 @@ use super::{
 use crate::{
     blocks::{Tipset, TipsetKey},
     chain::{ChainStore, Error as ChainError},
+    prelude::*,
     utils::misc::env::env_or_default_logged,
 };
 
@@ -51,13 +49,10 @@ fn encoded_size<T: serde::Serialize>(value: &T) -> Result<usize, ChainError> {
 }
 
 /// Builds chain exchange response out of chain data.
-pub fn make_chain_exchange_response<DB>(
-    cs: &ChainStore<DB>,
+pub fn make_chain_exchange_response(
+    cs: &ChainStore,
     request: &ChainExchangeRequest,
-) -> ChainExchangeResponse
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+) -> ChainExchangeResponse {
     make_chain_exchange_response_with_cap(
         cs,
         request,
@@ -65,14 +60,11 @@ where
     )
 }
 
-fn make_chain_exchange_response_with_cap<DB>(
-    cs: &ChainStore<DB>,
+fn make_chain_exchange_response_with_cap(
+    cs: &ChainStore,
     request: &ChainExchangeRequest,
     max_bytes: usize,
-) -> ChainExchangeResponse
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+) -> ChainExchangeResponse {
     if !request.is_options_valid() || !request.is_request_len_valid() {
         return ChainExchangeResponse {
             chain: Default::default(),
@@ -99,10 +91,10 @@ where
         let mut chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
         let mut accumulated: usize = 0;
 
-        for tipset in root.chain(cs.blockstore()).take(request.request_len as _) {
+        for tipset in root.chain(cs.db()).take(request.request_len as _) {
             let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
             if request.include_messages() {
-                tipset_bundle.messages = Some(compact_messages(cs.blockstore(), &tipset)?);
+                tipset_bundle.messages = Some(compact_messages(cs.db(), &tipset)?);
             }
             if request.include_blocks() {
                 tipset_bundle.blocks = tipset.block_headers().iter().cloned().collect_vec();
@@ -214,7 +206,7 @@ mod tests {
     use nunny::Vec as NonEmpty;
     use std::{io::Cursor, sync::Arc};
 
-    async fn populate_chain_store() -> (NonEmpty<Cid>, ChainStore<MemoryDB>) {
+    async fn populate_chain_store() -> (NonEmpty<Cid>, ChainStore) {
         let db = Arc::new(MemoryDB::default());
         // The cids are the tipset cids of the most recent tipset (39th).
         let header = load_car(&db, Cursor::new(EXPORT_SR_40)).await.unwrap();
@@ -222,14 +214,7 @@ mod tests {
             miner_address: Address::new_id(0),
             ..Default::default()
         });
-        let cs = ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db,
-            Arc::new(ChainConfig::default()),
-            gen_block,
-        )
-        .unwrap();
+        let cs = ChainStore::new(db, Arc::new(ChainConfig::default()), gen_block).unwrap();
         (header.roots, cs)
     }
 
