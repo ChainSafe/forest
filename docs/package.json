@@ -22,22 +22,22 @@
     "generate:rpc-reference": "tsx scripts/generate-rpc-reference.ts"
   },
   "dependencies": {
-    "@docusaurus/core": "^3.10.0",
-    "@docusaurus/preset-classic": "^3.10.0",
-    "@docusaurus/theme-mermaid": "^3.10.0",
+    "@docusaurus/core": "^3.10.1",
+    "@docusaurus/preset-classic": "^3.10.1",
+    "@docusaurus/theme-mermaid": "^3.10.1",
     "@easyops-cn/docusaurus-search-local": "^0.55.1",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.14.0",
     "prettier": "^3.8.3",
     "prism-react-renderer": "^2.4.1",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   },
   "devDependencies": {
-    "@docusaurus/mdx-loader": "^3.10.0",
-    "@docusaurus/module-type-aliases": "^3.10.0",
-    "@docusaurus/tsconfig": "^3.10.0",
-    "@docusaurus/types": "^3.10.0",
+    "@docusaurus/mdx-loader": "^3.10.1",
+    "@docusaurus/module-type-aliases": "^3.10.1",
+    "@docusaurus/tsconfig": "^3.10.1",
+    "@docusaurus/types": "^3.10.1",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

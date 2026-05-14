@@ -18,7 +18,7 @@ use self::trace::types::*;
 use self::types::*;
 use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::{ChainStore, index::ResolveNullTipset};
+use crate::chain::{ChainStore, compute_base_fee, index::ResolveNullTipset};
 use crate::chain_sync::NodeSyncStatus;
 use crate::cid_collections::CidHashSet;
 use crate::db::EthMappingsStore;
@@ -28,6 +28,7 @@ use crate::eth::{
 };
 use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
+use crate::networks::Height;
 use crate::rpc::{
     ApiPaths, Ctx, EthEventHandler, LOOKBACK_NO_LIMIT, Permission, RpcMethod, RpcMethodExt as _,
     error::ServerError,
@@ -803,6 +804,40 @@ impl RpcMethod<0> for EthAccounts {
     ) -> Result<Self::Ok, ServerError> {
         // EthAccounts will always return [] since we don't expect Forest to manage private keys
         Ok(vec![])
+    }
+}
+
+pub enum EthBaseFee {}
+impl RpcMethod<0> for EthBaseFee {
+    const NAME: &'static str = "Filecoin.EthBaseFee";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_baseFee");
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the calculated base fee of the upcoming tipset in attoFIL");
+
+    type Params = ();
+    type Ok = EthBigInt;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().heaviest_tipset();
+        let heights = &ctx.chain_config().height_infos;
+        let smoke_height = heights
+            .get(&Height::Smoke)
+            .context("Missing Smoke height")?
+            .epoch;
+        let firehorse_height = heights
+            .get(&Height::FireHorse)
+            .context("Missing FireHorse height")?
+            .epoch;
+        let base_fee = compute_base_fee(ctx.store(), &ts, smoke_height, firehorse_height)
+            .context("failed to compute base fee for eth_baseFee")?;
+        Ok(EthBigInt(base_fee.atto().clone()))
     }
 }
 
