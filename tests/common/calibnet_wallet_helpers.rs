@@ -1,9 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Helpers for the calibnet wallet integration tests in
-//! [`tests/calibnet_wallet.rs`](../../calibnet_wallet.rs).
-
 use std::io::Write as _;
 use std::process::Command;
 use std::sync::LazyLock;

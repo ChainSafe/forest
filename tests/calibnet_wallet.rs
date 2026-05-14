@@ -19,7 +19,6 @@ use serde_json::json;
 #[case::local(Backend::Local)]
 #[case::remote(Backend::Remote)]
 #[tokio::test]
-#[ignore = "requires a running calibnet Forest daemon"]
 async fn export_import_roundtrip(#[case] backend: Backend) {
     let addr = wallet(backend, &["new"]).unwrap();
     let exported = export_to_temp_file(&addr, backend).unwrap();
@@ -41,7 +40,6 @@ async fn export_import_roundtrip(#[case] backend: Backend) {
 }
 
 #[tokio::test]
-#[ignore = "requires a running calibnet Forest daemon"]
 async fn market_add_balance_message_on_chain() {
     const ATTO_FIL: &str = "23";
     let result = rpc_call(
@@ -62,7 +60,6 @@ async fn market_add_balance_message_on_chain() {
 #[case::local(Backend::Local)]
 #[case::remote(Backend::Remote)]
 #[tokio::test]
-#[ignore = "requires a running calibnet Forest daemon"]
 async fn send_to_filecoin_address(#[case] backend: Backend) {
     let target = wallet(backend, &["new"]).unwrap();
     let msg = send_from(&FOREST_TEST_PRELOADED_ADDRESS, &target, FIL_AMT, backend).unwrap();
@@ -75,7 +72,6 @@ async fn send_to_filecoin_address(#[case] backend: Backend) {
 #[case::local(Backend::Local)]
 #[case::remote(Backend::Remote)]
 #[tokio::test]
-#[ignore = "requires a running calibnet Forest daemon"]
 async fn send_to_eth_equivalent(#[case] backend: Backend) {
     let target = wallet(backend, &["new"]).unwrap();
     let initial_msg = send_from(&FOREST_TEST_PRELOADED_ADDRESS, &target, FIL_AMT, backend).unwrap();
@@ -102,7 +98,6 @@ async fn send_to_eth_equivalent(#[case] backend: Backend) {
 #[case::local(Backend::Local)]
 #[case::remote(Backend::Remote)]
 #[tokio::test]
-#[ignore = "requires a running calibnet Forest daemon"]
 async fn wallet_delete(#[case] backend: Backend) {
     let addr = wallet(backend, &["new"]).unwrap();
     let deleted = wallet(backend, &["delete", &addr]).unwrap();
@@ -118,7 +113,6 @@ async fn wallet_delete(#[case] backend: Backend) {
 #[case::local(Backend::Local)]
 #[case::remote(Backend::Remote)]
 #[tokio::test]
-#[ignore = "requires a running calibnet Forest daemon"]
 async fn delegated_send(#[case] target_backend: Backend) {
     let funded = funded_delegated_addr().await;
     let target = wallet(target_backend, &["new", "delegated"]).unwrap();
@@ -143,7 +137,6 @@ async fn delegated_send(#[case] target_backend: Backend) {
 }
 
 #[tokio::test]
-#[ignore = "requires a running calibnet Forest daemon"]
 async fn delegated_remote_send() {
     let funded = funded_delegated_addr().await;
     let target = wallet(Backend::Remote, &["new", "delegated"]).unwrap();

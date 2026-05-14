@@ -216,7 +216,7 @@ run = '''
 set -euo pipefail
 source ./scripts/tests/harness.sh
 forest_wallet_init "${usage_preloaded_key?}"
-cargo test --profile quick-test --test calibnet_wallet -- --ignored --nocapture
+cargo test --profile quick-test --features calibnet-wallet-integration --test calibnet_wallet -- --nocapture
 '''
 
 [tasks."codecov:nextest"]
