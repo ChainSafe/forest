@@ -73,6 +73,12 @@ const COLLECTION_SAMPLE_SIZE: usize = 5;
 const SAFE_EPOCH_DELAY_FOR_TESTING: i64 = 20; // `SAFE_HEIGHT_DISTANCE`(200) is too large for testing
 const MESSAGE_LOOKBACK_LIMIT: i64 = 2000;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ServerMode {
+    Online,
+    Offline,
+}
+
 /// This address has been funded by the calibnet faucet and the private keys
 /// has been discarded. It should always have a non-zero balance.
 static KNOWN_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
@@ -482,18 +488,20 @@ fn common_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn chain_tests(offline: bool) -> Vec<RpcTest> {
+fn chain_tests(server_mode: ServerMode) -> Vec<RpcTest> {
     vec![
         RpcTest::identity(ChainGetGenesis::request(()).unwrap()),
-        if offline {
-            RpcTest::basic(ChainHead::request(()).unwrap())
-        } else {
-            RpcTest::identity(ChainHead::request(()).unwrap())
+        match server_mode {
+            ServerMode::Offline => RpcTest::basic(ChainHead::request(()).unwrap()),
+            ServerMode::Online => RpcTest::identity(ChainHead::request(()).unwrap()),
         },
-        if offline {
-            RpcTest::basic(ChainGetTipSetFinalityStatus::request(()).unwrap())
-        } else {
-            RpcTest::identity(ChainGetTipSetFinalityStatus::request(()).unwrap())
+        match server_mode {
+            ServerMode::Offline => {
+                RpcTest::basic(ChainGetTipSetFinalityStatus::request(()).unwrap())
+            }
+            ServerMode::Online => {
+                RpcTest::identity(ChainGetTipSetFinalityStatus::request(()).unwrap())
+            }
         },
         RpcTest::basic(ChainGetFinalizedTipset::request(()).unwrap()),
     ]
@@ -1384,7 +1392,7 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
     tests
 }
 
-fn eth_tests(offline: bool) -> anyhow::Result<Vec<RpcTest>> {
+fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     for use_alias in [false, true] {
         tests.push(RpcTest::identity(EthAccounts::request_with_alias(
@@ -1434,10 +1442,9 @@ fn eth_tests(offline: bool) -> anyhow::Result<Vec<RpcTest>> {
             (),
             use_alias,
         )?));
-        tests.push(if offline {
-            RpcTest::basic(EthBaseFee::request_with_alias((), use_alias)?)
-        } else {
-            RpcTest::identity(EthBaseFee::request_with_alias((), use_alias)?)
+        tests.push(match server_mode {
+            ServerMode::Online => RpcTest::identity(EthBaseFee::request_with_alias((), use_alias)?),
+            ServerMode::Offline => RpcTest::basic(EthBaseFee::request_with_alias((), use_alias)?),
         });
 
         let cases = [
@@ -2525,15 +2532,20 @@ pub(super) async fn create_tests(
         snapshot_files,
     }: CreateTestsArgs,
 ) -> anyhow::Result<Vec<RpcTest>> {
+    let server_mode = if offline {
+        ServerMode::Offline
+    } else {
+        ServerMode::Online
+    };
     let mut tests = vec![];
     tests.extend(auth_tests()?);
     tests.extend(common_tests());
-    tests.extend(chain_tests(offline));
+    tests.extend(chain_tests(server_mode));
     tests.extend(mpool_tests());
     tests.extend(net_tests());
     tests.extend(node_tests());
     tests.extend(wallet_tests(worker_address));
-    tests.extend(eth_tests(offline)?);
+    tests.extend(eth_tests(server_mode)?);
     tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files.clone())?);
