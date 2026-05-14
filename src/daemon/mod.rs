@@ -326,23 +326,23 @@ fn create_chain_follower(
     p2p_service: &Libp2pService,
     mpool: Arc<MessagePool<ChainStore>>,
     ctx: &AppContext,
-) -> anyhow::Result<Arc<ChainFollower>> {
+) -> anyhow::Result<ChainFollower> {
     let network_send = p2p_service.network_sender().clone();
     let peer_manager = p2p_service.peer_manager().clone();
     let network = SyncNetworkContext::new(network_send, peer_manager, ctx.db.clone().into());
-    Ok(Arc::new(ChainFollower::new(
+    Ok(ChainFollower::new(
         ctx.state_manager.shallow_clone(),
         network,
         Tipset::from(ctx.state_manager.chain_store().genesis_block_header()),
         p2p_service.network_receiver(),
         opts.stateless,
         mpool,
-    )))
+    ))
 }
 
 fn start_chain_follower_service(
     services: &mut JoinSet<anyhow::Result<()>>,
-    chain_follower: Arc<ChainFollower>,
+    chain_follower: ChainFollower,
 ) {
     services.spawn(async move { chain_follower.run().await });
 }
@@ -384,7 +384,7 @@ fn maybe_start_gc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
     config: &Config,
-    chain_follower: Arc<ChainFollower>,
+    chain_follower: ChainFollower,
 ) -> anyhow::Result<()> {
     // If the node is stateless, GC shouldn't get triggered even on demand.
     if opts.stateless {
@@ -700,7 +700,7 @@ pub(super) async fn start_services(
     }
 
     warmup_in_background(&ctx);
-    maybe_start_gc_service(&mut services, opts, &config, chain_follower.clone())?;
+    maybe_start_gc_service(&mut services, opts, &config, chain_follower.shallow_clone())?;
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_f3_service(opts, &config, &ctx)?;
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)

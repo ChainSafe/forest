@@ -67,13 +67,13 @@ pub struct ChainFollower {
     pub bad_blocks: Option<BadBlockCache>,
 
     /// Incoming network events to be handled by synchronizer
-    net_handler: flume::Receiver<NetworkEvent>,
+    net_handler: Arc<flume::Receiver<NetworkEvent>>,
 
     /// Tipset channel sender
     pub tipset_sender: flume::Sender<FullTipset>,
 
     /// Tipset channel receiver
-    tipset_receiver: flume::Receiver<FullTipset>,
+    tipset_receiver: Arc<flume::Receiver<FullTipset>>,
 
     /// When `stateless_mode` is true, forest connects to the P2P network but
     /// does not execute any state transitions. This drastically reduces the
@@ -83,6 +83,25 @@ pub struct ChainFollower {
 
     /// Message pool
     mem_pool: Arc<MessagePool<ChainStore>>,
+}
+
+impl ShallowClone for ChainFollower {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            tasks: self.tasks.shallow_clone(),
+            state_machine: self.state_machine.shallow_clone(),
+            sync_status: self.sync_status.shallow_clone(),
+            state_manager: self.state_manager.shallow_clone(),
+            network: self.network.shallow_clone(),
+            genesis: self.genesis.shallow_clone(),
+            bad_blocks: self.bad_blocks.shallow_clone(),
+            net_handler: self.net_handler.shallow_clone(),
+            tipset_sender: self.tipset_sender.clone(),
+            tipset_receiver: self.tipset_receiver.shallow_clone(),
+            stateless_mode: self.stateless_mode,
+            mem_pool: self.mem_pool.shallow_clone(),
+        }
+    }
 }
 
 impl ChainFollower {
@@ -116,9 +135,9 @@ impl ChainFollower {
             network,
             genesis,
             bad_blocks,
-            net_handler,
+            net_handler: net_handler.into(),
             tipset_sender,
-            tipset_receiver,
+            tipset_receiver: tipset_receiver.into(),
             stateless_mode,
             mem_pool,
         }
@@ -149,8 +168,8 @@ impl ChainFollower {
             &self.state_machine,
             &self.state_manager,
             self.bad_blocks.shallow_clone(),
-            self.net_handler.clone(),
-            self.tipset_receiver.clone(),
+            self.net_handler.shallow_clone(),
+            self.tipset_receiver.shallow_clone(),
             &self.network,
             &self.mem_pool,
             &self.sync_status,
@@ -168,8 +187,8 @@ async fn chain_follower(
     state_machine: &Arc<Mutex<SyncStateMachine>>,
     state_manager: &StateManager,
     bad_block_cache: Option<BadBlockCache>,
-    network_rx: flume::Receiver<NetworkEvent>,
-    tipset_receiver: flume::Receiver<FullTipset>,
+    network_rx: Arc<flume::Receiver<NetworkEvent>>,
+    tipset_receiver: Arc<flume::Receiver<FullTipset>>,
     network: &SyncNetworkContext,
     mem_pool: &Arc<MessagePool<ChainStore>>,
     sync_status: &SyncStatus,

@@ -70,7 +70,7 @@ pub struct SnapshotGarbageCollector {
     recent_state_roots: i64,
     running: AtomicBool,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
-    chain_follower: Arc<ChainFollower>,
+    chain_follower: ChainFollower,
     // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
     memory_db: RwLock<Option<HashMap<Cid, bytes::Bytes>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
@@ -81,7 +81,7 @@ pub struct SnapshotGarbageCollector {
 }
 
 impl SnapshotGarbageCollector {
-    pub fn new(chain_follower: Arc<ChainFollower>, config: &crate::Config) -> anyhow::Result<Self> {
+    pub fn new(chain_follower: ChainFollower, config: &crate::Config) -> anyhow::Result<Self> {
         let chain_data_path = chain_path(config);
         let chain_tmp_root = chain_data_path.join("tmp");
         std::fs::create_dir_all(&chain_tmp_root)?;
