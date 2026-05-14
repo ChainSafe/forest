@@ -767,8 +767,8 @@ mod test {
         header::RawBlockHeader,
     };
     use crate::db::MemoryDB;
-    use crate::test_utils::dummy_ticket;
     use crate::shim::address::Address;
+    use crate::test_utils::dummy_ticket;
     use cid::Cid;
     use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
