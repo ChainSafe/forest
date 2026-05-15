@@ -3,9 +3,6 @@
 
 //! Reorg handling: revert + apply tipsets against the pending pool.
 
-use ahash::{HashMap, HashMapExt};
-use tracing::error;
-
 use crate::blocks::Tipset;
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::message_pool::msgpool::utils;
@@ -17,6 +14,7 @@ use crate::message_pool::{
 };
 use crate::shim::address::Address;
 use crate::utils::ShallowClone as _;
+use ahash::{HashMap, HashMapExt};
 
 impl<T> MessagePool<T>
 where
@@ -103,7 +101,7 @@ where
                     TrustPolicy::Trusted,
                     StrictnessPolicy::Relaxed,
                 ) {
-                    error!("Failed to read message from reorg to mpool: {}", e);
+                    tracing::error!("Failed to read message from reorg to mpool: {}", e);
                 }
             }
         }

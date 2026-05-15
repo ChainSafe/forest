@@ -6,10 +6,6 @@
 
 use std::cmp::Ordering;
 
-use ahash::{HashMap, HashMapExt, HashSet};
-use cid::Cid;
-use parking_lot::RwLock as SyncRwLock;
-
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::message_pool::{
     Error,
@@ -20,7 +16,9 @@ use crate::message_pool::{
 };
 use crate::prelude::ShallowClone;
 use crate::shim::address::Address;
-use crate::utils::ShallowClone as _;
+use ahash::{HashMap, HashMapExt, HashSet};
+use cid::Cid;
+use parking_lot::RwLock as SyncRwLock;
 
 const REPUB_TRIGGER_CAPACITY: usize = 1;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;

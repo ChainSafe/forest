@@ -28,7 +28,7 @@ const MIN_GAS: u64 = 1298450;
 
 #[cfg(test)]
 pub mod tests {
-    use std::{borrow::BorrowMut, sync::Arc, time::Duration};
+    use std::{borrow::BorrowMut, time::Duration};
 
     use crate::blocks::Tipset;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
@@ -55,7 +55,7 @@ pub mod tests {
     };
 
     struct TestMpool {
-        mpool: Arc<MessagePool<TestApi>>,
+        mpool: MessagePool<TestApi>,
         wallet: Wallet,
         sender: Address,
         target: Address,
@@ -66,7 +66,7 @@ pub mod tests {
     fn make_test_mpool(
         tma: TestApi,
     ) -> (
-        Arc<MessagePool<TestApi>>,
+        MessagePool<TestApi>,
         JoinSet<anyhow::Result<()>>,
         flume::Receiver<NetworkMessage>,
     ) {

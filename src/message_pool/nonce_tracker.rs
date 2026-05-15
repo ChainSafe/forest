@@ -48,13 +48,14 @@ mod tests {
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
     use crate::message_pool::MessagePool;
     use crate::message_pool::msgpool::test_provider::TestApi;
+    use crate::prelude::*;
     use crate::shim::crypto::SignatureType;
     use crate::shim::{address::Address, econ::TokenAmount};
     use std::sync::Arc;
     use tokio::task::JoinSet;
 
     fn make_test_pool_and_wallet() -> (
-        Arc<MessagePool<TestApi>>,
+        MessagePool<TestApi>,
         Wallet,
         Address,
         flume::Receiver<crate::libp2p::NetworkMessage>,
@@ -125,7 +126,7 @@ mod tests {
 
         let mut tasks = JoinSet::new();
         for _ in 0..N {
-            let (tracker, mpool, key) = (tracker.clone(), mpool.clone(), key.clone());
+            let (tracker, mpool, key) = (tracker.clone(), mpool.shallow_clone(), key.clone());
             tasks.spawn(async move {
                 tracker
                     .sign_and_push(&mpool, make_message(sender), &key, eth_chain_id)

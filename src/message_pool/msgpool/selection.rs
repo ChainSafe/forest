@@ -923,7 +923,7 @@ mod test_selection {
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 
-    fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> Arc<MessagePool<TestApi>> {
+    fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> MessagePool<TestApi> {
         let tma = TestApi::default();
         let (tx, _rx) = flume::bounded(50);
         MessagePool::new(tma, tx, Default::default(), Arc::default(), joinset).unwrap()

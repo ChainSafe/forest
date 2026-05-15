@@ -11,6 +11,16 @@ use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{ChainMessage, MessageRead as _, SignedMessage, valid_for_block_inclusion};
+use crate::message_pool::{
+    config::MpoolConfig,
+    errors::Error,
+    msgpool::{
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, pending_store::PendingStore,
+        recover_sig, republish::RepublishState,
+    },
+    provider::Provider,
+    utils::get_base_fee_lower_bound,
+};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use crate::prelude::*;
 use crate::rpc::eth::types::EthAddress;
@@ -42,18 +52,6 @@ use tokio::{
     time::interval,
 };
 use tracing::warn;
-
-use crate::message_pool::msgpool::utils;
-use crate::message_pool::{
-    config::MpoolConfig,
-    errors::Error,
-    msgpool::{
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, pending_store::PendingStore,
-        recover_sig, republish::RepublishState,
-    },
-    provider::Provider,
-    utils::get_base_fee_lower_bound,
-};
 
 /// Maximum size of a serialized message in bytes. Anti-DoS measure to keep
 /// the pool from ingesting pathologically large messages.
@@ -134,11 +132,27 @@ pub struct MessagePool<T> {
     /// Sender half to send messages to other components
     pub(in crate::message_pool) network_sender: flume::Sender<NetworkMessage>,
     /// Republish coordination state
-    pub(in crate::message_pool) republish: RepublishState,
+    pub(in crate::message_pool) republish: Arc<RepublishState>,
     /// Configurable parameters of the message pool.
-    pub(in crate::message_pool) config: MpoolConfig,
+    pub(in crate::message_pool) config: Arc<MpoolConfig>,
     /// Chain configuration
     pub(in crate::message_pool) chain_config: Arc<ChainConfig>,
+}
+
+impl<T> ShallowClone for MessagePool<T> {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            pending: self.pending.shallow_clone(),
+            caches: self.caches.shallow_clone(),
+            local_addrs: self.local_addrs.shallow_clone(),
+            cur_tipset: self.cur_tipset.shallow_clone(),
+            api: self.api.shallow_clone(),
+            network_sender: self.network_sender.clone(),
+            republish: self.republish.shallow_clone(),
+            config: self.config.shallow_clone(),
+            chain_config: self.chain_config.shallow_clone(),
+        }
+    }
 }
 
 /// Resolve an address to its key form, checking the cache first.
@@ -462,7 +476,7 @@ where
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
         services: &mut JoinSet<anyhow::Result<()>>,
-    ) -> Result<Arc<Self>, Error>
+    ) -> Result<Self, Error>
     where
         T: Provider,
     {
@@ -481,19 +495,17 @@ where
             pending,
             caches: Caches::new(),
             local_addrs: Arc::new(SyncRwLock::new(HashSet::default())),
-            republish,
+            republish: Arc::new(republish),
             cur_tipset,
             api: Arc::new(api),
             network_sender,
-            config,
+            config: Arc::new(config),
             chain_config,
         };
 
-        let mp = Arc::new(mp);
-
         // Reacts to new HeadChanges
         {
-            let mp = Arc::clone(&mp);
+            let mp = mp.shallow_clone();
             let mut head_changes_rx = mp.api.subscribe_head_changes();
             services.spawn(async move {
                 loop {
@@ -516,7 +528,7 @@ where
 
         // Reacts to republishing requests
         {
-            let mp = Arc::clone(&mp);
+            let mp = mp.shallow_clone();
             services.spawn(async move {
                 let mut repub_trigger_rx = repub_trigger_rx.stream();
                 let mut interval = interval(Duration::from_secs(republish_interval));
@@ -662,7 +674,7 @@ mod tests {
         })
     }
 
-    fn make_test_mpool(api: TestApi) -> (Arc<MessagePool<TestApi>>, JoinSet<anyhow::Result<()>>) {
+    fn make_test_mpool(api: TestApi) -> (MessagePool<TestApi>, JoinSet<anyhow::Result<()>>) {
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
         let mpool = MessagePool::new(
