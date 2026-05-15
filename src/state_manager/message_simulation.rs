@@ -12,6 +12,7 @@ use crate::shim::address::Protocol;
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::Message;
+use anyhow::Context;
 use fvm_shared4::crypto::signature::SECP_SIG_LEN;
 use std::time::Duration;
 use tracing::instrument;
@@ -39,8 +40,9 @@ impl StateManager {
                     tipset.shallow_clone(),
                 );
                 let mut no_cb = NO_CALLBACK;
-                let (state_cid, _, _) =
-                    exec.prepare_parent_state(genesis_timestamp, VMTrace::NotTraced, &mut no_cb)?;
+                let (state_cid, _, _) = exec
+                    .prepare_parent_state(genesis_timestamp, VMTrace::NotTraced, &mut no_cb)
+                    .context("failed to prepare parent state in call_raw")?;
                 state_cid
             }
         };
