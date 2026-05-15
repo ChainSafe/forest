@@ -3,7 +3,7 @@
 
 use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
 use crate::cli_shared::{
-    cli::{ConfigPath, check_for_unknown_keys},
+    cli::{check_for_unknown_keys, ConfigPath},
     logger,
 };
 use crate::utils::version::FOREST_VERSION_STRING;
@@ -23,6 +23,7 @@ pub struct Cli {
     pub opts: CliOpts,
 }
 
+#[hotpath::main]
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
 where
     ArgT: Into<OsString> + Clone,

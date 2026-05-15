@@ -246,6 +246,8 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 [target.'cfg(unix)'.dependencies]
 termios = "0.3"
 
+hotpath = "0.16"
+
 [dev-dependencies]
 all_asserts = "2"
 assert_cmd = "2"
@@ -335,6 +337,7 @@ lto = "fat"
 # These should be refactored (probably removed) in #2984
 [features]
 default = ["jemalloc", "tracing-loki", "sqlite"]
+# default = ["jemalloc", "tracing-loki", "sqlite", "hotpath", "hotpath-alloc", "hotpath-cpu"]
 test = []                                        # default feature set for unit tests
 slim = ["rustalloc"]
 cargo-test = []                                  # group of tests that is recommended to run with `cargo test` instead of `nextest`
@@ -342,6 +345,9 @@ doctest-private = []                             # see lib.rs::doctest_private
 benchmark-private = ["dep:criterion"]            # see lib.rs::benchmark_private
 interop-tests-private = []                       # see lib.rs::interop_tests_private
 sqlite = ["dep:sqlx"]
+hotpath = ["hotpath/hotpath"]
+hotpath-cpu = ["hotpath/hotpath-cpu"]
+hotpath-alloc = ["hotpath/hotpath-alloc"]
 
 # Allocator. Use at most one of these.
 rustalloc = []

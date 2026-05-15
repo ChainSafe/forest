@@ -231,7 +231,7 @@ impl ChainStore {
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Tipset {
-        self.heaviest_tipset.read().clone()
+        self.heaviest_tipset.read().shallow_clone()
     }
 
     /// Returns the genesis tipset.

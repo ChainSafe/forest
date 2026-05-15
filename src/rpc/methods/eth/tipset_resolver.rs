@@ -10,6 +10,7 @@ pub struct TipsetResolver<'a> {
     api_version: ApiPaths,
 }
 
+#[hotpath::measure_all]
 impl<'a> TipsetResolver<'a> {
     /// Creates a TipsetResolver that holds a reference to the given chain context and the API version to use for tipset resolution.
     pub fn new(ctx: &'a Ctx, api_version: ApiPaths) -> Self {

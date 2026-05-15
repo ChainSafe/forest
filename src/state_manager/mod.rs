@@ -6,7 +6,7 @@ mod tests;
 
 mod actor_queries;
 mod address_resolution;
-mod cache;
+pub(crate) mod cache;
 pub mod chain_rand;
 pub mod circulating_supply;
 mod errors;

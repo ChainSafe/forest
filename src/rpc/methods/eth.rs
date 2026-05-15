@@ -54,11 +54,11 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::state_manager::cache::TipsetStateCache;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
-use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
+use crate::utils::get_size::big_int_heap_size_helper;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
@@ -76,7 +76,7 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use std::sync::{LazyLock, OnceLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 use utils::{decode_payload, lookup_eth_address};
 
 static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
@@ -384,8 +384,10 @@ impl BlockNumberOrHash {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
 pub enum Transactions {
-    Hash(Vec<String>),
-    Full(Vec<ApiEthTx>),
+    // Inner vectors are `Arc` so `Block::clone()` on cache hits is O(1) instead
+    // of O(N) over potentially-large per-tx payloads. Serializes identically.
+    Hash(Arc<Vec<String>>),
+    Full(Arc<Vec<ApiEthTx>>),
 }
 
 impl Transactions {
@@ -409,7 +411,7 @@ impl PartialEq for Transactions {
 
 impl Default for Transactions {
     fn default() -> Self {
-        Self::Hash(vec![])
+        Self::Hash(Arc::new(vec![]))
     }
 }
 
@@ -478,94 +480,136 @@ impl Block {
         tipset: crate::blocks::Tipset,
         tx_info: TxInfo,
     ) -> Result<Self> {
-        static ETH_BLOCK_CACHE: LazyLock<SizeTrackingLruCache<CidWrapper, Block>> =
-            LazyLock::new(|| {
-                const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(500usize);
-                let cache_size = std::env::var("FOREST_ETH_BLOCK_CACHE_SIZE")
-                    .ok()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(DEFAULT_CACHE_SIZE);
-                SizeTrackingLruCache::new_with_metrics("eth_block".into(), cache_size)
-            });
+        // `TipsetStateCache` serializes concurrent misses for the same key behind a
+        // per-key mutex, so parallel `eth_getBlockByNumber` requests for the same
+        // tipset run `load_executed_tipset` + tx build at most once.
+        static ETH_BLOCK_CACHE: LazyLock<TipsetStateCache<Block>> =
+            LazyLock::new(|| TipsetStateCache::with_size("eth_block", eth_block_cache_size()));
+        // Separate cache for the hash-only variant so `eth_getBlockByNumber(.., false)`
+        // doesn't pay for building full `ApiEthTx`s.
+        static ETH_BLOCK_HASHES_CACHE: LazyLock<TipsetStateCache<Block>> = LazyLock::new(|| {
+            TipsetStateCache::with_size("eth_block_hashes", eth_block_cache_size())
+        });
 
-        let block_cid = tipset.key().cid()?;
-        let mut block = if let Some(b) = ETH_BLOCK_CACHE.get_cloned(&block_cid.into()) {
-            b
-        } else {
-            let parent_cid = tipset.parents().cid()?;
-            let block_number = EthInt64(tipset.epoch());
-            let block_hash: EthHash = block_cid.into();
-
-            let ExecutedTipset {
-                state_root,
-                executed_messages,
-                ..
-            } = ctx.state_manager.load_executed_tipset(&tipset).await?;
-            let has_transactions = !executed_messages.is_empty();
-            let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
-
-            let mut full_transactions = vec![];
-            let mut gas_used = 0;
-            for (
-                i,
-                ExecutedMessage {
-                    message, receipt, ..
-                },
-            ) in executed_messages.iter().enumerate()
-            {
-                let ti = EthUint64(i as u64);
-                gas_used += receipt.gas_used();
-                let mut tx = match message {
-                    ChainMessage::Signed(smsg) => new_eth_tx_from_signed_message(
-                        smsg,
-                        &state_tree,
-                        ctx.chain_config().eth_chain_id,
-                    )?,
-                    ChainMessage::Unsigned(msg) => {
-                        let tx = eth_tx_from_native_message(
-                            msg,
-                            &state_tree,
-                            ctx.chain_config().eth_chain_id,
-                        )?;
-                        ApiEthTx {
-                            hash: msg.cid().into(),
-                            ..tx
+        match tx_info {
+            TxInfo::Hash => {
+                ETH_BLOCK_HASHES_CACHE
+                    .get_or_else(tipset.key(), || async {
+                        // Reuse the full cache when available — avoids re-running
+                        // `load_executed_tipset` just to recover hashes.
+                        if let Some(full) = ETH_BLOCK_CACHE.get(tipset.key())
+                            && let Transactions::Full(txs) = &full.transactions
+                        {
+                            let hashes: Vec<String> =
+                                txs.iter().map(|tx| tx.hash.to_string()).collect();
+                            let mut b = full;
+                            b.transactions = Transactions::Hash(Arc::new(hashes));
+                            return Ok(b);
                         }
-                    }
-                };
-                tx.block_hash = block_hash;
-                tx.block_number = block_number;
-                tx.transaction_index = ti;
-                full_transactions.push(tx);
+                        Self::build_hash_block(&ctx, &tipset).await
+                    })
+                    .await
             }
+            TxInfo::Full => {
+                ETH_BLOCK_CACHE
+                    .get_or_else(tipset.key(), || async {
+                        Self::build_full_block(&ctx, &tipset).await
+                    })
+                    .await
+            }
+        }
+    }
 
-            let b = Block {
-                hash: block_hash,
-                number: block_number,
-                parent_hash: parent_cid.into(),
-                timestamp: EthUint64(tipset.block_headers().first().timestamp),
-                base_fee_per_gas: tipset
-                    .block_headers()
-                    .first()
-                    .parent_base_fee
-                    .clone()
-                    .into(),
-                gas_used: EthUint64(gas_used),
-                transactions: Transactions::Full(full_transactions),
-                ..Block::new(has_transactions, tipset.len())
-            };
-            ETH_BLOCK_CACHE.push(block_cid.into(), b.clone());
-            b
-        };
+    async fn build_hash_block(ctx: &Ctx, tipset: &Tipset) -> Result<Block> {
+        let block_cid = tipset.key().cid()?;
+        let parent_cid = tipset.parents().cid()?;
+        let block_number = EthInt64(tipset.epoch());
+        let block_hash: EthHash = block_cid.into();
+        let eth_chain_id = ctx.chain_config().eth_chain_id;
 
-        if tx_info == TxInfo::Hash
-            && let Transactions::Full(transactions) = &block.transactions
-        {
-            block.transactions =
-                Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
+        let ExecutedTipset {
+            executed_messages, ..
+        } = ctx.state_manager.load_executed_tipset(tipset).await?;
+        let has_transactions = !executed_messages.is_empty();
+
+        // Single pass: accumulate gas_used while computing per-message hashes.
+        let mut hashes = Vec::with_capacity(executed_messages.len());
+        let mut gas_used: u64 = 0;
+        for em in executed_messages.iter() {
+            gas_used += em.receipt.gas_used();
+            hashes.push(message_eth_hash(&em.message, eth_chain_id)?.to_string());
         }
 
-        Ok(block)
+        Ok(Block {
+            hash: block_hash,
+            number: block_number,
+            parent_hash: parent_cid.into(),
+            timestamp: EthUint64(tipset.block_headers().first().timestamp),
+            base_fee_per_gas: tipset
+                .block_headers()
+                .first()
+                .parent_base_fee
+                .clone()
+                .into(),
+            gas_used: EthUint64(gas_used),
+            transactions: Transactions::Hash(Arc::new(hashes)),
+            ..Block::new(has_transactions, tipset.len())
+        })
+    }
+
+    async fn build_full_block(ctx: &Ctx, tipset: &Tipset) -> Result<Block> {
+        let block_cid = tipset.key().cid()?;
+        let parent_cid = tipset.parents().cid()?;
+        let block_number = EthInt64(tipset.epoch());
+        let block_hash: EthHash = block_cid.into();
+        let eth_chain_id = ctx.chain_config().eth_chain_id;
+
+        let ExecutedTipset {
+            state_root,
+            executed_messages,
+            ..
+        } = ctx.state_manager.load_executed_tipset(tipset).await?;
+        let has_transactions = !executed_messages.is_empty();
+        let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
+
+        // Single pass: accumulate gas_used while building per-message `ApiEthTx`.
+        let mut full_transactions = Vec::with_capacity(executed_messages.len());
+        let mut gas_used: u64 = 0;
+        for (i, ExecutedMessage { message, receipt, .. }) in executed_messages.iter().enumerate() {
+            gas_used += receipt.gas_used();
+            let mut tx = match message {
+                ChainMessage::Signed(smsg) => {
+                    new_eth_tx_from_signed_message(smsg, &state_tree, eth_chain_id)?
+                }
+                ChainMessage::Unsigned(msg) => {
+                    let tx = eth_tx_from_native_message(msg, &state_tree, eth_chain_id)?;
+                    ApiEthTx {
+                        hash: msg.cid().into(),
+                        ..tx
+                    }
+                }
+            };
+            tx.block_hash = block_hash;
+            tx.block_number = block_number;
+            tx.transaction_index = EthUint64(i as u64);
+            full_transactions.push(tx);
+        }
+
+        Ok(Block {
+            hash: block_hash,
+            number: block_number,
+            parent_hash: parent_cid.into(),
+            timestamp: EthUint64(tipset.block_headers().first().timestamp),
+            base_fee_per_gas: tipset
+                .block_headers()
+                .first()
+                .parent_base_fee
+                .clone()
+                .into(),
+            gas_used: EthUint64(gas_used),
+            transactions: Transactions::Full(Arc::new(full_transactions)),
+            ..Block::new(has_transactions, tipset.len())
+        })
     }
 }
 
@@ -1195,6 +1239,29 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
         (tx, smsg.message().cid().into())
     };
     Ok(ApiEthTx { hash, ..tx })
+}
+
+/// Computes the Ethereum-shaped hash of a `ChainMessage` without touching the
+/// state tree — mirrors the hash field assignment in `new_eth_tx_from_signed_message`
+/// and the `Unsigned` arm of `Block::from_filecoin_tipset`.
+fn message_eth_hash(message: &ChainMessage, chain_id: EthChainIdType) -> Result<EthHash> {
+    Ok(match message {
+        ChainMessage::Signed(smsg) if smsg.is_delegated() => {
+            let (_, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
+            tx.eth_hash()?.into()
+        }
+        ChainMessage::Signed(smsg) if smsg.is_secp256k1() => smsg.cid().into(),
+        ChainMessage::Signed(smsg) => smsg.message().cid().into(),
+        ChainMessage::Unsigned(msg) => msg.cid().into(),
+    })
+}
+
+fn eth_block_cache_size() -> NonZeroUsize {
+    const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(500usize);
+    std::env::var("FOREST_ETH_BLOCK_CACHE_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(DEFAULT_CACHE_SIZE)
 }
 
 /// Creates an Ethereum transaction from Filecoin message lookup. If `None` is passed for `tx_index`,
