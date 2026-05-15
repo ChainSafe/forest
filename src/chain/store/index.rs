@@ -266,6 +266,7 @@ mod tests {
     use super::*;
     use crate::blocks::{CachingBlockHeader, RawBlockHeader};
     use crate::db::MemoryDB;
+    use crate::test_utils::dummy_ticket;
     use crate::utils::db::CborStoreExt;
     use std::sync::{
         Arc,
@@ -279,7 +280,10 @@ mod tests {
     }
 
     fn genesis_tipset() -> Tipset {
-        Tipset::from(CachingBlockHeader::default())
+        Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
+            ..Default::default()
+        }))
     }
 
     fn tipset_child(parent: &Tipset, epoch: ChainEpoch) -> Tipset {
@@ -288,6 +292,7 @@ mod tests {
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
         Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: parent.key().clone(),
+            ticket: dummy_ticket(n as u8),
             epoch,
             timestamp: n,
             ..Default::default()

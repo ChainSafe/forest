@@ -292,6 +292,12 @@ impl Chain4UInner {
         });
         header.state_root.close_with(Cid::default);
 
+        // Ticket
+        /////////
+        header
+            .ticket
+            .close_with(|| Some(Ticket::new(VRFProof::new(name.as_bytes().to_vec()))));
+
         // Message root
         ///////////////
         header.messages.close_with(|| {

@@ -1593,7 +1593,13 @@ impl HasLotusJson for PathChange {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        use crate::test_utils::dummy_ticket;
         use serde_json::json;
+        let header = CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
+            ..Default::default()
+        });
+        let header_cid = *header.cid();
         vec![(
             json!({
                 "Type": "revert",
@@ -1610,17 +1616,18 @@ impl HasLotusJson for PathChange {
                             "ParentStateRoot": { "/":"baeaaaaa" },
                             "ParentWeight": "0",
                             "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
+                            "Ticket": { "VRFProof": "AA==" },
                             "Timestamp": 0,
                             "WinPoStProof": null
                         }
                     ],
                     "Cids": [
-                        { "/": "bafy2bzaceag62hjj3o43lf6oyeox3fvg5aqkgl5zagbwpjje3ajwg6yw4iixk" }
+                        { "/": header_cid.to_string() }
                     ],
                     "Height": 0
                 }
             }),
-            Self::Revert(RawBlockHeader::default().into()),
+            Self::Revert(Tipset::from(header)),
         )]
     }
 

@@ -355,9 +355,11 @@ mod tests {
 
     impl quickcheck::Arbitrary for CachingBlockHeader {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            use crate::blocks::{Ticket, VRFProof};
             // TODO(forest): https://github.com/ChainSafe/forest/issues/3571
             CachingBlockHeader::new(RawBlockHeader {
                 miner_address: Address::new_id(0),
+                ticket: Some(Ticket::new(VRFProof::new(Vec::arbitrary(g)))),
                 epoch: ChainEpoch::arbitrary(g),
                 ..Default::default()
             })

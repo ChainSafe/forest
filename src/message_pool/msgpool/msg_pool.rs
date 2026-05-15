@@ -6,8 +6,6 @@
 // inclusion in the chain. Messages are added either directly for locally
 // published messages or through pubsub propagation.
 
-use std::{num::NonZeroUsize, time::Duration};
-
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 #[cfg(test)]
@@ -27,13 +25,17 @@ use crate::shim::{
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
 use crate::utils::cache::SizeTrackingLruCache;
-use crate::utils::get_size::CidWrapper;
-use ahash::{HashSet, HashSetExt};
+use crate::utils::get_size::{CidWrapper, GetSize};
+use ahash::HashSet;
+use anyhow::Context as _;
+use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
-use get_size2::GetSize;
+use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
+use std::num::NonZeroUsize;
+use std::{sync::Arc, time::Duration};
 use tokio::{
     sync::broadcast::{self, error::RecvError},
     task::JoinSet,
@@ -47,7 +49,7 @@ use crate::message_pool::{
     head_change,
     msgpool::{
         BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, pending_store::PendingStore,
-        recover_sig, republish_pending_messages,
+        recover_sig, republish::RepublishState, republish_pending_messages,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -81,35 +83,57 @@ pub enum TrustPolicy {
 
 pub use super::msg_set::{MsgSetLimits, StrictnessPolicy};
 
+/// LRU caches owned by [`MessagePool`].
+pub(in crate::message_pool) struct Caches {
+    pub bls_sig: SizeTrackingLruCache<CidWrapper, Signature>,
+    pub sig_val: SizeTrackingLruCache<CidWrapper, ()>,
+    pub key: IdToAddressCache,
+    pub state_nonce: SizeTrackingLruCache<StateNonceCacheKey, u64>,
+}
+
+impl Caches {
+    pub(in crate::message_pool) fn new() -> Self {
+        Self {
+            bls_sig: SizeTrackingLruCache::new_with_metrics("bls_sig".into(), BLS_SIG_CACHE_SIZE),
+            sig_val: SizeTrackingLruCache::new_with_metrics("sig_val".into(), SIG_VAL_CACHE_SIZE),
+            key: SizeTrackingLruCache::new_with_metrics("mpool_key".into(), KEY_CACHE_SIZE),
+            state_nonce: SizeTrackingLruCache::new_with_metrics(
+                "state_nonce".into(),
+                STATE_NONCE_CACHE_SIZE,
+            ),
+        }
+    }
+}
+
+impl ShallowClone for Caches {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            bls_sig: self.bls_sig.shallow_clone(),
+            sig_val: self.sig_val.shallow_clone(),
+            key: self.key.shallow_clone(),
+            state_nonce: self.state_nonce.shallow_clone(),
+        }
+    }
+}
+
 /// This contains all necessary information needed for the message pool.
 /// Keeps track of messages to apply, as well as context needed for verifying
 /// transactions.
 pub struct MessagePool<T> {
-    /// The local address of the client
-    local_addrs: Arc<SyncRwLock<Vec<Address>>>,
     /// Pending messages, keyed by resolved-key address, together with the
     /// broadcast channel for [`MpoolUpdate`] events. See [`PendingStore`].
     pub(in crate::message_pool) pending_store: PendingStore,
+    pub(in crate::message_pool) caches: Caches,
+    /// Resolved-key senders of locally submitted messages.
+    pub(in crate::message_pool) local_addrs: Arc<SyncRwLock<HashSet<Address>>>,
     /// The current tipset (a set of blocks)
     pub cur_tipset: Arc<SyncRwLock<Tipset>>,
     /// The underlying provider
     pub api: Arc<T>,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
-    /// A cache for BLS signature keyed by Cid
-    pub bls_sig_cache: SizeTrackingLruCache<CidWrapper, Signature>,
-    /// A cache for BLS signature keyed by Cid
-    pub sig_val_cache: SizeTrackingLruCache<CidWrapper, ()>,
-    /// Cache for ID address ID to key address resolution.
-    pub key_cache: IdToAddressCache,
-    /// Cache for state nonce lookups keyed by (`TipsetKey`, `Address`).
-    pub state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64>,
-    /// A set of republished messages identified by their Cid
-    pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
-    /// Acts as a signal to republish messages from the republished set of
-    /// messages
-    pub repub_trigger: flume::Sender<()>,
-    local_msgs: Arc<SyncRwLock<HashSet<SignedMessage>>>,
+    /// Republish coordination state
+    pub(in crate::message_pool) republish: Arc<RepublishState>,
     /// Configurable parameters of the message pool
     pub config: Arc<MpoolConfig>,
     /// Chain configuration
@@ -124,13 +148,8 @@ impl<T> ShallowClone for MessagePool<T> {
             cur_tipset: self.cur_tipset.shallow_clone(),
             api: self.api.shallow_clone(),
             network_sender: self.network_sender.clone(),
-            bls_sig_cache: self.bls_sig_cache.shallow_clone(),
-            sig_val_cache: self.sig_val_cache.shallow_clone(),
-            key_cache: self.key_cache.shallow_clone(),
-            state_nonce_cache: self.state_nonce_cache.shallow_clone(),
-            republished: self.republished.shallow_clone(),
-            repub_trigger: self.repub_trigger.clone(),
-            local_msgs: self.local_msgs.clone(),
+            caches: self.caches.shallow_clone(),
+            republish: self.republish.shallow_clone(),
             config: self.config.shallow_clone(),
             chain_config: self.chain_config.shallow_clone(),
         }
@@ -211,15 +230,15 @@ where
     }
 
     pub fn resolve_to_key(&self, addr: &Address, cur_ts: &Tipset) -> Result<Address, Error> {
-        resolve_to_key(self.api.as_ref(), &self.key_cache, addr, cur_ts)
+        resolve_to_key(self.api.as_ref(), &self.caches.key, addr, cur_ts)
     }
 
-    /// Add a signed message to the pool and its address.
-    fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
+    /// Record the resolved-key sender of a locally-submitted message so the
+    /// republish loop can find it on its next sweep.
+    fn add_local(&self, m: &SignedMessage) -> Result<(), Error> {
         let cur_ts = self.current_tipset();
         let resolved = self.resolve_to_key(&m.from(), &cur_ts)?;
-        self.local_addrs.write().push(resolved);
-        self.local_msgs.write().insert(m);
+        self.local_addrs.write().insert(resolved);
         Ok(())
     }
 
@@ -236,7 +255,7 @@ where
         let publish = self.add_tipset(msg.clone(), &cur_ts, true, trust_policy)?;
         let msg_ser = to_vec(&msg)?;
         let network_name = self.chain_config.network.genesis_name();
-        self.add_local(msg)?;
+        self.add_local(&msg)?;
         if publish {
             self.network_sender
                 .send_async(NetworkMessage::PubsubMessage {
@@ -294,14 +313,14 @@ where
     fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
         let cid = msg.cid();
 
-        if let Some(()) = self.sig_val_cache.get_cloned(&(cid).into()) {
+        if let Some(()) = self.caches.sig_val.get_cloned(&(cid).into()) {
             return Ok(());
         }
 
         msg.verify(self.chain_config.eth_chain_id)
             .map_err(|e| Error::Other(e.to_string()))?;
 
-        self.sig_val_cache.push(cid.into(), ());
+        self.caches.sig_val.push(cid.into(), ());
 
         Ok(())
     }
@@ -371,9 +390,9 @@ where
         let cur_ts = self.current_tipset();
         add_helper(
             self.api.as_ref(),
-            &self.bls_sig_cache,
+            &self.caches.bls_sig,
             &self.pending_store,
-            &self.key_cache,
+            &self.caches.key,
             &cur_ts,
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
@@ -408,8 +427,8 @@ where
     fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         get_state_sequence(
             self.api.as_ref(),
-            &self.key_cache,
-            &self.state_nonce_cache,
+            &self.caches.key,
+            &self.caches.state_nonce,
             addr,
             cur_ts,
         )
@@ -483,26 +502,11 @@ where
 
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
-                let smsg = recover_sig(&self.bls_sig_cache, msg)?;
+                let smsg = recover_sig(&self.caches.bls_sig, msg)?;
                 msg_vec.push(smsg)
             }
         }
         Ok(msg_vec)
-    }
-
-    /// Loads local messages to the message pool to be applied.
-    pub fn load_local(&mut self) -> Result<(), Error> {
-        let mut local_msgs = self.local_msgs.write();
-        for k in local_msgs.iter().cloned().collect_vec() {
-            self.add(k.clone()).unwrap_or_else(|err| {
-                if err == Error::SequenceTooLow {
-                    warn!("error adding message: {:?}", err);
-                    local_msgs.remove(&k);
-                }
-            })
-        }
-
-        Ok(())
     }
 
     #[cfg(test)]
@@ -533,17 +537,15 @@ where
     {
         head_change(
             self.api.as_ref(),
-            &self.bls_sig_cache,
-            self.repub_trigger.clone(),
-            self.republished.as_ref(),
+            &self.caches.bls_sig,
+            self.republish.as_ref(),
             &self.pending_store,
             self.cur_tipset.as_ref(),
-            &self.key_cache,
-            &self.state_nonce_cache,
+            &self.caches.key,
+            &self.caches.state_nonce,
             revert,
             apply,
         )
-        .await
     }
 }
 
@@ -562,7 +564,6 @@ where
     where
         T: Provider,
     {
-        let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
         // Per-actor limits are constant for the lifetime of this pool; capture
         // them once here rather than re-reading on every insert.
         let pending_store = PendingStore::new(MsgSetLimits::new(
@@ -570,48 +571,31 @@ where
             api.max_untrusted_actor_pending_messages(),
         ));
         let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
-        let bls_sig_cache =
-            SizeTrackingLruCache::new_with_metrics("bls_sig".into(), BLS_SIG_CACHE_SIZE);
-        let sig_val_cache =
-            SizeTrackingLruCache::new_with_metrics("sig_val".into(), SIG_VAL_CACHE_SIZE);
-        let key_cache = SizeTrackingLruCache::new_with_metrics("mpool_key".into(), KEY_CACHE_SIZE);
-        let state_nonce_cache =
-            SizeTrackingLruCache::new_with_metrics("state_nonce".into(), STATE_NONCE_CACHE_SIZE);
-        let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
-        let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
 
-        let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
-        let mut mp = MessagePool {
-            local_addrs,
+        let (republish, repub_trigger_rx) = RepublishState::new();
+        let mp = MessagePool {
             pending_store,
+            caches: Caches::new(),
+            local_addrs: Arc::new(SyncRwLock::new(HashSet::default())),
             cur_tipset: tipset,
             api: Arc::new(api),
-            bls_sig_cache,
-            sig_val_cache,
-            key_cache,
-            state_nonce_cache,
-            local_msgs,
-            republished,
             config: config.into(),
             network_sender,
-            repub_trigger,
+            republish: Arc::new(republish),
             chain_config: Arc::clone(&chain_config),
         };
-
-        mp.load_local()?;
 
         let mut head_changes_rx = mp.api.subscribe_head_changes();
 
         let api = mp.api.clone();
-        let bls_sig_cache = mp.bls_sig_cache.shallow_clone();
+        let bls_sig_cache = mp.caches.bls_sig.shallow_clone();
         let pending_store = mp.pending_store.shallow_clone();
-        let republished = mp.republished.clone();
-        let key_cache = mp.key_cache.shallow_clone();
-        let state_nonce_cache = mp.state_nonce_cache.shallow_clone();
+        let republish = mp.republish.clone();
+        let key_cache = mp.caches.key.shallow_clone();
+        let state_nonce_cache = mp.caches.state_nonce.shallow_clone();
 
         let current_ts = mp.cur_tipset.clone();
-        let repub_trigger = mp.repub_trigger.clone();
 
         // Reacts to new HeadChanges
         services.spawn(async move {
@@ -621,17 +605,14 @@ where
                         if let Err(e) = head_change(
                             api.as_ref(),
                             &bls_sig_cache,
-                            repub_trigger.clone(),
-                            republished.as_ref(),
+                            republish.as_ref(),
                             &pending_store,
                             &current_ts,
                             &key_cache,
                             &state_nonce_cache,
                             reverts,
                             applies,
-                        )
-                        .await
-                        {
+                        ) {
                             tracing::warn!("Error changing head: {e}");
                         }
                     }
@@ -648,9 +629,8 @@ where
         let api = mp.api.clone();
         let pending_store = mp.pending_store.shallow_clone();
         let cur_tipset = mp.cur_tipset.clone();
-        let republished = mp.republished.clone();
+        let republish = mp.republish.clone();
         let local_addrs = mp.local_addrs.clone();
-        let key_cache = mp.key_cache.shallow_clone();
         let network_sender = Arc::new(mp.network_sender.clone());
         let republish_interval = u64::from(10 * block_delay + chain_config.propagation_delay_secs);
         // Reacts to republishing requests
@@ -667,9 +647,8 @@ where
                     network_sender.as_ref(),
                     &pending_store,
                     cur_tipset.as_ref(),
-                    republished.as_ref(),
+                    republish.as_ref(),
                     local_addrs.as_ref(),
-                    &key_cache,
                     &chain_config,
                 )
                 .await
@@ -757,6 +736,7 @@ mod tests {
     use crate::networks::ChainConfig;
     use crate::shim::econ::TokenAmount;
     use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
+    use crate::test_utils::dummy_ticket;
     use crate::utils::db::CborStoreExt as _;
 
     use super::*;
@@ -1098,6 +1078,7 @@ mod tests {
         let root_b = st_b.flush().unwrap();
 
         let genesis = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
             state_root: root_a,
             ..Default::default()
         }));
@@ -1106,6 +1087,7 @@ mod tests {
 
         let ts1 = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: genesis.key().clone(),
+            ticket: dummy_ticket(1),
             epoch: 1,
             state_root: root_a,
             timestamp: 1,
@@ -1115,6 +1097,7 @@ mod tests {
 
         let head = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: ts1.key().clone(),
+            ticket: dummy_ticket(2),
             epoch: 2,
             state_root: root_b,
             timestamp: 2,

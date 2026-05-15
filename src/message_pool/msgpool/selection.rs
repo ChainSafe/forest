@@ -652,9 +652,9 @@ where
         // Run head change to do reorg detection
         run_head_change(
             self.api.as_ref(),
-            &self.bls_sig_cache,
+            &self.caches.bls_sig,
             &self.pending_store,
-            &self.key_cache,
+            &self.caches.key,
             cur_ts.clone(),
             ts.clone(),
             &mut result,

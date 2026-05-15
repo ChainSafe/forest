@@ -57,6 +57,9 @@ async fn test_export_inner(version: FilecoinSnapshotVersion) -> anyhow::Result<(
     let head_key_cids = nunny::vec![b_5_0.cid(), b_5_1.cid()];
     let head_key = TipsetKey::from(head_key_cids.clone());
     let head = Tipset::load_required(&db, &head_key)?;
+    // Tipset sorts blocks by ticket, so re-derive the canonical CID order from `head`
+    // rather than relying on the user-supplied order.
+    let head_key_cids = head.key().to_cids();
 
     let mut car_bytes = vec![];
 

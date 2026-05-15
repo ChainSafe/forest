@@ -7,6 +7,7 @@ pub(in crate::message_pool) mod msg_pool;
 pub(in crate::message_pool) mod msg_set;
 pub(in crate::message_pool) mod pending_store;
 pub(in crate::message_pool) mod provider;
+pub(in crate::message_pool) mod republish;
 pub mod selection;
 #[cfg(test)]
 pub mod test_provider;
@@ -26,17 +27,18 @@ use crate::shim::{address::Address, crypto::Signature};
 use crate::state_manager::IdToAddressCache;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::CidWrapper;
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashMap, HashMapExt, HashSet};
 use fvm_ipld_encoding::to_vec;
 use parking_lot::RwLock as SyncRwLock;
 use tracing::error;
 use utils::{get_base_fee_lower_bound, recover_sig};
 
 use super::errors::Error;
+use crate::message_pool::msgpool::msg_pool::StateNonceCacheKey;
 use crate::message_pool::{
     msg_chain::{Chains, create_message_chains},
-    msg_pool::{StateNonceCacheKey, StrictnessPolicy, TrustPolicy, add_helper, resolve_to_key},
-    msgpool::pending_store::PendingStore,
+    msg_pool::{StrictnessPolicy, TrustPolicy, add_helper, resolve_to_key},
+    msgpool::{pending_store::PendingStore, republish::RepublishState},
     provider::Provider,
 };
 
@@ -54,9 +56,8 @@ async fn republish_pending_messages<T>(
     network_sender: &flume::Sender<NetworkMessage>,
     pending_store: &PendingStore,
     cur_tipset: &SyncRwLock<Tipset>,
-    republished: &SyncRwLock<HashSet<Cid>>,
-    local_addrs: &SyncRwLock<Vec<Address>>,
-    key_cache: &IdToAddressCache,
+    republish: &RepublishState,
+    local_addrs: &SyncRwLock<HashSet<Address>>,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
@@ -65,21 +66,13 @@ where
     let ts = cur_tipset.read().shallow_clone();
     let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
 
-    republished.write().clear();
-
-    // Only republish messages from local addresses, ie. transactions which were
+    // Only republish messages from local addresses, i.e., transactions which were
     // sent to this node directly.
     for actor in local_addrs.read().iter() {
-        let Ok(resolved) = resolve_to_key(api, key_cache, actor, &ts).inspect_err(|e| {
-            tracing::debug!(%actor, "republish: failed to resolve address: {e:#}");
-        }) else {
-            continue;
-        };
-        if let Some(mset) = pending_store.snapshot_for(&resolved) {
-            if mset.msgs.is_empty() {
-                continue;
-            }
-            pending_map.insert(resolved, mset.msgs);
+        if let Some(mset) = pending_store.snapshot_for(actor)
+            && !mset.msgs.is_empty()
+        {
+            pending_map.insert(*actor, mset.msgs);
         }
     }
 
@@ -97,11 +90,8 @@ where
             .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
     }
 
-    let mut republished_t = HashSet::new();
-    for m in msgs.iter() {
-        republished_t.insert(m.cid());
-    }
-    *republished.write() = republished_t;
+    let republished_cids: Vec<_> = msgs.iter().map(|m| m.cid()).collect();
+    republish.replace_with(republished_cids);
 
     Ok(())
 }
@@ -216,11 +206,10 @@ where
 /// The state nonce cache is naturally invalidated when the tipset changes, since
 /// it is keyed by [`TipsetKey`](crate::blocks::TipsetKey).
 #[allow(clippy::too_many_arguments)]
-pub(in crate::message_pool) async fn head_change<T>(
+pub(in crate::message_pool) fn head_change<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
-    repub_trigger: flume::Sender<()>,
-    republished: &SyncRwLock<HashSet<Cid>>,
+    republish: &RepublishState,
     pending_store: &PendingStore,
     cur_tipset: &SyncRwLock<Tipset>,
     key_cache: &IdToAddressCache,
@@ -277,13 +266,13 @@ where
 
             for msg in smsgs {
                 mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), &mut rmsgs)?;
-                if !repub && republished.write().insert(msg.cid()) {
+                if !repub && republish.was_republished(&msg.cid()) {
                     repub = true;
                 }
             }
             for msg in msgs {
                 mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, &mut rmsgs)?;
-                if !repub && republished.write().insert(msg.cid()) {
+                if !repub && republish.was_republished(&msg.cid()) {
                     repub = true;
                 }
             }
@@ -291,10 +280,7 @@ where
         *cur_tipset.write() = ts;
     }
     if repub {
-        repub_trigger
-            .send_async(())
-            .await
-            .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))?;
+        republish.trigger()?;
     }
     let cur_ts = cur_tipset.read().shallow_clone();
     let mpool_ctx = MpoolCtx {
@@ -522,7 +508,7 @@ pub mod tests {
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
         let cid = signed.cid();
-        pool.sig_val_cache.push(cid.into(), ());
+        pool.caches.sig_val.push(cid.into(), ());
         signed
     }
 
