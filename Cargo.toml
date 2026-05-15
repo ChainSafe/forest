@@ -316,7 +316,7 @@ panic = "unwind"
 
 [profile.profiling]
 inherits = "dev"
-opt-level = 0
+opt-level = 1
 debug = true
 split-debuginfo = "unpacked"
 panic = "abort"
