@@ -3,4 +3,5 @@
 
 pub use crate::db::car::forest;
 pub use crate::utils::cid;
+pub mod serde;
 pub mod tipset_validation;
