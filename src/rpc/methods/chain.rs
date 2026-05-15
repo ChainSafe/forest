@@ -88,7 +88,7 @@ pub(crate) fn new_heads(data: Ctx) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
             for ts in changes.applies {
                 // Convert the tipset to an Ethereum block with full transaction info
                 // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
-                match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
+                match EthBlock::from_filecoin_tipset(&data.state_manager, ts, TxInfo::Full).await {
                     Ok(block) => {
                         if let Err(e) = sender.send(ApiHeaders(block)) {
                             tracing::error!("Failed to send headers: {}", e);

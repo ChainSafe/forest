@@ -178,6 +178,14 @@ impl ChainFollower {
         )
         .await
     }
+
+    /// Subscribe to validated tipsets.
+    pub fn subscribe_validated_tipset(&self) -> tokio::sync::broadcast::Receiver<TipsetKey> {
+        self.state_machine
+            .lock()
+            .validated_tipset_broadcast_tx
+            .subscribe()
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -610,6 +618,8 @@ struct SyncStateMachine {
     // Map from TipsetKey to FullTipset
     tipsets: HashMap<TipsetKey, FullTipset>,
     stateless_mode: bool,
+    /// Broadcast channel for validated tipsets, used to notify other components of new validated tipsets.
+    validated_tipset_broadcast_tx: tokio::sync::broadcast::Sender<TipsetKey>,
 }
 
 impl SyncStateMachine {
@@ -623,6 +633,7 @@ impl SyncStateMachine {
             bad_block_cache,
             tipsets: HashMap::default(),
             stateless_mode,
+            validated_tipset_broadcast_tx: tokio::sync::broadcast::Sender::new(1024),
         }
     }
 
@@ -783,10 +794,10 @@ impl SyncStateMachine {
         }
     }
 
-    fn mark_validated_tipset(&mut self, tipset: FullTipset, is_proposed_head: bool) {
+    fn mark_validated_tipset(&mut self, tipset: FullTipset, is_proposed_head: bool) -> bool {
         if !self.is_parent_validated(&tipset) {
             tracing::error!(epoch = %tipset.epoch(), tsk = %tipset.key(), parent_state = %tipset.parent_state(), "Parent tipset must be validated");
-            return;
+            return false;
         }
 
         self.tipsets.remove(tipset.key());
@@ -798,6 +809,7 @@ impl SyncStateMachine {
             if self.cs.heaviest_tipset().weight() < tipset.weight() {
                 if let Err(e) = self.cs.set_heaviest_tipset(tipset) {
                     error!("Error setting heaviest tipset: {}", e);
+                    return false;
                 } else {
                     info!("Heaviest tipset: {} ({})", epoch, terse_key);
                 }
@@ -805,10 +817,13 @@ impl SyncStateMachine {
         } else if is_proposed_head {
             if let Err(e) = self.cs.put_tipset(&tipset) {
                 error!("Error putting tipset: {e}");
+                return false;
             }
         } else if let Err(e) = self.cs.set_heaviest_tipset(tipset) {
             error!("Error setting heaviest tipset: {e}");
+            return false;
         }
+        true
     }
 
     pub fn update(&mut self, event: SyncEvent) {
@@ -823,7 +838,15 @@ impl SyncStateMachine {
             SyncEvent::ValidatedTipset {
                 tipset,
                 is_proposed_head,
-            } => self.mark_validated_tipset(tipset, is_proposed_head),
+            } => {
+                let tsk = tipset.key().clone();
+                if self.mark_validated_tipset(tipset, is_proposed_head)
+                    && crate::utils::broadcast::has_subscribers(&self.validated_tipset_broadcast_tx)
+                    && let Err(e) = self.validated_tipset_broadcast_tx.send(tsk)
+                {
+                    warn!("Failed to broadcast validated tipset: {e}");
+                }
+            }
         }
     }
 
