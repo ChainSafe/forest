@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::circulating_supply::GenesisInfo;
+use super::state_computation::TipsetExecutor;
 use super::utils::structured;
 use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
@@ -26,7 +27,23 @@ impl StateManager {
     ) -> Result<ApiInvocResult, Error> {
         let mut msg = msg.clone();
 
-        let state_cid = state_cid.unwrap_or(*tipset.parent_state());
+        let state_cid = match state_cid {
+            Some(cid) => cid,
+            None => {
+                let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
+                let exec = TipsetExecutor::new(
+                    self.chain_index().shallow_clone(),
+                    self.chain_config().shallow_clone(),
+                    self.beacon_schedule().shallow_clone(),
+                    &self.engine,
+                    tipset.shallow_clone(),
+                );
+                let mut no_cb = NO_CALLBACK;
+                let (state_cid, _, _) =
+                    exec.prepare_parent_state(genesis_timestamp, VMTrace::NotTraced, &mut no_cb)?;
+                state_cid
+            }
+        };
 
         let tipset_messages = self
             .chain_store()
@@ -36,8 +53,6 @@ impl StateManager {
         let prior_messsages = tipset_messages
             .iter()
             .filter(|ts_msg| ts_msg.message().from() == msg.from());
-
-        // Handle state forks
 
         let height = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
