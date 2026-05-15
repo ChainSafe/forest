@@ -44,14 +44,10 @@ pub(crate) static COMPRESS_MIN_BODY_SIZE: LazyLock<Option<u16>> = LazyLock::new(
 /// Unset and unparsable values fall back to disabled.
 /// Values above `u16::MAX` are clamped to `u16::MAX`.
 fn parse_compress_min_body_size(raw: Option<&str>) -> Option<u16> {
-    let Some(raw) = raw else {
-        return None;
-    };
-
     // Parse as i128 so any realistically-typable integer lands in one of the
     // defined branches (negative → disabled, too-large → clamp) rather than
     // silently disabling just because it didn't fit in i32.
-    let Ok(parsed) = raw.parse::<i128>() else {
+    let Ok(parsed) = raw?.parse::<i128>() else {
         tracing::warn!(
             "{COMPRESS_MIN_BODY_SIZE_VAR}={raw:?} is not a valid integer; \
              disabling compression"
