@@ -6,7 +6,7 @@ mod tests;
 
 mod actor_queries;
 mod address_resolution;
-mod cache;
+pub mod cache;
 pub mod chain_rand;
 pub mod circulating_supply;
 mod errors;
@@ -20,7 +20,7 @@ pub mod utils;
 pub use self::errors::*;
 pub use self::state_computation::{apply_block_messages, validate_tipsets};
 use crate::beacon::BeaconSchedule;
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
     ChainStore,
     index::{ChainIndex, ResolveNullTipset},
@@ -48,7 +48,7 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
-use crate::state_manager::cache::TipsetStateCache;
+use crate::state_manager::cache::ForestLruCache;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::{GetSize, vec_heap_size_helper};
 use anyhow::Context as _;
@@ -167,7 +167,7 @@ pub struct StateManager {
     /// Chain store
     cs: ChainStore,
     /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
-    cache: TipsetStateCache<ExecutedTipset>,
+    cache: ForestLruCache<TipsetKey, ExecutedTipset>,
     id_to_deterministic_address_cache: IdToAddressCache,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
@@ -209,11 +209,11 @@ impl StateManager {
 
         Ok(Self {
             cs,
-            cache: TipsetStateCache::new("executed_tipset"), // For StateOutput
+            cache: ForestLruCache::new("tipset_state_executed_tipset"), // For StateOutput
             beacon,
             engine,
             id_to_deterministic_address_cache: SizeTrackingLruCache::new_with_metrics(
-                "id_to_deterministic_address".into(),
+                "id_to_deterministic_address",
                 DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE,
             ),
         })

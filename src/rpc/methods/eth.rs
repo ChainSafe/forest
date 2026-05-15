@@ -54,8 +54,8 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::state_manager::cache::ForestLruCache;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
-use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
@@ -477,95 +477,125 @@ impl Block {
         ctx: Ctx,
         tipset: crate::blocks::Tipset,
         tx_info: TxInfo,
-    ) -> Result<Self> {
-        static ETH_BLOCK_CACHE: LazyLock<SizeTrackingLruCache<CidWrapper, Block>> =
+    ) -> Result<Arc<Self>> {
+        static ETH_BLOCK_HASH_TX_CACHE: LazyLock<ForestLruCache<CidWrapper, Arc<Block>>> =
             LazyLock::new(|| {
-                const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(500usize);
-                let cache_size = std::env::var("FOREST_ETH_BLOCK_CACHE_SIZE")
-                    .ok()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(DEFAULT_CACHE_SIZE);
-                SizeTrackingLruCache::new_with_metrics("eth_block".into(), cache_size)
+                ForestLruCache::with_size("eth_block_hash_tx", Block::block_cache_size())
+            });
+
+        match tx_info {
+            TxInfo::Full => Self::from_filecoin_tipset_with_full_tx(ctx, tipset).await,
+            TxInfo::Hash => {
+                let block_cid = tipset.key().cid()?;
+                ETH_BLOCK_HASH_TX_CACHE
+                    .get_or_else(&block_cid.into(), async move || {
+                        let block_with_full_tx =
+                            Self::from_filecoin_tipset_with_full_tx(ctx, tipset).await?;
+                        Ok(Arc::new(
+                            Arc::unwrap_or_clone(block_with_full_tx)
+                                .downcast_full_transaction_to_hash(),
+                        ))
+                    })
+                    .await
+            }
+        }
+    }
+
+    async fn from_filecoin_tipset_with_full_tx(
+        ctx: Ctx,
+        tipset: crate::blocks::Tipset,
+    ) -> Result<Arc<Self>> {
+        static ETH_BLOCK_FULL_TX_CACHE: LazyLock<ForestLruCache<CidWrapper, Arc<Block>>> =
+            LazyLock::new(|| {
+                ForestLruCache::with_size("eth_block_full_tx", Block::block_cache_size())
             });
 
         let block_cid = tipset.key().cid()?;
-        let mut block = if let Some(b) = ETH_BLOCK_CACHE.get_cloned(&block_cid.into()) {
-            b
-        } else {
-            let parent_cid = tipset.parents().cid()?;
-            let block_number = EthInt64(tipset.epoch());
-            let block_hash: EthHash = block_cid.into();
+        ETH_BLOCK_FULL_TX_CACHE
+            .get_or_else(&block_cid.into(), async move || {
+                let parent_cid = tipset.parents().cid()?;
+                let block_number = EthInt64(tipset.epoch());
+                let block_hash: EthHash = block_cid.into();
 
-            let ExecutedTipset {
-                state_root,
-                executed_messages,
-                ..
-            } = ctx.state_manager.load_executed_tipset(&tipset).await?;
-            let has_transactions = !executed_messages.is_empty();
-            let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
+                let ExecutedTipset {
+                    state_root,
+                    executed_messages,
+                    ..
+                } = ctx.state_manager.load_executed_tipset(&tipset).await?;
+                let has_transactions = !executed_messages.is_empty();
+                let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
-            let mut full_transactions = vec![];
-            let mut gas_used = 0;
-            for (
-                i,
-                ExecutedMessage {
-                    message, receipt, ..
-                },
-            ) in executed_messages.iter().enumerate()
-            {
-                let ti = EthUint64(i as u64);
-                gas_used += receipt.gas_used();
-                let mut tx = match message {
-                    ChainMessage::Signed(smsg) => new_eth_tx_from_signed_message(
-                        smsg,
-                        &state_tree,
-                        ctx.chain_config().eth_chain_id,
-                    )?,
-                    ChainMessage::Unsigned(msg) => {
-                        let tx = eth_tx_from_native_message(
-                            msg,
+                let mut full_transactions = vec![];
+                let mut gas_used = 0;
+                for (
+                    i,
+                    ExecutedMessage {
+                        message, receipt, ..
+                    },
+                ) in executed_messages.iter().enumerate()
+                {
+                    let ti = EthUint64(i as u64);
+                    gas_used += receipt.gas_used();
+                    let mut tx = match message {
+                        ChainMessage::Signed(smsg) => new_eth_tx_from_signed_message(
+                            smsg,
                             &state_tree,
                             ctx.chain_config().eth_chain_id,
-                        )?;
-                        ApiEthTx {
-                            hash: msg.cid().into(),
-                            ..tx
+                        )?,
+                        ChainMessage::Unsigned(msg) => {
+                            let tx = eth_tx_from_native_message(
+                                msg,
+                                &state_tree,
+                                ctx.chain_config().eth_chain_id,
+                            )?;
+                            ApiEthTx {
+                                hash: msg.cid().into(),
+                                ..tx
+                            }
                         }
-                    }
-                };
-                tx.block_hash = block_hash;
-                tx.block_number = block_number;
-                tx.transaction_index = ti;
-                full_transactions.push(tx);
-            }
+                    };
+                    tx.block_hash = block_hash;
+                    tx.block_number = block_number;
+                    tx.transaction_index = ti;
+                    full_transactions.push(tx);
+                }
 
-            let b = Block {
-                hash: block_hash,
-                number: block_number,
-                parent_hash: parent_cid.into(),
-                timestamp: EthUint64(tipset.block_headers().first().timestamp),
-                base_fee_per_gas: tipset
-                    .block_headers()
-                    .first()
-                    .parent_base_fee
-                    .clone()
-                    .into(),
-                gas_used: EthUint64(gas_used),
-                transactions: Transactions::Full(full_transactions),
-                ..Block::new(has_transactions, tipset.len())
-            };
-            ETH_BLOCK_CACHE.push(block_cid.into(), b.clone());
-            b
-        };
+                Ok(Arc::new(Block {
+                    hash: block_hash,
+                    number: block_number,
+                    parent_hash: parent_cid.into(),
+                    timestamp: EthUint64(tipset.block_headers().first().timestamp),
+                    base_fee_per_gas: tipset
+                        .block_headers()
+                        .first()
+                        .parent_base_fee
+                        .clone()
+                        .into(),
+                    gas_used: EthUint64(gas_used),
+                    transactions: Transactions::Full(full_transactions),
+                    ..Block::new(has_transactions, tipset.len())
+                }))
+            })
+            .await
+    }
 
-        if tx_info == TxInfo::Hash
-            && let Transactions::Full(transactions) = &block.transactions
-        {
-            block.transactions =
+    fn block_cache_size() -> NonZeroUsize {
+        const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(500usize);
+        static CACHE_SIZE: std::sync::LazyLock<NonZeroUsize> = std::sync::LazyLock::new(|| {
+            std::env::var("FOREST_ETH_BLOCK_CACHE_SIZE")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(DEFAULT_CACHE_SIZE)
+        });
+        *CACHE_SIZE
+    }
+
+    fn downcast_full_transaction_to_hash(mut self) -> Self {
+        if let Transactions::Full(transactions) = &self.transactions {
+            self.transactions =
                 Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
         }
-
-        Ok(block)
+        self
     }
 }
 
@@ -1396,7 +1426,7 @@ impl RpcMethod<2> for EthGetBlockByHash {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash, bool);
-    type Ok = Block;
+    type Ok = Arc<Block>;
 
     async fn handle(
         ctx: Ctx,
@@ -1424,7 +1454,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         Some("Retrieves a block by its number or a special tag.");
 
     type Params = (BlockNumberOrPredefined, bool);
-    type Ok = Block;
+    type Ok = Arc<Block>;
 
     async fn handle(
         ctx: Ctx,

@@ -127,7 +127,7 @@ mod tests {
             records.push((key, record));
         }
         let cache = Arc::new(LruBlockstoreReadCache::new_without_metrics_registry(
-            "test_blockstore_read_cache".into(),
+            "test_blockstore_read_cache",
             CACHE_SIZE.try_into().unwrap(),
         ));
         let db = BlockstoreWithReadCache::new(

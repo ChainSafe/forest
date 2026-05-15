@@ -94,11 +94,11 @@ pub(in crate::message_pool) struct Caches {
 impl Caches {
     pub(in crate::message_pool) fn new() -> Self {
         Self {
-            bls_sig: SizeTrackingLruCache::new_with_metrics("bls_sig".into(), BLS_SIG_CACHE_SIZE),
-            sig_val: SizeTrackingLruCache::new_with_metrics("sig_val".into(), SIG_VAL_CACHE_SIZE),
-            key: SizeTrackingLruCache::new_with_metrics("mpool_key".into(), KEY_CACHE_SIZE),
+            bls_sig: SizeTrackingLruCache::new_with_metrics("bls_sig", BLS_SIG_CACHE_SIZE),
+            sig_val: SizeTrackingLruCache::new_with_metrics("sig_val", SIG_VAL_CACHE_SIZE),
+            key: SizeTrackingLruCache::new_with_metrics("mpool_key", KEY_CACHE_SIZE),
             state_nonce: SizeTrackingLruCache::new_with_metrics(
-                "state_nonce".into(),
+                "state_nonce",
                 STATE_NONCE_CACHE_SIZE,
             ),
         }

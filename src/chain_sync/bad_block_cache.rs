@@ -37,7 +37,7 @@ impl ShallowClone for BadBlockCache {
 impl BadBlockCache {
     pub fn new(cap: NonZeroUsize) -> Self {
         Self {
-            cache: SizeTrackingLruCache::new_with_metrics("bad_block".into(), cap),
+            cache: SizeTrackingLruCache::new_with_metrics("bad_block", cap),
         }
     }
 
@@ -81,7 +81,7 @@ impl Default for SeenBlockCache {
 impl SeenBlockCache {
     pub fn new(cap: NonZeroUsize) -> Self {
         Self {
-            cache: SizeTrackingLruCache::new_with_metrics("seen_gossip_block".into(), cap),
+            cache: SizeTrackingLruCache::new_with_metrics("seen_gossip_block", cap),
         }
     }
 
