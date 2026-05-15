@@ -14,6 +14,9 @@ workspace = true
 [lib]
 name = "forest"
 
+[patch."crates-io"]
+jsonrpsee = { git = "https://github.com/hanabi1224/jsonrpsee.git", branch = "ser-response-with-sonic" }
+
 [workspace.dependencies]
 ahash = "0.8"
 anyhow = "1"

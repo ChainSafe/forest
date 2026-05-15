@@ -5119,8 +5119,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f3f48dc3e6b8bd21e15436c1ddd0bc22a6a54e8ec46fedd6adf3425f396ec6a"
+source = "git+https://github.com/hanabi1224/jsonrpsee.git?branch=ser-response-with-sonic#c24bd3937598efedf67df99fbd8a171ead93a7f9"
 dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-http-client",
@@ -5135,8 +5134,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-client-transport"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf36eb27f8e13fa93dcb50ccb44c417e25b818cfa1a481b5470cd07b19c60b98"
+source = "git+https://github.com/hanabi1224/jsonrpsee.git?branch=ser-response-with-sonic#c24bd3937598efedf67df99fbd8a171ead93a7f9"
 dependencies = [
  "base64 0.22.1",
  "futures-util",
@@ -5158,8 +5156,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-core"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "316c96719901f05d1137f19ba598b5fe9c9bc39f4335f67f6be8613921946480"
+source = "git+https://github.com/hanabi1224/jsonrpsee.git?branch=ser-response-with-sonic#c24bd3937598efedf67df99fbd8a171ead93a7f9"
 dependencies = [
  "async-trait",
  "bytes",
@@ -5175,6 +5172,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "serde_json",
+ "sonic-rs",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
@@ -5185,8 +5183,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-client"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "790bedefcec85321e007ff3af84b4e417540d5c87b3c9779b9e247d1bcc3dab8"
+source = "git+https://github.com/hanabi1224/jsonrpsee.git?branch=ser-response-with-sonic#c24bd3937598efedf67df99fbd8a171ead93a7f9"
 dependencies = [
  "base64 0.22.1",
  "http-body",
@@ -5208,8 +5205,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2da3f8ab5ce1bb124b6d082e62dffe997578ceaf0aeb9f3174a214589dc00f07"
+source = "git+https://github.com/hanabi1224/jsonrpsee.git?branch=ser-response-with-sonic#c24bd3937598efedf67df99fbd8a171ead93a7f9"
 dependencies = [
  "heck 0.5.0",
  "proc-macro-crate 3.5.0",
@@ -5221,8 +5217,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-server"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c51b7c290bb68ce3af2d029648148403863b982f138484a73f02a9dd52dbd7f"
+source = "git+https://github.com/hanabi1224/jsonrpsee.git?branch=ser-response-with-sonic#c24bd3937598efedf67df99fbd8a171ead93a7f9"
 dependencies = [
  "futures-util",
  "http",
@@ -5248,8 +5243,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc88ff4688e43cc3fa9883a8a95c6fa27aa2e76c96e610b737b6554d650d7fd5"
+source = "git+https://github.com/hanabi1224/jsonrpsee.git?branch=ser-response-with-sonic#c24bd3937598efedf67df99fbd8a171ead93a7f9"
 dependencies = [
  "http",
  "serde",
@@ -5260,8 +5254,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-ws-client"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b6fceceeb05301cc4c065ab3bd2fa990d41ff4eb44e4ca1b30fa99c057c3e79"
+source = "git+https://github.com/hanabi1224/jsonrpsee.git?branch=ser-response-with-sonic#c24bd3937598efedf67df99fbd8a171ead93a7f9"
 dependencies = [
  "http",
  "jsonrpsee-client-transport",
