@@ -24,7 +24,6 @@ use crate::shim::{
 };
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
-use crate::utils::ShallowClone as _;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::get_size::{CidWrapper, GetSize};
 use ahash::HashSet;
@@ -108,12 +107,12 @@ impl Caches {
 
 impl ShallowClone for Caches {
     fn shallow_clone(&self) -> Self {
-       Self {
-           bls_sig: self.bls_sig.shallow_clone(),
-           sig_val: self.sig_val.shallow_clone(),
-           key: self.key.shallow_clone(),
-           state_nonce: self.state_nonce.shallow_clone(),
-       }
+        Self {
+            bls_sig: self.bls_sig.shallow_clone(),
+            sig_val: self.sig_val.shallow_clone(),
+            key: self.key.shallow_clone(),
+            state_nonce: self.state_nonce.shallow_clone(),
+        }
     }
 }
 
@@ -144,14 +143,13 @@ pub struct MessagePool<T> {
 impl<T> ShallowClone for MessagePool<T> {
     fn shallow_clone(&self) -> Self {
         Self {
-            local: self.local.shallow_clone(),
+            local_addrs: self.local_addrs.shallow_clone(),
             pending_store: self.pending_store.shallow_clone(),
             cur_tipset: self.cur_tipset.shallow_clone(),
             api: self.api.shallow_clone(),
             network_sender: self.network_sender.clone(),
             caches: self.caches.shallow_clone(),
-            republished: self.republished.shallow_clone(),
-            repub_trigger: self.repub_trigger.clone(),
+            republish: self.republish.shallow_clone(),
             config: self.config.shallow_clone(),
             chain_config: self.chain_config.shallow_clone(),
         }
