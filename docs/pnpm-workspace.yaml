@@ -6,6 +6,7 @@ allowBuilds:
   esbuild: false
   puppeteer: false
 blockExoticSubdeps: true
+resolutionMode: "time-based"
 minimumReleaseAge: 10080 # 7 days
 
 overrides:

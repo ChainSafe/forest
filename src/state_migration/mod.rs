@@ -1,17 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::{
-    Arc,
-    atomic::{self, AtomicBool},
-};
+use std::sync::atomic::{self, AtomicBool};
 
 use crate::db::BlockstoreWithWriteBuffer;
 use crate::networks::{ChainConfig, Height, NetworkChain};
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
 pub(in crate::state_migration) mod common;
@@ -31,11 +27,11 @@ mod nv27;
 mod nv28;
 mod type_migrations;
 
-type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
+type RunMigration<DB> = fn(&ChainConfig, &DB, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
 
 pub fn get_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, RunMigration<DB>)>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     match chain {
         NetworkChain::Mainnet => {
@@ -49,6 +45,7 @@ where
                 (Height::TukTuk, nv24::run_migration::<DB>),
                 (Height::Teep, nv25::run_migration::<DB>),
                 (Height::GoldenWeek, nv27::run_migration::<DB>),
+                (Height::FireHorse, nv28::run_migration::<DB>),
             ]
         }
         NetworkChain::Calibnet => {
@@ -93,11 +90,11 @@ where
 pub fn run_state_migrations<DB>(
     epoch: ChainEpoch,
     chain_config: &ChainConfig,
-    db: &Arc<DB>,
+    db: &DB,
     parent_state: &Cid,
 ) -> anyhow::Result<Option<Cid>>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     // ~10MB RAM per 10k buffer
     let db_write_buffer = match std::env::var("FOREST_STATE_MIGRATION_DB_WRITE_BUFFER") {
@@ -129,7 +126,7 @@ where
             tracing::info!("Running {height} migration at epoch {epoch}");
             let start_time = std::time::Instant::now();
             let db = Arc::new(BlockstoreWithWriteBuffer::new_with_capacity(
-                db.clone(),
+                db.shallow_clone(),
                 db_write_buffer,
             ));
             let new_state = migrate(chain_config, &db, parent_state, epoch)?;

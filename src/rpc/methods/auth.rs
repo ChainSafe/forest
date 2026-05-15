@@ -10,7 +10,6 @@ use crate::{
 use anyhow::Result;
 use chrono::Duration;
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{DurationSeconds, serde_as};
@@ -39,7 +38,7 @@ impl RpcMethod<2> for AuthNew {
     type Params = (Vec<String>, Option<i64>);
     type Ok = Vec<u8>;
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (permissions, expiration_secs): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -64,7 +63,7 @@ impl RpcMethod<1> for AuthVerify {
     type Params = (String,);
     type Ok = Vec<String>;
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (header_raw,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

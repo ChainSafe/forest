@@ -13,16 +13,15 @@ use super::{
         PublicKeyOnG1, PublicKeyOnG2, SignatureOnG1, SignatureOnG2, verify_messages_chained,
     },
 };
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::net::global_http_client;
 use ambassador::{Delegate, delegatable_trait};
-use anyhow::Context as _;
 use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
-use itertools::Itertools as _;
 use nonzero_ext::nonzero;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use tracing::debug;

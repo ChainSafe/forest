@@ -22,7 +22,7 @@ use prometheus_client::{
     registry::Unit,
 };
 
-use crate::utils::ShallowClone;
+use crate::prelude::*;
 
 pub trait KeyConstraints:
     GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static

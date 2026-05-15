@@ -6,7 +6,6 @@ use crate::networks::calculate_expected_epoch;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use chrono::{DateTime, Utc};
-use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -140,9 +139,9 @@ impl SyncStatusReport {
 
     /// Updates the sync status report based on the current state of the node and network.
     /// This does not modify the existing report but returns a new one with updated information.
-    pub(crate) fn update<DB: Blockstore + Sync + Send + 'static>(
+    pub(crate) fn update(
         &self,
-        state_manager: &StateManager<DB>,
+        state_manager: &StateManager,
         active_forks: Vec<ForkSyncInfo>,
         stateless_mode: bool,
     ) -> Self {

@@ -14,6 +14,7 @@ use crate::shim::{
     crypto::Signature,
     message::{Message, Message_v3},
 };
+use crate::test_utils::dummy_ticket;
 use num::BigInt;
 
 #[test]
@@ -21,6 +22,7 @@ fn convert_single_tipset_bundle() {
     let block = Block {
         header: CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
+            ticket: dummy_ticket(0),
             ..Default::default()
         }),
         bls_messages: Vec::new(),
@@ -51,11 +53,13 @@ fn convert_single_tipset_bundle() {
 fn tipset_bundle_to_full_tipset() {
     let h0 = CachingBlockHeader::new(RawBlockHeader {
         miner_address: Address::new_id(0),
+        ticket: dummy_ticket(0),
         weight: BigInt::from(1u32),
         ..Default::default()
     });
     let h1 = CachingBlockHeader::new(RawBlockHeader {
         miner_address: Address::new_id(1),
+        ticket: dummy_ticket(1),
         weight: BigInt::from(1u32),
         ..Default::default()
     });

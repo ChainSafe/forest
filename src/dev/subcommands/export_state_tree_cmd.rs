@@ -75,15 +75,9 @@ impl ExportStateTreeCommand {
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
-        let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )?);
+        let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
 
-        let start_ts = chain_store.chain_index().tipset_by_height(
+        let start_ts = chain_store.chain_index().load_required_tipset_by_height(
             from,
             chain_store.heaviest_tipset(),
             ResolveNullTipset::TakeNewer,

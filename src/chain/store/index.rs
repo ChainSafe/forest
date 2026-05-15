@@ -1,17 +1,16 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, sync::Arc};
+use std::num::NonZeroUsize;
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
+use crate::db::{DbImpl, EthMappingsStore as _};
 use crate::metrics;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::ShallowClone;
 use crate::utils::cache::SizeTrackingLruCache;
-use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools;
 use nonzero_ext::nonzero;
 use num::Integer;
 
@@ -19,28 +18,23 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize);
 
 type TipsetCache = SizeTrackingLruCache<TipsetKey, Tipset>;
 
-type TipsetHeightCache = SizeTrackingLruCache<ChainEpoch, TipsetKey>;
-
 type IsTipsetFinalizedFn = Arc<dyn Fn(&Tipset) -> bool + Send + Sync>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
-pub struct ChainIndex<DB> {
+pub struct ChainIndex {
     /// tipset key to tipset mappings.
     ts_cache: TipsetCache,
-    /// epoch to tipset key mappings.
-    ts_height_cache: TipsetHeightCache,
     /// `Blockstore` pointer needed to load tipsets from cold storage.
-    db: Arc<DB>,
+    db: DbImpl,
     /// check whether a tipset is finalized
     is_tipset_finalized: Option<IsTipsetFinalizedFn>,
 }
 
-impl<DB> ShallowClone for ChainIndex<DB> {
+impl ShallowClone for ChainIndex {
     fn shallow_clone(&self) -> Self {
         Self {
             ts_cache: self.ts_cache.shallow_clone(),
-            ts_height_cache: self.ts_height_cache.shallow_clone(),
             db: self.db.shallow_clone(),
             is_tipset_finalized: self.is_tipset_finalized.clone(),
         }
@@ -56,20 +50,13 @@ pub enum ResolveNullTipset {
     TakeOlder,
 }
 
-impl<DB: Blockstore> ChainIndex<DB> {
-    pub fn new(db: Arc<DB>) -> Self {
+impl ChainIndex {
+    pub fn new(db: impl Into<DbImpl>) -> Self {
+        let db = db.into();
         let ts_cache =
             SizeTrackingLruCache::new_with_metrics("tipset".into(), DEFAULT_TIPSET_CACHE_SIZE);
-        let ts_height_cache: SizeTrackingLruCache<ChainEpoch, TipsetKey> =
-            SizeTrackingLruCache::new_with_metrics(
-                "tipset_by_height".into(),
-                // 1048576 * 20 = 20971520 which is sufficient for mainnet
-                // Maximum ~32MiB RAM usage
-                nonzero!(1048576_usize),
-            );
         Self {
             ts_cache,
-            ts_height_cache,
             db,
             is_tipset_finalized: None,
         }
@@ -80,8 +67,12 @@ impl<DB: Blockstore> ChainIndex<DB> {
         self
     }
 
-    pub fn db(&self) -> &Arc<DB> {
+    pub fn db(&self) -> &DbImpl {
         &self.db
+    }
+
+    pub fn db_owned(&self) -> DbImpl {
+        self.db().shallow_clone()
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
@@ -119,8 +110,10 @@ impl<DB: Blockstore> ChainIndex<DB> {
     }
 
     /// Find tipset at epoch `to` in the chain of ancestors starting at `from`.
-    /// If the tipset is _not_ in the chain of ancestors (i.e., if the `to`
-    /// epoch is higher than `from.epoch()`), an error will be returned.
+    ///
+    /// Returns `Ok(Some(tipset))` when epoch `to` resolves. Returns `Ok(None)` if the ancestor
+    /// walk completes without resolving `to` (for example missing parent tipsets). Returns `Err`
+    /// if `to` is greater than `from.epoch()` or genesis lookup fails when `to` is zero.
     ///
     /// # Why pass in the `from` argument?
     ///
@@ -162,7 +155,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         to: ChainEpoch,
         mut from: Tipset,
         resolve: ResolveNullTipset,
-    ) -> Result<Tipset, Error> {
+    ) -> Result<Option<Tipset>, Error> {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
         // use `20` as checkpoint interval to match Lotus:
@@ -179,8 +172,8 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
         let mut checkpoint_from_epoch = to;
         while checkpoint_from_epoch < from_epoch {
-            if let Some(checkpoint_from_key) =
-                self.ts_height_cache.get_cloned(&checkpoint_from_epoch)
+            if let Ok(Some(checkpoint_from_key)) =
+                self.db.tipset_key_by_epoch(checkpoint_from_epoch)
                 && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)
             {
                 from = checkpoint_from;
@@ -190,7 +183,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         if to == 0 {
-            return Ok(Tipset::from(from.genesis(&self.db)?));
+            return Ok(Some(Tipset::from(from.genesis(&self.db)?)));
         }
         if to > from.epoch() {
             return Err(Error::Other(format!(
@@ -209,25 +202,40 @@ impl<DB: Blockstore> ChainIndex<DB> {
         };
         for (child, parent) in from.chain(&self.db).tuple_windows() {
             // update cache only when child is finalized.
-            if is_checkpoint(child.epoch()) && is_finalized(&child) {
-                self.ts_height_cache
-                    .push(child.epoch(), child.key().clone());
+            if is_checkpoint(child.epoch())
+                && is_finalized(&child)
+                && let Err(e) = self.db.set_tipset_key_at_epoch(&child)
+            {
+                tracing::warn!(
+                    "failed to update tipset height cache, epoch: {}, key: {}, error: {e}",
+                    child.epoch(),
+                    child.key()
+                );
             }
 
             if to == child.epoch() {
-                return Ok(child);
+                return Ok(Some(child));
             }
             if to > parent.epoch() {
                 // We're at a point where child.epoch() > x > parent.epoch().
                 match resolve {
-                    ResolveNullTipset::TakeOlder => return Ok(parent),
-                    ResolveNullTipset::TakeNewer => return Ok(child),
+                    ResolveNullTipset::TakeOlder => return Ok(Some(parent)),
+                    ResolveNullTipset::TakeNewer => return Ok(Some(child)),
                 }
             }
         }
-        Err(Error::Other(format!(
-            "Tipset with epoch={to} does not exist"
-        )))
+        Ok(None)
+    }
+
+    /// Same as [`Self::tipset_by_height`], but errors if that would return `None`.
+    pub fn load_required_tipset_by_height(
+        &self,
+        to: ChainEpoch,
+        from: Tipset,
+        resolve: ResolveNullTipset,
+    ) -> Result<Tipset, Error> {
+        self.tipset_by_height(to, from, resolve)?
+            .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
@@ -255,15 +263,15 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
+    use crate::db::MemoryDB;
+    use crate::test_utils::dummy_ticket;
+    use crate::utils::db::CborStoreExt;
     use std::sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
     };
-
-    use super::*;
-    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
-    use crate::db::MemoryDB;
-    use crate::utils::db::CborStoreExt;
 
     fn persist_tipset(tipset: &Tipset, db: &impl Blockstore) {
         for block in tipset.block_headers() {
@@ -272,7 +280,10 @@ mod tests {
     }
 
     fn genesis_tipset() -> Tipset {
-        Tipset::from(CachingBlockHeader::default())
+        Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
+            ..Default::default()
+        }))
     }
 
     fn tipset_child(parent: &Tipset, epoch: ChainEpoch) -> Tipset {
@@ -281,6 +292,7 @@ mod tests {
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
         Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: parent.key().clone(),
+            ticket: dummy_ticket(n as u8),
             epoch,
             timestamp: n,
             ..Default::default()
@@ -304,14 +316,16 @@ mod tests {
         assert_eq!(
             index
                 .tipset_by_height(2, epoch4.clone(), ResolveNullTipset::TakeOlder)
-                .unwrap(),
+                .unwrap()
+                .expect("epoch 2 resolved"),
             epoch1
         );
 
         assert_eq!(
             index
                 .tipset_by_height(2, epoch4, ResolveNullTipset::TakeNewer)
-                .unwrap(),
+                .unwrap()
+                .expect("epoch 2 resolved"),
             epoch3
         );
     }
@@ -340,15 +354,36 @@ mod tests {
         assert_eq!(
             index
                 .tipset_by_height(2, epoch3a, ResolveNullTipset::TakeOlder)
-                .unwrap(),
+                .unwrap()
+                .expect("epoch 2 on branch a"),
             epoch2a
         );
 
         assert_eq!(
             index
                 .tipset_by_height(2, epoch3b, ResolveNullTipset::TakeOlder)
-                .unwrap(),
+                .unwrap()
+                .expect("epoch 2 on branch b"),
             epoch2b
+        );
+    }
+
+    #[test]
+    fn tipset_by_height_broken_ancestor_chain_returns_none() {
+        let db = Arc::new(MemoryDB::default());
+        let genesis = genesis_tipset();
+        // Epoch 3 header points at a parent key we never persist — `Tipset::chain` stops
+        // after this tipset, so `tipset_by_height` finds no `(child, parent)` window.
+        let epoch3 = tipset_child(&tipset_child(&genesis, 2), 3);
+        persist_tipset(&genesis, &db);
+        persist_tipset(&epoch3, &db);
+
+        let index = ChainIndex::new(db);
+        assert!(
+            index
+                .tipset_by_height(2, epoch3, ResolveNullTipset::TakeOlder)
+                .unwrap()
+                .is_none()
         );
     }
 }

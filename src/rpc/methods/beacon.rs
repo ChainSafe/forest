@@ -6,7 +6,6 @@ use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use crate::{beacon::BeaconEntry, shim::clock::ChainEpoch};
 use anyhow::Result;
 use enumflags2::{BitFlags, make_bitflags};
-use fvm_ipld_blockstore::Blockstore;
 
 /// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry
@@ -22,7 +21,7 @@ impl RpcMethod<1> for BeaconGetEntry {
     type Ok = BeaconEntry;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (first,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

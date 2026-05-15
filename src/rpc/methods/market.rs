@@ -7,7 +7,6 @@ use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::{address::Address, message::Message, message::MethodNum};
 use cid::Cid;
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use num_bigint::BigInt;
 
@@ -24,7 +23,7 @@ impl RpcMethod<3> for MarketAddBalance {
     type Ok = Cid;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (wallet, address, amount): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

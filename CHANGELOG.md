@@ -35,6 +35,38 @@
 
 ### Fixed
 
+## Forest v0.33.4 "Stray"
+
+Mandatory release for mainnet node operators. It includes support for the _NV28 FireHorse_ network upgrade on mainnet, which is set to activate at epoch `6052800` (2026-05-27T14:00:00Z). It also includes a few improvements and fixes for the JSON-RPC server.
+
+### Added
+
+- [#7025](https://github.com/ChainSafe/forest/pull/7025): `FOREST_RPC_MAX_RESPONSE_BODY_SIZE` environment variable. Sets the JSON-RPC server's maximum response body size in bytes (default 64 MiB). Operators serving log-heavy `eth_getTransactionReceipt`/`eth_getBlockReceipts` calls can raise this above 64 MiB.
+
+- [#6917](https://github.com/ChainSafe/forest/issues/6917): Set the mainnet NV28 _FireHorse_ network upgrade epoch to `6052800` which corresponds to `Wed May 27 02:00:00 PM UTC 2026`.
+
+### Fixed
+
+- [#7001](https://github.com/ChainSafe/forest/pull/7001): Fix `transactionPosition` to be 0-indexed in `Filecoin.EthTraceBlock`, `Filecoin.EthTraceFilter`, and `Filecoin.EthTraceTransaction` responses, matching Lotus.
+
+- [#7025](https://github.com/ChainSafe/forest/pull/7025): `eth_getTransactionReceipt` no longer fails when another transaction in the same tipset emits a large number of events. `max_filter_results` now caps only multi-tipset event queries; single-block calls (`eth_getLogs` with `blockHash`, `eth_getBlockReceipts`, `eth_getTransactionReceipt`) bypass it. Public RPC operators should apply rate and response-size limits at the proxy layer for these calls; a single response can be large when a block contains log-heavy transactions. Ports [filecoin-project/lotus#13617](https://github.com/filecoin-project/lotus/pull/13617).
+
+## Forest v0.33.3 "Dawn"
+
+Non-mandatory release for all node operators. It includes a few fixes to make the chain following logic more robust and eliminate a few non-critical warnings.
+
+### Breaking
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#7019](https://github.com/ChainSafe/forest/pull/7019): [chain follower] skip a sync target tipset if it's part of the current chain.
+
 ## Forest v0.33.2 "Night Mare"
 
 Mandatory release for calibnet node operators. It includes support for the NV28 _FireHorse_ network upgrade for calibnet, which is set to activate at epoch `3694534` (2026-05-07T14:00:00Z). It also includes important fixes around the P2P protocols that could cause high memory usage.

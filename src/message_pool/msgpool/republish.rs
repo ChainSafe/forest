@@ -18,6 +18,7 @@ use crate::message_pool::{
     provider::Provider,
     utils::get_base_fee_lower_bound,
 };
+use crate::prelude::ShallowClone;
 use crate::shim::address::Address;
 use crate::utils::ShallowClone as _;
 

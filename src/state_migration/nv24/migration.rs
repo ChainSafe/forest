@@ -3,33 +3,27 @@
 //
 //! This module contains the migration logic for the `NV24` upgrade.
 
-use std::sync::Arc;
-
+use super::{SystemStateOld, power, system, verifier::Verifier};
 use crate::networks::{ChainConfig, Height};
+use crate::prelude::*;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     machine::{BuiltinActor, BuiltinActorManifest},
     state_tree::{StateTree, StateTreeVersion},
 };
-use crate::utils::db::CborStoreExt as _;
-use anyhow::Context as _;
-use cid::Cid;
-
-use fvm_ipld_blockstore::Blockstore;
-
-use super::{SystemStateOld, power, system, verifier::Verifier};
 use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
+use crate::utils::db::CborStoreExt as _;
 
-impl<BS: Blockstore> StateMigration<BS> {
+impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
     pub fn add_nv24_migrations(
         &mut self,
-        store: &Arc<BS>,
+        store: &BS,
         state: &Cid,
         new_manifest: &BuiltinActorManifest,
         chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
-        let state_tree = StateTree::new_from_root(store.clone(), state)?;
+        let state_tree = StateTree::new_from_root(store, state)?;
         let system_actor = state_tree.get_required_actor(&Address::SYSTEM_ACTOR)?;
         let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;
 
@@ -70,12 +64,12 @@ impl<BS: Blockstore> StateMigration<BS> {
 #[allow(dead_code)]
 pub fn run_migration<DB>(
     chain_config: &ChainConfig,
-    blockstore: &Arc<DB>,
+    blockstore: &DB,
     state: &Cid,
     epoch: ChainEpoch,
 ) -> anyhow::Result<Cid>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     let new_manifest_cid = chain_config
         .height_infos
@@ -96,8 +90,8 @@ where
     let mut migration = StateMigration::<DB>::new(Some(verifier));
     migration.add_nv24_migrations(blockstore, state, &new_manifest, chain_config)?;
 
-    let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
-    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
+    let actors_in = StateTree::new_from_root(blockstore, state)?;
+    let actors_out = StateTree::new(blockstore, StateTreeVersion::V5)?;
     let new_state = migration.migrate_state_tree(blockstore, epoch, actors_in, actors_out)?;
 
     Ok(new_state)

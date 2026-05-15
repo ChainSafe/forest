@@ -21,10 +21,7 @@ use crate::shim::{
 use crate::utils::encoding::from_slice_with_fallback;
 use anyhow::{Context as _, bail};
 use cid::Cid;
-use fvm_ipld_blockstore::{
-    Blockstore,
-    tracking::{BSStats, TrackingBlockstore},
-};
+use fvm_ipld_blockstore::tracking::{BSStats, TrackingBlockstore};
 use fvm_shared4::{
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
@@ -34,23 +31,23 @@ use fvm4::{
     gas::{Gas, GasTracker},
 };
 
-pub struct ForestExterns<DB> {
+pub struct ForestExterns {
     rand: Box<dyn Rand>,
     heaviest_tipset: Tipset,
     epoch: ChainEpoch,
     root: Cid,
-    chain_index: ChainIndex<DB>,
+    chain_index: ChainIndex,
     chain_config: Arc<ChainConfig>,
     bail: AtomicBool,
 }
 
-impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
+impl ForestExterns {
     pub fn new(
         rand: impl Rand + 'static,
         heaviest_tipset: Tipset,
         epoch: ChainEpoch,
         root: Cid,
-        chain_index: ChainIndex<DB>,
+        chain_index: ChainIndex,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
         ForestExterns {
@@ -87,7 +84,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
         }
 
         let prev_root = self.get_lookback_tipset_state_root_for_round(height)?;
-        let lb_state = StateTree::new_from_root(Arc::clone(self.chain_index.db()), &prev_root)?;
+        let lb_state = StateTree::new_from_root(self.chain_index.db(), &prev_root)?;
 
         let actor = lb_state
             .get_actor(miner_addr)?
@@ -99,7 +96,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
 
         let worker = ms.info(&tbs)?.worker;
 
-        let state = StateTree::new_from_root(Arc::clone(self.chain_index.db()), &self.root)?;
+        let state = StateTree::new_from_root(self.chain_index.db(), &self.root)?;
 
         let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
 
@@ -126,13 +123,13 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
     }
 }
 
-impl<DB: Blockstore + Send + Sync + 'static> Externs for ForestExterns<DB> {}
+impl Externs for ForestExterns {}
 
-impl<DB: Blockstore> Chain for ForestExterns<DB> {
+impl Chain for ForestExterns {
     fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
         let ts = self
             .chain_index
-            .tipset_by_height(
+            .load_required_tipset_by_height(
                 epoch,
                 self.heaviest_tipset.clone(),
                 ResolveNullTipset::TakeOlder,
@@ -142,7 +139,7 @@ impl<DB: Blockstore> Chain for ForestExterns<DB> {
     }
 }
 
-impl<DB> Rand for ForestExterns<DB> {
+impl Rand for ForestExterns {
     fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         self.rand.get_chain_randomness(round)
     }
@@ -152,7 +149,7 @@ impl<DB> Rand for ForestExterns<DB> {
     }
 }
 
-impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
+impl Consensus for ForestExterns {
     // See https://github.com/filecoin-project/lotus/blob/v1.18.0/chain/vm/fvm.go#L102-L216 for reference implementation
     fn verify_consensus_fault(
         &self,

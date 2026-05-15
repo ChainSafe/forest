@@ -3,10 +3,10 @@
 
 use std::num::NonZeroUsize;
 
-use cid::Cid;
 use nonzero_ext::nonzero;
 
-use crate::utils::{ShallowClone, cache::SizeTrackingLruCache, get_size};
+use crate::prelude::*;
+use crate::utils::{cache::SizeTrackingLruCache, get_size};
 
 /// Default capacity for CID caches (32768 entries).
 /// That's about 4 MiB.
@@ -23,6 +23,14 @@ pub struct BadBlockCache {
 impl Default for BadBlockCache {
     fn default() -> Self {
         Self::new(DEFAULT_CID_CACHE_CAPACITY)
+    }
+}
+
+impl ShallowClone for BadBlockCache {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            cache: self.cache.shallow_clone(),
+        }
     }
 }
 

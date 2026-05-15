@@ -9,7 +9,6 @@ use crate::shim::actors::MultisigActorStateLoad as _;
 use crate::shim::actors::multisig;
 use crate::shim::{address::Address, econ::TokenAmount};
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 use num_bigint::BigInt;
 
 pub enum MsigGetAvailableBalance {}
@@ -24,7 +23,7 @@ impl RpcMethod<2> for MsigGetAvailableBalance {
     type Ok = TokenAmount;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -34,7 +33,7 @@ impl RpcMethod<2> for MsigGetAvailableBalance {
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
         let actor_balance = TokenAmount::from(&actor.balance);
-        let ms = multisig::State::load(ctx.store(), actor.code, actor.state)?;
+        let ms = multisig::State::load(ctx.db(), actor.code, actor.state)?;
         let locked_balance = ms.locked_balance(height)?;
         let avail_balance = &actor_balance - locked_balance;
         Ok(avail_balance)
@@ -53,7 +52,7 @@ impl RpcMethod<2> for MsigGetPending {
     type Ok = Vec<Transaction>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -62,7 +61,7 @@ impl RpcMethod<2> for MsigGetPending {
             .state_manager
             .get_actor_state_from_address(&ts, &address)?;
         let txns = ms
-            .get_pending_txn(ctx.store())?
+            .get_pending_txn(ctx.db())?
             .into_iter()
             .map(|txn| Transaction {
                 id: txn.id,
@@ -88,7 +87,7 @@ impl RpcMethod<3> for MsigGetVested {
     type Ok = BigInt;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (addr, ApiTipsetKey(start_tsk), ApiTipsetKey(end_tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -128,7 +127,7 @@ impl RpcMethod<2> for MsigGetVestingSchedule {
     type Ok = MsigVesting;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (addr, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

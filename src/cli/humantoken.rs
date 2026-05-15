@@ -104,10 +104,10 @@ mod si {
 mod parse {
     // ENHANCE(aatifsyed): could accept pairs like "1 nano 1 atto"
 
+    use crate::prelude::*;
     use crate::shim::econ::TokenAmount;
     use anyhow::{anyhow, bail};
     use bigdecimal::{BigDecimal, ParseBigDecimalError};
-    use itertools::Itertools as _;
     use nom::{
         IResult, Parser,
         bytes::complete::tag,

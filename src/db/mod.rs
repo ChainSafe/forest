@@ -4,25 +4,28 @@
 mod blockstore_with_read_cache;
 mod blockstore_with_write_buffer;
 pub mod car;
-mod memory;
-pub mod parity_db;
-pub mod parity_db_config;
-
-pub mod gc;
-pub mod ttl;
-pub use blockstore_with_read_cache::*;
-pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
-pub use memory::MemoryDB;
+mod db_impl;
 mod db_mode;
 mod either;
+pub mod gc;
+mod memory;
 pub mod migration;
-pub use either::Either;
+pub mod parity_db;
+pub mod parity_db_config;
+pub mod ttl;
 
-use crate::blocks::TipsetKey;
-use crate::rpc::eth::types::EthHash;
-use anyhow::{Context as _, bail};
-use cid::Cid;
+pub use blockstore_with_read_cache::*;
+pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
+pub use db_impl::DbImpl;
+pub use either::Either;
 pub use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
+pub use memory::MemoryDB;
+
+use crate::blocks::{Tipset, TipsetKey};
+use crate::rpc::eth::types::EthHash;
+use ambassador::delegatable_trait;
+use anyhow::Context as _;
+use cid::Cid;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -38,6 +41,7 @@ pub mod setting_keys {
 /// Interface used to store and retrieve settings from the database.
 /// To store IPLD blocks, use the `BlockStore` trait.
 #[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
 pub trait SettingsStore {
     /// Reads binary field from the Settings store. This should be used for
     /// non-serializable data. For serializable data, use [`SettingsStoreExt::read_obj`].
@@ -89,6 +93,7 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
 /// Interface used to store and retrieve Ethereum mappings from the database.
 /// To store IPLD blocks, use the `BlockStore` trait.
 #[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
 pub trait EthMappingsStore {
     /// Reads binary field from the `EthMappings` store. This should be used for
     /// non-serializable data. For serializable data, use [`EthMappingsStoreExt::read_obj`].
@@ -107,33 +112,12 @@ pub trait EthMappingsStore {
 
     /// Deletes `keys` if keys exist in store.
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()>;
-}
 
-pub struct DummyStore {}
+    /// Reads the tipset key for a given epoch(height) from the store.
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>>;
 
-const INDEXER_ERROR: &str =
-    "indexer disabled, enable with chain_indexer.enable_indexer / FOREST_CHAIN_INDEXER_ENABLED";
-
-impl EthMappingsStore for DummyStore {
-    fn read_bin(&self, _key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn write_bin(&self, _key: &EthHash, _value: &[u8]) -> anyhow::Result<()> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn exists(&self, _key: &EthHash) -> anyhow::Result<bool> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
-        bail!(INDEXER_ERROR)
-    }
-
-    fn delete(&self, _keys: Vec<EthHash>) -> anyhow::Result<()> {
-        bail!(INDEXER_ERROR)
-    }
+    /// Writes the tipset key for a given epoch(height) to the store.
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()>;
 }
 
 pub trait EthMappingsStoreExt {
@@ -186,6 +170,7 @@ impl PersistentStore for MemoryBlockstore {
 }
 
 #[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
 pub trait HeaviestTipsetKeyProvider {
     /// Returns the currently tracked heaviest tipset.
     fn heaviest_tipset_key(&self) -> anyhow::Result<Option<TipsetKey>>;
@@ -196,7 +181,9 @@ pub trait HeaviestTipsetKeyProvider {
 
 #[auto_impl::auto_impl(&, Arc)]
 pub trait BlockstoreWriteOpsSubscribable {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>>;
+    fn subscribe_write_ops(
+        &self,
+    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>>>;
 
     fn unsubscribe_write_ops(&self);
 }

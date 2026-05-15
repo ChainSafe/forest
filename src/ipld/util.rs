@@ -9,6 +9,7 @@ use crate::shim::executor::Receipt;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
+use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use cid::Cid;
 use futures::Stream;
@@ -139,7 +140,7 @@ enum IterateType {
 
 enum Task {
     // Yield the block, don't visit it.
-    Emit(Cid, Option<Vec<u8>>),
+    Emit(Cid, Option<Bytes>),
     // Visit all the elements, recursively.
     Iterate(ChainEpoch, Cid, IterateType, Vec<Cid>),
 }
@@ -267,7 +268,10 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
                             if let Some(data) = data {
                                 return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                             } else if let Some(data) = this.db.get(&cid)? {
-                                return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                                return Poll::Ready(Some(Ok(CarBlock {
+                                    cid,
+                                    data: data.into(),
+                                })));
                             } else if fail_on_dead_links {
                                 return Poll::Ready(Some(Err(anyhow::anyhow!(
                                     "[Emit] missing key: {cid}"
@@ -291,7 +295,10 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
                                         let new_values = extract_cids(&data)?;
                                         cid_vec.extend(new_values.into_iter().rev());
                                     }
-                                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                                    return Poll::Ready(Some(Ok(CarBlock {
+                                        cid,
+                                        data: data.into(),
+                                    })));
                                 } else if fail_on_dead_links {
                                     let type_display = match _type {
                                         IterateType::Message(c) => {
@@ -344,7 +351,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
                             update_epoch(block.epoch);
                         }
                         // Make sure we always yield a block otherwise.
-                        this.dfs.push_back(Emit(cid, Some(data)));
+                        this.dfs.push_back(Emit(cid, Some(data.into())));
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
@@ -447,7 +454,10 @@ impl<DB: Blockstore, S: CidHashSetLike> Stream for IpldStream<DB, S> {
                         let new_cids = extract_cids(&data)?;
                         this.cid_vec.extend(new_cids);
                     }
-                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                    return Poll::Ready(Some(Ok(CarBlock {
+                        cid,
+                        data: data.into(),
+                    })));
                 } else {
                     return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {cid}"))));
                 }

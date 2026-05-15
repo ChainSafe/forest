@@ -5,7 +5,7 @@ expression: spec
 openrpc: 1.3.2
 info:
   title: forest
-  version: 0.33.2
+  version: 0.33.4
 methods:
   - name: Filecoin.ChainGetTipSet
     description: Returns the tipset with the specified CID.
@@ -124,6 +124,24 @@ methods:
       required: true
       schema:
         $ref: "#/components/schemas/EthAddress"
+    paramStructure: by-position
+  - name: Filecoin.EthBaseFee
+    description: Returns the calculated base fee of the upcoming tipset in attoFIL
+    params: []
+    result:
+      name: Filecoin.EthBaseFee.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthBigInt"
+    paramStructure: by-position
+  - name: eth_baseFee
+    description: Returns the calculated base fee of the upcoming tipset in attoFIL
+    params: []
+    result:
+      name: eth_baseFee.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: Filecoin.EthBlockNumber
     params: []

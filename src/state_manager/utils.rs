@@ -16,13 +16,9 @@ use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
 use fil_actors_shared::filecoin_proofs_api::post;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
 
-impl<DB> StateManager<DB>
-where
-    DB: Blockstore,
-{
+impl StateManager {
     /// Retrieves and generates a vector of sector info for the winning `PoSt`
     /// verification.
     pub fn get_sectors_for_winning_post(
@@ -32,12 +28,12 @@ where
         miner_address: &Address,
         rand: Randomness,
     ) -> anyhow::Result<Vec<ExtendedSectorInfo>> {
-        let store = self.blockstore();
+        let store = self.db();
 
         let actor = self
             .get_actor(miner_address, *st)?
             .ok_or_else(|| Error::state("Miner actor address could not be resolved"))?;
-        let mas = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+        let mas = miner::State::load(self.db(), actor.code, actor.state)?;
 
         let proving_sectors = {
             let mut proving_sectors = BitField::new();
@@ -271,7 +267,7 @@ pub mod state_compute {
     pub async fn prepare_state_compute(
         chain: &NetworkChain,
         snapshot: &Path,
-    ) -> anyhow::Result<(Arc<StateManager<ManyCar>>, Tipset, Tipset)> {
+    ) -> anyhow::Result<(StateManager, Tipset, Tipset)> {
         let snap_car = AnyCar::try_from(snapshot)?;
         let ts_next = snap_car.heaviest_tipset()?;
         let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(snap_car)?);
@@ -280,28 +276,22 @@ pub mod state_compute {
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
-        let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )?);
-        let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
+        let chain_store = ChainStore::new(db, chain_config, genesis_header)?;
+        let state_manager = StateManager::new(chain_store)?;
         Ok((state_manager, ts, ts_next))
     }
 
     pub async fn prepare_state_validate(
         chain: &NetworkChain,
         snapshot: &Path,
-    ) -> anyhow::Result<(Arc<StateManager<ManyCar>>, FullTipset)> {
+    ) -> anyhow::Result<(StateManager, FullTipset)> {
         let (sm, _, ts) = prepare_state_compute(chain, snapshot).await?;
         let fts = load_full_tipset(sm.chain_store(), ts.key())?;
         Ok((sm, fts))
     }
 
     pub async fn state_compute(
-        state_manager: &Arc<StateManager<ManyCar>>,
+        state_manager: &StateManager,
         ts: Tipset,
         ts_next: &Tipset,
     ) -> anyhow::Result<()> {
@@ -489,7 +479,7 @@ mod test {
 /// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
 pub mod structured {
     use crate::{
-        rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace},
+        rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace, TraceIpld},
         shim::kernel::ErrorNumber,
     };
     use std::collections::VecDeque;
@@ -626,6 +616,8 @@ pub mod structured {
             let mut gas_charges = vec![];
             let mut subcalls = vec![];
             let mut actor_trace = None;
+            let mut logs = vec![];
+            let mut ipld_ops = vec![];
 
             // we don't use a for loop over `events` so we can pass them to recursive calls
             while let Some(event) = events.pop_front() {
@@ -641,7 +633,10 @@ pub mod structured {
                     ExecutionEvent::CallReturn(ret) => Some(CallTreeReturn::Return(ret)),
                     ExecutionEvent::CallAbort(ab) => Some(CallTreeReturn::Abort(ab)),
                     ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
-                    ExecutionEvent::Log(_ignored) => None,
+                    ExecutionEvent::Log(log) => {
+                        logs.push(log);
+                        None
+                    }
                     ExecutionEvent::InvokeActor(cid) => {
                         actor_trace = match cid {
                             Either::Left(_cid) => None,
@@ -652,7 +647,14 @@ pub mod structured {
                         };
                         None
                     }
-                    ExecutionEvent::Ipld { .. } => None,
+                    ExecutionEvent::Ipld { op, cid, size } => {
+                        ipld_ops.push(TraceIpld {
+                            op: op.into(),
+                            cid,
+                            size: size as u64,
+                        });
+                        None
+                    }
                     // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
                     //       So that BuildExecutionTraceError::UnrecognisedEvent is never constructed
                     //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554
@@ -669,6 +671,8 @@ pub mod structured {
                         gas_charges,
                         subcalls,
                         invoked_actor: actor_trace,
+                        logs,
+                        ipld_ops,
                     });
                 }
             }

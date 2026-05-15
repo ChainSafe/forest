@@ -5,15 +5,13 @@ mod gc;
 pub use gc::*;
 
 use super::{EthMappingsStore, PersistentStore, SettingsStore};
-use crate::blocks::TipsetKey;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use crate::prelude::*;
 use crate::rpc::eth::types::EthHash;
 use crate::utils::{broadcast::has_subscribers, multihash::prelude::*};
-use anyhow::Context as _;
 use bytes::Bytes;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
 use parking_lot::RwLock;
@@ -225,6 +223,21 @@ impl EthMappingsStore for ParityDb {
             (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
         }))?)
     }
+
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+        let key = epoch.to_le_bytes();
+        if let Some(bytes) = self.read_from_column(key, DbColumn::EthMappings)? {
+            Ok(Some(fvm_ipld_encoding::from_slice(&bytes)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
+        let key = ts.epoch().to_le_bytes();
+        let bytes = fvm_ipld_encoding::to_vec(ts.key())?;
+        self.write_to_column(key, bytes, DbColumn::EthMappings)
+    }
 }
 
 impl Blockstore for ParityDb {
@@ -373,15 +386,20 @@ impl ParityDb {
 }
 
 impl super::BlockstoreWriteOpsSubscribable for ParityDb {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, Bytes)>> {
-        let tx_lock = self.write_ops_broadcast_tx.read();
-        if let Some(tx) = &*tx_lock {
-            return tx.subscribe();
+    fn subscribe_write_ops(
+        &self,
+    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>>> {
+        // Use double checks to avoid concurrent first-time subscribers to create duplicate channels
+        if let Some(tx) = self.write_ops_broadcast_tx.read().as_ref() {
+            return Ok(tx.subscribe());
         }
-        drop(tx_lock);
+        let mut tx_lock = self.write_ops_broadcast_tx.write();
+        if let Some(tx) = tx_lock.as_ref() {
+            return Ok(tx.subscribe());
+        }
         let (tx, rx) = tokio::sync::broadcast::channel(65536);
-        *self.write_ops_broadcast_tx.write() = Some(tx);
-        rx
+        *tx_lock = Some(tx);
+        Ok(rx)
     }
 
     fn unsubscribe_write_ops(&self) {
@@ -394,7 +412,6 @@ mod test {
     use super::*;
     use crate::db::{BlockstoreWriteOpsSubscribable, tests::db_utils::parity::TempParityDB};
     use fvm_ipld_encoding::IPLD_RAW;
-    use itertools::Itertools as _;
     use nom::AsBytes;
     use std::ops::Deref;
 
@@ -548,8 +565,8 @@ mod test {
             Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
         ];
 
-        let mut rx1 = db.subscribe_write_ops();
-        let mut rx2 = db.subscribe_write_ops();
+        let mut rx1 = db.subscribe_write_ops().unwrap();
+        let mut rx2 = db.subscribe_write_ops().unwrap();
 
         assert!(has_subscribers(
             db.write_ops_broadcast_tx.read().as_ref().unwrap()

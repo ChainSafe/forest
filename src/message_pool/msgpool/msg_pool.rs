@@ -6,15 +6,13 @@
 // inclusion in the chain. Messages are added either directly for locally
 // published messages or through pubsub propagation.
 
-use std::num::NonZeroUsize;
-use std::{sync::Arc, time::Duration};
-
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::{HeadChanges, MINIMUM_BASE_FEE};
 use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{ChainMessage, MessageRead as _, SignedMessage, valid_for_block_inclusion};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
+use crate::prelude::*;
 use crate::rpc::eth::types::EthAddress;
 use crate::shim::{
     address::{Address, Protocol},
@@ -36,6 +34,8 @@ use get_size2::GetSize;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
+use std::num::NonZeroUsize;
+use std::{sync::Arc, time::Duration};
 use tokio::{
     sync::broadcast::{self, error::RecvError},
     task::JoinSet,
@@ -102,6 +102,17 @@ impl Caches {
                 "state_nonce".into(),
                 STATE_NONCE_CACHE_SIZE,
             ),
+        }
+    }
+}
+
+impl ShallowClone for Caches {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            bls_sig: self.bls_sig.shallow_clone(),
+            sig_val: self.sig_val.shallow_clone(),
+            key: self.key.shallow_clone(),
+            state_nonce: self.state_nonce.shallow_clone(),
         }
     }
 }
@@ -627,12 +638,13 @@ pub(in crate::message_pool) fn check_base_fee_floor(
 mod tests {
     use crate::blocks::RawBlockHeader;
     use crate::chain::ChainStore;
-    use crate::db::MemoryDB;
+    use crate::db::{DbImpl, MemoryDB};
     use crate::message_pool::provider::Provider;
     use crate::message_pool::test_provider::TestApi;
     use crate::networks::ChainConfig;
     use crate::shim::econ::TokenAmount;
     use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
+    use crate::test_utils::dummy_ticket;
     use crate::utils::db::CborStoreExt as _;
 
     use super::*;
@@ -927,7 +939,7 @@ mod tests {
 
     #[test]
     fn resolve_to_key_uses_finality_lookback() {
-        let db = Arc::new(MemoryDB::default());
+        let db: DbImpl = Arc::new(MemoryDB::default()).into();
 
         let mut cfg = ChainConfig::default();
         cfg.policy.chain_finality = 1;
@@ -937,7 +949,7 @@ mod tests {
         let bls_b = Address::new_bls(&[9u8; 48]).unwrap();
 
         // root_a: only contains f0300
-        let mut st_a = StateTree::new(db.clone(), StateTreeVersion::V5).unwrap();
+        let mut st_a = StateTree::new(&db, StateTreeVersion::V5).unwrap();
         st_a.set_actor(
             &Address::new_id(300),
             ActorState::new_empty(Cid::default(), Some(bls_a)),
@@ -946,7 +958,7 @@ mod tests {
         let root_a = st_a.flush().unwrap();
 
         // root_b: only contains f0400
-        let mut st_b = StateTree::new(db.clone(), StateTreeVersion::V5).unwrap();
+        let mut st_b = StateTree::new(&db, StateTreeVersion::V5).unwrap();
         st_b.set_actor(
             &Address::new_id(400),
             ActorState::new_empty(Cid::default(), Some(bls_b)),
@@ -955,6 +967,7 @@ mod tests {
         let root_b = st_b.flush().unwrap();
 
         let genesis = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
             state_root: root_a,
             ..Default::default()
         }));
@@ -963,6 +976,7 @@ mod tests {
 
         let ts1 = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: genesis.key().clone(),
+            ticket: dummy_ticket(1),
             epoch: 1,
             state_root: root_a,
             timestamp: 1,
@@ -972,6 +986,7 @@ mod tests {
 
         let head = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: ts1.key().clone(),
+            ticket: dummy_ticket(2),
             epoch: 2,
             state_root: root_b,
             timestamp: 2,
@@ -979,14 +994,7 @@ mod tests {
         }));
         db.put_cbor_default(head.block_headers().first()).unwrap();
 
-        let cs = ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db,
-            cfg,
-            genesis.block_headers().first().clone(),
-        )
-        .unwrap();
+        let cs = ChainStore::new(db, cfg, genesis.block_headers().first().clone()).unwrap();
 
         // f0300 exists in lookback state (root_a) → resolves successfully.
         let result = Provider::resolve_to_deterministic_address_at_finality(
