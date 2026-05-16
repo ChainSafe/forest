@@ -142,6 +142,8 @@ impl RpcMethod<2> for StateReplay {
 pub enum StateNetworkName {}
 impl RpcMethod<0> for StateNetworkName {
     const NAME: &'static str = "Filecoin.StateNetworkName";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the human-readable name of the Filecoin network.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -1179,6 +1181,8 @@ pub enum StateGetReceipt {}
 
 impl RpcMethod<2> for StateGetReceipt {
     const NAME: &'static str = "Filecoin.StateGetReceipt";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the message receipt for the given message CID.");
     const PARAM_NAMES: [&'static str; 2] = ["cid", "tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // deprecated in V1
     const PERMISSION: Permission = Permission::Read;
@@ -1204,6 +1208,8 @@ pub enum StateWaitMsgV0 {}
 
 impl RpcMethod<2> for StateWaitMsgV0 {
     const NAME: &'static str = "Filecoin.StateWaitMsg";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Searches for a message on chain, blocking until it appears, then returns its receipt.");
     const PARAM_NAMES: [&'static str; 2] = ["messageCid", "confidence"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
@@ -1380,6 +1386,8 @@ pub enum StateFetchRoot {}
 
 impl RpcMethod<2> for StateFetchRoot {
     const NAME: &'static str = "Forest.StateFetchRoot";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Fetches and ensures the given state root is available in the blockstore.");
     const PARAM_NAMES: [&'static str; 2] = ["root_cid", "save_to_file"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -2184,6 +2192,8 @@ pub enum StateSectorPreCommitInfoV0 {}
 
 impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
     const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns pre-committed sector information for the given miner and sector number.");
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
@@ -3289,6 +3299,8 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
 pub enum StateMinerInitialPledgeForSector {}
 impl RpcMethod<4> for StateMinerInitialPledgeForSector {
     const NAME: &'static str = "Filecoin.StateMinerInitialPledgeForSector";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the initial pledge collateral required for a sector.");
     const PARAM_NAMES: [&'static str; 4] = [
         "sector_duration",
         "sector_size",
