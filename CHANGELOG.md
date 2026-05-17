@@ -31,6 +31,8 @@
 
 ### Changed
 
+- [`#7066`](https://github.com/ChainSafe/forest/pull/7066): Disable JSON-RPC HTTP response compression by default. Set `FOREST_RPC_COMPRESS_MIN_BODY_SIZE` to a non-negative value (e.g. `1024`) to re-enable gzip compression of responses above that size.
+
 ### Removed
 
 ### Fixed
