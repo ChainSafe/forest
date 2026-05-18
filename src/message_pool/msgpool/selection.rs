@@ -23,10 +23,11 @@ use crate::shim::crypto::Signature;
 use crate::utils::cache::SizeTrackingCache;
 use crate::utils::get_size::CidWrapper;
 
-use super::{MpoolCtx, msg_pool::MessagePool, provider::Provider, utils::recover_sig};
+use super::{msg_pool::MessagePool, provider::Provider, utils, utils::recover_sig};
 use crate::message_pool::{
-    Error, add_to_selected_msgs,
+    Error,
     msg_chain::{Chains, NodeKey, create_message_chains},
+    msg_pool::resolve_to_key,
     msgpool::{MIN_GAS, pending_store::PendingStore},
 };
 
@@ -639,7 +640,7 @@ where
     }
 
     fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
-        let snapshot = self.pending_store.snapshot();
+        let snapshot = self.pending.snapshot();
         let mut result: Pending = HashMap::with_capacity(snapshot.len());
         for (a, mset) in snapshot {
             result.insert(a, mset.msgs);
@@ -653,7 +654,7 @@ where
         run_head_change(
             self.api.as_ref(),
             &self.caches.bls_sig,
-            &self.pending_store,
+            &self.pending,
             &self.caches.key,
             cur_ts.clone(),
             ts.clone(),
@@ -671,7 +672,7 @@ where
     ) -> Result<SelectedMessages, Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
         let gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
-        let min_gas = 1298450;
+        let min_gas = MIN_GAS;
 
         // 1. Get priority actor chains
         let priority = self.config.priority_addrs();
@@ -845,27 +846,63 @@ where
             }
         }
         for msg in msgs {
-            add_to_selected_msgs(msg, rmsgs);
+            utils::add_to_selected_msgs(msg, rmsgs);
         }
     }
 
     for ts in right_chain {
-        let mpool_ctx = MpoolCtx {
-            api,
-            key_cache,
-            pending_store,
-            ts: &ts,
-        };
         for b in ts.block_headers() {
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), rmsgs)?;
+                remove_applied_from_pool(
+                    api,
+                    key_cache,
+                    pending_store,
+                    &ts,
+                    &msg.from(),
+                    msg.sequence(),
+                    rmsgs,
+                )?;
             }
             for msg in msgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, rmsgs)?;
+                remove_applied_from_pool(
+                    api,
+                    key_cache,
+                    pending_store,
+                    &ts,
+                    &msg.from,
+                    msg.sequence,
+                    rmsgs,
+                )?;
             }
         }
+    }
+    Ok(())
+}
+
+/// Free-fn mirror of [`MessagePool::remove_applied_from_pool`] for the
+/// simulator path, which has only the individual fields to hand and not a
+/// `&MessagePool`. Bodies are intentionally identical; consolidation can
+/// happen once the simulator routes through `&MessagePool` directly.
+#[allow(clippy::too_many_arguments)]
+fn remove_applied_from_pool<T: Provider>(
+    api: &T,
+    key_cache: &IdToAddressCache,
+    pending_store: &PendingStore,
+    ts: &Tipset,
+    from: &Address,
+    sequence: u64,
+    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+) -> Result<(), Error> {
+    if rmsgs
+        .get_mut(from)
+        .and_then(|temp| temp.remove(&sequence))
+        .is_none()
+        && let Ok(resolved) = resolve_to_key(api, key_cache, from, ts)
+            .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
+    {
+        let _ = pending_store.remove(&resolved, sequence, true);
     }
     Ok(())
 }
@@ -875,7 +912,6 @@ mod test_selection {
     use std::sync::Arc;
 
     use super::*;
-    use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
     use crate::message_pool::msgpool::{
         test_provider::{TestApi, mock_block},
@@ -974,7 +1010,7 @@ mod test_selection {
             .unwrap();
 
         // we should now have no pending messages in the MessagePool
-        let remaining = mpool.pending_store.snapshot();
+        let remaining = mpool.pending.snapshot();
         assert!(
             remaining.is_empty(),
             "Expected no pending messages, but got {}",
@@ -1296,13 +1332,6 @@ mod test_selection {
 
     #[tokio::test]
     async fn message_selection_priority() {
-        let db = MemoryDB::default();
-
-        let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset);
-        let ts = mock_tipset(&mpool).await;
-        let api = mpool.api.clone();
-
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -1311,10 +1340,17 @@ mod test_selection {
         let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        // set priority addrs to a1
-        let mut mpool_cfg = mpool.get_config().clone();
-        mpool_cfg.priority_addrs.push(a1);
-        mpool.set_config(&db, mpool_cfg).unwrap();
+        let cfg = crate::message_pool::config::MpoolConfig {
+            priority_addrs: vec![a1],
+            ..Default::default()
+        };
+
+        let mut joinset = JoinSet::new();
+        let (tx, _rx) = flume::bounded(50);
+        let mpool =
+            MessagePool::new(TestApi::default(), tx, cfg, Arc::default(), &mut joinset).unwrap();
+        let ts = mock_tipset(&mpool).await;
+        let api = mpool.api.clone();
 
         // let gas_limit = 6955002;
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
