@@ -7,7 +7,6 @@ use std::{cell::Ref, sync::Arc};
 use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::chain::{index::ChainIndex, store::ChainStore};
 use crate::interpreter::errors::Error;
-use crate::interpreter::resolve_to_key_addr;
 use crate::networks::ChainConfig;
 use crate::shim::actors::miner;
 use crate::shim::{
@@ -95,7 +94,7 @@ impl ForestExternsV2 {
 
         let state = StateTree::new_from_root(self.chain_index.db(), &self.root)?;
 
-        let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
+        let addr = state.resolve_to_deterministic_address(&tbs, worker)?;
 
         let network_version = self.chain_config.network_version(self.epoch);
         let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), network_version)?;

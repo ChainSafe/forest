@@ -341,7 +341,11 @@ impl ChainStore {
             .messages_in_tipset_cache()
             .get_or_insert_with(ts.key(), || {
                 let bmsgs = BlockMessages::for_tipset(self.db(), ts)?;
-                Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect_vec())
+                Ok(bmsgs
+                    .into_iter()
+                    .flat_map(|bm| bm.messages)
+                    .collect_vec()
+                    .into())
             })?)
     }
 
@@ -589,47 +593,32 @@ where
 /// on performance measurements, is resource-intensive and can be a bottleneck for certain
 /// use-cases. This cache is intended to be used with a complementary function;
 /// [`messages_for_tipset_with_cache`].
-pub struct MessagesInTipsetCache {
-    cache: SizeTrackingCache<TipsetKey, Arc<Vec<ChainMessage>>>,
-}
+pub struct MessagesInTipsetCache(SizeTrackingCache<TipsetKey, Arc<Vec<ChainMessage>>>);
 
 impl MessagesInTipsetCache {
     pub fn new(capacity: NonZeroUsize) -> Self {
-        Self {
-            cache: SizeTrackingCache::new_with_metrics("msg_in_tipset", capacity),
-        }
+        Self(SizeTrackingCache::new_with_metrics(
+            "msg_in_tipset",
+            capacity,
+        ))
     }
 
-    pub fn get(&self, key: &TipsetKey) -> Option<Arc<Vec<ChainMessage>>> {
-        self.cache.get_cloned(key)
-    }
-
+    #[inline]
     pub fn get_or_insert_with<F>(
         &self,
         key: &TipsetKey,
         f: F,
     ) -> anyhow::Result<Arc<Vec<ChainMessage>>>
     where
-        F: FnOnce() -> anyhow::Result<Vec<ChainMessage>>,
+        F: FnOnce() -> anyhow::Result<Arc<Vec<ChainMessage>>>,
     {
-        if let Some(cached) = self.get(key) {
-            Ok(cached)
-        } else {
-            Ok(self.insert(key.clone(), f()?))
-        }
-    }
-
-    pub fn insert(&self, key: TipsetKey, mut value: Vec<ChainMessage>) -> Arc<Vec<ChainMessage>> {
-        value.shrink_to_fit();
-        let value = Arc::new(value);
-        self.cache.push(key, value.clone());
-        value
+        self.0.get_or_insert_with(key, f)
     }
 
     /// Reads the intended cache size for this process from the environment or uses the default.
     fn read_cache_size() -> NonZeroUsize {
         // Arbitrary number, can be adjusted
-        const DEFAULT: NonZeroUsize = nonzero!(1024usize);
+        const DEFAULT: NonZeroUsize = nonzero!(8192usize);
         std::env::var("FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE")
             .ok()
             .and_then(|s| s.parse().ok())
@@ -645,9 +634,7 @@ impl Default for MessagesInTipsetCache {
 
 impl ShallowClone for MessagesInTipsetCache {
     fn shallow_clone(&self) -> Self {
-        Self {
-            cache: self.cache.shallow_clone(),
-        }
+        Self(self.0.shallow_clone())
     }
 }
 
@@ -734,11 +721,11 @@ mod tests {
             DAG_CBOR,
             MultihashCode::Blake2b256.digest(&[1])
         )]);
-        assert!(cache.get(&key1).is_none());
+        assert!(cache.0.get_cloned(&key1).is_none());
 
-        let msgs = vec![Message::default().into()];
-        cache.insert(key1.clone(), msgs.clone());
-        assert_eq!(&msgs, &*cache.get(&key1).unwrap());
+        let msgs = Arc::new(vec![Message::default().into()]);
+        cache.0.push(key1.clone(), msgs.clone());
+        assert_eq!(&msgs, &cache.0.get_cloned(&key1).unwrap());
 
         let inserter_executed: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
@@ -749,7 +736,7 @@ mod tests {
 
         assert_eq!(
             &msgs,
-            &*cache.get_or_insert_with(&key1, key_inserter).unwrap()
+            &cache.get_or_insert_with(&key1, key_inserter).unwrap()
         );
         assert!(!inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
 
@@ -758,10 +745,10 @@ mod tests {
             MultihashCode::Blake2b256.digest(&[2])
         )]);
 
-        assert!(cache.get(&key2).is_none());
+        assert!(cache.0.get_cloned(&key2).is_none());
         assert_eq!(
             &msgs,
-            &*cache.get_or_insert_with(&key2, key_inserter).unwrap()
+            &cache.get_or_insert_with(&key2, key_inserter).unwrap()
         );
         assert!(inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
     }

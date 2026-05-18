@@ -16,7 +16,6 @@ use positioned_io::{ReadAt, Size};
 use std::{num::NonZeroUsize, sync::LazyLock};
 
 use crate::prelude::*;
-use crate::utils::get_size::CidWrapper;
 use quick_cache::Weighter;
 use quick_cache::sync::Cache as QuickCache;
 

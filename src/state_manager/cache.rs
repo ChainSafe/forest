@@ -28,7 +28,7 @@ static TIPSET_MISS: LazyLock<Counter> = LazyLock::new(|| {
 /// data. Coalesces concurrent computations of the same key, so only one caller
 /// actually runs the `compute` future and the rest wait on its result.
 pub(crate) struct ForestCache<K: CacheKeyConstraints, V: CacheValueConstraints> {
-    cache: Arc<SizeTrackingCache<K, V>>,
+    cache: SizeTrackingCache<K, V>,
 }
 
 impl<K: CacheKeyConstraints, V: CacheValueConstraints> ShallowClone for ForestCache<K, V> {
@@ -49,10 +49,7 @@ impl<K: CacheKeyConstraints, V: CacheValueConstraints> ForestCache<K, V> {
         cache_size: NonZeroUsize,
     ) -> Self {
         Self {
-            cache: Arc::new(SizeTrackingCache::new_with_metrics(
-                cache_identifier,
-                cache_size,
-            )),
+            cache: SizeTrackingCache::new_with_metrics(cache_identifier, cache_size),
         }
     }
 

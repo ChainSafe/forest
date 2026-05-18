@@ -106,6 +106,7 @@ where
         c
     }
 
+    #[inline]
     pub fn remove<Q>(&self, k: &Q) -> Option<V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -119,12 +120,14 @@ where
     /// value, so this is a peek-then-insert. The two steps are not atomic;
     /// concurrent callers for the same key may both observe `None`. None of
     /// the existing callers depend on atomicity here.
+    #[inline]
     pub fn push(&self, k: K, v: V) -> Option<V> {
         let prev = self.cache.peek(&k);
         self.cache.insert(k, v);
         prev
     }
 
+    #[inline]
     pub fn get_map<Q, T>(&self, k: &Q, mapper: impl FnOnce(&V) -> T) -> Option<T>
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -132,6 +135,7 @@ where
         self.cache.get(k).map(|v| mapper(&v))
     }
 
+    #[inline]
     pub fn get_cloned<Q>(&self, k: &Q) -> Option<V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -140,6 +144,7 @@ where
     }
 
     /// Read without affecting the eviction order.
+    #[inline]
     pub fn peek_cloned<Q>(&self, k: &Q) -> Option<V>
     where
         Q: Hash + Equivalent<K> + ?Sized,
@@ -147,14 +152,17 @@ where
         self.cache.peek(k)
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.cache.len()
     }
 
+    #[inline]
     pub fn cap(&self) -> usize {
         self.capacity
     }
 
+    #[inline]
     pub fn clear(&self) {
         self.cache.clear()
     }
@@ -180,6 +188,32 @@ where
                 Ok((v, false))
             }
         }
+    }
+
+    /// Gets or inserts an item in the cache with key.
+    #[inline]
+    pub fn get_or_insert_with<Q, E>(
+        &self,
+        key: &Q,
+        with: impl FnOnce() -> Result<V, E>,
+    ) -> Result<V, E>
+    where
+        Q: Hash + Equivalent<K> + ToOwned<Owned = K> + ?Sized,
+    {
+        self.cache.get_or_insert_with(key, with)
+    }
+
+    /// Gets or inserts an item in the cache with key. Async version.
+    #[inline]
+    pub async fn get_or_insert_async<Q, E>(
+        &self,
+        key: &Q,
+        with: impl Future<Output = Result<V, E>>,
+    ) -> Result<V, E>
+    where
+        Q: Hash + Equivalent<K> + ToOwned<Owned = K> + ?Sized,
+    {
+        self.cache.get_or_insert_async(key, with).await
     }
 
     pub(crate) fn size_in_bytes(&self) -> usize {

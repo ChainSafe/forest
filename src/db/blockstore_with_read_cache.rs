@@ -1,11 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
+use crate::prelude::*;
+use crate::utils::cache::SizeTrackingCache;
 use std::sync::atomic::{self, AtomicUsize};
-
-use crate::utils::{cache::SizeTrackingCache, get_size};
 
 #[auto_impl::auto_impl(&, Arc)]
 pub trait BlockstoreReadCache {
@@ -14,15 +12,15 @@ pub trait BlockstoreReadCache {
     fn put(&self, k: Cid, block: Vec<u8>);
 }
 
-pub type DefaultBlockstoreReadCache = SizeTrackingCache<get_size::CidWrapper, Vec<u8>>;
+pub type DefaultBlockstoreReadCache = SizeTrackingCache<CidWrapper, Vec<u8>>;
 
-impl BlockstoreReadCache for SizeTrackingCache<get_size::CidWrapper, Vec<u8>> {
+impl BlockstoreReadCache for SizeTrackingCache<CidWrapper, Vec<u8>> {
     fn get(&self, k: &Cid) -> Option<Vec<u8>> {
-        self.get_cloned(&get_size::CidWrapper::from(*k))
+        self.get_cloned(&CidWrapper::from(*k))
     }
 
     fn put(&self, k: Cid, block: Vec<u8>) {
-        self.push(get_size::CidWrapper::from(k), block);
+        self.push(CidWrapper::from(k), block);
     }
 }
 

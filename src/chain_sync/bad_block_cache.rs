@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use nonzero_ext::nonzero;
 
 use crate::prelude::*;
-use crate::utils::{cache::SizeTrackingCache, get_size};
+use crate::utils::cache::SizeTrackingCache;
 
 /// Default capacity for CID caches (32768 entries).
 /// That's about 4 MiB.
@@ -17,7 +17,7 @@ const DEFAULT_CID_CACHE_CAPACITY: NonZeroUsize = nonzero!(1usize << 15);
 /// work.
 #[derive(Debug)]
 pub struct BadBlockCache {
-    cache: SizeTrackingCache<get_size::CidWrapper, ()>,
+    cache: SizeTrackingCache<CidWrapper, ()>,
 }
 
 impl Default for BadBlockCache {
@@ -49,7 +49,7 @@ impl BadBlockCache {
     /// Returns `Some` if the block CID is in bad block cache.
     /// This function does not update the head position of the `Cid` key.
     pub fn peek(&self, c: &Cid) -> Option<()> {
-        self.cache.peek_cloned(&get_size::CidWrapper::from(*c))
+        self.cache.peek_cloned(&CidWrapper::from(*c))
     }
 
     pub fn clear(&self) {
@@ -61,7 +61,7 @@ impl BadBlockCache {
 /// Used to de-duplicate gossip blocks before expensive message fetching.
 #[derive(Debug)]
 pub struct SeenBlockCache {
-    cache: SizeTrackingCache<get_size::CidWrapper, ()>,
+    cache: SizeTrackingCache<CidWrapper, ()>,
 }
 
 impl ShallowClone for SeenBlockCache {

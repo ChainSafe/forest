@@ -377,6 +377,26 @@ fn start_chain_follower_service(
                                             warn!("failed to call `Block::from_filecoin_tipset` for cache warmup: {e:#}");
                                         }
                                     }
+
+                                    {
+                                        struct CollectEventsCachePrefillingMatcher;
+                                        impl crate::rpc::eth::filter::Matcher for CollectEventsCachePrefillingMatcher{
+                                            fn msg_cid_filter(&self) -> Option<&Cid> {
+                                                None
+                                            }
+                                            fn matches(
+                                                &self,
+                                                _: &crate::shim::address::Address,
+                                                _: &[crate::shim::executor::Entry],
+                                            ) -> anyhow::Result<bool> {
+                                                Ok(false)
+                                            }
+                                        }
+                                        let mut collected_events = vec![];
+                                        if let Err(e) = EthEventHandler::collect_events(&state_manager,&ts,Some(&CollectEventsCachePrefillingMatcher), crate::rpc::eth::filter::SkipEvent::OnUnresolvedAddress,&mut collected_events).await {
+                                            warn!("failed to collect events for cache warmup: {e:#}");
+                                        }
+                                    }
                                 },
                                 Err(e) => {
                                     warn!("failed to load tipset for cache warmup: {e:#}");

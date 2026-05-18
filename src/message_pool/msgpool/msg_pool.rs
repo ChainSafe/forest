@@ -34,10 +34,7 @@ use crate::shim::{
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
 use crate::utils::cache::SizeTrackingCache;
-use crate::utils::get_size::CidWrapper;
 use ahash::HashSet;
-use anyhow::Context as _;
-use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
 use get_size2::GetSize;
@@ -45,7 +42,7 @@ use itertools::Itertools;
 use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
 use std::num::NonZeroUsize;
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 use tokio::{
     sync::broadcast::{self, error::RecvError},
     task::JoinSet,

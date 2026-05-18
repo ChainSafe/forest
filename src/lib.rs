@@ -76,7 +76,10 @@ mod utils;
 mod wallet;
 
 mod prelude {
-    pub use crate::{db::Blockstore, utils::ShallowClone};
+    pub use crate::{
+        db::Blockstore,
+        utils::{ShallowClone, get_size::CidWrapper},
+    };
     pub use anyhow::Context as _;
     pub use cid::Cid;
     pub use itertools::Itertools as _;

@@ -380,7 +380,7 @@ async fn check_block_messages(
         let mut cids = Vec::with_capacity(block.bls_msgs().len());
         let db = state_manager.db();
         for m in block.bls_msgs() {
-            let pk = StateManager::get_bls_public_key(db, &m.from, *base_tipset.parent_state())?;
+            let pk = StateManager::get_bls_public_key(db, m.from, *base_tipset.parent_state())?;
             pub_keys.push(pk);
             cids.push(m.cid().to_bytes());
         }
@@ -484,7 +484,7 @@ async fn check_block_messages(
         })?;
         // Resolve key address for signature verification
         let key_addr = state_manager
-            .resolve_to_key_addr(&msg.from(), &base_tipset)
+            .resolve_to_deterministic_address(msg.from(), &base_tipset)
             .await
             .map_err(|e| TipsetSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
