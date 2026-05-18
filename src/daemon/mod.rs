@@ -341,9 +341,57 @@ fn create_chain_follower(
 
 fn start_chain_follower_service(
     services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
+    config: &Config,
     chain_follower: ChainFollower,
 ) {
-    services.spawn(async move { chain_follower.run().await });
+    services.spawn({
+        let chain_follower = chain_follower.shallow_clone();
+        async move { chain_follower.run().await }
+    });
+    // Prefill RPC method caches for newly validated tipsets to speed up subsequent RPC calls.
+    if config.client.enable_rpc && !opts.stateless {
+        let sync_status = chain_follower.sync_status.shallow_clone();
+        let state_manager = chain_follower.state_manager.shallow_clone();
+        let mut validated_tipset_rx = chain_follower.subscribe_validated_tipset();
+        services.spawn(async move {
+            loop {
+                match validated_tipset_rx.recv().await {
+                    Ok(_) if !sync_status.read().is_synced() => {
+                        // Skip if the node is catching up to avoid unnecessary work, as the head may be changing rapidly.
+                        continue;
+                    }
+                    Ok(tsk)  => {
+                        let state_manager = state_manager.shallow_clone();
+                        tokio::spawn(async move {
+                            match state_manager.chain_index().load_required_tipset(&tsk) {
+                                Ok(ts) => {
+                                    for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash]
+                                    {
+                                        if let Err(e) = crate::rpc::eth::Block::from_filecoin_tipset(
+                                            &state_manager,
+                                            ts.shallow_clone(),
+                                            tx_info,
+                                        )
+                                        .await {
+                                            warn!("failed to call `Block::from_filecoin_tipset` for cache warmup: {e:#}");
+                                        }
+                                    }
+                                },
+                                Err(e) => {
+                                    warn!("failed to load tipset for cache warmup: {e:#}");
+                                }
+                            }
+                        });
+                    }
+                    Err(RecvError::Lagged(n)) => {
+                        warn!("validated tipset broadcast lagged: skipped {n} tipsets")
+                    }
+                    Err(RecvError::Closed) => break Ok(()),
+                }
+            }
+        });
+    }
 }
 
 async fn maybe_start_health_check_service(
@@ -709,7 +757,7 @@ pub(super) async fn start_services(
         ensure_proof_params_downloaded().await?;
     }
     services.spawn(p2p_service.run());
-    start_chain_follower_service(&mut services, chain_follower);
+    start_chain_follower_service(&mut services, opts, &config, chain_follower);
     // blocking until any of the services returns an error,
     propagate_error(&mut services)
         .await
