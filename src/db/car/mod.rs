@@ -51,10 +51,10 @@ pub static ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE: LazyLock<usize> = LazyLock::new(||
 
 /// One decompressed zstd frame's index, shared via [`Arc`] so cache lookups
 /// don't deep-copy the inner [`hashbrown::HashMap`]. Snapshot export hits the
-/// cache once per CID; a per-call HashMap clone destroys throughput.
+/// cache once per CID; a per-call `HashMap` clone destroys throughput.
 type FrameIndex = Arc<hashbrown::HashMap<CidWrapper, Bytes>>;
 
-/// Weighter that bills each entry by `key.get_size() + value.get_size()`.
+/// A [`Weighter`] that bills each entry by `key.get_size() + value.get_size()`.
 /// Used to make [`ZstdFrameCache`] evict by byte size.
 #[derive(Clone, Copy, Debug, Default)]
 struct ZstdFrameWeighter;

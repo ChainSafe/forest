@@ -117,7 +117,7 @@ where
     ///
     /// `quick_cache::sync::Cache::insert` does not return the displaced
     /// value, so this is a peek-then-insert. The two steps are not atomic;
-    /// concurrent inserters for the same key may both observe `None`. None of
+    /// concurrent callers for the same key may both observe `None`. None of
     /// the existing callers depend on atomicity here.
     pub fn push(&self, k: K, v: V) -> Option<V> {
         let prev = self.cache.peek(&k);
