@@ -222,11 +222,38 @@ impl From<Height> for NetworkVersion {
     }
 }
 
+/// Checks if the given height is an expensive migration.
+/// See <https://github.com/filecoin-project/lotus/blob/master/chain/consensus/filcns/upgrades.go>
+pub const fn is_expensive_migration(height: Height) -> bool {
+    matches!(
+        height,
+        Height::Assembly
+            | Height::Trust
+            | Height::Turbo
+            | Height::Hyperdrive
+            | Height::Chocolate
+            | Height::OhSnap
+            | Height::Skyr
+            | Height::Shark
+            | Height::Hygge
+            | Height::Lightning
+            | Height::Watermelon
+            | Height::Dragon
+            | Height::Waffle
+            | Height::TukTuk
+            | Height::Teep
+            | Height::GoldenWeek
+            | Height::FireHorse
+    )
+}
+
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct HeightInfo {
     pub epoch: ChainEpoch,
     pub bundle: Option<Cid>,
+    #[serde(default)]
+    pub expensive: bool,
 }
 
 pub struct HeightInfoWithActorManifest<'a> {
@@ -512,6 +539,17 @@ impl ChainConfig {
             .unwrap_or(0)
     }
 
+    /// Returns true if executing between `parent` and `height` (exclusive of `height`) would
+    /// cross an expensive state migration.
+    pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
+        if parent >= height {
+            return false;
+        }
+        self.height_infos
+            .values()
+            .any(|info| info.expensive && info.epoch >= parent && info.epoch < height)
+    }
+
     pub async fn genesis_bytes<DB: SettingsStore>(
         &self,
         db: &DB,
@@ -599,6 +637,7 @@ macro_rules! make_height {
             HeightInfo {
                 epoch: $epoch,
                 bundle: None,
+                expensive: $crate::networks::is_expensive_migration(Height::$id),
             },
         )
     };
@@ -608,6 +647,7 @@ macro_rules! make_height {
             HeightInfo {
                 epoch: $epoch,
                 bundle: Some(Cid::try_from($bundle).unwrap()),
+                expensive: $crate::networks::is_expensive_migration(Height::$id),
             },
         )
     };
@@ -676,6 +716,24 @@ mod tests {
     #[test]
     fn test_mainnet_heights() {
         heights_are_present(&mainnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn height_info_expensive_flag_matches_is_expensive_migration() {
+        for height in Height::iter() {
+            let Some(info) = mainnet::HEIGHT_INFOS.get(&height) else {
+                continue;
+            };
+            assert_eq!(info.expensive, is_expensive_migration(height), "{height:?}");
+        }
+    }
+
+    #[test]
+    fn has_expensive_fork_between_matches_upgrade_epochs() {
+        let cfg = ChainConfig::mainnet();
+        let shark = cfg.epoch(Height::Shark);
+        assert!(cfg.has_expensive_fork_between(shark - 1, shark + 1));
+        assert!(!cfg.has_expensive_fork_between(shark - 1, shark));
     }
 
     #[test]
