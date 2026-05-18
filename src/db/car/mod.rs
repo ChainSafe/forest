@@ -131,7 +131,7 @@ impl ZstdFrameCache {
         let entry_size = index.get_size();
         // Skip individual items larger than the whole cache — they'd evict
         // everything and still not fit.
-        if entry_size.saturating_add(cache_key_size) >= self.max_size {
+        if entry_size.saturating_add(cache_key_size) > self.max_size {
             return;
         }
         self.cache.insert(cache_key, Arc::new(index));
