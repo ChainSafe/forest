@@ -5,6 +5,7 @@ arg "<profile>" help="Installation profile (quick, release, etc.)" default="rele
    choices "quick" "quick-test" "release" "release-lto-fat" "dev" "debugging" "profiling"
 }
 flag "--slim" help="Install a slim version"
+flag "--native" help="Enable native CPU optimizations (-C target-cpu=native). Produced binaries are not portable across CPUs."
 flag "-v --verbose" help="Enable verbose output"
 '''
 shell = "bash -c"
@@ -13,6 +14,10 @@ echo "Installing Forest binaries with profile: ${usage_profile?}"
 [[ -n "${usage_verbose}" ]] && set -x
 if [ "${usage_slim}" = true ]; then
     SLIM_FLAGS="--no-default-features --features slim"
+fi
+if [ "${usage_native}" = true ]; then
+    export RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native"
+    echo "Native CPU optimizations enabled: RUSTFLAGS=${RUSTFLAGS}"
 fi
 cargo install --profile ${usage_profile} ${SLIM_FLAGS} --locked --path . --force
 '''

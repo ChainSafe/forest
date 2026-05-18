@@ -32,7 +32,7 @@ const COMPRESS_MIN_BODY_SIZE_VAR: &str = "FOREST_RPC_COMPRESS_MIN_BODY_SIZE";
 ///   be gzip-encoded; smaller responses are sent as-is. Values above
 ///   `u16::MAX` are clamped because `SizeAbove` is backed by a `u16`.
 /// - Any negative integer (e.g. `-1`) disables compression entirely.
-/// - Unset defaults to 1 KiB.
+/// - Unset defaults to disabled.
 pub(crate) static COMPRESS_MIN_BODY_SIZE: LazyLock<Option<u16>> = LazyLock::new(|| {
     parse_compress_min_body_size(env::var(COMPRESS_MIN_BODY_SIZE_VAR).ok().as_deref())
 });
@@ -41,24 +41,18 @@ pub(crate) static COMPRESS_MIN_BODY_SIZE: LazyLock<Option<u16>> = LazyLock::new(
 ///
 /// Returns `None` to signal "compression disabled", `Some(bytes)` for the
 /// minimum response size above which compression should be applied.
-/// Unset and unparsable values fall back to the 1 KiB default.
+/// Unset and unparsable values fall back to disabled.
 /// Values above `u16::MAX` are clamped to `u16::MAX`.
 fn parse_compress_min_body_size(raw: Option<&str>) -> Option<u16> {
-    // Seems like a sane default, e.g., `erpc` uses 1024 bytes as well.
-    // <https://docs.erpc.cloud/config/database/evm-json-rpc-cache#compression>
-    const DEFAULT: u16 = 1024;
-    let Some(raw) = raw else {
-        return Some(DEFAULT);
-    };
     // Parse as i128 so any realistically-typable integer lands in one of the
-    // defined branches (negative → None, too-large → clamp) rather than
-    // silently falling back to DEFAULT just because it didn't fit in i32.
-    let Ok(parsed) = raw.parse::<i128>() else {
+    // defined branches (negative → disabled, too-large → clamp) rather than
+    // silently disabling just because it didn't fit in i32.
+    let Ok(parsed) = raw?.parse::<i128>() else {
         tracing::warn!(
             "{COMPRESS_MIN_BODY_SIZE_VAR}={raw:?} is not a valid integer; \
-             falling back to default ({DEFAULT} bytes)"
+             disabling compression"
         );
-        return Some(DEFAULT);
+        return None;
     };
     if parsed < 0 {
         return None;
@@ -201,8 +195,8 @@ mod tests {
     }
 
     #[test]
-    fn parse_defaults_when_unset() {
-        assert_eq!(parse_compress_min_body_size(None), Some(1024));
+    fn parse_unset_disables() {
+        assert_eq!(parse_compress_min_body_size(None), None);
     }
 
     #[test]
@@ -248,9 +242,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_invalid_falls_back_to_default() {
-        assert_eq!(parse_compress_min_body_size(Some("")), Some(1024));
-        assert_eq!(parse_compress_min_body_size(Some("lots")), Some(1024));
-        assert_eq!(parse_compress_min_body_size(Some("1.5")), Some(1024));
+    fn parse_invalid_disables() {
+        assert_eq!(parse_compress_min_body_size(Some("")), None);
+        assert_eq!(parse_compress_min_body_size(Some("lots")), None);
+        assert_eq!(parse_compress_min_body_size(Some("1.5")), None);
     }
 }
