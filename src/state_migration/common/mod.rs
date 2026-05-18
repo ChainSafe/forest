@@ -31,10 +31,7 @@ pub(in crate::state_migration) struct MigrationCache {
 impl MigrationCache {
     pub fn new(size: NonZeroUsize) -> Self {
         Self {
-            cache: Arc::new(SizeTrackingLruCache::new_with_metrics(
-                "migration".into(),
-                size,
-            )),
+            cache: Arc::new(SizeTrackingLruCache::new_with_metrics("migration", size)),
         }
     }
 
