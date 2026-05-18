@@ -332,6 +332,13 @@ lto = "thin"
 inherits = "release"
 lto = "fat"
 
+# Release-equivalent build with debug symbols retained, for use with
+# samply/perf/flamegraph. Run with: cargo build --profile release-symbols --bin forest
+[profile.release-symbols]
+inherits = "release"
+strip = false
+debug = "line-tables-only"
+
 # These should be refactored (probably removed) in #2984
 [features]
 default = ["jemalloc", "tracing-loki", "sqlite"]

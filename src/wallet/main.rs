@@ -14,6 +14,14 @@ pub async fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<
 where
     ArgT: Into<OsString> + Clone,
 {
+    // Preliminary client without the token to check network. This needs to occur before parsing to ensure the `StrictAddress` validation works correctly.
+    let client = rpc::Client::default_or_from_env(None)?;
+    if let Ok(name) = StateNetworkName::call(&client, ()).await
+        && !matches!(NetworkChain::from_str(&name), Ok(NetworkChain::Mainnet))
+    {
+        CurrentNetwork::set_global(Network::Testnet);
+    }
+
     // Capture Cli inputs
     let Cli {
         opts,
@@ -24,11 +32,6 @@ where
 
     let client = rpc::Client::default_or_from_env(opts.token.as_deref())?;
 
-    let name = StateNetworkName::call(&client, ()).await?;
-    let chain = NetworkChain::from_str(&name)?;
-    if chain.is_testnet() {
-        CurrentNetwork::set_global(Network::Testnet);
-    }
     // Run command
     cmd.run(client, remote_wallet, encrypt).await
 }
