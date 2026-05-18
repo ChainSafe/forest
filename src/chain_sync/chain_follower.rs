@@ -794,7 +794,7 @@ impl SyncStateMachine {
         }
     }
 
-    fn mark_validated_tipset(&mut self, tipset: FullTipset, is_proposed_head: bool) -> bool {
+    fn try_mark_tipset_as_validated(&mut self, tipset: FullTipset, is_proposed_head: bool) -> bool {
         if !self.is_parent_validated(&tipset) {
             tracing::error!(epoch = %tipset.epoch(), tsk = %tipset.key(), parent_state = %tipset.parent_state(), "Parent tipset must be validated");
             return false;
@@ -840,7 +840,7 @@ impl SyncStateMachine {
                 is_proposed_head,
             } => {
                 let tsk = tipset.key().clone();
-                if self.mark_validated_tipset(tipset, is_proposed_head)
+                if self.try_mark_tipset_as_validated(tipset, is_proposed_head)
                     && crate::utils::broadcast::has_subscribers(&self.validated_tipset_broadcast_tx)
                     && let Err(e) = self.validated_tipset_broadcast_tx.send(tsk)
                 {
@@ -1099,7 +1099,7 @@ mod tests {
             for (ts, is_proposed_head) in validation_tipsets {
                 validation_tasks.push(ts.epoch());
                 db.put_cbor_default(&ts.epoch()).unwrap();
-                state_machine.mark_validated_tipset(ts, is_proposed_head);
+                state_machine.try_mark_tipset_as_validated(ts, is_proposed_head);
             }
         }
 
