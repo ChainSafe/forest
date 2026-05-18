@@ -96,10 +96,7 @@ impl Caches {
             bls_sig: SizeTrackingCache::new_with_metrics("bls_sig", BLS_SIG_CACHE_SIZE),
             sig_val: SizeTrackingCache::new_with_metrics("sig_val", SIG_VAL_CACHE_SIZE),
             key: SizeTrackingCache::new_with_metrics("mpool_key", KEY_CACHE_SIZE),
-            state_nonce: SizeTrackingCache::new_with_metrics(
-                "state_nonce",
-                STATE_NONCE_CACHE_SIZE,
-            ),
+            state_nonce: SizeTrackingCache::new_with_metrics("state_nonce", STATE_NONCE_CACHE_SIZE),
         }
     }
 }
@@ -571,10 +568,7 @@ fn validate_signature(
     eth_chain_id: u64,
 ) -> Result<(), Error> {
     let cid = msg.cid();
-    if sig_val_cache
-        .get_cloned(&CidWrapper::from(cid))
-        .is_some()
-    {
+    if sig_val_cache.get_cloned(&CidWrapper::from(cid)).is_some() {
         return Ok(());
     }
     msg.verify(eth_chain_id)
