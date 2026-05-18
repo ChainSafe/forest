@@ -24,7 +24,7 @@ use crate::shim::{
 };
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::get_size::{CidWrapper, GetSize};
 use ahash::HashSet;
 use anyhow::Context as _;
@@ -55,7 +55,7 @@ use crate::message_pool::{
     utils::get_base_fee_lower_bound,
 };
 
-// LruCache sizes have been taken from the lotus implementation
+// Cache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 const KEY_CACHE_SIZE: NonZeroUsize = nonzero!(1_048_576usize);
@@ -83,24 +83,21 @@ pub enum TrustPolicy {
 
 pub use super::msg_set::{MsgSetLimits, StrictnessPolicy};
 
-/// LRU caches owned by [`MessagePool`].
+/// Caches owned by [`MessagePool`].
 pub(in crate::message_pool) struct Caches {
-    pub bls_sig: SizeTrackingLruCache<CidWrapper, Signature>,
-    pub sig_val: SizeTrackingLruCache<CidWrapper, ()>,
+    pub bls_sig: SizeTrackingCache<CidWrapper, Signature>,
+    pub sig_val: SizeTrackingCache<CidWrapper, ()>,
     pub key: IdToAddressCache,
-    pub state_nonce: SizeTrackingLruCache<StateNonceCacheKey, u64>,
+    pub state_nonce: SizeTrackingCache<StateNonceCacheKey, u64>,
 }
 
 impl Caches {
     pub(in crate::message_pool) fn new() -> Self {
         Self {
-            bls_sig: SizeTrackingLruCache::new_with_metrics("bls_sig", BLS_SIG_CACHE_SIZE),
-            sig_val: SizeTrackingLruCache::new_with_metrics("sig_val", SIG_VAL_CACHE_SIZE),
-            key: SizeTrackingLruCache::new_with_metrics("mpool_key", KEY_CACHE_SIZE),
-            state_nonce: SizeTrackingLruCache::new_with_metrics(
-                "state_nonce",
-                STATE_NONCE_CACHE_SIZE,
-            ),
+            bls_sig: SizeTrackingCache::new_with_metrics("bls_sig", BLS_SIG_CACHE_SIZE),
+            sig_val: SizeTrackingCache::new_with_metrics("sig_val", SIG_VAL_CACHE_SIZE),
+            key: SizeTrackingCache::new_with_metrics("mpool_key", KEY_CACHE_SIZE),
+            state_nonce: SizeTrackingCache::new_with_metrics("state_nonce", STATE_NONCE_CACHE_SIZE),
         }
     }
 }
@@ -181,7 +178,7 @@ pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
 pub(in crate::message_pool) fn get_state_sequence<T: Provider>(
     api: &T,
     key_cache: &IdToAddressCache,
-    state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
+    state_nonce_cache: &SizeTrackingCache<StateNonceCacheKey, u64>,
     addr: &Address,
     cur_ts: &Tipset,
 ) -> Result<u64, Error> {
@@ -670,7 +667,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub(in crate::message_pool) fn add_helper<T>(
     api: &T,
-    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
+    bls_sig_cache: &SizeTrackingCache<CidWrapper, Signature>,
     pending_store: &PendingStore,
     key_cache: &IdToAddressCache,
     cur_ts: &Tipset,
@@ -765,8 +762,8 @@ mod tests {
     #[test]
     fn add_helper_message_gas_limit_test() {
         let api = TestApi::default();
-        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
-        let key_cache = SizeTrackingLruCache::new_mocked();
+        let bls_sig_cache = SizeTrackingCache::new_mocked();
+        let key_cache = SizeTrackingCache::new_mocked();
         let pending_store = test_pending_store(&api);
         let cur_ts = api.get_heaviest_tipset();
         let message = ShimMessage {
@@ -792,7 +789,7 @@ mod tests {
     #[test]
     fn test_resolve_to_key_returns_non_id_unchanged() {
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingCache::new_mocked();
         let ts = api.get_heaviest_tipset();
 
         let bls_addr = Address::new_bls(&[1u8; 48]).unwrap();
@@ -808,7 +805,7 @@ mod tests {
     #[test]
     fn test_resolve_to_key_resolves_id_and_caches() {
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingCache::new_mocked();
         let ts = api.get_heaviest_tipset();
 
         let id_addr = Address::new_id(100);
@@ -831,8 +828,8 @@ mod tests {
     #[test]
     fn test_add_helper_keys_pending_by_resolved_address() {
         let api = TestApi::default();
-        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
-        let key_cache = SizeTrackingLruCache::new_mocked();
+        let bls_sig_cache = SizeTrackingCache::new_mocked();
+        let key_cache = SizeTrackingCache::new_mocked();
         let pending_store = test_pending_store(&api);
         let cur_ts = api.get_heaviest_tipset();
 
@@ -874,8 +871,8 @@ mod tests {
     #[test]
     fn test_get_sequence_works_with_both_address_forms() {
         let api = TestApi::default();
-        let bls_sig_cache = SizeTrackingLruCache::new_mocked();
-        let key_cache = SizeTrackingLruCache::new_mocked();
+        let bls_sig_cache = SizeTrackingCache::new_mocked();
+        let key_cache = SizeTrackingCache::new_mocked();
         let pending_store = test_pending_store(&api);
         let cur_ts = api.get_heaviest_tipset();
 
@@ -925,8 +922,8 @@ mod tests {
         use crate::message_pool::test_provider::mock_block;
 
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let state_nonce_cache = SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingCache::new_mocked();
+        let state_nonce_cache = SizeTrackingCache::new_mocked();
 
         let sender = Address::new_bls(&[3u8; 48]).unwrap();
         api.set_state_sequence(&sender, 5);
@@ -950,8 +947,8 @@ mod tests {
         use crate::message_pool::test_provider::mock_block;
 
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let state_nonce_cache = SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingCache::new_mocked();
+        let state_nonce_cache = SizeTrackingCache::new_mocked();
 
         let addr_a = Address::new_bls(&[4u8; 48]).unwrap();
         let addr_b = Address::new_bls(&[5u8; 48]).unwrap();
@@ -989,9 +986,9 @@ mod tests {
         use crate::message_pool::test_provider::mock_block;
 
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64> =
-            SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingCache::new_mocked();
+        let state_nonce_cache: SizeTrackingCache<StateNonceCacheKey, u64> =
+            SizeTrackingCache::new_mocked();
 
         let sender = Address::new_bls(&[6u8; 48]).unwrap();
         api.set_state_sequence(&sender, 5);
@@ -1021,9 +1018,9 @@ mod tests {
         use crate::message_pool::test_provider::mock_block;
 
         let api = TestApi::default();
-        let key_cache = SizeTrackingLruCache::new_mocked();
-        let state_nonce_cache: SizeTrackingLruCache<StateNonceCacheKey, u64> =
-            SizeTrackingLruCache::new_mocked();
+        let key_cache = SizeTrackingCache::new_mocked();
+        let state_nonce_cache: SizeTrackingCache<StateNonceCacheKey, u64> =
+            SizeTrackingCache::new_mocked();
 
         let sender = Address::new_bls(&[7u8; 48]).unwrap();
         api.set_state_sequence(&sender, 10);

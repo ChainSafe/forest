@@ -4,7 +4,7 @@
 use crate::chain::MINIMUM_BASE_FEE;
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::shim::{crypto::Signature, econ::TokenAmount, message::Message};
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::get_size::CidWrapper;
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
@@ -46,7 +46,7 @@ pub(in crate::message_pool) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit:
 /// Attempt to get a signed message that corresponds to an unsigned message in
 /// `bls_sig_cache`.
 pub(in crate::message_pool) fn recover_sig(
-    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
+    bls_sig_cache: &SizeTrackingCache<CidWrapper, Signature>,
     msg: Message,
 ) -> Result<SignedMessage, Error> {
     let val = bls_sig_cache

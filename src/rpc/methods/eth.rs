@@ -54,7 +54,7 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::cache::ForestLruCache;
+use crate::state_manager::cache::ForestCache;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -478,9 +478,9 @@ impl Block {
         tipset: crate::blocks::Tipset,
         tx_info: TxInfo,
     ) -> Result<Arc<Self>> {
-        static ETH_BLOCK_HASH_TX_CACHE: LazyLock<ForestLruCache<CidWrapper, Arc<Block>>> =
+        static ETH_BLOCK_HASH_TX_CACHE: LazyLock<ForestCache<CidWrapper, Arc<Block>>> =
             LazyLock::new(|| {
-                ForestLruCache::with_size("eth_block_hash_tx", Block::block_cache_size())
+                ForestCache::with_size("eth_block_hash_tx", Block::block_cache_size())
             });
 
         match tx_info {
@@ -505,9 +505,9 @@ impl Block {
         ctx: Ctx,
         tipset: crate::blocks::Tipset,
     ) -> Result<Arc<Self>> {
-        static ETH_BLOCK_FULL_TX_CACHE: LazyLock<ForestLruCache<CidWrapper, Arc<Block>>> =
+        static ETH_BLOCK_FULL_TX_CACHE: LazyLock<ForestCache<CidWrapper, Arc<Block>>> =
             LazyLock::new(|| {
-                ForestLruCache::with_size("eth_block_full_tx", Block::block_cache_size())
+                ForestCache::with_size("eth_block_full_tx", Block::block_cache_size())
             });
 
         let block_cid = tipset.key().cid()?;

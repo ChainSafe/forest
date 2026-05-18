@@ -25,7 +25,7 @@ use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::shim::{address::Address, crypto::Signature};
 use crate::state_manager::IdToAddressCache;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::get_size::CidWrapper;
 use ahash::{HashMap, HashMapExt, HashSet};
 use fvm_ipld_encoding::to_vec;
@@ -208,12 +208,12 @@ where
 #[allow(clippy::too_many_arguments)]
 pub(in crate::message_pool) fn head_change<T>(
     api: &T,
-    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
+    bls_sig_cache: &SizeTrackingCache<CidWrapper, Signature>,
     republish: &RepublishState,
     pending_store: &PendingStore,
     cur_tipset: &SyncRwLock<Tipset>,
     key_cache: &IdToAddressCache,
-    state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
+    state_nonce_cache: &SizeTrackingCache<StateNonceCacheKey, u64>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -348,7 +348,7 @@ impl<T: Provider> MpoolCtx<'_, T> {
     /// included in the current tipset.
     pub(in crate::message_pool) fn get_state_sequence(
         &self,
-        state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
+        state_nonce_cache: &SizeTrackingCache<StateNonceCacheKey, u64>,
         addr: &Address,
     ) -> Result<u64, Error> {
         msg_pool::get_state_sequence(self.api, self.key_cache, state_nonce_cache, addr, self.ts)

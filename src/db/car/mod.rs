@@ -126,15 +126,15 @@ impl ZstdFrameCache {
     ) {
         index.shrink_to_fit();
 
-        let lru_key = (offset, key);
-        let lru_key_size = lru_key.get_size();
+        let cache_key = (offset, key);
+        let cache_key_size = cache_key.get_size();
         let entry_size = index.get_size();
         // Skip individual items larger than the whole cache — they'd evict
         // everything and still not fit.
-        if entry_size.saturating_add(lru_key_size) >= self.max_size {
+        if entry_size.saturating_add(cache_key_size) >= self.max_size {
             return;
         }
-        self.cache.insert(lru_key, Arc::new(index));
+        self.cache.insert(cache_key, Arc::new(index));
     }
 }
 

@@ -3,7 +3,7 @@
 
 use crate::prelude::*;
 use crate::state_manager::DEFAULT_TIPSET_CACHE_SIZE;
-use crate::utils::cache::{LruKeyConstraints, LruValueConstraints, SizeTrackingLruCache};
+use crate::utils::cache::{CacheKeyConstraints, CacheValueConstraints, SizeTrackingCache};
 use prometheus_client::metrics::counter::Counter;
 use std::borrow::Cow;
 use std::future::Future;
@@ -14,12 +14,12 @@ use std::sync::LazyLock;
 // locks the inner label map on every call, so we hoist the lookup to module init.
 // `Counter` is cheaply cloneable; clones share the atomic underneath.
 static TIPSET_HIT: LazyLock<Counter> = LazyLock::new(|| {
-    crate::metrics::LRU_CACHE_HIT
+    crate::metrics::CACHE_HIT
         .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
         .clone()
 });
 static TIPSET_MISS: LazyLock<Counter> = LazyLock::new(|| {
-    crate::metrics::LRU_CACHE_MISS
+    crate::metrics::CACHE_MISS
         .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
         .clone()
 });
@@ -27,11 +27,11 @@ static TIPSET_MISS: LazyLock<Counter> = LazyLock::new(|| {
 /// A cache that handles concurrent access and computation for tipset-related
 /// data. Coalesces concurrent computations of the same key, so only one caller
 /// actually runs the `compute` future and the rest wait on its result.
-pub(crate) struct ForestLruCache<K: LruKeyConstraints, V: LruValueConstraints> {
-    cache: Arc<SizeTrackingLruCache<K, V>>,
+pub(crate) struct ForestCache<K: CacheKeyConstraints, V: CacheValueConstraints> {
+    cache: Arc<SizeTrackingCache<K, V>>,
 }
 
-impl<K: LruKeyConstraints, V: LruValueConstraints> ShallowClone for ForestLruCache<K, V> {
+impl<K: CacheKeyConstraints, V: CacheValueConstraints> ShallowClone for ForestCache<K, V> {
     fn shallow_clone(&self) -> Self {
         Self {
             cache: self.cache.shallow_clone(),
@@ -39,7 +39,7 @@ impl<K: LruKeyConstraints, V: LruValueConstraints> ShallowClone for ForestLruCac
     }
 }
 
-impl<K: LruKeyConstraints, V: LruValueConstraints> ForestLruCache<K, V> {
+impl<K: CacheKeyConstraints, V: CacheValueConstraints> ForestCache<K, V> {
     pub fn new(cache_identifier: impl Into<Cow<'static, str>>) -> Self {
         Self::with_size(cache_identifier, DEFAULT_TIPSET_CACHE_SIZE)
     }
@@ -49,7 +49,7 @@ impl<K: LruKeyConstraints, V: LruValueConstraints> ForestLruCache<K, V> {
         cache_size: NonZeroUsize,
     ) -> Self {
         Self {
-            cache: Arc::new(SizeTrackingLruCache::new_with_metrics(
+            cache: Arc::new(SizeTrackingCache::new_with_metrics(
                 cache_identifier,
                 cache_size,
             )),
@@ -106,7 +106,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tipset_cache_basic_functionality() {
-        let cache: ForestLruCache<TipsetKey, String> = ForestLruCache::new("test");
+        let cache: ForestCache<TipsetKey, String> = ForestCache::new("test");
         let key = create_test_tipset_key(1);
 
         let result = cache
@@ -124,7 +124,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrent_same_key_computation() {
-        let cache: Arc<ForestLruCache<TipsetKey, String>> = Arc::new(ForestLruCache::new("test"));
+        let cache: Arc<ForestCache<TipsetKey, String>> = Arc::new(ForestCache::new("test"));
         let key = create_test_tipset_key(1);
         let computation_count = Arc::new(AtomicU8::new(0));
 
@@ -165,7 +165,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrent_different_keys() {
-        let cache: Arc<ForestLruCache<TipsetKey, String>> = Arc::new(ForestLruCache::new("test"));
+        let cache: Arc<ForestCache<TipsetKey, String>> = Arc::new(ForestCache::new("test"));
         let computation_count = Arc::new(AtomicU8::new(0));
 
         let mut handles = vec![];

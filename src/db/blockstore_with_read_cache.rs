@@ -5,7 +5,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::atomic::{self, AtomicUsize};
 
-use crate::utils::{cache::SizeTrackingLruCache, get_size};
+use crate::utils::{cache::SizeTrackingCache, get_size};
 
 #[auto_impl::auto_impl(&, Arc)]
 pub trait BlockstoreReadCache {
@@ -14,9 +14,9 @@ pub trait BlockstoreReadCache {
     fn put(&self, k: Cid, block: Vec<u8>);
 }
 
-pub type LruBlockstoreReadCache = SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>>;
+pub type DefaultBlockstoreReadCache = SizeTrackingCache<get_size::CidWrapper, Vec<u8>>;
 
-impl BlockstoreReadCache for SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>> {
+impl BlockstoreReadCache for SizeTrackingCache<get_size::CidWrapper, Vec<u8>> {
     fn get(&self, k: &Cid) -> Option<Vec<u8>> {
         self.get_cloned(&get_size::CidWrapper::from(*k))
     }
@@ -126,7 +126,7 @@ mod tests {
             mem_db.put_keyed(&key, &record).unwrap();
             records.push((key, record));
         }
-        let cache = Arc::new(LruBlockstoreReadCache::new_without_metrics_registry(
+        let cache = Arc::new(DefaultBlockstoreReadCache::new_without_metrics_registry(
             "test_blockstore_read_cache",
             CACHE_SIZE.try_into().unwrap(),
         ));

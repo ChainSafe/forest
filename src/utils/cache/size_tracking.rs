@@ -13,42 +13,41 @@ use std::{
 };
 
 use get_size2::GetSize;
-use quick_cache::Equivalent;
 use prometheus_client::{
     collector::Collector,
     encoding::{DescriptorEncoder, EncodeMetric},
     metrics::gauge::Gauge,
     registry::Unit,
 };
+use quick_cache::Equivalent;
 use quick_cache::sync::Cache;
 
 use crate::prelude::*;
 
-pub trait LruKeyConstraints:
+pub trait CacheKeyConstraints:
     GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
 {
 }
 
-impl<T> LruKeyConstraints for T where
+impl<T> CacheKeyConstraints for T where
     T: GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
 {
 }
 
-pub trait LruValueConstraints: GetSize + Debug + Send + Sync + Clone + 'static {}
+pub trait CacheValueConstraints: GetSize + Debug + Send + Sync + Clone + 'static {}
 
-impl<T> LruValueConstraints for T where T: GetSize + Debug + Send + Sync + Clone + 'static {}
+impl<T> CacheValueConstraints for T where T: GetSize + Debug + Send + Sync + Clone + 'static {}
 
 /// A concurrent cache with Prometheus instrumentation.
 ///
-/// Backed by [`quick_cache::sync::Cache`] (CLOCK-PRO). The name keeps "Lru" for
-/// API compatibility with historical call sites; the actual eviction policy is
-/// CLOCK-PRO, which is scan-resistant and typically gives higher hit rates
-/// than strict LRU on chain workloads.
+/// Backed by [`quick_cache::sync::Cache`], which uses the scan-resistant
+/// CLOCK-PRO eviction policy. Tracks total entry size in bytes for
+/// observability.
 #[derive(Debug)]
-pub struct SizeTrackingLruCache<K, V>
+pub struct SizeTrackingCache<K, V>
 where
-    K: LruKeyConstraints,
-    V: LruValueConstraints,
+    K: CacheKeyConstraints,
+    V: CacheValueConstraints,
 {
     cache_id: usize,
     cache_name: Cow<'static, str>,
@@ -56,10 +55,10 @@ where
     capacity: usize,
 }
 
-impl<K, V> ShallowClone for SizeTrackingLruCache<K, V>
+impl<K, V> ShallowClone for SizeTrackingCache<K, V>
 where
-    K: LruKeyConstraints,
-    V: LruValueConstraints,
+    K: CacheKeyConstraints,
+    V: CacheValueConstraints,
 {
     fn shallow_clone(&self) -> Self {
         Self {
@@ -71,10 +70,10 @@ where
     }
 }
 
-impl<K, V> SizeTrackingLruCache<K, V>
+impl<K, V> SizeTrackingCache<K, V>
 where
-    K: LruKeyConstraints,
-    V: LruValueConstraints,
+    K: CacheKeyConstraints,
+    V: CacheValueConstraints,
 {
     fn register_metrics(&self) {
         crate::metrics::register_collector(Box::new(self.shallow_clone()));
@@ -168,11 +167,7 @@ where
     /// Returns `(value, was_hit)`; the caller can use the flag to drive
     /// hit/miss metrics. If `compute` fails the placeholder is released and
     /// the next caller will recompute.
-    pub async fn get_or_compute<F, Fut, E>(
-        &self,
-        key: &K,
-        compute: F,
-    ) -> Result<(V, bool), E>
+    pub async fn get_or_compute<F, Fut, E>(&self, key: &K, compute: F) -> Result<(V, bool), E>
     where
         F: FnOnce() -> Fut,
         Fut: std::future::Future<Output = Result<V, E>>,
@@ -203,10 +198,10 @@ where
     }
 }
 
-impl<K, V> Collector for SizeTrackingLruCache<K, V>
+impl<K, V> Collector for SizeTrackingCache<K, V>
 where
-    K: LruKeyConstraints,
-    V: LruValueConstraints,
+    K: CacheKeyConstraints,
+    V: CacheValueConstraints,
 {
     fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
         {

@@ -16,7 +16,7 @@ use super::{
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::net::global_http_client;
 use ambassador::{Delegate, delegatable_trait};
@@ -222,10 +222,8 @@ pub struct DrandBeacon {
     fil_gen_time: u64,
     fil_round_time: u64,
 
-    /// Keeps track of verified beacon entries. Stored as `Arc<BeaconEntry>`
-    /// so that `is_verified`'s peek-and-compare path is a refcount bump
-    /// instead of cloning the BLS signature `Vec<u8>` on every check.
-    verified_beacons: SizeTrackingLruCache<u64, Arc<BeaconEntry>>,
+    /// Keeps track of verified beacon entries.
+    verified_beacons: SizeTrackingCache<u64, Arc<BeaconEntry>>,
 }
 
 impl DrandBeacon {
@@ -243,10 +241,7 @@ impl DrandBeacon {
             drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            verified_beacons: SizeTrackingLruCache::new_with_metrics(
-                "verified_beacons",
-                CACHE_SIZE,
-            ),
+            verified_beacons: SizeTrackingCache::new_with_metrics("verified_beacons", CACHE_SIZE),
         }
     }
 

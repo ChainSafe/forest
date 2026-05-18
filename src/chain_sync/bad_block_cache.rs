@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use nonzero_ext::nonzero;
 
 use crate::prelude::*;
-use crate::utils::{cache::SizeTrackingLruCache, get_size};
+use crate::utils::{cache::SizeTrackingCache, get_size};
 
 /// Default capacity for CID caches (32768 entries).
 /// That's about 4 MiB.
@@ -17,7 +17,7 @@ const DEFAULT_CID_CACHE_CAPACITY: NonZeroUsize = nonzero!(1usize << 15);
 /// work.
 #[derive(Debug)]
 pub struct BadBlockCache {
-    cache: SizeTrackingLruCache<get_size::CidWrapper, ()>,
+    cache: SizeTrackingCache<get_size::CidWrapper, ()>,
 }
 
 impl Default for BadBlockCache {
@@ -37,7 +37,7 @@ impl ShallowClone for BadBlockCache {
 impl BadBlockCache {
     pub fn new(cap: NonZeroUsize) -> Self {
         Self {
-            cache: SizeTrackingLruCache::new_with_metrics("bad_block", cap),
+            cache: SizeTrackingCache::new_with_metrics("bad_block", cap),
         }
     }
 
@@ -57,11 +57,11 @@ impl BadBlockCache {
     }
 }
 
-/// Thread-safe LRU cache for tracking recently seen gossip block CIDs.
+/// Thread-safe cache for tracking recently seen gossip block CIDs.
 /// Used to de-duplicate gossip blocks before expensive message fetching.
 #[derive(Debug)]
 pub struct SeenBlockCache {
-    cache: SizeTrackingLruCache<get_size::CidWrapper, ()>,
+    cache: SizeTrackingCache<get_size::CidWrapper, ()>,
 }
 
 impl ShallowClone for SeenBlockCache {
@@ -81,7 +81,7 @@ impl Default for SeenBlockCache {
 impl SeenBlockCache {
     pub fn new(cap: NonZeroUsize) -> Self {
         Self {
-            cache: SizeTrackingLruCache::new_with_metrics("seen_gossip_block", cap),
+            cache: SizeTrackingCache::new_with_metrics("seen_gossip_block", cap),
         }
     }
 

@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#7073](https://github.com/ChainSafe/forest/pull/7073): Replaced the underlying cache engine across the node. The eviction policy is no longer strict LRU — it is now CLOCK-PRO via [`quick_cache`](https://crates.io/crates/quick_cache), which is scan-resistant and typically gives higher hit rates on chain workloads. The Prometheus metric names `lru_cache_hit_total` and `lru_cache_miss_total` are renamed to `cache_hit_total` and `cache_miss_total`. **Operators must update dashboards, alert rules, and recording rules** that reference the old names. Label set (`kind="..."`) is unchanged.
+
 ### Added
 
 - [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
