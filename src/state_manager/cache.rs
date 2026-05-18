@@ -1,42 +1,39 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::blocks::TipsetKey;
+
 use crate::prelude::*;
 use crate::state_manager::DEFAULT_TIPSET_CACHE_SIZE;
-use crate::utils::cache::{LruValueConstraints, SizeTrackingLruCache};
+use crate::utils::cache::{LruKeyConstraints, LruValueConstraints, SizeTrackingLruCache};
 use ahash::{HashMap, HashMapExt as _};
 use parking_lot::RwLock as SyncRwLock;
+use std::borrow::Cow;
 use std::future::Future;
 use std::num::NonZeroUsize;
 use tokio::sync::Mutex as TokioMutex;
 
-struct TipsetStateCacheInner<V: LruValueConstraints> {
-    values: SizeTrackingLruCache<TipsetKey, V>,
-    pending: HashMap<TipsetKey, Arc<TokioMutex<()>>>,
+struct ForestLruCacheInner<K: LruKeyConstraints, V: LruValueConstraints> {
+    values: SizeTrackingLruCache<K, V>,
+    pending: HashMap<K, Arc<TokioMutex<()>>>,
 }
 
-impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
-    pub fn with_size(cache_identifier: &str, cache_size: NonZeroUsize) -> Self {
+impl<K: LruKeyConstraints, V: LruValueConstraints> ForestLruCacheInner<K, V> {
+    pub fn with_size(
+        cache_identifier: impl Into<Cow<'static, str>>,
+        cache_size: NonZeroUsize,
+    ) -> Self {
         Self {
-            values: SizeTrackingLruCache::new_with_metrics(
-                Self::cache_name(cache_identifier).into(),
-                cache_size,
-            ),
+            values: SizeTrackingLruCache::new_with_metrics(cache_identifier, cache_size),
             pending: HashMap::with_capacity(8),
         }
-    }
-
-    fn cache_name(cache_identifier: &str) -> String {
-        format!("tipset_state_{cache_identifier}")
     }
 }
 
 /// A generic cache that handles concurrent access and computation for tipset-related data.
-pub(crate) struct TipsetStateCache<V: LruValueConstraints> {
-    cache: Arc<SyncRwLock<TipsetStateCacheInner<V>>>,
+pub(crate) struct ForestLruCache<K: LruKeyConstraints, V: LruValueConstraints> {
+    cache: Arc<SyncRwLock<ForestLruCacheInner<K, V>>>,
 }
 
-impl<V: LruValueConstraints> ShallowClone for TipsetStateCache<V> {
+impl<K: LruKeyConstraints, V: LruValueConstraints> ShallowClone for ForestLruCache<K, V> {
     fn shallow_clone(&self) -> Self {
         Self {
             cache: self.cache.shallow_clone(),
@@ -49,14 +46,17 @@ enum CacheLookupStatus<V> {
     Empty(Arc<TokioMutex<()>>),
 }
 
-impl<V: LruValueConstraints> TipsetStateCache<V> {
-    pub fn new(cache_identifier: &str) -> Self {
+impl<K: LruKeyConstraints, V: LruValueConstraints> ForestLruCache<K, V> {
+    pub fn new(cache_identifier: impl Into<Cow<'static, str>>) -> Self {
         Self::with_size(cache_identifier, DEFAULT_TIPSET_CACHE_SIZE)
     }
 
-    pub fn with_size(cache_identifier: &str, cache_size: NonZeroUsize) -> Self {
+    pub fn with_size(
+        cache_identifier: impl Into<Cow<'static, str>>,
+        cache_size: NonZeroUsize,
+    ) -> Self {
         Self {
-            cache: Arc::new(SyncRwLock::new(TipsetStateCacheInner::with_size(
+            cache: Arc::new(SyncRwLock::new(ForestLruCacheInner::with_size(
                 cache_identifier,
                 cache_size,
             ))),
@@ -65,8 +65,8 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
 
     fn get_or_insert<F1, F2, T>(&self, get_func: F1, or_insert_func: F2) -> T
     where
-        F1: FnOnce(&TipsetStateCacheInner<V>) -> Option<T>,
-        F2: FnOnce(&mut TipsetStateCacheInner<V>) -> T,
+        F1: FnOnce(&ForestLruCacheInner<K, V>) -> Option<T>,
+        F2: FnOnce(&mut ForestLruCacheInner<K, V>) -> T,
     {
         if let Some(v) = get_func(&self.cache.read()) {
             v
@@ -75,7 +75,7 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
         }
     }
 
-    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<V>
+    pub async fn get_or_else<F, Fut>(&self, key: &K, compute: F) -> anyhow::Result<V>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = anyhow::Result<V>> + Send,
@@ -125,21 +125,21 @@ impl<V: LruValueConstraints> TipsetStateCache<V> {
         }
     }
 
-    pub fn get_map<T>(&self, key: &TipsetKey, mapper: impl Fn(&V) -> T) -> Option<T> {
+    pub fn get_map<T>(&self, key: &K, mapper: impl Fn(&V) -> T) -> Option<T> {
         self.cache.read().values.get_map(key, mapper)
     }
 
-    pub fn get(&self, key: &TipsetKey) -> Option<V> {
+    pub fn get(&self, key: &K) -> Option<V> {
         self.get_map(key, Clone::clone)
     }
 
-    pub fn insert(&self, key: TipsetKey, value: V) {
+    pub fn insert(&self, key: K, value: V) {
         let mut cache = self.cache.write();
         cache.pending.retain(|k, _| k != &key);
         cache.values.push(key, value);
     }
 
-    pub fn remove(&self, key: &TipsetKey) {
+    pub fn remove(&self, key: &K) {
         let mut cache = self.cache.write();
         cache.pending.retain(|k, _| k != key);
         cache.values.remove(key);
@@ -168,7 +168,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tipset_cache_basic_functionality() {
-        let cache: TipsetStateCache<String> = TipsetStateCache::new("test");
+        let cache: ForestLruCache<TipsetKey, String> = ForestLruCache::new("test");
         let key = create_test_tipset_key(1);
 
         // Test cache miss and computation
@@ -188,7 +188,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrent_same_key_computation() {
-        let cache: Arc<TipsetStateCache<String>> = Arc::new(TipsetStateCache::new("test"));
+        let cache: Arc<ForestLruCache<TipsetKey, String>> = Arc::new(ForestLruCache::new("test"));
         let key = create_test_tipset_key(1);
         let computation_count = Arc::new(AtomicU8::new(0));
 
@@ -235,7 +235,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrent_different_keys() {
-        let cache: Arc<TipsetStateCache<String>> = Arc::new(TipsetStateCache::new("test"));
+        let cache: Arc<ForestLruCache<TipsetKey, String>> = Arc::new(ForestLruCache::new("test"));
         let computation_count = Arc::new(AtomicU8::new(0));
 
         // Start tasks that try to compute the different keys

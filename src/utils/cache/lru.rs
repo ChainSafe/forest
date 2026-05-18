@@ -24,12 +24,12 @@ use prometheus_client::{
 
 use crate::prelude::*;
 
-pub trait KeyConstraints:
+pub trait LruKeyConstraints:
     GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
 {
 }
 
-impl<T> KeyConstraints for T where
+impl<T> LruKeyConstraints for T where
     T: GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
 {
 }
@@ -41,7 +41,7 @@ impl<T> LruValueConstraints for T where T: GetSize + Debug + Send + Sync + Clone
 #[derive(Debug)]
 pub struct SizeTrackingLruCache<K, V>
 where
-    K: KeyConstraints,
+    K: LruKeyConstraints,
     V: LruValueConstraints,
 {
     cache_id: usize,
@@ -51,7 +51,7 @@ where
 
 impl<K, V> ShallowClone for SizeTrackingLruCache<K, V>
 where
-    K: KeyConstraints,
+    K: LruKeyConstraints,
     V: LruValueConstraints,
 {
     fn shallow_clone(&self) -> Self {
@@ -65,19 +65,19 @@ where
 
 impl<K, V> SizeTrackingLruCache<K, V>
 where
-    K: KeyConstraints,
+    K: LruKeyConstraints,
     V: LruValueConstraints,
 {
     fn register_metrics(&self) {
         crate::metrics::register_collector(Box::new(self.shallow_clone()));
     }
 
-    fn new_inner(cache_name: Cow<'static, str>, capacity: Option<NonZeroUsize>) -> Self {
+    fn new_inner(cache_name: impl Into<Cow<'static, str>>, capacity: Option<NonZeroUsize>) -> Self {
         static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
 
         Self {
             cache_id: ID_GENERATOR.fetch_add(1, Ordering::Relaxed),
-            cache_name,
+            cache_name: cache_name.into(),
             #[allow(clippy::disallowed_methods)]
             cache: Arc::new(RwLock::new(
                 capacity
@@ -90,23 +90,26 @@ where
     }
 
     pub fn new_without_metrics_registry(
-        cache_name: Cow<'static, str>,
+        cache_name: impl Into<Cow<'static, str>>,
         capacity: NonZeroUsize,
     ) -> Self {
         Self::new_inner(cache_name, Some(capacity))
     }
 
-    pub fn new_with_metrics(cache_name: Cow<'static, str>, capacity: NonZeroUsize) -> Self {
+    pub fn new_with_metrics(
+        cache_name: impl Into<Cow<'static, str>>,
+        capacity: NonZeroUsize,
+    ) -> Self {
         let c = Self::new_without_metrics_registry(cache_name, capacity);
         c.register_metrics();
         c
     }
 
-    pub fn unbounded_without_metrics_registry(cache_name: Cow<'static, str>) -> Self {
+    pub fn unbounded_without_metrics_registry(cache_name: impl Into<Cow<'static, str>>) -> Self {
         Self::new_inner(cache_name, None)
     }
 
-    pub fn unbounded_with_metrics(cache_name: Cow<'static, str>) -> Self {
+    pub fn unbounded_with_metrics(cache_name: impl Into<Cow<'static, str>>) -> Self {
         let c = Self::unbounded_without_metrics_registry(cache_name);
         c.register_metrics();
         c
@@ -186,7 +189,7 @@ where
 
 impl<K, V> Collector for SizeTrackingLruCache<K, V>
 where
-    K: KeyConstraints,
+    K: LruKeyConstraints,
     V: LruValueConstraints,
 {
     fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {

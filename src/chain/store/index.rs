@@ -53,8 +53,7 @@ pub enum ResolveNullTipset {
 impl ChainIndex {
     pub fn new(db: impl Into<DbImpl>) -> Self {
         let db = db.into();
-        let ts_cache =
-            SizeTrackingLruCache::new_with_metrics("tipset".into(), DEFAULT_TIPSET_CACHE_SIZE);
+        let ts_cache = SizeTrackingLruCache::new_with_metrics("tipset", DEFAULT_TIPSET_CACHE_SIZE);
         Self {
             ts_cache,
             db,

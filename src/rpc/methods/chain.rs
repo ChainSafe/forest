@@ -18,9 +18,9 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::prelude::*;
-use crate::rpc::eth::Block as EthBlock;
 use crate::rpc::eth::{
-    EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec,
+    Block as EthBlock, EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders,
+    types::EthFilterSpec,
 };
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
