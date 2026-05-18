@@ -222,8 +222,10 @@ pub struct DrandBeacon {
     fil_gen_time: u64,
     fil_round_time: u64,
 
-    /// Keeps track of verified beacon entries.
-    verified_beacons: SizeTrackingLruCache<u64, BeaconEntry>,
+    /// Keeps track of verified beacon entries. Stored as `Arc<BeaconEntry>`
+    /// so that `is_verified`'s peek-and-compare path is a refcount bump
+    /// instead of cloning the BLS signature `Vec<u8>` on every check.
+    verified_beacons: SizeTrackingLruCache<u64, Arc<BeaconEntry>>,
 }
 
 impl DrandBeacon {
@@ -249,8 +251,7 @@ impl DrandBeacon {
     }
 
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
-        let cache = self.verified_beacons.cache().read();
-        cache.peek(&entry.round()) == Some(entry)
+        self.verified_beacons.peek_cloned(&entry.round()).as_deref() == Some(entry)
     }
 }
 
@@ -318,7 +319,8 @@ impl Beacon for DrandBeacon {
                 tracing::warn!(%cap, validated_len=%validated.len(), "verified_beacons.cap() is too small");
             }
             for entry in validated {
-                self.verified_beacons.push(entry.round(), entry.clone());
+                self.verified_beacons
+                    .push(entry.round(), Arc::new(entry.clone()));
             }
         }
 
@@ -326,9 +328,9 @@ impl Beacon for DrandBeacon {
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        let cached: Option<BeaconEntry> = self.verified_beacons.peek_cloned(&round);
+        let cached = self.verified_beacons.peek_cloned(&round);
         match cached {
-            Some(cached_entry) => Ok(cached_entry),
+            Some(cached_entry) => Ok(Arc::unwrap_or_clone(cached_entry)),
             None => {
                 async fn fetch_entry_from_url(
                     url: impl reqwest::IntoUrl,

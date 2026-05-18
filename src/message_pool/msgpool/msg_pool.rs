@@ -313,14 +313,14 @@ where
     fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
         let cid = msg.cid();
 
-        if let Some(()) = self.caches.sig_val.get_cloned(&(cid).into()) {
+        if let Some(()) = self.caches.sig_val.get_cloned(&CidWrapper::from(cid)) {
             return Ok(());
         }
 
         msg.verify(self.chain_config.eth_chain_id)
             .map_err(|e| Error::Other(e.to_string()))?;
 
-        self.caches.sig_val.push(cid.into(), ());
+        self.caches.sig_val.push(CidWrapper::from(cid), ());
 
         Ok(())
     }
