@@ -55,7 +55,7 @@ use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::state_manager::cache::ForestCache;
-use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
+use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, TipsetState, VMFlush};
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
@@ -474,7 +474,7 @@ impl Block {
     ///
     /// Reference: <https://github.com/filecoin-project/lotus/blob/941455f1d23e73b9ee92a1a4ce745d8848969858/node/impl/eth/utils.go#L44>
     pub async fn from_filecoin_tipset(
-        ctx: Ctx,
+        state_manager: &StateManager,
         tipset: crate::blocks::Tipset,
         tx_info: TxInfo,
     ) -> Result<Arc<Self>> {
@@ -484,13 +484,13 @@ impl Block {
             });
 
         match tx_info {
-            TxInfo::Full => Self::from_filecoin_tipset_with_full_tx(ctx, tipset).await,
+            TxInfo::Full => Self::from_filecoin_tipset_with_full_tx(state_manager, tipset).await,
             TxInfo::Hash => {
                 let block_cid = tipset.key().cid()?;
                 ETH_BLOCK_HASH_TX_CACHE
                     .get_or_else(&block_cid.into(), async move || {
                         let block_with_full_tx =
-                            Self::from_filecoin_tipset_with_full_tx(ctx, tipset).await?;
+                            Self::from_filecoin_tipset_with_full_tx(state_manager, tipset).await?;
                         Ok(Arc::new(
                             Arc::unwrap_or_clone(block_with_full_tx)
                                 .downcast_full_transaction_to_hash(),
@@ -502,7 +502,7 @@ impl Block {
     }
 
     async fn from_filecoin_tipset_with_full_tx(
-        ctx: Ctx,
+        state_manager: &StateManager,
         tipset: crate::blocks::Tipset,
     ) -> Result<Arc<Self>> {
         static ETH_BLOCK_FULL_TX_CACHE: LazyLock<ForestCache<CidWrapper, Arc<Block>>> =
@@ -521,9 +521,9 @@ impl Block {
                     state_root,
                     executed_messages,
                     ..
-                } = ctx.state_manager.load_executed_tipset(&tipset).await?;
+                } = state_manager.load_executed_tipset(&tipset).await?;
                 let has_transactions = !executed_messages.is_empty();
-                let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
+                let state_tree = state_manager.get_state_tree(&state_root)?;
 
                 let mut full_transactions = vec![];
                 let mut gas_used = 0;
@@ -540,13 +540,13 @@ impl Block {
                         ChainMessage::Signed(smsg) => new_eth_tx_from_signed_message(
                             smsg,
                             &state_tree,
-                            ctx.chain_config().eth_chain_id,
+                            state_manager.chain_config().eth_chain_id,
                         )?,
                         ChainMessage::Unsigned(msg) => {
                             let tx = eth_tx_from_native_message(
                                 msg,
                                 &state_tree,
-                                ctx.chain_config().eth_chain_id,
+                                state_manager.chain_config().eth_chain_id,
                             )?;
                             ApiEthTx {
                                 hash: msg.cid().into(),
@@ -1437,7 +1437,7 @@ impl RpcMethod<2> for EthGetBlockByHash {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_hash, ResolveNullTipset::TakeOlder)
             .await?;
-        Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
+        Block::from_filecoin_tipset(&ctx.state_manager, ts, full_tx_info.into())
             .await
             .map_err(ServerError::from)
     }
@@ -1465,7 +1465,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
+        Block::from_filecoin_tipset(&ctx.state_manager, ts, full_tx_info.into())
             .await
             .map_err(ServerError::from)
     }
