@@ -11,6 +11,8 @@ exclude = [
   "github.com/ChainSafe/forest",
   # Maybe temporarily down with 404, but it blocks the CI
   "filecoin.io/slack",
+  # Bot protection
+  "crates.io",
 ]
 timeout = 30
 max_retries = 6
