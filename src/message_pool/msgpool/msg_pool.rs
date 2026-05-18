@@ -33,7 +33,7 @@ use crate::shim::{
 };
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::get_size::CidWrapper;
 use ahash::HashSet;
 use anyhow::Context as _;
@@ -60,7 +60,7 @@ const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 pub(in crate::message_pool) const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub(in crate::message_pool) const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
 
-// LruCache sizes have been taken from the lotus implementation
+// Cache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 const KEY_CACHE_SIZE: NonZeroUsize = nonzero!(1_048_576usize);
@@ -82,24 +82,21 @@ pub(in crate::message_pool) enum TrustPolicy {
 
 pub use super::msg_set::{MsgSetLimits, StrictnessPolicy};
 
-/// LRU caches owned by [`MessagePool`].
+/// Caches owned by [`MessagePool`].
 pub(in crate::message_pool) struct Caches {
-    pub(in crate::message_pool) bls_sig: SizeTrackingLruCache<CidWrapper, Signature>,
-    pub(in crate::message_pool) sig_val: SizeTrackingLruCache<CidWrapper, ()>,
+    pub(in crate::message_pool) bls_sig: SizeTrackingCache<CidWrapper, Signature>,
+    pub(in crate::message_pool) sig_val: SizeTrackingCache<CidWrapper, ()>,
     pub(in crate::message_pool) key: IdToAddressCache,
-    pub(in crate::message_pool) state_nonce: SizeTrackingLruCache<StateNonceCacheKey, u64>,
+    pub(in crate::message_pool) state_nonce: SizeTrackingCache<StateNonceCacheKey, u64>,
 }
 
 impl Caches {
     pub(in crate::message_pool) fn new() -> Self {
         Self {
-            bls_sig: SizeTrackingLruCache::new_with_metrics("bls_sig", BLS_SIG_CACHE_SIZE),
-            sig_val: SizeTrackingLruCache::new_with_metrics("sig_val", SIG_VAL_CACHE_SIZE),
-            key: SizeTrackingLruCache::new_with_metrics("mpool_key", KEY_CACHE_SIZE),
-            state_nonce: SizeTrackingLruCache::new_with_metrics(
-                "state_nonce",
-                STATE_NONCE_CACHE_SIZE,
-            ),
+            bls_sig: SizeTrackingCache::new_with_metrics("bls_sig", BLS_SIG_CACHE_SIZE),
+            sig_val: SizeTrackingCache::new_with_metrics("sig_val", SIG_VAL_CACHE_SIZE),
+            key: SizeTrackingCache::new_with_metrics("mpool_key", KEY_CACHE_SIZE),
+            state_nonce: SizeTrackingCache::new_with_metrics("state_nonce", STATE_NONCE_CACHE_SIZE),
         }
     }
 }
@@ -567,16 +564,16 @@ fn validate_static(msg: &SignedMessage) -> Result<(), Error> {
 
 fn validate_signature(
     msg: &SignedMessage,
-    sig_val_cache: &SizeTrackingLruCache<CidWrapper, ()>,
+    sig_val_cache: &SizeTrackingCache<CidWrapper, ()>,
     eth_chain_id: u64,
 ) -> Result<(), Error> {
     let cid = msg.cid();
-    if sig_val_cache.get_cloned(&cid.into()).is_some() {
+    if sig_val_cache.get_cloned(&CidWrapper::from(cid)).is_some() {
         return Ok(());
     }
     msg.verify(eth_chain_id)
         .map_err(|e| Error::Other(e.to_string()))?;
-    sig_val_cache.push(cid.into(), ());
+    sig_val_cache.push(CidWrapper::from(cid), ());
     Ok(())
 }
 

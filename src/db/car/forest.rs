@@ -33,7 +33,7 @@
 //! Looking up a block uses an [`index::Reader`] to find
 //! the right z-frame. The frame is then decoded and each block is linearly
 //! scanned until a match is found. Decoded (and scanned) z-frames are stored in
-//! a lru-cache for faster repeat retrievals.
+//! a cache for faster repeat retrievals.
 //!
 //! `forest.car.zst` files are backward compatible with Lotus (and all other
 //! tools that consume compressed CAR files). All Forest-specifc information is

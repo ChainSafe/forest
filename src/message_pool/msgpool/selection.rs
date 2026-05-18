@@ -20,7 +20,7 @@ use rand::prelude::SliceRandom;
 use tracing::{debug, error, warn};
 
 use crate::shim::crypto::Signature;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::get_size::CidWrapper;
 
 use super::{msg_pool::MessagePool, provider::Provider, utils, utils::recover_sig};
@@ -806,7 +806,7 @@ fn merge_and_trim(
 // reorgs.
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
-    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
+    bls_sig_cache: &SizeTrackingCache<CidWrapper, Signature>,
     pending_store: &PendingStore,
     key_cache: &IdToAddressCache,
     from: Tipset,

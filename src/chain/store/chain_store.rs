@@ -19,7 +19,7 @@ use crate::{
     message::{ChainMessage, SignedMessage},
 };
 use crate::{db::EthMappingsStoreExt, rpc::chain::PathChange};
-use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
+use crate::{fil_cns, utils::cache::SizeTrackingCache};
 use crate::{
     interpreter::{BlockMessages, VMTrace},
     rpc::chain::PathChanges,
@@ -590,13 +590,13 @@ where
 /// use-cases. This cache is intended to be used with a complementary function;
 /// [`messages_for_tipset_with_cache`].
 pub struct MessagesInTipsetCache {
-    cache: SizeTrackingLruCache<TipsetKey, Arc<Vec<ChainMessage>>>,
+    cache: SizeTrackingCache<TipsetKey, Arc<Vec<ChainMessage>>>,
 }
 
 impl MessagesInTipsetCache {
     pub fn new(capacity: NonZeroUsize) -> Self {
         Self {
-            cache: SizeTrackingLruCache::new_with_metrics("msg_in_tipset", capacity),
+            cache: SizeTrackingCache::new_with_metrics("msg_in_tipset", capacity),
         }
     }
 

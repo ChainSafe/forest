@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    borrow::{Borrow, Cow},
+    borrow::Cow,
     fmt::Debug,
     hash::Hash,
     num::NonZeroUsize,
@@ -13,79 +13,80 @@ use std::{
 };
 
 use get_size2::GetSize;
-use hashlink::LruCache;
-use parking_lot::RwLock;
 use prometheus_client::{
     collector::Collector,
     encoding::{DescriptorEncoder, EncodeMetric},
     metrics::gauge::Gauge,
     registry::Unit,
 };
+use quick_cache::Equivalent;
+use quick_cache::sync::Cache;
 
 use crate::prelude::*;
 
-pub trait LruKeyConstraints:
+pub trait CacheKeyConstraints:
     GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
 {
 }
 
-impl<T> LruKeyConstraints for T where
+impl<T> CacheKeyConstraints for T where
     T: GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
 {
 }
 
-pub trait LruValueConstraints: GetSize + Debug + Send + Sync + Clone + 'static {}
+pub trait CacheValueConstraints: GetSize + Debug + Send + Sync + Clone + 'static {}
 
-impl<T> LruValueConstraints for T where T: GetSize + Debug + Send + Sync + Clone + 'static {}
+impl<T> CacheValueConstraints for T where T: GetSize + Debug + Send + Sync + Clone + 'static {}
 
+/// A concurrent cache with Prometheus instrumentation.
+///
+/// Backed by [`quick_cache::sync::Cache`], which uses the scan-resistant
+/// CLOCK-PRO eviction policy. Tracks total entry size in bytes for
+/// observability.
 #[derive(Debug)]
-pub struct SizeTrackingLruCache<K, V>
+pub struct SizeTrackingCache<K, V>
 where
-    K: LruKeyConstraints,
-    V: LruValueConstraints,
+    K: CacheKeyConstraints,
+    V: CacheValueConstraints,
 {
     cache_id: usize,
     cache_name: Cow<'static, str>,
-    cache: Arc<RwLock<LruCache<K, V>>>,
+    cache: Arc<Cache<K, V>>,
+    capacity: usize,
 }
 
-impl<K, V> ShallowClone for SizeTrackingLruCache<K, V>
+impl<K, V> ShallowClone for SizeTrackingCache<K, V>
 where
-    K: LruKeyConstraints,
-    V: LruValueConstraints,
+    K: CacheKeyConstraints,
+    V: CacheValueConstraints,
 {
     fn shallow_clone(&self) -> Self {
         Self {
             cache_id: self.cache_id,
             cache_name: self.cache_name.clone(),
             cache: self.cache.shallow_clone(),
+            capacity: self.capacity,
         }
     }
 }
 
-impl<K, V> SizeTrackingLruCache<K, V>
+impl<K, V> SizeTrackingCache<K, V>
 where
-    K: LruKeyConstraints,
-    V: LruValueConstraints,
+    K: CacheKeyConstraints,
+    V: CacheValueConstraints,
 {
     fn register_metrics(&self) {
         crate::metrics::register_collector(Box::new(self.shallow_clone()));
     }
 
-    fn new_inner(cache_name: impl Into<Cow<'static, str>>, capacity: Option<NonZeroUsize>) -> Self {
+    fn new_inner(cache_name: impl Into<Cow<'static, str>>, capacity: NonZeroUsize) -> Self {
         static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
-
+        let capacity = capacity.get();
         Self {
             cache_id: ID_GENERATOR.fetch_add(1, Ordering::Relaxed),
             cache_name: cache_name.into(),
-            #[allow(clippy::disallowed_methods)]
-            cache: Arc::new(RwLock::new(
-                capacity
-                    .map(From::from)
-                    .map(LruCache::new)
-                    // For constructing lru cache that is bounded by memory usage instead of length
-                    .unwrap_or_else(LruCache::new_unbounded),
-            )),
+            cache: Arc::new(Cache::new(capacity)),
+            capacity,
         }
     }
 
@@ -93,7 +94,7 @@ where
         cache_name: impl Into<Cow<'static, str>>,
         capacity: NonZeroUsize,
     ) -> Self {
-        Self::new_inner(cache_name, Some(capacity))
+        Self::new_inner(cache_name, capacity)
     }
 
     pub fn new_with_metrics(
@@ -105,75 +106,85 @@ where
         c
     }
 
-    pub fn unbounded_without_metrics_registry(cache_name: impl Into<Cow<'static, str>>) -> Self {
-        Self::new_inner(cache_name, None)
-    }
-
-    pub fn unbounded_with_metrics(cache_name: impl Into<Cow<'static, str>>) -> Self {
-        let c = Self::unbounded_without_metrics_registry(cache_name);
-        c.register_metrics();
-        c
-    }
-
-    pub fn cache(&self) -> &Arc<RwLock<LruCache<K, V>>> {
-        &self.cache
-    }
-
     pub fn remove<Q>(&self, k: &Q) -> Option<V>
     where
-        K: Borrow<Q>,
-        Q: Hash + Eq + ?Sized,
+        Q: Hash + Equivalent<K> + ?Sized,
     {
-        self.cache.write().remove(k)
+        self.cache.remove(k).map(|(_, v)| v)
     }
 
+    /// Insert `k`/`v`. If a previous entry existed for `k`, return it.
+    ///
+    /// `quick_cache::sync::Cache::insert` does not return the displaced
+    /// value, so this is a peek-then-insert. The two steps are not atomic;
+    /// concurrent callers for the same key may both observe `None`. None of
+    /// the existing callers depend on atomicity here.
     pub fn push(&self, k: K, v: V) -> Option<V> {
-        self.cache.write().insert(k, v)
+        let prev = self.cache.peek(&k);
+        self.cache.insert(k, v);
+        prev
     }
 
-    pub fn get_map<Q, T>(&self, k: &Q, mapper: impl Fn(&V) -> T) -> Option<T>
+    pub fn get_map<Q, T>(&self, k: &Q, mapper: impl FnOnce(&V) -> T) -> Option<T>
     where
-        K: Borrow<Q>,
-        Q: Hash + Eq + ?Sized,
+        Q: Hash + Equivalent<K> + ?Sized,
     {
-        self.cache.write().get(k).map(mapper)
+        self.cache.get(k).map(|v| mapper(&v))
     }
 
     pub fn get_cloned<Q>(&self, k: &Q) -> Option<V>
     where
-        K: Borrow<Q>,
-        Q: Hash + Eq + ?Sized,
+        Q: Hash + Equivalent<K> + ?Sized,
     {
-        self.get_map(k, Clone::clone)
+        self.cache.get(k)
     }
 
+    /// Read without affecting the eviction order.
     pub fn peek_cloned<Q>(&self, k: &Q) -> Option<V>
     where
-        K: Borrow<Q>,
-        Q: Hash + Eq + ?Sized,
+        Q: Hash + Equivalent<K> + ?Sized,
     {
-        self.cache.read().peek(k).cloned()
-    }
-
-    pub fn pop_lru(&self) -> Option<(K, V)> {
-        self.cache.write().remove_lru()
+        self.cache.peek(k)
     }
 
     pub fn len(&self) -> usize {
-        self.cache.read().len()
+        self.cache.len()
     }
 
     pub fn cap(&self) -> usize {
-        self.cache.read().capacity()
+        self.capacity
     }
 
     pub fn clear(&self) {
-        self.cache.write().clear()
+        self.cache.clear()
+    }
+
+    /// Get the value for `key`, computing it with `compute` on a miss.
+    ///
+    /// Concurrent callers for the same key are coalesced — only one runs
+    /// `compute`, the rest wait on the result.
+    ///
+    /// Returns `(value, was_hit)`; the caller can use the flag to drive
+    /// hit/miss metrics. If `compute` fails the placeholder is released and
+    /// the next caller will recompute.
+    pub async fn get_or_compute<F, Fut, E>(&self, key: &K, compute: F) -> Result<(V, bool), E>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<V, E>>,
+    {
+        match self.cache.get_value_or_guard_async(key).await {
+            Ok(v) => Ok((v, true)),
+            Err(guard) => {
+                let v = compute().await?;
+                let _ = guard.insert(v.clone());
+                Ok((v, false))
+            }
+        }
     }
 
     pub(crate) fn size_in_bytes(&self) -> usize {
         let mut size = 0_usize;
-        for (k, v) in self.cache.read().iter() {
+        for (k, v) in self.cache.iter() {
             size = size
                 .saturating_add(k.get_size())
                 .saturating_add(v.get_size());
@@ -182,10 +193,10 @@ where
     }
 }
 
-impl<K, V> Collector for SizeTrackingLruCache<K, V>
+impl<K, V> Collector for SizeTrackingCache<K, V>
 where
-    K: LruKeyConstraints,
-    V: LruValueConstraints,
+    K: CacheKeyConstraints,
+    V: CacheValueConstraints,
 {
     fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
         {
@@ -196,7 +207,7 @@ where
             };
             let size_metric_name = format!("cache_{}_{}_size", self.cache_name, self.cache_id);
             let size_metric_help = format!(
-                "Size of LruCache {}_{} in bytes",
+                "Size of cache {}_{} in bytes",
                 self.cache_name, self.cache_id
             );
             let size_metric_encoder = encoder.encode_descriptor(
@@ -209,8 +220,7 @@ where
         }
         {
             let len_metric_name = format!("{}_{}_len", self.cache_name, self.cache_id);
-            let len_metric_help =
-                format!("Length of LruCache {}_{}", self.cache_name, self.cache_id);
+            let len_metric_help = format!("Length of cache {}_{}", self.cache_name, self.cache_id);
             let len: Gauge = Default::default();
             len.set(self.len() as _);
             let len_metric_encoder = encoder.encode_descriptor(
@@ -224,7 +234,7 @@ where
         {
             let cap_metric_name = format!("{}_{}_cap", self.cache_name, self.cache_id);
             let cap_metric_help =
-                format!("Capacity of LruCache {}_{}", self.cache_name, self.cache_id);
+                format!("Capacity of cache {}_{}", self.cache_name, self.cache_id);
             let cap: Gauge = Default::default();
             cap.set(self.cap() as _);
             let cap_metric_encoder = encoder.encode_descriptor(

@@ -48,8 +48,8 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
-use crate::state_manager::cache::ForestLruCache;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::state_manager::cache::ForestCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::get_size::{GetSize, vec_heap_size_helper};
 use anyhow::Context as _;
 use chain_rand::ChainRand;
@@ -62,7 +62,7 @@ use tracing::warn;
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
-pub type IdToAddressCache = SizeTrackingLruCache<AddressId, Address>;
+pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
 
 /// Result of executing an individual chain message in a tipset.
 ///
@@ -167,7 +167,7 @@ pub struct StateManager {
     /// Chain store
     cs: ChainStore,
     /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
-    cache: ForestLruCache<TipsetKey, ExecutedTipset>,
+    cache: ForestCache<TipsetKey, ExecutedTipset>,
     id_to_deterministic_address_cache: IdToAddressCache,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
@@ -209,10 +209,10 @@ impl StateManager {
 
         Ok(Self {
             cs,
-            cache: ForestLruCache::new("tipset_state_executed_tipset"), // For StateOutput
+            cache: ForestCache::new("tipset_state_executed_tipset"), // For StateOutput
             beacon,
             engine,
-            id_to_deterministic_address_cache: SizeTrackingLruCache::new_with_metrics(
+            id_to_deterministic_address_cache: SizeTrackingCache::new_with_metrics(
                 "id_to_deterministic_address",
                 DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE,
             ),
