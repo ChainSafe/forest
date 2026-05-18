@@ -180,11 +180,6 @@ where
         }
         size
     }
-
-    #[cfg(test)]
-    pub(crate) fn new_mocked() -> Self {
-        Self::new_inner(Cow::Borrowed("mocked_cache"), NonZeroUsize::new(1))
-    }
 }
 
 impl<K, V> Collector for SizeTrackingLruCache<K, V>
