@@ -341,15 +341,19 @@ fn create_chain_follower(
 
 fn start_chain_follower_service(
     services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
     config: &Config,
     chain_follower: ChainFollower,
 ) {
-    let sync_status = chain_follower.sync_status.shallow_clone();
-    let state_manager = chain_follower.state_manager.shallow_clone();
-    let mut validated_tipset_rx = chain_follower.subscribe_validated_tipset();
-    services.spawn(async move { chain_follower.run().await });
+    services.spawn({
+        let chain_follower = chain_follower.shallow_clone();
+        async move { chain_follower.run().await }
+    });
     // Prefill RPC method caches for newly validated tipsets to speed up subsequent RPC calls.
-    if config.client.enable_rpc {
+    if config.client.enable_rpc && !opts.stateless {
+        let sync_status = chain_follower.sync_status.shallow_clone();
+        let state_manager = chain_follower.state_manager.shallow_clone();
+        let mut validated_tipset_rx = chain_follower.subscribe_validated_tipset();
         services.spawn(async move {
             loop {
                 match validated_tipset_rx.recv().await {
@@ -753,7 +757,7 @@ pub(super) async fn start_services(
         ensure_proof_params_downloaded().await?;
     }
     services.spawn(p2p_service.run());
-    start_chain_follower_service(&mut services, &config, chain_follower);
+    start_chain_follower_service(&mut services, opts, &config, chain_follower);
     // blocking until any of the services returns an error,
     propagate_error(&mut services)
         .await
