@@ -1,16 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    borrow::Cow,
-    fmt::Debug,
-    hash::Hash,
-    num::NonZeroUsize,
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
-};
+use std::{borrow::Cow, fmt::Debug, hash::Hash, num::NonZeroUsize};
 
 use get_size2::GetSize;
 use prometheus_client::{
@@ -49,7 +40,6 @@ where
     K: CacheKeyConstraints,
     V: CacheValueConstraints,
 {
-    cache_id: usize,
     cache_name: Cow<'static, str>,
     cache: Arc<Cache<K, V>>,
     capacity: usize,
@@ -62,7 +52,6 @@ where
 {
     fn shallow_clone(&self) -> Self {
         Self {
-            cache_id: self.cache_id,
             cache_name: self.cache_name.clone(),
             cache: self.cache.shallow_clone(),
             capacity: self.capacity,
@@ -80,10 +69,8 @@ where
     }
 
     fn new_inner(cache_name: impl Into<Cow<'static, str>>, capacity: NonZeroUsize) -> Self {
-        static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
         let capacity = capacity.get();
         Self {
-            cache_id: ID_GENERATOR.fetch_add(1, Ordering::Relaxed),
             cache_name: cache_name.into(),
             cache: Arc::new(Cache::new(capacity)),
             capacity,
@@ -218,11 +205,8 @@ where
                 g.set(self.size_in_bytes() as _);
                 g
             };
-            let size_metric_name = format!("cache_{}_{}_size", self.cache_name, self.cache_id);
-            let size_metric_help = format!(
-                "Size of cache {}_{} in bytes",
-                self.cache_name, self.cache_id
-            );
+            let size_metric_name = format!("cache_{}_size", self.cache_name);
+            let size_metric_help = format!("Size of cache {} in bytes", self.cache_name);
             let size_metric_encoder = encoder.encode_descriptor(
                 &size_metric_name,
                 &size_metric_help,
@@ -232,8 +216,8 @@ where
             size_in_bytes.encode(size_metric_encoder)?;
         }
         {
-            let len_metric_name = format!("{}_{}_len", self.cache_name, self.cache_id);
-            let len_metric_help = format!("Length of cache {}_{}", self.cache_name, self.cache_id);
+            let len_metric_name = format!("cache_{}_len", self.cache_name);
+            let len_metric_help = format!("Length of cache {}", self.cache_name);
             let len: Gauge = Default::default();
             len.set(self.len() as _);
             let len_metric_encoder = encoder.encode_descriptor(
@@ -245,9 +229,8 @@ where
             len.encode(len_metric_encoder)?;
         }
         {
-            let cap_metric_name = format!("{}_{}_cap", self.cache_name, self.cache_id);
-            let cap_metric_help =
-                format!("Capacity of cache {}_{}", self.cache_name, self.cache_id);
+            let cap_metric_name = format!("cache_{}_cap", self.cache_name);
+            let cap_metric_help = format!("Capacity of cache {}", self.cache_name);
             let cap: Gauge = Default::default();
             cap.set(self.cap() as _);
             let cap_metric_encoder = encoder.encode_descriptor(
@@ -257,6 +240,32 @@ where
                 cap.metric_type(),
             )?;
             cap.encode(cap_metric_encoder)?;
+        }
+        {
+            let hits_metric_name = format!("cache_{}_hits", self.cache_name);
+            let hits_metric_help = format!("Cache hits of {}", self.cache_name);
+            let hits: Gauge = Default::default();
+            hits.set(self.cache.hits() as _);
+            let hits_metric_encoder = encoder.encode_descriptor(
+                &hits_metric_name,
+                &hits_metric_help,
+                None,
+                hits.metric_type(),
+            )?;
+            hits.encode(hits_metric_encoder)?;
+        }
+        {
+            let misses_metric_name = format!("cache_{}_misses", self.cache_name);
+            let misses_metric_help = format!("Cache misses of {}", self.cache_name);
+            let misses: Gauge = Default::default();
+            misses.set(self.cache.misses() as _);
+            let misses_metric_encoder = encoder.encode_descriptor(
+                &misses_metric_name,
+                &misses_metric_help,
+                None,
+                misses.metric_type(),
+            )?;
+            misses.encode(misses_metric_encoder)?;
         }
 
         Ok(())

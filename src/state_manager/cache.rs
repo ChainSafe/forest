@@ -4,25 +4,9 @@
 use crate::prelude::*;
 use crate::state_manager::DEFAULT_TIPSET_CACHE_SIZE;
 use crate::utils::cache::{CacheKeyConstraints, CacheValueConstraints, SizeTrackingCache};
-use prometheus_client::metrics::counter::Counter;
 use std::borrow::Cow;
 use std::future::Future;
 use std::num::NonZeroUsize;
-use std::sync::LazyLock;
-
-// Pre-resolved counter handles for the tipset cache labels. `Family::get_or_create`
-// locks the inner label map on every call, so we hoist the lookup to module init.
-// `Counter` is cheaply cloneable; clones share the atomic underneath.
-static TIPSET_HIT: LazyLock<Counter> = LazyLock::new(|| {
-    crate::metrics::CACHE_HIT
-        .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
-        .clone()
-});
-static TIPSET_MISS: LazyLock<Counter> = LazyLock::new(|| {
-    crate::metrics::CACHE_MISS
-        .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
-        .clone()
-});
 
 /// A cache that handles concurrent access and computation for tipset-related
 /// data. Coalesces concurrent computations of the same key, so only one caller
@@ -59,20 +43,7 @@ impl<K: CacheKeyConstraints, V: CacheValueConstraints> ForestCache<K, V> {
         Fut: Future<Output = anyhow::Result<V>> + Send,
         V: Send + Sync + 'static,
     {
-        let mut hit = false;
-        let value = self
-            .cache
-            .get_or_insert_async(key, async {
-                hit = true;
-                compute().await
-            })
-            .await?;
-        if hit {
-            TIPSET_HIT.inc();
-        } else {
-            TIPSET_MISS.inc();
-        }
-        Ok(value)
+        self.cache.get_or_insert_async(key, compute()).await
     }
 
     pub fn get_map<T>(&self, key: &K, mapper: impl FnOnce(&V) -> T) -> Option<T> {

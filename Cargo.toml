@@ -180,7 +180,7 @@ prometheus-client = "0.23"
 puruspe = "0.4"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.3"
-quick_cache = "0.6"
+quick_cache = { version = "0.6", features = ["stats"] }
 rand = "0.8"
 rand_chacha = "0.3"
 rand_distr = "0.4"
