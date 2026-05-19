@@ -315,7 +315,7 @@ pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
         Ok((rpc_call_opt("Filecoin.StateSearchMsg", params)
             .await?
             .is_some())
-            .then_some(()))
+        .then_some(()))
     })
     .await
 }
