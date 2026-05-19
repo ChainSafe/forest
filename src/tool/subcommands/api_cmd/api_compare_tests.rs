@@ -2468,12 +2468,12 @@ fn state_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<R
             Message::default(),
             tipset.key().into(),
         ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(EthCall::request((
             EthCallMessage::default(),
             BlockNumberOrHash::from_block_number(expensive_fork_epoch),
         ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(EthEstimateGas::request((
             EthCallMessage {
                 from: Some(generate_eth_random_address()?),
@@ -2481,7 +2481,7 @@ fn state_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<R
             },
             Some(BlockNumberOrHash::from_block_number(expensive_fork_epoch)),
         ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
     ])
 }
 
