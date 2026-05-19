@@ -349,6 +349,15 @@ fn start_chain_follower_service(
         let chain_follower = chain_follower.shallow_clone();
         async move { chain_follower.run().await }
     });
+    maybe_prefill_rpc_caches(services, opts, config, chain_follower);
+}
+
+fn maybe_prefill_rpc_caches(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
+    config: &Config,
+    chain_follower: ChainFollower,
+) {
     // Prefill RPC method caches for newly validated tipsets to speed up subsequent RPC calls.
     if config.client.enable_rpc && !opts.stateless {
         let sync_status = chain_follower.sync_status.shallow_clone();
