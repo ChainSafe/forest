@@ -307,7 +307,7 @@ Send funds between accounts
 Usage: forest-wallet send [OPTIONS] <TARGET_ADDRESS> <AMOUNT>
 
 Arguments:
-  <TARGET_ADDRESS>
+  <TARGET_ADDRESS>  The recipient address. Accepts either a FIL address (e.g. `f1.../t1...`) or an ETH address (e.g. `0x...`)
   <AMOUNT>
 
 Options:

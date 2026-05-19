@@ -3329,6 +3329,7 @@ dependencies = [
  "puruspe",
  "quick-protobuf",
  "quick-protobuf-codec",
+ "quick_cache",
  "quickcheck",
  "quickcheck_macros",
  "rand 0.8.6",
@@ -7425,6 +7426,18 @@ dependencies = [
  "quick-protobuf",
  "thiserror 1.0.69",
  "unsigned-varint 0.8.0",
+]
+
+[[package]]
+name = "quick_cache"
+version = "0.6.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1c821816e9b928e20e92ed59bb3ac4aab321d16ca2316871c9fe7ca739cd477"
+dependencies = [
+ "ahash",
+ "equivalent",
+ "hashbrown 0.16.1",
+ "parking_lot",
 ]
 
 [[package]]

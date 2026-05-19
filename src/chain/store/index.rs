@@ -10,13 +10,13 @@ use crate::db::{DbImpl, EthMappingsStore as _};
 use crate::metrics;
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::cache::SizeTrackingCache;
 use nonzero_ext::nonzero;
 use num::Integer;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize);
 
-type TipsetCache = SizeTrackingLruCache<TipsetKey, Tipset>;
+type TipsetCache = SizeTrackingCache<TipsetKey, Tipset>;
 
 type IsTipsetFinalizedFn = Arc<dyn Fn(&Tipset) -> bool + Send + Sync>;
 
@@ -53,8 +53,7 @@ pub enum ResolveNullTipset {
 impl ChainIndex {
     pub fn new(db: impl Into<DbImpl>) -> Self {
         let db = db.into();
-        let ts_cache =
-            SizeTrackingLruCache::new_with_metrics("tipset".into(), DEFAULT_TIPSET_CACHE_SIZE);
+        let ts_cache = SizeTrackingCache::new_with_metrics("tipset", DEFAULT_TIPSET_CACHE_SIZE);
         Self {
             ts_cache,
             db,
@@ -82,7 +81,7 @@ impl ChainIndex {
         if !cache_disabled()
             && let Some(ts) = self.ts_cache.get_cloned(tsk)
         {
-            metrics::LRU_CACHE_HIT
+            metrics::CACHE_HIT
                 .get_or_create(&metrics::values::TIPSET)
                 .inc();
             return Ok(Some(ts));
@@ -93,7 +92,7 @@ impl ChainIndex {
             && let Some(ts) = &ts_opt
         {
             self.ts_cache.push(tsk.clone(), ts.clone());
-            metrics::LRU_CACHE_MISS
+            metrics::CACHE_MISS
                 .get_or_create(&metrics::values::TIPSET)
                 .inc();
         }
