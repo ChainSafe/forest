@@ -5,7 +5,7 @@ use crate::{
     chain::{ChainStore, index::ResolveNullTipset},
     chain_sync::{load_full_tipset, tipset_syncer::validate_tipset},
     cli_shared::{chain_path, read_config},
-    db::{SettingsStoreExt, db_engine::db_root},
+    db::{DbImpl, SettingsStoreExt, db_engine::db_root},
     genesis::read_genesis_header,
     interpreter::VMTrace,
     networks::{ChainConfig, NetworkChain},
@@ -157,14 +157,50 @@ impl ReplayComputeCommand {
             crate::state_manager::utils::state_compute::prepare_state_compute(&chain, &snapshot)
                 .await?;
         for _ in 0..n.get() {
-            crate::state_manager::utils::state_compute::state_compute(
+            if let Err(e) = crate::state_manager::utils::state_compute::state_compute(
                 &sm,
                 ts.shallow_clone(),
                 &ts_next,
             )
-            .await?;
+            .await
+            {
+                let computed = sm
+                    .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
+                    .await?
+                    .state_root;
+                let expected = *ts_next.parent_state();
+                let db_root_path = {
+                    let (_, config) = read_config(None, Some(chain.clone()))?;
+                    db_root(&chain_path(&config))?
+                };
+                let db =
+                    generate_test_snapshot::load_many_car_db(&db_root_path, Some(&chain)).await?;
+                let db: DbImpl = Arc::new(db).into();
+                let db = CompoundBlockstore(nunny::vec![sm.db(), &db]);
+                println!(
+                    "printing state diff between computed({computed}) and expected({expected}) state roots ..."
+                );
+                crate::statediff::print_state_diff(&Arc::new(db), &computed, &expected, None)?;
+                return Err(e);
+            }
         }
         Ok(())
+    }
+}
+
+struct CompoundBlockstore<'a>(nunny::Vec<&'a DbImpl>);
+impl<'a> Blockstore for CompoundBlockstore<'a> {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        for db in &self.0 {
+            if let Some(v) = db.get(k)? {
+                return Ok(Some(v));
+            }
+        }
+        Ok(None)
+    }
+
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.0.first().put_keyed(k, block)
     }
 }
 
