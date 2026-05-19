@@ -565,12 +565,12 @@ fn validate_signature(
     eth_chain_id: u64,
 ) -> Result<(), Error> {
     let cid = msg.cid();
-    if sig_val_cache.get_cloned(&CidWrapper::from(cid)).is_some() {
+    if sig_val_cache.get_cloned(&cid).is_some() {
         return Ok(());
     }
     msg.verify(eth_chain_id)
         .map_err(|e| Error::Other(e.to_string()))?;
-    sig_val_cache.push(CidWrapper::from(cid), ());
+    sig_val_cache.push(cid.into(), ());
     Ok(())
 }
 

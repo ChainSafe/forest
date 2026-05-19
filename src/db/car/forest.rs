@@ -277,7 +277,7 @@ where
                         let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
                         block_map.insert(cid.into(), data);
                     }
-                    let get_result = block_map.get(&CidWrapper::from(*k)).cloned();
+                    let get_result = block_map.get(k).cloned();
                     self.frame_cache.put(position, self.cache_key, block_map);
 
                     // This lookup only fails in case of a hash collision

@@ -49,7 +49,7 @@ impl BadBlockCache {
     /// Returns `Some` if the block CID is in bad block cache.
     /// This function does not update the head position of the `Cid` key.
     pub fn peek(&self, c: &Cid) -> Option<()> {
-        self.cache.peek_cloned(&CidWrapper::from(*c))
+        self.cache.peek_cloned(c)
     }
 
     pub fn clear(&self) {
