@@ -80,6 +80,7 @@ Non-mandatory release for all node operators. It includes a few bug fixes as wel
 - [#6031](https://github.com/ChainSafe/forest/issues/6031): The `eth_subscribe` RPC method now supports the `pendingTransactions` subscription.
 
 - [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
+- [#6008](https://github.com/ChainSafe/forest/issues/6008): `FOREST_PATH` environment variable to override the data directory for `forest`, `forest-cli`, `forest-tool` and `forest-wallet`. Takes precedence over `client.data_dir` in the config file. The daemon also logs the resolved data directory on startup.
 
 - [#7085](https://github.com/ChainSafe/forest/issues/7085): Implemented `nonce-fix` mpool cmd to fill mempool nonce gaps.
 
