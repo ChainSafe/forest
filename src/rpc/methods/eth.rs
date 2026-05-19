@@ -1800,7 +1800,7 @@ async fn eth_estimate_gas(
                 err = e.into();
             }
 
-            Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+            Err(anyhow::anyhow!("failed to estimate gas: {}", err.message()).into())
         }
         Ok(gassed_msg) => {
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;

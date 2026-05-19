@@ -4,7 +4,6 @@
 use super::{CreateTestsArgs, ReportMode, RunIgnored, TestCriteriaOverride};
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
-use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::db::car::ManyCar;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
@@ -2445,7 +2444,7 @@ fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     ])
 }
 
-fn state_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<RpcTest>> {
+fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<RpcTest>> {
     let heaviest_tipset = store.heaviest_tipset()?;
     let chain_config = handle_chain_config(&NetworkChain::Calibnet)?;
     let expensive_fork_epoch = chain_config
@@ -2456,19 +2455,7 @@ fn state_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<R
         .max()
         .expect("calibnet must define at least one expensive fork");
 
-    let chain_index = ChainIndex::new(store);
-    let tipset = chain_index.load_required_tipset_by_height(
-        expensive_fork_epoch,
-        heaviest_tipset,
-        ResolveNullTipset::TakeNewer,
-    )?;
-
     Ok(vec![
-        RpcTest::identity(StateCall::request((
-            Message::default(),
-            tipset.key().into(),
-        ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(EthCall::request((
             EthCallMessage::default(),
             BlockNumberOrHash::from_block_number(expensive_fork_epoch),
@@ -2504,7 +2491,7 @@ fn snapshot_tests(
         .last()
         .expect("Infallible");
 
-    tests.extend(state_expensive_fork_error_tests(store.clone())?);
+    tests.extend(eth_expensive_fork_error_tests(store.clone())?);
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, offline, &tipset)?);

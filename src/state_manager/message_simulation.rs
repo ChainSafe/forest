@@ -57,15 +57,6 @@ impl StateManager {
 
         let state_cid = state_cid.unwrap_or(*tipset.parent_state());
 
-        let tipset_messages = self
-            .chain_store()
-            .messages_for_tipset(&tipset)
-            .map_err(|err| Error::Other(err.to_string()))?;
-
-        let prior_messsages = tipset_messages
-            .iter()
-            .filter(|ts_msg| ts_msg.message().from() == msg.from());
-
         // Handle state forks
         let state_cid = match run_state_migrations(
             tipset.epoch(),
@@ -99,6 +90,15 @@ impl StateManager {
             &self.engine,
             VMTrace::Traced,
         )?;
+
+        let tipset_messages = self
+            .chain_store()
+            .messages_for_tipset(&tipset)
+            .map_err(|err| Error::Other(err.to_string()))?;
+
+        let prior_messsages = tipset_messages
+            .iter()
+            .filter(|ts_msg| ts_msg.message().from() == msg.from());
 
         for m in prior_messsages {
             vm.apply_message(m)?;
