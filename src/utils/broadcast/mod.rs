@@ -8,6 +8,7 @@ use futures::{FutureExt as _, Stream, StreamExt as _};
 use std::pin::Pin;
 use tokio::sync::broadcast::Receiver;
 use tokio_stream::wrappers::BroadcastStream;
+use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 
 /// Returns `true` if there are any active subscribers to the given broadcast channel.
 pub fn has_subscribers<T>(tx: &tokio::sync::broadcast::Sender<T>) -> bool {
@@ -15,13 +16,17 @@ pub fn has_subscribers<T>(tx: &tokio::sync::broadcast::Sender<T>) -> bool {
 }
 
 /// Wraps a broadcast [`Receiver`] as a pinned [`Stream`] that skips `Lagged`
-/// events and terminates on `Closed`.
-///
-/// Use this in place of a manual `rx.recv()` loop so the lagged/closed handling
-/// stays DRY while each caller retains ownership of its own state across
-/// iterations (no per-event `Arc::clone`s).
+/// events (logging the skip count at warn level) and terminates on `Closed`.
 pub fn subscription_stream<T: Clone + Send + 'static>(
     rx: Receiver<T>,
 ) -> Pin<Box<dyn Stream<Item = T> + Send>> {
-    Box::pin(BroadcastStream::new(rx).filter_map(|r| async move { r.ok() }))
+    Box::pin(BroadcastStream::new(rx).filter_map(|r| async move {
+        match r {
+            Ok(v) => Some(v),
+            Err(BroadcastStreamRecvError::Lagged(n)) => {
+                tracing::warn!("broadcast subscription lagged: dropped {n} events");
+                None
+            }
+        }
+    }))
 }

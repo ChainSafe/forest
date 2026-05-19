@@ -3056,7 +3056,7 @@ fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)
     Some((data, topics))
 }
 
-pub fn eth_tx_hash_from_signed_message(
+pub(crate) fn eth_tx_hash_from_signed_message(
     message: &SignedMessage,
     eth_chain_id: EthChainIdType,
 ) -> anyhow::Result<EthHash> {

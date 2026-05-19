@@ -59,14 +59,18 @@
 //! ```
 //!
 
-use crate::rpc::eth::pubsub_trait::{
-    EthPubSubApiServer, LogFilter, SubscriptionKind, SubscriptionParams,
+use crate::message_pool::MpoolUpdate;
+use crate::rpc::RPCState;
+use crate::rpc::eth::pubsub_trait::{EthPubSubApiServer, SubscriptionKind, SubscriptionParams};
+use crate::rpc::eth::types::{ApiHeaders, EthFilterSpec};
+use crate::rpc::eth::{
+    Block as EthBlock, TxInfo, eth_logs_with_filter, eth_tx_hash_from_signed_message,
 };
-use crate::rpc::{RPCState, chain};
-use jsonrpsee::PendingSubscriptionSink;
+use crate::utils::broadcast::subscription_stream;
+use futures::{Stream, StreamExt as _};
 use jsonrpsee::core::SubscriptionResult;
+use jsonrpsee::{PendingSubscriptionSink, SubscriptionSink};
 use std::sync::Arc;
-use tokio::sync::broadcast::{Receiver as Subscriber, error::RecvError};
 
 #[derive(derive_more::Constructor)]
 pub struct EthPubSub {
@@ -85,13 +89,11 @@ impl EthPubSubApiServer for EthPubSub {
         let ctx = self.ctx.clone();
 
         match kind {
-            SubscriptionKind::NewHeads => self.handle_new_heads_subscription(sink, ctx).await,
-            SubscriptionKind::PendingTransactions => {
-                self.handle_pending_txn_subscription(sink, ctx).await
-            }
+            SubscriptionKind::NewHeads => spawn_new_heads(sink, ctx),
+            SubscriptionKind::PendingTransactions => spawn_pending_transactions(sink, ctx),
             SubscriptionKind::Logs => {
-                let filter = params.and_then(|p| p.filter);
-                self.handle_logs_subscription(sink, ctx, filter).await
+                let filter = params.and_then(|p| p.filter).map(EthFilterSpec::from);
+                spawn_logs(sink, ctx, filter);
             }
         }
 
@@ -99,81 +101,93 @@ impl EthPubSubApiServer for EthPubSub {
     }
 }
 
-impl EthPubSub {
-    async fn handle_new_heads_subscription(
-        &self,
-        accepted_sink: jsonrpsee::SubscriptionSink,
-        ctx: Arc<RPCState>,
-    ) {
-        let (subscriber, handle) = chain::new_heads(ctx);
-        tokio::spawn(async move {
-            handle_subscription(subscriber, accepted_sink, handle).await;
-        });
-    }
-
-    async fn handle_logs_subscription(
-        &self,
-        accepted_sink: jsonrpsee::SubscriptionSink,
-        ctx: Arc<RPCState>,
-        filter_spec: Option<LogFilter>,
-    ) {
-        let filter_spec = filter_spec.map(Into::into);
-        let (logs, handle) = chain::logs(&ctx, filter_spec);
-        tokio::spawn(async move {
-            handle_subscription(logs, accepted_sink, handle).await;
-        });
-    }
-
-    async fn handle_pending_txn_subscription(
-        &self,
-        accepted_sink: jsonrpsee::SubscriptionSink,
-        ctx: Arc<RPCState>,
-    ) {
-        let (pending_rx, handle) = chain::new_pending_txns(&ctx);
-        tokio::spawn(async move {
-            handle_subscription(pending_rx, accepted_sink, handle).await;
-        });
-    }
-}
-
-async fn handle_subscription<T>(
-    mut subscriber: Subscriber<T>,
-    sink: jsonrpsee::SubscriptionSink,
-    handle: tokio::task::JoinHandle<()>,
-) where
-    T: serde::Serialize + Clone,
-{
-    loop {
-        tokio::select! {
-            action = subscriber.recv() => {
-                match action {
-                    Ok(v) => {
-                        match jsonrpsee::SubscriptionMessage::new(sink.method_name(), sink.subscription_id(), &v) {
-                            Ok(msg) => {
-                                if let Err(e) = sink.send(msg).await {
-                                    tracing::error!("Failed to send message: {:?}", e);
-                                    break;
-                                }
-                            }
-                            Err(e) => {
-                                tracing::error!("Failed to serialize message: {:?}", e);
-                                break;
-                            }
-                        }
-                    }
-                    Err(RecvError::Closed) => {
-                        break;
-                    }
-                    Err(RecvError::Lagged(_)) => {
+fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
+    let head_rx = ctx.chain_store().subscribe_head_changes();
+    let stream = subscription_stream(head_rx)
+        .flat_map(|changes| futures::stream::iter(changes.applies))
+        .filter_map(move |ts| {
+            let ctx = ctx.clone();
+            async move {
+                match EthBlock::from_filecoin_tipset(&ctx.state_manager, ts, TxInfo::Full).await {
+                    Ok(block) => Some(ApiHeaders(block)),
+                    Err(e) => {
+                        tracing::error!("Failed to convert tipset to eth block: {e:#}");
+                        None
                     }
                 }
             }
-            _ = sink.closed() => {
-                break;
+        })
+        .boxed();
+    tokio::spawn(pipe_stream_to_sink(stream, sink));
+}
+
+fn spawn_logs(sink: SubscriptionSink, ctx: Arc<RPCState>, filter: Option<EthFilterSpec>) {
+    let head_rx = ctx.chain_store().subscribe_head_changes();
+    let stream = subscription_stream(head_rx)
+        .flat_map(|changes| futures::stream::iter(changes.applies))
+        .filter_map(move |ts| {
+            let ctx = ctx.clone();
+            let filter = filter.clone();
+            async move {
+                match eth_logs_with_filter(&ctx, &ts, filter).await {
+                    Ok(logs) if !logs.is_empty() => Some(logs),
+                    Ok(_) => None,
+                    Err(e) => {
+                        tracing::error!("Failed to fetch logs for tipset {}: {e:#}", ts.key());
+                        None
+                    }
+                }
+            }
+        })
+        .boxed();
+    tokio::spawn(pipe_stream_to_sink(stream, sink));
+}
+
+fn spawn_pending_transactions(sink: SubscriptionSink, ctx: Arc<RPCState>) {
+    let mpool_rx = ctx.mpool.subscribe_to_updates();
+    let eth_chain_id = ctx.chain_config().eth_chain_id;
+    let stream = subscription_stream(mpool_rx)
+        .filter_map(move |update| async move {
+            let MpoolUpdate::Add(msg) = update else {
+                return None;
+            };
+            eth_tx_hash_from_signed_message(&msg, eth_chain_id).ok()
+        })
+        .boxed();
+    tokio::spawn(pipe_stream_to_sink(stream, sink));
+}
+
+/// Forward stream items to the subscription sink until the sink is closed,
+/// the client disconnects, or the upstream stream ends. The stream is
+/// expected to absorb upstream backpressure (e.g. `Lagged`) on its own; this
+/// helper only cares about the sink side.
+async fn pipe_stream_to_sink<S, T>(mut stream: S, sink: SubscriptionSink)
+where
+    S: Stream<Item = T> + Unpin + Send,
+    T: serde::Serialize + Send,
+{
+    loop {
+        tokio::select! {
+            _ = sink.closed() => break,
+            maybe = stream.next() => {
+                let Some(item) = maybe else { break };
+                let msg = match jsonrpsee::SubscriptionMessage::new(
+                    sink.method_name(),
+                    sink.subscription_id(),
+                    &item,
+                ) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        tracing::error!("Failed to serialize subscription message: {e:?}");
+                        break;
+                    }
+                };
+                if let Err(e) = sink.send(msg).await {
+                    tracing::debug!("Subscription sink send failed (client disconnected): {e:?}");
+                    break;
+                }
             }
         }
     }
-    handle.abort();
-
-    tracing::info!("Subscription task ended (id: {:?})", sink.subscription_id());
+    tracing::debug!("Subscription task ended (id: {:?})", sink.subscription_id());
 }
