@@ -83,6 +83,9 @@ jobs:
               echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
             } >> "$GITHUB_ENV"
           fi
+      - uses: rui314/setup-mold@v1
+        with:
+          make-default: false
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
@@ -100,7 +103,7 @@ jobs:
       - name: Install Forest
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
-          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
         run: mise run install --slim quick
       - uses: actions/upload-artifact@v7
         with:
