@@ -17,10 +17,11 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::message_pool::MpoolUpdate;
 use crate::prelude::*;
 use crate::rpc::eth::{
-    Block as EthBlock, EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders,
-    types::EthFilterSpec,
+    Block as EthBlock, EthLog, TxInfo, eth_logs_with_filter, eth_tx_hash_from_signed_message,
+    types::ApiHeaders, types::EthFilterSpec,
 };
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
@@ -29,11 +30,13 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
+use crate::utils::broadcast::subscription_stream;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
 use anyhow::{Context as _, Result};
 use enumflags2::{BitFlags, make_bitflags};
+use futures::StreamExt;
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use ipld_core::ipld::Ipld;
@@ -51,6 +54,7 @@ use tokio::sync::{
 };
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+use crate::rpc::eth::types::EthHash;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
@@ -138,6 +142,32 @@ pub(crate) fn logs(
                         tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
                     }
                 }
+            }
+        }
+    });
+
+    (receiver, handle)
+}
+
+/// Subscribe to mpool changes and broadcast the new pending transaction (only newly Added transaction is broadcasted)
+pub(crate) fn new_pending_txns(ctx: &Ctx) -> (Subscriber<EthHash>, JoinHandle<()>) {
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
+    let mut stream = subscription_stream(ctx.mpool.subscribe_to_updates());
+    let eth_chain_id = ctx.chain_config().eth_chain_id;
+
+    let handle = tokio::spawn(async move {
+        while let Some(update) = stream.next().await {
+            let MpoolUpdate::Add(msg) = update else {
+                continue;
+            };
+
+            let Ok(hash) = eth_tx_hash_from_signed_message(&msg, eth_chain_id) else {
+                continue;
+            };
+
+            if let Err(e) = sender.send(hash) {
+                tracing::error!("Failed to send pending txn hash: {}", e);
+                return;
             }
         }
     });

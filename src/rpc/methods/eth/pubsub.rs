@@ -64,7 +64,7 @@ use crate::rpc::eth::pubsub_trait::{
 };
 use crate::rpc::{RPCState, chain};
 use jsonrpsee::PendingSubscriptionSink;
-use jsonrpsee::core::{SubscriptionError, SubscriptionResult};
+use jsonrpsee::core::SubscriptionResult;
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, error::RecvError};
 
@@ -87,13 +87,7 @@ impl EthPubSubApiServer for EthPubSub {
         match kind {
             SubscriptionKind::NewHeads => self.handle_new_heads_subscription(sink, ctx).await,
             SubscriptionKind::PendingTransactions => {
-                return Err(SubscriptionError::from(
-                    jsonrpsee::types::ErrorObjectOwned::owned(
-                        jsonrpsee::types::error::METHOD_NOT_FOUND_CODE,
-                        "pendingTransactions subscription not yet implemented",
-                        None::<()>,
-                    ),
-                ));
+                self.handle_pending_txn_subscription(sink, ctx).await
             }
             SubscriptionKind::Logs => {
                 let filter = params.and_then(|p| p.filter);
@@ -127,6 +121,17 @@ impl EthPubSub {
         let (logs, handle) = chain::logs(&ctx, filter_spec);
         tokio::spawn(async move {
             handle_subscription(logs, accepted_sink, handle).await;
+        });
+    }
+
+    async fn handle_pending_txn_subscription(
+        &self,
+        accepted_sink: jsonrpsee::SubscriptionSink,
+        ctx: Arc<RPCState>,
+    ) {
+        let (pending_rx, handle) = chain::new_pending_txns(&ctx);
+        tokio::spawn(async move {
+            handle_subscription(pending_rx, accepted_sink, handle).await;
         });
     }
 }
