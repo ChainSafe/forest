@@ -28,11 +28,10 @@ pub const FIL_ZERO: &str = "0 FIL";
 /// Amount to seed a freshly-created delegated wallet.
 pub const DELEGATE_FUND_AMT: &str = "3 micro FIL";
 
-pub const POLL_RETRIES: usize = 20;
-pub const POLL_DELAY: Duration = Duration::from_secs(30);
-
-pub const SEARCH_MSG_RETRIES: usize = 30;
-pub const SEARCH_MSG_DELAY: Duration = Duration::from_secs(5);
+/// Maximum time to wait for a polled condition before failing the test.
+pub const POLL_TIMEOUT: Duration = Duration::from_secs(60);
+/// Delay between poll attempts.
+pub const POLL_WAIT_TIME: Duration = Duration::from_millis(500);
 
 /// Selects which `forest-wallet` keystore an operation targets.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -145,26 +144,33 @@ fn is_min_gas_price_error(err: &anyhow::Error) -> bool {
     })
 }
 
-/// Poll `check` up to [`POLL_RETRIES`] times with [`POLL_DELAY`] between
-/// attempts; return the satisfying value or a labelled timeout error.
-pub async fn poll<F>(what: &str, mut check: F) -> anyhow::Result<String>
+/// Poll until `try_check` returns `Some` or [`POLL_TIMEOUT`] elapses, sleeping
+/// [`POLL_WAIT_TIME`] between attempts.
+async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
 where
-    F: FnMut() -> anyhow::Result<Option<String>>,
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = anyhow::Result<Option<T>>>,
 {
-    for i in 1..=POLL_RETRIES {
-        eprintln!("Polling {what} {i}/{POLL_RETRIES}");
-        tokio::time::sleep(POLL_DELAY).await;
-        if let Some(value) = check()? {
+    let started = tokio::time::Instant::now();
+    let mut attempt = 0u32;
+    loop {
+        attempt += 1;
+        eprintln!("Polling {label} attempt {attempt}");
+        if let Some(value) = try_check().await? {
             return Ok(value);
         }
+        if started.elapsed() >= POLL_TIMEOUT {
+            bail!("Timed out waiting for {label} after {POLL_TIMEOUT:?}");
+        }
+        let remaining = POLL_TIMEOUT.saturating_sub(started.elapsed());
+        tokio::time::sleep(POLL_WAIT_TIME.min(remaining)).await;
     }
-    bail!("Timed out waiting for {what} after {POLL_RETRIES} retries")
 }
 
 /// Poll until the balance reported for `address` is no longer [`FIL_ZERO`].
 pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Result<String> {
     let label = format!("{} balance for {address}", backend.label());
-    poll(&label, || {
+    poll(&label, || async {
         let bal = balance(address, backend)?;
         Ok((bal != FIL_ZERO).then_some(bal))
     })
@@ -179,7 +185,7 @@ pub async fn poll_until_changed(
 ) -> anyhow::Result<String> {
     let label = format!("{} balance change for {address}", backend.label());
     let baseline = baseline.to_string();
-    poll(&label, || {
+    poll(&label, || async {
         let bal = balance(address, backend)?;
         Ok((bal != baseline).then_some(bal))
     })
@@ -301,22 +307,17 @@ pub fn cid_from_lotus_json_result(result: &Value) -> anyhow::Result<String> {
         .with_context(|| format!("expected CID (lotus JSON or string), got {result}"))
 }
 
-/// Poll `Filecoin.StateSearchMsg` until the message is mined or retries exhaust.
+/// Poll `Filecoin.StateSearchMsg` until the message is mined or [`POLL_TIMEOUT`] elapses.
 pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
-    for i in 1..=SEARCH_MSG_RETRIES {
-        tokio::time::sleep(SEARCH_MSG_DELAY).await;
-        eprintln!("StateSearchMsg polling {msg_cid} attempt {i}/{SEARCH_MSG_RETRIES}");
+    let label = format!("StateSearchMsg for {msg_cid}");
+    poll(&label, || async {
         let params = json!([[], { "/": msg_cid }, 800_i64, true]);
-        if rpc_call_opt("Filecoin.StateSearchMsg", params)
+        Ok((rpc_call_opt("Filecoin.StateSearchMsg", params)
             .await?
-            .is_some()
-        {
-            return Ok(());
-        }
-    }
-    bail!(
-        "timed out waiting for message {msg_cid} via StateSearchMsg after {SEARCH_MSG_RETRIES} retries"
-    )
+            .is_some())
+            .then_some(()))
+    })
+    .await
 }
 
 /// Resolve the ETH equivalent of a Filecoin address via
