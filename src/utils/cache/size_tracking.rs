@@ -167,30 +167,8 @@ where
         self.cache.clear()
     }
 
-    /// Get the value for `key`, computing it with `compute` on a miss.
-    ///
-    /// Concurrent callers for the same key are coalesced — only one runs
-    /// `compute`, the rest wait on the result.
-    ///
-    /// Returns `(value, was_hit)`; the caller can use the flag to drive
-    /// hit/miss metrics. If `compute` fails the placeholder is released and
-    /// the next caller will recompute.
-    pub async fn get_or_compute<F, Fut, E>(&self, key: &K, compute: F) -> Result<(V, bool), E>
-    where
-        F: FnOnce() -> Fut,
-        Fut: std::future::Future<Output = Result<V, E>>,
-    {
-        match self.cache.get_value_or_guard_async(key).await {
-            Ok(v) => Ok((v, true)),
-            Err(guard) => {
-                let v = compute().await?;
-                let _ = guard.insert(v.clone());
-                Ok((v, false))
-            }
-        }
-    }
-
     /// Gets or inserts an item in the cache with key.
+    /// Concurrent callers for the same key are coalesced — only one runs
     #[inline]
     pub fn get_or_insert_with<Q, E>(
         &self,
@@ -204,6 +182,7 @@ where
     }
 
     /// Gets or inserts an item in the cache with key. Async version.
+    /// Concurrent callers for the same key are coalesced — only one runs
     #[inline]
     pub async fn get_or_insert_async<Q, E>(
         &self,

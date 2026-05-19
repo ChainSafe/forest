@@ -59,7 +59,14 @@ impl<K: CacheKeyConstraints, V: CacheValueConstraints> ForestCache<K, V> {
         Fut: Future<Output = anyhow::Result<V>> + Send,
         V: Send + Sync + 'static,
     {
-        let (value, hit) = self.cache.get_or_compute(key, compute).await?;
+        let mut hit = false;
+        let value = self
+            .cache
+            .get_or_insert_async(key, async {
+                hit = true;
+                compute().await
+            })
+            .await?;
         if hit {
             TIPSET_HIT.inc();
         } else {
