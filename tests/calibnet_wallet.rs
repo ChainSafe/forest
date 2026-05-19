@@ -1,8 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Calibnet wallet integration tests. Each `#[tokio::test]` is `#[ignore]`
-//! and assumes:
+//! Calibnet wallet integration tests. Each test assumes:
 //! - `forest-wallet` is on `PATH`,
 //! - a Forest daemon is running and synced to calibnet,
 //! - [`FOREST_TEST_PRELOADED_ADDRESS`] is funded and imported into both backends (env var of the same name; see `forest_wallet_init`),
