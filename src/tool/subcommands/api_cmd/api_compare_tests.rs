@@ -4,6 +4,7 @@
 use super::{CreateTestsArgs, ReportMode, RunIgnored, TestCriteriaOverride};
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::db::car::ManyCar;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
@@ -2444,6 +2445,33 @@ fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     ])
 }
 
+fn state_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<RpcTest>> {
+    let heaviest_tipset = store.heaviest_tipset()?;
+    let chain_config = handle_chain_config(&NetworkChain::Calibnet)?;
+    let expensive_fork_epoch = chain_config
+        .height_infos
+        .values()
+        .filter(|info| info.expensive && info.epoch <= heaviest_tipset.epoch())
+        .map(|info| info.epoch)
+        .max()
+        .expect("calibnet must define at least one expensive fork");
+
+    let chain_index = ChainIndex::new(store);
+    let tipset = chain_index.load_required_tipset_by_height(
+        expensive_fork_epoch,
+        heaviest_tipset,
+        ResolveNullTipset::TakeNewer,
+    )?;
+
+    Ok(vec![
+        RpcTest::identity(StateCall::request((
+            Message::default(),
+            tipset.key().into(),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+    ])
+}
+
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(
@@ -2462,6 +2490,8 @@ fn snapshot_tests(
         .take(SAFE_EPOCH_DELAY_FOR_TESTING as usize)
         .last()
         .expect("Infallible");
+
+    tests.extend(state_expensive_fork_error_tests(store.clone())?);
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, offline, &tipset)?);
@@ -2555,7 +2585,7 @@ pub(super) async fn create_tests(
         let store = Arc::new(ManyCar::try_from(snapshot_files.clone())?);
         revalidate_chain(store.clone(), n_tipsets).await?;
         tests.extend(snapshot_tests(
-            store,
+            store.clone(),
             offline,
             n_tipsets,
             miner_address,
