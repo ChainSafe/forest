@@ -20,8 +20,8 @@ use crate::{
     chain::index::ResolveNullTipset,
     chain_sync::TipsetValidator,
     db::{
-        BlockstoreReadCacheStats as _, BlockstoreWithReadCache, DefaultBlockstoreReadCacheStats,
-        LruBlockstoreReadCache,
+        BlockstoreReadCacheStats as _, BlockstoreWithReadCache, DefaultBlockstoreReadCache,
+        DefaultBlockstoreReadCacheStats,
     },
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::{HasLotusJson as _, LotusJson},
@@ -171,8 +171,8 @@ impl GetPowerTable {
     async fn compute(ctx: &Ctx, ts: &Tipset) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
         const BLOCKSTORE_CACHE_CAP: NonZeroUsize = nonzero!(65536_usize);
-        static BLOCKSTORE_CACHE: LazyLock<LruBlockstoreReadCache> = LazyLock::new(|| {
-            LruBlockstoreReadCache::new_with_metrics("get_powertable".into(), BLOCKSTORE_CACHE_CAP)
+        static BLOCKSTORE_CACHE: LazyLock<DefaultBlockstoreReadCache> = LazyLock::new(|| {
+            DefaultBlockstoreReadCache::new_with_metrics("get_powertable", BLOCKSTORE_CACHE_CAP)
         });
         let db = BlockstoreWithReadCache::new(
             ctx.db_owned(),

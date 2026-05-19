@@ -48,6 +48,7 @@ mod tests {
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
     use crate::message_pool::MessagePool;
     use crate::message_pool::msgpool::test_provider::TestApi;
+    use crate::prelude::*;
     use crate::shim::crypto::SignatureType;
     use crate::shim::{address::Address, econ::TokenAmount};
     use std::sync::Arc;
@@ -120,13 +121,12 @@ mod tests {
         const N: usize = 10;
         let tracker = Arc::new(NonceTracker::new());
         let (mpool, mut wallet, sender, _rx) = make_test_pool_and_wallet();
-        let mpool = Arc::new(mpool);
         let key = Arc::new(wallet.find_key(&sender).unwrap());
         let eth_chain_id: EthChainId = crate::networks::calibnet::ETH_CHAIN_ID;
 
         let mut tasks = JoinSet::new();
         for _ in 0..N {
-            let (tracker, mpool, key) = (tracker.clone(), mpool.clone(), key.clone());
+            let (tracker, mpool, key) = (tracker.clone(), mpool.shallow_clone(), key.clone());
             tasks.spawn(async move {
                 tracker
                     .sign_and_push(&mpool, make_message(sender), &key, eth_chain_id)

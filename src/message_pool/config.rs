@@ -43,12 +43,6 @@ impl Default for MpoolConfig {
 }
 
 impl MpoolConfig {
-    #[cfg(test)]
-    /// Saves message pool `config` to the database, to easily reload.
-    pub fn save_config<DB: SettingsStore>(&self, store: &DB) -> anyhow::Result<()> {
-        store.write_bin(MPOOL_CONFIG_KEY, &fvm_ipld_encoding::to_vec(&self)?)
-    }
-
     /// Returns the low limit capacity of messages to allocate.
     pub fn size_limit_low(&self) -> i64 {
         self.size_limit_low

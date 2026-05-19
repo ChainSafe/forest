@@ -11,7 +11,8 @@ use ahash::{HashMap, HashMapExt};
 use crate::message::{MessageRead, SignedMessage};
 use crate::message_pool::errors::Error;
 use crate::message_pool::metrics;
-use crate::message_pool::msgpool::{RBF_DENOM, RBF_NUM, TrustPolicy};
+use crate::message_pool::msg_pool::TrustPolicy;
+use crate::message_pool::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::shim::econ::TokenAmount;
 
 /// Maximum allowed nonce gap for trusted message inserts under [`StrictnessPolicy::Strict`].

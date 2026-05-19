@@ -29,3 +29,29 @@ pub struct Cli {
     #[command(subcommand)]
     pub cmd: wallet_cmd::WalletCommands,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::Parser;
+    use clap::error::ErrorKind;
+    use rstest::rstest;
+
+    fn try_parse(args: &[&str]) -> Result<Cli, ErrorKind> {
+        let argv = std::iter::once("forest-wallet").chain(args.iter().copied());
+        Cli::try_parse_from(argv).map_err(|e| e.kind())
+    }
+
+    #[rstest]
+    #[case::balance(&["balance", "not-an-address"])]
+    #[case::export(&["export", "not-an-address"])]
+    #[case::has(&["has", "not-an-address"])]
+    #[case::set_default(&["set-default", "not-an-address"])]
+    #[case::delete(&["delete", "not-an-address"])]
+    #[case::sign(&["sign", "-m", "de", "-a", "not-an-address"])]
+    #[case::verify(&["verify", "-a", "not-an-address", "-m", "de", "-s", "de"])]
+    #[case::send_from(&["send", "--from", "not-an-address", "f01234", "1"])]
+    fn migrated_subcommands_reject_malformed_address(#[case] args: &[&str]) {
+        assert_eq!(try_parse(args).err(), Some(ErrorKind::ValueValidation));
+    }
+}

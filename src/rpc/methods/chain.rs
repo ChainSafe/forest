@@ -18,9 +18,9 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::prelude::*;
-use crate::rpc::eth::Block as EthBlock;
 use crate::rpc::eth::{
-    EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec,
+    Block as EthBlock, EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders,
+    types::EthFilterSpec,
 };
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
@@ -88,7 +88,7 @@ pub(crate) fn new_heads(data: Ctx) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
             for ts in changes.applies {
                 // Convert the tipset to an Ethereum block with full transaction info
                 // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
-                match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
+                match EthBlock::from_filecoin_tipset(&data.state_manager, ts, TxInfo::Full).await {
                     Ok(block) => {
                         if let Err(e) = sender.send(ApiHeaders(block)) {
                             tracing::error!("Failed to send headers: {}", e);
