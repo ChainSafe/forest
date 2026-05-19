@@ -113,6 +113,7 @@ fn startup_init(config: &Config) -> anyhow::Result<()> {
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
     );
+    info!("Data directory: {}", config.client.data_dir.display());
     Ok(())
 }
 

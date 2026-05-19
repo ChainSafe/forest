@@ -32,6 +32,7 @@
 ### Added
 
 - [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
+- [#6008](https://github.com/ChainSafe/forest/issues/6008): `FOREST_PATH` environment variable to override the data directory for `forest`, `forest-cli`, `forest-tool` and `forest-wallet`. Takes precedence over `client.data_dir` in the config file. The daemon also logs the resolved data directory on startup.
 
 ### Changed
 

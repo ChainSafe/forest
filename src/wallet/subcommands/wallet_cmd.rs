@@ -62,11 +62,14 @@ impl WalletBackend {
     }
 
     fn new_local(client: rpc::Client, want_encryption: bool) -> anyhow::Result<Self> {
-        let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
-            bail!("Failed to find wallet directory");
+        let wallet_dir = if let Some(forest_path) = crate::cli_shared::forest_path_from_env() {
+            forest_path
+        } else {
+            let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
+                bail!("Failed to find wallet directory");
+            };
+            dir.data_dir().to_path_buf()
         };
-
-        let wallet_dir = dir.data_dir().to_path_buf();
 
         let is_encrypted = wallet_dir.join(ENCRYPTED_KEYSTORE_NAME).exists();
 

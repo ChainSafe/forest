@@ -9,6 +9,17 @@ use crate::networks::NetworkChain;
 use crate::utils::io::read_toml;
 use std::path::PathBuf;
 
+/// Environment variable that overrides the Forest data directory.
+pub const FOREST_PATH_ENV: &str = "FOREST_PATH";
+
+/// Returns the value of [`FOREST_PATH_ENV`] when set to a non-empty string.
+pub fn forest_path_from_env() -> Option<PathBuf> {
+    std::env::var(FOREST_PATH_ENV)
+        .ok()
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+}
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustalloc")] {
     } else if #[cfg(feature = "jemalloc")] {
@@ -36,6 +47,9 @@ pub fn read_config(
     };
     if let Some(chain) = chain_opt {
         config.chain = chain;
+    }
+    if let Some(data_dir) = forest_path_from_env() {
+        config.client.data_dir = data_dir;
     }
     Ok((path, config))
 }
@@ -66,6 +80,22 @@ mod tests {
 
         assert!(config_path.is_none());
         assert_eq!(config.chain(), &NetworkChain::Butterflynet);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn read_config_forest_path_env_override() {
+        let temp_dir = tempfile::tempdir().expect("couldn't create temp dir");
+        // SAFETY: tests touching the process environment are gated by `#[serial]`.
+        unsafe {
+            std::env::set_var(FOREST_PATH_ENV, temp_dir.path());
+        }
+        let (_, config) = read_config(None, None).unwrap();
+        // SAFETY: tests touching the process environment are gated by `#[serial]`.
+        unsafe {
+            std::env::remove_var(FOREST_PATH_ENV);
+        }
+        assert_eq!(config.client.data_dir, temp_dir.path());
     }
 
     #[test]
