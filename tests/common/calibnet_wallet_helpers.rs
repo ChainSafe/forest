@@ -29,9 +29,9 @@ pub const FIL_ZERO: &str = "0 FIL";
 pub const DELEGATE_FUND_AMT: &str = "3 micro FIL";
 
 /// Maximum time to wait for a polled condition before failing the test.
-pub const POLL_TIMEOUT: Duration = Duration::from_secs(60);
+pub const POLL_TIMEOUT: Duration = Duration::from_secs(300);
 /// Delay between poll attempts.
-pub const POLL_WAIT_TIME: Duration = Duration::from_millis(500);
+pub const POLL_WAIT_TIME: Duration = Duration::from_secs(1);
 
 /// Selects which `forest-wallet` keystore an operation targets.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
