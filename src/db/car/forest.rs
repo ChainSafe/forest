@@ -33,7 +33,7 @@
 //! Looking up a block uses an [`index::Reader`] to find
 //! the right z-frame. The frame is then decoded and each block is linearly
 //! scanned until a match is found. Decoded (and scanned) z-frames are stored in
-//! a lru-cache for faster repeat retrievals.
+//! a cache for faster repeat retrievals.
 //!
 //! `forest.car.zst` files are backward compatible with Lotus (and all other
 //! tools that consume compressed CAR files). All Forest-specifc information is
@@ -265,7 +265,7 @@ where
             let cache_query = self.frame_cache.get(position, self.cache_key, *k);
             match cache_query {
                 // Frame cache hit, found value.
-                Some(Some(val)) => return Ok(Some(val)),
+                Some(Some(val)) => return Ok(Some(val.to_vec())),
                 // Frame cache hit, no value. This only happens when hashes collide
                 Some(None) => {}
                 None => {
@@ -284,7 +284,7 @@ where
 
                     // This lookup only fails in case of a hash collision
                     if let Some(value) = get_result {
-                        return Ok(Some(value));
+                        return Ok(Some(value.to_vec()));
                     }
                 }
             }
@@ -552,7 +552,10 @@ mod tests {
         .unwrap();
         assert_eq!(forest_car.head_tipset_key(), &roots);
         for block in blocks {
-            assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
+            assert_eq!(
+                forest_car.get(&block.cid).unwrap().map(Bytes::from),
+                Some(block.data)
+            );
         }
     }
 
@@ -586,11 +589,11 @@ mod tests {
         let blocks = nonempty![
             CarBlock {
                 cid: cid_a,
-                data: Vec::from_iter(*b"bill and ben"),
+                data: "bill and ben".into(),
             },
             CarBlock {
                 cid: cid_b,
-                data: Vec::from_iter(*b"the flowerpot men"),
+                data: "the flowerpot men".into(),
             },
         ];
 

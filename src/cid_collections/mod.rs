@@ -4,9 +4,9 @@ pub mod hash_map;
 pub mod hash_set;
 mod small_cid_vec;
 pub use hash_map::CidHashMap;
-pub use hash_set::CidHashSet;
+pub use hash_set::{CidHashSet, CidHashSetLike, FileBackedCidHashSet};
 use imp::{CidV1DagCborBlake2b256, Uncompactable};
-pub use small_cid_vec::SmallCidNonEmptyVec;
+pub use small_cid_vec::{SmallCid, SmallCidNonEmptyVec};
 
 /// The core primitive for saving space in this module.
 ///
@@ -53,6 +53,10 @@ mod imp {
 
     impl CidV1DagCborBlake2b256 {
         const WIDTH: usize = 32;
+
+        pub fn digest(&self) -> &[u8; Self::WIDTH] {
+            &self.digest
+        }
     }
 
     #[cfg(test)]
@@ -105,6 +109,12 @@ mod imp {
     pub struct Uncompactable {
         #[get_size(ignore)]
         inner: Cid,
+    }
+
+    impl Uncompactable {
+        pub fn inner(&self) -> &Cid {
+            &self.inner
+        }
     }
 
     /// [`Uncompactable`] can only be created through [`MaybeCompactedCid`], since
@@ -169,7 +179,7 @@ mod imp {
 mod tests {
     use super::*;
     use cid::Cid;
-    use quickcheck::{Arbitrary, quickcheck};
+    use quickcheck::Arbitrary;
 
     impl Arbitrary for MaybeCompactedCid {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -180,11 +190,10 @@ mod tests {
         }
     }
 
-    quickcheck! {
-        fn cid_via_maybe_compacted_cid(before: Cid) -> () {
-            let via = MaybeCompactedCid::from(before);
-            let after = Cid::from(via);
-            assert_eq!(before, after);
-        }
+    #[quickcheck_macros::quickcheck]
+    fn cid_via_maybe_compacted_cid(before: Cid) {
+        let via = MaybeCompactedCid::from(before);
+        let after = Cid::from(via);
+        assert_eq!(before, after);
     }
 }

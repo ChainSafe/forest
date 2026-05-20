@@ -352,8 +352,6 @@ impl<V> Iterator for Keys<'_, V> {
 mod tests {
     use super::*;
 
-    use quickcheck::quickcheck;
-
     #[derive(derive_quickcheck_arbitrary::Arbitrary, Clone, Debug)]
     enum Operation {
         ContainsKey(MaybeCompactedCid),
@@ -362,56 +360,47 @@ mod tests {
         Entry { key: MaybeCompactedCid, value: u8 },
     }
 
-    quickcheck! {
-        fn operations(operations: Vec<Operation>) -> () {
-            use Operation as Op;
+    #[quickcheck_macros::quickcheck]
+    fn operations(operations: Vec<Operation>) {
+        use Operation as Op;
 
-            let mut subject = CidHashMap::default();
-            let mut reference = ahash::HashMap::default();
-            for operation in operations {
-                match operation {
-                    Op::ContainsKey(key) => {
-                        let key = key.into();
-                        assert_eq!(
-                            subject.contains_key(&key),
-                            reference.contains_key(&key)
-                        )
-                    },
-                    Op::Get(key) => {
-                        let key = key.into();
-                        assert_eq!(
-                            subject.get(&key),
-                            reference.get(&key)
-                        )
-                    },
-                    Op::Insert(key, val) => {
-                        let key = key.into();
-                        assert_eq!(
-                            subject.insert(key, val),
-                            reference.insert(key, val)
-                        )
-                    },
-                    Op::Entry {
-                        key, value
-                    } => {
-                        let key = key.into();
-                        match (subject.entry(key), reference.entry(key)) {
-                            (Entry::Occupied(subj), StdEntry::Occupied(refr)) => assert_eq!(subj.get(), refr.get()),
-                            (Entry::Vacant(subj), StdEntry::Vacant(refr)) => assert_eq!(subj.insert(value), refr.insert(value)),
-                            (subj, refr) => panic!("{subj:?}, {refr:?}")
+        let mut subject = CidHashMap::default();
+        let mut reference = ahash::HashMap::default();
+        for operation in operations {
+            match operation {
+                Op::ContainsKey(key) => {
+                    let key = key.into();
+                    assert_eq!(subject.contains_key(&key), reference.contains_key(&key))
+                }
+                Op::Get(key) => {
+                    let key = key.into();
+                    assert_eq!(subject.get(&key), reference.get(&key))
+                }
+                Op::Insert(key, val) => {
+                    let key = key.into();
+                    assert_eq!(subject.insert(key, val), reference.insert(key, val))
+                }
+                Op::Entry { key, value } => {
+                    let key = key.into();
+                    match (subject.entry(key), reference.entry(key)) {
+                        (Entry::Occupied(subj), StdEntry::Occupied(refr)) => {
+                            assert_eq!(subj.get(), refr.get())
                         }
+                        (Entry::Vacant(subj), StdEntry::Vacant(refr)) => {
+                            assert_eq!(subj.insert(value), refr.insert(value))
+                        }
+                        (subj, refr) => panic!("{subj:?}, {refr:?}"),
                     }
                 }
-            };
-            assert_eq!(reference, ahash::HashMap::from_iter(subject));
+            }
         }
+        assert_eq!(reference, ahash::HashMap::from_iter(subject));
+    }
 
-        fn collect(pairs: Vec<(Cid, u8)>) -> () {
-            let refr = ahash::HashMap::from_iter(pairs.clone());
-            let via_subject = ahash::HashMap::from_iter(
-                CidHashMap::from_iter(pairs)
-            );
-            assert_eq!(refr, via_subject);
-        }
+    #[quickcheck_macros::quickcheck]
+    fn collect(pairs: Vec<(Cid, u8)>) {
+        let refr = ahash::HashMap::from_iter(pairs.clone());
+        let via_subject = ahash::HashMap::from_iter(CidHashMap::from_iter(pairs));
+        assert_eq!(refr, via_subject);
     }
 }

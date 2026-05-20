@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
-use crate::shim::address::Address;
 use crate::shim::message::MethodNum;
+use crate::shim::{address::Address, sector::SectorNumber};
 use cid::Cid;
 use fil_actors_shared::actor_versions::ActorVersion;
 
@@ -146,6 +146,27 @@ macro_rules! register_miner_common_method_v16_onwards {
             $registry,
             $code_cid,
             [(Method::InitialPledgeExported, empty)]
+        );
+    }};
+}
+
+macro_rules! register_miner_common_method_v18_onwards {
+    ($registry:expr, $code_cid:expr, $state_version:path) => {{
+        use $state_version::{GenerateSectorLocationParams, Method, ValidateSectorStatusParams};
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (
+                    Method::GenerateSectorLocationExported,
+                    GenerateSectorLocationParams
+                ),
+                (
+                    Method::ValidateSectorStatusExported,
+                    ValidateSectorStatusParams
+                ),
+                (Method::GetNominalSectorExpirationExported, SectorNumber),
+            ]
         );
     }};
 }
@@ -395,6 +416,7 @@ fn register_miner_version_18(registry: &mut MethodRegistry, cid: Cid) {
     register_miner_common_methods_v10_onwards!(registry, cid, fil_actor_miner_state::v18);
     register_miner_common_method_v14_onwards!(registry, cid, fil_actor_miner_state::v18);
     register_miner_common_method_v16_onwards!(registry, cid, fil_actor_miner_state::v18);
+    register_miner_common_method_v18_onwards!(registry, cid, fil_actor_miner_state::v18);
 }
 
 pub(crate) fn register_miner_actor_methods(

@@ -18,14 +18,14 @@
 //! ## Correctness
 //! The algorithm assumes that a Forest node can always be bootstrapped with the most recent standard lite snapshot.
 //!
-//! ## Disk usage
-//! The algorithm requires extra disk space of the size of a most recent standard lite
-//! snapshot(`~72 GiB` as of writing at epoch 4937270 on mainnet).
+//! ### RAM/Disk Usage Spikes
 //!
-//! ## Memory usage
-//! During the lite snapshot export stage, the algorithm at least `32 bytes` of memory for each reachable block
-//! while traversing the reachable graph. For a typical mainnet snapshot of about 100 GiB that adds up to
-//! roughly 2.5 GiB.
+//! During the GC process, Forest consumes extra RAM and disk space temporarily:
+//!
+//! - While traversing reachable blocks, it uses ~80MiB of RAM and ~8GiB disk space on mainnet (and ~2GiB on calibnet) for de-duplicating reachable blocks.
+//! - While exporting a lite snapshot, it uses extra disk space before cleaning up parity-db and stale CAR snapshots.
+//!
+//! For a typical ~80 GiB mainnet snapshot, this results in ~80 MiB of additional RAM and ~90 GiB disk space usage.
 //!
 //! ## Scheduling
 //! When automatic GC is enabled, it by default runs every 7 days (20160 epochs).
@@ -39,13 +39,16 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, ExportOptions};
 use crate::chain_sync::ChainFollower;
+use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::chain_path;
+use crate::db::DbImpl;
 use crate::db::{
-    BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore,
+    BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider,
     car::{ForestCar, ReloadableManyCar, forest::new_forest_car_temp_path_in},
     db_engine::db_root,
     parity_db::GarbageCollectableDb,
 };
+use crate::prelude::*;
 use crate::shim::clock::EPOCHS_IN_DAY;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::HashMap;
@@ -56,20 +59,18 @@ use parking_lot::RwLock;
 use sha2::Sha256;
 use std::{
     path::PathBuf,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
 use tokio::task::JoinSet;
 
-pub struct SnapshotGarbageCollector<DB> {
+pub struct SnapshotGarbageCollector {
+    chain_tmp_root: PathBuf,
     car_db_dir: PathBuf,
     recent_state_roots: i64,
     running: AtomicBool,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
-    chain_follower: Arc<ChainFollower<DB>>,
+    chain_follower: ChainFollower,
     // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
     memory_db: RwLock<Option<HashMap<Cid, bytes::Bytes>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
@@ -79,23 +80,11 @@ pub struct SnapshotGarbageCollector<DB> {
     progress_tx: RwLock<Option<flume::Sender<()>>>,
 }
 
-impl<DB> SnapshotGarbageCollector<DB>
-where
-    DB: Blockstore
-        + GarbageCollectableDb
-        + ReloadableManyCar
-        + SettingsStore
-        + HeaviestTipsetKeyProvider
-        + BlockstoreWriteOpsSubscribable
-        + Send
-        + Sync
-        + 'static,
-{
-    pub fn new(
-        chain_follower: Arc<ChainFollower<DB>>,
-        config: &crate::Config,
-    ) -> anyhow::Result<Self> {
+impl SnapshotGarbageCollector {
+    pub fn new(chain_follower: ChainFollower, config: &crate::Config) -> anyhow::Result<Self> {
         let chain_data_path = chain_path(config);
+        let chain_tmp_root = chain_data_path.join("tmp");
+        std::fs::create_dir_all(&chain_tmp_root)?;
         let db_root_dir = db_root(&chain_data_path)?;
         let car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
         let recent_state_roots = std::env::var("FOREST_SNAPSHOT_GC_KEEP_STATE_TREE_EPOCHS")
@@ -114,6 +103,7 @@ where
             .unwrap_or(config.sync.recent_state_roots);
         let (trigger_tx, trigger_rx) = flume::bounded(1);
         Ok(Self {
+            chain_tmp_root,
             car_db_dir,
             recent_state_roots,
             running: AtomicBool::new(false),
@@ -226,7 +216,7 @@ where
         );
         let temp_path = new_forest_car_temp_path_in(&self.car_db_dir)?;
         let file = tokio::fs::File::create(&temp_path).await?;
-        let mut db_write_ops_rx = db.subscribe_write_ops();
+        let mut db_write_ops_rx = db.subscribe_write_ops()?;
         let mut joinset = JoinSet::new();
         joinset.spawn(async move {
             let mut map = HashMap::default();
@@ -248,17 +238,17 @@ where
             map
         });
         let start = Instant::now();
-        let (head_ts, _) = crate::chain::export_from_head::<Sha256>(
+        let (head_ts, _) = crate::chain::export_from_head::<Sha256, _>(
             db,
             self.recent_state_roots,
             file,
-            Some(ExportOptions {
+            ExportOptions {
                 skip_checksum: true,
                 include_receipts: true,
                 include_events: true,
                 include_tipset_keys: true,
-                seen: Default::default(),
-            }),
+                seen: FileBackedCidHashSet::new(&self.chain_tmp_root)?,
+            },
         )
         .await?;
         let target_path = self.car_db_dir.join(format!(
@@ -278,11 +268,9 @@ where
         // Unsubscribe before taking the snapshot of in-memory db to avoid deadlock
         db.unsubscribe_write_ops();
         match joinset.join_next().await {
-            Some(Ok(map)) => {
-                if !map.is_empty() {
-                    *self.memory_db.write() = Some(map);
-                    *self.memory_db_head_key.write() = current_chain_head;
-                }
+            Some(Ok(map)) if !map.is_empty() => {
+                *self.memory_db.write() = Some(map);
+                *self.memory_db_head_key.write() = current_chain_head;
             }
             Some(Err(e)) => tracing::warn!("{e}"),
             _ => {}
@@ -303,7 +291,7 @@ where
 
             // Reset parity-db columns
             tokio::task::spawn_blocking({
-                let db = db.clone();
+                let db = db.shallow_clone();
                 move || db.reset_gc_columns()
             })
             .await??;
@@ -393,12 +381,12 @@ where
         Ok(())
     }
 
-    fn cs(&self) -> &Arc<ChainStore<DB>> {
+    fn cs(&self) -> &ChainStore {
         self.chain_follower.state_manager.chain_store()
     }
 
-    fn db(&self) -> &Arc<DB> {
-        self.chain_follower.state_manager.blockstore()
+    fn db(&self) -> &DbImpl {
+        self.chain_follower.state_manager.db()
     }
 
     fn sync_status(&self) -> &crate::chain_sync::SyncStatus {

@@ -4,11 +4,12 @@
 use super::*;
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
-use crate::db::{MemoryDB, PersistentStore};
+use crate::db::{DbImpl, MemoryDB, PersistentStore};
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::ipld::stream_chain;
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -297,6 +298,7 @@ async fn validate_with_blockstore<BlockstoreT>(
 ) -> anyhow::Result<()>
 where
     BlockstoreT: PersistentStore + Send + Sync + 'static,
+    Arc<BlockstoreT>: Into<DbImpl>,
 {
     if check_links != 0 {
         validate_ipld_links(root.clone(), &store, check_links).await?;
@@ -347,7 +349,7 @@ where
             pb.set_message(format!("{height} remaining epochs (spine)"));
         }
     });
-    let mut stream = stream_chain(&db, tipsets, epoch_limit);
+    let mut stream = stream_chain(&db, tipsets, epoch_limit, CidHashSet::default());
     while stream.try_next().await?.is_some() {}
 
     pb.finish_with_message("✅ verified!");
@@ -399,6 +401,7 @@ async fn validate_stateroots<DB>(
 ) -> anyhow::Result<()>
 where
     DB: PersistentStore + Send + Sync + 'static,
+    Arc<DB>: Into<DbImpl>,
 {
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let genesis = ts.genesis(db)?;
@@ -465,7 +468,7 @@ fn validation_spinner(prefix: &'static str) -> indicatif::ProgressBar {
 
 fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> anyhow::Result<()> {
     // Initialize Blockstore
-    let store = Arc::new(AnyCar::try_from(snapshot.as_path())?);
+    let store: Arc<ManyCar> = Arc::new(AnyCar::try_from(snapshot.as_path())?.try_into()?);
 
     // Prepare call to apply_block_messages
     let ts = store.heaviest_tipset()?;
@@ -481,7 +484,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
-        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .with_context(|| format!("couldn't get a tipset at height {epoch}"))?;
 
     let mut message_calls = vec![];

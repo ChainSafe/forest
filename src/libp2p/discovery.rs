@@ -365,22 +365,18 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
     fn on_swarm_event(&mut self, event: FromSwarm) {
         match &event {
-            FromSwarm::ConnectionEstablished(e) => {
-                if e.other_established == 0 {
-                    self.n_node_connected += 1;
-                    self.peers.insert(e.peer_id);
-                    self.pending_events
-                        .push_back(DiscoveryEvent::PeerConnected(e.peer_id));
-                }
+            FromSwarm::ConnectionEstablished(e) if e.other_established == 0 => {
+                self.n_node_connected += 1;
+                self.peers.insert(e.peer_id);
+                self.pending_events
+                    .push_back(DiscoveryEvent::PeerConnected(e.peer_id));
             }
-            FromSwarm::ConnectionClosed(e) => {
-                if e.remaining_established == 0 {
-                    self.n_node_connected -= 1;
-                    self.peers.remove(&e.peer_id);
-                    self.peer_info.remove(&e.peer_id);
-                    self.pending_events
-                        .push_back(DiscoveryEvent::PeerDisconnected(e.peer_id));
-                }
+            FromSwarm::ConnectionClosed(e) if e.remaining_established == 0 => {
+                self.n_node_connected -= 1;
+                self.peers.remove(&e.peer_id);
+                self.peer_info.remove(&e.peer_id);
+                self.pending_events
+                    .push_back(DiscoveryEvent::PeerDisconnected(e.peer_id));
             }
             _ => {}
         };

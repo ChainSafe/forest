@@ -1,17 +1,15 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::SystemStateNew;
 use crate::shim::{
     address::Address,
     machine::{BuiltinActor, BuiltinActorManifest},
     state_tree::{ActorState, StateTree},
 };
+use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt as _;
 use fvm_ipld_blockstore::Blockstore;
-
-use crate::state_migration::common::PostMigrator;
-
-use super::SystemStateNew;
 
 pub struct EamPostMigrator;
 

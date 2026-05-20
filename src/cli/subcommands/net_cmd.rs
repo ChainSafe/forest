@@ -72,12 +72,7 @@ impl NetCommands {
                     .into_iter()
                     .map(|res| res.unwrap_or_else(|_| "<agent unknown>".to_owned()));
 
-                    HashMap::from_iter(
-                        addrs
-                            .iter()
-                            .map(|info| info.id.to_owned())
-                            .zip(agents.into_iter()),
-                    )
+                    HashMap::from_iter(addrs.iter().map(|info| info.id.to_owned()).zip(agents))
                 } else {
                     HashMap::default()
                 };

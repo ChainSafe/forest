@@ -4,20 +4,19 @@
 mod types;
 pub use types::*;
 
-use std::any::Any;
 use std::num::NonZeroU64;
 use std::str::FromStr;
+use std::sync::OnceLock;
 use std::time::Instant;
 
 use crate::libp2p::chain_exchange::TipsetBundle;
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
+use crate::prelude::*;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use cid::multibase;
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools as _;
 
 pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
@@ -32,7 +31,7 @@ impl RpcMethod<0> for NetAddrsListen {
     type Ok = AddrInfo;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -60,7 +59,7 @@ impl RpcMethod<0> for NetPeers {
     type Ok = Vec<AddrInfo>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -92,7 +91,7 @@ impl RpcMethod<1> for NetFindPeer {
     type Ok = AddrInfo;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (peer_id,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -123,7 +122,7 @@ impl RpcMethod<0> for NetListening {
     type Ok = bool;
 
     async fn handle(
-        _: Ctx<impl Any>,
+        _: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -142,7 +141,7 @@ impl RpcMethod<0> for NetInfo {
     type Ok = NetInfoResult;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -168,7 +167,7 @@ impl RpcMethod<1> for NetConnect {
     type Ok = ();
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (AddrInfo { id, addrs },): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -203,7 +202,7 @@ impl RpcMethod<1> for NetDisconnect {
     type Ok = ();
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (peer_id,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -233,7 +232,7 @@ impl RpcMethod<1> for NetAgentVersion {
     type Ok = String;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (peer_id,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -259,7 +258,7 @@ impl RpcMethod<0> for NetAutoNatStatus {
     type Ok = NatStatusResult;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -282,14 +281,18 @@ impl RpcMethod<0> for NetVersion {
     const NAME_ALIAS: Option<&'static str> = Some("net_version");
 
     type Params = ();
-    type Ok = String;
+    type Ok = Arc<str>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.chain_config().eth_chain_id.to_string())
+        // `eth_chain_id` is fixed for the process lifetime; cache the decimal form.
+        static CACHED: OnceLock<Arc<str>> = OnceLock::new();
+        Ok(CACHED
+            .get_or_init(|| Arc::<str>::from(ctx.chain_config().eth_chain_id.to_string()))
+            .clone())
     }
 }
 
@@ -311,7 +314,7 @@ impl RpcMethod<1> for NetProtectAdd {
     // in go. However it would be nice to investigate connection limiting options in Rust.
     // See: <https://github.com/ChainSafe/forest/issues/4355>.
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (peer_ids,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -342,7 +345,7 @@ impl RpcMethod<0> for NetProtectList {
     type Params = ();
     type Ok = Vec<String>;
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -370,7 +373,7 @@ impl RpcMethod<1> for NetProtectRemove {
 
     // Similar to NetProtectAdd
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (peer_ids,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -402,7 +405,7 @@ impl RpcMethod<3> for NetChainExchange {
     type Ok = String;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (tsk, request_len, options): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

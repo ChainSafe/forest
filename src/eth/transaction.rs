@@ -636,7 +636,7 @@ pub(crate) mod tests {
         // from which the chain ID is derived.
         let v = (2 * eth_chain_id + 35).to_biguint().unwrap().to_bytes_be();
         let eip_155_sig_len = calc_valid_eip155_sig_len(eth_chain_id).0 as usize;
-        let mut eip_155_sig = vec![0u8; eip_155_sig_len as usize - v.len()];
+        let mut eip_155_sig = vec![0u8; eip_155_sig_len - v.len()];
         eip_155_sig[0] = EIP_155_SIG_PREFIX;
         eip_155_sig.extend(v);
 

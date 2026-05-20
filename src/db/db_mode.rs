@@ -6,9 +6,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Context as _;
 use semver::Version;
 
+use crate::prelude::*;
 use crate::utils::version::FOREST_VERSION;
 
 /// Environment variable used to set the development mode
@@ -92,8 +92,6 @@ impl DbMode {
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
-
     use super::*;
     use std::env;
 

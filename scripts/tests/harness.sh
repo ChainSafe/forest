@@ -83,7 +83,7 @@ function forest_run_node_stateless_detached {
 		data_dir = "/tmp/stateless_forest_data"
 
 		[network]
-		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
+		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0", "/ip4/127.0.0.1/udp/0/quic-v1"]
 	EOF
 
   $FOREST_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --stateless &
@@ -156,7 +156,9 @@ function forest_wallet_init {
 
   forest_init "$@"
 
-  $FOREST_WALLET_PATH import preloaded_wallet.key
+  FOREST_TEST_PRELOADED_ADDRESS="$($FOREST_WALLET_PATH import preloaded_wallet.key)"
+  export FOREST_TEST_PRELOADED_ADDRESS
+
   $FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key
 }
 

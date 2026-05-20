@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.33.0"
+version = "0.33.4"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -20,11 +20,11 @@ anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.12"
 futures = "0.3"
-get-size2 = { version = "0.7", features = ["derive", "hashbrown"] }
+get-size2 = { version = "0.8", features = ["derive", "bytes", "hashbrown"] }
 hashlink = "0.11"
 libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
-multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
+multihash-codetable = { version = "0.2", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.4"
 serde = { version = "1", default-features = false, features = ["derive", "rc"] }
 serde_yaml = "0.9"
@@ -53,7 +53,7 @@ bls-signatures = { version = "0.15", default-features = false, features = [
 blstrs = { version = "0.7", features = ["portable"] }
 byteorder = "1"
 bytes = "1"
-cbor4ii = { version = "0.2", default-features = false, features = ["use_alloc", "use_std", "serde1"] }
+cbor4ii = { version = "1", default-features = false, features = ["use_alloc", "use_std", "serde1"] }
 cfg-if = "1"
 cfg-vis = "0.3"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
@@ -76,41 +76,41 @@ educe = { version = "0.6", features = ["Debug"], default-features = false }
 enumflags2 = "0.7"
 ethereum-types = { version = "0.16", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
-fil_actor_account_state = { version = "25.0.0" }
-fil_actor_cron_state = { version = "25.0.0" }
-fil_actor_datacap_state = { version = "25.0.0" }
-fil_actor_eam_state = { version = "25.0.0" }
-fil_actor_ethaccount_state = { version = "25.0.0" }
-fil_actor_evm_state = { version = "25.0.0" }
-fil_actor_init_state = { version = "25.0.0" }
-fil_actor_market_state = { version = "25.0.0" }
-fil_actor_miner_state = { version = "25.0.0" }
-fil_actor_multisig_state = { version = "25.0.0" }
-fil_actor_paych_state = { version = "25.0.0" }
-fil_actor_power_state = { version = "25.0.0" }
-fil_actor_reward_state = { version = "25.0.0" }
-fil_actor_system_state = { version = "25.0.0" }
-fil_actor_verifreg_state = { version = "25.0.0" }
-fil_actors_shared = { version = "25.0.0", features = ["json"] }
+fil_actor_account_state = { version = "26.1.0" }
+fil_actor_cron_state = { version = "26.1.0" }
+fil_actor_datacap_state = { version = "26.1.0" }
+fil_actor_eam_state = { version = "26.1.0" }
+fil_actor_ethaccount_state = { version = "26.1.0" }
+fil_actor_evm_state = { version = "26.1.0" }
+fil_actor_init_state = { version = "26.1.0" }
+fil_actor_market_state = { version = "26.1.0" }
+fil_actor_miner_state = { version = "26.1.0" }
+fil_actor_multisig_state = { version = "26.1.0" }
+fil_actor_paych_state = { version = "26.1.0" }
+fil_actor_power_state = { version = "26.1.0" }
+fil_actor_reward_state = { version = "26.1.0" }
+fil_actor_system_state = { version = "26.1.0" }
+fil_actor_verifreg_state = { version = "26.1.0" }
+fil_actors_shared = { version = "26.1.0", features = ["json"] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
 futures = { workspace = true }
-fvm2 = { package = "fvm", version = "~2.11", default-features = false }
-fvm3 = { package = "fvm", version = "~3.13", default-features = false }
-fvm4 = { package = "fvm", version = "~4.7", default-features = false, features = ["verify-signature", "nv28-dev"] }
-fvm_actor_utils = "14"
+fvm2 = { package = "fvm", version = "~2.12", default-features = false }
+fvm3 = { package = "fvm", version = "~3.14", default-features = false }
+fvm4 = { package = "fvm", version = "~4.8", default-features = false, features = ["verify-signature"] }
+fvm_actor_utils = "15"
 fvm_ipld_blockstore = "0.3.1"
 fvm_ipld_encoding = "0.5.3"
 fvm_ipld_kamt = "0.4.5"
-fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
-fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["proofs"] }
+fvm_shared2 = { package = "fvm_shared", version = "~2.12" }
+fvm_shared3 = { package = "fvm_shared", version = "~3.14", features = ["proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.8", features = ["proofs"] }
 get-size2 = { workspace = true }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
-hashbrown = "0.16"
+hashbrown = "0.17"
 hashlink = { workspace = true }
 hex = { version = "0.4", features = ["serde"] }
 hickory-resolver = { version = "0.25", default-features = false, features = ["system-config", "tokio"] }
@@ -169,7 +169,7 @@ num-traits = "0.2"
 num_cpus = "1"
 nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars1"] }
 openrpc-types = "0.5"
-parity-db = { version = "0.5" }
+parity-db = { version = "0.5", features = ["bytes"] }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pastey = "0.2"
 pathfinding = "4"
@@ -198,6 +198,7 @@ schemars = { version = "1", features = ["chrono04", "uuid1"] }
 scopeguard = "1"
 semver = "1"
 serde = { workspace = true }
+serde_ignored = "0.1"
 serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1", features = ["raw_value"] }
 serde_with = { version = "3", features = ["chrono_0_4"] }
@@ -238,6 +239,7 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
+quick_cache = "0.6"
 sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
@@ -247,31 +249,24 @@ termios = "0.3"
 
 [dev-dependencies]
 all_asserts = "2"
-ariadne = "0.6"
 assert_cmd = "2"
 bimap = "0.6"
-cargo_metadata = "0.23"
 criterion = { version = "0.8", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
-fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["arb", "proofs", "testing"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["arb", "proofs", "testing"] }
-glob = "0.3"
+fvm_shared3 = { package = "fvm_shared", version = "~3.14", features = ["arb", "proofs", "testing"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.8", features = ["arb", "proofs", "testing"] }
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.8"
 predicates = "3"
-proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.327"
-regex-automata = "0.4"
 rstest = "0.26"
 serial_test = "3"
-syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
 
 [build-dependencies]
@@ -322,7 +317,7 @@ panic = "unwind"
 
 [profile.profiling]
 inherits = "dev"
-opt-level = 0
+opt-level = 1
 debug = true
 split-debuginfo = "unpacked"
 panic = "abort"
@@ -338,6 +333,13 @@ lto = "thin"
 inherits = "release"
 lto = "fat"
 
+# Release-equivalent build with debug symbols retained, for use with
+# samply/perf/flamegraph. Run with: cargo build --profile release-symbols --bin forest
+[profile.release-symbols]
+inherits = "release"
+strip = false
+debug = "line-tables-only"
+
 # These should be refactored (probably removed) in #2984
 [features]
 default = ["jemalloc", "tracing-loki", "sqlite"]
@@ -347,6 +349,7 @@ cargo-test = []                                  # group of tests that is recomm
 doctest-private = []                             # see lib.rs::doctest_private
 benchmark-private = ["dep:criterion"]            # see lib.rs::benchmark_private
 interop-tests-private = []                       # see lib.rs::interop_tests_private
+calibnet-wallet-integration = []                 # see tests/calibnet_wallet.rs
 sqlite = ["dep:sqlx"]
 
 # Allocator. Use at most one of these.
@@ -373,6 +376,11 @@ required-features = ["benchmark-private"]
 name = "tipset-validation"
 harness = false
 required-features = ["benchmark-private"]
+
+[[test]]
+name = "calibnet_wallet"
+path = "tests/calibnet_wallet.rs"
+required-features = ["calibnet-wallet-integration"]
 
 [package.metadata.docs.rs]
 # See https://docs.rs/about/metadata

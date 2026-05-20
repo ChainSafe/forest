@@ -5,6 +5,7 @@ arg "<profile>" help="Installation profile (quick, release, etc.)" default="rele
    choices "quick" "quick-test" "release" "release-lto-fat" "dev" "debugging" "profiling"
 }
 flag "--slim" help="Install a slim version"
+flag "--native" help="Enable native CPU optimizations (-C target-cpu=native). Produced binaries are not portable across CPUs."
 flag "-v --verbose" help="Enable verbose output"
 '''
 shell = "bash -c"
@@ -13,6 +14,10 @@ echo "Installing Forest binaries with profile: ${usage_profile?}"
 [[ -n "${usage_verbose}" ]] && set -x
 if [ "${usage_slim}" = true ]; then
     SLIM_FLAGS="--no-default-features --features slim"
+fi
+if [ "${usage_native}" = true ]; then
+    export RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native"
+    echo "Native CPU optimizations enabled: RUSTFLAGS=${RUSTFLAGS}"
 fi
 cargo install --profile ${usage_profile} ${SLIM_FLAGS} --locked --path . --force
 '''
@@ -206,6 +211,19 @@ mise task run test:nextest ${usage_profile?}
 mise task run test:cargo ${usage_profile?}
 '''
 
+[tasks."test:wallet"]
+description = "Run calibnet wallet integration tests."
+shell = "bash -c"
+usage = '''
+arg "<preloaded_key>" help="Hex-encoded preloaded calibnet wallet key (e.g. $CALIBNET_WALLET secret)"
+'''
+run = '''
+set -euo pipefail
+source ./scripts/tests/harness.sh
+forest_wallet_init "${usage_preloaded_key?}"
+cargo test --profile quick-test --features calibnet-wallet-integration --test calibnet_wallet -- --nocapture
+'''
+
 [tasks."codecov:nextest"]
 description = "Run codecov with nextest"
 run = '''
@@ -269,4 +287,4 @@ tools.cargo-insta = "1.46"
 cargo-binstall = "1.17"
 go = "1.26"
 node = "24"
-pnpm = "10"
+pnpm = "11"

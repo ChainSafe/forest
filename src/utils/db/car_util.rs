@@ -1,8 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::prelude::*;
 use futures::{Stream, StreamExt as _, TryStreamExt as _};
-use fvm_ipld_blockstore::Blockstore;
 use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
 use crate::cid_collections::CidHashSet;
@@ -46,11 +46,9 @@ mod tests {
     use crate::utils::multihash::prelude::*;
     use ahash::HashSet;
     use async_compression::tokio::write::ZstdEncoder;
-    use cid::Cid;
     use futures::executor::block_on_stream;
     use futures::{StreamExt, TryStreamExt};
     use fvm_ipld_encoding::DAG_CBOR;
-    use itertools::Itertools;
     use nunny::{Vec as NonEmpty, vec as nonempty};
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
@@ -102,11 +100,11 @@ mod tests {
             let mut blocks = Vec::with_capacity(n);
             for _ in 0..n {
                 // use small len here to increase the chance of duplication
-                let data = [u8::arbitrary(g), u8::arbitrary(g)];
+                let data = vec![u8::arbitrary(g), u8::arbitrary(g)];
                 let cid = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data));
                 let block = CarBlock {
                     cid,
-                    data: data.to_vec(),
+                    data: data.into(),
                 };
                 blocks.push(block);
             }

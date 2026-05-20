@@ -8,13 +8,14 @@ use crate::cli_shared::cli::CliOpts;
 use crate::daemon::asyncify;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::daemon::db_util::load_all_forest_cars_with_cleanup;
+use crate::db::CAR_DB_DIR_NAME;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::db_root;
 use crate::db::parity_db::{GarbageCollectableParityDb, ParityDb};
-use crate::db::{CAR_DB_DIR_NAME, DummyStore, EthMappingsStore};
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
+use crate::prelude::*;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::address::CurrentNetwork;
 use crate::state_manager::StateManager;
@@ -31,15 +32,18 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{info, warn};
 
+type DbType = Arc<ManyCar<Arc<GarbageCollectableParityDb>>>;
+
 pub struct AppContext {
     pub net_keypair: Keypair,
     pub p2p_peer_id: PeerId,
-    pub db: Arc<DbType>,
+    pub db: DbType,
     pub db_meta_data: DbMetadata,
-    pub state_manager: Arc<StateManager<DbType>>,
+    pub state_manager: StateManager,
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
+    pub temp_dir: std::path::PathBuf,
 }
 
 impl AppContext {
@@ -50,6 +54,8 @@ impl AppContext {
         let state_manager = create_state_manager(cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(opts, cfg).await?;
         let snapshot_progress_tracker = SnapshotProgressTracker::default();
+        let temp_dir = chain_path(cfg).join("tmp");
+        std::fs::create_dir_all(&temp_dir).context("Failed to create temporary directory")?;
         Ok(Self {
             net_keypair,
             p2p_peer_id,
@@ -59,6 +65,7 @@ impl AppContext {
             keystore,
             admin_jwt,
             snapshot_progress_tracker,
+            temp_dir,
         })
     }
 
@@ -66,7 +73,7 @@ impl AppContext {
         self.state_manager.chain_config()
     }
 
-    pub fn chain_store(&self) -> &Arc<ChainStore<DbType>> {
+    pub fn chain_store(&self) -> &ChainStore {
         self.state_manager.chain_store()
     }
 }
@@ -178,8 +185,6 @@ fn maybe_migrate_db(config: &Config) {
     }
 }
 
-pub type DbType = ManyCar<Arc<GarbageCollectableParityDb>>;
-
 pub(crate) struct DbMetadata {
     db_root_dir: PathBuf,
     forest_car_db_dir: PathBuf,
@@ -200,7 +205,7 @@ impl DbMetadata {
 /// - load parity-db
 /// - load CAR database
 /// - load actor bundles
-async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType>, DbMetadata)> {
+async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(DbType, DbMetadata)> {
     maybe_migrate_db(config);
     let chain_data_path = chain_path(config);
     let db_root_dir = db_root(&chain_data_path)?;
@@ -225,9 +230,9 @@ async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType
 
 async fn create_state_manager(
     config: &Config,
-    db: &Arc<DbType>,
+    db: &DbType,
     chain_config: &Arc<ChainConfig>,
-) -> anyhow::Result<Arc<StateManager<DbType>>> {
+) -> anyhow::Result<StateManager> {
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be
     //   initialized
@@ -238,23 +243,14 @@ async fn create_state_manager(
     )
     .await?;
 
-    let eth_mappings: Arc<dyn EthMappingsStore + Sync + Send> =
-        if config.chain_indexer.enable_indexer {
-            db.writer().clone()
-        } else {
-            Arc::new(DummyStore {})
-        };
-    let chain_store = Arc::new(ChainStore::new(
-        Arc::clone(db),
-        Arc::new(db.clone()),
-        eth_mappings,
-        chain_config.clone(),
-        genesis_header.clone(),
-    )?);
+    let chain_store = ChainStore::new(
+        db.shallow_clone(),
+        chain_config.shallow_clone(),
+        genesis_header,
+    )?;
 
     // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(Arc::clone(&chain_store))?);
-
+    let state_manager = StateManager::new(chain_store)?;
     Ok(state_manager)
 }
 

@@ -1,376 +1,30 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub(in crate::message_pool) mod events;
 pub(in crate::message_pool) mod metrics;
 pub(in crate::message_pool) mod msg_pool;
+pub(in crate::message_pool) mod msg_set;
+pub(in crate::message_pool) mod pending_store;
 pub(in crate::message_pool) mod provider;
+pub(in crate::message_pool) mod reorg;
+pub(in crate::message_pool) mod republish;
 pub mod selection;
 #[cfg(test)]
 pub mod test_provider;
 pub(in crate::message_pool) mod utils;
 
-use std::{borrow::BorrowMut, cmp::Ordering};
+// TODO: This will be used in https://github.com/ChainSafe/forest/pull/6941
+#[allow(unused_imports)]
+pub use events::MpoolUpdate;
 
-use crate::blocks::Tipset;
-use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
-use crate::message::{MessageRead as _, SignedMessage};
-use crate::networks::ChainConfig;
-use crate::shim::{address::Address, crypto::Signature};
-use crate::utils::ShallowClone as _;
-use crate::utils::cache::SizeTrackingLruCache;
-use crate::utils::get_size::CidWrapper;
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use cid::Cid;
-use fvm_ipld_encoding::to_vec;
-use parking_lot::RwLock as SyncRwLock;
-use tracing::error;
-use utils::{get_base_fee_lower_bound, recover_sig};
-
-use super::errors::Error;
-use crate::message_pool::{
-    msg_chain::{Chains, create_message_chains},
-    msg_pool::{
-        MsgSet, StateNonceCacheKey, StrictnessPolicy, TrustPolicy, add_helper, remove,
-        resolve_to_key,
-    },
-    provider::Provider,
-};
+pub(in crate::message_pool) use utils::recover_sig;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 pub(crate) const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
 pub(crate) const RBF_DENOM: u64 = 256;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
-const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
-const REPUB_MSG_LIMIT: usize = 30;
 const MIN_GAS: u64 = 1298450;
-
-#[allow(clippy::too_many_arguments)]
-async fn republish_pending_messages<T>(
-    api: &T,
-    network_sender: &flume::Sender<NetworkMessage>,
-    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &SyncRwLock<Tipset>,
-    republished: &SyncRwLock<HashSet<Cid>>,
-    local_addrs: &SyncRwLock<Vec<Address>>,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
-    chain_config: &ChainConfig,
-) -> Result<(), Error>
-where
-    T: Provider,
-{
-    let ts = cur_tipset.read().shallow_clone();
-    let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
-
-    republished.write().clear();
-
-    // Only republish messages from local addresses, ie. transactions which were
-    // sent to this node directly.
-    for actor in local_addrs.read().iter() {
-        let Ok(resolved) = resolve_to_key(api, key_cache, actor, &ts).inspect_err(|e| {
-            tracing::debug!(%actor, "republish: failed to resolve address: {e:#}");
-        }) else {
-            continue;
-        };
-        if let Some(mset) = pending.read().get(&resolved) {
-            if mset.msgs.is_empty() {
-                continue;
-            }
-            let mut pend: HashMap<u64, SignedMessage> = HashMap::with_capacity(mset.msgs.len());
-            for (nonce, m) in mset.msgs.clone().into_iter() {
-                pend.insert(nonce, m);
-            }
-            pending_map.insert(resolved, pend);
-        }
-    }
-
-    let msgs = select_messages_for_block(api, chain_config, &ts, pending_map)?;
-
-    let network_name = chain_config.network.genesis_name();
-    for m in msgs.iter() {
-        let mb = to_vec(m)?;
-        network_sender
-            .send_async(NetworkMessage::PubsubMessage {
-                topic: Topic::new(format!("{PUBSUB_MSG_STR}/{network_name}")),
-                message: mb,
-            })
-            .await
-            .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
-    }
-
-    let mut republished_t = HashSet::new();
-    for m in msgs.iter() {
-        republished_t.insert(m.cid());
-    }
-    *republished.write() = republished_t;
-
-    Ok(())
-}
-
-/// Select messages from the mempool to be included in the next block that
-/// builds on a given base tipset. The messages should be eligible for inclusion
-/// based on their sequences and the overall number of them should observe block
-/// gas limits.
-fn select_messages_for_block<T>(
-    api: &T,
-    chain_config: &ChainConfig,
-    base: &Tipset,
-    pending: HashMap<Address, HashMap<u64, SignedMessage>>,
-) -> Result<Vec<SignedMessage>, Error>
-where
-    T: Provider,
-{
-    let mut msgs: Vec<SignedMessage> = vec![];
-
-    let base_fee = api.chain_compute_base_fee(base)?;
-    let base_fee_lower_bound = get_base_fee_lower_bound(&base_fee, BASE_FEE_LOWER_BOUND_FACTOR);
-
-    if pending.is_empty() {
-        return Ok(msgs);
-    }
-
-    let mut chains = Chains::new();
-    for (actor, mset) in pending.iter() {
-        create_message_chains(
-            api,
-            actor,
-            mset,
-            &base_fee_lower_bound,
-            base,
-            &mut chains,
-            chain_config,
-        )?;
-    }
-
-    if chains.is_empty() {
-        return Ok(msgs);
-    }
-
-    chains.sort(false);
-
-    let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
-    let mut i = 0;
-    'l: while let Some(chain) = chains.get_mut_at(i) {
-        // we can exceed this if we have picked (some) longer chain already
-        if msgs.len() > REPUB_MSG_LIMIT {
-            break;
-        }
-
-        if gas_limit <= MIN_GAS {
-            break;
-        }
-
-        // check if chain has been invalidated
-        if !chain.valid {
-            i += 1;
-            continue;
-        }
-
-        // check if fits in block
-        if chain.gas_limit <= gas_limit {
-            // check the baseFee lower bound -- only republish messages that can be included
-            // in the chain within the next 20 blocks.
-            for m in chain.msgs.iter() {
-                if m.gas_fee_cap() < base_fee_lower_bound {
-                    let key = chains.get_key_at(i);
-                    chains.invalidate(key);
-                    continue 'l;
-                }
-                gas_limit = gas_limit.saturating_sub(m.gas_limit());
-                msgs.push(m.clone());
-            }
-
-            i += 1;
-            continue;
-        }
-
-        // we can't fit the current chain but there is gas to spare
-        // trim it and push it down
-        chains.trim_msgs_at(i, gas_limit, REPUB_MSG_LIMIT, &base_fee);
-        let mut j = i;
-        while j < chains.len() - 1 {
-            #[allow(clippy::indexing_slicing)]
-            if chains[j].compare(&chains[j + 1]) == Ordering::Less {
-                break;
-            }
-            chains.key_vec.swap(i, i + 1);
-            j += 1;
-        }
-    }
-
-    if msgs.len() > REPUB_MSG_LIMIT {
-        msgs.truncate(REPUB_MSG_LIMIT);
-    }
-
-    Ok(msgs)
-}
-
-/// Revert and/or apply tipsets to the message pool. This function should be
-/// called every time that there is a head change in the message pool.
-///
-/// - **Apply**: messages included in the new tipset are removed from the pending
-///   pool via [`MsgSet::rm`] with `applied=true`.
-/// - **Revert**: messages from the reverted tipset are re-added to the pool with
-///   [`StrictnessPolicy::Relaxed`] and [`TrustPolicy::Trusted`], allowing them back without
-///   nonce gap restrictions.
-///
-/// The state nonce cache is naturally invalidated when the tipset changes, since
-/// it is keyed by [`TipsetKey`](crate::blocks::TipsetKey).
-#[allow(clippy::too_many_arguments)]
-pub async fn head_change<T>(
-    api: &T,
-    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
-    repub_trigger: flume::Sender<()>,
-    republished: &SyncRwLock<HashSet<Cid>>,
-    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &SyncRwLock<Tipset>,
-    key_cache: &SizeTrackingLruCache<Address, Address>,
-    state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
-    revert: Vec<Tipset>,
-    apply: Vec<Tipset>,
-) -> Result<(), Error>
-where
-    T: Provider + 'static,
-{
-    let mut repub = false;
-    let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
-    for ts in revert {
-        let Ok(pts) = api.load_tipset(ts.parents()) else {
-            tracing::error!("error loading reverted tipset parent");
-            continue;
-        };
-        *cur_tipset.write() = pts;
-
-        let mut msgs: Vec<SignedMessage> = Vec::new();
-        for block in ts.block_headers() {
-            let Ok((umsg, smsgs)) = api.messages_for_block(block) else {
-                tracing::error!("error retrieving messages for reverted block");
-                continue;
-            };
-            msgs.extend(smsgs);
-            for msg in umsg {
-                let msg_cid = msg.cid();
-                let Ok(smsg) = recover_sig(bls_sig_cache, msg) else {
-                    tracing::debug!("could not recover signature for bls message {}", msg_cid);
-                    continue;
-                };
-                msgs.push(smsg)
-            }
-        }
-
-        for msg in msgs {
-            add_to_selected_msgs(msg, rmsgs.borrow_mut());
-        }
-    }
-
-    for ts in apply {
-        let mpool_ctx = MpoolCtx {
-            api,
-            key_cache,
-            pending,
-            ts: &ts,
-        };
-        for b in ts.block_headers() {
-            let Ok((msgs, smsgs)) = api.messages_for_block(b) else {
-                tracing::error!("error retrieving messages for block");
-                continue;
-            };
-
-            for msg in smsgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from(), msg.sequence(), &mut rmsgs)?;
-                if !repub && republished.write().insert(msg.cid()) {
-                    repub = true;
-                }
-            }
-            for msg in msgs {
-                mpool_ctx.remove_from_selected_msgs(&msg.from, msg.sequence, &mut rmsgs)?;
-                if !repub && republished.write().insert(msg.cid()) {
-                    repub = true;
-                }
-            }
-        }
-        *cur_tipset.write() = ts;
-    }
-    if repub {
-        repub_trigger
-            .send_async(())
-            .await
-            .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))?;
-    }
-    let cur_ts = cur_tipset.read().shallow_clone();
-    let mpool_ctx = MpoolCtx {
-        api,
-        key_cache,
-        pending,
-        ts: &cur_ts,
-    };
-    for (_, hm) in rmsgs {
-        for (_, msg) in hm {
-            let sequence = mpool_ctx.get_state_sequence(state_nonce_cache, &msg.from())?;
-            if let Err(e) = add_helper(
-                api,
-                bls_sig_cache,
-                pending,
-                key_cache,
-                &cur_ts,
-                msg,
-                sequence,
-                TrustPolicy::Trusted,
-                StrictnessPolicy::Relaxed,
-            ) {
-                error!("Failed to read message from reorg to mpool: {}", e);
-            }
-        }
-    }
-    Ok(())
-}
-
-pub(in crate::message_pool) struct MpoolCtx<'a, T> {
-    pub api: &'a T,
-    pub key_cache: &'a SizeTrackingLruCache<Address, Address>,
-    pub pending: &'a SyncRwLock<HashMap<Address, MsgSet>>,
-    pub ts: &'a Tipset,
-}
-
-impl<T: Provider> MpoolCtx<'_, T> {
-    /// Removes a message from the selected messages map (`rmsgs`). If the
-    /// message is not found there, falls back to removing it from the pending set.
-    pub(in crate::message_pool) fn remove_from_selected_msgs(
-        &self,
-        from: &Address,
-        sequence: u64,
-        rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-    ) -> Result<(), Error> {
-        if rmsgs
-            .get_mut(from)
-            .and_then(|temp| temp.remove(&sequence))
-            .is_none()
-            && let Ok(resolved) = resolve_to_key(self.api, self.key_cache, from, self.ts)
-                .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
-        {
-            remove(&resolved, self.pending, sequence, true)?;
-        }
-        Ok(())
-    }
-
-    /// Get the state nonce for an address, accounting for messages already
-    /// included in the current tipset.
-    pub(in crate::message_pool) fn get_state_sequence(
-        &self,
-        state_nonce_cache: &SizeTrackingLruCache<StateNonceCacheKey, u64>,
-        addr: &Address,
-    ) -> Result<u64, Error> {
-        msg_pool::get_state_sequence(self.api, self.key_cache, state_nonce_cache, addr, self.ts)
-    }
-}
-
-/// This is a helper function for `head_change`. This method will add a signed
-/// message to the given messages selected by priority `HashMap`.
-pub(in crate::message_pool) fn add_to_selected_msgs(
-    m: SignedMessage,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-) {
-    rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
-}
 
 #[cfg(test)]
 pub mod tests {
@@ -378,22 +32,26 @@ pub mod tests {
 
     use crate::blocks::Tipset;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use crate::message::SignedMessage;
+    use crate::libp2p::NetworkMessage;
+    use crate::message::{MessageRead as _, SignedMessage};
     use crate::networks::ChainConfig;
     use crate::shim::{
         address::Address,
-        crypto::SignatureType,
+        crypto::{Signature, SignatureType},
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
+    use ahash::{HashMap, HashMapExt};
     use num_traits::Zero;
     use test_provider::*;
     use tokio::task::JoinSet;
 
     use super::*;
     use crate::message_pool::{
+        Error,
         msg_chain::{Chains, create_message_chains},
         msg_pool::MessagePool,
+        provider::Provider,
     };
 
     struct TestMpool {
@@ -516,7 +174,7 @@ pub mod tests {
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
         let cid = signed.cid();
-        pool.sig_val_cache.push(cid.into(), ());
+        pool.caches.sig_val.push(cid.into(), ());
         signed
     }
 
@@ -615,7 +273,7 @@ pub mod tests {
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
-        let (p, _) = mpool.pending().unwrap();
+        let (p, _) = mpool.pending();
         assert_eq!(p.len(), 3);
     }
 
@@ -687,14 +345,13 @@ pub mod tests {
         let msg = create_fake_smsg(&mpool, &Address::new_id(1001), &id_addr, 0, 1000000, 1);
         mpool.add(msg).unwrap();
 
-        // Pending map should be keyed by key_addr, not id_addr
-        let pending = mpool.pending.read();
+        // Pending map should be keyed by key_addr, not id_addr.
         assert!(
-            pending.get(&key_addr).is_some(),
+            mpool.pending.snapshot_for(&key_addr).is_some(),
             "pending should be keyed by resolved key address"
         );
         assert!(
-            pending.get(&id_addr).is_none(),
+            mpool.pending.snapshot_for(&id_addr).is_none(),
             "pending should NOT have entry under raw ID address"
         );
     }

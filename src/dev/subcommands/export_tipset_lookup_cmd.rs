@@ -69,20 +69,14 @@ impl ExportTipsetLookupCommand {
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
-        let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )?);
+        let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
 
         let head = chain_store.heaviest_tipset();
 
         let amt_db = Arc::new(MemoryDB::default());
         let mut amt = Amt::new(&amt_db);
         let start = Instant::now();
-        for ts in head.chain(chain_store.blockstore()) {
+        for ts in head.chain(chain_store.db()) {
             if let Some(from) = from
                 && ts.epoch() > from
             {

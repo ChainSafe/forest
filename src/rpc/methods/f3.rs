@@ -20,11 +20,12 @@ use crate::{
     chain::index::ResolveNullTipset,
     chain_sync::TipsetValidator,
     db::{
-        BlockstoreReadCacheStats as _, BlockstoreWithReadCache, DefaultBlockstoreReadCacheStats,
-        LruBlockstoreReadCache,
+        BlockstoreReadCacheStats as _, BlockstoreWithReadCache, DefaultBlockstoreReadCache,
+        DefaultBlockstoreReadCacheStats,
     },
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::{HasLotusJson as _, LotusJson},
+    prelude::*,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
     shim::{
         actors::{miner, power},
@@ -32,13 +33,11 @@ use crate::{
         clock::ChainEpoch,
         crypto::Signature,
     },
-    utils::{ShallowClone, misc::env::is_env_set_and_truthy},
+    utils::misc::env::is_env_set_and_truthy,
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
-use cid::Cid;
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
 use nonzero_ext::nonzero;
@@ -49,7 +48,7 @@ use std::{
     borrow::Cow,
     fmt::Display,
     str::FromStr as _,
-    sync::{Arc, LazyLock, OnceLock},
+    sync::{LazyLock, OnceLock},
 };
 
 pub static F3_LEASE_MANAGER: OnceLock<F3LeaseManager> = OnceLock::new();
@@ -63,14 +62,20 @@ impl RpcMethod<0> for GetRawNetworkName {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = String;
+    type Ok = Arc<str>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.chain_config().network.genesis_name().into())
+        // Network is fixed for the process lifetime; cache the genesis name.
+        static CACHED: OnceLock<Arc<str>> = OnceLock::new();
+        Ok(CACHED
+            .get_or_init(|| {
+                Arc::<str>::from(String::from(ctx.chain_config().network.genesis_name()))
+            })
+            .clone())
     }
 }
 
@@ -85,11 +90,11 @@ impl RpcMethod<1> for GetTipsetByEpoch {
     type Ok = F3TipSet;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (epoch,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_index().tipset_by_height(
+        let ts = ctx.chain_index().load_required_tipset_by_height(
             epoch,
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
@@ -109,7 +114,7 @@ impl RpcMethod<1> for GetTipset {
     type Ok = F3TipSet;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (f3_tsk,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -130,7 +135,7 @@ impl RpcMethod<0> for GetHead {
     type Ok = F3TipSet;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         _: Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -149,7 +154,7 @@ impl RpcMethod<1> for GetParent {
     type Ok = F3TipSet;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (f3_tsk,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -163,17 +168,14 @@ impl RpcMethod<1> for GetParent {
 pub enum GetPowerTable {}
 
 impl GetPowerTable {
-    async fn compute(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        ts: &Tipset,
-    ) -> anyhow::Result<Vec<F3PowerEntry>> {
+    async fn compute(ctx: &Ctx, ts: &Tipset) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
         const BLOCKSTORE_CACHE_CAP: NonZeroUsize = nonzero!(65536_usize);
-        static BLOCKSTORE_CACHE: LazyLock<LruBlockstoreReadCache> = LazyLock::new(|| {
-            LruBlockstoreReadCache::new_with_metrics("get_powertable".into(), BLOCKSTORE_CACHE_CAP)
+        static BLOCKSTORE_CACHE: LazyLock<DefaultBlockstoreReadCache> = LazyLock::new(|| {
+            DefaultBlockstoreReadCache::new_with_metrics("get_powertable", BLOCKSTORE_CACHE_CAP)
         });
         let db = BlockstoreWithReadCache::new(
-            ctx.store_owned(),
+            ctx.db_owned(),
             BLOCKSTORE_CACHE.shallow_clone(),
             Some(DefaultBlockstoreReadCacheStats::default()),
         );
@@ -441,7 +443,7 @@ impl RpcMethod<1> for GetPowerTable {
     type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (f3_tsk,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -465,7 +467,7 @@ impl RpcMethod<1> for ProtectPeer {
     type Ok = bool;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (peer_id,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -493,7 +495,7 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     type Ok = Vec<u64>;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
+        _: Ctx,
         _: Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -517,7 +519,7 @@ impl RpcMethod<1> for Finalize {
     type Ok = ();
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (f3_tsk,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -554,7 +556,7 @@ impl RpcMethod<1> for Finalize {
                 finalized_ts.epoch()
             );
             if !head
-                .chain(ctx.store())
+                .chain(ctx.db())
                 .take_while(|ts| ts.epoch() >= finalized_ts.epoch())
                 .any(|ts| ts == finalized_ts)
             {
@@ -567,7 +569,7 @@ impl RpcMethod<1> for Finalize {
                     .sync_network_context
                     .chain_exchange_full_tipset(None, &tsk)
                     .await?;
-                fts.persist(ctx.store())?;
+                fts.persist(ctx.db())?;
                 let validator = TipsetValidator(&fts);
                 validator.validate(
                     ctx.chain_store(),
@@ -597,7 +599,7 @@ impl RpcMethod<2> for SignMessage {
     type Ok = Signature;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (pubkey, message): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -633,7 +635,7 @@ impl RpcMethod<1> for F3ExportLatestSnapshot {
     type Ok = Cid;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore>,
+        _ctx: Ctx,
         (path,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -653,7 +655,7 @@ impl RpcMethod<1> for F3GetCertificate {
     type Ok = FinalityCertificate;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
+        _: Ctx,
         (instance,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -689,7 +691,7 @@ impl RpcMethod<0> for F3GetLatestCertificate {
     type Ok = FinalityCertificate;
 
     async fn handle(
-        _: Ctx<impl Blockstore + Send + Sync + 'static>,
+        _: Ctx,
         _: Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -708,7 +710,7 @@ impl RpcMethod<1> for F3GetECPowerTable {
     type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk_opt),): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -728,7 +730,7 @@ impl RpcMethod<1> for F3GetF3PowerTable {
     type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk_opt),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -756,7 +758,7 @@ impl RpcMethod<1> for F3GetF3PowerTableByInstance {
     type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore>,
+        _ctx: Ctx,
         (instance,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -788,7 +790,7 @@ impl RpcMethod<0> for F3IsRunning {
     type Ok = bool;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
+        _: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -818,7 +820,7 @@ impl RpcMethod<0> for F3GetProgress {
     type Ok = F3InstanceProgress;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
+        _: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -848,7 +850,7 @@ impl RpcMethod<0> for F3GetManifest {
     type Ok = F3Manifest;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
+        _: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -868,7 +870,7 @@ impl RpcMethod<0> for F3ListParticipants {
     type Ok = Vec<F3Participant>;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
+        _: Ctx,
         _: Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -902,7 +904,7 @@ impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
     type Ok = Vec<u8>;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
+        _: Ctx,
         (miner, previous_lease_ticket, instances): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -938,7 +940,7 @@ impl RpcMethod<1> for F3Participate {
     type Ok = F3ParticipationLease;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
+        _: Ctx,
         (lease_ticket,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

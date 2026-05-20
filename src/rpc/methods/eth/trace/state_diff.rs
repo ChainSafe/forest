@@ -465,8 +465,8 @@ mod tests {
     #[test]
     fn test_build_state_diff_multiple_addresses() {
         let store = Arc::new(MemoryDB::default());
-        let mut pre_state = StateTree::new(store.clone(), StateTreeVersion::V5).unwrap();
-        let mut post_state = StateTree::new(store.clone(), StateTreeVersion::V5).unwrap();
+        let mut pre_state = StateTree::new(&store, StateTreeVersion::V5).unwrap();
+        let mut post_state = StateTree::new(&store, StateTreeVersion::V5).unwrap();
 
         // Actor 1: balance increase
         let addr1 = FilecoinAddress::new_id(2001);
@@ -620,8 +620,8 @@ mod tests {
                 create_evm_actor_with_bytecode(&store, bal, 0, nonce, code)
             });
 
-            let mut pre_state = StateTree::new(store.clone(), StateTreeVersion::V5).unwrap();
-            let mut post_state = StateTree::new(store.clone(), StateTreeVersion::V5).unwrap();
+            let mut pre_state = StateTree::new(&store, StateTreeVersion::V5).unwrap();
+            let mut post_state = StateTree::new(&store, StateTreeVersion::V5).unwrap();
             let addr = FilecoinAddress::new_id(actor_id);
 
             if let Some(actor) = pre_actor {

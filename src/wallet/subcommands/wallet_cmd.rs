@@ -149,13 +149,11 @@ impl WalletBackend {
         }
     }
 
-    async fn wallet_default_address(&self) -> anyhow::Result<Option<String>> {
+    async fn wallet_default_address(&self) -> anyhow::Result<Option<Address>> {
         if let Some(keystore) = &self.local {
-            Ok(crate::key_management::get_default(keystore)?.map(|s| s.to_string()))
+            Ok(crate::key_management::get_default(keystore)?)
         } else {
-            Ok(WalletDefaultAddress::call(&self.remote, ())
-                .await?
-                .map(|it| it.to_string()))
+            Ok(WalletDefaultAddress::call(&self.remote, ()).await?)
         }
     }
 
@@ -211,7 +209,7 @@ pub enum WalletCommands {
     /// Get account balance
     Balance {
         /// The address of the account to check
-        address: String,
+        address: StrictAddress,
         /// Output is rounded to 4 significant figures by default.
         /// Do not round
         // ENHANCE(aatifsyed): add a --round/--no-round argument pair
@@ -227,12 +225,12 @@ pub enum WalletCommands {
     /// Export the wallet's keys
     Export {
         /// The address that contains the keys to export
-        address: String,
+        address: StrictAddress,
     },
     /// Check if the wallet has a key
     Has {
         /// The key to check
-        key: String,
+        key: StrictAddress,
     },
     /// Import keys from existing wallet
     Import {
@@ -254,7 +252,7 @@ pub enum WalletCommands {
     /// Set the default wallet address
     SetDefault {
         /// The given key to set to the default address
-        key: String,
+        key: StrictAddress,
     },
     /// Sign a message
     Sign {
@@ -263,7 +261,7 @@ pub enum WalletCommands {
         message: String,
         /// The address to be used to sign the message
         #[arg(short)]
-        address: String,
+        address: StrictAddress,
     },
     /// Validates whether a given string can be decoded as a well-formed address
     ValidateAddress {
@@ -275,7 +273,7 @@ pub enum WalletCommands {
     Verify {
         /// The address used to sign the message
         #[arg(short)]
-        address: String,
+        address: StrictAddress,
         /// The message to verify
         #[arg(short)]
         message: String,
@@ -286,14 +284,18 @@ pub enum WalletCommands {
     /// Deletes the wallet associated with the given address.
     Delete {
         /// The address of the wallet to delete
-        address: String,
+        address: StrictAddress,
     },
     /// Send funds between accounts
     Send {
         /// optionally specify the account to send funds from (otherwise the default
         /// one will be used)
         #[arg(long)]
-        from: Option<String>,
+        from: Option<StrictAddress>,
+        /// The recipient address. Accepts either a FIL address (e.g.
+        /// `f1.../t1...`) or an ETH address (e.g. `0x...`).
+        // Kept as `String` rather than `StrictAddress` because the latter
+        // rejects the ETH form, which `resolve_target_address` handles.
         target_address: String,
         #[arg(value_parser = humantoken::parse)]
         amount: TokenAmount,
@@ -329,9 +331,7 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let StrictAddress(address) = StrictAddress::from_str(&address)
-                    .with_context(|| format!("Invalid address: {address}"))?;
-                let balance = WalletBalance::call(&backend.remote, (address,)).await?;
+                let balance = WalletBalance::call(&backend.remote, (address.into(),)).await?;
                 println!("{}", format_balance(&balance, no_round, no_abbrev));
                 Ok(())
             }
@@ -343,27 +343,21 @@ impl WalletCommands {
                 println!("{default_addr}");
                 Ok(())
             }
-            Self::Export {
-                address: address_string,
-            } => {
-                let StrictAddress(address) = StrictAddress::from_str(&address_string)
-                    .with_context(|| format!("Invalid address: {address_string}"))?;
-                let key_info = backend.wallet_export(address).await?;
+            Self::Export { address } => {
+                let key_info = backend.wallet_export(address.into()).await?;
                 let encoded_key = key_info.into_lotus_json_string()?;
                 println!("{}", hex::encode(encoded_key));
                 Ok(())
             }
             Self::Has { key } => {
-                let StrictAddress(address) = StrictAddress::from_str(&key)
-                    .with_context(|| format!("Invalid address: {key}"))?;
-
-                println!("{response}", response = backend.wallet_has(address).await?);
+                println!(
+                    "{response}",
+                    response = backend.wallet_has(key.into()).await?
+                );
                 Ok(())
             }
             Self::Delete { address } => {
-                let StrictAddress(address) = StrictAddress::from_str(&address)
-                    .with_context(|| format!("Invalid address: {address}"))?;
-
+                let address: Address = address.into();
                 backend.wallet_delete(address).await?;
                 println!("deleted {address}.");
                 Ok(())
@@ -407,12 +401,8 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let (key_pairs, default) =
+                let (key_pairs, default_address) =
                     tokio::try_join!(backend.list_addrs(), backend.wallet_default_address(),)?;
-
-                let default_address = default
-                    .as_deref()
-                    .and_then(|s| StrictAddress::from_str(s).ok().map(Into::into));
 
                 let remote = &backend.remote;
                 let results =
@@ -455,20 +445,12 @@ impl WalletCommands {
                 println!("{list}");
                 Ok(())
             }
-            Self::SetDefault { key } => {
-                let StrictAddress(key) = StrictAddress::from_str(&key)
-                    .with_context(|| format!("Invalid address: {key}"))?;
-
-                backend.wallet_set_default(key).await
-            }
+            Self::SetDefault { key } => backend.wallet_set_default(key.into()).await,
             Self::Sign { address, message } => {
-                let StrictAddress(address) = StrictAddress::from_str(&address)
-                    .with_context(|| format!("Invalid address: {address}"))?;
-
                 let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = BASE64_STANDARD.encode(message);
 
-                let signature = backend.wallet_sign(address, message).await?;
+                let signature = backend.wallet_sign(address.into(), message).await?;
                 println!("{}", hex::encode(signature.to_bytes()));
                 Ok(())
             }
@@ -484,12 +466,12 @@ impl WalletCommands {
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
-                let StrictAddress(address) = StrictAddress::from_str(&address)
-                    .with_context(|| format!("Invalid address: {address}"))?;
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
                 let signature = Signature::from_bytes(sig_bytes)?;
-                let is_valid = backend.wallet_verify(address, msg, signature).await?;
+                let is_valid = backend
+                    .wallet_verify(address.into(), msg, signature)
+                    .await?;
 
                 println!("{is_valid}");
                 Ok(())
@@ -502,13 +484,11 @@ impl WalletCommands {
                 gas_limit,
                 gas_premium,
             } => {
-                let from: Address = if let Some(from) = from {
-                    StrictAddress::from_str(&from)?.into()
-                } else {
-                    StrictAddress::from_str(&backend.wallet_default_address().await?.context(
+                let from: Address = match from {
+                    Some(a) => a.into(),
+                    None => backend.wallet_default_address().await?.context(
                         "No default wallet address selected. Please set a default address.",
-                    )?)?
-                    .into()
+                    )?,
                 };
 
                 let (mut to, is_0x_recipient) = resolve_target_address(&target_address)?;
@@ -545,8 +525,7 @@ impl WalletCommands {
                         &backend.remote,
                         (message, spec, ApiTipsetKey(None)),
                     )
-                    .await?
-                    .message;
+                    .await?;
 
                     if message.gas_premium > message.gas_fee_cap {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")

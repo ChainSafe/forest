@@ -8,7 +8,7 @@ use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::{
     shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree},
-    utils::{cache::SizeTrackingLruCache, get_size::CidWrapper},
+    utils::{cache::SizeTrackingCache, get_size::CidWrapper},
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -25,16 +25,13 @@ pub(in crate::state_migration) type Migrator<BS> = Arc<dyn ActorMigration<BS> + 
 /// Cache of existing CID to CID migrations for an actor.
 #[derive(Clone)]
 pub(in crate::state_migration) struct MigrationCache {
-    cache: Arc<SizeTrackingLruCache<String, CidWrapper>>,
+    cache: Arc<SizeTrackingCache<String, CidWrapper>>,
 }
 
 impl MigrationCache {
     pub fn new(size: NonZeroUsize) -> Self {
         Self {
-            cache: Arc::new(SizeTrackingLruCache::new_with_metrics(
-                "migration".into(),
-                size,
-            )),
+            cache: Arc::new(SizeTrackingCache::new_with_metrics("migration", size)),
         }
     }
 

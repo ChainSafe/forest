@@ -44,18 +44,18 @@ pub fn reset_collector_registry() {
     *collector_registry() = Default::default();
 }
 
-pub static LRU_CACHE_HIT: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
+pub static CACHE_HIT: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
     let metric = Family::default();
     DEFAULT_REGISTRY
         .write()
-        .register("lru_cache_hit", "Stats of lru cache hit", metric.clone());
+        .register("cache_hit", "Cache hit count", metric.clone());
     metric
 });
-pub static LRU_CACHE_MISS: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
+pub static CACHE_MISS: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
     let metric = Family::default();
     DEFAULT_REGISTRY
         .write()
-        .register("lru_cache_miss", "Stats of lru cache miss", metric.clone());
+        .register("cache_miss", "Cache miss count", metric.clone());
     metric
 });
 

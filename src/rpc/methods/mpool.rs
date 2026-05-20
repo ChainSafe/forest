@@ -14,7 +14,6 @@ use crate::shim::{
 use ahash::{HashSet, HashSetExt as _};
 use cid::Cid;
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 
 /// Gets next nonce for the specified sender.
 pub enum MpoolGetNonce {}
@@ -30,7 +29,7 @@ impl RpcMethod<1> for MpoolGetNonce {
     type Ok = u64;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -52,7 +51,7 @@ impl RpcMethod<1> for MpoolPending {
     type Ok = NotNullVec<SignedMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tipset_key),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -60,7 +59,7 @@ impl RpcMethod<1> for MpoolPending {
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
 
-        let (mut pending, mpts) = ctx.mpool.pending()?;
+        let (mut pending, mpts) = ctx.mpool.pending();
 
         let mut have_cids = HashSet::new();
         for item in pending.iter() {
@@ -78,20 +77,14 @@ impl RpcMethod<1> for MpoolPending {
                 }
 
                 // mpts has different blocks than ts
-                let have = ctx
-                    .mpool
-                    .as_ref()
-                    .messages_for_blocks(ts.block_headers().iter())?;
+                let have = ctx.mpool.messages_for_blocks(ts.block_headers().iter())?;
 
                 for sm in have {
                     have_cids.insert(sm.cid());
                 }
             }
 
-            let msgs = ctx
-                .mpool
-                .as_ref()
-                .messages_for_blocks(ts.block_headers().iter())?;
+            let msgs = ctx.mpool.messages_for_blocks(ts.block_headers().iter())?;
 
             for m in msgs {
                 if have_cids.contains(&m.cid()) {
@@ -126,7 +119,7 @@ impl RpcMethod<2> for MpoolSelect {
     type Ok = Vec<SignedMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tipset_key), ticket_quality): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -150,11 +143,11 @@ impl RpcMethod<1> for MpoolPush {
     type Ok = Cid;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (message,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let cid = ctx.mpool.as_ref().push(message).await?;
+        let cid = ctx.mpool.push(message).await?;
         Ok(cid)
     }
 }
@@ -173,13 +166,13 @@ impl RpcMethod<1> for MpoolBatchPush {
     type Ok = Vec<Cid>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (messages,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut cids = vec![];
         for msg in messages {
-            cids.push(ctx.mpool.as_ref().push(msg).await?);
+            cids.push(ctx.mpool.push(msg).await?);
         }
         Ok(cids)
     }
@@ -199,14 +192,14 @@ impl RpcMethod<1> for MpoolPushUntrusted {
     type Ok = Cid;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (message,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // Lotus implements a few extra sanity checks that we skip. We skip them
         // because those checks aren't used for messages received from peers and
         // therefore aren't safety critical.
-        let cid = ctx.mpool.as_ref().push_untrusted(message).await?;
+        let cid = ctx.mpool.push_untrusted(message).await?;
         Ok(cid)
     }
 }
@@ -225,7 +218,7 @@ impl RpcMethod<1> for MpoolBatchPushUntrusted {
     type Ok = Vec<Cid>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (messages,): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -248,7 +241,7 @@ impl RpcMethod<2> for MpoolPushMessage {
     type Ok = SignedMessage;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (message, send_spec): Self::Params,
         extensions: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -300,7 +293,7 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         let smsg = ctx
             .nonce_tracker
-            .sign_and_push(ctx.mpool.as_ref(), message, &key, eth_chain_id)
+            .sign_and_push(&ctx.mpool, message, &key, eth_chain_id)
             .await?;
 
         Ok(smsg)
