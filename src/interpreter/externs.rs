@@ -5,7 +5,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::Ref, sync::Arc};
 
 use crate::blocks::{CachingBlockHeader, Tipset};
-use crate::chain::{index::ChainIndex, store::ChainStore};
+use crate::chain::{
+    index::{ChainIndex, ResolveNullTipset},
+    store::ChainStore,
+};
 use crate::interpreter::{errors::Error, resolve_to_key_addr};
 use crate::networks::ChainConfig;
 use crate::prelude::*;
@@ -34,7 +37,7 @@ pub struct ForestExterns {
 
 impl ForestExterns {
     pub fn new(
-        rand: impl Rand + 'static,
+        rand: Box<dyn Rand>,
         heaviest_tipset: Tipset,
         epoch: ChainEpoch,
         root: Cid,
@@ -42,7 +45,7 @@ impl ForestExterns {
         chain_config: Arc<ChainConfig>,
     ) -> Self {
         Self {
-            rand: Box::new(rand),
+            rand,
             heaviest_tipset,
             epoch,
             root,
@@ -50,6 +53,10 @@ impl ForestExterns {
             chain_config,
             bail: AtomicBool::new(false),
         }
+    }
+
+    pub fn bail(&self) -> bool {
+        self.bail.load(Ordering::Relaxed)
     }
 
     fn get_lookback_tipset_state_root_for_round(&self, height: ChainEpoch) -> anyhow::Result<Cid> {
@@ -97,18 +104,30 @@ impl ForestExterns {
         Ok((addr, gas_used.round_up() as i64))
     }
 
-    fn bail(&self) -> bool {
-        self.bail.load(Ordering::Relaxed)
-    }
-
     fn verify_block_signature(&self, bh: &CachingBlockHeader) -> anyhow::Result<i64, Error> {
         let (worker_addr, gas_used) = self.worker_key_at_lookback(&bh.miner_address, bh.epoch)?;
         bh.verify_signature_against(&worker_addr)?;
         Ok(gas_used)
     }
 
+    pub(super) fn verify_consensus_fault(
+        &self,
+        h1: &[u8],
+        h2: &[u8],
+        extra: &[u8],
+    ) -> anyhow::Result<(Option<ConsensusFault>, i64)> {
+        self.verify_consensus_fault_impl(h1, h2, extra)
+            .inspect_err(|e| {
+                tracing::warn!(
+                    "verify_consensus_fault failed, ts@{}: {}, error: {e:#?}",
+                    self.heaviest_tipset.epoch(),
+                    self.heaviest_tipset.key()
+                );
+            })
+    }
+
     // See https://github.com/filecoin-project/lotus/blob/v1.18.0/chain/vm/fvm.go#L102-L216 for reference implementation
-    fn verify_consensus_fault(
+    fn verify_consensus_fault_impl(
         &self,
         h1: &[u8],
         h2: &[u8],
@@ -222,9 +241,31 @@ impl ForestExterns {
             }
         }
     }
+
+    pub(super) fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
+        self.get_tipset_cid_impl(epoch).inspect_err(|e| {
+            tracing::warn!(
+                "get_tipset_cid failed, ts@{}: {}, error: {e:#?}",
+                self.heaviest_tipset.epoch(),
+                self.heaviest_tipset.key()
+            );
+        })
+    }
+
+    fn get_tipset_cid_impl(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
+        let ts = self
+            .chain_index
+            .load_required_tipset_by_height(
+                epoch,
+                self.heaviest_tipset.clone(),
+                ResolveNullTipset::TakeOlder,
+            )
+            .context("Failed to get tipset cid")?;
+        ts.key().cid()
+    }
 }
 
-enum ConsensusFaultType {
+pub(super) enum ConsensusFaultType {
     DoubleForkMining,
     TimeOffsetMining,
     ParentGrinding,
@@ -260,7 +301,7 @@ impl From<ConsensusFaultType> for fvm_shared4::consensus::ConsensusFaultType {
     }
 }
 
-struct ConsensusFault {
+pub(super) struct ConsensusFault {
     target: Address,
     epoch: ChainEpoch,
     fault_type: ConsensusFaultType,
@@ -321,42 +362,6 @@ pub fn cal_gas_used_from_stats(
         }
     }
     Ok(gas_tracker.gas_used().into())
-}
-
-// impl fvm2::externs::Externs for ForestExterns {}
-
-impl fvm2::externs::Rand for ForestExterns {
-    fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        Rand::get_chain_randomness(self.rand.as_ref(), round)
-    }
-
-    fn get_beacon_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        Rand::get_beacon_randomness(self.rand.as_ref(), round)
-    }
-}
-
-// impl fvm3::externs::Externs for ForestExterns {}
-
-impl fvm3::externs::Rand for ForestExterns {
-    fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        Rand::get_chain_randomness(self.rand.as_ref(), round)
-    }
-
-    fn get_beacon_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        Rand::get_beacon_randomness(self.rand.as_ref(), round)
-    }
-}
-
-// impl fvm4::externs::Externs for ForestExterns {}
-
-impl fvm4::externs::Rand for ForestExterns {
-    fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        Rand::get_chain_randomness(self.rand.as_ref(), round)
-    }
-
-    fn get_beacon_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        Rand::get_beacon_randomness(self.rand.as_ref(), round)
-    }
 }
 
 #[cfg(test)]
