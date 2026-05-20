@@ -67,7 +67,7 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
     rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
 }
 
-pub fn compute_rbf_min_premium(premium: &TokenAmount) -> TokenAmount {
+pub(crate) fn compute_rbf_min_premium(premium: &TokenAmount) -> TokenAmount {
     premium.clone() + (premium * RBF_NUM).div_floor(RBF_DENOM) + TokenAmount::from_atto(1u8)
 }
 

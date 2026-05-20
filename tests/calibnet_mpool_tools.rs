@@ -10,8 +10,10 @@
 mod helpers;
 
 use helpers::*;
+use serial_test::serial;
 
 #[tokio::test]
+#[serial]
 async fn mpool_nonce_fix_auto_unblocks_pending() {
     let addr = FOREST_TEST_PRELOADED_ADDRESS.as_str();
     let nonce = mpool_nonce(addr).unwrap();
@@ -39,6 +41,7 @@ async fn mpool_nonce_fix_auto_unblocks_pending() {
 }
 
 #[tokio::test]
+#[serial]
 async fn mpool_replace_auto_unblocks_pending() {
     let addr = FOREST_TEST_PRELOADED_ADDRESS.as_str();
     let nonce = mpool_nonce(addr).unwrap();
