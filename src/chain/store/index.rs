@@ -157,6 +157,8 @@ impl ChainIndex {
     ) -> Result<Option<Tipset>, Error> {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
+        crate::def_is_env_truthy!(lookup_table_disabled, "FOREST_TIPSET_LOOKUP_TABLE_DISABLED");
+
         // use `20` as checkpoint interval to match Lotus:
         // <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/store/index.go#L52>
         const CHECKPOINT_INTERVAL: ChainEpoch = 20;
@@ -170,7 +172,7 @@ impl ChainIndex {
         let from_epoch = from.epoch();
 
         let mut checkpoint_from_epoch = to;
-        while checkpoint_from_epoch < from_epoch {
+        while !lookup_table_disabled() && checkpoint_from_epoch < from_epoch {
             if let Ok(Some(checkpoint_from_key)) =
                 self.db.tipset_key_by_epoch(checkpoint_from_epoch)
                 && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)
