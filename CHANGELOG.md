@@ -33,6 +33,10 @@
 
 - [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
 
+- [#7085](https://github.com/ChainSafe/forest/issues/7085): Implemented `nonce-fix` mpool cmd to fill mempool nonce gaps.
+
+- [#7086](https://github.com/ChainSafe/forest/issues/7086): Implemented `replace` mpool cmd to replace a message in the mempool.
+
 ### Changed
 
 - [`#7066`](https://github.com/ChainSafe/forest/pull/7066): Disable JSON-RPC HTTP response compression by default. Set `FOREST_RPC_COMPRESS_MIN_BODY_SIZE` to a non-negative value (e.g. `1024`) to re-enable gzip compression of responses above that size.
