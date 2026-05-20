@@ -21,10 +21,8 @@ GC can be trigger manually with `forest-cli chain prune snap`, regardless whethe
 Garbage Collection (GC) runs on a regular schedule and follows these steps:
 
 - Export an effective standard lite snapshot in `.forest.car.zst` format.
-- Stop the node.
 - Purge parity-db columns that serve as non-persistent blockstore.
 - Purge old CAR database files.
-- Restart the node.
 
 This process keeps the system clean by regularly removing old, unused data.
 
@@ -56,10 +54,10 @@ Always remember to enable GC when moving back to production or long-term testing
 
 During the GC process, Forest consumes extra RAM and disk space temporarily:
 
-- While traversing reachable blocks, it uses 32 bytes of RAM per reachable block.
+- While traversing reachable blocks, it uses ~80MiB of RAM and ~8GiB disk space on mainnet (and ~2GiB on calibnet) for de-duplicating reachable blocks.
 - While exporting a lite snapshot, it uses extra disk space before cleaning up parity-db and stale CAR snapshots.
 
-For a typical ~80 GiB mainnet snapshot, this results in ~2.5 GiB of additional RAM and ~80 GiB disk space usage.
+For a typical ~80 GiB mainnet snapshot, this results in ~80 MiB of additional RAM and ~90 GiB disk space usage.
 
 ### Syncing Pauses or Performance Overheads
 
@@ -67,7 +65,6 @@ While GC runs in the background, it can cause some delays or pauses, particularl
 
 - **Syncing Pauses**: There may be brief interruptions in syncing as resources are allocated for the GC process.
 - **Performance Overhead**: While relatively efficient, the chain traversal algorithm could slow down operations slightly.
-- **Reboot pauses**: The GC stops the node before cleaning up parity-db and CAR snapshots and then restarts the node, which could take `~10s-~30s` on mainnet
 
 ## Disk Usage
 

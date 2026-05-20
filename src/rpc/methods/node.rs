@@ -8,7 +8,6 @@ use crate::{
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
 };
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +22,7 @@ impl RpcMethod<0> for NodeStatus {
     type Ok = NodeStatusResult;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {

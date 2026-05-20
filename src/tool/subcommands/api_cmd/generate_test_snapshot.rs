@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::chain_sync::SyncStatusReport;
-use crate::daemon::bundle::load_actor_bundles;
 use crate::{
     KeyStore, KeyStoreConfig,
-    blocks::TipsetKey,
+    blocks::{Tipset, TipsetKey},
     chain::ChainStore,
-    chain_sync::network_context::SyncNetworkContext,
-    daemon::db_util::load_all_forest_cars,
+    chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
+    daemon::{bundle::load_actor_bundles, db_util::load_all_forest_cars},
     db::{
         CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
         SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
@@ -17,8 +15,9 @@ use crate::{
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite, Block64},
-    message_pool::MessagePool,
+    message_pool::{MessagePool, MpoolLocker, NonceTracker},
     networks::ChainConfig,
+    prelude::*,
     shim::address::CurrentNetwork,
     state_manager::StateManager,
 };
@@ -110,7 +109,7 @@ async fn ctx(
     db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>,
     chain_config: Arc<ChainConfig>,
 ) -> anyhow::Result<(
-    Arc<RPCState<ReadOpsTrackingStore<ManyCar<ParityDb>>>>,
+    Arc<RPCState>,
     flume::Receiver<NetworkMessage>,
     tokio::sync::mpsc::Receiver<()>,
 )> {
@@ -118,21 +117,10 @@ async fn ctx(
     let (tipset_send, _) = flume::bounded(5);
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
-
-    let chain_store = Arc::new(
-        ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )
-        .unwrap(),
-    );
-
-    let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
+    let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
+    let state_manager = StateManager::new(chain_store.shallow_clone())?;
     let message_pool = MessagePool::new(
-        chain_store.clone(),
+        chain_store,
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
@@ -141,12 +129,13 @@ async fn ctx(
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
-        SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
+        SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
+    let nonce_tracker = NonceTracker::new();
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
-        mpool: Arc::new(message_pool),
+        mpool: message_pool,
         bad_blocks: Default::default(),
         sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
@@ -155,6 +144,9 @@ async fn ctx(
         shutdown,
         tipset_send,
         snapshot_progress_tracker: Default::default(),
+        mpool_locker: MpoolLocker::new(),
+        nonce_tracker,
+        temp_dir: Arc::new(std::env::temp_dir()),
     });
     Ok((rpc_state, network_rx, shutdown_recv))
 }
@@ -332,5 +324,13 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         self.inner.delete(keys)
+    }
+
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+        self.inner.tipset_key_by_epoch(epoch)
+    }
+
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
+        self.inner.set_tipset_key_at_epoch(ts)
     }
 }

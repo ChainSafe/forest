@@ -1,15 +1,17 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod gc;
+pub use gc::*;
+
 use super::{EthMappingsStore, PersistentStore, SettingsStore};
-use crate::blocks::TipsetKey;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use crate::prelude::*;
 use crate::rpc::eth::types::EthHash;
 use crate::utils::{broadcast::has_subscribers, multihash::prelude::*};
-use anyhow::Context as _;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
+use bytes::Bytes;
 use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
 use parking_lot::RwLock;
@@ -80,7 +82,7 @@ impl DbColumn {
     }
 }
 
-type WriteOpsBroadcastTxSender = tokio::sync::broadcast::Sender<(Cid, Vec<u8>)>;
+type WriteOpsBroadcastTxSender = tokio::sync::broadcast::Sender<Vec<(Cid, Bytes)>>;
 
 pub struct ParityDb {
     pub db: parity_db::Db,
@@ -91,9 +93,9 @@ pub struct ParityDb {
 }
 
 impl ParityDb {
-    pub fn to_options(path: PathBuf, config: &ParityDbConfig) -> Options {
+    pub fn to_options(path: impl Into<PathBuf>, config: &ParityDbConfig) -> Options {
         Options {
-            path,
+            path: path.into(),
             sync_wal: true,
             sync_data: true,
             stats: config.enable_statistics,
@@ -105,9 +107,13 @@ impl ParityDb {
 
     pub fn open(path: impl Into<PathBuf>, config: &ParityDbConfig) -> anyhow::Result<Self> {
         let opts = Self::to_options(path.into(), config);
+        Self::open_with_options(&opts)
+    }
+
+    pub fn open_with_options(options: &Options) -> anyhow::Result<Self> {
         Ok(Self {
-            db: Db::open_or_create(&opts)?,
-            statistics_enabled: opts.stats,
+            db: Db::open_or_create(options)?,
+            statistics_enabled: options.stats,
             disable_persistent_fallback: false,
             write_ops_broadcast_tx: RwLock::new(None),
         })
@@ -217,6 +223,21 @@ impl EthMappingsStore for ParityDb {
             (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
         }))?)
     }
+
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+        let key = epoch.to_le_bytes();
+        if let Some(bytes) = self.read_from_column(key, DbColumn::EthMappings)? {
+            Ok(Some(fvm_ipld_encoding::from_slice(&bytes)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
+        let key = ts.epoch().to_le_bytes();
+        let bytes = fvm_ipld_encoding::to_vec(ts.key())?;
+        self.write_to_column(key, bytes, DbColumn::EthMappings)
+    }
 }
 
 impl Blockstore for ParityDb {
@@ -235,7 +256,7 @@ impl Blockstore for ParityDb {
         self.write_to_column(k.to_bytes(), block, column)?;
         match &*self.write_ops_broadcast_tx.read() {
             Some(tx) if has_subscribers(tx) => {
-                let _ = tx.send((*k, block.to_vec()));
+                let _ = tx.send(vec![(*k, Bytes::copy_from_slice(block))]);
             }
             _ => {}
         }
@@ -249,15 +270,14 @@ impl Blockstore for ParityDb {
         D: AsRef<[u8]>,
         I: IntoIterator<Item = (Cid, D)>,
     {
-        let tx_opt: &Option<tokio::sync::broadcast::Sender<(cid::CidGeneric<64>, Vec<u8>)>> =
-            &self.write_ops_broadcast_tx.read();
+        let tx_opt = &*self.write_ops_broadcast_tx.read();
         let has_subscribers = tx_opt.as_ref().map(has_subscribers).unwrap_or_default();
         let mut values_for_subscriber = vec![];
         let values = blocks.into_iter().map(|(k, v)| {
             let column = Self::choose_column(&k);
             let v = v.as_ref().to_vec();
             if has_subscribers {
-                values_for_subscriber.push((k, v.clone()));
+                values_for_subscriber.push((k, Bytes::copy_from_slice(&v)));
             }
             (column, k.to_bytes(), v)
         });
@@ -266,9 +286,7 @@ impl Blockstore for ParityDb {
             .map(|(col, k, v)| (col as u8, Operation::Set(k, v)));
         self.db.commit_changes(tx).context("error bulk writing")?;
         if let Some(tx) = tx_opt {
-            for i in values_for_subscriber {
-                let _ = tx.send(i);
-            }
+            let _ = tx.send(values_for_subscriber);
         }
         Ok(())
     }
@@ -368,15 +386,20 @@ impl ParityDb {
 }
 
 impl super::BlockstoreWriteOpsSubscribable for ParityDb {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
-        let tx_lock = self.write_ops_broadcast_tx.read();
-        if let Some(tx) = &*tx_lock {
-            return tx.subscribe();
+    fn subscribe_write_ops(
+        &self,
+    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>>> {
+        // Use double checks to avoid concurrent first-time subscribers to create duplicate channels
+        if let Some(tx) = self.write_ops_broadcast_tx.read().as_ref() {
+            return Ok(tx.subscribe());
         }
-        drop(tx_lock);
-        let (tx, rx) = tokio::sync::broadcast::channel(8192);
-        *self.write_ops_broadcast_tx.write() = Some(tx);
-        rx
+        let mut tx_lock = self.write_ops_broadcast_tx.write();
+        if let Some(tx) = tx_lock.as_ref() {
+            return Ok(tx.subscribe());
+        }
+        let (tx, rx) = tokio::sync::broadcast::channel(65536);
+        *tx_lock = Some(tx);
+        Ok(rx)
     }
 
     fn unsubscribe_write_ops(&self) {
@@ -389,7 +412,6 @@ mod test {
     use super::*;
     use crate::db::{BlockstoreWriteOpsSubscribable, tests::db_utils::parity::TempParityDB};
     use fvm_ipld_encoding::IPLD_RAW;
-    use itertools::Itertools as _;
     use nom::AsBytes;
     use std::ops::Deref;
 
@@ -543,8 +565,8 @@ mod test {
             Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
         ];
 
-        let mut rx1 = db.subscribe_write_ops();
-        let mut rx2 = db.subscribe_write_ops();
+        let mut rx1 = db.subscribe_write_ops().unwrap();
+        let mut rx2 = db.subscribe_write_ops().unwrap();
 
         assert!(has_subscribers(
             db.write_ops_broadcast_tx.read().as_ref().unwrap()
@@ -553,8 +575,9 @@ mod test {
         for (idx, cid) in cids.iter().enumerate() {
             let data_entry = &data[idx];
             db.put_keyed(cid, data_entry).unwrap();
-            assert_eq!(rx1.blocking_recv().unwrap(), (*cid, data_entry.clone()));
-            assert_eq!(rx2.blocking_recv().unwrap(), (*cid, data_entry.clone()));
+            let expected = vec![(*cid, Bytes::copy_from_slice(data_entry))];
+            assert_eq!(rx1.blocking_recv().unwrap(), expected);
+            assert_eq!(rx2.blocking_recv().unwrap(), expected);
         }
 
         drop(rx1);

@@ -1,6 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(dead_code)]
+
 use std::sync::LazyLock;
 use std::time::Duration;
 use std::{borrow::Cow, num::NonZeroUsize};
@@ -11,18 +13,17 @@ use super::{
         PublicKeyOnG1, PublicKeyOnG2, SignatureOnG1, SignatureOnG2, verify_messages_chained,
     },
 };
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::net::global_http_client;
-use anyhow::Context as _;
+use ambassador::{Delegate, delegatable_trait};
 use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
-use itertools::Itertools as _;
 use nonzero_ext::nonzero;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
-use spire_enum::prelude::delegated_enum;
 use tracing::debug;
 use url::Url;
 
@@ -140,38 +141,12 @@ impl BeaconSchedule {
     }
 }
 
-#[delegated_enum(impl_conversions)]
+#[derive(Delegate, derive_more::From)]
+#[delegate(Beacon)]
 pub enum BeaconImpl {
     Drand(DrandBeacon),
     #[cfg(test)]
-    Mock(super::mock_beacon::MockBeacon),
-}
-
-impl Beacon for BeaconImpl {
-    /// Gets the `drand` network
-    fn network(&self) -> DrandNetwork {
-        delegate_beacon_impl!(self.network())
-    }
-
-    /// Verify beacon entries that are sorted by round.
-    fn verify_entries(&self, entries: &[BeaconEntry], prev: &BeaconEntry) -> anyhow::Result<bool> {
-        delegate_beacon_impl!(self.verify_entries(entries, prev))
-    }
-
-    /// Returns a `BeaconEntry` given a round. It fetches the `BeaconEntry` from a `Drand` node over [`gRPC`](https://grpc.io/)
-    /// In the future, we will cache values, and support streaming.
-    async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        delegate_beacon_impl!(self.entry(round).await)
-    }
-
-    /// Returns the most recent beacon round for the given Filecoin chain epoch.
-    fn max_beacon_round_for_epoch(
-        &self,
-        network_version: NetworkVersion,
-        fil_epoch: ChainEpoch,
-    ) -> u64 {
-        delegate_beacon_impl!(self.max_beacon_round_for_epoch(network_version, fil_epoch))
-    }
+    Mock(crate::beacon::mock_beacon::MockBeacon),
 }
 
 /// Contains height at which the beacon is activated, as well as the beacon
@@ -190,6 +165,7 @@ impl BeaconPoint {
 
 /// Trait used as the interface to be able to retrieve bytes from a randomness
 /// beacon.
+#[delegatable_trait]
 pub trait Beacon {
     /// Gets the `drand` network
     fn network(&self) -> DrandNetwork;
@@ -247,7 +223,7 @@ pub struct DrandBeacon {
     fil_round_time: u64,
 
     /// Keeps track of verified beacon entries.
-    verified_beacons: SizeTrackingLruCache<u64, BeaconEntry>,
+    verified_beacons: SizeTrackingCache<u64, Arc<BeaconEntry>>,
 }
 
 impl DrandBeacon {
@@ -265,16 +241,12 @@ impl DrandBeacon {
             drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            verified_beacons: SizeTrackingLruCache::new_with_metrics(
-                "verified_beacons".into(),
-                CACHE_SIZE,
-            ),
+            verified_beacons: SizeTrackingCache::new_with_metrics("verified_beacons", CACHE_SIZE),
         }
     }
 
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
-        let cache = self.verified_beacons.cache().read();
-        cache.peek(&entry.round()) == Some(entry)
+        self.verified_beacons.peek_cloned(&entry.round()).as_deref() == Some(entry)
     }
 }
 
@@ -342,7 +314,8 @@ impl Beacon for DrandBeacon {
                 tracing::warn!(%cap, validated_len=%validated.len(), "verified_beacons.cap() is too small");
             }
             for entry in validated {
-                self.verified_beacons.push(entry.round(), entry.clone());
+                self.verified_beacons
+                    .push(entry.round(), Arc::new(entry.clone()));
             }
         }
 
@@ -350,9 +323,9 @@ impl Beacon for DrandBeacon {
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        let cached: Option<BeaconEntry> = self.verified_beacons.peek_cloned(&round);
+        let cached = self.verified_beacons.peek_cloned(&round);
         match cached {
-            Some(cached_entry) => Ok(cached_entry),
+            Some(cached_entry) => Ok(Arc::unwrap_or_clone(cached_entry)),
             None => {
                 async fn fetch_entry_from_url(
                     url: impl reqwest::IntoUrl,

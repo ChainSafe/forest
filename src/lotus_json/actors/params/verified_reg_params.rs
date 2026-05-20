@@ -1376,20 +1376,20 @@ mod impl_verifreg_add_verifier_client_params_v9 {
     }
 }
 
-impl_constructor_params!(11, 12, 13, 14, 15, 16, 17);
-impl_verifier_params!(10, 11, 12, 13, 14, 15, 16, 17); // Exclude v8,v9 due to different param names
-impl_remove_verifier_params!(11, 12, 13, 14, 15, 16, 17);
-impl_remove_expired_allocations_params!(9, 10, 11, 12, 13, 14, 15, 16, 17);
-impl_get_claims_params!(9, 10, 11, 12, 13, 14, 15, 16, 17);
-impl_remove_expired_claims_params!(9, 10, 11, 12, 13, 14, 15, 16, 17);
-impl_extend_claim_terms_params!(9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_constructor_params!(11, 12, 13, 14, 15, 16, 17, 18);
+impl_verifier_params!(10, 11, 12, 13, 14, 15, 16, 17, 18); // Exclude v8,v9 due to different param names
+impl_remove_verifier_params!(11, 12, 13, 14, 15, 16, 17, 18);
+impl_remove_expired_allocations_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+impl_get_claims_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+impl_remove_expired_claims_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+impl_extend_claim_terms_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
 
 impl_remove_data_cap_params_v2!(8, 9);
 impl_remove_data_cap_params_v3!(10, 11);
-impl_remove_data_cap_params_v4!(12, 13, 14, 15, 16, 17);
+impl_remove_data_cap_params_v4!(12, 13, 14, 15, 16, 17, 18);
 
 impl_claim_allocations_params_v11!(fvm_shared2: 9);
 impl_claim_allocations_params_v11!(fvm_shared3: 10, 11);
-impl_claim_allocations_params_v12_plus!(fvm_shared4: 12, 13, 14, 15, 16, 17);
-impl_allocation_requests!(fvm_shared4: 12, 13, 14, 15, 16, 17);
+impl_claim_allocations_params_v12_plus!(fvm_shared4: 12, 13, 14, 15, 16, 17, 18);
+impl_allocation_requests!(fvm_shared4: 12, 13, 14, 15, 16, 17, 18);
 impl_allocation_requests!(fvm_shared3: 11);

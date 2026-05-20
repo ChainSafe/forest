@@ -84,7 +84,7 @@ impl HasLotusJson for State {
             };
         }
 
-        convert_multisig_state!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17)
+        convert_multisig_state!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17, V18)
     }
 
     // Always return the latest version when deserializing

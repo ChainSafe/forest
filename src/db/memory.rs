@@ -2,17 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{EthMappingsStore, SettingsStore, SettingsStoreExt};
-use crate::blocks::TipsetKey;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::db::PersistentStore;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use crate::prelude::*;
 use crate::rpc::eth::types::EthHash;
+use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::multihash::prelude::*;
 use ahash::HashMap;
-use anyhow::Context as _;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools;
+use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
 
 #[derive(Debug, Default)]
@@ -21,9 +20,14 @@ pub struct MemoryDB {
     blockchain_persistent_db: RwLock<HashMap<Cid, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
     pub eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
+    ts_lookup_db: RwLock<HashMap<ChainEpoch, TipsetKey>>,
 }
 
 impl MemoryDB {
+    pub fn blockstore_len(&self) -> usize {
+        self.blockchain_db.read().len() + self.blockchain_persistent_db.read().len()
+    }
+
     pub fn blockstore_size_bytes(&self) -> usize {
         self.blockchain_db
             .read()
@@ -41,6 +45,14 @@ impl MemoryDB {
             SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)?
                 .context("chain head is not tracked and cannot be exported")?
                 .into_cids();
+        self.export_forest_car_with_roots(roots, writer).await
+    }
+
+    pub async fn export_forest_car_with_roots<W: tokio::io::AsyncWrite + Unpin>(
+        &self,
+        roots: NonEmpty<Cid>,
+        writer: &mut W,
+    ) -> anyhow::Result<()> {
         let blocks = {
             let blockchain_db = self.blockchain_db.read();
             let blockchain_persistent_db = self.blockchain_persistent_db.read();
@@ -52,7 +64,7 @@ impl MemoryDB {
                 .map(|(&cid, data)| {
                     anyhow::Ok(CarBlock {
                         cid,
-                        data: data.clone(),
+                        data: data.clone().into(),
                     })
                 })
                 .collect_vec()
@@ -104,8 +116,8 @@ impl EthMappingsStore for MemoryDB {
         let cids = self
             .eth_mappings_db
             .read()
-            .iter()
-            .filter_map(|(_, value)| fvm_ipld_encoding::from_slice::<(Cid, u64)>(value).ok())
+            .values()
+            .filter_map(|value| fvm_ipld_encoding::from_slice::<(Cid, u64)>(value).ok())
             .collect();
 
         Ok(cids)
@@ -116,6 +128,17 @@ impl EthMappingsStore for MemoryDB {
         for hash in keys.iter() {
             lock.remove(hash);
         }
+        Ok(())
+    }
+
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+        Ok(self.ts_lookup_db.read().get(&epoch).cloned())
+    }
+
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
+        self.ts_lookup_db
+            .write()
+            .insert(ts.epoch(), ts.key().clone());
         Ok(())
     }
 }

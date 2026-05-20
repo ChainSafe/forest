@@ -32,13 +32,16 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
 };
 use crate::cid_collections::CidHashSet;
+use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
+use crate::db::DbImpl;
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
 use crate::f3::snapshot::F3SnapshotHeader;
 use crate::interpreter::VMTrace;
 use crate::ipld::{stream_chain, stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
+use crate::prelude::*;
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::executor::{Receipt, StampedEvent};
@@ -50,11 +53,9 @@ use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
 use crate::utils::multihash::MultihashCode;
 use anyhow::{Context as _, bail};
 use chrono::DateTime;
-use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::{StreamExt as _, TryStreamExt as _};
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use human_repr::HumanCount as _;
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
@@ -65,7 +66,6 @@ use std::fs::File;
 use std::io::{BufReader, Seek as _, SeekFrom};
 use std::ops::Range;
 use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
 
@@ -262,10 +262,10 @@ impl ArchiveCommands {
                 diff_depth,
                 force,
             } => {
-                let store = ManyCar::try_from(snapshot_files)?;
+                let store = Arc::new(ManyCar::try_from(snapshot_files)?);
                 let heaviest_tipset = store.heaviest_tipset()?;
                 do_export(
-                    &store.into(),
+                    &store,
                     heaviest_tipset,
                     output_path,
                     epoch,
@@ -549,8 +549,8 @@ fn build_output_path(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn do_export(
-    store: &Arc<impl Blockstore + Send + Sync + 'static>,
+pub async fn do_export<DB>(
+    store: &DB,
     root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
@@ -558,7 +558,10 @@ pub async fn do_export(
     diff: Option<ChainEpoch>,
     diff_depth: Option<ChainEpochDelta>,
     force: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    DB: Blockstore + ShallowClone + Into<DbImpl> + Unpin + Send + Sync + 'static,
+{
     let ts = root;
 
     let genesis = ts.genesis(store)?;
@@ -576,27 +579,29 @@ pub async fn do_export(
 
     info!("looking up a tipset by epoch: {}", epoch);
 
-    let index = ChainIndex::new(store.clone());
+    let index = ChainIndex::new(store.shallow_clone());
 
     let ts = index
-        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
     let seen = if let Some(diff) = diff {
         let diff_ts: Tipset = index
-            .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
+            .load_required_tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
+        let store = Arc::new(store.shallow_clone());
         let mut stream = stream_chain(
-            store.clone(),
-            diff_ts.clone().chain_owned(store.clone()),
+            store.shallow_clone(),
+            diff_ts.clone().chain_owned(store.shallow_clone()),
             diff_limit,
+            FileBackedCidHashSet::new_in_temp_dir()?,
         );
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
-        CidHashSet::default()
+        FileBackedCidHashSet::new_in_temp_dir()?
     };
 
     let output_path = build_output_path(network.to_string(), genesis.timestamp, epoch, output_path);
@@ -639,18 +644,18 @@ pub async fn do_export(
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     let writer = pb.wrap_async_write(writer);
 
-    crate::chain::export::<Sha256>(
+    crate::chain::export::<Sha256, _>(
         store,
         &ts,
         depth,
         writer,
-        Some(ExportOptions {
+        ExportOptions {
             skip_checksum: true,
             include_receipts: false,
             include_events: false,
             include_tipset_keys: false,
             seen,
-        }),
+        },
     )
     .await?;
 
@@ -695,7 +700,12 @@ async fn merge_snapshots(
     )?);
 
     // Stream all available blocks from heaviest_tipset to genesis.
-    let blocks = stream_graph(&store, heaviest_tipset.chain(&store), 0);
+    let blocks = stream_graph(
+        &store,
+        heaviest_tipset.chain(&store),
+        0,
+        CidHashSet::default(),
+    );
 
     // Encode Ipld key-value pairs in zstd frames
     let frames = forest::Encoder::compress_stream_default(blocks);
@@ -736,7 +746,7 @@ async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> a
             DAG_CBOR,
             MultihashCode::Blake2b256.digest(&snap_meta_cbor_encoded),
         ),
-        data: snap_meta_cbor_encoded,
+        data: snap_meta_cbor_encoded.into(),
     };
 
     let roots = nunny::vec![snap_meta_block.cid];
@@ -831,13 +841,13 @@ async fn show_tipset_diff(
         CurrentNetwork::set_global(Network::Testnet);
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
-    let tipset = chain_index.tipset_by_height(
+    let tipset = chain_index.load_required_tipset_by_height(
         epoch,
         heaviest_tipset.clone(),
         ResolveNullTipset::TakeOlder,
     )?;
 
-    let child_tipset = chain_index.tipset_by_height(
+    let child_tipset = chain_index.load_required_tipset_by_height(
         epoch + 1,
         heaviest_tipset.clone(),
         ResolveNullTipset::TakeNewer,
@@ -845,7 +855,7 @@ async fn show_tipset_diff(
 
     let ExecutedTipset { state_root, .. } = apply_block_messages(
         timestamp,
-        Arc::new(chain_index),
+        chain_index,
         Arc::new(chain_config),
         beacon,
         &GLOBAL_MULTI_ENGINE,
@@ -1012,13 +1022,16 @@ fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::R
 }
 
 /// Given a block store, export a lite snapshot for a given epoch.
-async fn export_lite_snapshot(
-    store: Arc<impl Blockstore + Send + Sync + 'static>,
+async fn export_lite_snapshot<DB>(
+    store: DB,
     root: Tipset,
     network: &str,
     genesis_timestamp: u64,
     epoch: ChainEpoch,
-) -> anyhow::Result<PathBuf> {
+) -> anyhow::Result<PathBuf>
+where
+    DB: Blockstore + ShallowClone + Into<DbImpl> + Unpin + Send + Sync + 'static,
+{
     let output_path: PathBuf = format_lite_snapshot(network, genesis_timestamp, epoch)?.into();
 
     // Skip if file already exists
@@ -1045,13 +1058,16 @@ async fn export_lite_snapshot(
 }
 
 /// Given a block store, export a diff snapshot for a given epoch.
-async fn export_diff_snapshot(
-    store: Arc<impl Blockstore + Send + Sync + 'static>,
+async fn export_diff_snapshot<DB>(
+    store: DB,
     root: Tipset,
     network: &str,
     genesis_timestamp: u64,
     epoch: ChainEpoch,
-) -> anyhow::Result<PathBuf> {
+) -> anyhow::Result<PathBuf>
+where
+    DB: Blockstore + ShallowClone + Into<DbImpl> + Unpin + Send + Sync + 'static,
+{
     let output_path: PathBuf = format_diff_snapshot(network, genesis_timestamp, epoch)?.into();
 
     // Skip if file already exists
@@ -1203,10 +1219,15 @@ mod tests {
     #[tokio::test]
     async fn export() {
         let output_path = TempDir::new().unwrap();
-        let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
+        let store: Arc<ManyCar> = Arc::new(
+            AnyCar::try_from(calibnet::DEFAULT_GENESIS)
+                .unwrap()
+                .try_into()
+                .unwrap(),
+        );
         let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
-            &store.into(),
+            &store,
             heaviest_tipset,
             output_path.path().into(),
             Some(0),

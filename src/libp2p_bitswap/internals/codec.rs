@@ -56,7 +56,7 @@ impl request_response::Codec for BitswapRequestResponseCodec {
             let cid = prefix.to_cid(&payload.data).map_err(io::Error::other)?;
             parts.push(BitswapMessage::Response(
                 cid,
-                BitswapResponse::Block(payload.data.to_vec()),
+                BitswapResponse::Block(payload.data),
             ));
         }
 

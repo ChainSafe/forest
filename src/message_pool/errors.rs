@@ -15,8 +15,6 @@ pub enum Error {
     GasPriceTooLow,
     #[error("gas fee cap is too low")]
     GasFeeCapTooLow,
-    #[error("Cannot send more Filecoin than will ever exist")]
-    MessageValueTooHigh,
     #[error("Message sequence too low")]
     SequenceTooLow,
     #[error("Not enough funds to execute transaction")]
@@ -28,6 +26,8 @@ pub enum Error {
     InvalidFromAddr,
     #[error("Message with sequence already in mempool")]
     DuplicateSequence,
+    #[error("unfulfilled nonce gap")]
+    NonceGap,
     #[error("Validation Error: {0}")]
     SoftValidationFailure(String),
     #[error("Too many pending messages from actor {0} (trusted: {1})")]

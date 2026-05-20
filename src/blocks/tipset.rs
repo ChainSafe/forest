@@ -11,6 +11,7 @@ use crate::{
     chain_sync::TipsetValidator,
     cid_collections::SmallCidNonEmptyVec,
     networks::{calibnet, mainnet},
+    prelude::*,
     shim::clock::ChainEpoch,
     utils::{
         cid::CidCborExt,
@@ -20,12 +21,8 @@ use crate::{
     },
 };
 use ahash::HashMap;
-use anyhow::Context as _;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use get_size2::GetSize;
-use itertools::Itertools as _;
 use multihash_derive::MultihashDigest as _;
 use num::BigInt;
 use nunny::{Vec as NonEmpty, vec as nonempty};
@@ -60,7 +57,10 @@ impl TipsetKey {
     pub fn car_block(&self) -> anyhow::Result<CarBlock> {
         let data = fvm_ipld_encoding::to_vec(&self.bytes())?;
         let cid = Cid::from_cbor_encoded_raw_bytes_blake2b256(&data);
-        Ok(CarBlock { cid, data })
+        Ok(CarBlock {
+            cid,
+            data: data.into(),
+        })
     }
 
     /// Returns `true` if the tipset key contains the given CID.
@@ -195,6 +195,15 @@ pub struct Tipset {
     key: Arc<OnceLock<TipsetKey>>,
 }
 
+impl ShallowClone for Tipset {
+    fn shallow_clone(&self) -> Self {
+        Self {
+            headers: self.headers.shallow_clone(),
+            key: self.key.shallow_clone(),
+        }
+    }
+}
+
 impl From<RawBlockHeader> for Tipset {
     fn from(value: RawBlockHeader) -> Self {
         Self::from(CachingBlockHeader::from(value))
@@ -267,6 +276,17 @@ pub enum CreateTipsetError {
     BadEpoch,
     #[error("duplicate miner address. All miners in a tipset must be unique.")]
     DuplicateMiner,
+    #[error("block has no ticket. All blocks in a tipset must have a ticket.")]
+    MissingTicket,
+}
+
+/// A trait for types that have the same properties as a Tipset.
+pub trait TipsetLike {
+    fn epoch(&self) -> ChainEpoch;
+    fn key(&self) -> &TipsetKey;
+    fn parents(&self) -> &TipsetKey;
+    #[allow(dead_code)]
+    fn parent_state(&self) -> &Cid;
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -451,6 +471,24 @@ impl Tipset {
     }
 }
 
+impl TipsetLike for Tipset {
+    fn epoch(&self) -> ChainEpoch {
+        self.epoch()
+    }
+
+    fn key(&self) -> &TipsetKey {
+        self.key()
+    }
+
+    fn parents(&self) -> &TipsetKey {
+        self.parents()
+    }
+
+    fn parent_state(&self) -> &Cid {
+        self.parent_state()
+    }
+}
+
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
 /// and messages.
 #[derive(Debug, Clone, Eq)]
@@ -458,6 +496,24 @@ pub struct FullTipset {
     blocks: Arc<NonEmpty<Block>>,
     // key is lazily initialized via `fn key()`.
     key: Arc<OnceLock<TipsetKey>>,
+}
+
+impl TipsetLike for FullTipset {
+    fn epoch(&self) -> ChainEpoch {
+        self.epoch()
+    }
+
+    fn key(&self) -> &TipsetKey {
+        self.key()
+    }
+
+    fn parents(&self) -> &TipsetKey {
+        self.parents()
+    }
+
+    fn parent_state(&self) -> &Cid {
+        self.parent_state()
+    }
 }
 
 impl std::hash::Hash for FullTipset {
@@ -561,6 +617,9 @@ fn verify_block_headers<'a>(
 
     let headers =
         NonEmpty::new(headers.into_iter().collect()).map_err(|_| CreateTipsetError::Empty)?;
+    if !all(&headers, |it| it.ticket.is_some()) {
+        return Err(CreateTipsetError::MissingTicket);
+    }
     if !all(&headers, |it| it.parents == headers.first().parents) {
         return Err(CreateTipsetError::BadParents);
     }
@@ -643,7 +702,14 @@ mod lotus_json {
 
         #[cfg(test)]
         fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            use crate::blocks::header::RawBlockHeader;
+            use crate::test_utils::dummy_ticket;
             use serde_json::json;
+            let header = CachingBlockHeader::new(RawBlockHeader {
+                ticket: dummy_ticket(0),
+                ..Default::default()
+            });
+            let header_cid = *header.cid();
             vec![(
                 json!({
                     "Blocks": [
@@ -658,16 +724,17 @@ mod lotus_json {
                             "ParentStateRoot": { "/":"baeaaaaa" },
                             "ParentWeight": "0",
                             "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
+                            "Ticket": { "VRFProof": "AA==" },
                             "Timestamp": 0,
                             "WinPoStProof": null
                         }
                     ],
                     "Cids": [
-                        { "/": "bafy2bzaceag62hjj3o43lf6oyeox3fvg5aqkgl5zagbwpjje3ajwg6yw4iixk" }
+                        { "/": header_cid.to_string() }
                     ],
                     "Height": 0
                 }),
-                Self::new(vec![CachingBlockHeader::default()]).unwrap(),
+                Self::new(vec![header]).unwrap(),
             )]
         }
 
@@ -686,10 +753,9 @@ mod lotus_json {
     }
 
     #[cfg(test)]
-    quickcheck::quickcheck! {
-        fn quickcheck(val: Tipset) -> () {
-            assert_unchanged_via_json(val)
-        }
+    #[quickcheck_macros::quickcheck]
+    fn quickcheck(val: Tipset) {
+        assert_unchanged_via_json(val)
     }
 }
 
@@ -702,6 +768,7 @@ mod test {
     };
     use crate::db::MemoryDB;
     use crate::shim::address::Address;
+    use crate::test_utils::dummy_ticket;
     use cid::Cid;
     use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
@@ -769,10 +836,12 @@ mod test {
     fn ensure_miner_addresses_are_distinct() {
         let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
+            ticket: dummy_ticket(0),
             ..Default::default()
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(0),
+            ticket: dummy_ticket(0),
             ..Default::default()
         };
         assert_eq!(
@@ -782,6 +851,7 @@ mod test {
 
         let h_unique = RawBlockHeader {
             miner_address: Address::new_id(1),
+            ticket: dummy_ticket(0),
             ..Default::default()
         };
 
@@ -795,11 +865,13 @@ mod test {
     fn ensure_epochs_are_equal() {
         let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
+            ticket: dummy_ticket(0),
             epoch: 1,
             ..Default::default()
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
+            ticket: dummy_ticket(0),
             epoch: 2,
             ..Default::default()
         };
@@ -813,11 +885,13 @@ mod test {
     fn ensure_state_roots_are_equal() {
         let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
+            ticket: dummy_ticket(0),
             state_root: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
             ..Default::default()
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
+            ticket: dummy_ticket(0),
             state_root: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[1])),
             ..Default::default()
         };
@@ -831,10 +905,12 @@ mod test {
     fn ensure_parent_cids_are_equal() {
         let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
+            ticket: dummy_ticket(0),
             ..Default::default()
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
+            ticket: dummy_ticket(0),
             parents: TipsetKey::from(nonempty![Cid::new_v1(
                 DAG_CBOR,
                 MultihashCode::Identity.digest(&[])
@@ -852,6 +928,24 @@ mod test {
         assert_eq!(
             Tipset::new(iter::empty::<RawBlockHeader>()).unwrap_err(),
             CreateTipsetError::Empty
+        );
+    }
+
+    #[test]
+    fn ensure_tickets_are_present() {
+        let with_ticket = RawBlockHeader {
+            miner_address: Address::new_id(0),
+            ticket: dummy_ticket(0),
+            ..Default::default()
+        };
+        let without_ticket = RawBlockHeader {
+            miner_address: Address::new_id(1),
+            ticket: None,
+            ..Default::default()
+        };
+        assert_eq!(
+            Tipset::new([with_ticket, without_ticket]).unwrap_err(),
+            CreateTipsetError::MissingTicket
         );
     }
 

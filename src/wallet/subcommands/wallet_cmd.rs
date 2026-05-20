@@ -12,8 +12,7 @@ use crate::key_management::{Key, KeyInfo};
 use crate::{
     ENCRYPTED_KEYSTORE_NAME,
     cli::humantoken,
-    eth::{EAMMethod, EVMMethod, EthEip1559TxArgsBuilder, EthTx},
-    message::SignedMessage,
+    eth::{EAMMethod, EVMMethod},
     rpc::{
         eth::{EthChainId, is_eth_address, types::EthAddress},
         mpool::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
@@ -43,6 +42,7 @@ use clap::Subcommand;
 use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
 use num::Zero as _;
+use tabled::{builder::Builder, settings::Style};
 
 // Abstraction over local and remote wallets. A connection to a running Filecoin
 // node is always required for balance queries and for sending messages. When a
@@ -116,7 +116,7 @@ impl WalletBackend {
 
     async fn wallet_has(&self, address: Address) -> anyhow::Result<bool> {
         if let Some(keystore) = &self.local {
-            Ok(crate::key_management::find_key(&address, keystore).is_ok())
+            Ok(crate::key_management::try_find_key(&address, keystore).is_ok())
         } else {
             Ok(WalletHas::call(&self.remote, (address,)).await?)
         }
@@ -149,13 +149,11 @@ impl WalletBackend {
         }
     }
 
-    async fn wallet_default_address(&self) -> anyhow::Result<Option<String>> {
+    async fn wallet_default_address(&self) -> anyhow::Result<Option<Address>> {
         if let Some(keystore) = &self.local {
-            Ok(crate::key_management::get_default(keystore)?.map(|s| s.to_string()))
+            Ok(crate::key_management::get_default(keystore)?)
         } else {
-            Ok(WalletDefaultAddress::call(&self.remote, ())
-                .await?
-                .map(|it| it.to_string()))
+            Ok(WalletDefaultAddress::call(&self.remote, ()).await?)
         }
     }
 
@@ -173,7 +171,7 @@ impl WalletBackend {
 
     async fn wallet_sign(&self, address: Address, message: String) -> anyhow::Result<Signature> {
         if let Some(keystore) = &self.local {
-            let key = crate::key_management::find_key(&address, keystore)?;
+            let key = crate::key_management::try_find_key(&address, keystore)?;
 
             Ok(crate::key_management::sign(
                 *key.key_info.key_type(),
@@ -211,7 +209,7 @@ pub enum WalletCommands {
     /// Get account balance
     Balance {
         /// The address of the account to check
-        address: String,
+        address: StrictAddress,
         /// Output is rounded to 4 significant figures by default.
         /// Do not round
         // ENHANCE(aatifsyed): add a --round/--no-round argument pair
@@ -227,12 +225,12 @@ pub enum WalletCommands {
     /// Export the wallet's keys
     Export {
         /// The address that contains the keys to export
-        address: String,
+        address: StrictAddress,
     },
     /// Check if the wallet has a key
     Has {
         /// The key to check
-        key: String,
+        key: StrictAddress,
     },
     /// Import keys from existing wallet
     Import {
@@ -254,7 +252,7 @@ pub enum WalletCommands {
     /// Set the default wallet address
     SetDefault {
         /// The given key to set to the default address
-        key: String,
+        key: StrictAddress,
     },
     /// Sign a message
     Sign {
@@ -263,7 +261,7 @@ pub enum WalletCommands {
         message: String,
         /// The address to be used to sign the message
         #[arg(short)]
-        address: String,
+        address: StrictAddress,
     },
     /// Validates whether a given string can be decoded as a well-formed address
     ValidateAddress {
@@ -275,7 +273,7 @@ pub enum WalletCommands {
     Verify {
         /// The address used to sign the message
         #[arg(short)]
-        address: String,
+        address: StrictAddress,
         /// The message to verify
         #[arg(short)]
         message: String,
@@ -286,14 +284,18 @@ pub enum WalletCommands {
     /// Deletes the wallet associated with the given address.
     Delete {
         /// The address of the wallet to delete
-        address: String,
+        address: StrictAddress,
     },
     /// Send funds between accounts
     Send {
         /// optionally specify the account to send funds from (otherwise the default
         /// one will be used)
         #[arg(long)]
-        from: Option<String>,
+        from: Option<StrictAddress>,
+        /// The recipient address. Accepts either a FIL address (e.g.
+        /// `f1.../t1...`) or an ETH address (e.g. `0x...`).
+        // Kept as `String` rather than `StrictAddress` because the latter
+        // rejects the ETH form, which `resolve_target_address` handles.
         target_address: String,
         #[arg(value_parser = humantoken::parse)]
         amount: TokenAmount,
@@ -329,9 +331,7 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let StrictAddress(address) = StrictAddress::from_str(&address)
-                    .with_context(|| format!("Invalid address: {address}"))?;
-                let balance = WalletBalance::call(&backend.remote, (address,)).await?;
+                let balance = WalletBalance::call(&backend.remote, (address.into(),)).await?;
                 println!("{}", format_balance(&balance, no_round, no_abbrev));
                 Ok(())
             }
@@ -343,27 +343,21 @@ impl WalletCommands {
                 println!("{default_addr}");
                 Ok(())
             }
-            Self::Export {
-                address: address_string,
-            } => {
-                let StrictAddress(address) = StrictAddress::from_str(&address_string)
-                    .with_context(|| format!("Invalid address: {address_string}"))?;
-                let key_info = backend.wallet_export(address).await?;
+            Self::Export { address } => {
+                let key_info = backend.wallet_export(address.into()).await?;
                 let encoded_key = key_info.into_lotus_json_string()?;
                 println!("{}", hex::encode(encoded_key));
                 Ok(())
             }
             Self::Has { key } => {
-                let StrictAddress(address) = StrictAddress::from_str(&key)
-                    .with_context(|| format!("Invalid address: {key}"))?;
-
-                println!("{response}", response = backend.wallet_has(address).await?);
+                println!(
+                    "{response}",
+                    response = backend.wallet_has(key.into()).await?
+                );
                 Ok(())
             }
             Self::Delete { address } => {
-                let StrictAddress(address) = StrictAddress::from_str(&address)
-                    .with_context(|| format!("Invalid address: {address}"))?;
-
+                let address: Address = address.into();
                 backend.wallet_delete(address).await?;
                 println!("deleted {address}.");
                 Ok(())
@@ -407,60 +401,56 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let (key_pairs, default) =
+                let (key_pairs, default_address) =
                     tokio::try_join!(backend.list_addrs(), backend.wallet_default_address(),)?;
 
-                let max_addr_len = key_pairs
-                    .iter()
-                    .map(|addr| addr.to_string().len())
-                    .max()
-                    .unwrap_or(42);
+                let remote = &backend.remote;
+                let results =
+                    futures::future::join_all(key_pairs.iter().copied().map(|a| async move {
+                        let result = StateGetActor::call(remote, (a, ApiTipsetKey(None))).await;
+                        (a, result)
+                    }))
+                    .await;
+                let mut rows: Vec<_> = results
+                    .into_iter()
+                    .map(|(a, result)| {
+                        if let Err(e) = &result {
+                            tracing::warn!(%a, %e, "failed to get actor state for wallet list");
+                        }
+                        let actor = result.ok().flatten();
+                        let balance: TokenAmount = actor
+                            .as_ref()
+                            .map(|s| s.balance.clone().into())
+                            .unwrap_or_default();
+                        let nonce = actor.as_ref().map(|s| s.sequence).unwrap_or_default();
+                        (a, balance, nonce)
+                    })
+                    .collect();
+                rows.sort_by_key(|(a, _, _)| default_address != Some(*a));
 
-                println!(
-                    "{:<width_addr$} {:<width_default$} Balance",
-                    "Address",
-                    "Default",
-                    width_addr = max_addr_len,
-                    width_default = 7,
-                );
-
-                for address in key_pairs {
-                    let default_address_mark = if default.as_ref() == Some(&address.to_string()) {
-                        "X"
+                let mut builder = Builder::default();
+                builder.push_record(["Address", "Balance", "Nonce"]);
+                for (addr, balance, nonce) in &rows {
+                    let addr_str = if default_address == Some(*addr) {
+                        format!("{addr} (default)")
                     } else {
-                        ""
+                        addr.to_string()
                     };
-
-                    let balance_token_amount =
-                        WalletBalance::call(&backend.remote, (address,)).await?;
-
-                    let balance_string = format_balance(&balance_token_amount, no_round, no_abbrev);
-
-                    println!(
-                        "{:<width_addr$} {:<width_default$} {}",
-                        address.to_string(),
-                        default_address_mark,
-                        balance_string,
-                        width_addr = max_addr_len,
-                        width_default = 7,
-                    );
+                    let balance = format_balance(balance, no_round, no_abbrev);
+                    builder.push_record([&addr_str, &balance, &nonce.to_string()]);
                 }
+
+                let mut list = builder.build();
+                list.with(Style::blank());
+                println!("{list}");
                 Ok(())
             }
-            Self::SetDefault { key } => {
-                let StrictAddress(key) = StrictAddress::from_str(&key)
-                    .with_context(|| format!("Invalid address: {key}"))?;
-
-                backend.wallet_set_default(key).await
-            }
+            Self::SetDefault { key } => backend.wallet_set_default(key.into()).await,
             Self::Sign { address, message } => {
-                let StrictAddress(address) = StrictAddress::from_str(&address)
-                    .with_context(|| format!("Invalid address: {address}"))?;
-
                 let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = BASE64_STANDARD.encode(message);
 
-                let signature = backend.wallet_sign(address, message).await?;
+                let signature = backend.wallet_sign(address.into(), message).await?;
                 println!("{}", hex::encode(signature.to_bytes()));
                 Ok(())
             }
@@ -476,12 +466,12 @@ impl WalletCommands {
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
-                let StrictAddress(address) = StrictAddress::from_str(&address)
-                    .with_context(|| format!("Invalid address: {address}"))?;
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
                 let signature = Signature::from_bytes(sig_bytes)?;
-                let is_valid = backend.wallet_verify(address, msg, signature).await?;
+                let is_valid = backend
+                    .wallet_verify(address.into(), msg, signature)
+                    .await?;
 
                 println!("{is_valid}");
                 Ok(())
@@ -494,13 +484,11 @@ impl WalletCommands {
                 gas_limit,
                 gas_premium,
             } => {
-                let from: Address = if let Some(from) = from {
-                    StrictAddress::from_str(&from)?.into()
-                } else {
-                    StrictAddress::from_str(&backend.wallet_default_address().await?.context(
+                let from: Address = match from {
+                    Some(a) => a.into(),
+                    None => backend.wallet_default_address().await?.context(
                         "No default wallet address selected. Please set a default address.",
-                    )?)?
-                    .into()
+                    )?,
                 };
 
                 let (mut to, is_0x_recipient) = resolve_target_address(&target_address)?;
@@ -537,8 +525,7 @@ impl WalletCommands {
                         &backend.remote,
                         (message, spec, ApiTipsetKey(None)),
                     )
-                    .await?
-                    .message;
+                    .await?;
 
                     if message.gas_premium > message.gas_fee_cap {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
@@ -546,36 +533,14 @@ impl WalletCommands {
 
                     message.sequence = MpoolGetNonce::call(&backend.remote, (from,)).await?;
 
-                    let key = crate::key_management::find_key(&from, keystore)?;
-                    let sig_type = *key.key_info.key_type();
-                    let smsg = if sig_type == SignatureType::Delegated {
-                        let eth_chain_id = u64::from_str_radix(
-                            EthChainId::call(&backend.remote, ())
-                                .await?
-                                .trim_start_matches("0x"),
-                            16,
-                        )?;
-                        let eth_tx_args = EthEip1559TxArgsBuilder::default()
-                            .chain_id(eth_chain_id)
-                            .unsigned_message(&message)?
-                            .build()?;
-                        let eth_tx = EthTx::from(eth_tx_args);
-                        let sig = crate::key_management::sign(
-                            sig_type,
-                            key.key_info.private_key(),
-                            &eth_tx.rlp_unsigned_message(eth_chain_id)?,
-                        )?;
-                        let unsigned_msg = eth_tx.get_unsigned_message(from, eth_chain_id)?;
-                        SignedMessage::new_unchecked(unsigned_msg, sig)
-                    } else {
-                        let sig = crate::key_management::sign(
-                            sig_type,
-                            key.key_info.private_key(),
-                            message.cid().to_bytes().as_slice(),
-                        )?;
-                        SignedMessage::new_from_parts(message, sig)?
-                    };
-
+                    let key = crate::key_management::try_find_key(&from, keystore)?;
+                    let eth_chain_id = u64::from_str_radix(
+                        EthChainId::call(&backend.remote, ())
+                            .await?
+                            .trim_start_matches("0x"),
+                        16,
+                    )?;
+                    let smsg = crate::key_management::sign_message(&key, &message, eth_chain_id)?;
                     MpoolPush::call(&backend.remote, (smsg.clone(),)).await?;
                     smsg
                 } else {

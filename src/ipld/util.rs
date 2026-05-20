@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::cid_collections::CidHashSet;
+use crate::cid_collections::{CidHashSet, CidHashSetLike};
 use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
+use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use cid::Cid;
 use futures::Stream;
@@ -100,18 +101,12 @@ fn should_save_block_to_snapshot(cid: Cid) -> bool {
 /// 3. `Float(3.14)`
 /// 4. `String("string")`
 pub struct DfsIter {
-    dfs: VecDeque<Ipld>,
+    dfs: Vec<Ipld>,
 }
 
 impl DfsIter {
     pub fn new(root: Ipld) -> Self {
-        DfsIter {
-            dfs: VecDeque::from([root]),
-        }
-    }
-
-    pub fn walk_next(&mut self, ipld: Ipld) {
-        self.dfs.push_front(ipld)
+        DfsIter { dfs: vec![root] }
     }
 }
 
@@ -125,10 +120,10 @@ impl Iterator for DfsIter {
     type Item = Ipld;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(ipld) = self.dfs.pop_front() {
+        while let Some(ipld) = self.dfs.pop() {
             match ipld {
-                Ipld::List(list) => list.into_iter().rev().for_each(|elt| self.walk_next(elt)),
-                Ipld::Map(map) => map.into_values().rev().for_each(|elt| self.walk_next(elt)),
+                Ipld::List(list) => self.dfs.extend(list.into_iter().rev()),
+                Ipld::Map(map) => self.dfs.extend(map.into_values().rev()),
                 other => return Some(other),
             }
         }
@@ -145,17 +140,17 @@ enum IterateType {
 
 enum Task {
     // Yield the block, don't visit it.
-    Emit(Cid, Option<Vec<u8>>),
+    Emit(Cid, Option<Bytes>),
     // Visit all the elements, recursively.
-    Iterate(ChainEpoch, Cid, IterateType, VecDeque<Cid>),
+    Iterate(ChainEpoch, Cid, IterateType, Vec<Cid>),
 }
 
 pin_project! {
-    pub struct ChainStream<DB, T> {
+    pub struct ChainStream<DB, T, S = CidHashSet> {
         tipset_iter: T,
         db: DB,
         dfs: VecDeque<Task>, // Depth-first work queue.
-        seen: CidHashSet,
+        seen: S,
         stateroot_limit_exclusive: ChainEpoch,
         fail_on_dead_links: bool,
         message_receipts: bool,
@@ -165,12 +160,7 @@ pin_project! {
     }
 }
 
-impl<DB, T> ChainStream<DB, T> {
-    pub fn with_seen(mut self, seen: CidHashSet) -> Self {
-        self.seen = seen;
-        self
-    }
-
+impl<DB, T, S> ChainStream<DB, T, S> {
     pub fn fail_on_dead_links(mut self, fail_on_dead_links: bool) -> Self {
         self.fail_on_dead_links = fail_on_dead_links;
         self
@@ -200,8 +190,7 @@ impl<DB, T> ChainStream<DB, T> {
         self
     }
 
-    #[allow(dead_code)]
-    pub fn into_seen(self) -> CidHashSet {
+    pub fn into_seen(self) -> S {
         self.seen
     }
 }
@@ -217,16 +206,22 @@ impl<DB, T> ChainStream<DB, T> {
 /// * `stateroot_limit` - An epoch that signifies how far back (exclusive) we need to inspect tipsets,
 ///   in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where `$depth`
 ///   is the number of `[`Tipset`]` that needs inspection.
-pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>(
+pub fn stream_chain<
+    DB: Blockstore,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin,
+    S: CidHashSetLike,
+>(
     db: DB,
     tipset_iter: ITER,
     stateroot_limit_exclusive: ChainEpoch,
-) -> ChainStream<DB, ITER> {
+    seen: S,
+) -> ChainStream<DB, ITER, S> {
     ChainStream {
         tipset_iter,
         db,
         dfs: VecDeque::new(),
-        seen: CidHashSet::default(),
+        seen,
         stateroot_limit_exclusive,
         fail_on_dead_links: true,
         message_receipts: false,
@@ -238,16 +233,22 @@ pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
 
 // Stream available graph in a depth-first search. All reachable nodes are touched and dead-links
 // are ignored.
-pub fn stream_graph<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>(
+pub fn stream_graph<
+    DB: Blockstore,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin,
+    S: CidHashSetLike,
+>(
     db: DB,
     tipset_iter: ITER,
     stateroot_limit_exclusive: ChainEpoch,
-) -> ChainStream<DB, ITER> {
-    stream_chain(db, tipset_iter, stateroot_limit_exclusive).fail_on_dead_links(false)
+    seen: S,
+) -> ChainStream<DB, ITER, S> {
+    stream_chain(db, tipset_iter, stateroot_limit_exclusive, seen).fail_on_dead_links(false)
 }
 
-impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
-    for ChainStream<DB, ITER>
+impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: CidHashSetLike> Stream
+    for ChainStream<DB, ITER, S>
 {
     type Item = anyhow::Result<CarBlock>;
 
@@ -267,7 +268,10 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                             if let Some(data) = data {
                                 return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                             } else if let Some(data) = this.db.get(&cid)? {
-                                return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                                return Poll::Ready(Some(Ok(CarBlock {
+                                    cid,
+                                    data: data.into(),
+                                })));
                             } else if fail_on_dead_links {
                                 return Poll::Ready(Some(Err(anyhow::anyhow!(
                                     "[Emit] missing key: {cid}"
@@ -279,24 +283,22 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                         if *this.track_progress {
                             update_epoch(*epoch);
                         }
-                        while let Some(cid) = cid_vec.pop_front() {
+                        while let Some(cid) = cid_vec.pop() {
                             // The link traversal implementation assumes there are three types of encoding:
                             // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
                             // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
                             // 3. _: ignore all other links
                             // Don't revisit what's already been visited.
-                            if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+                            if should_save_block_to_snapshot(cid) && this.seen.insert(cid)? {
                                 if let Some(data) = this.db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let new_values = extract_cids(&data)?;
-                                        if !new_values.is_empty() {
-                                            cid_vec.reserve(new_values.len());
-                                            for v in new_values.into_iter().rev() {
-                                                cid_vec.push_front(v)
-                                            }
-                                        }
+                                        cid_vec.extend(new_values.into_iter().rev());
                                     }
-                                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                                    return Poll::Ready(Some(Ok(CarBlock {
+                                        cid,
+                                        data: data.into(),
+                                    })));
                                 } else if fail_on_dead_links {
                                     let type_display = match _type {
                                         IterateType::Message(c) => {
@@ -344,12 +346,12 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
 
                 for block in tipset.borrow().block_headers() {
                     let (cid, data) = block.car_block()?;
-                    if this.seen.insert(cid) {
+                    if this.seen.insert(cid)? {
                         if *this.track_progress {
                             update_epoch(block.epoch);
                         }
                         // Make sure we always yield a block otherwise.
-                        this.dfs.push_back(Emit(cid, Some(data)));
+                        this.dfs.push_back(Emit(cid, Some(data.into())));
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
@@ -419,6 +421,50 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                 return Poll::Ready(None);
             }
         }
+    }
+}
+
+pin_project! {
+    pub struct IpldStream<DB, S> {
+        db: DB,
+        cid_vec: Vec<Cid>,
+        seen: S,
+    }
+}
+
+impl<DB, S> IpldStream<DB, S> {
+    pub fn new(db: DB, roots: Vec<Cid>, seen: S) -> Self {
+        Self {
+            db,
+            cid_vec: roots,
+            seen,
+        }
+    }
+}
+
+impl<DB: Blockstore, S: CidHashSetLike> Stream for IpldStream<DB, S> {
+    type Item = anyhow::Result<CarBlock>;
+
+    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        while let Some(cid) = this.cid_vec.pop() {
+            if should_save_block_to_snapshot(cid) && this.seen.insert(cid)? {
+                if let Some(data) = this.db.get(&cid)? {
+                    if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                        let new_cids = extract_cids(&data)?;
+                        this.cid_vec.extend(new_cids);
+                    }
+                    return Poll::Ready(Some(Ok(CarBlock {
+                        cid,
+                        data: data.into(),
+                    })));
+                } else {
+                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {cid}"))));
+                }
+            }
+        }
+        // That's it, nothing else to do. End of stream.
+        Poll::Ready(None)
     }
 }
 

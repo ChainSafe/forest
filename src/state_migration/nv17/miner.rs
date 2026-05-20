@@ -4,26 +4,23 @@
 //! This module contains the migration logic for the `NV17` upgrade for the miner
 //! actor.
 
-use std::sync::Arc;
-
+use super::super::common::{
+    ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
+};
 use crate::networks::NetworkChain;
+use crate::prelude::*;
 use crate::shim::{address::Address, piece::PieceInfo};
 use crate::utils::db::CborStoreExt;
 use crate::{make_calibnet_policy, make_mainnet_policy};
 use ahash::HashMap;
 use anyhow::Context as _;
-use cid::{Cid, multibase::Base};
+use cid::multibase::Base;
 use fil_actor_miner_state::{
     v8::State as MinerStateOld,
     v9::{State as MinerStateNew, util::sector_key},
 };
 use fil_actors_shared::abi::commp::compute_unsealed_sector_cid_v2;
 use fil_actors_shared::fvm_ipld_amt;
-use fvm_ipld_blockstore::Blockstore;
-
-use super::super::common::{
-    ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
-};
 
 pub struct MinerMigrator {
     chain: NetworkChain,
@@ -37,12 +34,12 @@ pub struct MinerMigrator {
 
 pub(super) fn miner_migrator<BS>(
     out_code: Cid,
-    store: &Arc<BS>,
+    store: &BS,
     market_proposals: Cid,
     chain: NetworkChain,
 ) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>>
 where
-    BS: Blockstore + Send + Sync,
+    BS: Blockstore + ShallowClone + Send + Sync,
 {
     let empty_deadline_v8: fil_actor_miner_state::v8::Deadline =
         fil_actor_miner_state::v8::Deadline::new(store)?;
@@ -654,8 +651,10 @@ mod tests {
         );
     }
 
-    fn make_input_tree<BS: Blockstore>(store: &Arc<BS>) -> (StateTree<BS>, BuiltinActorManifest) {
-        let mut tree = StateTree::new(store.clone(), StateTreeVersion::V4).unwrap();
+    fn make_input_tree<BS: Blockstore + ShallowClone>(
+        store: &BS,
+    ) -> (StateTree<BS>, BuiltinActorManifest) {
+        let mut tree = StateTree::new(store, StateTreeVersion::V4).unwrap();
 
         let (_manifest_cid, manifest) = make_test_manifest(&store, "fil/8/");
         let account_cid = manifest.get(BuiltinActor::Account).unwrap();

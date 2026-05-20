@@ -65,13 +65,14 @@ mod tests {
     use super::*;
     use crate::utils::{cid::CidCborExt as _, multihash::prelude::*};
 
-    quickcheck::quickcheck! {
-        fn always_in_range(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> bool {
-            ideal_slot_ix(hash, num_buckets) < num_buckets.get()
-        }
-        fn backwards(ideal: usize, num_buckets: NonZeroUsize) -> () {
-            do_backwards(ideal, num_buckets)
-        }
+    #[quickcheck_macros::quickcheck]
+    fn always_in_range(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> bool {
+        ideal_slot_ix(hash, num_buckets) < num_buckets.get()
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn backwards(ideal: usize, num_buckets: NonZeroUsize) {
+        do_backwards(ideal, num_buckets)
     }
 
     fn do_backwards(ideal: usize, num_buckets: NonZeroUsize) {

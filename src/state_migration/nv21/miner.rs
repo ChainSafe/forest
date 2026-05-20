@@ -4,6 +4,7 @@
 //! This module contains the migration logic for the `NV21` upgrade for the
 //! Miner actor.
 
+use crate::prelude::*;
 use crate::shim::econ::TokenAmount;
 use crate::state_migration::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
@@ -11,8 +12,7 @@ use crate::state_migration::common::{
 use crate::{
     shim::address::Address, state_migration::common::MigrationCache, utils::db::CborStoreExt,
 };
-use anyhow::Context as _;
-use cid::{Cid, multibase::Base};
+use cid::multibase::Base;
 use fil_actor_miner_state::{
     v11::Deadline as DeadlineOld, v11::Deadlines as DeadlinesOld, v11::State as MinerStateOld,
     v12::Deadline as DeadlineNew, v12::Deadlines as DeadlinesNew, v12::State as MinerStateNew,
@@ -20,8 +20,6 @@ use fil_actor_miner_state::{
 use fil_actors_shared::fvm_ipld_amt;
 use fil_actors_shared::v11::{Array as ArrayOld, runtime::Policy as PolicyOld};
 use fil_actors_shared::v12::{Array as ArrayNew, runtime::Policy as PolicyNew};
-use fvm_ipld_blockstore::Blockstore;
-use std::sync::Arc;
 
 pub struct MinerMigrator {
     empty_deadline_v11: Cid,
@@ -35,7 +33,7 @@ pub struct MinerMigrator {
 pub(in crate::state_migration) fn miner_migrator<BS: Blockstore>(
     policy_old: &PolicyOld,
     policy_new: &PolicyNew,
-    store: &Arc<BS>,
+    store: &BS,
     out_cid: Cid,
 ) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>> {
     let empty_deadline_v11 = DeadlineOld::new(store)?;
@@ -366,7 +364,7 @@ mod tests {
 
         assert_eq!(new_state_cid, new_state_cid2);
 
-        let new_state_tree = StateTree::new_from_root(store.clone(), &new_state_cid).unwrap();
+        let new_state_tree = StateTree::new_from_root(&store, &new_state_cid).unwrap();
         let new_miner_state_cid = new_state_tree.get_required_actor(&addr).unwrap().state;
         let new_miner_state: fil_actor_miner_state::v12::State =
             store.get_cbor_required(&new_miner_state_cid).unwrap();
@@ -394,8 +392,10 @@ mod tests {
             .unwrap();
     }
 
-    fn make_input_tree<BS: Blockstore>(store: &Arc<BS>) -> (StateTree<BS>, BuiltinActorManifest) {
-        let mut tree = StateTree::new(store.clone(), StateTreeVersion::V5).unwrap();
+    fn make_input_tree<BS: Blockstore + ShallowClone>(
+        store: &BS,
+    ) -> (StateTree<BS>, BuiltinActorManifest) {
+        let mut tree = StateTree::new(store, StateTreeVersion::V5).unwrap();
 
         let (_manifest_cid, manifest) = make_test_manifest(&store, "fil/11/");
         let system_cid = manifest.get_system();

@@ -93,7 +93,6 @@ fn test_calc_validator_prob_healthy_chain() {
     let chain = vec![5; 905];
 
     let current_epoch = chain.len() as i64 - 1;
-    let guarantee = 2_f64.powi(-30);
 
     let prob30 = calc_validator_prob(
         &chain,
@@ -106,7 +105,7 @@ fn test_calc_validator_prob_healthy_chain() {
     .unwrap();
     assert_lt!(
         prob30,
-        guarantee,
+        *DEFAULT_GUARANTEE,
         "healthy chain at depth 30 should be below 2^-30"
     );
 
@@ -132,7 +131,6 @@ fn test_calc_validator_prob_degraded_chain() {
     // finality than a healthy chain at the same depth
     let chain = vec![2; 905];
     let current_epoch = chain.len() as i64 - 1;
-    let guarantee = 2_f64.powi(-30);
 
     let prob30 = calc_validator_prob(
         &chain,
@@ -145,7 +143,7 @@ fn test_calc_validator_prob_degraded_chain() {
     .unwrap();
     assert_ge!(
         prob30,
-        guarantee,
+        *DEFAULT_GUARANTEE,
         "degraded chain at depth 30 should NOT achieve 2^-30"
     );
 }
@@ -153,14 +151,13 @@ fn test_calc_validator_prob_degraded_chain() {
 #[test]
 fn test_find_threshold_depth_healthy_chain() {
     let chain = vec![5; 905];
-    let guarantee = 2_f64.powi(-30);
 
     let depth = find_threshold_depth(
         &chain,
         TEST_FINALITY,
         DEFAULT_BLOCKS_PER_EPOCH,
         DEFAULT_BYZANTINE_FRACTION,
-        guarantee,
+        *DEFAULT_GUARANTEE,
     )
     .unwrap();
     assert_gt!(depth, 0, "healthy chain should find a threshold");
@@ -173,17 +170,16 @@ fn test_find_threshold_depth_healthy_chain() {
 
 #[test]
 fn test_find_threshold_depth_degraded_chain() {
-    // All-2s chain is too degraded to achieve 2^-30 within the bisect
-    // search range (BisectHigh=200), so threshold is not found
-    let chain = vec![2; 905];
-    let guarantee = 2_f64.powi(-30);
+    // All-1s chain is too degraded to achieve 2^-30 within the bisect
+    // search range (BisectHigh=450), so threshold is not found
+    let chain = vec![1; 905];
 
     let depth = find_threshold_depth(
         &chain,
         TEST_FINALITY,
         DEFAULT_BLOCKS_PER_EPOCH,
         DEFAULT_BYZANTINE_FRACTION,
-        guarantee,
+        *DEFAULT_GUARANTEE,
     )
     .unwrap();
     assert_eq!(
@@ -197,14 +193,13 @@ fn test_find_threshold_depth_mildly_degraded_chain() {
     // All-3s chain is degraded but should still find a threshold,
     // just deeper than a healthy chain
     let chain = vec![3; 905];
-    let guarantee = 2_f64.powi(-30);
 
     let depth = find_threshold_depth(
         &chain,
         TEST_FINALITY,
         DEFAULT_BLOCKS_PER_EPOCH,
         DEFAULT_BYZANTINE_FRACTION,
-        guarantee,
+        *DEFAULT_GUARANTEE,
     )
     .unwrap();
     assert_gt!(
@@ -226,13 +221,12 @@ fn test_find_threshold_depth_mildly_degraded_chain() {
 #[case(1)]
 fn test_find_threshold_depth_too_short_chain(#[case] chain_len: usize) {
     let chain = vec![3; chain_len];
-    let guarantee = 2_f64.powi(-30);
     let depth = find_threshold_depth(
         &chain,
         TEST_FINALITY,
         DEFAULT_BLOCKS_PER_EPOCH,
         DEFAULT_BYZANTINE_FRACTION,
-        guarantee,
+        *DEFAULT_GUARANTEE,
     )
     .unwrap();
     assert_eq!(depth, -1, "input chain is too short");

@@ -4,11 +4,13 @@
 use super::*;
 use crate::{
     blocks::{CachingBlockHeader, Chain4U, Tipset, TipsetKey, chain4u},
+    cid_collections::CidHashSet,
     db::{MemoryDB, car::ForestCar},
     utils::db::CborStoreExt,
 };
 use sha2::{Digest as _, Sha256};
 use std::fs::File;
+use std::sync::Arc;
 
 #[test]
 fn test_snapshot_version_cbor_serde() {
@@ -55,15 +57,33 @@ async fn test_export_inner(version: FilecoinSnapshotVersion) -> anyhow::Result<(
     let head_key_cids = nunny::vec![b_5_0.cid(), b_5_1.cid()];
     let head_key = TipsetKey::from(head_key_cids.clone());
     let head = Tipset::load_required(&db, &head_key)?;
+    // Tipset sorts blocks by ticket, so re-derive the canonical CID order from `head`
+    // rather than relying on the user-supplied order.
+    let head_key_cids = head.key().to_cids();
 
     let mut car_bytes = vec![];
 
     let checksum = match version {
         FilecoinSnapshotVersion::V1 => {
-            export::<Sha256>(&db, &head, 0, &mut car_bytes, None).await?
+            export::<Sha256, _>(
+                &db,
+                &head,
+                0,
+                &mut car_bytes,
+                ExportOptions::<CidHashSet>::default(),
+            )
+            .await?
         }
         FilecoinSnapshotVersion::V2 => {
-            export_v2::<Sha256, File>(&db, None, &head, 0, &mut car_bytes, None).await?
+            export_v2::<Sha256, File, _>(
+                &db,
+                None,
+                &head,
+                0,
+                &mut car_bytes,
+                ExportOptions::<CidHashSet>::default(),
+            )
+            .await?
         }
     };
 

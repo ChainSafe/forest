@@ -124,14 +124,14 @@
 use crate::shim::actors::miner::DeadlineInfo;
 use derive_more::From;
 use fvm_shared4::piece::PaddedPieceSize;
+#[cfg(test)]
+use pretty_assertions::assert_eq;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned};
 #[cfg(test)]
 use serde_json::json;
 use std::{fmt::Display, str::FromStr};
 use uuid::Uuid;
-#[cfg(test)]
-use {pretty_assertions::assert_eq, quickcheck::quickcheck};
 
 pub trait HasLotusJson: Sized {
     /// The struct representing JSON. You should `#[derive(Deserialize, Serialize)]` on it.

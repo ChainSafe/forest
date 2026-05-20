@@ -5,6 +5,7 @@ use super::*;
 
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::RawBytes;
+use ::cid::Cid;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -33,13 +34,17 @@ pub struct MessageLotusJson {
     gas_premium: TokenAmount,
     #[serde(default)]
     method: u64,
-    #[schemars(with = "LotusJson<Option<RawBytes>>")]
+    #[schemars(with = "LotusJson<RawBytes>")]
+    #[serde(with = "crate::lotus_json", default)]
+    params: RawBytes,
+    #[schemars(with = "LotusJson<Option<Cid>>")]
     #[serde(
         with = "crate::lotus_json",
-        skip_serializing_if = "Option::is_none",
-        default
+        rename = "CID",
+        default,
+        skip_serializing_if = "Option::is_none"
     )]
-    params: Option<RawBytes>,
+    cid: Option<Cid>,
 }
 
 impl HasLotusJson for Message {
@@ -47,6 +52,8 @@ impl HasLotusJson for Message {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        let msg = Message::default();
+        let cid = msg.cid();
         vec![(
             json!({
                 "From": "f00",
@@ -59,12 +66,14 @@ impl HasLotusJson for Message {
                 "To": "f00",
                 "Value": "0",
                 "Version": 0,
+                "CID": { "/": cid.to_string() },
             }),
-            Message::default(),
+            msg,
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
+        let cid = self.cid();
         let Self {
             version,
             from,
@@ -87,7 +96,8 @@ impl HasLotusJson for Message {
             gas_fee_cap,
             gas_premium,
             method: method_num,
-            params: Some(params),
+            params,
+            cid: Some(cid),
         }
     }
 
@@ -103,6 +113,7 @@ impl HasLotusJson for Message {
             gas_premium,
             method,
             params,
+            cid: _,
         } = lotus_json;
         Self {
             version,
@@ -111,7 +122,7 @@ impl HasLotusJson for Message {
             sequence: nonce,
             value,
             method_num: method,
-            params: params.unwrap_or_default(),
+            params,
             gas_limit,
             gas_fee_cap,
             gas_premium,

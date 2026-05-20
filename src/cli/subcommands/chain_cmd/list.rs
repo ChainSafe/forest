@@ -3,12 +3,11 @@
 
 use std::num::NonZeroUsize;
 
-use anyhow::Context as _;
-use itertools::Itertools;
 use nonzero_ext::nonzero;
 use num::{BigInt, Zero as _};
 
 use crate::{
+    prelude::*,
     rpc::{
         self, RpcMethodExt as _,
         chain::{
@@ -43,7 +42,7 @@ impl ChainListCommand {
         };
         let mut tipsets = Vec::with_capacity(count);
         loop {
-            tipsets.push(ts.clone());
+            tipsets.push(ts.shallow_clone());
             if ts.epoch() == 0 || tipsets.len() >= count {
                 break;
             }

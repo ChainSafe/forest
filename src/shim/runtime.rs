@@ -7,7 +7,7 @@ use fil_actors_shared::{
     v11::runtime::Policy as PolicyV11, v12::runtime::Policy as PolicyV12,
     v13::runtime::Policy as PolicyV13, v14::runtime::Policy as PolicyV14,
     v15::runtime::Policy as PolicyV15, v16::runtime::Policy as PolicyV16,
-    v17::runtime::Policy as PolicyV17,
+    v17::runtime::Policy as PolicyV17, v18::runtime::Policy as PolicyV18,
 };
 use serde::{Deserialize, Serialize};
 
@@ -79,5 +79,11 @@ impl From<&Policy> for PolicyV16 {
 impl From<&Policy> for PolicyV17 {
     fn from(Policy(policy): &Policy) -> Self {
         from_policy_v13_to_v17(policy)
+    }
+}
+
+impl From<&Policy> for PolicyV18 {
+    fn from(Policy(policy): &Policy) -> Self {
+        from_policy_v13_to_v18(policy)
     }
 }

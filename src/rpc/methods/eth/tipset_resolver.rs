@@ -2,22 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::rpc::chain::SAFE_HEIGHT_DISTANCE;
+use crate::rpc::chain::{ChainGetTipSetFinalityStatus, SAFE_HEIGHT_DISTANCE};
+use anyhow::Context as _;
 
-pub struct TipsetResolver<'a, DB>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    ctx: &'a Ctx<DB>,
+pub struct TipsetResolver<'a> {
+    ctx: &'a Ctx,
     api_version: ApiPaths,
 }
 
-impl<'a, DB> TipsetResolver<'a, DB>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+impl<'a> TipsetResolver<'a> {
     /// Creates a TipsetResolver that holds a reference to the given chain context and the API version to use for tipset resolution.
-    pub fn new(ctx: &'a Ctx<DB>, api_version: ApiPaths) -> Self {
+    pub fn new(ctx: &'a Ctx, api_version: ApiPaths) -> Self {
         Self { ctx, api_version }
     }
 
@@ -160,24 +155,21 @@ where
     pub fn get_ec_safe_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        Ok(self.ctx.chain_index().tipset_by_height(
+        Ok(self.ctx.chain_index().load_required_tipset_by_height(
             safe_height,
             head,
             ResolveNullTipset::TakeOlder,
         )?)
     }
 
-    /// Returns the tipset considered finalized by expected-consensus finality.
-    ///
-    /// The finalized epoch is computed as head.epoch() minus the chain's `policy.chain_finality`, clamped to zero. The tipset at that epoch is returned; when the exact height is unavailable, an older tipset is selected.
+    /// Returns the tipset considered finalized by the expected-consensus finality calculator(`FRC-0089`).
     pub fn get_ec_finalized_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
-        let ec_finality_epoch =
-            (head.epoch() - self.ctx.chain_config().policy.chain_finality).max(0);
-        Ok(self.ctx.chain_index().tipset_by_height(
-            ec_finality_epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?)
+        let (_, ec_finalized_tipset) =
+            ChainGetTipSetFinalityStatus::get_ec_finality_threshold_depth_and_tipset_with_cache(
+                self.ctx,
+                head.clone(),
+            )?;
+        ec_finalized_tipset.context("failed to resolve EC finalized tipset")
     }
 }

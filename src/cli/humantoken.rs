@@ -104,10 +104,10 @@ mod si {
 mod parse {
     // ENHANCE(aatifsyed): could accept pairs like "1 nano 1 atto"
 
+    use crate::prelude::*;
     use crate::shim::econ::TokenAmount;
     use anyhow::{anyhow, bail};
     use bigdecimal::{BigDecimal, ParseBigDecimalError};
-    use itertools::Itertools as _;
     use nom::{
         IResult, Parser,
         bytes::complete::tag,
@@ -642,27 +642,23 @@ mod print {
 
 #[cfg(test)]
 mod fuzz {
-    use quickcheck::quickcheck;
-
     use super::*;
 
-    quickcheck! {
-        fn roundtrip(expected: crate::shim::econ::TokenAmount) -> () {
-            // Default formatting
-            let actual = parse(&format!("{}", expected.pretty())).unwrap();
-            assert_eq!(expected, actual);
+    #[quickcheck_macros::quickcheck]
+    fn roundtrip(expected: crate::shim::econ::TokenAmount) {
+        // Default formatting
+        let actual = parse(&format!("{}", expected.pretty())).unwrap();
+        assert_eq!(expected, actual);
 
-            // Absolute formatting
-            let actual = parse(&format!("{:#}", expected.pretty())).unwrap();
-            assert_eq!(expected, actual);
+        // Absolute formatting
+        let actual = parse(&format!("{:#}", expected.pretty())).unwrap();
+        assert_eq!(expected, actual);
 
-            // Don't test rounded formatting...
-        }
+        // Don't test rounded formatting...
     }
 
-    quickcheck! {
-        fn parser_no_panic(s: String) -> () {
-            let _ = parse(&s);
-        }
+    #[quickcheck_macros::quickcheck]
+    fn parser_no_panic(s: String) {
+        let _ = parse(&s);
     }
 }

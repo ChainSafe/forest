@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 /// Get the value of an environment variable, or a default value if it is not set or cannot be
 /// parsed.
@@ -10,6 +10,18 @@ pub fn env_or_default<T: FromStr>(key: &str, default: T) -> T {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(default)
+}
+
+/// Like [`env_or_default`], but logs at `info` level when the env var was used,
+/// so the operator can confirm the override took effect.
+pub fn env_or_default_logged<T: FromStr + Display>(key: &str, default: T) -> T {
+    match std::env::var(key).ok().and_then(|v| v.parse().ok()) {
+        Some(value) => {
+            tracing::info!("`{key}` set to {value}");
+            value
+        }
+        None => default,
+    }
 }
 
 /// Check if the given environment variable is set to truthy value.

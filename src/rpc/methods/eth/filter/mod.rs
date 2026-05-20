@@ -14,6 +14,7 @@
 //! - **Event Filter**: Captures blockchain events, such as smart contract log events, emitted by specific actors.
 //! - **TipSet Filter**: Tracks changes in the blockchain's tipset (the latest set of blocks).
 //! - **Mempool Filter**: Monitors the Ethereum mempool for new pending transactions that meet certain criteria.
+
 pub mod event;
 pub mod mempool;
 mod store;
@@ -28,6 +29,7 @@ use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
 use crate::rpc::eth::EVM_WORD_LENGTH;
+use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
@@ -43,7 +45,7 @@ use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Error, anyhow, bail, ensure};
 use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
+use futures::{TryStreamExt as _, stream::FuturesOrdered};
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
 use std::ops::RangeInclusive;
@@ -72,12 +74,37 @@ pub trait Matcher {
         emitter_addr: &crate::shim::address::Address,
         entries: &[Entry],
     ) -> anyhow::Result<bool>;
+
+    /// Restricts a filter to events emitted by a single message. Returns `None`
+    /// when the filter applies to all messages in the matched tipset(s).
+    /// Defaults to `None`; only `ParsedFilter` overrides this.
+    fn msg_cid_filter(&self) -> Option<&Cid> {
+        None
+    }
 }
 
 /// Trait for managing filters. Provides common functionality for installing and removing filters.
 pub trait FilterManager {
     fn install(&self) -> Result<Arc<dyn Filter>, Error>;
     fn remove(&self, filter_id: &FilterID) -> Option<Arc<dyn Filter>>;
+}
+
+/// Decide whether to fire the cross-tipset event-filter cap.
+///
+/// `max_filter_results == 0` disables the cap entirely. Single-tipset queries
+/// (`tipsets_contributing <= 1`) always pass — the natural unit is the tipset.
+/// Once two or more tipsets have contributed events, returns an error if the
+/// running total exceeds `max_filter_results`.
+fn ensure_filter_cap(
+    max_filter_results: usize,
+    tipsets_contributing: usize,
+    total_events: usize,
+) -> anyhow::Result<()> {
+    ensure!(
+        max_filter_results == 0 || tipsets_contributing <= 1 || total_events <= max_filter_results,
+        "filter matches too many events across multiple tipsets (maximum {max_filter_results}); narrow the block range",
+    );
+    Ok(())
 }
 
 /// Handles Ethereum event filters, providing an interface for creating and managing filters.
@@ -248,9 +275,9 @@ impl EthEventHandler {
         }
     }
 
-    pub fn parse_eth_filter_spec<DB: Blockstore>(
+    pub fn parse_eth_filter_spec(
         &self,
-        ctx: &Ctx<DB>,
+        ctx: &Ctx,
         filter_spec: &EthFilterSpec,
     ) -> anyhow::Result<ParsedFilter> {
         EthFilterSpec::parse_eth_filter_spec(
@@ -260,18 +287,51 @@ impl EthEventHandler {
         )
     }
 
-    pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
-        ctx: &Ctx<DB>,
+    pub async fn collect_events_for_tipsets(
+        ctx: &Ctx,
+        tipsets: impl Iterator<Item = Tipset>,
+        spec: Option<&impl Matcher>,
+        skip_event: SkipEvent,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let mut tasks = FuturesOrdered::new();
+        for tipset in tipsets {
+            tasks.push_back(async move {
+                let mut events = vec![];
+                Self::collect_events(ctx, &tipset, spec, skip_event, &mut events).await?;
+                anyhow::Ok(events)
+            });
+        }
+        let max_filter_results = ctx.eth_event_handler.max_filter_results;
+        let mut tipsets_contributing = 0usize;
+        while let Some(events) = tasks.try_next().await? {
+            if !events.is_empty() {
+                tipsets_contributing += 1;
+            }
+            collected_events.extend(events);
+            ensure_filter_cap(
+                max_filter_results,
+                tipsets_contributing,
+                collected_events.len(),
+            )?;
+        }
+        Ok(())
+    }
+
+    pub async fn collect_events(
+        ctx: &Ctx,
         tipset: &Tipset,
         spec: Option<&impl Matcher>,
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
+        let msg_cid_filter = spec.and_then(|s| s.msg_cid_filter()).copied();
         let height = tipset.epoch();
         let tipset_key = tipset.key();
         let ExecutedTipset {
             executed_messages, ..
         } = ctx.state_manager.load_executed_tipset(tipset).await?;
+        let mut resolved_id_addrs = HashMap::default();
         let mut event_count = 0;
         for (
             msg_idx,
@@ -280,41 +340,52 @@ impl EthEventHandler {
             },
         ) in executed_messages.iter().enumerate()
         {
+            if let Some(want) = msg_cid_filter
+                && message.cid() != want
+            {
+                // Update event_count to keep event_idx_base monotonic across the
+                // tipset, even though we skip these events: it mirrors the index
+                // a SQL-backed indexer would assign for the row (e.g. Lotus's
+                // `EventIdx: row.eventIndex`:
+                // <https://github.com/filecoin-project/lotus/blob/7c80bf30e832619b451af4aba2e8fb16b5ada919/chain/index/events.go#L488>).
+                if let Some(events) = events {
+                    event_count += events.len();
+                }
+                continue;
+            }
             if let Some(events) = events {
                 let event_idx_base = u64::try_from(event_count)?;
                 event_count += events.len();
                 for (event_idx, event) in (event_idx_base..).zip(events.iter()) {
-                    let id_addr = Address::new_id(event.emitter());
-                    let result = ctx
-                        .state_manager
-                        .resolve_to_deterministic_address(id_addr, tipset)
-                        .await
-                        .with_context(|| {
-                            format!(
-                                "resolving address {} failed (EPOCH = {})",
-                                id_addr,
-                                tipset.epoch()
-                            )
-                        });
-                    let resolved = if let Ok(resolved) = result {
-                        resolved
+                    let emitter = event.emitter();
+                    let id_addr = Address::new_id(emitter);
+                    let resolved_opt = if let Some(r) = resolved_id_addrs.get(&emitter) {
+                        *r
                     } else {
-                        if let SkipEvent::OnUnresolvedAddress = skip_event {
-                            // Skip event
-                            continue;
-                        } else {
-                            id_addr
-                        }
+                        let r = ctx
+                            .state_manager
+                            .resolve_to_deterministic_address(id_addr, tipset)
+                            .await
+                            .ok();
+                        resolved_id_addrs.insert(emitter, r);
+                        r
+                    };
+                    let resolved = if let Some(resolved) = resolved_opt {
+                        resolved
+                    } else if matches!(skip_event, SkipEvent::OnUnresolvedAddress) {
+                        continue;
+                    } else {
+                        id_addr
                     };
 
-                    let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
+                    let entries = event.entries();
                     let matched = if let Some(spec) = spec {
                         spec.matches(&resolved, &entries)?
                     } else {
                         true
                     };
                     if matched {
-                        let entries: Vec<EventEntry> = entries
+                        let entries = entries
                             .into_iter()
                             .map(|entry| {
                                 let (flags, key, codec, value) = entry.into_parts();
@@ -337,9 +408,6 @@ impl EthEventHandler {
                             msg_idx: msg_idx as u64,
                             msg_cid: message.cid(),
                         };
-                        if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
-                            bail!("filter matches too many events, try a more restricted filter");
-                        }
                         collected_events.push(ce);
                     }
                 }
@@ -350,25 +418,21 @@ impl EthEventHandler {
     }
 
     /// Gets events by event root.
-    pub fn get_events_by_event_root<DB: Blockstore + Send + Sync + 'static>(
-        ctx: &Ctx<DB>,
-        events_root: &Cid,
-    ) -> anyhow::Result<Vec<Event>> {
-        let state_events =
-            match StampedEvent::get_events(ctx.chain_store().blockstore(), events_root) {
-                Ok(e) => e,
-                Err(e) => {
-                    return Err(anyhow::anyhow!("load events amt: {}", e));
-                }
-            };
+    pub fn get_events_by_event_root(ctx: &Ctx, events_root: &Cid) -> anyhow::Result<Vec<Event>> {
+        let state_events = match StampedEvent::get_events(ctx.chain_store().db(), events_root) {
+            Ok(e) => e,
+            Err(e) => {
+                return Err(anyhow::anyhow!("load events amt: {}", e));
+            }
+        };
 
         let chain_events: Vec<Event> = state_events.into_iter().map(Into::into).collect();
         Ok(chain_events)
     }
 
-    pub async fn get_events_for_parsed_filter<DB: Blockstore + Send + Sync + 'static>(
+    pub async fn get_events_for_parsed_filter(
         &self,
-        ctx: &Ctx<DB>,
+        ctx: &Ctx,
         pf: &ParsedFilter,
         skip_event: SkipEvent,
     ) -> anyhow::Result<Vec<CollectedEvent>> {
@@ -388,29 +452,31 @@ impl EthEventHandler {
                 // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
                 // in the next non-null tipset (because of Filecoin's "deferred execution" model)
                 let heaviest_epoch = ctx.chain_store().heaviest_tipset().epoch();
-                ensure!(
-                    *range.end() < heaviest_epoch,
-                    "max_height requested is greater than the heaviest tipset"
-                );
+                if *range.end() >= heaviest_epoch {
+                    return Err(EthErrors::EventsNotYetAvailable.into());
+                }
                 let max_height = if *range.end() == -1 {
                     // heaviest tipset doesn't have events because its messages haven't been executed yet
                     heaviest_epoch - 1
                 } else {
                     *range.end()
                 };
-
-                let max_tipset = ctx.chain_index().tipset_by_height(
+                let max_tipset = ctx.chain_index().load_required_tipset_by_height(
                     max_height,
                     ctx.chain_store().heaviest_tipset(),
                     ResolveNullTipset::TakeOlder,
                 )?;
-                for tipset in max_tipset
-                    .chain(&ctx.store())
-                    .take_while(|ts| ts.epoch() >= *range.start())
-                {
-                    Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
-                        .await?;
-                }
+                let tipsets = max_tipset
+                    .chain(ctx.db())
+                    .take_while(|ts| ts.epoch() >= *range.start());
+                Self::collect_events_for_tipsets(
+                    ctx,
+                    tipsets,
+                    Some(pf),
+                    skip_event,
+                    &mut collected_events,
+                )
+                .await?;
             }
         }
 
@@ -467,6 +533,7 @@ impl EthFilterSpec {
             tipsets,
             addresses,
             keys,
+            msg_cid: None,
         })
     }
 }
@@ -552,14 +619,12 @@ fn parse_block_range(
     if min_height == -1 && max_height > 0 {
         ensure!(
             max_height - heaviest <= max_range,
-            "invalid epoch range: to block is too far in the future (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range, max_height - heaviest),
         );
     } else if min_height >= 0 && max_height == -1 {
         ensure!(
             heaviest - min_height <= max_range,
-            "invalid epoch range: from block is too far in the past (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range, heaviest - min_height)
         );
     } else if min_height >= 0 && max_height >= 0 {
         ensure!(
@@ -570,8 +635,7 @@ fn parse_block_range(
         );
         ensure!(
             max_height - min_height <= max_range,
-            "invalid epoch range: range between to and from blocks is too large (maximum: {})",
-            max_range
+            EthErrors::limit_exceeded(max_range, max_height - min_height)
         );
     }
 
@@ -649,6 +713,11 @@ pub struct ParsedFilter {
     pub(crate) tipsets: ParsedFilterTipsets,
     pub(crate) addresses: Vec<Address>,
     pub(crate) keys: HashMap<String, Vec<ActorEventBlock>>,
+    /// When set, only events emitted by this message CID are returned. Mirrors
+    /// Lotus's `index.EventFilter.MsgCid`:
+    /// <https://github.com/filecoin-project/lotus/blob/7c80bf30e832619b451af4aba2e8fb16b5ada919/chain/index/interface.go#L48>.
+    /// Used by `eth_getTransactionReceipt`.
+    pub(crate) msg_cid: Option<Cid>,
 }
 
 impl ParsedFilter {
@@ -657,8 +726,19 @@ impl ParsedFilter {
             tipsets,
             addresses: vec![],
             keys: HashMap::new(),
+            msg_cid: None,
         }
     }
+
+    pub fn new_with_tipset_and_msg(tipsets: ParsedFilterTipsets, msg_cid: Option<Cid>) -> Self {
+        ParsedFilter {
+            tipsets,
+            addresses: vec![],
+            keys: HashMap::new(),
+            msg_cid,
+        }
+    }
+
     pub fn from_actor_event_filter(
         chain_height: ChainEpoch,
         _max_filter_height_range: ChainEpoch,
@@ -693,6 +773,7 @@ impl ParsedFilter {
             tipsets,
             addresses,
             keys,
+            msg_cid: None,
         })
     }
 }
@@ -722,6 +803,10 @@ impl Matcher for ParsedFilter {
         };
 
         Ok(match_addr && match_fields)
+    }
+
+    fn msg_cid_filter(&self) -> Option<&Cid> {
+        self.msg_cid.as_ref()
     }
 }
 
@@ -929,6 +1014,9 @@ mod tests {
 
     #[test]
     fn test_parse_block_range() {
+        use crate::rpc::error::RpcErrorData;
+        use crate::rpc::eth::errors::LIMIT_EXCEEDED_CODE;
+
         let heaviest = 50;
         let max_range = 100;
 
@@ -956,14 +1044,17 @@ mod tests {
         assert_eq!(min_height, 1); // hex_str_to_epoch("0x1") = 1
         assert_eq!(max_height, 10); // hex_str_to_epoch("0xA") = 10
 
-        // Test case 3: Range too large
-        let result = parse_block_range(
+        // Test case 3: Range too large — returns BlockRangeExceeded with -32005 code
+        let err = parse_block_range(
             heaviest,
             Some(BlockNumberOrHash::from_str("earliest").unwrap()),
-            Some(BlockNumberOrHash::from_str("0x100").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x100").unwrap()), // epoch 256, range = 256 > 100
             max_range,
-        );
-        assert!(result.is_err());
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(eth_err, EthErrors::BlockRangeExceeded { .. }));
+        assert_eq!(eth_err.error_code(), Some(LIMIT_EXCEEDED_CODE));
 
         // Test case 4: from_block = "latest", to_block = "earliest"
         let result = parse_block_range(
@@ -1008,13 +1099,23 @@ mod tests {
         assert!(result.is_err());
 
         // Test case 8: Both blocks are non-negative, order is correct, but the range is too large.
-        let result = parse_block_range(
+        let err = parse_block_range(
             heaviest,
             Some(BlockNumberOrHash::from_str("earliest").unwrap()),
-            Some(BlockNumberOrHash::from_str("0x65").unwrap()),
+            Some(BlockNumberOrHash::from_str("0x65").unwrap()), // epoch 101, range = 101 > 100
             max_range,
-        );
-        assert!(result.is_err());
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(
+            eth_err,
+            EthErrors::BlockRangeExceeded {
+                max: 100,
+                given: 101,
+                ..
+            }
+        ));
+        assert_eq!(eth_err.error_code(), Some(LIMIT_EXCEEDED_CODE));
 
         // Test case 9: Range exactly equal to max_range (boundary, should succeed).
         let result = parse_block_range(
@@ -1081,6 +1182,28 @@ mod tests {
         let (min_height, max_height) = result.unwrap();
         assert_eq!(min_height, heaviest);
         assert_eq!(max_height, -1);
+
+        // Test case 15: from_block too far in past (min >= 0, max == -1, heaviest - min > max_range)
+        let err = parse_block_range(
+            500,                                               // heaviest
+            Some(BlockNumberOrHash::from_str("0x1").unwrap()), // epoch 1, range = 500 - 1 = 499
+            Some(BlockNumberOrHash::from_str("latest").unwrap()),
+            max_range,
+        )
+        .unwrap_err();
+        let eth_err = err.downcast_ref::<EthErrors>().expect("expected EthErrors");
+        assert!(matches!(
+            eth_err,
+            EthErrors::BlockRangeExceeded {
+                max: 100,
+                given: 499,
+                ..
+            }
+        ));
+        assert_eq!(
+            eth_err.error_message().unwrap(),
+            "block range exceeds maximum of 100 (got 499)"
+        );
     }
 
     #[test]
@@ -1398,6 +1521,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys: Default::default(),
+            msg_cid: None,
         };
 
         let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
@@ -1441,6 +1565,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![addr0],
             keys: Default::default(),
+            msg_cid: None,
         };
 
         assert!(filter0.matches(&addr0, &[]).unwrap());
@@ -1452,6 +1577,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![addr0, addr1],
             keys: Default::default(),
+            msg_cid: None,
         };
 
         assert!(filter1.matches(&addr0, &[]).unwrap());
@@ -1497,6 +1623,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys: Default::default(),
+            msg_cid: None,
         };
 
         assert!(empty_filter.matches(&addr0, &entries0).unwrap());
@@ -1516,6 +1643,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys,
+            msg_cid: None,
         };
 
         assert!(filter1.matches(&addr0, &entries0).unwrap());
@@ -1535,6 +1663,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys,
+            msg_cid: None,
         };
 
         assert!(!filter2.matches(&addr0, &entries0).unwrap());
@@ -1554,6 +1683,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys,
+            msg_cid: None,
         };
 
         assert!(!filter2.matches(&addr0, &entries0).unwrap());
@@ -1582,8 +1712,61 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
             keys,
+            msg_cid: None,
         };
 
         assert!(!filter3.matches(&addr0, &entries0).unwrap());
+    }
+
+    #[test]
+    fn test_eth_filter_spec_msg_cid_filter_default_none() {
+        let spec = EthFilterSpec::default();
+        assert!(spec.msg_cid_filter().is_none());
+    }
+
+    #[test]
+    fn test_parsed_filter_msg_cid_filter_returns_field() {
+        let pf_none = ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(0..=0));
+        assert!(pf_none.msg_cid_filter().is_none());
+
+        let cid = Cid::from_str("bafy2bzaceaxm23epjsmh75yvzcecsrbavlmkcxnva66bkdebdcnyw3bjrc74u")
+            .unwrap();
+        let pf_some =
+            ParsedFilter::new_with_tipset_and_msg(ParsedFilterTipsets::Range(0..=0), Some(cid));
+        assert_eq!(pf_some.msg_cid_filter(), Some(&cid));
+    }
+
+    #[test]
+    fn test_ensure_filter_cap_disabled_when_max_zero() {
+        // max=0 means "no cap"; never errors regardless of state.
+        assert!(ensure_filter_cap(0, 0, 0).is_ok());
+        assert!(ensure_filter_cap(0, 1, 1_000_000).is_ok());
+        assert!(ensure_filter_cap(0, 5, 1_000_000).is_ok());
+    }
+
+    #[test]
+    fn test_ensure_filter_cap_single_tipset_bypasses() {
+        // tipsets_contributing <= 1: cap never fires regardless of total.
+        assert!(ensure_filter_cap(10, 0, 0).is_ok());
+        assert!(ensure_filter_cap(10, 1, 5).is_ok());
+        assert!(ensure_filter_cap(10, 1, 100).is_ok()); // exceeds max but only one tipset
+    }
+
+    #[test]
+    fn test_ensure_filter_cap_multi_tipset_within_limit() {
+        // tipsets_contributing >= 2 and total <= max: ok.
+        assert!(ensure_filter_cap(10, 2, 5).is_ok());
+        assert!(ensure_filter_cap(10, 2, 10).is_ok()); // boundary
+        assert!(ensure_filter_cap(10, 5, 10).is_ok());
+    }
+
+    #[test]
+    fn test_ensure_filter_cap_multi_tipset_exceeds_limit() {
+        // tipsets_contributing >= 2 and total > max: error.
+        let err = ensure_filter_cap(10, 2, 11).unwrap_err();
+        assert!(err.to_string().contains("filter matches too many events"));
+        assert!(err.to_string().contains("maximum 10"));
+
+        assert!(ensure_filter_cap(100, 3, 101).is_err());
     }
 }

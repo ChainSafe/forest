@@ -136,10 +136,8 @@ mod test {
 
         let checksum = temp_file_writer.finalize().unwrap();
 
-        let file_hash = {
-            let bytes = std::fs::read(temp_file_path.path()).unwrap();
-            Some(Sha256::digest(&bytes))
-        };
+        let file_hash =
+            Some(crate::utils::hash::digest_file::<Sha256>(temp_file_path.path()).unwrap());
 
         assert_eq!(checksum, file_hash);
     }
@@ -161,7 +159,7 @@ mod test {
 
             assert_eq!(
                 "3386191dc5c285074c3827452f4e3b685e3253f5b9ca7c4c2bb3f44d1263aef1",
-                format!("{:x}", writer.finalize().unwrap().unwrap())
+                format!("{}", hex::encode(writer.finalize().unwrap().unwrap()))
             );
         }
     }
@@ -173,7 +171,7 @@ mod test {
         let mut writer = AsyncWriterWithChecksum::<Sha512, _>::new(writer, true);
         assert_eq!(
             "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
-            format!("{:x}", writer.finalize().unwrap().unwrap())
+            format!("{}", hex::encode(writer.finalize().unwrap().unwrap()))
         );
     }
 

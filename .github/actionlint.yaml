@@ -1,0 +1,9 @@
+---
+# Configuration for actionlint (https://github.com/rhysd/actionlint).
+# Run locally via: `mise run lint:actions`.
+
+self-hosted-runner:
+  # WarpBuild self-hosted runners used by performance-sensitive jobs.
+  labels:
+    - warp-ubuntu-2404-arm64-8x
+    - warp-ubuntu-2404-x64-8x

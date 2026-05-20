@@ -1,4 +1,6 @@
 name: Butterflynet checks
+permissions:
+  contents: read
 on:
   workflow_dispatch:
 env:
@@ -17,18 +19,21 @@ jobs:
     name: Butterflynet checks
     runs-on: ubuntu-24.04-arm
     steps:
+      - uses: rui314/setup-mold@v1
+        with:
+          make-default: false
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: jdx/mise-action@v4
       - name: Build and install Forest binaries
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
-          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-        run: mise run install --slim
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
+        run: mise run install --slim quick
       - name: Run butterflynet checks
         run: ./scripts/tests/butterflynet_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}

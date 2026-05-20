@@ -7,6 +7,7 @@ use crate::db::car::forest::{
 };
 use crate::db::car::{ForestCar, ManyCar};
 use crate::networks::ChainConfig;
+use crate::prelude::*;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
@@ -20,7 +21,6 @@ use std::{
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
-    sync::Arc,
     time,
 };
 use tokio::io::AsyncWriteExt;
@@ -327,14 +327,11 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
     Ok(())
 }
 
-async fn process_ts<DB>(
+async fn process_ts(
     ts: &Tipset,
-    state_manager: &Arc<StateManager<DB>>,
+    state_manager: &StateManager,
     delegated_messages: &mut Vec<(crate::message::SignedMessage, u64)>,
-) -> anyhow::Result<()>
-where
-    DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
-{
+) -> anyhow::Result<()> {
     let epoch = ts.epoch();
     let tsk = ts.key().clone();
 
@@ -346,7 +343,7 @@ where
             .headers_delegated_messages(ts.block_headers().iter())?,
     );
     tracing::trace!("Indexing tipset @{}: {}", epoch, &tsk);
-    tsk.save(state_manager.blockstore())?;
+    tsk.save(state_manager.db())?;
 
     Ok(())
 }
@@ -373,14 +370,11 @@ impl std::fmt::Display for RangeSpec {
 /// - [`struct@EthHash`] -> Delegated message [`Cid`].
 ///
 /// This function traverses the chain store and populates these columns accordingly.
-pub async fn backfill_db<DB>(
-    state_manager: &Arc<StateManager<DB>>,
+pub async fn backfill_db(
+    state_manager: &StateManager,
     head_ts: &Tipset,
     spec: RangeSpec,
-) -> anyhow::Result<()>
-where
-    DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
-{
+) -> anyhow::Result<()> {
     tracing::info!("Starting index backfill...");
 
     let mut delegated_messages = vec![];
@@ -390,8 +384,8 @@ where
     match spec {
         RangeSpec::To(to_epoch) => {
             for ts in head_ts
-                .clone()
-                .chain(&state_manager.chain_store().blockstore())
+                .shallow_clone()
+                .chain(&state_manager.chain_store().db())
                 .take_while(|ts| ts.epoch() >= to_epoch)
             {
                 process_ts(&ts, state_manager, &mut delegated_messages).await?;
@@ -400,8 +394,8 @@ where
         }
         RangeSpec::NumTipsets(n_tipsets) => {
             for ts in head_ts
-                .clone()
-                .chain(&state_manager.chain_store().blockstore())
+                .shallow_clone()
+                .chain(&state_manager.chain_store().db())
                 .take(n_tipsets)
             {
                 process_ts(&ts, state_manager, &mut delegated_messages).await?;

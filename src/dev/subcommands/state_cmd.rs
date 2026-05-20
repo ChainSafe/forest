@@ -9,13 +9,14 @@ use crate::{
     genesis::read_genesis_header,
     interpreter::VMTrace,
     networks::{ChainConfig, NetworkChain},
+    prelude::*,
     shim::clock::ChainEpoch,
     state_manager::{ExecutedTipset, StateManager},
     tool::subcommands::api_cmd::generate_test_snapshot,
 };
 use human_repr::HumanCount as _;
 use nonzero_ext::nonzero;
-use std::{num::NonZeroUsize, path::PathBuf, sync::Arc, time::Instant};
+use std::{num::NonZeroUsize, path::PathBuf, time::Instant};
 
 /// Interact with Filecoin chain state
 #[derive(Debug, clap::Subcommand)]
@@ -74,23 +75,22 @@ impl ComputeCommand {
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
-        let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )?);
+        let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
         let chain_index = chain_store.chain_index();
         let (ts, ts_next) = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_index.tipset_by_height(
+            let ts = chain_index.load_required_tipset_by_height(
                 epoch,
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,
             )?;
-            let ts_next = chain_store.load_child_tipset(&ts)?;
+            let ts_next = chain_store.load_child_tipset(&ts)?.with_context(|| {
+                format!(
+                    "no child tipset for epoch {} (may be chain head)",
+                    ts.epoch()
+                )
+            })?;
             db.resume_tracking();
             SettingsStoreExt::write_obj(
                 &db.tracker,
@@ -104,7 +104,7 @@ impl ComputeCommand {
             )
         };
         let epoch = ts.epoch();
-        let state_manager = Arc::new(StateManager::new(chain_store)?);
+        let state_manager = StateManager::new(chain_store)?;
 
         let ExecutedTipset {
             state_root,
@@ -157,8 +157,12 @@ impl ReplayComputeCommand {
             crate::state_manager::utils::state_compute::prepare_state_compute(&chain, &snapshot)
                 .await?;
         for _ in 0..n.get() {
-            crate::state_manager::utils::state_compute::state_compute(&sm, ts.clone(), &ts_next)
-                .await?;
+            crate::state_manager::utils::state_compute::state_compute(
+                &sm,
+                ts.shallow_clone(),
+                &ts_next,
+            )
+            .await?;
         }
         Ok(())
     }
@@ -201,18 +205,12 @@ impl ValidateCommand {
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
-        let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )?);
+        let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
         let chain_index = chain_store.chain_index();
         let ts = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_index.tipset_by_height(
+            let ts = chain_index.load_required_tipset_by_height(
                 epoch,
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,
@@ -224,7 +222,7 @@ impl ValidateCommand {
         };
         let epoch = ts.epoch();
         let fts = load_full_tipset(&chain_store, ts.key())?;
-        let state_manager = Arc::new(StateManager::new(chain_store)?);
+        let state_manager = StateManager::new(chain_store)?;
         validate_tipset(&state_manager, fts, None).await?;
         let mut db_snapshot = vec![];
         db.export_forest_car(&mut db_snapshot).await?;
@@ -276,5 +274,6 @@ impl ReplayValidateCommand {
 fn disable_tipset_cache() {
     unsafe {
         std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1");
+        std::env::set_var("FOREST_TIPSET_LOOKUP_TABLE_DISABLED", "1");
     }
 }

@@ -4,6 +4,7 @@
 
 !Filecoin.AuthNew
 !Filecoin.BeaconGetEntry
+!Filecoin.ChainGetTipSetFinalityStatus
 !Filecoin.ChainSetHead
 !Filecoin.ChainStatObj
 !Filecoin.ChainTipSetWeight

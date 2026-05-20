@@ -26,7 +26,10 @@ impl TryFrom<KeyInfo> for Key {
     type Error = crate::key_management::errors::Error;
 
     fn try_from(key_info: KeyInfo) -> Result<Self, Self::Error> {
-        let public_key = wallet_helpers::to_public(*key_info.key_type(), key_info.private_key())?;
+        let public_key = wallet_helpers::to_uncompressed_public_key(
+            *key_info.key_type(),
+            key_info.private_key(),
+        )?;
         let address = wallet_helpers::new_address(*key_info.key_type(), &public_key)?;
         Ok(Key {
             key_info,
@@ -74,18 +77,9 @@ impl Wallet {
         if let Some(k) = self.keys.get(addr) {
             return Ok(k.clone());
         }
-        let key_string = format!("wallet-{addr}");
-        let key_info = match self.keystore.get(&key_string) {
-            Ok(k) => k,
-            Err(_) => {
-                // replace with testnet prefix
-                self.keystore
-                    .get(&format!("wallet-t{}", &addr.to_string()[1..]))?
-            }
-        };
-        let new_key = Key::try_from(key_info)?;
-        self.keys.insert(*addr, new_key.clone());
-        Ok(new_key)
+        let key = try_find_key(addr, &self.keystore)?;
+        self.keys.insert(*addr, key.clone());
+        Ok(key)
     }
 
     /// Return the resultant `Signature` after signing a given message
@@ -188,14 +182,6 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     Ok(out)
 }
 
-/// Returns a key corresponding to given address
-pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
-    let key_string = format!("wallet-{addr}");
-    let key_info = keystore.get(&key_string)?;
-    let new_key = Key::try_from(key_info)?;
-    Ok(new_key)
-}
-
 /// Removes a key corresponding to given address
 pub fn remove_key(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> {
     let key_string = format!("wallet-{addr}");
@@ -213,7 +199,8 @@ pub fn remove_key(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> 
     Ok(())
 }
 
-pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Error> {
+/// Returns key info corresponding to given address
+pub fn try_find(addr: &Address, keystore: &KeyStore) -> Result<KeyInfo, Error> {
     let key_string = format!("wallet-{addr}");
     match keystore.get(&key_string) {
         Ok(k) => Ok(k),
@@ -228,7 +215,6 @@ pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Erro
             let key_string = format!("wallet-{new_addr}");
             let key_info = match keystore.get(&key_string) {
                 Ok(k) => k,
-                #[allow(clippy::indexing_slicing)]
                 Err(_) => keystore.get(&format!("wallet-f{}", &new_addr[1..]))?,
             };
             Ok(key_info)
@@ -236,9 +222,14 @@ pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Erro
     }
 }
 
+pub fn try_find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
+    let ki = try_find(addr, keystore)?;
+    ki.try_into()
+}
+
 /// Return `KeyInfo` for given address in `KeyStore`
 pub fn export_key_info(addr: &Address, keystore: &KeyStore) -> Result<KeyInfo, Error> {
-    let key = find_key(addr, keystore)?;
+    let key = try_find_key(addr, keystore)?;
     Ok(key.key_info)
 }
 
@@ -253,7 +244,6 @@ pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
 mod tests {
     use crate::utils::encoding::{blake2b_256, keccak_256};
     use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
-    use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     use super::*;
     use crate::key_management::{KeyStoreConfig, generate};
@@ -305,7 +295,8 @@ mod tests {
 
         let new_priv_key = generate(SignatureType::Bls).unwrap();
         let pub_key =
-            wallet_helpers::to_public(SignatureType::Bls, new_priv_key.as_slice()).unwrap();
+            wallet_helpers::to_uncompressed_public_key(SignatureType::Bls, new_priv_key.as_slice())
+                .unwrap();
         let address = Address::new_bls(pub_key.as_slice()).unwrap();
 
         // test to see if the new key has been created and added to the wallet
@@ -333,12 +324,11 @@ mod tests {
         let msg_sig = wallet.sign(&addr, &msg).unwrap();
 
         let msg_complete = blake2b_256(&msg);
-        let message = SecpMessage::parse(&msg_complete);
-        let priv_key = SecpPrivate::parse_slice(&priv_key_bytes).unwrap();
-        let (sig, recovery_id) = libsecp256k1::sign(&message, &priv_key);
+        let priv_key = k256::ecdsa::SigningKey::from_slice(&priv_key_bytes).unwrap();
+        let (sig, recovery_id) = priv_key.sign_prehash_recoverable(&msg_complete).unwrap();
         let mut new_bytes = [0; 65];
-        new_bytes[..64].copy_from_slice(&sig.serialize());
-        new_bytes[64] = recovery_id.serialize();
+        new_bytes[..64].copy_from_slice(&sig.to_bytes());
+        new_bytes[64] = recovery_id.to_byte();
         let actual = Signature::new_secp256k1(new_bytes.to_vec());
         assert_eq!(msg_sig, actual)
     }
@@ -373,12 +363,11 @@ mod tests {
         let msg_sig = wallet.sign(&addr, &msg).unwrap();
 
         let msg_complete = keccak_256(&msg);
-        let message = SecpMessage::parse(&msg_complete);
-        let priv_key = SecpPrivate::parse_slice(&priv_key_bytes).unwrap();
-        let (sig, recovery_id) = libsecp256k1::sign(&message, &priv_key);
+        let priv_key = k256::ecdsa::SigningKey::from_slice(&priv_key_bytes).unwrap();
+        let (sig, recovery_id) = priv_key.sign_prehash_recoverable(&msg_complete).unwrap();
         let mut new_bytes = [0; 65];
-        new_bytes[..64].copy_from_slice(&sig.serialize());
-        new_bytes[64] = recovery_id.serialize();
+        new_bytes[..64].copy_from_slice(&sig.to_bytes());
+        new_bytes[64] = recovery_id.to_byte();
         let actual = Signature::new_delegated(new_bytes.to_vec());
         assert_eq!(msg_sig, actual)
     }
@@ -395,8 +384,11 @@ mod tests {
         assert_eq!(key_info, key.key_info);
 
         let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
-        let pub_key =
-            wallet_helpers::to_public(SignatureType::Secp256k1, new_priv_key.as_slice()).unwrap();
+        let pub_key = wallet_helpers::to_uncompressed_public_key(
+            SignatureType::Secp256k1,
+            new_priv_key.as_slice(),
+        )
+        .unwrap();
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
         let key_info_err = wallet.export(&test_addr).unwrap_err();
         // test to make sure that an error is raised when an incorrect address is added
@@ -471,8 +463,11 @@ mod tests {
         assert!(matches!(wallet.get_default().unwrap_err(), Error::KeyInfo));
 
         let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
-        let pub_key =
-            wallet_helpers::to_public(SignatureType::Secp256k1, new_priv_key.as_slice()).unwrap();
+        let pub_key = wallet_helpers::to_uncompressed_public_key(
+            SignatureType::Secp256k1,
+            new_priv_key.as_slice(),
+        )
+        .unwrap();
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
 
         let key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);

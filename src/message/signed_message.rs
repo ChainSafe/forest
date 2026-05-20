@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Message as MessageTrait, MessageRead};
+use super::{MessageRead, MessageReadWrite};
 use crate::eth::EthChainId;
 use crate::shim::message::MethodNum;
 use crate::shim::{
@@ -141,7 +141,7 @@ impl MessageRead for SignedMessage {
     }
 }
 
-impl MessageTrait for SignedMessage {
+impl MessageReadWrite for SignedMessage {
     fn set_gas_limit(&mut self, token_amount: u64) {
         self.message.set_gas_limit(token_amount);
     }

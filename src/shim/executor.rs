@@ -217,12 +217,6 @@ pub enum ActorEvent {
     V4(ActorEvent_v4),
 }
 
-impl ActorEvent {
-    pub fn entries(&self) -> Vec<Entry> {
-        delegate_actor_event!(self => |e| e.entries.clone().into_iter().map(Into::into).collect())
-    }
-}
-
 /// Event with extra information stamped by the FVM.
 #[delegated_enum(impl_conversions)]
 #[derive(Clone, Debug, Serialize)]
@@ -246,9 +240,15 @@ impl StampedEvent {
         delegate_stamped_event!(self.emitter)
     }
 
-    /// Returns the event as emitted by the actor.
-    pub fn event(&self) -> ActorEvent {
-        delegate_stamped_event!(self.event.clone().into())
+    pub fn entries(&self) -> Vec<Entry> {
+        delegate_stamped_event!(self => |e| e.event.entries.iter().cloned().map(Into::into).collect())
+    }
+
+    pub fn into_entries(self) -> Vec<Entry> {
+        match self {
+            StampedEvent::V3(e) => e.event.entries.into_iter().map(Into::into).collect(),
+            StampedEvent::V4(e) => e.event.entries.into_iter().map(Into::into).collect(),
+        }
     }
 
     /// Loads events directly from the events AMT root CID.

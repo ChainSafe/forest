@@ -75,5 +75,8 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V17 => {
             register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v17)
         }
+        ActorVersion::V18 => {
+            register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v18)
+        }
     }
 }

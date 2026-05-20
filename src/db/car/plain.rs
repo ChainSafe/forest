@@ -468,11 +468,12 @@ mod tests {
         car_stream::{CarStream, CarV1Header},
         car_util::load_car,
     };
-    use futures::{TryStreamExt as _, executor::block_on};
+    use futures::TryStreamExt as _;
     use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
     use std::io::Cursor;
     use std::sync::LazyLock;
     use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
+    use tokio_test::block_on;
 
     #[test]
     fn test_uncompressed_v1() {

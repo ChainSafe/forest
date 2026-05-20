@@ -176,7 +176,7 @@ pub enum Height {
     Tock,
     TockFix,
     GoldenWeek,
-    Xxx,
+    FireHorse,
 }
 
 impl From<Height> for NetworkVersion {
@@ -217,7 +217,7 @@ impl From<Height> for NetworkVersion {
             Height::Tock => NetworkVersion::V26,
             Height::TockFix => NetworkVersion::V26,
             Height::GoldenWeek => NetworkVersion::V27,
-            Height::Xxx => NetworkVersion::V28,
+            Height::FireHorse => NetworkVersion::V28,
         }
     }
 }
@@ -665,7 +665,7 @@ mod tests {
             Height::TukTuk,
             Height::Teep,
             Height::GoldenWeek,
-            Height::Xxx,
+            Height::FireHorse,
         ];
 
         for height in &REQUIRED_HEIGHTS {

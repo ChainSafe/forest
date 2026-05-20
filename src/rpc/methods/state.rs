@@ -15,6 +15,7 @@ use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::networks::ChainConfig;
+use crate::prelude::*;
 use crate::rpc::registry::actors_reg::load_and_serialize_actor_state;
 use crate::shim::actors::market::DealState;
 use crate::shim::actors::market::ext::MarketStateExt as _;
@@ -41,7 +42,7 @@ use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
-use crate::state_manager::ExecutedTipset;
+use crate::state_manager::{ExecutedTipset, NO_CALLBACK};
 use crate::state_manager::{
     MarketBalance, StateManager, circulating_supply::GenesisInfo, utils::structured,
 };
@@ -51,16 +52,13 @@ use crate::{
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::*},
 };
 use ahash::{HashMap, HashMapExt, HashSet};
-use anyhow::Context;
 use anyhow::Result;
-use cid::Cid;
 use enumflags2::{BitFlags, make_bitflags};
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::{StreamExt as _, TryStreamExt as _};
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 pub use fvm_shared3::sector::StoragePower;
 use ipld_core::ipld::Ipld;
@@ -74,7 +72,7 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use std::ops::Mul;
 use std::path::PathBuf;
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 use tokio::task::JoinSet;
 
 const INITIAL_PLEDGE_NUM: u64 = 110;
@@ -83,8 +81,8 @@ const INITIAL_PLEDGE_DEN: u64 = 100;
 pub enum StateCall {}
 
 impl StateCall {
-    pub fn run<DB: Blockstore + Send + Sync + 'static>(
-        state_manager: &StateManager<DB>,
+    pub fn run(
+        state_manager: &StateManager,
         message: &Message,
         tsk: Option<TipsetKey>,
     ) -> anyhow::Result<ApiInvocResult> {
@@ -108,7 +106,7 @@ impl RpcMethod<2> for StateCall {
     type Ok = ApiInvocResult;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (message, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -132,7 +130,7 @@ impl RpcMethod<2> for StateReplay {
     /// returns the result of executing the indicated message, assuming it was
     /// executed in the indicated tipset.
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk), message_cid): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -152,7 +150,7 @@ impl RpcMethod<0> for StateNetworkName {
     type Ok = String;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -177,7 +175,7 @@ impl RpcMethod<1> for StateNetworkVersion {
     type Ok = NetworkVersion;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -202,7 +200,7 @@ impl RpcMethod<2> for StateAccountKey {
     type Ok = Address;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -230,7 +228,7 @@ impl RpcMethod<2> for StateLookupID {
     type Ok = Address;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -254,7 +252,7 @@ impl RpcMethod<1> for StateVerifiedRegistryRootKey {
     type Ok = Address;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -279,14 +277,14 @@ impl RpcMethod<2> for StateVerifierStatus {
     type Ok = Option<StoragePower>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let aid = ctx.state_manager.lookup_required_id(&address, &ts)?;
         let verifreg_state: verifreg::State = ctx.state_manager.get_actor_state(&ts)?;
-        Ok(verifreg_state.verifier_data_cap(ctx.store(), aid)?)
+        Ok(verifreg_state.verifier_data_cap(ctx.db(), aid)?)
     }
 }
 
@@ -304,7 +302,7 @@ impl RpcMethod<2> for StateGetActor {
     type Ok = Option<ActorState>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -328,7 +326,7 @@ impl RpcMethod<2> for StateGetActorV2 {
     type Ok = Option<ActorState>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, selector): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -351,7 +349,7 @@ impl RpcMethod<2> for StateGetID {
     type Ok = Address;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, selector): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -388,13 +386,13 @@ impl RpcMethod<2> for StateLookupRobustAddress {
     type Ok = Address;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (addr, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let store = ctx.store();
-        let state_tree = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+        let store = ctx.db();
+        let state_tree = StateTree::new_from_root(ctx.db(), ts.parent_state())?;
         if let &Payload::ID(id_addr_decoded) = addr.payload() {
             let init_state: init::State = state_tree.get_actor_state()?;
             let mut robust_addr = Address::default();
@@ -517,6 +515,24 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                     .context("Robust address not found")?;
                     Ok(robust_addr)
                 }
+                init::State::V18(state) => {
+                    let map = fil_actor_init_state::v18::AddressMap::load(
+                        &store,
+                        &state.address_map,
+                        fil_actors_shared::v18::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )
+                    .context("Failed to load address map")?;
+                    map.for_each(|addr, v| {
+                        if *v == id_addr_decoded {
+                            robust_addr = addr.into();
+                            return Ok(());
+                        }
+                        Ok(())
+                    })
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
+                }
             }
         } else {
             Ok(Address::default())
@@ -541,7 +557,7 @@ impl RpcMethod<2> for StateMarketBalance {
     type Ok = MarketBalance;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -566,15 +582,15 @@ impl RpcMethod<1> for StateMarketDeals {
     type Ok = HashMap<String, ApiMarketDeal>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
 
-        let da = market_state.proposals(ctx.store())?;
-        let sa = market_state.states(ctx.store())?;
+        let da = market_state.proposals(ctx.db())?;
+        let sa = market_state.states(ctx.db())?;
 
         let mut out = HashMap::new();
         da.for_each(|deal_id, d| {
@@ -614,7 +630,7 @@ impl RpcMethod<2> for StateMinerInfo {
     type Ok = MinerInfo;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -637,7 +653,7 @@ impl RpcMethod<2> for StateMinerActiveSectors {
     type Ok = Vec<SectorOnChainInfo>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -648,14 +664,14 @@ impl RpcMethod<2> for StateMinerActiveSectors {
             .get_actor_state_from_address(&ts, &address)?;
         // Collect active sectors from each partition in each deadline.
         let mut active_sectors = vec![];
-        miner_state.for_each_deadline(policy, ctx.store(), |_dlidx, deadline| {
-            deadline.for_each(ctx.store(), |_partidx, partition| {
+        miner_state.for_each_deadline(policy, ctx.db(), |_dlidx, deadline| {
+            deadline.for_each(ctx.db(), |_partidx, partition| {
                 active_sectors.push(partition.active_sectors());
                 Ok(())
             })
         })?;
         let sectors =
-            miner_state.load_sectors_ext(ctx.store(), Some(&BitField::union(&active_sectors)))?;
+            miner_state.load_sectors_ext(ctx.db(), Some(&BitField::union(&active_sectors)))?;
         Ok(sectors)
     }
 }
@@ -676,7 +692,7 @@ impl RpcMethod<2> for StateMinerAllocated {
     type Ok = BitField;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -684,7 +700,7 @@ impl RpcMethod<2> for StateMinerAllocated {
         let miner_state: miner::State = ctx
             .state_manager
             .get_actor_state_from_address(&ts, &address)?;
-        Ok(miner_state.load_allocated_sector_numbers(ctx.store())?)
+        Ok(miner_state.load_allocated_sector_numbers(ctx.db())?)
     }
 }
 
@@ -703,7 +719,7 @@ impl RpcMethod<3> for StateMinerPartitions {
     type Ok = Vec<MinerPartitions>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, dl_idx, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -712,9 +728,9 @@ impl RpcMethod<3> for StateMinerPartitions {
         let miner_state: miner::State = ctx
             .state_manager
             .get_actor_state_from_address(&ts, &address)?;
-        let deadline = miner_state.load_deadline(policy, ctx.store(), dl_idx)?;
+        let deadline = miner_state.load_deadline(policy, ctx.db(), dl_idx)?;
         let mut all_partitions = Vec::new();
-        deadline.for_each(ctx.store(), |_partidx, partition| {
+        deadline.for_each(ctx.db(), |_partidx, partition| {
             all_partitions.push(MinerPartitions::new(
                 partition.all_sectors(),
                 partition.faulty_sectors(),
@@ -743,7 +759,7 @@ impl RpcMethod<3> for StateMinerSectors {
     type Ok = Vec<SectorOnChainInfo>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, sectors, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -751,7 +767,7 @@ impl RpcMethod<3> for StateMinerSectors {
         let miner_state: miner::State = ctx
             .state_manager
             .get_actor_state_from_address(&ts, &address)?;
-        Ok(miner_state.load_sectors_ext(ctx.store(), sectors.as_ref())?)
+        Ok(miner_state.load_sectors_ext(ctx.db(), sectors.as_ref())?)
     }
 }
 
@@ -770,7 +786,7 @@ impl RpcMethod<2> for StateMinerSectorCount {
     type Ok = MinerSectors;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -783,8 +799,8 @@ impl RpcMethod<2> for StateMinerSectorCount {
         let mut live_count = 0;
         let mut active_count = 0;
         let mut faulty_count = 0;
-        miner_state.for_each_deadline(policy, ctx.store(), |_dlidx, deadline| {
-            deadline.for_each(ctx.store(), |_partidx, partition| {
+        miner_state.for_each_deadline(policy, ctx.db(), |_dlidx, deadline| {
+            deadline.for_each(ctx.db(), |_partidx, partition| {
                 live_count += partition.live_sectors().len();
                 active_count += partition.active_sectors().len();
                 faulty_count += partition.faulty_sectors().len();
@@ -810,7 +826,7 @@ impl RpcMethod<3> for StateMinerSectorAllocated {
     type Ok = bool;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -819,7 +835,7 @@ impl RpcMethod<3> for StateMinerSectorAllocated {
             .state_manager
             .get_actor_state_from_address(&ts, &miner_address)?;
         let allocated_sector_numbers: BitField =
-            miner_state.load_allocated_sector_numbers(ctx.store())?;
+            miner_state.load_allocated_sector_numbers(ctx.db())?;
         Ok(allocated_sector_numbers.get(sector_number))
     }
 }
@@ -838,7 +854,7 @@ impl RpcMethod<2> for StateMinerPower {
     type Ok = MinerPower;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -863,7 +879,7 @@ impl RpcMethod<2> for StateMinerDeadlines {
     type Ok = Vec<ApiDeadline>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -873,10 +889,10 @@ impl RpcMethod<2> for StateMinerDeadlines {
             .state_manager
             .get_actor_state_from_address(&ts, &address)?;
         let mut res = Vec::new();
-        state.for_each_deadline(policy, ctx.store(), |_idx, deadline| {
+        state.for_each_deadline(policy, ctx.db(), |_idx, deadline| {
             res.push(ApiDeadline {
                 post_submissions: deadline.partitions_posted(),
-                disputable_proof_count: deadline.disputable_proof_count(ctx.store())?,
+                disputable_proof_count: deadline.disputable_proof_count(ctx.db())?,
                 daily_fee: deadline.daily_fee(),
             });
             Ok(())
@@ -900,7 +916,7 @@ impl RpcMethod<2> for StateMinerProvingDeadline {
     type Ok = ApiDeadlineInfo;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -932,7 +948,7 @@ impl RpcMethod<2> for StateMinerFaults {
     type Ok = BitField;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -957,7 +973,7 @@ impl RpcMethod<2> for StateMinerRecoveries {
     type Ok = BitField;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -982,7 +998,7 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
     type Ok = TokenAmount;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -990,47 +1006,51 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
-        let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+        let state = miner::State::load(ctx.db(), actor.code, actor.state)?;
         let actor_balance: TokenAmount = actor.balance.clone().into();
         let (vested, available): (TokenAmount, TokenAmount) = match &state {
+            miner::State::V18(s) => (
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
+                s.get_available_balance(&actor_balance.into())?.into(),
+            ),
             miner::State::V17(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
             miner::State::V16(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
             miner::State::V15(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
             miner::State::V14(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
             miner::State::V13(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
             miner::State::V12(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
             miner::State::V11(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
             miner::State::V10(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
             miner::State::V9(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
             miner::State::V8(s) => (
-                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
         };
@@ -1053,7 +1073,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     type Ok = TokenAmount;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, pci, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1066,7 +1086,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
 
         let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
         let (w, vw) = market_state.verify_deals_for_activation(
-            ctx.store(),
+            ctx.db(),
             address,
             pci.deal_ids,
             ts.epoch(),
@@ -1084,7 +1104,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
         let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
-            &Arc::new(ctx.store()),
+            ctx.db(),
             ts.parent_state(),
         )?;
         let initial_pledge = reward_state.initial_pledge_for_power(
@@ -1115,7 +1135,7 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
     type Ok = TokenAmount;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, pci, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1128,7 +1148,7 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
 
         let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
         let (w, vw) = market_state.verify_deals_for_activation(
-            ctx.store(),
+            ctx.db(),
             address,
             pci.deal_ids,
             ts.epoch(),
@@ -1167,7 +1187,7 @@ impl RpcMethod<2> for StateGetReceipt {
     type Ok = Receipt;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (cid, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1192,7 +1212,7 @@ impl RpcMethod<2> for StateWaitMsgV0 {
     type Ok = MessageLookup;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (message_cid, confidence): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1231,7 +1251,7 @@ impl RpcMethod<4> for StateWaitMsg {
     type Ok = MessageLookup;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (message_cid, confidence, look_back_limit, allow_replaced): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1275,7 +1295,7 @@ impl RpcMethod<4> for StateSearchMsg {
     type Ok = Option<MessageLookup>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk), message_cid, look_back_limit, allow_replaced): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1320,7 +1340,7 @@ impl RpcMethod<2> for StateSearchMsgLimited {
     type Ok = Option<MessageLookup>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (message_cid, look_back_limit): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1368,12 +1388,12 @@ impl RpcMethod<2> for StateFetchRoot {
     type Ok = String;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (root_cid, save_to_file): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let network_send = ctx.network_send().clone();
-        let db = ctx.store_owned();
+        let db = ctx.db_owned();
 
         let (car_tx, car_handle) = if let Some(save_to_file) = save_to_file {
             let (car_tx, car_rx) = flume::bounded(100);
@@ -1449,9 +1469,12 @@ impl RpcMethod<2> for StateFetchRoot {
                             if let Some(car_tx) = &car_tx {
                                 car_tx.send(CarBlock {
                                     cid: new_cid,
-                                    data: db.get(&new_cid)?.with_context(|| {
-                                        format!("Failed to get cid {new_cid} from block store")
-                                    })?,
+                                    data: db
+                                        .get(&new_cid)?
+                                        .with_context(|| {
+                                            format!("Failed to get cid {new_cid} from block store")
+                                        })?
+                                        .into(),
                                 })?;
                             }
                         } else {
@@ -1468,7 +1491,7 @@ impl RpcMethod<2> for StateFetchRoot {
                     }
                     task_set.spawn_blocking({
                         let network_send = network_send.clone();
-                        let db = db.clone();
+                        let db = db.shallow_clone();
                         let dfs_vec = Arc::clone(&dfs);
                         let car_tx = car_tx.clone();
                         move || {
@@ -1489,9 +1512,12 @@ impl RpcMethod<2> for StateFetchRoot {
                             if let Some(car_tx) = &car_tx {
                                 car_tx.send(CarBlock {
                                     cid,
-                                    data: db.get(&cid)?.with_context(|| {
-                                        format!("Failed to get cid {cid} from block store")
-                                    })?,
+                                    data: db
+                                        .get(&cid)?
+                                        .with_context(|| {
+                                            format!("Failed to get cid {cid} from block store")
+                                        })?
+                                        .into(),
                                 })?;
                             }
 
@@ -1523,24 +1549,28 @@ impl RpcMethod<2> for StateFetchRoot {
 
 pub enum ForestStateCompute {}
 
-impl RpcMethod<2> for ForestStateCompute {
+impl RpcMethod<3> for ForestStateCompute {
     const NAME: &'static str = "Forest.StateCompute";
     const N_REQUIRED_PARAMS: usize = 1;
-    const PARAM_NAMES: [&'static str; 2] = ["epoch", "n_epochs"];
+    const PARAM_NAMES: [&'static str; 3] = ["epoch", "n_epochs", "force_recompute"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Forest-specific RPC method that recomputes tipset state over an epoch range. It reuses cached executed tipsets only when the cached state root is loadable; otherwise it recomputes. Unlike Filecoin.StateCompute, it does not apply caller-supplied messages or return execution traces.",
+    );
 
-    type Params = (ChainEpoch, Option<NonZeroUsize>);
+    type Params = (ChainEpoch, Option<NonZeroUsize>, Option<bool>);
     type Ok = Vec<ForestComputeStateOutput>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (from_epoch, n_epochs): Self::Params,
+        ctx: Ctx,
+        (from_epoch, n_epochs, force_recompute): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let force_recompute = force_recompute.unwrap_or_default();
         let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
         let to_epoch = from_epoch + n_epochs - 1;
-        let to_ts = ctx.chain_index().tipset_by_height(
+        let to_ts = ctx.chain_index().load_required_tipset_by_height(
             to_epoch,
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
@@ -1548,22 +1578,22 @@ impl RpcMethod<2> for ForestStateCompute {
         let from_ts = if from_epoch >= to_ts.epoch() {
             // When `from_epoch` is a null epoch or `n_epochs` is 1,
             // `to_ts.epoch()` could be less than or equal to `from_epoch`
-            to_ts.clone()
+            to_ts.shallow_clone()
         } else {
-            ctx.chain_index().tipset_by_height(
+            ctx.chain_index().load_required_tipset_by_height(
                 from_epoch,
-                to_ts.clone(),
+                to_ts.shallow_clone(),
                 ResolveNullTipset::TakeOlder,
             )?
         };
 
         let mut futures = FuturesOrdered::new();
         for ts in to_ts
-            .chain(ctx.store())
+            .chain(ctx.db())
             .take_while(|ts| ts.epoch() >= from_ts.epoch())
         {
-            let chain_store = ctx.chain_store().clone();
-            let network_context = ctx.sync_network_context.clone();
+            let chain_store = ctx.chain_store().shallow_clone();
+            let network_context = ctx.sync_network_context.shallow_clone();
             futures.push_front(async move {
                 if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
                     // Backfill full tipset from the network
@@ -1579,7 +1609,7 @@ impl RpcMethod<2> for ForestStateCompute {
                         anyhow::bail!("unreachable chain exchange error in ForestStateCompute")
                     }
                     .with_context(|| format!("failed to download messages@{}", ts.epoch()))?;
-                    fts.persist(chain_store.blockstore())?;
+                    fts.persist(chain_store.db())?;
                 }
                 anyhow::Ok(ts)
             });
@@ -1589,10 +1619,26 @@ impl RpcMethod<2> for ForestStateCompute {
         while let Some(ts) = futures.try_next().await? {
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
+            if !force_recompute {
+                let ExecutedTipset { state_root, .. } =
+                    ctx.state_manager.load_executed_tipset(&ts).await?;
+                // Verify the state tree is loadable as the root CID could present due to some bad or wrong diff snapshot import
+                if StateTree::new_from_root(ctx.db(), &state_root).is_ok() {
+                    results.push(ForestComputeStateOutput {
+                        state_root,
+                        epoch,
+                        tipset_key,
+                    });
+                    continue;
+                }
+            }
+
             let ExecutedTipset { state_root, .. } = ctx
                 .state_manager
-                .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
+                .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
                 .await?;
+            // Verify the result state tree
+            StateTree::new_from_root(ctx.db(), &state_root).with_context(|| format!("failed to load the result state tree, root: {state_root}, epoch: {epoch}, tipset key: {tipset_key}"))?;
             results.push(ForestComputeStateOutput {
                 state_root,
                 epoch,
@@ -1617,7 +1663,7 @@ impl RpcMethod<3> for StateCompute {
     type Ok = ComputeStateOutput;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (height, messages, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1671,7 +1717,7 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
     type Ok = Vec<u8>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (personalization, rand_epoch, entropy, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1701,7 +1747,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
     type Ok = Vec<u8>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (rand_epoch, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1728,7 +1774,7 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     type Ok = Vec<u8>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (personalization, rand_epoch, entropy, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1758,7 +1804,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
     type Ok = Vec<u8>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (rand_epoch, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1783,7 +1829,7 @@ impl RpcMethod<2> for StateReadState {
     type Ok = ApiActorState;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1791,7 +1837,7 @@ impl RpcMethod<2> for StateReadState {
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
-        let state_json = load_and_serialize_actor_state(ctx.store(), &actor.code, &actor.state)
+        let state_json = load_and_serialize_actor_state(ctx.db(), &actor.code, &actor.state)
             .map_err(|e| anyhow::anyhow!("Failed to load actor state: {}", e))?;
         Ok(ApiActorState {
             balance: actor.balance.clone().into(),
@@ -1813,7 +1859,7 @@ impl RpcMethod<4> for StateDecodeParams {
     type Ok = serde_json::Value;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (address, method, params, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1845,7 +1891,7 @@ impl RpcMethod<1> for StateCirculatingSupply {
     type Ok = TokenAmount;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1853,8 +1899,7 @@ impl RpcMethod<1> for StateCirculatingSupply {
         let height = ts.epoch();
         let root = ts.parent_state();
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
-        let supply =
-            genesis_info.get_state_circulating_supply(height - 1, &ctx.store_owned(), root)?;
+        let supply = genesis_info.get_state_circulating_supply(height - 1, ctx.db(), root)?;
         Ok(supply)
     }
 }
@@ -1874,7 +1919,7 @@ impl RpcMethod<2> for StateVerifiedClientStatus {
     type Ok = Option<BigInt>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1898,7 +1943,7 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
     type Ok = CirculatingSupply;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1906,7 +1951,7 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
         Ok(genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
-            &ctx.store_owned(),
+            ctx.db(),
             ts.parent_state(),
         )?)
     }
@@ -1926,13 +1971,13 @@ impl RpcMethod<1> for StateListMiners {
     type Ok = Vec<Address>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let miners = state.list_all_miners(ctx.store())?;
+        let miners = state.list_all_miners(ctx.db())?;
         Ok(miners)
     }
 }
@@ -1951,7 +1996,7 @@ impl RpcMethod<1> for StateListActors {
     type Ok = Vec<Address>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1979,11 +2024,11 @@ impl RpcMethod<2> for StateMarketStorageDeal {
     type Ok = ApiMarketDeal;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (deal_id, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.store();
+        let store = ctx.db();
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
         let proposals = market_state.proposals(store)?;
@@ -2010,14 +2055,14 @@ impl RpcMethod<1> for StateMarketParticipants {
     type Ok = HashMap<String, MarketBalance>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let market_state = ctx.state_manager.market_state(&ts)?;
-        let escrow_table = market_state.escrow_table(ctx.store())?;
-        let locked_table = market_state.locked_table(ctx.store())?;
+        let escrow_table = market_state.escrow_table(ctx.db())?;
+        let locked_table = market_state.locked_table(ctx.db())?;
         let mut result = HashMap::new();
         escrow_table.for_each(|address, escrow| {
             let locked = locked_table.get(address)?;
@@ -2049,7 +2094,7 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
     type Ok = DealCollateralBounds;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (size, verified, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2066,11 +2111,8 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
 
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
 
-        let supply = genesis_info.get_vm_circulating_supply(
-            ts.epoch(),
-            &ctx.store_owned(),
-            ts.parent_state(),
-        )?;
+        let supply =
+            genesis_info.get_vm_circulating_supply(ts.epoch(), ctx.db(), ts.parent_state())?;
 
         let power_claim = power_state.total_power();
 
@@ -2112,7 +2154,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     type Ok = BeaconEntry;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (epoch,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2150,7 +2192,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
     type Ok = SectorPreCommitOnChainInfo;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2159,7 +2201,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
             .state_manager
             .get_actor_state_from_address(&ts, &miner_address)?;
         Ok(state
-            .load_precommit_on_chain_info(ctx.store(), sector_number)?
+            .load_precommit_on_chain_info(ctx.db(), sector_number)?
             .context("precommit info does not exist")?)
     }
 }
@@ -2179,7 +2221,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
     type Ok = Option<SectorPreCommitOnChainInfo>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2187,18 +2229,18 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
         let state: miner::State = ctx
             .state_manager
             .get_actor_state_from_address(&ts, &miner_address)?;
-        Ok(state.load_precommit_on_chain_info(ctx.store(), sector_number)?)
+        Ok(state.load_precommit_on_chain_info(ctx.db(), sector_number)?)
     }
 }
 
 impl StateSectorPreCommitInfo {
     pub fn get_sectors(
-        store: &Arc<impl Blockstore>,
+        store: &(impl Blockstore + ShallowClone),
         miner_address: &Address,
         tipset: &Tipset,
     ) -> anyhow::Result<Vec<u64>> {
         let mut sectors = vec![];
-        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let state_tree = StateTree::new_from_root(store, tipset.parent_state())?;
         let state: miner::State = state_tree.get_actor_state_from_address(miner_address)?;
         match &state {
             miner::State::V8(s) => {
@@ -2320,6 +2362,20 @@ impl StateSectorPreCommitInfo {
                     store,
                     &s.pre_committed_sectors,
                     fil_actor_miner_state::v17::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V18(s) => {
+                let precommitted = fil_actor_miner_state::v18::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v18::PRECOMMIT_CONFIG,
                     "precommits",
                 )?;
                 precommitted
@@ -2335,12 +2391,12 @@ impl StateSectorPreCommitInfo {
     }
 
     pub fn get_sector_pre_commit_infos(
-        store: &Arc<impl Blockstore>,
+        store: &(impl Blockstore + ShallowClone),
         miner_address: &Address,
         tipset: &Tipset,
     ) -> anyhow::Result<Vec<SectorPreCommitInfo>> {
         let mut infos = vec![];
-        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let state_tree = StateTree::new_from_root(store, tipset.parent_state())?;
         let state: miner::State = state_tree.get_actor_state_from_address(miner_address)?;
         match &state {
             miner::State::V8(s) => {
@@ -2462,6 +2518,20 @@ impl StateSectorPreCommitInfo {
                     store,
                     &s.pre_committed_sectors,
                     fil_actor_miner_state::v17::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V18(s) => {
+                let precommitted = fil_actor_miner_state::v18::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v18::PRECOMMIT_CONFIG,
                     "precommits",
                 )?;
                 precommitted
@@ -2492,7 +2562,7 @@ impl RpcMethod<3> for StateSectorGetInfo {
     type Ok = Option<SectorOnChainInfo>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2507,11 +2577,11 @@ impl RpcMethod<3> for StateSectorGetInfo {
 
 impl StateSectorGetInfo {
     pub fn get_sectors(
-        store: &Arc<impl Blockstore>,
+        store: &(impl Blockstore + ShallowClone),
         miner_address: &Address,
         tipset: &Tipset,
     ) -> anyhow::Result<Vec<u64>> {
-        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let state_tree = StateTree::new_from_root(store, tipset.parent_state())?;
         let state: miner::State = state_tree.get_actor_state_from_address(miner_address)?;
         Ok(state
             .load_sectors(store, None)?
@@ -2535,11 +2605,11 @@ impl RpcMethod<3> for StateSectorExpiration {
     type Ok = SectorExpiration;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.store();
+        let store = ctx.db();
         let policy = &ctx.chain_config().policy;
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state: miner::State = ctx
@@ -2596,7 +2666,7 @@ impl RpcMethod<3> for StateSectorPartition {
     type Ok = SectorLocation;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2605,7 +2675,7 @@ impl RpcMethod<3> for StateSectorPartition {
             .state_manager
             .get_actor_state_from_address(&ts, &miner_address)?;
         let (deadline, partition) =
-            state.find_sector(ctx.store(), sector_number, &ctx.chain_config().policy)?;
+            state.find_sector(ctx.db(), sector_number, &ctx.chain_config().policy)?;
         Ok(SectorLocation {
             deadline,
             partition,
@@ -2628,7 +2698,7 @@ impl RpcMethod<3> for StateListMessages {
     type Ok = Vec<Cid>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (from_to, ApiTipsetKey(tsk), max_height): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2653,7 +2723,7 @@ impl RpcMethod<3> for StateListMessages {
         }
 
         let mut out = Vec::new();
-        let mut cur_ts = ts.clone();
+        let mut cur_ts = ts.shallow_clone();
 
         while cur_ts.epoch() >= max_height {
             let msgs = ctx.chain_store().messages_for_tipset(&cur_ts)?;
@@ -2690,7 +2760,7 @@ impl RpcMethod<3> for StateGetClaim {
     type Ok = Option<Claim>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, claim_id, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2712,22 +2782,22 @@ impl RpcMethod<2> for StateGetClaims {
     type Ok = HashMap<ClaimID, Claim>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        Ok(Self::get_claims(&ctx.store_owned(), &address, &ts)?)
+        Ok(Self::get_claims(ctx.db(), &address, &ts)?)
     }
 }
 
 impl StateGetClaims {
     pub fn get_claims(
-        store: &Arc<impl Blockstore>,
+        store: &(impl Blockstore + ShallowClone),
         address: &Address,
         tipset: &Tipset,
     ) -> anyhow::Result<HashMap<ClaimID, Claim>> {
-        let state_tree = StateTree::new_from_tipset(store.clone(), tipset)?;
+        let state_tree = StateTree::new_from_tipset(store, tipset)?;
         let state: verifreg::State = state_tree.get_actor_state()?;
         let actor_id = state_tree.lookup_required_id(address)?;
         let actor_id_address = Address::new_id(actor_id);
@@ -2749,7 +2819,7 @@ impl RpcMethod<1> for StateGetAllClaims {
     type Ok = HashMap<ClaimID, Claim>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2772,7 +2842,7 @@ impl RpcMethod<3> for StateGetAllocation {
     type Ok = Option<Allocation>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, allocation_id, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -2796,23 +2866,23 @@ impl RpcMethod<2> for StateGetAllocations {
     type Ok = HashMap<AllocationID, Allocation>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (address, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        Ok(Self::get_allocations(&ctx.store_owned(), &address, &ts)?)
+        Ok(Self::get_allocations(ctx.db(), &address, &ts)?)
     }
 }
 
 impl StateGetAllocations {
     // For testing
     pub fn get_valid_actor_addresses<'a>(
-        store: &'a Arc<impl Blockstore>,
+        store: &'a (impl Blockstore + ShallowClone),
         tipset: &'a Tipset,
     ) -> anyhow::Result<impl Iterator<Item = Address> + 'a> {
         let mut addresses = HashSet::default();
-        let state_tree = StateTree::new_from_tipset(store.clone(), tipset)?;
+        let state_tree = StateTree::new_from_tipset(store, tipset)?;
         let verifreg_state: verifreg::State = state_tree.get_actor_state()?;
         match verifreg_state {
             verifreg::State::V13(s) => {
@@ -2944,6 +3014,18 @@ impl StateGetAllocations {
                         Ok(())
                     })?;
                 }
+                init::State::V18(s) => {
+                    let map = fil_actor_init_state::v18::AddressMap::load(
+                        store,
+                        &s.address_map,
+                        fil_actors_shared::v18::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
             };
         }
 
@@ -2956,11 +3038,11 @@ impl StateGetAllocations {
     }
 
     pub fn get_allocations(
-        store: &Arc<impl Blockstore>,
+        store: &(impl Blockstore + ShallowClone),
         address: &Address,
         tipset: &Tipset,
     ) -> anyhow::Result<HashMap<AllocationID, Allocation>> {
-        let state_tree = StateTree::new_from_tipset(store.clone(), tipset)?;
+        let state_tree = StateTree::new_from_tipset(store, tipset)?;
         let state: verifreg::State = state_tree.get_actor_state()?;
         state.get_allocations(store, address)
     }
@@ -2980,7 +3062,7 @@ impl RpcMethod<1> for crate::rpc::prelude::StateGetAllAllocations {
     type Ok = HashMap<AllocationID, Allocation>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -3003,23 +3085,23 @@ impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
     type Ok = AllocationID;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (deal_id, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let state_tree = StateTree::new_from_tipset(ctx.store_owned(), &ts)?;
+        let state_tree = StateTree::new_from_tipset(ctx.db(), &ts)?;
         let market_state: market::State = state_tree.get_actor_state()?;
-        Ok(market_state.get_allocation_id_for_pending_deal(ctx.store(), &deal_id)?)
+        Ok(market_state.get_allocation_id_for_pending_deal(ctx.db(), &deal_id)?)
     }
 }
 
 impl StateGetAllocationIdForPendingDeal {
     pub fn get_allocations_for_pending_deals(
-        store: &Arc<impl Blockstore>,
+        store: &(impl Blockstore + ShallowClone),
         tipset: &Tipset,
     ) -> anyhow::Result<HashMap<DealID, AllocationID>> {
-        let state_tree = StateTree::new_from_tipset(store.clone(), tipset)?;
+        let state_tree = StateTree::new_from_tipset(store, tipset)?;
         let state: market::State = state_tree.get_actor_state()?;
         state.get_allocations_for_pending_deals(store)
     }
@@ -3040,7 +3122,7 @@ impl RpcMethod<2> for StateGetAllocationForPendingDeal {
     type Ok = Option<Allocation>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (deal_id, tsk): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -3069,7 +3151,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
     type Ok = NetworkParams;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -3089,6 +3171,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
             fork_upgrade_params: ForkUpgradeParams::try_from(config)
                 .context("Failed to get fork upgrade params")?,
             eip155_chain_id: config.eth_chain_id,
+            genesis_timestamp: ctx.chain_store().genesis_block_header().timestamp,
         };
 
         Ok(params)
@@ -3107,6 +3190,8 @@ pub struct NetworkParams {
     fork_upgrade_params: ForkUpgradeParams,
     #[serde(rename = "Eip155ChainID")]
     eip155_chain_id: EthChainId,
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/api/types.go#L163>
+    genesis_timestamp: u64,
 }
 
 lotus_json_with_self!(NetworkParams);
@@ -3146,6 +3231,7 @@ pub struct ForkUpgradeParams {
     upgrade_teep_height: ChainEpoch,
     upgrade_tock_height: ChainEpoch,
     upgrade_golden_week_height: ChainEpoch,
+    upgrade_fire_horse_height: ChainEpoch,
     //upgrade_xxx_height: ChainEpoch,
 }
 
@@ -3195,7 +3281,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_teep_height: get_height(Teep)?,
             upgrade_tock_height: get_height(Tock)?,
             upgrade_golden_week_height: get_height(GoldenWeek)?,
-            //upgrade_xxx_height: get_height(Xxx)?,
+            upgrade_fire_horse_height: get_height(FireHorse)?,
         })
     }
 }
@@ -3216,7 +3302,7 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
     type Ok = TokenAmount;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (sector_duration, sector_size, verified_size, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -3240,7 +3326,7 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
         let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
-            &ctx.store_owned(),
+            ctx.db(),
             ts.parent_state(),
         )?;
 
@@ -3270,7 +3356,7 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
 }
 
 fn get_pledge_ramp_params(
-    ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+    ctx: &Ctx,
     height: ChainEpoch,
     ts: &Tipset,
 ) -> anyhow::Result<(ChainEpoch, u64)> {
@@ -3347,17 +3433,17 @@ impl RpcMethod<0> for StateActorInfo {
     type Ok = StateActorCodeCidsOutput;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(None)?;
-        let state_tree = StateTree::new_from_tipset(ctx.store_owned(), &ts)?;
+        let state_tree = StateTree::new_from_tipset(ctx.db(), &ts)?;
         let bundle = state_tree.get_actor_bundle_metadata()?;
         let system_state: system::State = state_tree.get_actor_state()?;
         let actors = system_state.builtin_actors_cid();
 
-        let current_manifest = BuiltinActorManifest::load_v1_actor_list(ctx.store(), actors)?;
+        let current_manifest = BuiltinActorManifest::load_v1_actor_list(ctx.db(), actors)?;
 
         // Sanity check: the command would normally be used only for diagnostics, so we want to be
         // sure the data is consistent.

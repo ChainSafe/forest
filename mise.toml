@@ -5,6 +5,7 @@ arg "<profile>" help="Installation profile (quick, release, etc.)" default="rele
    choices "quick" "quick-test" "release" "release-lto-fat" "dev" "debugging" "profiling"
 }
 flag "--slim" help="Install a slim version"
+flag "--native" help="Enable native CPU optimizations (-C target-cpu=native). Produced binaries are not portable across CPUs."
 flag "-v --verbose" help="Enable verbose output"
 '''
 shell = "bash -c"
@@ -14,13 +15,16 @@ echo "Installing Forest binaries with profile: ${usage_profile?}"
 if [ "${usage_slim}" = true ]; then
     SLIM_FLAGS="--no-default-features --features slim"
 fi
+if [ "${usage_native}" = true ]; then
+    export RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native"
+    echo "Native CPU optimizations enabled: RUSTFLAGS=${RUSTFLAGS}"
+fi
 cargo install --profile ${usage_profile} ${SLIM_FLAGS} --locked --path . --force
 '''
 alias = 'i'
 
 [tasks.install-lint-tools]
 description = "Installs linting tools for CI"
-tools.cargo-binstall = "latest"
 run = "cargo binstall --no-confirm taplo-cli cargo-spellcheck@0.15.7 cargo-deny"
 
 [tasks."lint:deny"]
@@ -40,6 +44,13 @@ description = "Run taplo-cli to check TOML files."
 run = '''
 taplo fmt --check
 taplo lint
+'''
+
+[tasks."lint:actions"]
+description = "Check GitHub Actions workflow files."
+tools.actionlint = "1.7.12"
+run = '''
+actionlint
 '''
 
 [tasks."lint:rust-fmt"]
@@ -160,13 +171,8 @@ rm -rf node_modules
 # nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 # We need to run them separately.
 description = "Run doctests."
-usage = '''
-arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
-   choices "quick" "quick-test" "release" "dev"
-}
-'''
 run = '''
-cargo test --doc --profile ${usage_profile?} --no-default-features --features "test doctest-private cargo-test" --no-fail-fast
+cargo test --doc --no-default-features --features "test doctest-private cargo-test" --no-fail-fast
 '''
 
 [tasks."test:nextest"]
@@ -194,7 +200,7 @@ cargo test --lib --profile ${usage_profile?} --no-default-features --features "t
 '''
 
 [tasks.test]
-description = "Run all tests."
+description = "Run nextest and cargo-test groups (doctests run via `test:docs`)."
 usage = '''
 arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
    choices "quick" "quick-test" "release" "dev"
@@ -203,13 +209,45 @@ arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test
 run = '''
 mise task run test:nextest ${usage_profile?}
 mise task run test:cargo ${usage_profile?}
-mise task run test:docs ${usage_profile?}
+'''
+
+[tasks."test:wallet"]
+description = "Run calibnet wallet integration tests."
+shell = "bash -c"
+usage = '''
+arg "<preloaded_key>" help="Hex-encoded preloaded calibnet wallet key (e.g. $CALIBNET_WALLET secret)"
+'''
+run = '''
+set -euo pipefail
+source ./scripts/tests/harness.sh
+forest_wallet_init "${usage_preloaded_key?}"
+cargo test --profile quick-test --features calibnet-wallet-integration --test calibnet_wallet -- --nocapture
+'''
+
+[tasks."codecov:nextest"]
+description = "Run codecov with nextest"
+run = '''
+cargo llvm-cov --no-report nextest --cargo-profile codecov --workspace --no-default-features --features "test" --no-fail-fast
+'''
+
+[tasks."codecov:cargo"]
+description = "Run codecov with cargo-test"
+run = '''
+cargo llvm-cov --no-report test -p forest-filecoin --profile codecov --lib --no-default-features --features "test cargo-test" --no-fail-fast -- "cargo_test_"
+'''
+
+[tasks."codecov:report"]
+description = "Generate merged codecov report"
+run = '''
+cargo llvm-cov report --profile codecov --codecov --output-path lcov.info
 '''
 
 [tasks.codecov]
 description = "Generate codecov report"
 run = '''
-cargo llvm-cov -p forest-filecoin --codecov --no-default-features --features "test cargo-test" --output-path lcov.info
+mise task run codecov:nextest
+mise task run codecov:cargo
+mise task run codecov:report
 '''
 
 [tasks."format-spellcheck-dictionary"]
@@ -249,4 +287,4 @@ tools.cargo-insta = "1.46"
 cargo-binstall = "1.17"
 go = "1.26"
 node = "24"
-pnpm = "10"
+pnpm = "11"

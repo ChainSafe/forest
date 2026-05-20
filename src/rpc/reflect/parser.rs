@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{jsonrpc_types::RequestParameters, util::Optional as _};
-use crate::rpc::error::ServerError;
+use crate::rpc::{error::ServerError, json_validator};
 
 /// Parser for JSON-RPC parameters.
 /// Abstracts calling convention, checks for unexpected params etc, so that
@@ -142,7 +142,7 @@ impl<'a> Parser<'a> {
                 false => self.error(missing_parameter)?,
             },
             Some(ParserInner::ByName(it)) => match it.remove(name) {
-                Some(it) => match serde_json::from_value::<T>(it) {
+                Some(it) => match json_validator::from_value_rejecting_unknown_fields::<T>(it) {
                     Ok(it) => it,
                     Err(e) => self.error(deserialize_error(e))?,
                 },
@@ -152,7 +152,7 @@ impl<'a> Parser<'a> {
                 },
             },
             Some(ParserInner::ByPosition(it)) => match it.pop_front() {
-                Some(it) => match serde_json::from_value::<T>(it) {
+                Some(it) => match json_validator::from_value_rejecting_unknown_fields::<T>(it) {
                     Ok(it) => it,
                     Err(e) => self.error(deserialize_error(e))?,
                 },

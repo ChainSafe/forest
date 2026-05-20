@@ -18,9 +18,19 @@ pub enum Error {
     #[error("Key not found")]
     NoKey,
     #[error(transparent)]
+    Bls(#[from] bls_signatures::Error),
+    #[error(transparent)]
+    K256(#[from] k256::ecdsa::Error),
+    #[error(transparent)]
     IO(#[from] io::Error),
     #[error("{0}")]
     Other(String),
     #[error("Could not convert from KeyInfo to Key")]
     KeyInfoConversion,
+}
+
+impl From<anyhow::Error> for Error {
+    fn from(value: anyhow::Error) -> Self {
+        Error::Other(value.to_string())
+    }
 }

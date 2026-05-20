@@ -4,6 +4,8 @@
 use super::*;
 use crate::{
     blocks::*,
+    chain::ExportOptions,
+    cid_collections::CidHashSet,
     db::MemoryDB,
     networks::{calibnet, mainnet},
     utils::rand::forest_rng,
@@ -28,7 +30,10 @@ impl Arbitrary for CarBlock {
             .choose(&[MultihashCode::Blake2b256, MultihashCode::Sha2_256])
             .unwrap();
         let cid = Cid::new_v1(*encoding, code.digest(&data));
-        CarBlock { cid, data }
+        CarBlock {
+            cid,
+            data: data.into(),
+        }
     }
 }
 
@@ -100,9 +105,15 @@ async fn stream_snapshot_parity() {
 
     let stream_v1 = {
         let mut snap_bytes: Vec<u8> = vec![];
-        crate::chain::export::<Sha256>(&db, &head, 0, &mut snap_bytes, None)
-            .await
-            .unwrap();
+        crate::chain::export::<Sha256, _>(
+            &db,
+            &head,
+            0,
+            &mut snap_bytes,
+            ExportOptions::<CidHashSet>::default(),
+        )
+        .await
+        .unwrap();
         CarStream::new_with_header_v2(Cursor::new(snap_bytes), None)
             .await
             .unwrap()
@@ -114,9 +125,16 @@ async fn stream_snapshot_parity() {
 
     let stream_v2 = {
         let mut snap_bytes: Vec<u8> = vec![];
-        crate::chain::export_v2::<Sha256, File>(&db, None, &head, 0, &mut snap_bytes, None)
-            .await
-            .unwrap();
+        crate::chain::export_v2::<Sha256, File, _>(
+            &db,
+            None,
+            &head,
+            0,
+            &mut snap_bytes,
+            ExportOptions::<CidHashSet>::default(),
+        )
+        .await
+        .unwrap();
         CarStream::new_with_header_v2(Cursor::new(snap_bytes), None)
             .await
             .unwrap()
@@ -132,9 +150,16 @@ async fn stream_snapshot_parity() {
             let cid = crate::f3::snapshot::get_f3_snapshot_cid(&mut data.as_slice()).unwrap();
             Some((cid, Cursor::new(data)))
         };
-        crate::chain::export_v2::<Sha256, _>(&db, f3, &head, 0, &mut snap_bytes, None)
-            .await
-            .unwrap();
+        crate::chain::export_v2::<Sha256, _, _>(
+            &db,
+            f3,
+            &head,
+            0,
+            &mut snap_bytes,
+            ExportOptions::<CidHashSet>::default(),
+        )
+        .await
+        .unwrap();
         CarStream::new_with_header_v2(Cursor::new(snap_bytes), None)
             .await
             .unwrap()

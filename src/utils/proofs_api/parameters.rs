@@ -58,10 +58,9 @@ pub(super) async fn check_parameter_file(path: &Path, info: &ParameterData) -> a
     }
 
     let hash = tokio::task::spawn_blocking({
-        let file = SyncFile::open(path)?;
+        let mut reader = std::io::BufReader::new(SyncFile::open(path)?);
+        let mut hasher = Blake2b::new();
         move || -> io::Result<Hash> {
-            let mut reader = std::io::BufReader::new(file);
-            let mut hasher = Blake2b::new();
             std::io::copy(&mut reader, &mut hasher)?;
             Ok(hasher.finalize())
         }
