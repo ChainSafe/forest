@@ -246,7 +246,7 @@ impl DrandBeacon {
     }
 
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
-        self.verified_beacons.get_cloned(&entry.round()).as_deref() == Some(entry)
+        self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
     }
 }
 
@@ -309,13 +309,13 @@ impl Beacon for DrandBeacon {
         };
 
         if is_valid && !validated.is_empty() {
-            let cap = self.verified_beacons.cap();
-            if cap < validated.len() {
-                tracing::warn!(%cap, validated_len=%validated.len(), "verified_beacons.cap() is too small");
+            let capacity = self.verified_beacons.capacity() as usize;
+            if capacity < validated.len() {
+                tracing::warn!(%capacity, validated_len=%validated.len(), "verified_beacons.capacity() is too small");
             }
             for entry in validated {
                 self.verified_beacons
-                    .push(entry.round(), Arc::new(entry.clone()));
+                    .insert(entry.round(), Arc::new(entry.clone()));
             }
         }
 
@@ -323,7 +323,7 @@ impl Beacon for DrandBeacon {
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        let cached = self.verified_beacons.get_cloned(&round);
+        let cached = self.verified_beacons.get(&round);
         match cached {
             Some(cached_entry) => Ok(Arc::unwrap_or_clone(cached_entry)),
             None => {

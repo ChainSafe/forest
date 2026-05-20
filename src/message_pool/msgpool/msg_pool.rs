@@ -159,13 +159,13 @@ pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
 ) -> Result<Address, Error> {
     let id = addr.id().ok();
     if let Some(id) = &id
-        && let Some(resolved) = key_cache.get_cloned(id)
+        && let Some(resolved) = key_cache.get(id)
     {
         return Ok(resolved);
     }
     let resolved = api.resolve_to_deterministic_address_at_finality(addr, cur_ts)?;
     if let Some(id) = id {
-        key_cache.push(id, resolved);
+        key_cache.insert(id, resolved);
     }
     Ok(resolved)
 }
@@ -306,7 +306,7 @@ where
         if msg.signature().signature_type() == SignatureType::Bls {
             self.caches
                 .bls_sig
-                .push(msg.cid().into(), msg.signature().clone());
+                .insert(msg.cid().into(), msg.signature().clone());
         }
 
         self.api
@@ -355,7 +355,7 @@ where
             addr: *addr,
         };
 
-        if let Some(cached) = self.caches.state_nonce.get_cloned(&nk) {
+        if let Some(cached) = self.caches.state_nonce.get(&nk) {
             return Ok(cached);
         }
 
@@ -382,7 +382,7 @@ where
             }
         }
 
-        self.caches.state_nonce.push(nk, next_nonce);
+        self.caches.state_nonce.insert(nk, next_nonce);
         Ok(next_nonce)
     }
 
@@ -565,12 +565,12 @@ fn validate_signature(
     eth_chain_id: u64,
 ) -> Result<(), Error> {
     let cid = msg.cid();
-    if sig_val_cache.get_cloned(&cid).is_some() {
+    if sig_val_cache.get(&cid).is_some() {
         return Ok(());
     }
     msg.verify(eth_chain_id)
         .map_err(|e| Error::Other(e.to_string()))?;
-    sig_val_cache.push(cid.into(), ());
+    sig_val_cache.insert(cid.into(), ());
     Ok(())
 }
 

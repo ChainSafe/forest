@@ -5,10 +5,6 @@ use super::*;
 use zerocopy::FromBytes as _;
 
 impl PublicKeyOnG2 {
-    pub fn as_affine(&self) -> G2Affine {
-        self.0.to_affine()
-    }
-
     pub fn verify(&self, message: impl AsRef<[u8]>, signature: &SignatureOnG1) -> bool {
         verify_messages_unchained(self, &[message.as_ref()], &[signature])
     }
@@ -27,7 +23,7 @@ impl PublicKeyOnG2 {
     }
 
     pub fn as_bytes(&self) -> [u8; G2Affine::compressed_size()] {
-        self.0.to_affine().to_compressed()
+        self.to_affine().to_compressed()
     }
 }
 

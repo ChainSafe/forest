@@ -40,7 +40,7 @@ impl StateManager {
             }
         }
         self.cache
-            .get_or_else(ts.key(), || async move {
+            .get_or_insert_async(ts.key(), async move {
                 let receipt_ts = self.chain_store().load_child_tipset(ts)?;
                 self.load_executed_tipset_inner(ts, receipt_ts.as_ref())
                     .await

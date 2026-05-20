@@ -341,11 +341,13 @@ impl ChainStore {
             .messages_in_tipset_cache()
             .get_or_insert_with(ts.key(), || {
                 let bmsgs = BlockMessages::for_tipset(self.db(), ts)?;
-                Ok(bmsgs
-                    .into_iter()
-                    .flat_map(|bm| bm.messages)
-                    .collect_vec()
-                    .into())
+                anyhow::Ok(
+                    bmsgs
+                        .into_iter()
+                        .flat_map(|bm| bm.messages)
+                        .collect_vec()
+                        .into(),
+                )
             })?)
     }
 
@@ -604,18 +606,6 @@ impl MessagesInTipsetCache {
         ))
     }
 
-    #[inline]
-    pub fn get_or_insert_with<F>(
-        &self,
-        key: &TipsetKey,
-        f: F,
-    ) -> anyhow::Result<Arc<Vec<ChainMessage>>>
-    where
-        F: FnOnce() -> anyhow::Result<Arc<Vec<ChainMessage>>>,
-    {
-        self.deref().get_or_insert_with(key, f)
-    }
-
     /// Reads the intended cache size for this process from the environment or uses the default.
     fn read_cache_size() -> NonZeroUsize {
         // Arbitrary number, can be adjusted
@@ -722,17 +712,17 @@ mod tests {
             DAG_CBOR,
             MultihashCode::Blake2b256.digest(&[1])
         )]);
-        assert!(cache.0.get_cloned(&key1).is_none());
+        assert!(cache.get(&key1).is_none());
 
         let msgs = Arc::new(vec![Message::default().into()]);
-        cache.0.push(key1.clone(), msgs.clone());
-        assert_eq!(&msgs, &cache.0.get_cloned(&key1).unwrap());
+        cache.insert(key1.clone(), msgs.clone());
+        assert_eq!(&msgs, &cache.get(&key1).unwrap());
 
         let inserter_executed: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
         let key_inserter = || {
             inserter_executed.store(true, std::sync::atomic::Ordering::Relaxed);
-            Ok(msgs.clone())
+            anyhow::Ok(msgs.clone())
         };
 
         assert_eq!(
@@ -746,7 +736,7 @@ mod tests {
             MultihashCode::Blake2b256.digest(&[2])
         )]);
 
-        assert!(cache.0.get_cloned(&key2).is_none());
+        assert!(cache.get(&key2).is_none());
         assert_eq!(
             &msgs,
             &cache.get_or_insert_with(&key2, key_inserter).unwrap()
