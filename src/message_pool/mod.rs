@@ -14,8 +14,7 @@ pub use self::{
     mpool_locker::MpoolLocker,
     msgpool::{msg_pool::MessagePool, *},
     nonce_tracker::NonceTracker,
+    utils::*,
 };
-
-pub(crate) use self::msgpool::{RBF_DENOM, RBF_NUM};
 
 pub use block_prob::block_probabilities;

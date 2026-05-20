@@ -167,16 +167,6 @@ where
     }
 }
 
-/// Poll until the balance reported for `address` is no longer [`FIL_ZERO`].
-pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Result<String> {
-    let label = format!("{} balance for {address}", backend.label());
-    poll(&label, || async {
-        let bal = balance(address, backend)?;
-        Ok((bal != FIL_ZERO).then_some(bal))
-    })
-    .await
-}
-
 /// Poll until the balance reported for `address` differs from `baseline`.
 pub async fn poll_until_changed(
     address: &str,
@@ -190,6 +180,11 @@ pub async fn poll_until_changed(
         Ok((bal != baseline).then_some(bal))
     })
     .await
+}
+
+/// Poll until the balance reported for `address` is no longer [`FIL_ZERO`].
+pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Result<String> {
+    poll_until_changed(address, FIL_ZERO, backend).await
 }
 
 static FUNDED_DELEGATED: OnceCell<String> = OnceCell::const_new();
@@ -316,6 +311,56 @@ pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
             .await?
             .is_some())
         .then_some(()))
+    })
+    .await
+}
+
+/// Run `forest-cli <args>` and return trimmed stdout.
+pub fn forest_cli(args: &[&str]) -> anyhow::Result<String> {
+    let output = Command::new("forest-cli")
+        .args(args)
+        .output()
+        .context("failed to spawn `forest-cli`")?;
+    if !output.status.success() {
+        bail!(
+            "`forest-cli {}` failed (status={}): {}",
+            args.join(" "),
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    Ok(String::from_utf8(output.stdout)?.trim().to_string())
+}
+
+/// Next nonce for an address
+pub fn mpool_nonce(address: &str) -> anyhow::Result<u64> {
+    let out = forest_cli(&["mpool", "nonce", address])?;
+    out.parse::<u64>()
+        .with_context(|| format!("invalid mpool nonce output: {out}"))
+}
+
+/// Pending message nonces for `address` via `Filecoin.MpoolPending`.
+pub async fn pending_nonces_for(address: &str) -> anyhow::Result<Vec<u64>> {
+    let result = rpc_call("Filecoin.MpoolPending", json!([null])).await?;
+    let entries = result
+        .as_array()
+        .with_context(|| format!("expected MpoolPending array, got {result}"))?;
+    Ok(entries
+        .iter()
+        .filter_map(|entry| {
+            let msg = entry.get("Message")?;
+            (msg.get("From")?.as_str()? == address).then_some(msg.get("Nonce")?.as_u64()?)
+        })
+        .collect())
+}
+
+/// Poll until `address` has a pending message at `nonce`.
+pub async fn poll_until_pending_nonce(address: &str, nonce: u64) -> anyhow::Result<()> {
+    let label = format!("pending nonce {nonce} for {address}");
+    let address = address.to_string();
+    poll(&label, || async {
+        let nonces = pending_nonces_for(&address).await?;
+        Ok(nonces.contains(&nonce).then_some(()))
     })
     .await
 }

@@ -3,7 +3,10 @@
 
 use crate::chain::MINIMUM_BASE_FEE;
 use crate::message::{MessageRead as _, SignedMessage};
-use crate::message_pool::Error;
+use crate::message_pool::{
+    Error,
+    msgpool::{RBF_DENOM, RBF_NUM},
+};
 use crate::shim::address::Address;
 use crate::shim::{crypto::Signature, econ::TokenAmount, message::Message};
 use crate::utils::cache::SizeTrackingCache;
@@ -62,4 +65,25 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) {
     rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
+}
+
+pub fn compute_rbf_min_premium(premium: &TokenAmount) -> TokenAmount {
+    premium.clone() + (premium * RBF_NUM).div_floor(RBF_DENOM) + TokenAmount::from_atto(1u8)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compute_rbf_min_premium_formula() {
+        assert_eq!(
+            super::compute_rbf_min_premium(&TokenAmount::from_atto(100u64)),
+            TokenAmount::from_atto(126u64) // 100 + 100*64/256 + 1
+        );
+        assert_eq!(
+            super::compute_rbf_min_premium(&TokenAmount::from_atto(0u64)),
+            TokenAmount::from_atto(1u64)
+        );
+    }
 }
