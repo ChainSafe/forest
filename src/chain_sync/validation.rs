@@ -482,7 +482,7 @@ mod tests {
         let genesis = make_genesis();
         let seen = SeenBlockCache::default();
         let bad_cache = BadBlockCache::default();
-        bad_cache.insert(*block.header.cid());
+        bad_cache.push(*block.header.cid());
 
         let err = GossipBlockValidator::new(&block)
             .validate_pre_fetch(&genesis, 30, 900, 0, Some(&bad_cache), &seen)
