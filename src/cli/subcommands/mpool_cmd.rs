@@ -530,7 +530,7 @@ impl MpoolCommands {
             } => {
                 let (sender, sequence) = if let Some(msg_cid) = cid {
                     let api_msg = ChainGetMessage::call(&client, (msg_cid,)).await?;
-                    (api_msg.message.from, api_msg.message.sequence)
+                    (api_msg.from, api_msg.sequence)
                 } else {
                     let sender: Address = from
                         .context("--from is required when --cid is not provided")?
@@ -565,14 +565,14 @@ impl MpoolCommands {
                         None
                     };
 
-                    let estimated = GasEstimateMessageGas::call(
+                    let estimated_msg = GasEstimateMessageGas::call(
                         &client,
                         (msg_for_estimate, spec, ApiTipsetKey(None)),
                     )
                     .await?;
 
                     compute_replacement_gas(ReplaceGasInput::Auto {
-                        estimated_msg: estimated.message,
+                        estimated_msg,
                         original_premium: original_msg.gas_premium,
                     })?
                 } else {
