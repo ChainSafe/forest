@@ -16,6 +16,7 @@ use crate::shim::{
     actors::{MinerActorStateLoad as _, miner},
     address::Address,
     clock::ChainEpoch,
+    consensus::{ConsensusFault, ConsensusFaultType},
     externs::Rand,
     gas::{Gas, GasTracker, price_list_by_network_version},
     state_tree::StateTree,
@@ -262,78 +263,6 @@ impl ForestExterns {
             )
             .context("Failed to get tipset cid")?;
         ts.key().cid()
-    }
-}
-
-pub(super) enum ConsensusFaultType {
-    DoubleForkMining,
-    TimeOffsetMining,
-    ParentGrinding,
-}
-
-impl From<ConsensusFaultType> for fvm_shared2::consensus::ConsensusFaultType {
-    fn from(value: ConsensusFaultType) -> Self {
-        match value {
-            ConsensusFaultType::DoubleForkMining => Self::DoubleForkMining,
-            ConsensusFaultType::TimeOffsetMining => Self::TimeOffsetMining,
-            ConsensusFaultType::ParentGrinding => Self::ParentGrinding,
-        }
-    }
-}
-
-impl From<ConsensusFaultType> for fvm_shared3::consensus::ConsensusFaultType {
-    fn from(value: ConsensusFaultType) -> Self {
-        match value {
-            ConsensusFaultType::DoubleForkMining => Self::DoubleForkMining,
-            ConsensusFaultType::TimeOffsetMining => Self::TimeOffsetMining,
-            ConsensusFaultType::ParentGrinding => Self::ParentGrinding,
-        }
-    }
-}
-
-impl From<ConsensusFaultType> for fvm_shared4::consensus::ConsensusFaultType {
-    fn from(value: ConsensusFaultType) -> Self {
-        match value {
-            ConsensusFaultType::DoubleForkMining => Self::DoubleForkMining,
-            ConsensusFaultType::TimeOffsetMining => Self::TimeOffsetMining,
-            ConsensusFaultType::ParentGrinding => Self::ParentGrinding,
-        }
-    }
-}
-
-pub(super) struct ConsensusFault {
-    target: Address,
-    epoch: ChainEpoch,
-    fault_type: ConsensusFaultType,
-}
-
-impl From<ConsensusFault> for fvm_shared2::consensus::ConsensusFault {
-    fn from(value: ConsensusFault) -> Self {
-        Self {
-            target: value.target.into(),
-            epoch: value.epoch,
-            fault_type: value.fault_type.into(),
-        }
-    }
-}
-
-impl From<ConsensusFault> for fvm_shared3::consensus::ConsensusFault {
-    fn from(value: ConsensusFault) -> Self {
-        Self {
-            target: value.target.into(),
-            epoch: value.epoch,
-            fault_type: value.fault_type.into(),
-        }
-    }
-}
-
-impl From<ConsensusFault> for fvm_shared4::consensus::ConsensusFault {
-    fn from(value: ConsensusFault) -> Self {
-        Self {
-            target: value.target.into(),
-            epoch: value.epoch,
-            fault_type: value.fault_type.into(),
-        }
     }
 }
 

@@ -5,6 +5,7 @@ pub mod actors;
 pub mod address;
 pub mod bigint;
 pub mod clock;
+pub mod consensus;
 pub mod crypto;
 pub mod deal;
 pub mod econ;
