@@ -117,6 +117,7 @@ impl ForestExterns {
         h2: &[u8],
         extra: &[u8],
     ) -> anyhow::Result<(Option<ConsensusFault>, i64)> {
+        // Inspect and log errors as this is only called in `FVM` and errors are not propogated to the caller
         self.verify_consensus_fault_impl(h1, h2, extra)
             .inspect_err(|e| {
                 tracing::warn!(
@@ -244,6 +245,7 @@ impl ForestExterns {
     }
 
     pub(super) fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
+        // Inspect and log errors as this is only called in `FVM` and errors are not propogated to the caller
         self.get_tipset_cid_impl(epoch).inspect_err(|e| {
             tracing::warn!(
                 "get_tipset_cid failed, ts@{}: {}, error: {e:#?}",
