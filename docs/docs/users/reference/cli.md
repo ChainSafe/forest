@@ -621,6 +621,7 @@ Commands:
   nonce      Get the current nonce for an address
   stat       Print mempool stats
   nonce-fix  Fill an on-chain nonce gap by pushing signed self-transfer messages
+  replace    Replace a pending message in the mempool with updated gas parameters (replace-by-fee)
   help       Print this message or the help of the given subcommand(s)
 
 Options:

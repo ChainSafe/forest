@@ -58,13 +58,13 @@ pub enum MpoolCommands {
         #[arg(long)]
         addr: StrictAddress,
         /// Derive the fill range from chain state and the mempool (ignores `--start` / `--end`).
-        #[arg(long)]
+        #[arg(long, conflicts_with_all = ["start", "end"])]
         auto: bool,
         /// First sequence to fill (inclusive); required unless `--auto`.
-        #[arg(long)]
+        #[arg(long, required_unless_present = "auto")]
         start: Option<u64>,
         /// End of range (exclusive); required unless `--auto`.
-        #[arg(long)]
+        #[arg(long, required_unless_present = "auto")]
         end: Option<u64>,
         /// Gas fee cap for filler messages. Default: twice the parent base fee from chain head.
         #[arg(long, value_parser = humantoken::parse)]
@@ -84,7 +84,7 @@ pub enum MpoolCommands {
         /// Automatically re-estimate gas, ensuring the RBF minimum premium is met.
         #[arg(long)]
         auto: bool,
-        /// Maximum total fee; only used with `--auto` (Lotus: `--fee-limit`).
+        /// Maximum total fee; only used with `--auto`.
         #[arg(long, value_parser = humantoken::parse, alias = "fee-limit")]
         max_fee: Option<TokenAmount>,
         /// Gas premium (manual mode).
@@ -164,10 +164,7 @@ fn get_nonce_fix_fill_range(input: NonceFixFillRangeInput) -> anyhow::Result<Opt
     }
 }
 
-fn get_nonce_fix_gas_fee_cap(
-    gas_fee_cap: Option<TokenAmount>,
-    parent_base_fee: TokenAmount,
-) -> TokenAmount {
+fn get_gas_fee_cap(gas_fee_cap: Option<TokenAmount>, parent_base_fee: TokenAmount) -> TokenAmount {
     gas_fee_cap.unwrap_or_else(|| parent_base_fee * 2u64)
 }
 
@@ -471,7 +468,7 @@ impl MpoolCommands {
 
                 let tipset = ChainHead::call(&client, ()).await?;
                 let parent_base_fee = tipset.block_headers().first().parent_base_fee.clone();
-                let fee_cap = get_nonce_fix_gas_fee_cap(gas_fee_cap, parent_base_fee);
+                let fee_cap = get_gas_fee_cap(gas_fee_cap, parent_base_fee);
                 let n = fill_range.end.saturating_sub(fill_range.start);
                 println!(
                     "Creating {n} filler messages ({} ~ {})",
@@ -888,12 +885,9 @@ mod tests {
     #[test]
     fn nonce_fix_gas_fee_cap() {
         let parent = TokenAmount::from_atto(100u64);
+        assert_eq!(get_gas_fee_cap(None, parent.clone()), parent.clone() * 2u64);
         assert_eq!(
-            get_nonce_fix_gas_fee_cap(None, parent.clone()),
-            parent.clone() * 2u64
-        );
-        assert_eq!(
-            get_nonce_fix_gas_fee_cap(Some(TokenAmount::from_atto(42u64)), parent),
+            get_gas_fee_cap(Some(TokenAmount::from_atto(42u64)), parent),
             TokenAmount::from_atto(42u64)
         );
     }
@@ -977,42 +971,29 @@ mod tests {
     #[test]
     fn find_pending_message_lookup() {
         let (mut wallet, addrs) = test_wallet();
-        let m5 = create_smsg(
-            &addrs.target,
-            &addrs.addr,
-            wallet.borrow_mut(),
-            5,
-            1_000_000,
-            1,
-        );
-        let m6 = create_smsg(
-            &addrs.target,
-            &addrs.addr,
-            wallet.borrow_mut(),
-            6,
-            1_000_000,
-            1,
-        );
-        let pending = vec![m5.clone(), m6];
+        let pending = pending_from(&mut wallet, &addrs.target, &addrs.addr, &[5]);
 
         let found = find_pending_message(addrs.addr, 5, &pending).unwrap();
-        assert_eq!(found.cid(), m5.cid());
+        assert_eq!(found.cid(), pending[0].cid());
 
-        for (lookup_addr, nonce) in [(addrs.addr, 99), (addrs.other, 5)] {
-            let e = find_pending_message(lookup_addr, nonce, &pending).unwrap_err();
+        for (from, nonce) in [(addrs.addr, 99), (addrs.other, 5)] {
+            let err = find_pending_message(from, nonce, &pending).unwrap_err();
             assert!(
-                e.to_string().contains("no pending message found"),
-                "lookup_addr={lookup_addr} nonce={nonce}: {e}"
+                err.to_string().contains("no pending message found"),
+                "{err}"
             );
         }
 
-        let e = find_pending_message(addrs.addr, 0, &[]).unwrap_err();
-        assert!(e.to_string().contains("no pending message found"), "{e}");
+        let err = find_pending_message(addrs.addr, 5, &[]).unwrap_err();
+        assert!(
+            err.to_string().contains("no pending message found"),
+            "{err}"
+        );
     }
 
     #[test]
     fn compute_replacement_gas_auto() {
-        let (wallet, addrs) = test_wallet();
+        let (_wallet, addrs) = test_wallet();
         let addr = addrs.addr;
         let target = addrs.target;
 
@@ -1082,15 +1063,13 @@ mod tests {
         let total_fee = replacement.gas_fee_cap.clone() * replacement.gas_limit;
         assert!(total_fee <= max_fee);
         assert!(replacement.gas_premium <= replacement.gas_fee_cap);
-        let _ = wallet;
     }
 
     #[test]
     fn compute_replacement_gas_manual() {
-        let (wallet, addrs) = test_wallet();
+        let (_wallet, addrs) = test_wallet();
         let addr = addrs.addr;
         let target = addrs.target;
-        let _ = wallet;
 
         let original = make_test_message(addr, target, 5, 1_000_000, 100, 300);
         let result = compute_replacement_gas(ReplaceGasInput::Manual {
