@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod errors;
+mod externs;
 mod fvm2;
 pub mod fvm3;
 mod fvm4;
