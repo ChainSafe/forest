@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub use super::fvm_latest::gas::{
     Gas as Gas_latest, GasCharge as GasCharge_latest, GasDuration as GasDuration_latest,
-    GasOutputs as GasOutputs_latest,
+    GasOutputs as GasOutputs_latest, GasTracker,
 };
 use crate::shim::econ::TokenAmount;
 use crate::shim::version::NetworkVersion;
@@ -14,7 +14,7 @@ use fvm3::gas::{
     Gas as GasV3, MILLIGAS_PRECISION,
     price_list_by_network_version as price_list_by_network_version_v3,
 };
-pub use fvm3::gas::{GasCharge as GasChargeV3, GasTracker, PriceList as PriceListV3};
+pub use fvm3::gas::{GasCharge as GasChargeV3, PriceList as PriceListV3};
 use fvm4::gas::price_list_by_network_version as price_list_by_network_version_v4;
 pub use fvm4::gas::{
     Gas as GasV4, GasCharge as GasChargeV4, GasOutputs as GasOutputsV4, PriceList as PriceListV4,
