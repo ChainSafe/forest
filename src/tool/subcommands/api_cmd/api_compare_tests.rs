@@ -2453,7 +2453,7 @@ fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<Rpc
         .filter(|info| info.expensive && info.epoch <= heaviest_tipset.epoch())
         .map(|info| info.epoch)
         .max()
-        .expect("calibnet must define at least one expensive fork");
+        .ok_or_else(|| anyhow::anyhow!("calibnet must define at least one expensive fork"))?;
 
     Ok(vec![
         RpcTest::identity(EthCall::request((
