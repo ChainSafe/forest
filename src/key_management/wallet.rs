@@ -120,15 +120,7 @@ impl Wallet {
 
     /// Set a default `KeyInfo` to the wallet
     pub fn set_default(&mut self, addr: Address) -> anyhow::Result<()> {
-        let addr_string = format!("wallet-{addr}");
-        let key_info = self.keystore.get(&addr_string)?;
-        if self.keystore.get("default").is_ok() {
-            self.keystore.remove("default")?; // This line should
-            // unregister current
-            // default key then
-            // continue
-        }
-        self.keystore.put("default", key_info)?;
+        set_default(&addr, &mut self.keystore)?;
         Ok(())
     }
 
@@ -225,6 +217,16 @@ pub fn try_find(addr: &Address, keystore: &KeyStore) -> Result<KeyInfo, Error> {
 pub fn try_find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
     let ki = try_find(addr, keystore)?;
     ki.try_into()
+}
+
+/// Set the default key to the key identified by `addr`.
+pub fn set_default(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> {
+    let key_info = try_find(addr, keystore)?;
+    if keystore.get("default").is_ok() {
+        keystore.remove("default")?;
+    }
+    keystore.put("default", key_info)?;
+    Ok(())
 }
 
 /// Return `KeyInfo` for given address in `KeyStore`

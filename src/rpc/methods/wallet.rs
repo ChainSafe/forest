@@ -189,11 +189,7 @@ impl RpcMethod<1> for WalletSetDefault {
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let mut keystore = ctx.keystore.write();
-        let addr_string = format!("wallet-{address}");
-        let key_info = keystore.get(&addr_string)?;
-        keystore.remove("default")?; // This line should unregister current default key then continue
-        keystore.put("default", key_info)?;
+        crate::key_management::set_default(&address, &mut ctx.keystore.write())?;
         Ok(())
     }
 }
