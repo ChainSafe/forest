@@ -211,6 +211,19 @@ mise task run test:nextest ${usage_profile?}
 mise task run test:cargo ${usage_profile?}
 '''
 
+[tasks."test:wallet"]
+description = "Run calibnet wallet integration tests."
+shell = "bash -c"
+usage = '''
+arg "<preloaded_key>" help="Hex-encoded preloaded calibnet wallet key (e.g. $CALIBNET_WALLET secret)"
+'''
+run = '''
+set -euo pipefail
+source ./scripts/tests/harness.sh
+forest_wallet_init "${usage_preloaded_key?}"
+cargo test --profile quick-test --features calibnet-wallet-integration --test calibnet_wallet -- --nocapture
+'''
+
 [tasks."codecov:nextest"]
 description = "Run codecov with nextest"
 run = '''

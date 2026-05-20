@@ -153,11 +153,23 @@ impl ChainRand {
 
 impl Rand for ChainRand {
     fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness_v2(round)
+        self.get_chain_randomness_v2(round).inspect_err(|e| {
+            tracing::warn!(
+                "get_chain_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
+                self.tipset.epoch(),
+                self.tipset.key()
+            );
+        })
     }
 
     fn get_beacon_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        self.get_beacon_randomness_v3(round)
+        self.get_beacon_randomness_v3(round).inspect_err(|e| {
+            tracing::warn!(
+                "get_beacon_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
+                self.tipset.epoch(),
+                self.tipset.key()
+            );
+        })
     }
 }
 
