@@ -22,6 +22,7 @@ pub(in crate::state_migration) use state_migration::StateMigration;
 pub(in crate::state_migration) type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
 
 /// Cache of existing CID to CID migrations for an actor.
+#[derive(derive_more::Deref)]
 pub(in crate::state_migration) struct MigrationCache(SizeTrackingCache<String, CidWrapper>);
 
 impl MigrationCache {
@@ -30,14 +31,14 @@ impl MigrationCache {
     }
 
     pub fn get(&self, key: &str) -> Option<Cid> {
-        self.0.get_cloned(key).map(From::from)
+        self.deref().get_cloned(key).map(From::from)
     }
 
     pub fn get_or_insert_with<F>(&self, key: &str, f: F) -> anyhow::Result<Cid>
     where
         F: FnOnce() -> anyhow::Result<Cid>,
     {
-        self.0
+        self.deref()
             .get_or_insert_with(key, || {
                 let cid = f()?;
                 Ok(cid.into())
@@ -46,13 +47,13 @@ impl MigrationCache {
     }
 
     pub fn push(&self, key: String, value: Cid) {
-        self.0.push(key, value.into());
+        self.deref().push(key, value.into());
     }
 }
 
 impl ShallowClone for MigrationCache {
     fn shallow_clone(&self) -> Self {
-        Self(self.0.shallow_clone())
+        Self(self.deref().shallow_clone())
     }
 }
 

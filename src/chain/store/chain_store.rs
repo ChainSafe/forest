@@ -593,6 +593,7 @@ where
 /// on performance measurements, is resource-intensive and can be a bottleneck for certain
 /// use-cases. This cache is intended to be used with a complementary function;
 /// [`messages_for_tipset_with_cache`].
+#[derive(derive_more::Deref)]
 pub struct MessagesInTipsetCache(SizeTrackingCache<TipsetKey, Arc<Vec<ChainMessage>>>);
 
 impl MessagesInTipsetCache {
@@ -612,7 +613,7 @@ impl MessagesInTipsetCache {
     where
         F: FnOnce() -> anyhow::Result<Arc<Vec<ChainMessage>>>,
     {
-        self.0.get_or_insert_with(key, f)
+        self.deref().get_or_insert_with(key, f)
     }
 
     /// Reads the intended cache size for this process from the environment or uses the default.
@@ -634,7 +635,7 @@ impl Default for MessagesInTipsetCache {
 
 impl ShallowClone for MessagesInTipsetCache {
     fn shallow_clone(&self) -> Self {
-        Self(self.0.shallow_clone())
+        Self(self.deref().shallow_clone())
     }
 }
 

@@ -34,13 +34,14 @@ impl<T> CacheValueConstraints for T where T: GetSize + Debug + Send + Sync + Clo
 /// Backed by [`quick_cache::sync::Cache`], which uses the scan-resistant
 /// CLOCK-PRO eviction policy. Tracks total entry size in bytes for
 /// observability.
-#[derive(Debug)]
+#[derive(Debug, derive_more::Deref)]
 pub struct SizeTrackingCache<K, V>
 where
     K: CacheKeyConstraints,
     V: CacheValueConstraints,
 {
     cache_name: Cow<'static, str>,
+    #[deref]
     cache: Arc<Cache<K, V>>,
     capacity: usize,
 }
@@ -152,30 +153,32 @@ where
 
     /// Gets or inserts an item in the cache with key.
     /// Concurrent callers for the same key are coalesced — only one runs
+    /// `compute`, the rest wait on the result.
     #[inline]
     pub fn get_or_insert_with<Q, E>(
         &self,
         key: &Q,
-        with: impl FnOnce() -> Result<V, E>,
+        compute: impl FnOnce() -> Result<V, E>,
     ) -> Result<V, E>
     where
         Q: Hash + Equivalent<K> + ToOwned<Owned = K> + ?Sized,
     {
-        self.cache.get_or_insert_with(key, with)
+        self.cache.get_or_insert_with(key, compute)
     }
 
     /// Gets or inserts an item in the cache with key. Async version.
     /// Concurrent callers for the same key are coalesced — only one runs
+    /// `compute`, the rest wait on the result.
     #[inline]
     pub async fn get_or_insert_async<Q, E>(
         &self,
         key: &Q,
-        with: impl Future<Output = Result<V, E>>,
+        compute: impl Future<Output = Result<V, E>>,
     ) -> Result<V, E>
     where
         Q: Hash + Equivalent<K> + ToOwned<Owned = K> + ?Sized,
     {
-        self.cache.get_or_insert_async(key, with).await
+        self.cache.get_or_insert_async(key, compute).await
     }
 
     pub(crate) fn size_in_bytes(&self) -> usize {
