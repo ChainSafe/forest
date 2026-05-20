@@ -10,7 +10,6 @@ use prometheus_client::{
     metrics::gauge::Gauge,
     registry::Unit,
 };
-use quick_cache::Equivalent;
 use quick_cache::sync::Cache;
 
 use crate::prelude::*;
@@ -43,7 +42,6 @@ where
     cache_name: Cow<'static, str>,
     #[deref]
     cache: Arc<Cache<K, V>>,
-    capacity: usize,
 }
 
 impl<K, V> ShallowClone for SizeTrackingCache<K, V>
@@ -55,7 +53,6 @@ where
         Self {
             cache_name: self.cache_name.clone(),
             cache: self.cache.shallow_clone(),
-            capacity: self.capacity,
         }
     }
 }
@@ -70,11 +67,9 @@ where
     }
 
     fn new_inner(cache_name: impl Into<Cow<'static, str>>, capacity: NonZeroUsize) -> Self {
-        let capacity = capacity.get();
         Self {
             cache_name: cache_name.into(),
-            cache: Arc::new(Cache::new(capacity)),
-            capacity,
+            cache: Arc::new(Cache::new(capacity.get())),
         }
     }
 
@@ -94,14 +89,6 @@ where
         c
     }
 
-    #[inline]
-    pub fn remove<Q>(&self, k: &Q) -> Option<V>
-    where
-        Q: Hash + Equivalent<K> + ?Sized,
-    {
-        self.cache.remove(k).map(|(_, v)| v)
-    }
-
     /// Insert `k`/`v`. If a previous entry existed for `k`, return it.
     ///
     /// `quick_cache::sync::Cache::insert` does not return the displaced
@@ -113,72 +100,6 @@ where
         let prev = self.cache.peek(&k);
         self.cache.insert(k, v);
         prev
-    }
-
-    #[inline]
-    pub fn push(&self, k: K, v: V) {
-        self.cache.insert(k, v)
-    }
-
-    #[inline]
-    pub fn get_map<Q, T>(&self, k: &Q, mapper: impl FnOnce(&V) -> T) -> Option<T>
-    where
-        Q: Hash + Equivalent<K> + ?Sized,
-    {
-        self.cache.get(k).map(|v| mapper(&v))
-    }
-
-    #[inline]
-    pub fn get_cloned<Q>(&self, k: &Q) -> Option<V>
-    where
-        Q: Hash + Equivalent<K> + ?Sized,
-    {
-        self.cache.get(k)
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.cache.len()
-    }
-
-    #[inline]
-    pub fn cap(&self) -> usize {
-        self.capacity
-    }
-
-    #[inline]
-    pub fn clear(&self) {
-        self.cache.clear()
-    }
-
-    /// Gets or inserts an item in the cache with key.
-    /// Concurrent callers for the same key are coalesced — only one runs
-    /// `compute`, the rest wait on the result.
-    #[inline]
-    pub fn get_or_insert_with<Q, E>(
-        &self,
-        key: &Q,
-        compute: impl FnOnce() -> Result<V, E>,
-    ) -> Result<V, E>
-    where
-        Q: Hash + Equivalent<K> + ToOwned<Owned = K> + ?Sized,
-    {
-        self.cache.get_or_insert_with(key, compute)
-    }
-
-    /// Gets or inserts an item in the cache with key. Async version.
-    /// Concurrent callers for the same key are coalesced — only one runs
-    /// `compute`, the rest wait on the result.
-    #[inline]
-    pub async fn get_or_insert_async<Q, E>(
-        &self,
-        key: &Q,
-        compute: impl Future<Output = Result<V, E>>,
-    ) -> Result<V, E>
-    where
-        Q: Hash + Equivalent<K> + ToOwned<Owned = K> + ?Sized,
-    {
-        self.cache.get_or_insert_async(key, compute).await
     }
 
     pub(crate) fn size_in_bytes(&self) -> usize {
@@ -231,7 +152,7 @@ where
             let cap_metric_name = format!("cache_{}_cap", self.cache_name);
             let cap_metric_help = format!("Capacity of cache {}", self.cache_name);
             let cap: Gauge = Default::default();
-            cap.set(self.cap() as _);
+            cap.set(self.capacity() as _);
             let cap_metric_encoder = encoder.encode_descriptor(
                 &cap_metric_name,
                 &cap_metric_help,

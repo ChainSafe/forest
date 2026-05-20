@@ -31,7 +31,7 @@ impl MigrationCache {
     }
 
     pub fn get(&self, key: &str) -> Option<Cid> {
-        self.deref().get_cloned(key).map(From::from)
+        self.deref().get(key).map(From::from)
     }
 
     pub fn get_or_insert_with<F>(&self, key: &str, f: F) -> anyhow::Result<Cid>
@@ -47,7 +47,7 @@ impl MigrationCache {
     }
 
     pub fn push(&self, key: String, value: Cid) {
-        self.deref().push(key, value.into());
+        self.deref().insert(key, value.into());
     }
 }
 

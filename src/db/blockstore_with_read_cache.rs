@@ -16,11 +16,11 @@ pub type DefaultBlockstoreReadCache = SizeTrackingCache<CidWrapper, Vec<u8>>;
 
 impl BlockstoreReadCache for SizeTrackingCache<CidWrapper, Vec<u8>> {
     fn get(&self, k: &Cid) -> Option<Vec<u8>> {
-        self.get_cloned(k)
+        self.deref().get(k)
     }
 
     fn put(&self, k: Cid, block: Vec<u8>) {
-        self.push(k.into(), block);
+        self.insert(k.into(), block);
     }
 }
 

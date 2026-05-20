@@ -15,7 +15,7 @@ const DEFAULT_CID_CACHE_CAPACITY: NonZeroUsize = nonzero!(1usize << 15);
 /// Thread-safe cache for tracking bad blocks.
 /// This cache is checked before validating a block, to ensure no duplicate
 /// work.
-#[derive(Debug)]
+#[derive(Debug, derive_more::Deref)]
 pub struct BadBlockCache {
     cache: SizeTrackingCache<CidWrapper, ()>,
 }
@@ -42,22 +42,14 @@ impl BadBlockCache {
     }
 
     pub fn push(&self, c: Cid) {
-        self.cache.push(c.into(), ());
+        self.cache.insert(c.into(), ());
         tracing::warn!("Marked bad block: {c}");
-    }
-
-    pub fn get(&self, c: &Cid) -> Option<()> {
-        self.cache.get_cloned(c)
-    }
-
-    pub fn clear(&self) {
-        self.cache.clear()
     }
 }
 
 /// Thread-safe cache for tracking recently seen gossip block CIDs.
 /// Used to de-duplicate gossip blocks before expensive message fetching.
-#[derive(Debug)]
+#[derive(Debug, derive_more::Deref)]
 pub struct SeenBlockCache {
     cache: SizeTrackingCache<CidWrapper, ()>,
 }
