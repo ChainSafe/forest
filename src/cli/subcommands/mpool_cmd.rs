@@ -215,11 +215,10 @@ fn compute_replacement_gas(input: ReplaceGasInput) -> anyhow::Result<Message> {
             mut original_msg,
         } => {
             let min_premium = compute_rbf_min_premium(&original_msg.gas_premium);
-            if gas_premium < min_premium {
-                return Err(anyhow::anyhow!(
-                    "gas premium is below the minimum required for RBF"
-                ));
-            }
+            anyhow::ensure!(
+                gas_premium >= min_premium,
+                "gas premium is below the minimum required for RBF"
+            );
             original_msg.gas_premium = gas_premium;
             original_msg.gas_fee_cap = gas_feecap;
             if let Some(limit) = gas_limit {
