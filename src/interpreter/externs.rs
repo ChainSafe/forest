@@ -77,7 +77,7 @@ impl ForestExterns {
     ) -> anyhow::Result<(Address, i64)> {
         if height < self.epoch - self.chain_config.policy.chain_finality {
             bail!(
-                "cannot get worker key (current epoch: {}, height: {height})",
+                "cannot get worker key (current epoch: {}, height: {height}, miner_addr: {miner_addr})",
                 self.epoch
             );
         }
@@ -85,9 +85,12 @@ impl ForestExterns {
         let prev_root = self.get_lookback_tipset_state_root_for_round(height)?;
         let lb_state = StateTree::new_from_root(self.chain_index.db(), &prev_root)?;
 
-        let actor = lb_state
-            .get_actor(miner_addr)?
-            .ok_or_else(|| anyhow::anyhow!("actor not found {miner_addr}"))?;
+        let actor = lb_state.get_actor(miner_addr)?.ok_or_else(|| {
+            anyhow::anyhow!(
+                "actor not found, current epoch: {}, height: {height}, miner_addr: {miner_addr}",
+                self.epoch
+            )
+        })?;
 
         let tbs = TrackingBlockstore::new(self.chain_index.db());
 
