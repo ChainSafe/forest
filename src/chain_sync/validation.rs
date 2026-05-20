@@ -100,7 +100,7 @@ impl TipsetValidator<'_> {
         for block in self.0.blocks() {
             Self::validate_msg_root(chainstore.db(), block)?;
             if let Some(bad_block_cache) = bad_block_cache
-                && bad_block_cache.peek(block.cid()).is_some()
+                && bad_block_cache.get(block.cid()).is_some()
             {
                 return Err(TipsetValidationError::InvalidBlock(*block.cid()));
             }
@@ -261,7 +261,7 @@ impl<'a> GossipBlockValidator<'a> {
         bad_block_cache: Option<&BadBlockCache>,
     ) -> Result<(), GossipBlockRejectReason> {
         if let Some(cache) = bad_block_cache
-            && cache.peek(&cid).is_some()
+            && cache.get(&cid).is_some()
         {
             return Err(GossipBlockRejectReason::BadBlock(cid));
         }
@@ -482,7 +482,7 @@ mod tests {
         let genesis = make_genesis();
         let seen = SeenBlockCache::default();
         let bad_cache = BadBlockCache::default();
-        bad_cache.push(*block.header.cid());
+        bad_cache.insert(*block.header.cid());
 
         let err = GossipBlockValidator::new(&block)
             .validate_pre_fetch(&genesis, 30, 900, 0, Some(&bad_cache), &seen)

@@ -46,10 +46,8 @@ impl BadBlockCache {
         tracing::warn!("Marked bad block: {c}");
     }
 
-    /// Returns `Some` if the block CID is in bad block cache.
-    /// This function does not update the head position of the `Cid` key.
-    pub fn peek(&self, c: &Cid) -> Option<()> {
-        self.cache.peek_cloned(c)
+    pub fn get(&self, c: &Cid) -> Option<()> {
+        self.cache.get_cloned(c)
     }
 
     pub fn clear(&self) {
@@ -88,6 +86,6 @@ impl SeenBlockCache {
     /// Returns `true` if the CID was already present (duplicate).
     /// Always inserts/refreshes the entry.
     pub fn test_and_insert(&self, c: &Cid) -> bool {
-        self.cache.push((*c).into(), ()).is_some()
+        self.cache.push_and_get_prev((*c).into(), ()).is_some()
     }
 }

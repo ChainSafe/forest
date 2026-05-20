@@ -108,10 +108,15 @@ where
     /// concurrent callers for the same key may both observe `None`. None of
     /// the existing callers depend on atomicity here.
     #[inline]
-    pub fn push(&self, k: K, v: V) -> Option<V> {
+    pub fn push_and_get_prev(&self, k: K, v: V) -> Option<V> {
         let prev = self.cache.peek(&k);
         self.cache.insert(k, v);
         prev
+    }
+
+    #[inline]
+    pub fn push(&self, k: K, v: V) {
+        self.cache.insert(k, v)
     }
 
     #[inline]
@@ -128,15 +133,6 @@ where
         Q: Hash + Equivalent<K> + ?Sized,
     {
         self.cache.get(k)
-    }
-
-    /// Read without affecting the eviction order.
-    #[inline]
-    pub fn peek_cloned<Q>(&self, k: &Q) -> Option<V>
-    where
-        Q: Hash + Equivalent<K> + ?Sized,
-    {
-        self.cache.peek(k)
     }
 
     #[inline]

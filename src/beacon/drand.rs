@@ -246,7 +246,7 @@ impl DrandBeacon {
     }
 
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
-        self.verified_beacons.peek_cloned(&entry.round()).as_deref() == Some(entry)
+        self.verified_beacons.get_cloned(&entry.round()).as_deref() == Some(entry)
     }
 }
 
@@ -323,7 +323,7 @@ impl Beacon for DrandBeacon {
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        let cached = self.verified_beacons.peek_cloned(&round);
+        let cached = self.verified_beacons.get_cloned(&round);
         match cached {
             Some(cached_entry) => Ok(Arc::unwrap_or_clone(cached_entry)),
             None => {
