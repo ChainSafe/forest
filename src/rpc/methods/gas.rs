@@ -331,7 +331,7 @@ pub async fn estimate_message_gas(
 
 /// Caps the gas fee to ensure it doesn't exceed the maximum allowed fee.
 /// Returns an error if the msg `gas_limit` is zero
-fn cap_gas_fee(
+pub(crate) fn cap_gas_fee(
     default_max_fee: &TokenAmount,
     msg: &mut Message,
     msg_spec: Option<MessageSendSpec>,
