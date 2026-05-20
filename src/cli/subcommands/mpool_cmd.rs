@@ -85,7 +85,7 @@ pub enum MpoolCommands {
         #[arg(long)]
         auto: bool,
         /// Maximum total fee; only used with `--auto`.
-        #[arg(long, value_parser = humantoken::parse, alias = "fee-limit")]
+        #[arg(long, value_parser = humantoken::parse, alias = "fee-limit", requires = "auto")]
         max_fee: Option<TokenAmount>,
         /// Gas premium (manual mode).
         #[arg(long, value_parser = humantoken::parse)]
