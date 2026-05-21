@@ -60,6 +60,7 @@
 //!
 
 use crate::message_pool::MpoolUpdate;
+use crate::prelude::ShallowClone;
 use crate::rpc::RPCState;
 use crate::rpc::eth::pubsub_trait::{EthPubSubApiServer, SubscriptionKind, SubscriptionParams};
 use crate::rpc::eth::types::{ApiHeaders, EthFilterSpec};
@@ -86,8 +87,7 @@ impl EthPubSubApiServer for EthPubSub {
         params: Option<SubscriptionParams>,
     ) -> SubscriptionResult {
         let sink = pending.accept().await?;
-        let ctx = self.ctx.clone();
-
+        let ctx = self.ctx.shallow_clone();
         match kind {
             SubscriptionKind::NewHeads => spawn_new_heads(sink, ctx),
             SubscriptionKind::PendingTransactions => spawn_pending_transactions(sink, ctx),
@@ -106,7 +106,7 @@ fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
     let stream = subscription_stream(head_rx)
         .flat_map(|changes| futures::stream::iter(changes.applies))
         .filter_map(move |ts| {
-            let ctx = ctx.clone();
+            let ctx = ctx.shallow_clone();
             async move {
                 match EthBlock::from_filecoin_tipset(&ctx.state_manager, ts, TxInfo::Full).await {
                     Ok(block) => Some(ApiHeaders(block)),
@@ -126,7 +126,7 @@ fn spawn_logs(sink: SubscriptionSink, ctx: Arc<RPCState>, filter: Option<EthFilt
     let stream = subscription_stream(head_rx)
         .flat_map(|changes| futures::stream::iter(changes.applies))
         .filter_map(move |ts| {
-            let ctx = ctx.clone();
+            let ctx = ctx.shallow_clone();
             let filter = filter.clone();
             async move {
                 match eth_logs_with_filter(&ctx, &ts, filter).await {
