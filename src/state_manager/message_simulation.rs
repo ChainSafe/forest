@@ -122,7 +122,7 @@ impl StateManager {
     ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
-        let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
+        let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
 
         // Pretend that the message is signed. This has an influence on the gas
         // cost. We obviously can't generate a valid signature. Instead, we just

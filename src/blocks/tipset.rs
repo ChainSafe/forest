@@ -45,6 +45,7 @@ use thiserror::Error;
     Ord,
     GetSize,
     derive_more::IntoIterator,
+    derive_more::Deref,
 )]
 pub struct TipsetKey(#[into_iterator(owned, ref)] SmallCidNonEmptyVec);
 
@@ -63,11 +64,6 @@ impl TipsetKey {
         })
     }
 
-    /// Returns `true` if the tipset key contains the given CID.
-    pub fn contains(&self, cid: Cid) -> bool {
-        self.0.contains(cid)
-    }
-
     /// Returns a non-empty collection of `CID`
     pub fn into_cids(self) -> NonEmpty<Cid> {
         self.0.into_cids()
@@ -76,21 +72,6 @@ impl TipsetKey {
     /// Returns a non-empty collection of `CID`
     pub fn to_cids(&self) -> NonEmpty<Cid> {
         self.0.clone().into_cids()
-    }
-
-    /// Returns an iterator of `CID`s.
-    pub fn iter(&self) -> impl Iterator<Item = Cid> + '_ {
-        self.0.iter()
-    }
-
-    /// Returns the number of `CID`s
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    // To suppress `#[warn(clippy::len_without_is_empty)]`
-    pub fn is_empty(&self) -> bool {
-        false
     }
 
     /// Terse representation of the tipset key.

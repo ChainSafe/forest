@@ -111,7 +111,7 @@ impl MinerMigrator {
         in_root: &Cid,
     ) -> anyhow::Result<Cid> {
         cache
-            .get_or_insert_with(sectors_amt_key(in_root)?, || -> anyhow::Result<Cid> {
+            .get_or_insert_with(&sectors_amt_key(in_root)?, || -> anyhow::Result<Cid> {
                 let prev_in = cache.get(&miner_prev_sectors_in_key(address));
                 let prev_out = cache.get(&miner_prev_sectors_out_key(address));
 
@@ -216,7 +216,7 @@ impl MinerMigrator {
                     sectors_amt_key(&in_deadline.sectors_snapshot)?;
 
                 let out_sectors_snapshot_cid = cache.get_or_insert_with(
-                    out_sectors_snapshot_cid_cache_key,
+                    &out_sectors_snapshot_cid_cache_key,
                     || -> anyhow::Result<Cid> {
                         let prev_in_root = cache.get(&miner_prev_sectors_in_key(address));
                         let prev_out_root = cache.get(&miner_prev_sectors_out_key(address));

@@ -16,7 +16,6 @@ use positioned_io::{ReadAt, Size};
 use std::{num::NonZeroUsize, sync::LazyLock};
 
 use crate::prelude::*;
-use crate::utils::get_size::CidWrapper;
 use quick_cache::Weighter;
 use quick_cache::sync::Cache as QuickCache;
 
@@ -57,7 +56,7 @@ type FrameIndex = Arc<hashbrown::HashMap<CidWrapper, Bytes>>;
 /// A [`Weighter`] that bills each entry by `key.get_size() + value.get_size()`.
 /// Used to make [`ZstdFrameCache`] evict by byte size.
 #[derive(Clone, Copy, Debug, Default)]
-struct ZstdFrameWeighter;
+pub struct ZstdFrameWeighter;
 
 impl Weighter<(FrameOffset, CacheKey), FrameIndex> for ZstdFrameWeighter {
     fn weight(&self, key: &(FrameOffset, CacheKey), value: &FrameIndex) -> u64 {
@@ -69,10 +68,12 @@ impl Weighter<(FrameOffset, CacheKey), FrameIndex> for ZstdFrameWeighter {
 
 type ZstdFrameInner = QuickCache<(FrameOffset, CacheKey), FrameIndex, ZstdFrameWeighter>;
 
+#[derive(derive_more::Deref)]
 pub struct ZstdFrameCache {
     /// Maximum size in bytes. Pages are evicted by the cache when the total
     /// weight exceeds this amount.
     pub max_size: usize,
+    #[deref]
     cache: Arc<ZstdFrameInner>,
 }
 
@@ -134,7 +135,7 @@ impl ZstdFrameCache {
         if entry_size.saturating_add(cache_key_size) > self.max_size {
             return;
         }
-        self.cache.insert(cache_key, Arc::new(index));
+        self.insert(cache_key, Arc::new(index));
     }
 }
 
@@ -157,15 +158,15 @@ mod tests {
             // After every insert the live weight must remain under the cap;
             // quick_cache evicts synchronously to keep it that way.
             assert!(
-                cache.cache.weight() <= max_size as u64,
+                cache.weight() <= max_size as u64,
                 "weight {} exceeds cap {}",
-                cache.cache.weight(),
+                cache.weight(),
                 max_size
             );
         }
         // Sanity: after stuffing 100 entries into a cap-bounded cache, at
         // least one eviction must have happened.
-        assert!(cache.cache.len() < 100);
+        assert!(cache.len() < 100);
     }
 
     fn gen_index(rng: &mut impl Rng) -> hashbrown::HashMap<CidWrapper, Bytes> {
