@@ -4,13 +4,13 @@
 use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
-use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
+use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _};
 use crate::prelude::*;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
+use crate::interpreter::VMTrace;
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::{Address, Protocol},
-    crypto::{SECP_SIG_LEN, Signature, SignatureType},
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
@@ -215,7 +215,7 @@ impl GasEstimateGasLimit {
         data: &Ctx,
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
-    ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Tipset)> {
+    ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Tipset, Protocol)> {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
         msg.set_gas_premium(TokenAmount::from_atto(0));
@@ -225,6 +225,7 @@ impl GasEstimateGasLimit {
             .state_manager
             .resolve_to_deterministic_address(msg.from, &curr_ts)
             .await?;
+        let from_protocol = from_a.protocol();
 
         let pending = data.mpool.pending_for(&from_a);
         let prior_messages: Vec<ChainMessage> = pending
@@ -232,34 +233,19 @@ impl GasEstimateGasLimit {
             .unwrap_or_default();
 
         let ts = data.mpool.current_tipset();
-        // Pretend that the message is signed. This has an influence on the gas
-        // cost. We obviously can't generate a valid signature. Instead, we just
-        // fill the signature with zeros. The validity is not checked.
-        let mut chain_msg = match from_a.protocol() {
-            Protocol::Secp256k1 => {
-                SignedMessage::new_unchecked(msg, Signature::new_secp256k1(vec![0; SECP_SIG_LEN]))
-                    .into()
-            }
-            Protocol::Delegated => SignedMessage::new_unchecked(
-                msg,
-                // In Lotus, delegated signatures have the same length as SECP256k1.
-                // This may or may not change in the future.
-                Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
-            )
-            .into(),
-            _ => msg.into(),
-        };
+        let chain_msg = ChainMessage::for_gas_estimation(msg, from_protocol);
 
         let (invoc_res, apply_ret, _, _) = data
             .state_manager
             .call_with_gas(
-                &mut chain_msg,
+                chain_msg,
                 &prior_messages,
                 Some(ts.shallow_clone()),
                 VMFlush::Skip,
+                VMTrace::NotTraced,
             )
             .await?;
-        Ok((invoc_res, apply_ret, prior_messages, ts))
+        Ok((invoc_res, apply_ret, prior_messages, ts, from_protocol))
     }
 
     pub async fn estimate_gas_limit(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> Result<i64> {

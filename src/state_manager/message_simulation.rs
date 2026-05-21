@@ -5,13 +5,10 @@ use super::circulating_supply::GenesisInfo;
 use super::utils::structured;
 use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
-use crate::message::{MessageRead as _, MessageReadWrite as _, SignedMessage};
+use crate::message::{MessageRead as _, MessageReadWrite as _};
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
-use crate::shim::address::Protocol;
-use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::Message;
-use fvm_shared4::crypto::signature::SECP_SIG_LEN;
 use std::time::Duration;
 use tracing::instrument;
 
@@ -123,28 +120,10 @@ impl StateManager {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
         let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
-
-        // Pretend that the message is signed. This has an influence on the gas
-        // cost. We obviously can't generate a valid signature. Instead, we just
-        // fill the signature with zeros. The validity is not checked.
-        let mut chain_msg = match from_a.protocol() {
-            Protocol::Secp256k1 => SignedMessage::new_unchecked(
-                msg.clone(),
-                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
-            )
-            .into(),
-            Protocol::Delegated => SignedMessage::new_unchecked(
-                msg.clone(),
-                // In Lotus, delegated signatures have the same length as SECP256k1.
-                // This may or may not change in the future.
-                Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
-            )
-            .into(),
-            _ => msg.clone().into(),
-        };
+        let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
 
         let (_invoc_res, apply_ret, duration, state_root) = self
-            .call_with_gas(&mut chain_msg, &[], Some(ts), vm_flush)
+            .call_with_gas(chain_msg, &[], Some(ts), vm_flush, VMTrace::NotTraced)
             .await?;
 
         Ok((
@@ -166,10 +145,11 @@ impl StateManager {
     /// messages and returns the values computed in the VM.
     pub async fn call_with_gas(
         &self,
-        message: &mut ChainMessage,
+        mut message: ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
+        vm_trace: VMTrace,
     ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let TipsetState { state_root, .. } = self
@@ -202,7 +182,7 @@ impl StateManager {
                     timestamp: ts.min_timestamp(),
                 },
                 &self.engine,
-                VMTrace::NotTraced,
+                vm_trace,
             )?;
 
             for msg in prior_messages {
@@ -214,7 +194,7 @@ impl StateManager {
                 .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
 
             message.set_sequence(from_actor.sequence);
-            let (ret, duration) = vm.apply_message(message)?;
+            let (ret, duration) = vm.apply_message(&message)?;
             let state_root = match vm_flush {
                 VMFlush::Flush => Some(vm.flush()?),
                 VMFlush::Skip => None,
