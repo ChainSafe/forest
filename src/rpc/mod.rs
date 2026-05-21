@@ -805,10 +805,18 @@ pub fn openrpc(path: ApiPaths, include: Option<&[&str]>) -> openrpc_types::OpenR
 mod tests {
     use super::*;
     use crate::{
-        db::MemoryDB, networks::NetworkChain, rpc::common::ShiftingVersion,
+        db::MemoryDB,
+        networks::NetworkChain,
+        rpc::{client::UrlClient, common::ShiftingVersion},
         tool::offline_server::server::offline_rpc_state,
     };
-    use jsonrpsee::server::stop_channel;
+    use jsonrpsee::{
+        core::{
+            client::{BatchResponse, ClientT},
+            params::BatchRequestBuilder,
+        },
+        server::stop_channel,
+    };
     use std::net::{Ipv4Addr, SocketAddr};
     use tokio::task::JoinSet;
 
@@ -916,6 +924,29 @@ mod tests {
         assert_eq!(response, jwt_read_permissions);
 
         drop(client);
+
+        // Sending a batch request
+        let client = UrlClient::new(
+            format!("http://{}:{}/rpc/v1", rpc_address.ip(), rpc_address.port())
+                .parse()
+                .unwrap(),
+            None,
+        )
+        .await
+        .unwrap();
+        let mut batch_request_builder = BatchRequestBuilder::new();
+        let empty_payload: [(); 0] = [];
+        batch_request_builder
+            .insert("Filecoin.Version", empty_payload)
+            .unwrap();
+        batch_request_builder
+            .insert("eth_chainId", empty_payload)
+            .unwrap();
+        let batch_response: BatchResponse<serde_json::Value> =
+            client.batch_request(batch_request_builder).await.unwrap();
+        assert_eq!(batch_response.len(), 2);
+        assert_eq!(batch_response.num_successful_calls(), 2);
+        assert_eq!(batch_response.num_failed_calls(), 0);
 
         // Gracefully shutdown the RPC server
         println!("sending shutdown signal");
