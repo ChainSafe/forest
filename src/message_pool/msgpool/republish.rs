@@ -192,9 +192,11 @@ mod tests {
         let mut chains = Chains::new();
         let mut key_vec = Vec::with_capacity(perfs.len());
         for (i, &p) in perfs.iter().enumerate() {
-            let mut node = MsgChainNode::default();
-            node.gas_perf = p;
-            node.gas_reward = TokenAmount::from_atto(i as u64 + 1);
+            let node = MsgChainNode {
+                gas_perf: p,
+                gas_reward: TokenAmount::from_atto(i as u64 + 1),
+                ..Default::default()
+            };
             chains.push_with(node, &mut key_vec);
         }
         chains.key_vec = key_vec;
