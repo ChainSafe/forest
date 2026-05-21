@@ -27,9 +27,7 @@
 
 ### Breaking
 
-- [#7073](https://github.com/ChainSafe/forest/pull/7073): Replaced the underlying cache engine across the node. The eviction policy is no longer strict LRU — it is now CLOCK-PRO via [`quick_cache`](https://crates.io/crates/quick_cache), which is scan-resistant and typically gives higher hit rates on chain workloads. The Prometheus metric names `lru_cache_hit_total` and `lru_cache_miss_total` are renamed to `cache_hit_total` and `cache_miss_total`. **Operators must update dashboards, alert rules, and recording rules** that reference the old names. Label set (`kind="..."`) is unchanged.
-
-- [#7077](https://github.com/ChainSafe/forest/pull/7077): Refactored internal cache metrics to include `hits` and `misses` for all automatically. The old metrics `cache_hit_total` and `cache_miss_total` are deprecated in favor of `cache_{name}_hits` and `cache_{name}_misses`. Details can be found in https://forest-docs.pages.dev/reference/metrics
+- [#7073](https://github.com/ChainSafe/forest/pull/7073) and [#7077](https://github.com/ChainSafe/forest/pull/7077): Replaced the underlying cache engine across the node. The eviction policy is no longer strict LRU — it is now CLOCK-PRO via [`quick_cache`](https://crates.io/crates/quick_cache), which is scan-resistant and typically gives higher hit rates on chain workloads. Refactored internal cache metrics to include `hits` and `misses` for all automatically. The old metrics `lru_cache_hit_total` and `lru_cache_miss_total` are deprecated in favor of `cache_{name}_hits` and `cache_{name}_misses`. Details can be found in https://forest-docs.pages.dev/reference/metrics
 
 ### Added
 
