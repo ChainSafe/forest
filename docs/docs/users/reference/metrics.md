@@ -30,8 +30,8 @@ title: Metrics
 | `cache_{name}_size_bytes`      | Gauge     | Bytes        | Cache size in bytes                                                                          |
 | `cache_{name}_len`             | Gauge     | Count        | Cache entry count                                                                            |
 | `cache_{name}_cap`             | Gauge     | Count        | Cache entry capacity                                                                         |
-| `cache_{name}_hits`            | Gauge     | Count        | Cache hit count                                                                              |
-| `cache_{name}_misses`          | Gauge     | Count        | Cache miss count                                                                             |
+| `cache_{name}_hits`            | Counter   | Count        | Cache hit count                                                                              |
+| `cache_{name}_misses`          | Counter   | Count        | Cache miss count                                                                             |
 
 <details>
   <summary>Example `bitswap_message_count_total` output</summary>

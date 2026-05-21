@@ -6,7 +6,7 @@ mod context;
 pub mod db_util;
 pub mod main;
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::ChainFollower;
@@ -26,9 +26,11 @@ use crate::prelude::*;
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::start_rpc;
+use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
+use crate::state_manager::StateManager;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::{self};
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
@@ -370,48 +372,9 @@ fn maybe_prefill_rpc_caches(
                         // Skip if the node is catching up to avoid unnecessary work, as the head may be changing rapidly.
                         continue;
                     }
-                    Ok(tsk)  => {
+                    Ok(tsk) => {
                         let state_manager = state_manager.shallow_clone();
-                        tokio::spawn(async move {
-                            match state_manager.chain_index().load_required_tipset(&tsk) {
-                                Ok(ts) => {
-                                    for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash]
-                                    {
-                                        if let Err(e) = crate::rpc::eth::Block::from_filecoin_tipset(
-                                            &state_manager,
-                                            ts.shallow_clone(),
-                                            tx_info,
-                                        )
-                                        .await {
-                                            warn!("failed to call `Block::from_filecoin_tipset` for cache warmup: {e:#}");
-                                        }
-                                    }
-
-                                    {
-                                        struct CollectEventsCachePrefillingMatcher;
-                                        impl crate::rpc::eth::filter::Matcher for CollectEventsCachePrefillingMatcher{
-                                            fn msg_cid_filter(&self) -> Option<&Cid> {
-                                                None
-                                            }
-                                            fn matches(
-                                                &self,
-                                                _: &crate::shim::address::Address,
-                                                _: &[crate::shim::executor::Entry],
-                                            ) -> anyhow::Result<bool> {
-                                                Ok(false)
-                                            }
-                                        }
-                                        let mut collected_events = vec![];
-                                        if let Err(e) = EthEventHandler::collect_events(&state_manager,&ts,Some(&CollectEventsCachePrefillingMatcher), crate::rpc::eth::filter::SkipEvent::OnUnresolvedAddress,&mut collected_events).await {
-                                            warn!("failed to collect events for cache warmup: {e:#}");
-                                        }
-                                    }
-                                },
-                                Err(e) => {
-                                    warn!("failed to load tipset for cache warmup: {e:#}");
-                                }
-                            }
-                        });
+                        tokio::spawn(prefill_rpc_caches_for_tipset(state_manager, tsk));
                     }
                     Err(RecvError::Lagged(n)) => {
                         warn!("validated tipset broadcast lagged: skipped {n} tipsets")
@@ -420,6 +383,56 @@ fn maybe_prefill_rpc_caches(
                 }
             }
         });
+    }
+}
+
+async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetKey) {
+    match state_manager.chain_index().load_required_tipset(&tsk) {
+        Ok(ts) => {
+            for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash] {
+                if let Err(e) = crate::rpc::eth::Block::from_filecoin_tipset(
+                    &state_manager,
+                    ts.shallow_clone(),
+                    tx_info,
+                )
+                .await
+                {
+                    warn!("failed to call `Block::from_filecoin_tipset` for cache warmup: {e:#}");
+                }
+            }
+
+            {
+                use crate::rpc::eth::filter::{Matcher, SkipEvent};
+                struct CollectEventsCachePrefillingMatcher;
+                impl Matcher for CollectEventsCachePrefillingMatcher {
+                    fn msg_cid_filter(&self) -> Option<&Cid> {
+                        None
+                    }
+                    fn matches(
+                        &self,
+                        _: &Address,
+                        _: &[crate::shim::executor::Entry],
+                    ) -> anyhow::Result<bool> {
+                        Ok(false)
+                    }
+                }
+                let mut collected_events = vec![];
+                if let Err(e) = EthEventHandler::collect_events(
+                    &state_manager,
+                    &ts,
+                    Some(&CollectEventsCachePrefillingMatcher),
+                    SkipEvent::OnUnresolvedAddress,
+                    &mut collected_events,
+                )
+                .await
+                {
+                    warn!("failed to collect events for cache warmup: {e:#}");
+                }
+            }
+        }
+        Err(e) => {
+            warn!("failed to load tipset for cache warmup: {e:#}");
+        }
     }
 }
 

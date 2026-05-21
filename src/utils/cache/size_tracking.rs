@@ -1,13 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{borrow::Cow, fmt::Debug, hash::Hash, num::NonZeroUsize};
+use std::{borrow::Cow, fmt::Debug, hash::Hash, num::NonZeroUsize, sync::atomic::Ordering};
 
 use get_size2::GetSize;
 use prometheus_client::{
     collector::Collector,
     encoding::{DescriptorEncoder, EncodeMetric},
-    metrics::gauge::Gauge,
+    metrics::{counter::Counter, gauge::Gauge},
     registry::Unit,
 };
 use quick_cache::sync::Cache;
@@ -164,8 +164,8 @@ where
         {
             let hits_metric_name = format!("cache_{}_hits", self.cache_name);
             let hits_metric_help = format!("Cache hits of {}", self.cache_name);
-            let hits: Gauge = Default::default();
-            hits.set(self.cache.hits() as _);
+            let hits: Counter = Default::default();
+            hits.inner().store(self.cache.hits(), Ordering::Relaxed);
             let hits_metric_encoder = encoder.encode_descriptor(
                 &hits_metric_name,
                 &hits_metric_help,
@@ -177,8 +177,8 @@ where
         {
             let misses_metric_name = format!("cache_{}_misses", self.cache_name);
             let misses_metric_help = format!("Cache misses of {}", self.cache_name);
-            let misses: Gauge = Default::default();
-            misses.set(self.cache.misses() as _);
+            let misses: Counter = Default::default();
+            misses.inner().store(self.cache.misses(), Ordering::Relaxed);
             let misses_metric_encoder = encoder.encode_descriptor(
                 &misses_metric_name,
                 &misses_metric_help,
