@@ -54,7 +54,7 @@ pub enum MpoolCommands {
     },
     /// Fill an on-chain nonce gap by pushing signed self-transfer messages.
     NonceFix {
-        /// Address to fill nonce's for (must be signable by the node's wallet).
+        /// Address to fill nonce gaps (must be signable by the node's wallet).
         #[arg(long)]
         addr: StrictAddress,
         /// Derive the fill range from chain state and the mempool (ignores `--start` / `--end`).
@@ -82,19 +82,19 @@ pub enum MpoolCommands {
         #[arg(long, conflicts_with_all = ["from", "nonce"])]
         cid: Option<Cid>,
         /// Automatically re-estimate gas, ensuring the RBF minimum premium is met.
-        #[arg(long)]
+        #[arg(long, conflicts_with_all = ["gas_premium", "gas_feecap", "gas_limit"])]
         auto: bool,
         /// Maximum total fee; only used with `--auto`.
         #[arg(long, value_parser = humantoken::parse, alias = "fee-limit", requires = "auto")]
         max_fee: Option<TokenAmount>,
-        /// Gas premium (manual mode).
-        #[arg(long, value_parser = humantoken::parse)]
+        /// Gas premium (required unless `--auto` is used).
+        #[arg(long, value_parser = humantoken::parse, required_unless_present = "auto")]
         gas_premium: Option<TokenAmount>,
-        /// Gas fee cap (manual mode).
-        #[arg(long, value_parser = humantoken::parse)]
+        /// Gas fee cap (required unless `--auto` is used).
+        #[arg(long, value_parser = humantoken::parse, required_unless_present = "auto")]
         gas_feecap: Option<TokenAmount>,
-        /// Gas limit (manual mode; keeps original value if unset).
-        #[arg(long)]
+        /// Gas limit (Optional; keeps original value if unset).
+        #[arg(long, conflicts_with = "auto")]
         gas_limit: Option<u64>,
     },
 }
@@ -445,12 +445,13 @@ impl MpoolCommands {
                 let addr: Address = addr.into();
 
                 let fill_range = if auto {
-                    let actor = StateGetActor::call(&client, (addr, ApiTipsetKey(None)))
-                        .await?
-                        .with_context(|| format!("no on-chain actor found for {addr}"))?;
-                    let next_nonce = actor.sequence;
-                    let NotNullVec(pending) =
-                        MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
+                    let (actor, NotNullVec(pending)) = tokio::try_join!(
+                        StateGetActor::call(&client, (addr, ApiTipsetKey(None))),
+                        MpoolPending::call(&client, (ApiTipsetKey(None),)),
+                    )?;
+                    let next_nonce = actor
+                        .with_context(|| format!("no on-chain actor found for {addr}"))?
+                        .sequence;
                     get_nonce_fix_fill_range(NonceFixFillRangeInput::Auto {
                         addr,
                         next_on_chain_nonce: next_nonce,

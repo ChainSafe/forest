@@ -681,7 +681,7 @@ Fill an on-chain nonce gap by pushing signed self-transfer messages
 Usage: forest-cli mpool nonce-fix [OPTIONS] --addr <ADDR>
 
 Options:
-      --addr <ADDR>                Address to fill nonce's for (must be signable by the node's wallet)
+      --addr <ADDR>                Address to fill nonce gaps (must be signable by the node's wallet)
       --auto                       Derive the fill range from chain state and the mempool (ignores `--start` / `--end`)
       --start <START>              First sequence to fill (inclusive); required unless `--auto`
       --end <END>                  End of range (exclusive); required unless `--auto`
@@ -702,9 +702,9 @@ Options:
       --cid <CID>                  CID of the message to replace (alternative to `--from`/`--nonce`)
       --auto                       Automatically re-estimate gas, ensuring the RBF minimum premium is met
       --max-fee <MAX_FEE>          Maximum total fee; only used with `--auto`
-      --gas-premium <GAS_PREMIUM>  Gas premium (manual mode)
-      --gas-feecap <GAS_FEECAP>    Gas fee cap (manual mode)
-      --gas-limit <GAS_LIMIT>      Gas limit (manual mode; keeps original value if unset)
+      --gas-premium <GAS_PREMIUM>  Gas premium (required unless `--auto` is used)
+      --gas-feecap <GAS_FEECAP>    Gas fee cap (required unless `--auto` is used)
+      --gas-limit <GAS_LIMIT>      Gas limit (Optional; keeps original value if unset)
   -h, --help                       Print help
 ```
 
