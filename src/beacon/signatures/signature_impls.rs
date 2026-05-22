@@ -40,6 +40,6 @@ impl SignatureOnG1 {
     }
 
     pub fn as_bytes(&self) -> [u8; G1Affine::compressed_size()] {
-        self.0.to_compressed()
+        self.to_compressed()
     }
 }

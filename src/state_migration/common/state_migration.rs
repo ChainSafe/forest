@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
 use super::{
@@ -10,9 +9,8 @@ use super::{
     verifier::MigrationVerifier,
 };
 use crate::cid_collections::CidHashMap;
+use crate::prelude::*;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 
@@ -97,7 +95,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         let (job_tx, job_rx) = flume::bounded(30);
 
         let job_counter = AtomicU64::new(0);
-        let cache_clone = cache.clone();
+        let cache_clone = cache.shallow_clone();
 
         let actors_in = Arc::new(Mutex::new(actors_in));
         let actors_in_clone = actors_in.clone();
@@ -122,7 +120,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                     if migrator.is_deferred() {
                         continue;
                     }
-                    let cache_clone = cache_clone.clone();
+                    let cache_clone = cache_clone.shallow_clone();
                     scope.spawn(move |_| {
                         let job = MigrationJob {
                             address,
@@ -187,7 +185,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                 actor_state: state.clone(),
                 actor_migration: migrator,
             };
-            let job_output = job.run(store, prior_epoch, cache.clone())?;
+            let job_output = job.run(store, prior_epoch, cache.shallow_clone())?;
             if let Some(MigrationJobOutput {
                 address,
                 actor_state,

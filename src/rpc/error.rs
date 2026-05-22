@@ -29,7 +29,7 @@ pub trait RpcErrorData {
 
 /// An error returned _by the remote server_, not due to e.g serialization errors,
 /// protocol errors, or the connection failing.
-#[derive(derive_more::From, derive_more::Into, Debug, PartialEq)]
+#[derive(derive_more::From, derive_more::Into, derive_more::Deref, Debug, PartialEq)]
 pub struct ServerError {
     inner: ErrorObjectOwned,
 }
@@ -54,12 +54,11 @@ impl ServerError {
             inner: ErrorObjectOwned::owned(code, message.to_string(), data.into()),
         }
     }
-    pub fn message(&self) -> &str {
-        self.inner.message()
-    }
+
     pub fn known_code(&self) -> ErrorCode {
         self.inner.code().into()
     }
+
     /// We are only including this method to get the JSON schemas for our OpenRPC
     /// machinery
     pub fn stubbed_for_openrpc() -> Self {
@@ -79,10 +78,6 @@ impl ServerError {
             "unsupported method",
             Some("This method is not supported by the current version of the Forest node".into()),
         )
-    }
-
-    pub fn inner(&self) -> &ErrorObjectOwned {
-        &self.inner
     }
 }
 

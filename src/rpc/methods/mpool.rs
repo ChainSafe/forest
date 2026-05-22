@@ -250,7 +250,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
             .state_manager
-            .resolve_to_key_addr(&from, &heaviest_tipset)
+            .resolve_to_deterministic_address(from, &heaviest_tipset)
             .await?;
 
         if message.sequence != 0 {
