@@ -181,7 +181,12 @@ type EthSubStream =
 /// Returns the live stream.
 async fn connect_ws(client: &rpc::Client) -> anyhow::Result<EthSubStream> {
     let mut url = client.base_url().clone();
-    url.set_scheme("ws")
+    let ws_scheme = match url.scheme() {
+        "http" => "ws",
+        "https" => "wss",
+        scheme => anyhow::bail!("unsupported RPC URL scheme: {scheme}"),
+    };
+    url.set_scheme(ws_scheme)
         .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
     url.set_path("/rpc/v1");
     let (ws_stream, _) = connect_async(url.as_str()).await?;
@@ -525,8 +530,8 @@ fn eth_subscribe_pending_transactions(tx: TestTransaction) -> RpcTestScenario {
                 .await?
                 .context("no Eth transaction hash for CID")?;
 
-            // Watch pending-tx hashes until *our* transaction shows up.
-            let outcome: anyhow::Result<()> = async {
+            // Watch pending-tx hashes until `our` transaction shows up.
+            let watch = async {
                 loop {
                     let payload = next_subscription_payload(
                         &mut ws_stream,
@@ -541,14 +546,20 @@ fn eth_subscribe_pending_transactions(tx: TestTransaction) -> RpcTestScenario {
                     );
                     let hash: EthHash = serde_json::from_value(payload)
                         .context("pendingTransactions payload is not an Eth hash")?;
-                    // Identity: it must be the exact tx we just submitted.
-                    if hash == tx_hash {
+                    // received hash must be `our` transaction hash.
+                    if hash.eq(&tx_hash) {
                         break;
                     }
                 }
-                Ok(())
-            }
-            .await;
+                anyhow::Ok(())
+            };
+            let outcome = tokio::time::timeout(Duration::from_secs(120), watch)
+                .await
+                .unwrap_or_else(|_| {
+                    Err(anyhow::anyhow!(
+                        "timed out waiting for our pendingTransactions notification"
+                    ))
+                });
 
             let _ = close_eth_subscription(&mut ws_stream, &subscription_id).await;
             outcome
@@ -584,8 +595,8 @@ fn eth_subscribe_logs(tx: TestTransaction) -> RpcTestScenario {
                 .context("no Eth transaction hash for CID")?;
 
             // Logs are delivered when the tipset holding the event is applied,
-            // which can take a few epochs (~30s each) on calibnet.
-            let outcome: anyhow::Result<()> = async {
+            // which can take a few epochs (~30s each) on calibnet
+            let watch = async {
                 loop {
                     let payload = next_subscription_payload(
                         &mut ws_stream,
@@ -593,24 +604,28 @@ fn eth_subscribe_logs(tx: TestTransaction) -> RpcTestScenario {
                         Duration::from_secs(300),
                     )
                     .await?;
+                    // A logs notification is a single log object (one per log,
+                    // matching geth/reth/Lotus) — not an array.
                     anyhow::ensure!(
-                        payload.is_array(),
-                        "logs must yield a JSON array, got: {payload}"
+                        payload.is_object(),
+                        "logs must yield a single log object, got: {payload}"
                     );
-                    let logs: Vec<LogView> = serde_json::from_value(payload)
-                        .context("logs payload is not a list of Eth logs")?;
-                    anyhow::ensure!(!logs.is_empty(), "received an empty logs notification");
-                    // Identity: a log carrying our event topic and `our` tx hash.
-                    let matched = logs.iter().any(|log| {
-                        log.transaction_hash == tx_hash && log.topics.contains(&tx.topic)
-                    });
-                    if matched {
+                    let log: LogView = serde_json::from_value(payload)
+                        .context("logs payload is not an Eth log")?;
+                    // Identity: the log must carry our event topic and `our` tx hash.
+                    if log.transaction_hash == tx_hash && log.topics.contains(&tx.topic) {
                         break;
                     }
                 }
-                Ok(())
-            }
-            .await;
+                anyhow::Ok(())
+            };
+            let outcome = tokio::time::timeout(Duration::from_secs(300), watch)
+                .await
+                .unwrap_or_else(|_| {
+                    Err(anyhow::anyhow!(
+                        "timed out waiting for our logs notification"
+                    ))
+                });
 
             let _ = close_eth_subscription(&mut ws_stream, &subscription_id).await;
             outcome

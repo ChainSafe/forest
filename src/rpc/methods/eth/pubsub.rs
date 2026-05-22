@@ -139,10 +139,9 @@ fn spawn_logs(sink: SubscriptionSink, ctx: Arc<RPCState>, filter: Option<EthFilt
                         tracing::error!("Failed to fetch logs for tipset {}: {e:#}", ts.key())
                     })
                     .ok()
-                    // Skip tipsets with no matching logs — nothing to notify.
-                    .filter(|logs| !logs.is_empty())
             }
         })
+        .flat_map(futures::stream::iter)
         .boxed();
     tokio::spawn(pipe_stream_to_sink(stream, sink));
 }
