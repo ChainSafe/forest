@@ -1,17 +1,12 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, sync::LazyLock};
-
-use crate::prelude::*;
 use futures::{FutureExt, StreamExt, stream::FuturesOrdered};
 use jsonrpsee::{
     MethodResponse,
     core::middleware::{Batch, BatchEntry, Notification},
     server::{BatchResponseBuilder, middleware::rpc::RpcServiceT},
 };
-use nonzero_ext::nonzero;
-use tokio::sync::Semaphore;
 use tower::Layer;
 
 /// Parallelize batch RPC requests that are processed in sequence by default
@@ -28,7 +23,7 @@ impl<S> Layer<S> for ParallelBatchLayer {
 
     fn layer(&self, service: S) -> Self::Service {
         ParallelBatchService {
-            service: service.into(),
+            service,
             max_response_body_size: self.max_response_body_size,
         }
     }
@@ -36,7 +31,7 @@ impl<S> Layer<S> for ParallelBatchLayer {
 
 #[derive(Clone)]
 pub(super) struct ParallelBatchService<S> {
-    service: Arc<S>,
+    service: S,
     max_response_body_size: usize,
 }
 
@@ -64,47 +59,19 @@ where
     // Parallelized version of https://github.com/paritytech/jsonrpsee/blob/v0.26.0/server/src/middleware/rpc.rs#L151
     fn batch<'a>(&self, batch: Batch<'a>) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
         // Process batch in parallel instead of delegating to the inner service, which processes them sequentially.
-        const MAX_CONCURRENCY_ENV: &str = "FOREST_RPC_BATCH_MAX_CONCURRENCY";
-        static MAX_CONCURRENCY: LazyLock<NonZeroUsize> = LazyLock::new(|| {
-            std::env::var(MAX_CONCURRENCY_ENV)
-                .ok()
-                .and_then(|i| i.parse().ok())
-                .inspect(|i| {
-                    tracing::info!(
-                        "Max RPC batch concurrency is set to {i} by {MAX_CONCURRENCY_ENV}"
-                    )
-                })
-                .unwrap_or(nonzero!(8usize))
-        });
-        let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENCY.get()));
         let mut batch_rp = BatchResponseBuilder::new_with_limit(self.max_response_body_size);
         let mut got_notification = false;
         // Although it's not neccesary to perserve the order in response, we do it to avoid potential bugs on client side
         // See <https://www.jsonrpc.org/specification#:~:text=6%20Batch>
         let mut tasks = FuturesOrdered::new();
         for batch_entry in batch.into_iter() {
-            let service = self.service.shallow_clone();
-            let semaphore = semaphore.shallow_clone();
             match batch_entry {
                 Ok(BatchEntry::Call(req)) => {
-                    tasks.push_back(
-                        async move {
-                            let _permit = semaphore.acquire().await;
-                            service.call(req).map(Some).await
-                        }
-                        .boxed(),
-                    );
+                    tasks.push_back(self.service.call(req).map(Some).boxed());
                 }
                 Ok(BatchEntry::Notification(n)) => {
                     got_notification = true;
-                    tasks.push_back(
-                        async move {
-                            let _permit = semaphore.acquire().await;
-                            service.notification(n).await;
-                            None
-                        }
-                        .boxed(),
-                    );
+                    tasks.push_back(self.service.notification(n).map(|_| None).boxed());
                 }
                 Err(err) => {
                     let (err, id) = err.into_parts();
