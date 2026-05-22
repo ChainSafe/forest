@@ -69,6 +69,8 @@ Non-mandatory release for all node operators. It includes mostly fixes and perfo
 
 - [#7096](https://github.com/ChainSafe/forest/issues/7096): `eth_subscribe` `logs` now re-emits the logs of reorg-reverted tipsets with `removed: true`, ahead of the logs of the replacing tipsets.
 
+- [#6748](https://github.com/ChainSafe/forest/issues/6748): Fixed trace transaction api returns the correct error.
+
 ## Forest v0.33.7 "Shimmergloom"
 
 ### Added

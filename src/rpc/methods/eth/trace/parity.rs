@@ -33,8 +33,10 @@ use tracing::debug;
 /// Returns `true` if the invoked actor is an EVM contract or the Ethereum Account Manager.
 fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
     if let Some(invoked_actor) = &trace.invoked_actor {
-        is_evm_actor(&invoked_actor.state.code)
-            || invoked_actor.id != Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
+        let eam_actor_id = Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
+            .id()
+            .expect("EAM actor address should be an ID address");
+        is_evm_actor(&invoked_actor.state.code) || invoked_actor.id == eam_actor_id
     } else {
         false
     }
