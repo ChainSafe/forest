@@ -81,7 +81,7 @@ const INITIAL_PLEDGE_DEN: u64 = 100;
 pub enum StateCall {}
 
 impl StateCall {
-    pub fn run(
+    pub async fn run(
         state_manager: &StateManager,
         message: &Message,
         tsk: Option<TipsetKey>,
@@ -89,7 +89,7 @@ impl StateCall {
         let tipset = state_manager
             .chain_store()
             .load_required_tipset_or_heaviest(&tsk)?;
-        Ok(state_manager.call(message, Some(tipset))?)
+        Ok(state_manager.call(message, Some(tipset)).await?)
     }
 }
 
@@ -110,7 +110,7 @@ impl RpcMethod<2> for StateCall {
         (message, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(Self::run(&ctx.state_manager, &message, tsk)?)
+        Ok(Self::run(&ctx.state_manager, &message, tsk).await?)
     }
 }
 

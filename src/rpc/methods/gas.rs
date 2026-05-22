@@ -235,7 +235,7 @@ impl GasEstimateGasLimit {
         // Pretend that the message is signed. This has an influence on the gas
         // cost. We obviously can't generate a valid signature. Instead, we just
         // fill the signature with zeros. The validity is not checked.
-        let mut chain_msg = match from_a.protocol() {
+        let chain_msg: ChainMessage = match from_a.protocol() {
             Protocol::Secp256k1 => {
                 SignedMessage::new_unchecked(msg, Signature::new_secp256k1(vec![0; SECP_SIG_LEN]))
                     .into()
@@ -253,7 +253,7 @@ impl GasEstimateGasLimit {
         let (invoc_res, apply_ret, _, _) = data
             .state_manager
             .call_with_gas(
-                &mut chain_msg,
+                chain_msg,
                 &prior_messages,
                 Some(ts.shallow_clone()),
                 VMFlush::Skip,

@@ -170,6 +170,11 @@ pub struct StateManager {
     id_to_deterministic_address_cache: IdToAddressCache,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
+    /// Caps concurrent FVM tasks at `num_cpus`. Any code path that runs
+    /// `VM::new` or `vm.apply_message` MUST go through
+    /// [`StateManager::run_on_fvm_pool`] — bypassing this semaphore silently
+    /// un-throttles every other FVM caller.
+    fvm_concurrency: Arc<tokio::sync::Semaphore>,
 }
 
 impl ShallowClone for StateManager {
@@ -182,6 +187,7 @@ impl ShallowClone for StateManager {
                 .shallow_clone(),
             beacon: self.beacon.shallow_clone(),
             engine: self.engine.shallow_clone(),
+            fvm_concurrency: self.fvm_concurrency.shallow_clone(),
         }
     }
 }
@@ -205,6 +211,9 @@ impl StateManager {
     pub fn new_with_engine(cs: ChainStore, engine: Arc<MultiEngine>) -> anyhow::Result<Self> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(cs.chain_config().get_beacon_schedule(genesis.timestamp));
+        let cpus = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(8);
 
         Ok(Self {
             cs,
@@ -215,7 +224,35 @@ impl StateManager {
                 "id_to_deterministic_address",
                 DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE,
             ),
+            fvm_concurrency: Arc::new(tokio::sync::Semaphore::new(cpus)),
         })
+    }
+
+    /// Run a CPU-bound FVM closure on the blocking pool, throttled to
+    /// `num_cpus` concurrent invocations via this `StateManager`'s
+    /// `fvm_concurrency` semaphore.
+    pub(crate) async fn run_on_fvm_pool<F, R>(&self, f: F) -> Result<R, Error>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        let permit = self
+            .fvm_concurrency
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| Error::Other("FVM concurrency semaphore closed".to_string()))?;
+        // Tuple shape forces the closure to capture `permit`; dropping it
+        // becomes a compile error rather than a silent throttle loss.
+        let (result, _permit) = tokio::task::spawn_blocking(move || (f(), permit))
+            .await
+            .map_err(|e| {
+                if e.is_panic() {
+                    std::panic::resume_unwind(e.into_panic());
+                }
+                Error::Other(format!("FVM task join error: {e}"))
+            })?;
+        Ok(result)
     }
 
     /// Returns the currently tracked heaviest tipset.
