@@ -1893,7 +1893,7 @@ async fn gas_search(
         msg.gas_limit = limit;
         let (_invoc_res, apply_ret, _, _) = data
             .state_manager
-            .call_with_gas(&mut msg.into(), prior_messages, Some(ts), VMFlush::Skip)
+            .call_with_gas(msg.into(), prior_messages, Some(ts), VMFlush::Skip)
             .await?;
         Ok(apply_ret.msg_receipt().exit_code().is_success())
     }
@@ -2137,6 +2137,7 @@ async fn eth_get_code(
             match ctx
                 .state_manager
                 .call_on_state(state_root, &message, Some(ts))
+                .await
             {
                 Ok(res) => {
                     break 'invoc res;
@@ -2230,6 +2231,7 @@ async fn get_storage_at(
             match ctx
                 .state_manager
                 .call_on_state(state_root, &message, Some(ts))
+                .await
             {
                 Ok(res) => {
                     break 'invoc res;

@@ -149,7 +149,7 @@ impl StateManager {
         enable_tracing: VMTrace,
     ) -> Result<ExecutedTipset, Error> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || {
+        self.run_on_fvm_pool(move || {
             this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
         })
         .await?
@@ -198,7 +198,7 @@ impl StateManager {
         enable_tracing: VMTrace,
     ) -> Result<ExecutedTipset, Error> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || {
+        self.run_on_fvm_pool(move || {
             this.compute_state_blocking(height, messages, tipset, callback, enable_tracing)
         })
         .await?

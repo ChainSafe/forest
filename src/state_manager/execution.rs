@@ -15,7 +15,8 @@ impl StateManager {
     /// indicated message, assuming it was executed in the indicated tipset.
     pub async fn replay(&self, ts: Tipset, mcid: Cid) -> Result<ApiInvocResult, Error> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || this.replay_blocking(ts, mcid)).await?
+        self.run_on_fvm_pool(move || this.replay_blocking(ts, mcid))
+            .await?
     }
 
     /// Blocking version of `replay`
@@ -62,11 +63,8 @@ impl StateManager {
         target_message_cid: Cid,
     ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || {
-            this.replay_for_prestate_blocking(ts, target_message_cid)
-        })
-        .await
-        .map_err(|e| Error::Other(format!("{e}")))?
+        self.run_on_fvm_pool(move || this.replay_for_prestate_blocking(ts, target_message_cid))
+            .await?
     }
 
     fn replay_for_prestate_blocking(

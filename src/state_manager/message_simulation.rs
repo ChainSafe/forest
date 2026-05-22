@@ -95,15 +95,22 @@ impl StateManager {
 
     /// runs the given message and returns its result without any persisted
     /// changes.
-    pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error> {
+    pub async fn call(
+        &self,
+        message: &Message,
+        tipset: Option<Tipset>,
+    ) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let chain_rand = self.chain_rand(ts.shallow_clone());
-        self.call_raw(None, message, chain_rand, &ts)
+        let message = message.clone();
+        let this = self.shallow_clone();
+        self.run_on_fvm_pool(move || this.call_raw(None, &message, chain_rand, &ts))
+            .await?
     }
 
     /// Same as [`StateManager::call`] but runs the message on the given state and not
     /// on the parent state of the tipset.
-    pub fn call_on_state(
+    pub async fn call_on_state(
         &self,
         state_cid: Cid,
         message: &Message,
@@ -111,7 +118,10 @@ impl StateManager {
     ) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(ts.shallow_clone());
-        self.call_raw(Some(state_cid), message, chain_rand, &ts)
+        let message = message.clone();
+        let this = self.shallow_clone();
+        self.run_on_fvm_pool(move || this.call_raw(Some(state_cid), &message, chain_rand, &ts))
+            .await?
     }
 
     pub async fn apply_on_state_with_gas(
@@ -127,7 +137,7 @@ impl StateManager {
         // Pretend that the message is signed. This has an influence on the gas
         // cost. We obviously can't generate a valid signature. Instead, we just
         // fill the signature with zeros. The validity is not checked.
-        let mut chain_msg = match from_a.protocol() {
+        let chain_msg: ChainMessage = match from_a.protocol() {
             Protocol::Secp256k1 => SignedMessage::new_unchecked(
                 msg.clone(),
                 Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
@@ -144,7 +154,7 @@ impl StateManager {
         };
 
         let (_invoc_res, apply_ret, duration, state_root) = self
-            .call_with_gas(&mut chain_msg, &[], Some(ts), vm_flush)
+            .call_with_gas(chain_msg, &[], Some(ts), vm_flush)
             .await?;
 
         Ok((
@@ -166,7 +176,7 @@ impl StateManager {
     /// messages and returns the values computed in the VM.
     pub async fn call_with_gas(
         &self,
-        message: &mut ChainMessage,
+        message: ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
@@ -178,55 +188,62 @@ impl StateManager {
             .map_err(|e| Error::Other(format!("Could not load tipset state: {e:#}")))?;
         let chain_rand = self.chain_rand(ts.clone());
 
-        // Since we're simulating a future message, pretend we're applying it in the
-        // "next" tipset
+        // Simulate as if applied in the next tipset.
         let epoch = ts.epoch() + 1;
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
-        // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
-        // FVM, but that introduces some constraints, and possible deadlocks.
-        let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> anyhow::Result<_> {
-            let mut vm = VM::new(
-                ExecutionContext {
-                    heaviest_tipset: ts.clone(),
-                    state_tree_root: state_root,
-                    epoch,
-                    rand: Box::new(chain_rand),
-                    base_fee: ts.block_headers().first().parent_base_fee.clone(),
-                    circ_supply: genesis_info.get_vm_circulating_supply(
+        let chain_config = self.chain_config().shallow_clone();
+        let genesis_info = GenesisInfo::from_chain_config(chain_config.shallow_clone());
+        let chain_index = self.chain_index().shallow_clone();
+        let engine = self.engine.shallow_clone();
+        let base_fee = ts.block_headers().first().parent_base_fee.clone();
+        let timestamp = ts.min_timestamp();
+        let prior_messages: Vec<ChainMessage> = prior_messages.to_vec();
+
+        self.run_on_fvm_pool(move || -> Result<_, Error> {
+            // FVM requires a 64MiB stack; ThreadedExecutor is the alternative
+            // but adds constraints.
+            stacker::grow(64 << 20, move || -> anyhow::Result<_> {
+                let circ_supply =
+                    genesis_info.get_vm_circulating_supply(epoch, chain_index.db(), &state_root)?;
+                let mut vm = VM::new(
+                    ExecutionContext {
+                        heaviest_tipset: ts,
+                        state_tree_root: state_root,
                         epoch,
-                        self.chain_index().db(),
-                        &state_root,
-                    )?,
-                    chain_config: self.chain_config().shallow_clone(),
-                    chain_index: self.chain_index().shallow_clone(),
-                    timestamp: ts.min_timestamp(),
-                },
-                &self.engine,
-                VMTrace::NotTraced,
-            )?;
+                        rand: Box::new(chain_rand),
+                        base_fee,
+                        circ_supply,
+                        chain_config,
+                        chain_index,
+                        timestamp,
+                    },
+                    &engine,
+                    VMTrace::NotTraced,
+                )?;
 
-            for msg in prior_messages {
-                vm.apply_message(msg)?;
-            }
-            let from_actor = vm
-                .get_actor(&message.from())
-                .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
-                .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
+                for m in &prior_messages {
+                    vm.apply_message(m)?;
+                }
+                let mut message = message;
+                let from_actor = vm
+                    .get_actor(&message.from())
+                    .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
+                    .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
 
-            message.set_sequence(from_actor.sequence);
-            let (ret, duration) = vm.apply_message(message)?;
-            let state_root = match vm_flush {
-                VMFlush::Flush => Some(vm.flush()?),
-                VMFlush::Skip => None,
-            };
-            Ok((ret, duration, state_root))
-        })?;
-
-        Ok((
-            InvocResult::new(message.message().clone(), &ret),
-            ret,
-            duration,
-            state_cid,
-        ))
+                message.set_sequence(from_actor.sequence);
+                let (ret, duration) = vm.apply_message(&message)?;
+                let state_root = match vm_flush {
+                    VMFlush::Flush => Some(vm.flush()?),
+                    VMFlush::Skip => None,
+                };
+                Ok((
+                    InvocResult::new(message.message().clone(), &ret),
+                    ret,
+                    duration,
+                    state_root,
+                ))
+            })
+            .map_err(|e| Error::Other(format!("FVM execution failed: {e:#}")))
+        })
+        .await?
     }
 }
