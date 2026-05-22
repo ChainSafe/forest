@@ -31,6 +31,8 @@
 
 ### Added
 
+- [#6941](https://github.com/ChainSafe/forest/pull/6941): The `eth_subscribe` RPC method now supports the `pendingTransactions` subscription.
+
 - [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
 
 ### Changed

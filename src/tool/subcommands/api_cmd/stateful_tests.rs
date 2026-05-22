@@ -3,8 +3,8 @@
 use crate::eth::EVMMethod;
 use crate::message::SignedMessage;
 use crate::networks::calibnet::ETH_CHAIN_ID;
-use crate::rpc::eth::EthLog;
 use crate::rpc::eth::EthUint64;
+use crate::rpc::eth::pubsub_trait::SubscriptionKind;
 use crate::rpc::eth::types::*;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{self, RpcMethod, prelude::*};
@@ -173,12 +173,25 @@ pub(super) async fn run_tests(
     Ok(())
 }
 
+/// A client-side WebSocket stream to the node's JSON-RPC endpoint.
+type EthSubStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// Open a WebSocket to the node's JSON-RPC endpoint (`/rpc/v1`).
+/// Returns the live stream.
+async fn connect_ws(client: &rpc::Client) -> anyhow::Result<EthSubStream> {
+    let mut url = client.base_url().clone();
+    url.set_scheme("ws")
+        .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
+    url.set_path("/rpc/v1");
+    let (ws_stream, _) = connect_async(url.as_str()).await?;
+    Ok(ws_stream)
+}
+
 #[allow(unreachable_code)]
 async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     async fn close_channel(
-        stream: &mut tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
+        stream: &mut EthSubStream,
         id: &serde_json::Value,
     ) -> anyhow::Result<()> {
         let request = json!({
@@ -196,13 +209,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
         Ok(())
     }
 
-    let mut url = client.base_url().clone();
-    url.set_scheme("ws")
-        .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
-    url.set_path("/rpc/v1");
-
-    // Note: The token is not required for the ChainNotify method.
-    let (mut ws_stream, _) = connect_async(url.as_str()).await?;
+    let mut ws_stream = connect_ws(client).await?;
 
     let request = json!({
         "jsonrpc": "2.0",
@@ -360,29 +367,17 @@ async fn invoke_contract(client: &rpc::Client, tx: &TestTransaction) -> anyhow::
     Ok(cid)
 }
 
-/// A client-side WebSocket stream to the node's JSON-RPC endpoint.
-type EthSubStream =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
-
 /// Open a WebSocket and start an `eth_subscribe` subscription of the given
-/// `kind` (`"newHeads"`, `"pendingTransactions"` or `"logs"`), with optional
-/// `filter` params (used by `logs`). Returns the live stream and the assigned
-/// subscription id.
+/// `kind`, with optional `filter` params (used by `logs`). Returns the live
+/// stream and the assigned subscription id.
 async fn open_eth_subscription(
     client: &rpc::Client,
-    kind: &str,
+    kind: SubscriptionKind,
     filter: Option<serde_json::Value>,
 ) -> anyhow::Result<(EthSubStream, serde_json::Value)> {
-    let mut url = client.base_url().clone();
-    url.set_scheme("ws")
-        .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
-    url.set_path("/rpc/v1");
+    let mut ws_stream = connect_ws(client).await?;
 
-    // `eth_subscribe` requires only `Read` permission, so no auth token is
-    // needed (same as `Filecoin.ChainNotify`).
-    let (mut ws_stream, _) = connect_async(url.as_str()).await?;
-
-    let mut params = vec![json!(kind)];
+    let mut params = vec![serde_json::to_value(kind)?];
     params.extend(filter);
     let request = json!({
         "jsonrpc": "2.0",
@@ -481,8 +476,12 @@ async fn close_eth_subscription(
 
 fn eth_subscribe_new_heads() -> RpcTestScenario {
     RpcTestScenario::basic(|client| async move {
+        // Remember the chain head before subscribing so we can prove the head we
+        // receive is real, advancing — not stale or random data.
+        let start = client.call(EthBlockNumber::request(())?).await?;
+
         let (mut ws_stream, subscription_id) =
-            open_eth_subscription(&client, "newHeads", None).await?;
+            open_eth_subscription(&client, SubscriptionKind::NewHeads, None).await?;
 
         // A new head is published once per tipset (~30s on calibnet).
         let payload =
@@ -490,9 +489,24 @@ fn eth_subscribe_new_heads() -> RpcTestScenario {
                 .await;
 
         let _ = close_eth_subscription(&mut ws_stream, &subscription_id).await;
+        let payload = payload?;
 
-        serde_json::from_value::<ApiHeaders>(payload?)
+        // `newHeads` must yield a block-header object
+        anyhow::ensure!(
+            payload.is_object(),
+            "newHeads must yield a block-header object, got: {payload}"
+        );
+        let header: ApiHeaders = serde_json::from_value(payload)
             .context("newHeads payload is not a valid Eth block header")?;
+
+        // Identity: the header's number must be at or beyond the head seen at
+        // subscription time, proving it's a genuine fresh head.
+        anyhow::ensure!(
+            header.0.number.0 >= start.0 as i64,
+            "newHeads number {} precedes the head {} seen at subscription time",
+            header.0.number.0,
+            start.0
+        );
         Ok(())
     })
 }
@@ -502,7 +516,7 @@ fn eth_subscribe_pending_transactions(tx: TestTransaction) -> RpcTestScenario {
         let tx = tx.clone();
         async move {
             let (mut ws_stream, subscription_id) =
-                open_eth_subscription(&client, "pendingTransactions", None).await?;
+                open_eth_subscription(&client, SubscriptionKind::PendingTransactions, None).await?;
 
             // The subscription is active, so the pending tx we push now is observable.
             let cid = invoke_contract(&client, &tx).await?;
@@ -511,7 +525,7 @@ fn eth_subscribe_pending_transactions(tx: TestTransaction) -> RpcTestScenario {
                 .await?
                 .context("no Eth transaction hash for CID")?;
 
-            // Watch the pending-tx hashes until our transaction shows up.
+            // Watch pending-tx hashes until *our* transaction shows up.
             let outcome: anyhow::Result<()> = async {
                 loop {
                     let payload = next_subscription_payload(
@@ -520,8 +534,14 @@ fn eth_subscribe_pending_transactions(tx: TestTransaction) -> RpcTestScenario {
                         Duration::from_secs(120),
                     )
                     .await?;
+                    // a pending tx is a single hash string.
+                    anyhow::ensure!(
+                        payload.is_string(),
+                        "pendingTransactions must yield a tx-hash string, got: {payload}"
+                    );
                     let hash: EthHash = serde_json::from_value(payload)
                         .context("pendingTransactions payload is not an Eth hash")?;
+                    // Identity: it must be the exact tx we just submitted.
                     if hash == tx_hash {
                         break;
                     }
@@ -536,22 +556,32 @@ fn eth_subscribe_pending_transactions(tx: TestTransaction) -> RpcTestScenario {
     })
 }
 
+/// Minimal typed view of an `EthLog` for the fields the log test asserts on.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LogView {
+    topics: Vec<EthHash>,
+    transaction_hash: EthHash,
+}
+
 fn eth_subscribe_logs(tx: TestTransaction) -> RpcTestScenario {
     RpcTestScenario::basic(move |client| {
         let tx = tx.clone();
         async move {
-            // Filter on the test contract's event topic (topic position 0) and
-            // any address — mirrors the `eth_getFilterLogs` test.
-            let want_topic = tx.topic.to_string();
             let filter = json!({
                 "address": [],
-                "topics": [want_topic.clone()],
+                "topics": [tx.topic.to_string()],
             });
             let (mut ws_stream, subscription_id) =
-                open_eth_subscription(&client, "logs", Some(filter)).await?;
+                open_eth_subscription(&client, SubscriptionKind::Logs, Some(filter)).await?;
 
-            // The subscription is active; emit the event on-chain.
-            invoke_contract(&client, &tx).await?;
+            // Emit the event on-chain and remember the exact tx that produced it,
+            // so we can confirm the log we receive is `ours`
+            let cid = invoke_contract(&client, &tx).await?;
+            let tx_hash = client
+                .call(EthGetTransactionHashByCid::request((cid,))?)
+                .await?
+                .context("no Eth transaction hash for CID")?;
 
             // Logs are delivered when the tipset holding the event is applied,
             // which can take a few epochs (~30s each) on calibnet.
@@ -563,17 +593,17 @@ fn eth_subscribe_logs(tx: TestTransaction) -> RpcTestScenario {
                         Duration::from_secs(300),
                     )
                     .await?;
-                    // Validate the shape, then confirm our event topic is present.
-                    let logs: Vec<EthLog> = serde_json::from_value(payload.clone())
+                    anyhow::ensure!(
+                        payload.is_array(),
+                        "logs must yield a JSON array, got: {payload}"
+                    );
+                    let logs: Vec<LogView> = serde_json::from_value(payload)
                         .context("logs payload is not a list of Eth logs")?;
                     anyhow::ensure!(!logs.is_empty(), "received an empty logs notification");
-                    let matched = payload
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|log| log.get("topics").and_then(|t| t.as_array()))
-                        .flatten()
-                        .any(|t| t.as_str() == Some(want_topic.as_str()));
+                    // Identity: a log carrying our event topic and `our` tx hash.
+                    let matched = logs.iter().any(|log| {
+                        log.transaction_hash == tx_hash && log.topics.contains(&tx.topic)
+                    });
                     if matched {
                         break;
                     }
@@ -916,7 +946,8 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         with_methods!(
             eth_subscribe_logs(tx.clone()).name("eth_subscribe logs works"),
             EthSubscribe,
-            EthUnsubscribe
+            EthUnsubscribe,
+            EthGetTransactionHashByCid
         ),
     ]
 }

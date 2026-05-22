@@ -59,6 +59,7 @@
 //! ```
 //!
 
+use crate::blocks::Tipset;
 use crate::message_pool::MpoolUpdate;
 use crate::prelude::ShallowClone;
 use crate::rpc::RPCState;
@@ -101,20 +102,25 @@ impl EthPubSubApiServer for EthPubSub {
     }
 }
 
-fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
-    let head_rx = ctx.chain_store().subscribe_head_changes();
-    let stream = subscription_stream(head_rx)
+/// Stream of tipsets as they are applied to the chain head. Reverts are
+/// ignored; lagged events are dropped (and logged) by [`subscription_stream`].
+fn head_applied_tipsets(ctx: &Arc<RPCState>) -> impl Stream<Item = Tipset> + Send + use<> {
+    subscription_stream(ctx.chain_store().subscribe_head_changes())
         .flat_map(|changes| futures::stream::iter(changes.applies))
+}
+
+fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
+    let stream = head_applied_tipsets(&ctx)
         .filter_map(move |ts| {
-            let ctx = ctx.shallow_clone();
+            let state_mngr = ctx.state_manager.shallow_clone();
             async move {
-                match EthBlock::from_filecoin_tipset(&ctx.state_manager, ts, TxInfo::Full).await {
-                    Ok(block) => Some(ApiHeaders(block)),
-                    Err(e) => {
-                        tracing::error!("Failed to convert tipset to eth block: {e:#}");
-                        None
-                    }
-                }
+                EthBlock::from_filecoin_tipset(&state_mngr, ts, TxInfo::Full)
+                    .await
+                    .inspect_err(|e| {
+                        tracing::error!("Failed to convert tipset to eth block: {e:#}")
+                    })
+                    .ok()
+                    .map(ApiHeaders)
             }
         })
         .boxed();
@@ -122,21 +128,19 @@ fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
 }
 
 fn spawn_logs(sink: SubscriptionSink, ctx: Arc<RPCState>, filter: Option<EthFilterSpec>) {
-    let head_rx = ctx.chain_store().subscribe_head_changes();
-    let stream = subscription_stream(head_rx)
-        .flat_map(|changes| futures::stream::iter(changes.applies))
+    let stream = head_applied_tipsets(&ctx)
         .filter_map(move |ts| {
             let ctx = ctx.shallow_clone();
             let filter = filter.clone();
             async move {
-                match eth_logs_with_filter(&ctx, &ts, filter).await {
-                    Ok(logs) if !logs.is_empty() => Some(logs),
-                    Ok(_) => None,
-                    Err(e) => {
-                        tracing::error!("Failed to fetch logs for tipset {}: {e:#}", ts.key());
-                        None
-                    }
-                }
+                eth_logs_with_filter(&ctx, &ts, filter)
+                    .await
+                    .inspect_err(|e| {
+                        tracing::error!("Failed to fetch logs for tipset {}: {e:#}", ts.key())
+                    })
+                    .ok()
+                    // Skip tipsets with no matching logs — nothing to notify.
+                    .filter(|logs| !logs.is_empty())
             }
         })
         .boxed();
