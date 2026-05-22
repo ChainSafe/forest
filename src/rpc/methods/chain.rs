@@ -7,7 +7,7 @@ use types::*;
 #[cfg(test)]
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
-use crate::chain::index::ResolveNullTipset;
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
@@ -17,6 +17,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::eth::{
     Block as EthBlock, EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders,
@@ -1167,10 +1168,51 @@ impl ChainGetTipSetFinalityStatus {
         }
     }
 
-    fn get_ec_finality_threshold_depth_and_tipset(
-        ctx: &Ctx,
-        head: Tipset,
-    ) -> anyhow::Result<(i64, Option<Tipset>)> {
+    pub fn get_ec_finality_epoch(
+        chain_index: &ChainIndex,
+        chain_config: &ChainConfig,
+        head: &Tipset,
+    ) -> i64 {
+        let depth =
+            Self::get_ec_finality_threshold_depth_with_cache(chain_index, chain_config, head);
+        Self::get_ec_finality_epoch_by_depth(chain_config, head, depth)
+    }
+
+    fn get_ec_finality_epoch_by_depth(
+        chain_config: &ChainConfig,
+        head: &Tipset,
+        depth: i64,
+    ) -> i64 {
+        if depth >= 0 {
+            (head.epoch() - depth).max(0)
+        } else {
+            (head.epoch() - chain_config.policy.chain_finality).max(0)
+        }
+    }
+
+    fn get_ec_finality_threshold_depth_with_cache(
+        chain_index: &ChainIndex,
+        chain_config: &ChainConfig,
+        head: &Tipset,
+    ) -> i64 {
+        static CACHE: parking_lot::Mutex<Option<(Tipset, i64)>> = parking_lot::Mutex::new(None);
+        let mut cache = CACHE.lock();
+        if let Some((cached_head, cached_threshold)) = &*cache
+            && cached_head == head
+        {
+            *cached_threshold
+        } else {
+            let threshold = Self::get_ec_finality_threshold_depth(chain_index, chain_config, head);
+            *cache = Some((head.shallow_clone(), threshold));
+            threshold
+        }
+    }
+
+    fn get_ec_finality_threshold_depth(
+        chain_index: &ChainIndex,
+        chain_config: &ChainConfig,
+        head: &Tipset,
+    ) -> i64 {
         use crate::chain::ec_finality::calculator::{
             DEFAULT_BLOCKS_PER_EPOCH, DEFAULT_BYZANTINE_FRACTION, DEFAULT_GUARANTEE,
             find_threshold_depth,
@@ -1184,13 +1226,13 @@ impl ChainGetTipSetFinalityStatus {
         /// they consume array slots without advancing the meaningful epoch count.
         const FINALITY_CHAIN_EXTRA_EPOCHS: usize = 5;
 
-        let finality = ctx.chain_config().policy.chain_finality;
+        let finality = chain_config.policy.chain_finality;
         let chain_len = finality as usize + FINALITY_CHAIN_EXTRA_EPOCHS;
         let mut chain = Vec::with_capacity(chain_len);
         let mut ts = head.shallow_clone();
         while chain.len() < chain_len {
             chain.push(ts.len() as i64);
-            if let Ok(parent) = ctx.chain_index().load_required_tipset(ts.parents()) {
+            if let Ok(parent) = chain_index.load_required_tipset(ts.parents()) {
                 // insert 0 for null rounds
                 if let Ok(n_null_tipsets_to_pad) = usize::try_from(ts.epoch() - parent.epoch() - 1)
                     && n_null_tipsets_to_pad > 0
@@ -1206,7 +1248,7 @@ impl ChainGetTipSetFinalityStatus {
         }
         // Reverse to chronological order (oldest first).
         chain.reverse();
-        let depth = match find_threshold_depth(
+        match find_threshold_depth(
             &chain,
             finality,
             DEFAULT_BLOCKS_PER_EPOCH,
@@ -1220,23 +1262,25 @@ impl ChainGetTipSetFinalityStatus {
                 );
                 -1
             }
-        };
-        let finalized = if depth >= 0
-            && let Ok(Some(ts)) = ctx.chain_index().tipset_by_height(
-                (head.epoch() - depth).max(0),
-                head.shallow_clone(),
-                ResolveNullTipset::TakeOlder,
-            ) {
-            Some(ts)
-        } else {
-            let ec_finality_epoch =
-                (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
-            ctx.chain_index().tipset_by_height(
-                ec_finality_epoch,
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?
-        };
+        }
+    }
+
+    fn get_ec_finality_threshold_depth_and_tipset(
+        ctx: &Ctx,
+        head: Tipset,
+    ) -> anyhow::Result<(i64, Option<Tipset>)> {
+        let depth = Self::get_ec_finality_threshold_depth_with_cache(
+            ctx.chain_index(),
+            ctx.chain_config(),
+            &head,
+        );
+        let ec_finality_epoch =
+            Self::get_ec_finality_epoch_by_depth(ctx.chain_config(), &head, depth);
+        let finalized = ctx.chain_index().tipset_by_height(
+            ec_finality_epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?;
         Ok((depth, finalized))
     }
 }

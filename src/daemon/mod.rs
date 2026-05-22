@@ -812,22 +812,31 @@ fn warmup_in_background(ctx: &AppContext) {
     let cs = ctx.chain_store().shallow_clone();
     tokio::task::spawn_blocking(move || {
         let start = Instant::now();
-        match cs.chain_index().tipset_by_height(
-            // 0 would short-circuit the cache
-            1,
-            cs.heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        ) {
-            Ok(_) => {
-                tracing::info!(
-                    "Successfully populated tipset_by_height cache, took {}",
-                    humantime::format_duration(start.elapsed())
-                );
-            }
-            Err(e) => {
-                tracing::warn!("Failed to populate tipset_by_height cache: {e}");
-            }
+        let mut from = cs.heaviest_tipset();
+        let ec_calculator_finalized_epoch = cs.ec_calculator_finalized_epoch();
+        let warmup_epochs = (19..ec_calculator_finalized_epoch).step_by(20).collect_vec();
+        for epoch in warmup_epochs.into_iter().rev() {
+            tracing::info!("warming up tipset_by_height@{epoch}");
+            from = match cs.chain_index().tipset_by_height(
+                epoch,
+                from.shallow_clone(),
+                ResolveNullTipset::TakeOlder,
+            ) {
+                Ok(Some(ts)) => ts,
+                Ok(None) => {
+                    tracing::error!("tipset@{epoch} not found");
+                    continue;
+                }
+                Err(e) => {
+                    tracing::error!("failed to load tipset@{epoch}: {e}");
+                    continue;
+                }
+            };
         }
+        tracing::info!(
+            "Populated tipset_by_height cache, took {}",
+            humantime::format_duration(start.elapsed())
+        );
     });
 }
 
