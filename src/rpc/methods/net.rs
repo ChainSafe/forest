@@ -256,8 +256,7 @@ impl RpcMethod<1> for NetAgentVersion {
 pub enum NetAutoNatStatus {}
 impl RpcMethod<0> for NetAutoNatStatus {
     const NAME: &'static str = "Filecoin.NetAutoNatStatus";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the AutoNAT status of the node.");
+    const DESCRIPTION: Option<&'static str> = Some("Returns the AutoNAT status of the node.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;

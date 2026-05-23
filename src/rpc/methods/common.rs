@@ -33,8 +33,7 @@ impl RpcMethod<0> for Session {
 pub enum Version {}
 impl RpcMethod<0> for Version {
     const NAME: &'static str = "Filecoin.Version";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the version of the node and its API.");
+    const DESCRIPTION: Option<&'static str> = Some("Returns the version of the node and its API.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -61,8 +60,7 @@ impl RpcMethod<0> for Version {
 pub enum Shutdown {}
 impl RpcMethod<0> for Shutdown {
     const NAME: &'static str = "Filecoin.Shutdown";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Triggers a graceful shutdown of the node.");
+    const DESCRIPTION: Option<&'static str> = Some("Triggers a graceful shutdown of the node.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;

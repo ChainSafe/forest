@@ -537,8 +537,7 @@ impl RpcMethod<0> for ForestChainExportStatus {
 pub enum ForestChainExportCancel {}
 impl RpcMethod<0> for ForestChainExportCancel {
     const NAME: &'static str = "Forest.ChainExportCancel";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Cancels an in-progress chain export.");
+    const DESCRIPTION: Option<&'static str> = Some("Cancels an in-progress chain export.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
@@ -624,8 +623,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
 pub enum ChainExport {}
 impl RpcMethod<1> for ChainExport {
     const NAME: &'static str = "Filecoin.ChainExport";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Exports the chain state to a CAR file.");
+    const DESCRIPTION: Option<&'static str> = Some("Exports the chain state to a CAR file.");
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -949,8 +947,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
 pub enum ChainGetGenesis {}
 impl RpcMethod<0> for ChainGetGenesis {
     const NAME: &'static str = "Filecoin.ChainGetGenesis";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the genesis tipset of the chain.");
+    const DESCRIPTION: Option<&'static str> = Some("Returns the genesis tipset of the chain.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;

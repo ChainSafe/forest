@@ -42,8 +42,7 @@ impl RpcMethod<1> for WalletBalance {
 pub enum WalletDefaultAddress {}
 impl RpcMethod<0> for WalletDefaultAddress {
     const NAME: &'static str = "Filecoin.WalletDefaultAddress";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the default wallet address.");
+    const DESCRIPTION: Option<&'static str> = Some("Returns the default wallet address.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -64,8 +63,7 @@ impl RpcMethod<0> for WalletDefaultAddress {
 pub enum WalletExport {}
 impl RpcMethod<1> for WalletExport {
     const NAME: &'static str = "Filecoin.WalletExport";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Exports the key info for the given address.");
+    const DESCRIPTION: Option<&'static str> = Some("Exports the key info for the given address.");
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
@@ -185,8 +183,7 @@ impl RpcMethod<1> for WalletNew {
 pub enum WalletSetDefault {}
 impl RpcMethod<1> for WalletSetDefault {
     const NAME: &'static str = "Filecoin.WalletSetDefault";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Sets the default wallet address.");
+    const DESCRIPTION: Option<&'static str> = Some("Sets the default wallet address.");
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;

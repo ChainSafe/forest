@@ -705,8 +705,7 @@ impl F3GetLatestCertificate {
 
 impl RpcMethod<0> for F3GetLatestCertificate {
     const NAME: &'static str = "Filecoin.F3GetLatestCertificate";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the latest F3 finality certificate.");
+    const DESCRIPTION: Option<&'static str> = Some("Returns the latest F3 finality certificate.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -874,8 +873,7 @@ impl F3GetManifest {
 
 impl RpcMethod<0> for F3GetManifest {
     const NAME: &'static str = "Filecoin.F3GetManifest";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the current F3 manifest.");
+    const DESCRIPTION: Option<&'static str> = Some("Returns the current F3 manifest.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -970,8 +968,9 @@ impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
 pub enum F3Participate {}
 impl RpcMethod<1> for F3Participate {
     const NAME: &'static str = "Filecoin.F3Participate";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Enrolls the caller as a participant in the F3 protocol using the given lease ticket.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Enrolls the caller as a participant in the F3 protocol using the given lease ticket.",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["lease_ticket"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;

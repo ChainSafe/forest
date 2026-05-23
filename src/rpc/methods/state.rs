@@ -1208,8 +1208,9 @@ pub enum StateWaitMsgV0 {}
 
 impl RpcMethod<2> for StateWaitMsgV0 {
     const NAME: &'static str = "Filecoin.StateWaitMsg";
-    const DESCRIPTION: Option<&'static str> =
-        Some("Searches for a message on chain, blocking until it appears, then returns its receipt.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Searches for a message on chain, blocking until it appears, then returns its receipt.",
+    );
     const PARAM_NAMES: [&'static str; 2] = ["messageCid", "confidence"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
