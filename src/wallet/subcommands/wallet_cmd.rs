@@ -159,10 +159,8 @@ impl WalletBackend {
 
     async fn wallet_set_default(&mut self, address: Address) -> anyhow::Result<()> {
         if let Some(keystore) = &mut self.local {
-            let addr_string = format!("wallet-{address}");
-            let key_info = keystore.get(&addr_string)?;
-            keystore.remove("default")?; // This line should unregister current default key then continue
-            keystore.put("default", key_info)?;
+            let key_info = crate::key_management::try_find(&address, keystore)?;
+            keystore.set_default(key_info)?;
             Ok(())
         } else {
             Ok(WalletSetDefault::call(&self.remote, (address,)).await?)

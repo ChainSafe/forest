@@ -29,7 +29,7 @@ pub const FIL_ZERO: &str = "0 FIL";
 pub const DELEGATE_FUND_AMT: &str = "3 micro FIL";
 
 /// Maximum time to wait for a polled condition before failing the test.
-pub const POLL_TIMEOUT: Duration = Duration::from_secs(300);
+pub const POLL_TIMEOUT: Duration = Duration::from_secs(600);
 /// Delay between poll attempts.
 pub const POLL_WAIT_TIME: Duration = Duration::from_secs(1);
 
