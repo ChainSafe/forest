@@ -2447,13 +2447,13 @@ fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
 fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<RpcTest>> {
     let heaviest_tipset = store.heaviest_tipset()?;
     let chain_config = handle_chain_config(&NetworkChain::Calibnet)?;
-    let expensive_fork_epoch = chain_config
-        .height_infos
-        .values()
-        .filter(|info| info.expensive && info.epoch <= heaviest_tipset.epoch())
-        .map(|info| info.epoch)
-        .max()
-        .ok_or_else(|| anyhow::anyhow!("calibnet must define at least one expensive fork"))?;
+    let expensive_fork_epoch =
+        crate::state_migration::get_all_migrations::<crate::db::DbImpl>(&NetworkChain::Calibnet)
+            .iter()
+            .filter_map(|(h, _)| chain_config.height_infos.get(h).map(|info| info.epoch))
+            .filter(|epoch| *epoch <= heaviest_tipset.epoch())
+            .max()
+            .ok_or_else(|| anyhow::anyhow!("calibnet must define at least one expensive fork"))?;
 
     Ok(vec![
         RpcTest::identity(EthCall::request((

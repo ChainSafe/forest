@@ -53,51 +53,48 @@ pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 
 /// Height epochs.
 pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|| {
-    super::with_expensive_migrations(
-        NetworkChain::Mainnet,
-        HashMap::from_iter([
-            make_height!(Breeze, 41_280),
-            make_height!(Smoke, SMOKE_HEIGHT),
-            make_height!(Ignition, 94_000),
-            make_height!(Refuel, 130_800),
-            make_height!(Assembly, 138_720),
-            make_height!(Tape, 140_760),
-            make_height!(Liftoff, 148_888),
-            make_height!(Kumquat, 170_000),
-            make_height!(Calico, 265_200),
-            make_height!(Persian, 272_400),
-            make_height!(Orange, 336_458),
-            make_height!(Claus, 343_200),
-            make_height!(Trust, 550_321),
-            make_height!(Norwegian, 665_280),
-            make_height!(Turbo, 712_320),
-            make_height!(Hyperdrive, 892_800),
-            make_height!(Chocolate, 1_231_620),
-            make_height!(OhSnap, 1_594_680),
-            make_height!(Skyr, 1_960_320),
-            make_height!(Shark, 2_383_680, get_bundle_cid("v9.0.3")),
-            make_height!(Hygge, 2_683_348, get_bundle_cid("v10.0.0")),
-            make_height!(Lightning, 2_809_800, get_bundle_cid("v11.0.0")),
-            make_height!(Thunder, 2_809_800 + LIGHTNING_ROLLOVER_PERIOD),
-            make_height!(Watermelon, 3_469_380, get_bundle_cid("v12.0.0")),
-            // Thu Apr 24 02:00:00 PM UTC 2024
-            make_height!(Dragon, 3_855_360, get_bundle_cid("v13.0.0")),
-            make_height!(Phoenix, 3_855_480),
-            // Tue  6 Aug 12:00:00 UTC 2024
-            make_height!(Waffle, 4_154_640, get_bundle_cid("v14.0.0")),
-            // Wed 20 Nov 23:00:00 UTC 2024
-            make_height!(TukTuk, 4_461_240, get_bundle_cid("v15.0.0")),
-            // Mon 14 Apr 23:00:00 UTC 2025
-            make_height!(Teep, 4_878_840, get_bundle_cid("v16.0.1")),
-            // This epoch, 90 days after Teep is the completion of FIP-0100 where actors will start applying
-            // the new daily fee to pre-Teep sectors being extended.
-            make_height!(Tock, 4_878_840 + EPOCHS_IN_DAY * 90),
-            // Wed 24 Sep 23:00:00 UTC 2025
-            make_height!(GoldenWeek, 5_348_280, get_bundle_cid("v17.0.0")),
-            // Wed May 27 02:00:00 PM UTC 2026
-            make_height!(FireHorse, 6_052_800, get_bundle_cid("v18.0.0")),
-        ]),
-    )
+    HashMap::from_iter([
+        make_height!(Breeze, 41_280),
+        make_height!(Smoke, SMOKE_HEIGHT),
+        make_height!(Ignition, 94_000),
+        make_height!(Refuel, 130_800),
+        make_height!(Assembly, 138_720),
+        make_height!(Tape, 140_760),
+        make_height!(Liftoff, 148_888),
+        make_height!(Kumquat, 170_000),
+        make_height!(Calico, 265_200),
+        make_height!(Persian, 272_400),
+        make_height!(Orange, 336_458),
+        make_height!(Claus, 343_200),
+        make_height!(Trust, 550_321),
+        make_height!(Norwegian, 665_280),
+        make_height!(Turbo, 712_320),
+        make_height!(Hyperdrive, 892_800),
+        make_height!(Chocolate, 1_231_620),
+        make_height!(OhSnap, 1_594_680),
+        make_height!(Skyr, 1_960_320),
+        make_height!(Shark, 2_383_680, get_bundle_cid("v9.0.3")),
+        make_height!(Hygge, 2_683_348, get_bundle_cid("v10.0.0")),
+        make_height!(Lightning, 2_809_800, get_bundle_cid("v11.0.0")),
+        make_height!(Thunder, 2_809_800 + LIGHTNING_ROLLOVER_PERIOD),
+        make_height!(Watermelon, 3_469_380, get_bundle_cid("v12.0.0")),
+        // Thu Apr 24 02:00:00 PM UTC 2024
+        make_height!(Dragon, 3_855_360, get_bundle_cid("v13.0.0")),
+        make_height!(Phoenix, 3_855_480),
+        // Tue  6 Aug 12:00:00 UTC 2024
+        make_height!(Waffle, 4_154_640, get_bundle_cid("v14.0.0")),
+        // Wed 20 Nov 23:00:00 UTC 2024
+        make_height!(TukTuk, 4_461_240, get_bundle_cid("v15.0.0")),
+        // Mon 14 Apr 23:00:00 UTC 2025
+        make_height!(Teep, 4_878_840, get_bundle_cid("v16.0.1")),
+        // This epoch, 90 days after Teep is the completion of FIP-0100 where actors will start applying
+        // the new daily fee to pre-Teep sectors being extended.
+        make_height!(Tock, 4_878_840 + EPOCHS_IN_DAY * 90),
+        // Wed 24 Sep 23:00:00 UTC 2025
+        make_height!(GoldenWeek, 5_348_280, get_bundle_cid("v17.0.0")),
+        // Wed May 27 02:00:00 PM UTC 2026
+        make_height!(FireHorse, 6_052_800, get_bundle_cid("v18.0.0")),
+    ])
 });
 
 fn get_bundle_cid(version: &str) -> Cid {

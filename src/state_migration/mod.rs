@@ -3,10 +3,8 @@
 
 use std::sync::atomic::{self, AtomicBool};
 
-use ahash::HashMap;
-
-use crate::db::{BlockstoreWithWriteBuffer, DbImpl};
-use crate::networks::{ChainConfig, Height, HeightInfo, NetworkChain};
+use crate::db::BlockstoreWithWriteBuffer;
+use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
@@ -31,75 +29,108 @@ mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &DB, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
 
-pub fn get_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, RunMigration<DB>)>
+/// Returns the upgrade-height registry for the given network. `Some(f)` entries are implemented
+/// migrations; `None` entries are stubs for Lotus-`Expensive: true` heights that Forest has not
+/// implemented, kept here so [`crate::networks::ChainConfig::has_expensive_fork_between`] can
+/// refuse RPC calls spanning them.
+/// Use [`get_migrations`] when only implemented migrations are needed.
+pub fn get_all_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, Option<RunMigration<DB>>)>
 where
     DB: Blockstore + ShallowClone + Send + Sync,
 {
     match chain {
         NetworkChain::Mainnet => {
             vec![
-                (Height::Shark, nv17::run_migration::<DB>),
-                (Height::Hygge, nv18::run_migration::<DB>),
-                (Height::Lightning, nv19::run_migration::<DB>),
-                (Height::Watermelon, nv21::run_migration::<DB>),
-                (Height::Dragon, nv22::run_migration::<DB>),
-                (Height::Waffle, nv23::run_migration::<DB>),
-                (Height::TukTuk, nv24::run_migration::<DB>),
-                (Height::Teep, nv25::run_migration::<DB>),
-                (Height::GoldenWeek, nv27::run_migration::<DB>),
-                (Height::FireHorse, nv28::run_migration::<DB>),
+                (Height::Assembly, None),
+                (Height::Trust, None),
+                (Height::Turbo, None),
+                (Height::Hyperdrive, None),
+                (Height::Chocolate, None),
+                (Height::OhSnap, None),
+                (Height::Skyr, None),
+                (Height::Shark, Some(nv17::run_migration::<DB>)),
+                (Height::Hygge, Some(nv18::run_migration::<DB>)),
+                (Height::Lightning, Some(nv19::run_migration::<DB>)),
+                (Height::Watermelon, Some(nv21::run_migration::<DB>)),
+                (Height::Dragon, Some(nv22::run_migration::<DB>)),
+                (Height::Waffle, Some(nv23::run_migration::<DB>)),
+                (Height::TukTuk, Some(nv24::run_migration::<DB>)),
+                (Height::Teep, Some(nv25::run_migration::<DB>)),
+                (Height::GoldenWeek, Some(nv27::run_migration::<DB>)),
+                (Height::FireHorse, Some(nv28::run_migration::<DB>)),
             ]
         }
         NetworkChain::Calibnet => {
             vec![
-                (Height::Shark, nv17::run_migration::<DB>),
-                (Height::Hygge, nv18::run_migration::<DB>),
-                (Height::Lightning, nv19::run_migration::<DB>),
-                (Height::Watermelon, nv21::run_migration::<DB>),
-                (Height::WatermelonFix, nv21fix::run_migration::<DB>),
-                (Height::WatermelonFix2, nv21fix2::run_migration::<DB>),
-                (Height::Dragon, nv22::run_migration::<DB>),
-                (Height::DragonFix, nv22fix::run_migration::<DB>),
-                (Height::Waffle, nv23::run_migration::<DB>),
-                (Height::TukTuk, nv24::run_migration::<DB>),
-                (Height::Teep, nv25::run_migration::<DB>),
-                (Height::TockFix, nv26fix::run_migration::<DB>),
-                (Height::GoldenWeek, nv27::run_migration::<DB>),
-                (Height::FireHorse, nv28::run_migration::<DB>),
+                (Height::Assembly, None),
+                (Height::Trust, None),
+                (Height::Turbo, None),
+                (Height::Hyperdrive, None),
+                (Height::Chocolate, None),
+                (Height::OhSnap, None),
+                (Height::Skyr, None),
+                (Height::Shark, Some(nv17::run_migration::<DB>)),
+                (Height::Hygge, Some(nv18::run_migration::<DB>)),
+                (Height::Lightning, Some(nv19::run_migration::<DB>)),
+                (Height::Watermelon, Some(nv21::run_migration::<DB>)),
+                (Height::WatermelonFix, Some(nv21fix::run_migration::<DB>)),
+                (Height::WatermelonFix2, Some(nv21fix2::run_migration::<DB>)),
+                (Height::Dragon, Some(nv22::run_migration::<DB>)),
+                (Height::DragonFix, Some(nv22fix::run_migration::<DB>)),
+                (Height::Waffle, Some(nv23::run_migration::<DB>)),
+                (Height::TukTuk, Some(nv24::run_migration::<DB>)),
+                (Height::Teep, Some(nv25::run_migration::<DB>)),
+                (Height::TockFix, Some(nv26fix::run_migration::<DB>)),
+                (Height::GoldenWeek, Some(nv27::run_migration::<DB>)),
+                (Height::FireHorse, Some(nv28::run_migration::<DB>)),
             ]
         }
         NetworkChain::Butterflynet => {
-            vec![(Height::FireHorse, nv28::run_migration::<DB>)]
+            vec![
+                (Height::Assembly, None),
+                (Height::Trust, None),
+                (Height::Turbo, None),
+                (Height::Hyperdrive, None),
+                (Height::Chocolate, None),
+                (Height::OhSnap, None),
+                (Height::Skyr, None),
+                (Height::FireHorse, Some(nv28::run_migration::<DB>)),
+            ]
         }
         NetworkChain::Devnet(_) => {
             vec![
-                (Height::Shark, nv17::run_migration::<DB>),
-                (Height::Hygge, nv18::run_migration::<DB>),
-                (Height::Lightning, nv19::run_migration::<DB>),
-                (Height::Watermelon, nv21::run_migration::<DB>),
-                (Height::Dragon, nv22::run_migration::<DB>),
-                (Height::Waffle, nv23::run_migration::<DB>),
-                (Height::TukTuk, nv24::run_migration::<DB>),
-                (Height::Teep, nv25::run_migration::<DB>),
-                (Height::GoldenWeek, nv27::run_migration::<DB>),
-                (Height::FireHorse, nv28::run_migration::<DB>),
+                (Height::Assembly, None),
+                (Height::Trust, None),
+                (Height::Turbo, None),
+                (Height::Hyperdrive, None),
+                (Height::Chocolate, None),
+                (Height::OhSnap, None),
+                (Height::Skyr, None),
+                (Height::Shark, Some(nv17::run_migration::<DB>)),
+                (Height::Hygge, Some(nv18::run_migration::<DB>)),
+                (Height::Lightning, Some(nv19::run_migration::<DB>)),
+                (Height::Watermelon, Some(nv21::run_migration::<DB>)),
+                (Height::Dragon, Some(nv22::run_migration::<DB>)),
+                (Height::Waffle, Some(nv23::run_migration::<DB>)),
+                (Height::TukTuk, Some(nv24::run_migration::<DB>)),
+                (Height::Teep, Some(nv25::run_migration::<DB>)),
+                (Height::GoldenWeek, Some(nv27::run_migration::<DB>)),
+                (Height::FireHorse, Some(nv28::run_migration::<DB>)),
             ]
         }
     }
 }
 
-/// Marks each [`HeightInfo`] as expensive when its [`Height`] has a registered
-/// state migration for the given network chain.
-pub fn mark_expensive_migrations(
-    chain: &NetworkChain,
-    height_infos: &mut HashMap<Height, HeightInfo>,
-) {
-    let migrations = get_migrations::<DbImpl>(chain);
-    for (height, info) in height_infos.iter_mut() {
-        info.expensive = migrations
-            .iter()
-            .any(|(migration_height, _)| migration_height == height);
-    }
+/// Returns the implemented migrations for the given network (i.e. [`get_all_migrations`] with
+/// stub entries filtered out).
+pub fn get_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, RunMigration<DB>)>
+where
+    DB: Blockstore + ShallowClone + Send + Sync,
+{
+    get_all_migrations::<DB>(chain)
+        .into_iter()
+        .filter_map(|(h, migrate)| migrate.map(|f| (h, f)))
+        .collect()
 }
 
 /// Run state migrations

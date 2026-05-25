@@ -227,8 +227,6 @@ impl From<Height> for NetworkVersion {
 pub struct HeightInfo {
     pub epoch: ChainEpoch,
     pub bundle: Option<Cid>,
-    #[serde(default)]
-    pub expensive: bool,
 }
 
 pub struct HeightInfoWithActorManifest<'a> {
@@ -242,14 +240,6 @@ impl<'a> HeightInfoWithActorManifest<'a> {
     pub fn manifest(&self, store: &impl Blockstore) -> anyhow::Result<BuiltinActorManifest> {
         BuiltinActorManifest::load_manifest(store, &self.manifest_cid)
     }
-}
-
-fn with_expensive_migrations(
-    chain: NetworkChain,
-    mut height_infos: HashMap<Height, HeightInfo>,
-) -> HashMap<Height, HeightInfo> {
-    crate::state_migration::mark_expensive_migrations(&chain, &mut height_infos);
-    height_infos
 }
 
 #[derive(Clone)]
@@ -523,14 +513,19 @@ impl ChainConfig {
     }
 
     /// Returns true if executing between `parent` and `height` (exclusive of `height`) would
-    /// cross an expensive state migration.
+    /// cross an expensive state migration, as registered in
+    /// [`crate::state_migration::get_all_migrations`].
     pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
         if parent >= height {
             return false;
         }
-        self.height_infos
-            .values()
-            .any(|info| info.expensive && info.epoch >= parent && info.epoch < height)
+        crate::state_migration::get_all_migrations::<crate::db::DbImpl>(&self.network)
+            .iter()
+            .any(|(h, _)| {
+                self.height_infos
+                    .get(h)
+                    .is_some_and(|info| info.epoch >= parent && info.epoch < height)
+            })
     }
 
     pub async fn genesis_bytes<DB: SettingsStore>(
@@ -620,7 +615,6 @@ macro_rules! make_height {
             HeightInfo {
                 epoch: $epoch,
                 bundle: None,
-                expensive: false,
             },
         )
     };
@@ -630,7 +624,6 @@ macro_rules! make_height {
             HeightInfo {
                 epoch: $epoch,
                 bundle: Some(Cid::try_from($bundle).unwrap()),
-                expensive: false,
             },
         )
     };
