@@ -16,10 +16,10 @@ pub use bls_signatures::{PublicKey as PublicKeyOnG1, Signature as SignatureOnG2}
 const CSUITE_G1: &[u8] = b"BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_";
 const CSUITE_G2: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, derive_more::Deref)]
 pub struct PublicKeyOnG2(pub(crate) G2Projective);
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, derive_more::Deref)]
 pub struct SignatureOnG1(pub(crate) G1Affine);
 
 /// Ported from <https://docs.rs/bls-signatures/0.15.0/src/bls_signatures/signature.rs.html#214>
@@ -36,7 +36,7 @@ pub fn verify_messages_unchained(
         return true;
     }
 
-    let public_key: G2Affine = public_key.as_affine();
+    let public_key: G2Affine = public_key.to_affine();
     // zero key & single message should fail
     if n_messages == 1 && public_key.is_identity().into() {
         return false;

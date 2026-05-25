@@ -92,7 +92,7 @@ mod tests {
         let err = EthErrors::limit_exceeded(100, 500);
         let server_err: ServerError = err.into();
 
-        assert_eq!(server_err.inner().code(), LIMIT_EXCEEDED_CODE);
+        assert_eq!(server_err.code(), LIMIT_EXCEEDED_CODE);
         assert_eq!(
             server_err.message(),
             "block range exceeds maximum of 100 (got 500)"
@@ -105,7 +105,7 @@ mod tests {
         let anyhow_err: anyhow::Error = eth_err.into();
         let server_err: ServerError = anyhow_err.into();
 
-        assert_eq!(server_err.inner().code(), LIMIT_EXCEEDED_CODE);
+        assert_eq!(server_err.code(), LIMIT_EXCEEDED_CODE);
         assert_eq!(
             server_err.message(),
             "block range exceeds maximum of 2880 (got 5000)"

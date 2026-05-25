@@ -180,6 +180,7 @@ prometheus-client = "0.23"
 puruspe = "0.4"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.3"
+quick_cache = { version = "0.6", features = ["stats"] }
 rand = "0.8"
 rand_chacha = "0.3"
 rand_distr = "0.4"
@@ -239,7 +240,6 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
-quick_cache = "0.6"
 sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }

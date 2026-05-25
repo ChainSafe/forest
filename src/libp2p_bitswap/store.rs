@@ -5,7 +5,6 @@ use super::*;
 use ambassador::delegatable_trait;
 use multihash_derive::MultihashDigest;
 use std::marker::PhantomData;
-use std::ops::Deref;
 
 /// Trait implemented by a block store for reading.
 #[auto_impl::auto_impl(&, Arc)]
@@ -39,14 +38,6 @@ pub struct Block<H, const S: usize> {
     /// Binary data.
     data: Vec<u8>,
     _pd: PhantomData<H>,
-}
-
-impl<H, const S: usize> Deref for Block<H, S> {
-    type Target = Cid;
-
-    fn deref(&self) -> &Self::Target {
-        &self.cid
-    }
 }
 
 impl<H, const S: usize> PartialEq for Block<H, S> {

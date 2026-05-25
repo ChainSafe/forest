@@ -19,6 +19,7 @@ use tokio::sync::OwnedMutexGuard;
 ///
 /// See also [`NonceTracker`](super::NonceTracker), the inner nonce-specific
 /// lock.
+#[derive(derive_more::Deref)]
 pub struct MpoolLocker {
     inner: Mutex<HashMap<Address, Arc<tokio::sync::Mutex<()>>>>,
 }
@@ -35,7 +36,7 @@ impl MpoolLocker {
     /// held for the duration of the nonce-assign + sign + push critical section.
     pub async fn take_lock(&self, addr: Address) -> OwnedMutexGuard<()> {
         let mutex = {
-            let mut map = self.inner.lock();
+            let mut map = self.lock();
             map.retain(|_, v| Arc::strong_count(v) > 1);
             map.entry(addr)
                 .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
