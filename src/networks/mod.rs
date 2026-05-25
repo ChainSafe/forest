@@ -222,31 +222,6 @@ impl From<Height> for NetworkVersion {
     }
 }
 
-/// Checks if the given height is an expensive migration.
-/// See <https://github.com/filecoin-project/lotus/blob/master/chain/consensus/filcns/upgrades.go>
-pub const fn is_expensive_migration(height: Height) -> bool {
-    matches!(
-        height,
-        Height::Assembly
-            | Height::Trust
-            | Height::Turbo
-            | Height::Hyperdrive
-            | Height::Chocolate
-            | Height::OhSnap
-            | Height::Skyr
-            | Height::Shark
-            | Height::Hygge
-            | Height::Lightning
-            | Height::Watermelon
-            | Height::Dragon
-            | Height::Waffle
-            | Height::TukTuk
-            | Height::Teep
-            | Height::GoldenWeek
-            | Height::FireHorse
-    )
-}
-
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct HeightInfo {
@@ -267,6 +242,14 @@ impl<'a> HeightInfoWithActorManifest<'a> {
     pub fn manifest(&self, store: &impl Blockstore) -> anyhow::Result<BuiltinActorManifest> {
         BuiltinActorManifest::load_manifest(store, &self.manifest_cid)
     }
+}
+
+fn with_expensive_migrations(
+    chain: NetworkChain,
+    mut height_infos: HashMap<Height, HeightInfo>,
+) -> HashMap<Height, HeightInfo> {
+    crate::state_migration::mark_expensive_migrations(&chain, &mut height_infos);
+    height_infos
 }
 
 #[derive(Clone)]
@@ -637,7 +620,7 @@ macro_rules! make_height {
             HeightInfo {
                 epoch: $epoch,
                 bundle: None,
-                expensive: $crate::networks::is_expensive_migration(Height::$id),
+                expensive: false,
             },
         )
     };
@@ -647,7 +630,7 @@ macro_rules! make_height {
             HeightInfo {
                 epoch: $epoch,
                 bundle: Some(Cid::try_from($bundle).unwrap()),
-                expensive: $crate::networks::is_expensive_migration(Height::$id),
+                expensive: false,
             },
         )
     };
@@ -716,16 +699,6 @@ mod tests {
     #[test]
     fn test_mainnet_heights() {
         heights_are_present(&mainnet::HEIGHT_INFOS);
-    }
-
-    #[test]
-    fn height_info_expensive_flag_matches_is_expensive_migration() {
-        for height in Height::iter() {
-            let Some(info) = mainnet::HEIGHT_INFOS.get(&height) else {
-                continue;
-            };
-            assert_eq!(info.expensive, is_expensive_migration(height), "{height:?}");
-        }
     }
 
     #[test]

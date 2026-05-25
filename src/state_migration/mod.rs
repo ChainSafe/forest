@@ -3,8 +3,10 @@
 
 use std::sync::atomic::{self, AtomicBool};
 
-use crate::db::BlockstoreWithWriteBuffer;
-use crate::networks::{ChainConfig, Height, NetworkChain};
+use ahash::HashMap;
+
+use crate::db::{BlockstoreWithWriteBuffer, DbImpl};
+use crate::networks::{ChainConfig, Height, HeightInfo, NetworkChain};
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
@@ -83,6 +85,18 @@ where
                 (Height::FireHorse, nv28::run_migration::<DB>),
             ]
         }
+    }
+}
+
+pub fn mark_expensive_migrations(
+    chain: &NetworkChain,
+    height_infos: &mut HashMap<Height, HeightInfo>,
+) {
+    let migrations = get_migrations::<DbImpl>(chain);
+    for (height, info) in height_infos.iter_mut() {
+        info.expensive = migrations
+            .iter()
+            .any(|(migration_height, _)| migration_height == height);
     }
 }
 
