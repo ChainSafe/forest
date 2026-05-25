@@ -67,10 +67,18 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
     rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
 }
 
+/// Computes the minimum gas premium required to replace an existing message
+/// using [`REPLACE_BY_FEE_RATIO_MIN`].
+///
+/// See <https://github.com/filecoin-project/lotus/blob/v1.36.0/chain/messagepool/messagepool.go#L210-L213>
 pub(crate) fn compute_rbf_min_premium(premium: &TokenAmount) -> TokenAmount {
     (premium * REPLACE_BY_FEE_RATIO_MIN).div_floor(RBF_DENOM) + TokenAmount::from_atto(1u8)
 }
 
+/// Computes the gas premium required to replace an existing message
+/// using provided replace-by-fee ratio.
+///
+/// See <https://github.com/filecoin-project/lotus/blob/v1.36.0/chain/messagepool/messagepool.go#L215-L219>
 pub(crate) fn compute_rbf(premium: &TokenAmount, replace_by_fee_ratio: u64) -> TokenAmount {
     (premium * replace_by_fee_ratio).div_floor(RBF_DENOM) + TokenAmount::from_atto(1u8)
 }
