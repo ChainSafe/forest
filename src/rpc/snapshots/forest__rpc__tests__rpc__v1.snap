@@ -539,6 +539,20 @@ methods:
       schema:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
+  - name: Forest.BaseFeeByHeight
+    description: Returns the calculated upcoming base fee of the tipset at the given height in attoFIL
+    params:
+      - name: height
+        required: true
+        schema:
+          type: integer
+          format: int64
+    result:
+      name: Forest.BaseFeeByHeight.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthBigInt"
+    paramStructure: by-position
   - name: Filecoin.EthBlockNumber
     params: []
     result:
