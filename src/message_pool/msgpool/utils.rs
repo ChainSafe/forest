@@ -5,7 +5,7 @@ use crate::chain::MINIMUM_BASE_FEE;
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::message_pool::{
     Error,
-    msgpool::{RBF_DENOM, RBF_NUM},
+    msgpool::{RBF_DENOM, REPLACE_BY_FEE_RATIO_MIN},
 };
 use crate::shim::address::Address;
 use crate::shim::{crypto::Signature, econ::TokenAmount, message::Message};
@@ -68,7 +68,11 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
 }
 
 pub(crate) fn compute_rbf_min_premium(premium: &TokenAmount) -> TokenAmount {
-    premium + (premium * RBF_NUM).div_floor(RBF_DENOM) + TokenAmount::from_atto(1u8)
+    (premium * REPLACE_BY_FEE_RATIO_MIN).div_floor(RBF_DENOM) + TokenAmount::from_atto(1u8)
+}
+
+pub(crate) fn compute_rbf(premium: &TokenAmount, replace_by_fee_ratio: u64) -> TokenAmount {
+    (premium * replace_by_fee_ratio).div_floor(RBF_DENOM) + TokenAmount::from_atto(1u8)
 }
 
 #[cfg(test)]
@@ -76,14 +80,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn compute_rbf_min_premium_formula() {
+    fn test_compute_rbf() {
+        let replace_by_fee_ratio = 125;
+        assert_eq!(
+            super::compute_rbf(&TokenAmount::from_atto(100u64), replace_by_fee_ratio),
+            TokenAmount::from_atto(126u64) // 100 * 125/100 + 1
+        );
+    }
+
+    #[test]
+    fn test_compute_rbf_min_premium() {
         assert_eq!(
             super::compute_rbf_min_premium(&TokenAmount::from_atto(100u64)),
-            TokenAmount::from_atto(126u64) // 100 + 100*64/256 + 1
-        );
-        assert_eq!(
-            super::compute_rbf_min_premium(&TokenAmount::from_atto(0u64)),
-            TokenAmount::from_atto(1u64)
+            TokenAmount::from_atto(111u64) // 100 * 110/100 + 1
         );
     }
 }

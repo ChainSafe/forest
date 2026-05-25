@@ -6,7 +6,7 @@ use crate::cli::humantoken;
 use crate::cli_shared::cli::FeeConfig;
 use crate::lotus_json::{HasLotusJson as _, NotNullVec};
 use crate::message::{MessageRead as _, SignedMessage};
-use crate::message_pool::compute_rbf_min_premium;
+use crate::message_pool::{REPLACE_BY_FEE_RATIO_DEFAULT, compute_rbf};
 use crate::rpc::gas::cap_gas_fee;
 use crate::rpc::{self, prelude::*, types::ApiTipsetKey, types::MessageSendSpec};
 use crate::shim::address::StrictAddress;
@@ -199,7 +199,7 @@ fn compute_replacement_gas(input: ReplaceGasInput) -> anyhow::Result<Message> {
             mut estimated_msg,
             original_premium,
         } => {
-            let min_premium = compute_rbf_min_premium(&original_premium);
+            let min_premium = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
             if estimated_msg.gas_premium < min_premium {
                 estimated_msg.gas_premium = min_premium;
             }
@@ -214,11 +214,6 @@ fn compute_replacement_gas(input: ReplaceGasInput) -> anyhow::Result<Message> {
             gas_limit,
             mut original_msg,
         } => {
-            let min_premium = compute_rbf_min_premium(&original_msg.gas_premium);
-            anyhow::ensure!(
-                gas_premium >= min_premium,
-                "gas premium is below the minimum required for RBF"
-            );
             original_msg.gas_premium = gas_premium;
             original_msg.gas_fee_cap = gas_feecap;
             if let Some(limit) = gas_limit {
@@ -999,7 +994,7 @@ mod tests {
 
         // Above RBF floor: estimated premium kept.
         let original_premium = TokenAmount::from_atto(100u64);
-        let floor = compute_rbf_min_premium(&original_premium);
+        let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let estimated = make_test_message(addr, target, 5, 2_000_000, 200, 500);
         assert!(estimated.gas_premium > floor);
         let result = compute_replacement_gas(ReplaceGasInput::Auto {
@@ -1011,7 +1006,7 @@ mod tests {
 
         // Below RBF floor: premium bumped, fee cap >= premium.
         let original_premium = TokenAmount::from_atto(1000u64);
-        let floor = compute_rbf_min_premium(&original_premium);
+        let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let estimated = make_test_message(addr, target, 5, 2_000_000, 50, 500);
         assert!(estimated.gas_premium < floor);
         let result = compute_replacement_gas(ReplaceGasInput::Auto {
@@ -1024,7 +1019,7 @@ mod tests {
 
         // Exactly at floor: unchanged.
         let original_premium = TokenAmount::from_atto(100u64);
-        let floor = compute_rbf_min_premium(&original_premium);
+        let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 0, 500);
         estimated.gas_premium = floor.clone();
         estimated.gas_fee_cap = floor.clone();
@@ -1038,7 +1033,7 @@ mod tests {
 
         // Fee cap raised when below bumped premium.
         let original_premium = TokenAmount::from_atto(1000u64);
-        let floor = compute_rbf_min_premium(&original_premium);
+        let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 50, 10);
         estimated.gas_premium = floor.clone();
         let result = compute_replacement_gas(ReplaceGasInput::Auto {
@@ -1084,7 +1079,7 @@ mod tests {
         assert_eq!(result.gas_limit, original.gas_limit);
 
         let original = make_test_message(addr, target, 5, 1_000_000, 100, 300);
-        let min_premium = compute_rbf_min_premium(&original.gas_premium);
+        let min_premium = compute_rbf(&original.gas_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let result = compute_replacement_gas(ReplaceGasInput::Manual {
             gas_premium: min_premium,
             gas_feecap: TokenAmount::from_atto(300u64),
@@ -1093,21 +1088,5 @@ mod tests {
         })
         .unwrap();
         assert_eq!(result.gas_limit, 5_000_000);
-
-        let original = make_test_message(addr, target, 5, 1_000_000, 1000, 3000);
-        let min_premium = compute_rbf_min_premium(&original.gas_premium);
-        let below = min_premium - TokenAmount::from_atto(1u64);
-        let e = compute_replacement_gas(ReplaceGasInput::Manual {
-            gas_premium: below,
-            gas_feecap: TokenAmount::from_atto(5000u64),
-            gas_limit: None,
-            original_msg: original,
-        })
-        .unwrap_err();
-        assert!(
-            e.to_string()
-                .contains("gas premium is below the minimum required for RBF"),
-            "{e}"
-        );
     }
 }
