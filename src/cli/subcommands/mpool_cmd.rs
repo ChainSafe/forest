@@ -193,6 +193,10 @@ enum ReplaceGasInput {
     },
 }
 
+/// Computes auto/manual replacement gas values.
+///
+/// In auto mode, the gas premium is bumped to the RBF floor if needed.
+/// In manual mode, the provided gas premium and fee cap are used as-is.
 fn compute_replacement_gas(input: ReplaceGasInput) -> anyhow::Result<Message> {
     match input {
         ReplaceGasInput::Auto {
