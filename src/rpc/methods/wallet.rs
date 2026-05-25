@@ -189,7 +189,9 @@ impl RpcMethod<1> for WalletSetDefault {
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        crate::key_management::set_default(&address, &mut ctx.keystore.write())?;
+        let mut keystore = ctx.keystore.write();
+        let key_info = crate::key_management::try_find(&address, &keystore)?;
+        keystore.set_default(key_info)?;
         Ok(())
     }
 }

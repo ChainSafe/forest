@@ -159,7 +159,8 @@ impl WalletBackend {
 
     async fn wallet_set_default(&mut self, address: Address) -> anyhow::Result<()> {
         if let Some(keystore) = &mut self.local {
-            crate::key_management::set_default(&address, keystore)?;
+            let key_info = crate::key_management::try_find(&address, keystore)?;
+            keystore.set_default(key_info)?;
             Ok(())
         } else {
             Ok(WalletSetDefault::call(&self.remote, (address,)).await?)

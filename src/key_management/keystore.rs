@@ -330,6 +330,17 @@ impl KeyStore {
         Ok(())
     }
 
+    /// Insert or update the default `KeyInfo` stored in the `KeyStore`
+    pub fn set_default(&mut self, key_info: KeyInfo) -> Result<(), Error> {
+        self.key_info.insert("default".to_owned(), key_info);
+
+        if self.persistence.is_some() {
+            self.flush().map_err(|err| Error::Other(err.to_string()))?;
+        }
+
+        Ok(())
+    }
+
     /// Remove the key and corresponding `KeyInfo` from the `KeyStore`
     pub fn remove(&mut self, key: &str) -> anyhow::Result<KeyInfo> {
         let key_out = self.key_info.remove(key).ok_or(Error::KeyInfo)?;
@@ -517,5 +528,23 @@ mod test {
         // Read existing keystore.json
         let ks_read = KeyStore::new(KeyStoreConfig::Persistent(keystore_location)).unwrap();
         assert_eq!(ks, ks_read);
+    }
+
+    #[test]
+    fn test_set_default_replaces_and_persists() {
+        let keystore_location = tempfile::tempdir().unwrap().keep();
+        let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone())).unwrap();
+
+        let key_1 = wallet::generate_key(SignatureType::Secp256k1).unwrap();
+        let key_2 = wallet::generate_key(SignatureType::Bls).unwrap();
+
+        ks.set_default(key_1.key_info.clone()).unwrap();
+        assert_eq!(ks.get("default").unwrap(), key_1.key_info);
+
+        ks.set_default(key_2.key_info.clone()).unwrap();
+        assert_eq!(ks.get("default").unwrap(), key_2.key_info);
+
+        let ks_read = KeyStore::new(KeyStoreConfig::Persistent(keystore_location)).unwrap();
+        assert_eq!(ks_read.get("default").unwrap(), key_2.key_info);
     }
 }

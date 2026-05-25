@@ -120,7 +120,8 @@ impl Wallet {
 
     /// Set a default `KeyInfo` to the wallet
     pub fn set_default(&mut self, addr: Address) -> anyhow::Result<()> {
-        set_default(&addr, &mut self.keystore)?;
+        let key_info = try_find(&addr, &self.keystore)?;
+        self.keystore.set_default(key_info)?;
         Ok(())
     }
 
@@ -217,16 +218,6 @@ pub fn try_find(addr: &Address, keystore: &KeyStore) -> Result<KeyInfo, Error> {
 pub fn try_find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
     let ki = try_find(addr, keystore)?;
     ki.try_into()
-}
-
-/// Set the default key to the key identified by `addr`.
-pub fn set_default(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> {
-    let key_info = try_find(addr, keystore)?;
-    if keystore.get("default").is_ok() {
-        keystore.remove("default")?;
-    }
-    keystore.put("default", key_info)?;
-    Ok(())
 }
 
 /// Return `KeyInfo` for given address in `KeyStore`
@@ -483,6 +474,19 @@ mod tests {
         // check to make sure that the test_addr is actually the default addr for the
         // wallet
         assert_eq!(wallet.get_default().unwrap(), test_addr);
+    }
+
+    #[test]
+    fn set_default_replaces_existing_default() {
+        let mut wallet = generate_wallet();
+        let addr_1 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let addr_2 = wallet.generate_addr(SignatureType::Bls).unwrap();
+
+        // check to make sure that there is a default
+        assert_eq!(wallet.get_default().unwrap(), addr_1);
+        wallet.set_default(addr_2).unwrap();
+        // check to make sure that default is replaced
+        assert_eq!(wallet.get_default().unwrap(), addr_2);
     }
 
     #[test]
