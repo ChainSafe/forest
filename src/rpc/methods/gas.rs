@@ -223,7 +223,7 @@ impl GasEstimateGasLimit {
         let curr_ts = data.chain_store().load_required_tipset_or_heaviest(tsk)?;
         let from_a = data
             .state_manager
-            .resolve_to_key_addr(&msg.from, &curr_ts)
+            .resolve_to_deterministic_address(msg.from, &curr_ts)
             .await?;
 
         let pending = data.mpool.pending_for(&from_a);

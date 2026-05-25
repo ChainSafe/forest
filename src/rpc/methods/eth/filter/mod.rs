@@ -40,6 +40,7 @@ use crate::rpc::types::{Event, EventEntry};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::{Entry, StampedEvent};
+use crate::state_manager::StateManager;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset};
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
@@ -298,7 +299,8 @@ impl EthEventHandler {
         for tipset in tipsets {
             tasks.push_back(async move {
                 let mut events = vec![];
-                Self::collect_events(ctx, &tipset, spec, skip_event, &mut events).await?;
+                Self::collect_events(&ctx.state_manager, &tipset, spec, skip_event, &mut events)
+                    .await?;
                 anyhow::Ok(events)
             });
         }
@@ -319,7 +321,7 @@ impl EthEventHandler {
     }
 
     pub async fn collect_events(
-        ctx: &Ctx,
+        state_manager: &StateManager,
         tipset: &Tipset,
         spec: Option<&impl Matcher>,
         skip_event: SkipEvent,
@@ -330,7 +332,7 @@ impl EthEventHandler {
         let tipset_key = tipset.key();
         let ExecutedTipset {
             executed_messages, ..
-        } = ctx.state_manager.load_executed_tipset(tipset).await?;
+        } = state_manager.load_executed_tipset(tipset).await?;
         let mut resolved_id_addrs = HashMap::default();
         let mut event_count = 0;
         for (
@@ -362,8 +364,7 @@ impl EthEventHandler {
                     let resolved_opt = if let Some(r) = resolved_id_addrs.get(&emitter) {
                         *r
                     } else {
-                        let r = ctx
-                            .state_manager
+                        let r = state_manager
                             .resolve_to_deterministic_address(id_addr, tipset)
                             .await
                             .ok();
@@ -440,13 +441,25 @@ impl EthEventHandler {
         match &pf.tipsets {
             ParsedFilterTipsets::Hash(block_hash) => {
                 let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
-                Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
-                    .await?;
+                Self::collect_events(
+                    &ctx.state_manager,
+                    &tipset,
+                    Some(pf),
+                    skip_event,
+                    &mut collected_events,
+                )
+                .await?;
             }
             ParsedFilterTipsets::Key(tsk) => {
                 let tipset = ctx.chain_index().load_required_tipset(tsk)?;
-                Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
-                    .await?;
+                Self::collect_events(
+                    &ctx.state_manager,
+                    &tipset,
+                    Some(pf),
+                    skip_event,
+                    &mut collected_events,
+                )
+                .await?;
             }
             ParsedFilterTipsets::Range(range) => {
                 // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
