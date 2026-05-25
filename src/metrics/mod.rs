@@ -44,21 +44,6 @@ pub fn reset_collector_registry() {
     *collector_registry() = Default::default();
 }
 
-pub static CACHE_HIT: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
-    let metric = Family::default();
-    DEFAULT_REGISTRY
-        .write()
-        .register("cache_hit", "Cache hit count", metric.clone());
-    metric
-});
-pub static CACHE_MISS: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
-    let metric = Family::default();
-    DEFAULT_REGISTRY
-        .write()
-        .register("cache_miss", "Cache miss count", metric.clone());
-    metric
-});
-
 pub static RPC_METHOD_FAILURE: LazyLock<Family<RpcMethodLabel, Counter>> = LazyLock::new(|| {
     let metric = Family::default();
     DEFAULT_REGISTRY.write().register(
@@ -172,15 +157,6 @@ pub struct RpcMethodLabel {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet, derive_more::Constructor)]
 pub struct KindLabel {
     kind: &'static str,
-}
-
-pub mod values {
-    use super::KindLabel;
-
-    /// `TipsetCache`.
-    pub const TIPSET: KindLabel = KindLabel::new("tipset");
-    /// tipset cache in state manager
-    pub const STATE_MANAGER_TIPSET: KindLabel = KindLabel::new("sm_tipset");
 }
 
 pub fn default_histogram() -> Histogram {

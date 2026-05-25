@@ -20,7 +20,7 @@ pub trait CidHashSetLike {
 /// A hash set implemented as a `HashMap` where the value is `()`.
 ///
 /// See also [`HashSet`].
-#[derive(Default, Clone, Debug, PartialEq, Eq)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, derive_more::Deref)]
 pub struct CidHashSet {
     inner: CidHashMap<()>,
 }
@@ -40,29 +40,6 @@ impl CidHashSet {
     /// See also [`HashSet::insert`].
     pub fn insert(&mut self, cid: Cid) -> bool {
         self.inner.insert(cid, ()).is_none()
-    }
-
-    /// Returns the number of elements.
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    /// Returns `true` if the set contains a `Cid`.
-    #[allow(dead_code)]
-    pub fn contains(&self, cid: &Cid) -> bool {
-        self.inner.contains_key(cid)
-    }
-
-    /// Removes a `Cid` from the set. Returns whether the value was present in the set.
-    #[allow(dead_code)]
-    pub fn remove(&mut self, cid: &Cid) -> bool {
-        self.inner.remove(cid).is_some()
-    }
-
-    /// Returns `true` if the set is empty.
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
     }
 }
 
@@ -156,7 +133,7 @@ impl CidHashSetLike for FileBackedCidHashSet {
 
         let (col, key) = match &small {
             SmallCid::Inline(c) => (0, c.digest().to_vec()),
-            SmallCid::Indirect(u) => (1, u.inner().to_bytes()),
+            SmallCid::Indirect(u) => (1, u.to_bytes()),
         };
         if self.db.get(col, &key).ok().flatten().is_some() {
             self.lru.insert(small, ());

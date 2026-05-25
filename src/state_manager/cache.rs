@@ -4,31 +4,15 @@
 use crate::prelude::*;
 use crate::state_manager::DEFAULT_TIPSET_CACHE_SIZE;
 use crate::utils::cache::{CacheKeyConstraints, CacheValueConstraints, SizeTrackingCache};
-use prometheus_client::metrics::counter::Counter;
 use std::borrow::Cow;
-use std::future::Future;
 use std::num::NonZeroUsize;
-use std::sync::LazyLock;
-
-// Pre-resolved counter handles for the tipset cache labels. `Family::get_or_create`
-// locks the inner label map on every call, so we hoist the lookup to module init.
-// `Counter` is cheaply cloneable; clones share the atomic underneath.
-static TIPSET_HIT: LazyLock<Counter> = LazyLock::new(|| {
-    crate::metrics::CACHE_HIT
-        .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
-        .clone()
-});
-static TIPSET_MISS: LazyLock<Counter> = LazyLock::new(|| {
-    crate::metrics::CACHE_MISS
-        .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
-        .clone()
-});
 
 /// A cache that handles concurrent access and computation for tipset-related
 /// data. Coalesces concurrent computations of the same key, so only one caller
 /// actually runs the `compute` future and the rest wait on its result.
+#[derive(derive_more::Deref)]
 pub(crate) struct ForestCache<K: CacheKeyConstraints, V: CacheValueConstraints> {
-    cache: Arc<SizeTrackingCache<K, V>>,
+    cache: SizeTrackingCache<K, V>,
 }
 
 impl<K: CacheKeyConstraints, V: CacheValueConstraints> ShallowClone for ForestCache<K, V> {
@@ -49,38 +33,12 @@ impl<K: CacheKeyConstraints, V: CacheValueConstraints> ForestCache<K, V> {
         cache_size: NonZeroUsize,
     ) -> Self {
         Self {
-            cache: Arc::new(SizeTrackingCache::new_with_metrics(
-                cache_identifier,
-                cache_size,
-            )),
+            cache: SizeTrackingCache::new_with_metrics(cache_identifier, cache_size),
         }
-    }
-
-    pub async fn get_or_else<F, Fut>(&self, key: &K, compute: F) -> anyhow::Result<V>
-    where
-        F: FnOnce() -> Fut,
-        Fut: Future<Output = anyhow::Result<V>> + Send,
-        V: Send + Sync + 'static,
-    {
-        let (value, hit) = self.cache.get_or_compute(key, compute).await?;
-        if hit {
-            TIPSET_HIT.inc();
-        } else {
-            TIPSET_MISS.inc();
-        }
-        Ok(value)
     }
 
     pub fn get_map<T>(&self, key: &K, mapper: impl FnOnce(&V) -> T) -> Option<T> {
-        self.cache.get_map(key, mapper)
-    }
-
-    pub fn get(&self, key: &K) -> Option<V> {
-        self.cache.get_cloned(key)
-    }
-
-    pub fn remove(&self, key: &K) {
-        self.cache.remove(key);
+        self.cache.get(key).as_ref().map(mapper)
     }
 }
 
@@ -110,13 +68,13 @@ mod tests {
         let key = create_test_tipset_key(1);
 
         let result = cache
-            .get_or_else(&key, || async { Ok("computed_value".to_string()) })
+            .get_or_insert_async(&key, async { anyhow::Ok("computed_value".to_string()) })
             .await
             .unwrap();
         assert_eq!(result, "computed_value");
 
         let result = cache
-            .get_or_else(&key, || async { Ok("should_not_compute".to_string()) })
+            .get_or_insert_async(&key, async { anyhow::Ok("should_not_compute".to_string()) })
             .await
             .unwrap();
         assert_eq!(result, "computed_value");
@@ -136,12 +94,12 @@ mod tests {
 
             let handle = tokio::spawn(async move {
                 cache_clone
-                    .get_or_else(&key_clone, || {
+                    .get_or_insert_async(&key_clone, {
                         let count = Arc::clone(&count_clone);
                         async move {
                             count.fetch_add(1, Ordering::SeqCst);
                             tokio::time::sleep(Duration::from_millis(10)).await;
-                            Ok(format!("computed_value_{i}"))
+                            anyhow::Ok(format!("computed_value_{i}"))
                         }
                     })
                     .await
@@ -176,12 +134,12 @@ mod tests {
 
             let handle = tokio::spawn(async move {
                 cache_clone
-                    .get_or_else(&key, || {
+                    .get_or_insert_async(&key, {
                         let count = Arc::clone(&count_clone);
                         async move {
                             count.fetch_add(1, Ordering::SeqCst);
                             tokio::time::sleep(Duration::from_millis(5)).await;
-                            Ok(format!("value_{i}"))
+                            anyhow::Ok(format!("value_{i}"))
                         }
                     })
                     .await

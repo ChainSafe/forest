@@ -343,7 +343,7 @@ where
     /// Returns the public key type of
     /// address(`BLS`/`SECP256K1`) of an actor identified by `addr`,
     /// or its delegated address.
-    pub fn resolve_to_deterministic_addr(
+    pub fn resolve_to_deterministic_address(
         &self,
         store: &impl Blockstore,
         addr: Address,
@@ -355,17 +355,12 @@ where
                 let actor = self
                     .get_actor(&addr)?
                     .with_context(|| format!("failed to find actor: {addr}"))?;
-
-                // A workaround to implement `if state.Version() >= types.StateTreeVersion5`
-                // When state tree version is not available in rust APIs
-                if !matches!(self, Self::FvmV2(_) | Self::V0(_))
-                    && let Some(address) = actor.delegated_address
-                {
-                    return Ok(address.into());
+                if let Some(address) = actor.delegated_address {
+                    Ok(address.into())
+                } else {
+                    let account_state = account::State::load(store, actor.code, actor.state)?;
+                    Ok(account_state.pubkey_address())
                 }
-
-                let account_state = account::State::load(store, actor.code, actor.state)?;
-                Ok(account_state.pubkey_address())
             }
         }
     }

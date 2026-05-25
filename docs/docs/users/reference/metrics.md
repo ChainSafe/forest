@@ -9,8 +9,6 @@ title: Metrics
 | `libp2p_messsage_total`        | Counter   | Count        | Total number of `libp2p` messages by type                                                    |
 | `invalid_tipset_total`         | Counter   | Count        | Total number of invalid tipsets received over `gossipsub`                                    |
 | `head_epoch`                   | Gauge     | Epoch        | Latest epoch synchronized to the node                                                        |
-| `lru_cache_hit`                | Counter   | Count        | Stats of `lru` cache hit. Indexed by `kind`                                                  |
-| `lru_cache_miss`               | Counter   | Count        | Stats of `lru` cache miss. Indexed by `kind`                                                 |
 | `rpc_method_failure`           | Counter   | Count        | Number of failed RPC calls. Indexed by `method`                                              |
 | `rpc_processing_time`          | Histogram | Milliseconds | Duration of RPC method processing. Indexed by `method`                                       |
 | `peer_failure_total`           | Counter   | Count        | Total number of failed peer requests                                                         |
@@ -29,6 +27,11 @@ title: Metrics
 | `process_start_time_seconds`   | Gauge     | Seconds      | Time that the process started (in seconds since the UNIX epoch)                              |
 | `process_uptime_seconds`       | Counter   | Seconds      | Total time since the process started                                                         |
 | `libp2p_bandwidth_bytes_total` | Counter   | Bytes        | Bandwidth usage by direction and transport protocols. Indexed by `protocols` and `direction` |
+| `cache_{name}_size_bytes`      | Gauge     | Bytes        | Cache size in bytes                                                                          |
+| `cache_{name}_len`             | Gauge     | Count        | Cache entry count                                                                            |
+| `cache_{name}_cap`             | Gauge     | Count        | Cache entry capacity                                                                         |
+| `cache_{name}_hits`            | Counter   | Count        | Cache hit count                                                                              |
+| `cache_{name}_misses`          | Counter   | Count        | Cache miss count                                                                             |
 
 <details>
   <summary>Example `bitswap_message_count_total` output</summary>
@@ -71,16 +74,6 @@ bitswap_get_block_time_bucket{le="8.0"} 0
 bitswap_get_block_time_bucket{le="9.0"} 0
 bitswap_get_block_time_bucket{le="10.0"} 0
 bitswap_get_block_time_bucket{le="+Inf"} 0
-```
-</details>
-
-<details>
-  <summary>Example `lru_cache_miss` output</summary>
-```
-# HELP lru_cache_miss Stats of lru cache miss.
-# TYPE lru_cache_miss counter
-lru_cache_miss_total{kind="sm_tipset"} 37
-lru_cache_miss_total{kind="tipset"} 7046
 ```
 </details>
 
@@ -378,5 +371,27 @@ process_start_time_seconds 1742912218.100066
 # TYPE process_uptime_seconds counter
 # UNIT process_uptime_seconds seconds
 process_uptime_seconds_total 84.24605
+```
+</details>
+
+<details>
+  <summary>Example `cache_{name}_{type}` output</summary>
+```
+# HELP cache_tipset_size_bytes Size of cache tipset in bytes
+# TYPE cache_tipset_size_bytes gauge
+# UNIT cache_tipset_size_bytes bytes
+cache_tipset_size_bytes 10877000
+# HELP cache_tipset_len Length of cache tipset
+# TYPE cache_tipset_len gauge
+cache_tipset_len 2880
+# HELP cache_tipset_cap Capacity of cache tipset
+# TYPE cache_tipset_cap gauge
+cache_tipset_cap 2880
+# HELP cache_tipset_hits Cache hits of tipset
+# TYPE cache_tipset_hits gauge
+cache_tipset_hits 19795
+# HELP cache_tipset_misses Cache misses of tipset
+# TYPE cache_tipset_misses gauge
+cache_tipset_misses 39026
 ```
 </details>

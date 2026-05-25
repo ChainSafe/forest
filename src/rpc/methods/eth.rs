@@ -54,11 +54,11 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::cache::ForestCache;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, TipsetState, VMFlush};
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
+use crate::utils::get_size::big_int_heap_size_helper;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
@@ -478,9 +478,9 @@ impl Block {
         tipset: crate::blocks::Tipset,
         tx_info: TxInfo,
     ) -> Result<Arc<Self>> {
-        static ETH_BLOCK_HASH_TX_CACHE: LazyLock<ForestCache<CidWrapper, Arc<Block>>> =
+        static ETH_BLOCK_HASH_TX_CACHE: LazyLock<SizeTrackingCache<CidWrapper, Arc<Block>>> =
             LazyLock::new(|| {
-                ForestCache::with_size("eth_block_hash_tx", Block::block_cache_size())
+                SizeTrackingCache::new_with_metrics("eth_block_hash_tx", Block::block_cache_size())
             });
 
         match tx_info {
@@ -488,7 +488,7 @@ impl Block {
             TxInfo::Hash => {
                 let block_cid = tipset.key().cid()?;
                 ETH_BLOCK_HASH_TX_CACHE
-                    .get_or_else(&block_cid.into(), async move || {
+                    .get_or_insert_async(&CidWrapper::from(block_cid), async move {
                         let block_with_full_tx =
                             Self::from_filecoin_tipset_with_full_tx(state_manager, tipset).await?;
                         Ok(Arc::new(
@@ -505,14 +505,14 @@ impl Block {
         state_manager: &StateManager,
         tipset: crate::blocks::Tipset,
     ) -> Result<Arc<Self>> {
-        static ETH_BLOCK_FULL_TX_CACHE: LazyLock<ForestCache<CidWrapper, Arc<Block>>> =
+        static ETH_BLOCK_FULL_TX_CACHE: LazyLock<SizeTrackingCache<CidWrapper, Arc<Block>>> =
             LazyLock::new(|| {
-                ForestCache::with_size("eth_block_full_tx", Block::block_cache_size())
+                SizeTrackingCache::new_with_metrics("eth_block_full_tx", Block::block_cache_size())
             });
 
         let block_cid = tipset.key().cid()?;
         ETH_BLOCK_FULL_TX_CACHE
-            .get_or_else(&block_cid.into(), async move || {
+            .get_or_insert_async(&CidWrapper::from(block_cid), async move {
                 let parent_cid = tipset.parents().cid()?;
                 let block_number = EthInt64(tipset.epoch());
                 let block_hash: EthHash = block_cid.into();
@@ -1375,7 +1375,7 @@ pub async fn eth_logs_for_block_and_transaction(
     );
     let mut events = vec![];
     EthEventHandler::collect_events(
-        ctx,
+        &ctx.state_manager,
         ts,
         Some(&parsed_filter),
         SkipEvent::OnUnresolvedAddress,
@@ -1392,7 +1392,7 @@ pub async fn eth_logs_with_filter(
 ) -> anyhow::Result<Vec<EthLog>> {
     let mut events = vec![];
     EthEventHandler::collect_events(
-        ctx,
+        &ctx.state_manager,
         ts,
         spec.as_ref(),
         SkipEvent::OnUnresolvedAddress,

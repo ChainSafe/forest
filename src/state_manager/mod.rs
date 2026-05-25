@@ -27,7 +27,6 @@ use crate::chain::{
 };
 use crate::db::DbImpl;
 use crate::interpreter::MessageCallbackCtx;
-use crate::interpreter::resolve_to_key_addr;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::ChainMessage;
 use crate::networks::ChainConfig;
@@ -59,8 +58,8 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use tracing::warn;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
-const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
+const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
 
@@ -382,7 +381,7 @@ impl StateManager {
         let state = StateTree::new_from_root(self.db(), &state_cid).map_err(Error::other)?;
         let ms: miner::State = state.get_actor_state_from_address(addr)?;
         let info = ms.info(self.db()).map_err(|e| e.to_string())?;
-        let addr = resolve_to_key_addr(&state, self.db(), &info.worker())?;
+        let addr = state.resolve_to_deterministic_address(self.db(), info.worker())?;
         Ok(addr)
     }
 
