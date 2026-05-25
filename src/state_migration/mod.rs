@@ -88,6 +88,8 @@ where
     }
 }
 
+/// Marks each [`HeightInfo`] as expensive when its [`Height`] has a registered
+/// state migration for the given network chain.
 pub fn mark_expensive_migrations(
     chain: &NetworkChain,
     height_infos: &mut HashMap<Height, HeightInfo>,
