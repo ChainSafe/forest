@@ -218,7 +218,7 @@ impl RpcMethod<2> for WalletSign {
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
             .state_manager
-            .resolve_to_key_addr(&address, &heaviest_tipset)
+            .resolve_to_deterministic_address(address, &heaviest_tipset)
             .await?;
         let keystore = ctx.keystore.read();
         let key = crate::key_management::try_find_key(&key_addr, &keystore)?;

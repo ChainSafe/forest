@@ -33,7 +33,7 @@ impl RpcMethod<1> for SyncCheckBad {
             .bad_blocks
             .as_ref()
             .context("bad block cache is disabled")?
-            .peek(&cid)
+            .get(&cid)
             .map(|_| "bad".to_string())
             .unwrap_or_default())
     }

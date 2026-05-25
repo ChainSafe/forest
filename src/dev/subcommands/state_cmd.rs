@@ -274,5 +274,6 @@ impl ReplayValidateCommand {
 fn disable_tipset_cache() {
     unsafe {
         std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1");
+        std::env::set_var("FOREST_TIPSET_LOOKUP_TABLE_DISABLED", "1");
     }
 }

@@ -174,7 +174,7 @@ pub mod tests {
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
         let cid = signed.cid();
-        pool.caches.sig_val.push(cid.into(), ());
+        pool.caches.sig_val.insert(cid.into(), ());
         signed
     }
 

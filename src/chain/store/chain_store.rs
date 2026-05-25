@@ -341,7 +341,13 @@ impl ChainStore {
             .messages_in_tipset_cache()
             .get_or_insert_with(ts.key(), || {
                 let bmsgs = BlockMessages::for_tipset(self.db(), ts)?;
-                Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect_vec())
+                anyhow::Ok(
+                    bmsgs
+                        .into_iter()
+                        .flat_map(|bm| bm.messages)
+                        .collect_vec()
+                        .into(),
+                )
             })?)
     }
 
@@ -589,47 +595,21 @@ where
 /// on performance measurements, is resource-intensive and can be a bottleneck for certain
 /// use-cases. This cache is intended to be used with a complementary function;
 /// [`messages_for_tipset_with_cache`].
-pub struct MessagesInTipsetCache {
-    cache: SizeTrackingCache<TipsetKey, Arc<Vec<ChainMessage>>>,
-}
+#[derive(derive_more::Deref)]
+pub struct MessagesInTipsetCache(SizeTrackingCache<TipsetKey, Arc<Vec<ChainMessage>>>);
 
 impl MessagesInTipsetCache {
     pub fn new(capacity: NonZeroUsize) -> Self {
-        Self {
-            cache: SizeTrackingCache::new_with_metrics("msg_in_tipset", capacity),
-        }
-    }
-
-    pub fn get(&self, key: &TipsetKey) -> Option<Arc<Vec<ChainMessage>>> {
-        self.cache.get_cloned(key)
-    }
-
-    pub fn get_or_insert_with<F>(
-        &self,
-        key: &TipsetKey,
-        f: F,
-    ) -> anyhow::Result<Arc<Vec<ChainMessage>>>
-    where
-        F: FnOnce() -> anyhow::Result<Vec<ChainMessage>>,
-    {
-        if let Some(cached) = self.get(key) {
-            Ok(cached)
-        } else {
-            Ok(self.insert(key.clone(), f()?))
-        }
-    }
-
-    pub fn insert(&self, key: TipsetKey, mut value: Vec<ChainMessage>) -> Arc<Vec<ChainMessage>> {
-        value.shrink_to_fit();
-        let value = Arc::new(value);
-        self.cache.push(key, value.clone());
-        value
+        Self(SizeTrackingCache::new_with_metrics(
+            "msg_in_tipset",
+            capacity,
+        ))
     }
 
     /// Reads the intended cache size for this process from the environment or uses the default.
     fn read_cache_size() -> NonZeroUsize {
         // Arbitrary number, can be adjusted
-        const DEFAULT: NonZeroUsize = nonzero!(1024usize);
+        const DEFAULT: NonZeroUsize = nonzero!(8192usize);
         std::env::var("FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE")
             .ok()
             .and_then(|s| s.parse().ok())
@@ -645,9 +625,7 @@ impl Default for MessagesInTipsetCache {
 
 impl ShallowClone for MessagesInTipsetCache {
     fn shallow_clone(&self) -> Self {
-        Self {
-            cache: self.cache.shallow_clone(),
-        }
+        Self(self.deref().shallow_clone())
     }
 }
 
@@ -736,20 +714,20 @@ mod tests {
         )]);
         assert!(cache.get(&key1).is_none());
 
-        let msgs = vec![Message::default().into()];
+        let msgs = Arc::new(vec![Message::default().into()]);
         cache.insert(key1.clone(), msgs.clone());
-        assert_eq!(&msgs, &*cache.get(&key1).unwrap());
+        assert_eq!(&msgs, &cache.get(&key1).unwrap());
 
         let inserter_executed: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
         let key_inserter = || {
             inserter_executed.store(true, std::sync::atomic::Ordering::Relaxed);
-            Ok(msgs.clone())
+            anyhow::Ok(msgs.clone())
         };
 
         assert_eq!(
             &msgs,
-            &*cache.get_or_insert_with(&key1, key_inserter).unwrap()
+            &cache.get_or_insert_with(&key1, key_inserter).unwrap()
         );
         assert!(!inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
 
@@ -761,7 +739,7 @@ mod tests {
         assert!(cache.get(&key2).is_none());
         assert_eq!(
             &msgs,
-            &*cache.get_or_insert_with(&key2, key_inserter).unwrap()
+            &cache.get_or_insert_with(&key2, key_inserter).unwrap()
         );
         assert!(inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
     }

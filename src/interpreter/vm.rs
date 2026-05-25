@@ -8,10 +8,7 @@ use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
 use crate::chain::store::Error;
 use crate::db::DbImpl;
-use crate::interpreter::{
-    fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3,
-    fvm4::ForestExterns as ForestExternsV4,
-};
+use crate::interpreter::{fvm2::ForestExternsV2, fvm3::ForestExternsV3, fvm4::ForestExternsV4};
 use crate::message::ChainMessage;
 use crate::message::MessageRead as _;
 use crate::networks::{ChainConfig, NetworkChain};
@@ -21,7 +18,7 @@ use crate::shim::{
     address::Address,
     econ::TokenAmount,
     executor::{ApplyRet, Receipt, StampedEvent},
-    externs::{Rand, RandWrapper},
+    externs::Rand,
     machine::MultiEngine,
     message::{Message, Message_v3},
     state_tree::ActorState,
@@ -197,7 +194,7 @@ impl VM {
                 &context,
                 chain_index.db().shallow_clone(),
                 ForestExternsV4::new(
-                    RandWrapper::from(rand),
+                    rand,
                     heaviest_tipset,
                     epoch,
                     state_tree_root,
@@ -225,7 +222,7 @@ impl VM {
                 &context,
                 chain_index.db().shallow_clone(),
                 ForestExternsV3::new(
-                    RandWrapper::from(rand),
+                    rand,
                     heaviest_tipset,
                     epoch,
                     state_tree_root,
@@ -248,7 +245,7 @@ impl VM {
                 &context,
                 chain_index.db().shallow_clone(),
                 ForestExternsV2::new(
-                    RandWrapper::from(rand),
+                    rand,
                     heaviest_tipset,
                     epoch,
                     state_tree_root,

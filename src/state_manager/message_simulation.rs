@@ -5,14 +5,11 @@ use super::circulating_supply::GenesisInfo;
 use super::utils::structured;
 use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
-use crate::message::{MessageRead as _, MessageReadWrite as _, SignedMessage};
+use crate::message::{MessageRead as _, MessageReadWrite as _};
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
-use crate::shim::address::Protocol;
-use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::Message;
 use crate::state_migration::run_state_migrations;
-use fvm_shared4::crypto::signature::SECP_SIG_LEN;
 use std::time::Duration;
 use tracing::instrument;
 
@@ -157,26 +154,8 @@ impl StateManager {
     ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
-        let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
-
-        // Pretend that the message is signed. This has an influence on the gas
-        // cost. We obviously can't generate a valid signature. Instead, we just
-        // fill the signature with zeros. The validity is not checked.
-        let mut chain_msg = match from_a.protocol() {
-            Protocol::Secp256k1 => SignedMessage::new_unchecked(
-                msg.clone(),
-                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
-            )
-            .into(),
-            Protocol::Delegated => SignedMessage::new_unchecked(
-                msg.clone(),
-                // In Lotus, delegated signatures have the same length as SECP256k1.
-                // This may or may not change in the future.
-                Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
-            )
-            .into(),
-            _ => msg.clone().into(),
-        };
+        let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
+        let mut chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
 
         let (_invoc_res, apply_ret, duration, state_root) = self
             .call_with_gas(&mut chain_msg, &[], Some(ts), vm_flush)

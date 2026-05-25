@@ -11,6 +11,12 @@ use num_bigint::BigInt;
 pub struct CidWrapper(pub Cid);
 impl GetSize for CidWrapper {}
 
+impl quick_cache::Equivalent<CidWrapper> for Cid {
+    fn equivalent(&self, other: &CidWrapper) -> bool {
+        self == &other.0
+    }
+}
+
 macro_rules! impl_vec_alike_heap_size_with_fn_helper {
     ($name:ident, $t:ty, $get_stack_size: expr, $get_heap_size: expr) => {{
         let mut heap_size = 0;

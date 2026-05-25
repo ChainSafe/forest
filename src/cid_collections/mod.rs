@@ -104,17 +104,13 @@ mod imp {
         }
     }
 
-    #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, GetSize)]
+    #[derive(
+        Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, GetSize, derive_more::Deref,
+    )]
     #[repr(transparent)]
     pub struct Uncompactable {
         #[get_size(ignore)]
         inner: Cid,
-    }
-
-    impl Uncompactable {
-        pub fn inner(&self) -> &Cid {
-            &self.inner
-        }
     }
 
     /// [`Uncompactable`] can only be created through [`MaybeCompactedCid`], since
