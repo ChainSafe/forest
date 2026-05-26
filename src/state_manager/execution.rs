@@ -220,7 +220,31 @@ impl StateManager {
         )
     }
 
-    pub fn execution_trace(&self, tipset: &Tipset) -> anyhow::Result<(Cid, Vec<ApiInvocResult>)> {
+    pub async fn execution_trace(
+        &self,
+        tipset: &Tipset,
+    ) -> anyhow::Result<(Cid, Vec<Arc<ApiInvocResult>>)> {
+        let key = tipset.key();
+        let (state_root, invoc_trace) = self
+            .trace_cache
+            .get_or_insert_async(key, {
+                let this = self.shallow_clone();
+                let tipset = tipset.shallow_clone();
+                async move {
+                    tokio::task::spawn_blocking(move || this.execution_trace_inner(&tipset))
+                        .await
+                        .context("tokio join error")
+                        .flatten()
+                }
+            })
+            .await?;
+        Ok((state_root.into(), invoc_trace))
+    }
+
+    fn execution_trace_inner(
+        &self,
+        tipset: &Tipset,
+    ) -> anyhow::Result<(CidWrapper, Vec<Arc<ApiInvocResult>>)> {
         let mut invoc_trace = vec![];
 
         let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
@@ -228,7 +252,7 @@ impl StateManager {
         let callback = |ctx: MessageCallbackCtx<'_>| {
             match ctx.at {
                 CalledAt::Applied | CalledAt::Reward => {
-                    invoc_trace.push(ApiInvocResult {
+                    invoc_trace.push(Arc::new(ApiInvocResult {
                         msg_cid: ctx.message.cid(),
                         msg: ctx.message.message().clone(),
                         msg_rct: Some(ctx.apply_ret.msg_receipt()),
@@ -237,7 +261,7 @@ impl StateManager {
                         gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
                         execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
                             .unwrap_or_default(),
-                    });
+                    }));
                     Ok(())
                 }
                 _ => Ok(()), // ignored
@@ -255,6 +279,6 @@ impl StateManager {
             VMTrace::Traced,
         )?;
 
-        Ok((state_root, invoc_trace))
+        Ok((state_root.into(), invoc_trace))
     }
 }

@@ -59,6 +59,13 @@ pub fn big_int_heap_size_helper(b: &BigInt) -> usize {
     b.bits().div_ceil(8) as usize
 }
 
+pub fn raw_bytes_heap_size_helper(b: &fvm_ipld_encoding::RawBytes) -> usize {
+    // Note: this is a cheap but inaccurate estimation,
+    // the correct implementation should be `Vec<u8>.from(b.clone()).get_heap_size()`,
+    // or `b.bytes.get_heap_size()` if `bytes` is made public.
+    b.bytes().get_heap_size()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -4,19 +4,20 @@
 use crate::blocks::TipsetKey;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::MessageRead as _;
-use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     econ::TokenAmount,
     error::ExitCode,
-    executor::Receipt,
+    executor::{ApplyRet, Receipt},
     fvm_latest::trace::IpldOperation,
     message::Message,
     state_tree::{ActorID, ActorState},
 };
+use crate::utils::get_size::raw_bytes_heap_size_helper;
 use cid::Cid;
 use fvm_ipld_encoding::RawBytes;
+use get_size2::GetSize;
 use num::Zero as _;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
@@ -49,11 +50,12 @@ pub struct ForestComputeStateOutput {
 
 lotus_json_with_self!(ForestComputeStateOutput);
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Cid>")]
+    #[get_size(ignore)]
     pub msg_cid: Cid,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Message>")]
@@ -81,11 +83,12 @@ impl PartialEq for ApiInvocResult {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageGasCost {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Option<Cid>>")]
+    #[get_size(ignore)]
     pub message: Option<Cid>,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<TokenAmount>")]
@@ -151,6 +154,7 @@ impl MessageGasCost {
     DeserializeFromStr,
     strum::Display,
     strum::EnumString,
+    GetSize,
 )]
 #[strum(serialize_all = "PascalCase")]
 pub enum TraceIpldOp {
@@ -183,19 +187,20 @@ impl From<IpldOperation> for TraceIpldOp {
 }
 
 /// IPLD operation details attached to an [`ExecutionTrace`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct TraceIpld {
     pub op: TraceIpldOp,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Cid>")]
+    #[get_size(ignore)]
     pub cid: Cid,
     pub size: u64,
 }
 
 lotus_json_with_self!(TraceIpld);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ExecutionTrace {
     pub msg: MessageTrace,
@@ -228,7 +233,7 @@ impl ExecutionTrace {
 
 lotus_json_with_self!(ExecutionTrace);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageTrace {
     #[serde(with = "crate::lotus_json")]
@@ -243,6 +248,7 @@ pub struct MessageTrace {
     pub method: u64,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<RawBytes>")]
+    #[get_size(size_fn = raw_bytes_heap_size_helper)]
     pub params: RawBytes,
     pub params_codec: u64,
     pub gas_limit: Option<u64>,
@@ -251,7 +257,7 @@ pub struct MessageTrace {
 
 lotus_json_with_self!(MessageTrace);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorTrace {
     pub id: ActorID,
@@ -262,19 +268,21 @@ pub struct ActorTrace {
 
 lotus_json_with_self!(ActorTrace);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ReturnTrace {
+    #[get_size(ignore)]
     pub exit_code: ExitCode,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<RawBytes>")]
+    #[get_size(size_fn = raw_bytes_heap_size_helper)]
     pub r#return: RawBytes,
     pub return_codec: u64,
 }
 
 lotus_json_with_self!(ReturnTrace);
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct GasTrace {
     pub name: String,
