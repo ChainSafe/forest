@@ -122,46 +122,30 @@ fn filter_messages(
     Ok(filtered)
 }
 
-enum NonceFixFillRangeInput {
-    Auto {
-        addr: Address,
-        next_on_chain_nonce: u64,
-        pending: Vec<SignedMessage>,
-    },
-    Manual {
-        start: Option<u64>,
-        end: Option<u64>,
-    },
+fn auto_fill_range(
+    addr: Address,
+    next_on_chain_nonce: u64,
+    pending: &[SignedMessage],
+) -> Option<Range<u64>> {
+    let pending_nonce = pending
+        .iter()
+        .filter(|m| m.from() == addr)
+        .map(|m| m.sequence())
+        .filter(|&seq| seq >= next_on_chain_nonce)
+        .min()?;
+
+    if pending_nonce == next_on_chain_nonce {
+        return None;
+    }
+
+    Some(next_on_chain_nonce..pending_nonce)
 }
 
-fn get_nonce_fix_fill_range(input: NonceFixFillRangeInput) -> anyhow::Result<Option<Range<u64>>> {
-    match input {
-        NonceFixFillRangeInput::Auto {
-            addr,
-            next_on_chain_nonce,
-            pending,
-        } => {
-            let Some(pending_nonce) = pending
-                .iter()
-                .filter(|m| m.from() == addr)
-                .map(|m| m.sequence())
-                .filter(|&seq| seq >= next_on_chain_nonce)
-                .min()
-            else {
-                return Ok(None);
-            };
-            if pending_nonce == next_on_chain_nonce {
-                return Ok(None);
-            }
-            Ok(Some(next_on_chain_nonce..pending_nonce))
-        }
-        NonceFixFillRangeInput::Manual { start, end } => {
-            let start = start.context("manual mode requires --start")?;
-            let end = end.context("manual mode requires --end")?;
-            anyhow::ensure!(end > start, "--end must be greater than --start");
-            Ok(Some(start..end))
-        }
-    }
+fn manual_fill_range(start: Option<u64>, end: Option<u64>) -> anyhow::Result<Range<u64>> {
+    let start = start.context("manual mode requires --start")?;
+    let end = end.context("manual mode requires --end")?;
+    anyhow::ensure!(end > start, "--end must be greater than --start");
+    Ok(start..end)
 }
 
 fn get_gas_fee_cap(gas_fee_cap: Option<TokenAmount>, parent_base_fee: TokenAmount) -> TokenAmount {
@@ -451,17 +435,13 @@ impl MpoolCommands {
                     let next_nonce = actor
                         .with_context(|| format!("no on-chain actor found for {addr}"))?
                         .sequence;
-                    get_nonce_fix_fill_range(NonceFixFillRangeInput::Auto {
-                        addr,
-                        next_on_chain_nonce: next_nonce,
-                        pending,
-                    })?
+                    auto_fill_range(addr, next_nonce, &pending)
                 } else {
-                    get_nonce_fix_fill_range(NonceFixFillRangeInput::Manual { start, end })?
+                    Some(manual_fill_range(start, end)?)
                 };
 
                 let Some(fill_range) = fill_range else {
-                    println!("No nonce gap found or no --end flag specified");
+                    println!("No nonce gap found");
                     return Ok(());
                 };
 
@@ -847,12 +827,7 @@ mod tests {
                     1,
                 ));
             }
-            let got = get_nonce_fix_fill_range(NonceFixFillRangeInput::Auto {
-                addr: addrs.addr,
-                next_on_chain_nonce: case.next_on_chain,
-                pending,
-            })
-            .unwrap();
+            let got = auto_fill_range(addrs.addr, case.next_on_chain, &pending);
             assert_eq!(got, case.expected, "case {}", case.name);
         }
     }
@@ -865,20 +840,15 @@ mod tests {
             (Some(5), Some(5), Some("--end must be greater than --start")),
             (Some(5), Some(3), Some("--end must be greater than --start")),
         ] {
-            let e = get_nonce_fix_fill_range(NonceFixFillRangeInput::Manual { start, end })
-                .unwrap_err();
+            let e = manual_fill_range(start, end).unwrap_err();
             assert!(
                 e.to_string().contains(err.unwrap()),
                 "start={start:?} end={end:?}: {e}"
             );
         }
 
-        let r = get_nonce_fix_fill_range(NonceFixFillRangeInput::Manual {
-            start: Some(2),
-            end: Some(5),
-        })
-        .unwrap();
-        assert_eq!(r, Some(2..5));
+        let r = manual_fill_range(Some(2), Some(5)).unwrap();
+        assert_eq!(r, 2..5);
     }
 
     #[test]
