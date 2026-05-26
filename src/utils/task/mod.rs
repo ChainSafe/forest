@@ -9,7 +9,7 @@ pub struct AbortHandles(Vec<AbortHandle>);
 
 impl Drop for AbortHandles {
     fn drop(&mut self) {
-        for handle in self.0.iter() {
+        for handle in self.iter() {
             handle.abort();
         }
     }
