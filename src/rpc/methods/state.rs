@@ -86,10 +86,28 @@ impl StateCall {
         message: &Message,
         tsk: Option<TipsetKey>,
     ) -> anyhow::Result<ApiInvocResult> {
-        let tipset = state_manager
+        let mut tipset = state_manager
             .chain_store()
             .load_required_tipset_or_heaviest(&tsk)?;
-        Ok(state_manager.call(message, Some(tipset))?)
+
+        // Match Lotus' `StateCall` behavior: if the call refuses due to an expensive
+        // state fork between the parent and the target tipset, walk back to the parent
+        // tipset and retry. This loop terminates when the call returns a non-`ExpensiveFork`
+        // result (success or different error), or when we fail to load the parent tipset
+        // (e.g. we walked back past genesis).
+        //
+        // See: <https://github.com/filecoin-project/lotus/blob/797feebc63bfbd4fdfb742b674c97bfb7846cccb/node/impl/full/state.go#L147>
+        loop {
+            match state_manager.call(message, Some(tipset.shallow_clone())) {
+                Err(crate::state_manager::Error::ExpensiveFork) => {
+                    tipset = state_manager
+                        .chain_index()
+                        .load_required_tipset(tipset.parents())
+                        .map_err(|e| anyhow::anyhow!("getting parent tipset: {e}"))?;
+                }
+                result => return Ok(result?),
+            }
+        }
     }
 }
 
@@ -1594,7 +1612,7 @@ impl RpcMethod<3> for ForestStateCompute {
         {
             let chain_store = ctx.chain_store().shallow_clone();
             let network_context = ctx.sync_network_context.shallow_clone();
-            futures.push_front(async move {
+            futures.push_front(tokio::spawn(async move {
                 if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
                     // Backfill full tipset from the network
                     const MAX_RETRIES: usize = 5;
@@ -1612,11 +1630,12 @@ impl RpcMethod<3> for ForestStateCompute {
                     fts.persist(chain_store.db())?;
                 }
                 anyhow::Ok(ts)
-            });
+            }));
         }
 
         let mut results = Vec::with_capacity(n_epochs as _);
         while let Some(ts) = futures.try_next().await? {
+            let ts = ts?;
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
             if !force_recompute {

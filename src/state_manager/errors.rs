@@ -12,6 +12,9 @@ pub enum Error {
     /// Error originating from state
     #[error("{0}")]
     State(String),
+    /// Refusing explicit call due to an expensive state migration at the requested epoch.
+    #[error("refusing explicit call due to state fork at epoch")]
+    ExpensiveFork,
     /// Other state manager error
     #[error("{0}")]
     Other(String),

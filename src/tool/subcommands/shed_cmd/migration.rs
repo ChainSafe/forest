@@ -84,6 +84,11 @@ impl MigrateStateCommand {
             "No migration found for network version {network_version} on {chain}"
         );
         for (_, migrate) in migrations {
+            let migrate = migrate.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Unimplemented migration for network version {network_version} on {chain}"
+                )
+            })?;
             println!("Migrating... state_root: {state_root}, epoch: {epoch}");
             let start = Instant::now();
             let new_state = migrate(&chain_config, &db, &state_root, epoch)?;

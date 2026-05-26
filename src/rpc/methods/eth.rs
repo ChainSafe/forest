@@ -1835,7 +1835,7 @@ async fn eth_estimate_gas(
                 err = e.into();
             }
 
-            Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+            Err(anyhow::anyhow!("failed to estimate gas: {}", err.message()).into())
         }
         Ok(gassed_msg) => {
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
@@ -1849,6 +1849,18 @@ async fn apply_message(
     tipset: Option<Tipset>,
     msg: Message,
 ) -> Result<ApiInvocResult, Error> {
+    if let Some(ts) = &tipset
+        && ts.epoch() > 0
+    {
+        let parent = ctx.chain_index().load_required_tipset(ts.parents())?;
+        if ctx
+            .chain_config()
+            .has_expensive_fork_between(parent.epoch(), ts.epoch() + 1)
+        {
+            return Err(crate::state_manager::Error::ExpensiveFork.into());
+        }
+    }
+
     let (invoc_res, _) = ctx
         .state_manager
         .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
@@ -3259,17 +3271,18 @@ impl RpcMethod<1> for EthGetLogs {
         (eth_filter,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let pf = ctx
-            .eth_event_handler
-            .parse_eth_filter_spec(&ctx, &eth_filter)
-            .map_err(|e| {
-                if e.downcast_ref::<EthErrors>()
-                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::BlockRangeExceeded { .. }))
-                {
-                    return e;
-                }
-                e.context("failed to parse events for filter")
-            })?;
+        let pf = Arc::new(
+            ctx.eth_event_handler
+                .parse_eth_filter_spec(&ctx, &eth_filter)
+                .map_err(|e| {
+                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
+                        matches!(eth_err, EthErrors::BlockRangeExceeded { .. })
+                    }) {
+                        return e;
+                    }
+                    e.context("failed to parse events for filter")
+                })?,
+        );
         let events = ctx
             .eth_event_handler
             .get_events_for_parsed_filter(&ctx, &pf, SkipEvent::OnUnresolvedAddress)
@@ -3302,7 +3315,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &event_filter.into(),
+                        &Arc::new(event_filter.into()),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3353,7 +3366,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &event_filter.into(),
+                        &Arc::new(event_filter.into()),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3378,7 +3391,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                        &Arc::new(ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
                             // heaviest tipset doesn't have events because its messages haven't been executed yet
                             RangeInclusive::new(
                                 tipset_filter
@@ -3387,7 +3400,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                                 // Use -1 to indicate that the range extends until the latest available tipset.
                                 -1,
                             ),
-                        )),
+                        ))),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3410,7 +3423,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                        &Arc::new(ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
                             // heaviest tipset doesn't have events because its messages haven't been executed yet
                             RangeInclusive::new(
                                 mempool_filter
@@ -3419,7 +3432,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                                 // Use -1 to indicate that the range extends until the latest available tipset.
                                 -1,
                             ),
-                        )),
+                        ))),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;

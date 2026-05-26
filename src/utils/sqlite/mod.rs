@@ -21,7 +21,7 @@ use sqlx::{
 };
 use std::{cmp::Ordering, path::Path, time::Instant};
 
-pub type SqliteQuery<'q> = Query<'q, sqlx::Sqlite, SqliteArguments<'q>>;
+pub type SqliteQuery<'q> = Query<'q, sqlx::Sqlite, SqliteArguments>;
 
 /// Opens for creates a database at the specified path
 pub async fn open_file(file: &Path) -> anyhow::Result<SqlitePool> {
