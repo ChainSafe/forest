@@ -137,11 +137,16 @@ pub enum EventRevertStatus {
 
 impl EthEventHandler {
     pub fn new() -> Self {
-        let config = EventsConfig::default();
-        Self::from_config(&config)
+        // Standalone handler with no live mempool: subscribers see an empty
+        // stream forever. Used in tests, snapshot tools, and other contexts
+        // where no `MessagePool` is available.
+        Self::from_config(&EventsConfig::default(), MpoolSubscriber::dummy())
     }
 
-    pub fn from_config(config: &EventsConfig) -> Self {
+    /// Build a handler from `config`. Each `MempoolFilter` installed via the
+    /// returned handler invokes `mpool_subscriber` to obtain its own
+    /// independent broadcast receiver for pending-tx updates.
+    pub fn from_config(config: &EventsConfig, mpool_subscriber: MpoolSubscriber) -> Self {
         let max_filters: usize = env_or_default("FOREST_MAX_FILTERS", 100);
         let max_filter_results = std::env::var("FOREST_MAX_FILTER_RESULTS")
             .ok()
@@ -167,7 +172,10 @@ impl EthEventHandler {
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
         let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
-        let mempool_filter_manager = Some(MempoolFilterManager::new(max_filter_results));
+        let mempool_filter_manager = Some(MempoolFilterManager::new(
+            max_filter_results,
+            mpool_subscriber,
+        ));
 
         Self {
             filter_store,

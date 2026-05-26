@@ -98,6 +98,13 @@ pub async fn offline_rpc_state(
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
     let nonce_tracker = NonceTracker::new();
+    let eth_event_handler = {
+        let mp = message_pool.shallow_clone();
+        let subscriber = crate::rpc::eth::filter::mempool::MpoolSubscriber::new(move || {
+            mp.subscribe_to_updates()
+        });
+        Arc::new(EthEventHandler::from_config(&events_config, subscriber))
+    };
     Ok((
         RPCState {
             state_manager,
@@ -105,7 +112,7 @@ pub async fn offline_rpc_state(
             mpool: message_pool,
             bad_blocks: Default::default(),
             sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
-            eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
+            eth_event_handler,
             eth_logs_feed: Default::default(),
             sync_network_context,
             start_time: chrono::Utc::now(),
