@@ -41,6 +41,8 @@
 
 - [`#7066`](https://github.com/ChainSafe/forest/pull/7066): Disable JSON-RPC HTTP response compression by default. Set `FOREST_RPC_COMPRESS_MIN_BODY_SIZE` to a non-negative value (e.g. `1024`) to re-enable gzip compression of responses above that size.
 
+- [#7084](https://github.com/ChainSafe/forest/pull/7084): Updated `replace-by-fee` calculation to match Lotus, reducing the minimum premium bump for replacement messages from `1.25x` to `1.10x`. Ports [filecoin-project/lotus#10416](https://github.com/filecoin-project/lotus/pull/10416).
+
 ### Removed
 
 ### Fixed
