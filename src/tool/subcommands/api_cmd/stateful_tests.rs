@@ -308,26 +308,19 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     unreachable!("loop always returns within the branches above")
 }
 
-async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
-    let tipset = client.call(ChainHead::request(())?).await?;
+/// Poll `MpoolPending` until `message_cid` is visible. Does not wait for
+/// execution.
+async fn wait_in_mempool(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
     let mut retries = 100;
     loop {
         let pending = client
             .call(MpoolPending::request((ApiTipsetKey(None),))?)
             .await?;
-
         if pending.0.iter().any(|msg| msg.cid() == message_cid) {
-            client
-                .call(
-                    StateWaitMsg::request((message_cid, 1, tipset.epoch(), true))?
-                        .with_timeout(Duration::from_secs(300)),
-                )
-                .await?;
             break Ok(());
         }
         ensure!(retries != 0, "Message not found in mpool");
         retries -= 1;
-
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
@@ -796,7 +789,8 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                     .await?
                     .context("no Eth transaction hash for CID")?;
 
-                wait_pending_message(&client, cid).await?;
+                // Observe mempool state *before* the message is mined.
+                wait_in_mempool(&client, cid).await?;
 
                 let filter_result = client
                     .call(EthGetFilterChanges::request((filter_id.clone(),))?)

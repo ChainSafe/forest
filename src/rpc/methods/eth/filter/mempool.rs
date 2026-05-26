@@ -117,7 +117,9 @@ impl FilterManager for MempoolFilterManager {
         let rx = self.mpool_event_sender.subscribe();
         let filter = MempoolFilter::new(self.max_filter_results, rx)
             .context("Failed to create a new mempool filter")?;
-        self.filters.write().insert(filter.id().clone(), filter.clone());
+        self.filters
+            .write()
+            .insert(filter.id().clone(), filter.clone());
         Ok(filter)
     }
 
