@@ -2599,15 +2599,14 @@ async fn get_eth_transaction_by_hash(
 pub enum EthGetTransactionHashByCid {}
 
 impl EthGetTransactionHashByCid {
-    fn run(ctx: &Ctx, cid: Cid) -> anyhow::Result<Option<EthHash>> {
+    fn run(db: &DbImpl, eth_chain_id: EthChainIdType, cid: Cid) -> anyhow::Result<Option<EthHash>> {
         let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
-            crate::chain::messages_from_cids(ctx.db(), &[cid]);
+            crate::chain::messages_from_cids(db, &[cid]);
         if let Ok(smsgs) = smsgs_result
             && let Some(smsg) = smsgs.first()
         {
             let hash = if smsg.is_delegated() {
-                let chain_id = ctx.chain_config().eth_chain_id;
-                let (_, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
+                let (_, tx) = eth_tx_from_signed_eth_message(smsg, eth_chain_id)?;
                 tx.eth_hash()?.into()
             } else if smsg.is_secp256k1() {
                 smsg.cid().into()
@@ -2617,7 +2616,7 @@ impl EthGetTransactionHashByCid {
             return Ok(Some(hash));
         }
 
-        let msg_result = crate::chain::get_chain_message(ctx.db(), &cid);
+        let msg_result = crate::chain::get_chain_message(db, &cid);
         if let Ok(msg) = msg_result {
             return Ok(Some(msg.cid().into()));
         }
@@ -2641,7 +2640,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
         (cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(Self::run(&ctx, cid)?)
+        Ok(Self::run(ctx.db(), ctx.chain_config().eth_chain_id, cid)?)
     }
 }
 
@@ -3492,26 +3491,21 @@ async fn execute_tipset_traces(
     ctx: &Ctx,
     ts: &Tipset,
 ) -> Result<(StateTree<DbImpl>, Vec<trace::TipsetTraceEntry>), ServerError> {
-    let (state_root, raw_traces) = {
-        let sm = ctx.state_manager.shallow_clone();
-        let ts = ts.shallow_clone();
-        tokio::task::spawn_blocking(move || sm.execution_trace(&ts))
-            .await
-            .context("execution_trace task panicked")??
-    };
-
+    let (state_root, raw_traces) = ctx.state_manager.execution_trace(ts).await?;
     let state = ctx.state_manager.get_state_tree(&state_root)?;
 
     // Resolve every non-system message's tx hash in parallel. Each lookup is
     // an independent DB read; running them sequentially adds O(N) IO
     // latency to every trace_block response.
-    let raw: Vec<(i64, ApiInvocResult)> = non_system_traces_with_positions(raw_traces).collect();
+    let raw = non_system_traces_with_positions(raw_traces).collect_vec();
     let mut entries: Vec<trace::TipsetTraceEntry> = Vec::with_capacity(raw.len());
     let mut join_set = tokio::task::JoinSet::new();
+    let db = ctx.db();
+    let eth_chain_id = ctx.chain_config().eth_chain_id;
     for (msg_position, invoc_result) in raw {
-        let ctx = ctx.shallow_clone();
+        let db = db.shallow_clone();
         join_set.spawn_blocking(move || {
-            let tx_hash = EthGetTransactionHashByCid::run(&ctx, invoc_result.msg_cid)?
+            let tx_hash = EthGetTransactionHashByCid::run(&db, eth_chain_id, invoc_result.msg_cid)?
                 .with_context(|| {
                     format!(
                         "cannot find transaction hash for cid {}",
@@ -3537,8 +3531,8 @@ async fn execute_tipset_traces(
 /// `transactionIndex` from `eth_getBlockByNumber`. System-actor messages
 /// are filtered out without consuming a position.
 fn non_system_traces_with_positions(
-    raw_traces: impl IntoIterator<Item = ApiInvocResult>,
-) -> impl Iterator<Item = (i64, ApiInvocResult)> {
+    raw_traces: impl IntoIterator<Item = Arc<ApiInvocResult>>,
+) -> impl Iterator<Item = (i64, Arc<ApiInvocResult>)> {
     raw_traces
         .into_iter()
         .filter(|ir| ir.msg.from != system::ADDRESS.into())
@@ -3679,6 +3673,7 @@ async fn debug_trace_transaction(
     let execution_trace = entry
         .invoc_result
         .execution_trace
+        .clone()
         .context("no execution trace for transaction")?;
 
     let mut env = trace::base_environment(&state, &entry.invoc_result.msg.from).map_err(|e| {
@@ -4102,7 +4097,7 @@ mod test {
         use crate::shim::address::Address as ShimAddress;
         use crate::shim::message::Message_v3;
 
-        let invoc_with_from = |from: ShimAddress| -> ApiInvocResult {
+        let invoc_with_from = |from: ShimAddress| -> Arc<ApiInvocResult> {
             ApiInvocResult {
                 msg: Message_v3 {
                     to: ShimAddress::new_id(1).into(),
@@ -4112,6 +4107,7 @@ mod test {
                 .into(),
                 ..Default::default()
             }
+            .into()
         };
 
         let raw_traces = vec![

@@ -604,7 +604,7 @@ fn trace_evm_private(
 pub struct TipsetTraceEntry {
     pub tx_hash: EthHash,
     pub msg_position: i64,
-    pub invoc_result: crate::rpc::state::ApiInvocResult,
+    pub invoc_result: Arc<crate::rpc::state::ApiInvocResult>,
 }
 
 impl TipsetTraceEntry {
