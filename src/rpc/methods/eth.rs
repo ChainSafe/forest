@@ -1835,7 +1835,7 @@ async fn eth_estimate_gas(
                 err = e.into();
             }
 
-            Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+            Err(anyhow::anyhow!("failed to estimate gas: {}", err.message()).into())
         }
         Ok(gassed_msg) => {
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
@@ -1849,6 +1849,18 @@ async fn apply_message(
     tipset: Option<Tipset>,
     msg: Message,
 ) -> Result<ApiInvocResult, Error> {
+    if let Some(ts) = &tipset
+        && ts.epoch() > 0
+    {
+        let parent = ctx.chain_index().load_required_tipset(ts.parents())?;
+        if ctx
+            .chain_config()
+            .has_expensive_fork_between(parent.epoch(), ts.epoch() + 1)
+        {
+            return Err(crate::state_manager::Error::ExpensiveFork.into());
+        }
+    }
+
     let (invoc_res, _) = ctx
         .state_manager
         .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
