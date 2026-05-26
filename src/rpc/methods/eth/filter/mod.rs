@@ -44,6 +44,7 @@ use crate::shim::executor::{Entry, StampedEvent};
 use crate::state_manager::StateManager;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset};
 use crate::utils::misc::env::env_or_default;
+use crate::utils::task::AbortHandles;
 use ahash::AHashMap as HashMap;
 use anyhow::{Error, anyhow, bail, ensure};
 use futures::{TryStreamExt as _, stream::FuturesOrdered};
@@ -297,10 +298,11 @@ impl EthEventHandler {
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
         let mut tasks = FuturesOrdered::new();
+        let mut abort_handles = AbortHandles::default();
         for tipset in tipsets {
             let state_manager = ctx.state_manager.shallow_clone();
             let spec = spec.as_ref().map(|v| v.shallow_clone());
-            tasks.push_back(tokio::spawn(async move {
+            let task = tokio::spawn(async move {
                 let mut events = vec![];
                 Self::collect_events(
                     &state_manager,
@@ -311,7 +313,9 @@ impl EthEventHandler {
                 )
                 .await?;
                 anyhow::Ok(events)
-            }));
+            });
+            abort_handles.push(task.abort_handle());
+            tasks.push_back(task);
         }
         let max_filter_results = ctx.eth_event_handler.max_filter_results;
         let mut tipsets_contributing = 0usize;

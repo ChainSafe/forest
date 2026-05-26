@@ -96,7 +96,7 @@ pub async fn get_params(
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
 
-    JoinSet::from_iter(
+    let mut tasks = JoinSet::from_iter(
         params
             .into_iter()
             .filter(|(name, info)| match storage_size {
@@ -110,9 +110,11 @@ pub async fn get_params(
                 let data_dir = data_dir.to_owned();
                 async move { fetch_verify_params(&data_dir, &name, Arc::new(info)).await }
             }),
-    )
-    .join_all()
-    .await;
+    );
+
+    while let Some(task) = tasks.join_next().await {
+        task??;
+    }
 
     Ok(())
 }
