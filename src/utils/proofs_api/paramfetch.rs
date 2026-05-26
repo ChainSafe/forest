@@ -19,11 +19,10 @@ use crate::{
 };
 use anyhow::{Context, bail};
 use backon::{ExponentialBuilder, Retryable};
-use futures::{AsyncWriteExt, TryStreamExt};
+use futures::{AsyncWriteExt, TryStreamExt, stream::FuturesUnordered};
 use tokio::{
     fs::{self},
     sync::Mutex,
-    task::JoinSet,
 };
 use tracing::{debug, info, warn};
 
@@ -96,7 +95,7 @@ pub async fn get_params(
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
 
-    let mut tasks = JoinSet::from_iter(
+    FuturesUnordered::from_iter(
         params
             .into_iter()
             .filter(|(name, info)| match storage_size {
@@ -106,15 +105,13 @@ pub async fn get_params(
                 }
                 SectorSizeOpt::All => true,
             })
-            .map(|(name, info)| {
-                let data_dir = data_dir.to_owned();
-                async move { fetch_verify_params(&data_dir, &name, Arc::new(info)).await }
+            .map(|(name, info)| async move {
+                let data_dir_clone = data_dir.to_owned();
+                fetch_verify_params(&data_dir_clone, &name, Arc::new(info)).await
             }),
-    );
-
-    while let Some(task) = tasks.join_next().await {
-        task??;
-    }
+    )
+    .try_collect::<Vec<_>>()
+    .await?;
 
     Ok(())
 }
