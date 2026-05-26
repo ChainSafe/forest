@@ -401,7 +401,7 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                 }
             }
             {
-                if let Err(e) = state_manager.execution_trace(&ts) {
+                if let Err(e) = state_manager.execution_trace(&ts).await {
                     warn!("failed to call `StateManager::execution_trace` for cache warmup: {e:#}");
                 }
             }

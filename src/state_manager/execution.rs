@@ -220,14 +220,24 @@ impl StateManager {
         )
     }
 
-    pub fn execution_trace(
+    pub async fn execution_trace(
         &self,
         tipset: &Tipset,
     ) -> anyhow::Result<(Cid, Vec<Arc<ApiInvocResult>>)> {
         let key = tipset.key();
         let (state_root, invoc_trace) = self
             .trace_cache
-            .get_or_insert_with(key, move || self.execution_trace_inner(tipset))?;
+            .get_or_insert_async(key, {
+                let this = self.shallow_clone();
+                let tipset = tipset.shallow_clone();
+                async move {
+                    tokio::task::spawn_blocking(move || this.execution_trace_inner(&tipset))
+                        .await
+                        .context("tokio join error")
+                        .flatten()
+                }
+            })
+            .await?;
         Ok((state_root.into(), invoc_trace))
     }
 

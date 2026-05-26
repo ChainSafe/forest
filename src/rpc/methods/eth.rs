@@ -3486,16 +3486,8 @@ async fn execute_tipset_traces(
     ts: &Tipset,
     ext: &http::Extensions,
 ) -> Result<(StateTree<DbImpl>, Vec<trace::TipsetTraceEntry>), ServerError> {
-    let (state_root, raw_traces) = {
-        let sm = ctx.state_manager.shallow_clone();
-        let ts = ts.shallow_clone();
-        tokio::task::spawn_blocking(move || sm.execution_trace(&ts))
-            .await
-            .context("execution_trace task panicked")??
-    };
-
+    let (state_root, raw_traces) = ctx.state_manager.execution_trace(ts).await?;
     let state = ctx.state_manager.get_state_tree(&state_root)?;
-
     let mut entries = Vec::new();
     for (msg_idx, ir) in non_system_traces_with_positions(raw_traces) {
         let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
