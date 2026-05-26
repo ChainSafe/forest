@@ -3488,9 +3488,25 @@ async fn execute_tipset_traces(
 ) -> Result<(StateTree<DbImpl>, Vec<trace::TipsetTraceEntry>), ServerError> {
     let (state_root, raw_traces) = ctx.state_manager.execution_trace(ts).await?;
     let state = ctx.state_manager.get_state_tree(&state_root)?;
-    let mut entries = Vec::new();
-    for (msg_idx, ir) in non_system_traces_with_positions(raw_traces) {
-        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
+
+    // Resolve every non-system message's tx hash in parallel. Each lookup is
+    // an independent DB read; running them sequentially adds O(N) await
+    // latency to every trace_block response.
+    type TxHashTask = Result<(i64, Arc<ApiInvocResult>, Option<EthHash>), ServerError>;
+    let raw: Vec<(i64, Arc<ApiInvocResult>)> =
+        non_system_traces_with_positions(raw_traces).collect();
+    let mut entries: Vec<trace::TipsetTraceEntry> = Vec::with_capacity(raw.len());
+    let mut join_set: tokio::task::JoinSet<TxHashTask> = tokio::task::JoinSet::new();
+    for (msg_idx, ir) in raw {
+        let ctx = ctx.clone();
+        let ext = ext.clone();
+        join_set.spawn(async move {
+            let tx_hash = EthGetTransactionHashByCid::handle(ctx, (ir.msg_cid,), &ext).await?;
+            Ok((msg_idx, ir, tx_hash))
+        });
+    }
+    while let Some(joined) = join_set.join_next().await {
+        let (msg_idx, ir, tx_hash) = joined.context("trace tx-hash task panicked")??;
         let tx_hash = tx_hash
             .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
         entries.push(trace::TipsetTraceEntry {
@@ -3499,6 +3515,7 @@ async fn execute_tipset_traces(
             invoc_result: ir,
         });
     }
+    entries.sort_by_key(|e| e.msg_position);
 
     Ok((state, entries))
 }
