@@ -509,7 +509,9 @@ impl MpoolCommands {
 
                 let replacement = if auto {
                     let mut msg_for_estimate = original_msg.clone();
-                    msg_for_estimate.gas_limit = 0;
+                    // Keep the original gas limit when replacing a pending message.
+                    // Re-estimating it would simulate against the message being replaced.
+                    // See <https://github.com/filecoin-project/lotus/blob/797feebc63bfbd4fdfb742b674c97bfb7846cccb/cli/mpool.go#L482>
                     msg_for_estimate.gas_fee_cap = TokenAmount::default();
                     msg_for_estimate.gas_premium = TokenAmount::default();
 
