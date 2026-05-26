@@ -2448,7 +2448,7 @@ fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<Rpc
     let heaviest_tipset = store.heaviest_tipset()?;
     let chain_config = handle_chain_config(&NetworkChain::Calibnet)?;
     let expensive_fork_epoch =
-        crate::state_migration::get_all_migrations::<crate::db::DbImpl>(&NetworkChain::Calibnet)
+        crate::state_migration::get_migrations::<crate::db::DbImpl>(&NetworkChain::Calibnet)
             .iter()
             .filter_map(|(h, _)| chain_config.height_infos.get(h).map(|info| info.epoch))
             .filter(|epoch| *epoch <= heaviest_tipset.epoch())

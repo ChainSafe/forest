@@ -29,12 +29,7 @@ mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &DB, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
 
-/// Returns the upgrade-height registry for the given network. `Some(f)` entries are implemented
-/// migrations; `None` entries are stubs for Lotus-`Expensive: true` heights that Forest has not
-/// implemented, kept here so [`crate::networks::ChainConfig::has_expensive_fork_between`] can
-/// refuse RPC calls spanning them.
-/// Use [`get_migrations`] when only implemented migrations are needed.
-pub fn get_all_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, Option<RunMigration<DB>>)>
+pub fn get_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, Option<RunMigration<DB>>)>
 where
     DB: Blockstore + ShallowClone + Send + Sync,
 {
@@ -105,18 +100,6 @@ where
     }
 }
 
-/// Returns the implemented migrations for the given network (i.e. [`get_all_migrations`] with
-/// stub entries filtered out).
-pub fn get_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, RunMigration<DB>)>
-where
-    DB: Blockstore + ShallowClone + Send + Sync,
-{
-    get_all_migrations::<DB>(chain)
-        .into_iter()
-        .filter_map(|(h, migrate)| migrate.map(|f| (h, f)))
-        .collect()
-}
-
 /// Run state migrations
 pub fn run_state_migrations<DB>(
     epoch: ChainEpoch,
@@ -135,20 +118,21 @@ where
     .unwrap_or(10000);
     let mappings = get_migrations(&chain_config.network);
 
-    // Make sure bundle is defined.
+    // Make sure bundle is defined (skip unimplemented stubs).
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
     if !BUNDLE_CHECKED.load(atomic::Ordering::Relaxed) {
         BUNDLE_CHECKED.store(true, atomic::Ordering::Relaxed);
-        for (info_height, info) in chain_config.height_infos.iter() {
-            for (height, _) in &mappings {
-                if height == info_height {
-                    assert!(
-                        info.bundle.is_some(),
-                        "Actor bundle info for height {height} needs to be defined in `src/networks/mod.rs` to run state migration"
-                    );
-                    break;
-                }
-            }
+        for (height, _) in mappings
+            .iter()
+            .filter_map(|(height, migrate)| migrate.as_ref().map(|migrate| (height, migrate)))
+        {
+            let Some(info) = chain_config.height_infos.get(height) else {
+                anyhow::bail!("Missing `HeightInfo` for migration height {height}");
+            };
+            anyhow::ensure!(
+                info.bundle.is_some(),
+                "Actor bundle info for height {height} needs to be defined in `src/networks/mod.rs` to run state migration"
+            );
         }
     }
 
@@ -160,6 +144,9 @@ where
                 db.shallow_clone(),
                 db_write_buffer,
             ));
+            let migrate = migrate.ok_or_else(|| {
+                anyhow::anyhow!("Unimplemented state migration at height {height}")
+            })?;
             let new_state = migrate(chain_config, &db, parent_state, epoch)?;
             let elapsed = start_time.elapsed();
             // `new_state_actors` is the Go state migration output, log for comparision

@@ -514,12 +514,12 @@ impl ChainConfig {
 
     /// Returns true if executing between `parent` and `height` (exclusive of `height`) would
     /// cross an expensive state migration, as registered in
-    /// [`crate::state_migration::get_all_migrations`].
+    /// [`crate::state_migration::get_migrations`].
     pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
         if parent >= height {
             return false;
         }
-        crate::state_migration::get_all_migrations::<crate::db::DbImpl>(&self.network)
+        crate::state_migration::get_migrations::<crate::db::DbImpl>(&self.network)
             .iter()
             .any(|(h, _)| {
                 self.height_infos
