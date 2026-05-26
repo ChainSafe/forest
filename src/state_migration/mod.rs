@@ -87,25 +87,11 @@ where
         }
         NetworkChain::Butterflynet => {
             vec![
-                (Height::Assembly, None),
-                (Height::Trust, None),
-                (Height::Turbo, None),
-                (Height::Hyperdrive, None),
-                (Height::Chocolate, None),
-                (Height::OhSnap, None),
-                (Height::Skyr, None),
                 (Height::FireHorse, Some(nv28::run_migration::<DB>)),
             ]
         }
         NetworkChain::Devnet(_) => {
             vec![
-                (Height::Assembly, None),
-                (Height::Trust, None),
-                (Height::Turbo, None),
-                (Height::Hyperdrive, None),
-                (Height::Chocolate, None),
-                (Height::OhSnap, None),
-                (Height::Skyr, None),
                 (Height::Shark, Some(nv17::run_migration::<DB>)),
                 (Height::Hygge, Some(nv18::run_migration::<DB>)),
                 (Height::Lightning, Some(nv19::run_migration::<DB>)),
