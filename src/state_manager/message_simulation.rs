@@ -5,39 +5,66 @@ use super::circulating_supply::GenesisInfo;
 use super::utils::structured;
 use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
-use crate::message::{MessageRead as _, MessageReadWrite as _, SignedMessage};
+use crate::message::{MessageRead as _, MessageReadWrite as _};
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
-use crate::shim::address::Protocol;
-use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::Message;
-use fvm_shared4::crypto::signature::SECP_SIG_LEN;
+use crate::state_migration::run_state_migrations;
 use std::time::Duration;
 use tracing::instrument;
 
 impl StateManager {
-    #[instrument(skip(self, rand))]
+    #[instrument(skip(self))]
     fn call_raw(
         &self,
         state_cid: Option<Cid>,
         msg: &Message,
-        rand: ChainRand,
-        tipset: &Tipset,
+        tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
         let mut msg = msg.clone();
+        let chain_config = self.chain_config();
+
+        let tipset = if let Some(ts) = tipset {
+            if ts.epoch() > 0 {
+                let parent = self
+                    .chain_index()
+                    .load_required_tipset(ts.parents())
+                    .map_err(Error::other)?;
+                if chain_config.has_expensive_fork_between(parent.epoch(), ts.epoch() + 1) {
+                    return Err(Error::ExpensiveFork);
+                }
+            }
+            ts
+        } else {
+            // Search back till we find a height with no fork, or we reach the beginning.
+            let mut heaviest_ts = self.heaviest_tipset();
+            while heaviest_ts.epoch() > 0 {
+                let parent = self
+                    .chain_index()
+                    .load_required_tipset(heaviest_ts.parents())
+                    .map_err(Error::other)?;
+                if !chain_config.has_expensive_fork_between(parent.epoch(), heaviest_ts.epoch() + 1)
+                {
+                    break;
+                }
+                heaviest_ts = parent;
+            }
+            heaviest_ts
+        };
 
         let state_cid = state_cid.unwrap_or(*tipset.parent_state());
 
-        let tipset_messages = self
-            .chain_store()
-            .messages_for_tipset(tipset)
-            .map_err(|err| Error::Other(err.to_string()))?;
-
-        let prior_messsages = tipset_messages
-            .iter()
-            .filter(|ts_msg| ts_msg.message().from() == msg.from());
-
         // Handle state forks
+        let state_cid = match run_state_migrations(
+            tipset.epoch(),
+            self.chain_config(),
+            self.db(),
+            &state_cid,
+        ) {
+            Ok(Some(new_state)) => new_state,
+            Ok(None) => state_cid,
+            Err(e) => return Err(Error::other(e)),
+        };
 
         let height = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
@@ -46,7 +73,7 @@ impl StateManager {
                 heaviest_tipset: tipset.shallow_clone(),
                 state_tree_root: state_cid,
                 epoch: height,
-                rand: Box::new(rand),
+                rand: Box::new(self.chain_rand(tipset.shallow_clone())),
                 base_fee: tipset.block_headers().first().parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
@@ -60,6 +87,15 @@ impl StateManager {
             &self.engine,
             VMTrace::Traced,
         )?;
+
+        let tipset_messages = self
+            .chain_store()
+            .messages_for_tipset(&tipset)
+            .map_err(|err| Error::Other(err.to_string()))?;
+
+        let prior_messsages = tipset_messages
+            .iter()
+            .filter(|ts_msg| ts_msg.message().from() == msg.from());
 
         for m in prior_messsages {
             vm.apply_message(m)?;
@@ -96,9 +132,7 @@ impl StateManager {
     /// runs the given message and returns its result without any persisted
     /// changes.
     pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error> {
-        let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
-        let chain_rand = self.chain_rand(ts.shallow_clone());
-        self.call_raw(None, message, chain_rand, &ts)
+        self.call_raw(None, message, tipset)
     }
 
     /// Same as [`StateManager::call`] but runs the message on the given state and not
@@ -109,9 +143,7 @@ impl StateManager {
         message: &Message,
         tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
-        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
-        let chain_rand = self.chain_rand(ts.shallow_clone());
-        self.call_raw(Some(state_cid), message, chain_rand, &ts)
+        self.call_raw(Some(state_cid), message, tipset)
     }
 
     pub async fn apply_on_state_with_gas(
@@ -122,26 +154,8 @@ impl StateManager {
     ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
-        let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
-
-        // Pretend that the message is signed. This has an influence on the gas
-        // cost. We obviously can't generate a valid signature. Instead, we just
-        // fill the signature with zeros. The validity is not checked.
-        let mut chain_msg = match from_a.protocol() {
-            Protocol::Secp256k1 => SignedMessage::new_unchecked(
-                msg.clone(),
-                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
-            )
-            .into(),
-            Protocol::Delegated => SignedMessage::new_unchecked(
-                msg.clone(),
-                // In Lotus, delegated signatures have the same length as SECP256k1.
-                // This may or may not change in the future.
-                Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
-            )
-            .into(),
-            _ => msg.clone().into(),
-        };
+        let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
+        let mut chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
 
         let (_invoc_res, apply_ret, duration, state_root) = self
             .call_with_gas(&mut chain_msg, &[], Some(ts), vm_flush)

@@ -190,10 +190,8 @@ impl RpcMethod<1> for WalletSetDefault {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut keystore = ctx.keystore.write();
-        let addr_string = format!("wallet-{address}");
-        let key_info = keystore.get(&addr_string)?;
-        keystore.remove("default")?; // This line should unregister current default key then continue
-        keystore.put("default", key_info)?;
+        let key_info = crate::key_management::try_find(&address, &keystore)?;
+        keystore.set_default(key_info)?;
         Ok(())
     }
 }
@@ -218,7 +216,7 @@ impl RpcMethod<2> for WalletSign {
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
             .state_manager
-            .resolve_to_key_addr(&address, &heaviest_tipset)
+            .resolve_to_deterministic_address(address, &heaviest_tipset)
             .await?;
         let keystore = ctx.keystore.read();
         let key = crate::key_management::try_find_key(&key_addr, &keystore)?;

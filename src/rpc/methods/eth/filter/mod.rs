@@ -28,6 +28,7 @@ use crate::blocks::Tipset;
 use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
+use crate::prelude::*;
 use crate::rpc::eth::EVM_WORD_LENGTH;
 use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
@@ -40,11 +41,12 @@ use crate::rpc::types::{Event, EventEntry};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::{Entry, StampedEvent};
+use crate::state_manager::StateManager;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset};
 use crate::utils::misc::env::env_or_default;
+use crate::utils::task::AbortHandles;
 use ahash::AHashMap as HashMap;
-use anyhow::{Context, Error, anyhow, bail, ensure};
-use cid::Cid;
+use anyhow::{Error, anyhow, bail, ensure};
 use futures::{TryStreamExt as _, stream::FuturesOrdered};
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
@@ -57,6 +59,7 @@ use store::*;
 /// Implementors of this trait define custom logic to determine whether an event matches the filtering criteria
 /// based on the event emitter's address and its associated entries.
 ///
+#[auto_impl::auto_impl(&, Arc)]
 pub trait Matcher {
     /// # Parameters
     /// - `emitter_addr`: The address of the Actor that emitted the event, along with the associated event entries.
@@ -290,21 +293,34 @@ impl EthEventHandler {
     pub async fn collect_events_for_tipsets(
         ctx: &Ctx,
         tipsets: impl Iterator<Item = Tipset>,
-        spec: Option<&impl Matcher>,
+        spec: Option<&(impl Matcher + ShallowClone + Send + Sync + 'static)>,
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
         let mut tasks = FuturesOrdered::new();
+        let mut abort_handles = AbortHandles::default();
         for tipset in tipsets {
-            tasks.push_back(async move {
+            let state_manager = ctx.state_manager.shallow_clone();
+            let spec = spec.as_ref().map(|v| v.shallow_clone());
+            let task = tokio::spawn(async move {
                 let mut events = vec![];
-                Self::collect_events(ctx, &tipset, spec, skip_event, &mut events).await?;
+                Self::collect_events(
+                    &state_manager,
+                    &tipset,
+                    spec.as_ref(),
+                    skip_event,
+                    &mut events,
+                )
+                .await?;
                 anyhow::Ok(events)
             });
+            abort_handles.push(task.abort_handle());
+            tasks.push_back(task);
         }
         let max_filter_results = ctx.eth_event_handler.max_filter_results;
         let mut tipsets_contributing = 0usize;
         while let Some(events) = tasks.try_next().await? {
+            let events = events?;
             if !events.is_empty() {
                 tipsets_contributing += 1;
             }
@@ -319,7 +335,7 @@ impl EthEventHandler {
     }
 
     pub async fn collect_events(
-        ctx: &Ctx,
+        state_manager: &StateManager,
         tipset: &Tipset,
         spec: Option<&impl Matcher>,
         skip_event: SkipEvent,
@@ -330,7 +346,7 @@ impl EthEventHandler {
         let tipset_key = tipset.key();
         let ExecutedTipset {
             executed_messages, ..
-        } = ctx.state_manager.load_executed_tipset(tipset).await?;
+        } = state_manager.load_executed_tipset(tipset).await?;
         let mut resolved_id_addrs = HashMap::default();
         let mut event_count = 0;
         for (
@@ -362,8 +378,7 @@ impl EthEventHandler {
                     let resolved_opt = if let Some(r) = resolved_id_addrs.get(&emitter) {
                         *r
                     } else {
-                        let r = ctx
-                            .state_manager
+                        let r = state_manager
                             .resolve_to_deterministic_address(id_addr, tipset)
                             .await
                             .ok();
@@ -433,20 +448,32 @@ impl EthEventHandler {
     pub async fn get_events_for_parsed_filter(
         &self,
         ctx: &Ctx,
-        pf: &ParsedFilter,
+        pf: &Arc<ParsedFilter>,
         skip_event: SkipEvent,
     ) -> anyhow::Result<Vec<CollectedEvent>> {
         let mut collected_events = vec![];
         match &pf.tipsets {
             ParsedFilterTipsets::Hash(block_hash) => {
                 let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
-                Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
-                    .await?;
+                Self::collect_events(
+                    &ctx.state_manager,
+                    &tipset,
+                    Some(pf),
+                    skip_event,
+                    &mut collected_events,
+                )
+                .await?;
             }
             ParsedFilterTipsets::Key(tsk) => {
                 let tipset = ctx.chain_index().load_required_tipset(tsk)?;
-                Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
-                    .await?;
+                Self::collect_events(
+                    &ctx.state_manager,
+                    &tipset,
+                    Some(pf),
+                    skip_event,
+                    &mut collected_events,
+                )
+                .await?;
             }
             ParsedFilterTipsets::Range(range) => {
                 // we can't return events for the heaviest tipset as the transactions in that tipset will be executed

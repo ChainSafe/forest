@@ -11,14 +11,22 @@ curl localhost:6116/metrics
 Sample output:
 
 ```console
-# HELP lru_cache_miss Stats of lru cache miss.
-# TYPE lru_cache_miss counter
-lru_cache_miss_total{kind="tipset"} 7199
-lru_cache_miss_total{kind="sm_tipset"} 181
-# HELP lru_cache_hit Stats of lru cache hit.
-# TYPE lru_cache_hit counter
-lru_cache_hit_total{kind="sm_tipset"} 913
-lru_cache_hit_total{kind="tipset"} 971846
+# HELP cache_tipset_size_bytes Size of cache tipset in bytes
+# TYPE cache_tipset_size_bytes gauge
+# UNIT cache_tipset_size_bytes bytes
+cache_tipset_size_bytes 10877000
+# HELP cache_tipset_len Length of cache tipset
+# TYPE cache_tipset_len gauge
+cache_tipset_len 2880
+# HELP cache_tipset_cap Capacity of cache tipset
+# TYPE cache_tipset_cap gauge
+cache_tipset_cap 2880
+# HELP cache_tipset_hits Cache hits of tipset
+# TYPE cache_tipset_hits gauge
+cache_tipset_hits 19795
+# HELP cache_tipset_misses Cache misses of tipset
+# TYPE cache_tipset_misses gauge
+cache_tipset_misses 39026
 ...
 ```
 

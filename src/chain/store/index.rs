@@ -7,7 +7,6 @@ use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
 use crate::db::{DbImpl, EthMappingsStore as _};
-use crate::metrics;
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::cache::SizeTrackingCache;
@@ -78,26 +77,24 @@ impl ChainIndex {
     /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Tipset>, Error> {
         crate::def_is_env_truthy!(cache_disabled, "FOREST_TIPSET_CACHE_DISABLED");
-        if !cache_disabled()
-            && let Some(ts) = self.ts_cache.get_cloned(tsk)
-        {
-            metrics::CACHE_HIT
-                .get_or_create(&metrics::values::TIPSET)
-                .inc();
-            return Ok(Some(ts));
+        if cache_disabled() {
+            Ok(Tipset::load(&self.db, tsk)?)
+        } else {
+            enum TmpError {
+                NotFound,
+                LoadError(anyhow::Error),
+            }
+            match self.ts_cache.get_or_insert_with(tsk, || {
+                Tipset::load(&self.db, tsk)
+                    .map(|opt| opt.ok_or(TmpError::NotFound))
+                    .map_err(TmpError::LoadError)
+                    .flatten()
+            }) {
+                Ok(ts) => Ok(Some(ts)),
+                Err(TmpError::NotFound) => Ok(None),
+                Err(TmpError::LoadError(e)) => Err(e.into()),
+            }
         }
-
-        let ts_opt = Tipset::load(&self.db, tsk)?;
-        if !cache_disabled()
-            && let Some(ts) = &ts_opt
-        {
-            self.ts_cache.push(tsk.clone(), ts.clone());
-            metrics::CACHE_MISS
-                .get_or_create(&metrics::values::TIPSET)
-                .inc();
-        }
-
-        Ok(ts_opt)
     }
 
     /// Loads a tipset from memory given the tipset keys and cache.
@@ -157,6 +154,8 @@ impl ChainIndex {
     ) -> Result<Option<Tipset>, Error> {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
+        crate::def_is_env_truthy!(lookup_table_disabled, "FOREST_TIPSET_LOOKUP_TABLE_DISABLED");
+
         // use `20` as checkpoint interval to match Lotus:
         // <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/store/index.go#L52>
         const CHECKPOINT_INTERVAL: ChainEpoch = 20;
@@ -170,7 +169,7 @@ impl ChainIndex {
         let from_epoch = from.epoch();
 
         let mut checkpoint_from_epoch = to;
-        while checkpoint_from_epoch < from_epoch {
+        while !lookup_table_disabled() && checkpoint_from_epoch < from_epoch {
             if let Ok(Some(checkpoint_from_key)) =
                 self.db.tipset_key_by_epoch(checkpoint_from_epoch)
                 && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)

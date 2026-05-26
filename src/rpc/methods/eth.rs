@@ -54,11 +54,11 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::cache::ForestCache;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, TipsetState, VMFlush};
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
+use crate::utils::get_size::big_int_heap_size_helper;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
@@ -478,9 +478,9 @@ impl Block {
         tipset: crate::blocks::Tipset,
         tx_info: TxInfo,
     ) -> Result<Arc<Self>> {
-        static ETH_BLOCK_HASH_TX_CACHE: LazyLock<ForestCache<CidWrapper, Arc<Block>>> =
+        static ETH_BLOCK_HASH_TX_CACHE: LazyLock<SizeTrackingCache<CidWrapper, Arc<Block>>> =
             LazyLock::new(|| {
-                ForestCache::with_size("eth_block_hash_tx", Block::block_cache_size())
+                SizeTrackingCache::new_with_metrics("eth_block_hash_tx", Block::block_cache_size())
             });
 
         match tx_info {
@@ -488,7 +488,7 @@ impl Block {
             TxInfo::Hash => {
                 let block_cid = tipset.key().cid()?;
                 ETH_BLOCK_HASH_TX_CACHE
-                    .get_or_else(&block_cid.into(), async move || {
+                    .get_or_insert_async(&CidWrapper::from(block_cid), async move {
                         let block_with_full_tx =
                             Self::from_filecoin_tipset_with_full_tx(state_manager, tipset).await?;
                         Ok(Arc::new(
@@ -505,14 +505,14 @@ impl Block {
         state_manager: &StateManager,
         tipset: crate::blocks::Tipset,
     ) -> Result<Arc<Self>> {
-        static ETH_BLOCK_FULL_TX_CACHE: LazyLock<ForestCache<CidWrapper, Arc<Block>>> =
+        static ETH_BLOCK_FULL_TX_CACHE: LazyLock<SizeTrackingCache<CidWrapper, Arc<Block>>> =
             LazyLock::new(|| {
-                ForestCache::with_size("eth_block_full_tx", Block::block_cache_size())
+                SizeTrackingCache::new_with_metrics("eth_block_full_tx", Block::block_cache_size())
             });
 
         let block_cid = tipset.key().cid()?;
         ETH_BLOCK_FULL_TX_CACHE
-            .get_or_else(&block_cid.into(), async move || {
+            .get_or_insert_async(&CidWrapper::from(block_cid), async move {
                 let parent_cid = tipset.parents().cid()?;
                 let block_number = EthInt64(tipset.epoch());
                 let block_hash: EthHash = block_cid.into();
@@ -835,6 +835,23 @@ impl RpcMethod<0> for EthAccounts {
 }
 
 pub enum EthBaseFee {}
+
+impl EthBaseFee {
+    fn get_base_fee(ctx: &Ctx, ts: &Tipset) -> anyhow::Result<TokenAmount> {
+        let heights = &ctx.chain_config().height_infos;
+        let smoke_height = heights
+            .get(&Height::Smoke)
+            .context("Missing Smoke height")?
+            .epoch;
+        let firehorse_height = heights
+            .get(&Height::FireHorse)
+            .context("Missing FireHorse height")?
+            .epoch;
+        compute_base_fee(ctx.db(), ts, smoke_height, firehorse_height)
+            .context("failed to compute base fee for eth_baseFee")
+    }
+}
+
 impl RpcMethod<0> for EthBaseFee {
     const NAME: &'static str = "Filecoin.EthBaseFee";
     const NAME_ALIAS: Option<&'static str> = Some("eth_baseFee");
@@ -852,18 +869,36 @@ impl RpcMethod<0> for EthBaseFee {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store().heaviest_tipset();
-        let heights = &ctx.chain_config().height_infos;
-        let smoke_height = heights
-            .get(&Height::Smoke)
-            .context("Missing Smoke height")?
-            .epoch;
-        let firehorse_height = heights
-            .get(&Height::FireHorse)
-            .context("Missing FireHorse height")?
-            .epoch;
-        let base_fee = compute_base_fee(ctx.db(), &ts, smoke_height, firehorse_height)
-            .context("failed to compute base fee for eth_baseFee")?;
+        let base_fee = Self::get_base_fee(&ctx, &ctx.chain_store().heaviest_tipset())?;
+        Ok(EthBigInt(base_fee.atto().clone()))
+    }
+}
+
+pub enum BaseFeeByHeight {}
+impl RpcMethod<1> for BaseFeeByHeight {
+    const NAME: &'static str = "Forest.BaseFeeByHeight";
+    const NAME_ALIAS: Option<&'static str> = None;
+    const PARAM_NAMES: [&'static str; 1] = ["height"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the calculated upcoming base fee of the tipset at the given height in attoFIL",
+    );
+
+    type Params = (ChainEpoch,);
+    type Ok = EthBigInt;
+
+    async fn handle(
+        ctx: Ctx,
+        (height,): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_index().load_required_tipset_by_height(
+            height,
+            ctx.chain_store().heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        )?;
+        let base_fee = EthBaseFee::get_base_fee(&ctx, &ts)?;
         Ok(EthBigInt(base_fee.atto().clone()))
     }
 }
@@ -1375,7 +1410,7 @@ pub async fn eth_logs_for_block_and_transaction(
     );
     let mut events = vec![];
     EthEventHandler::collect_events(
-        ctx,
+        &ctx.state_manager,
         ts,
         Some(&parsed_filter),
         SkipEvent::OnUnresolvedAddress,
@@ -1392,7 +1427,7 @@ pub async fn eth_logs_with_filter(
 ) -> anyhow::Result<Vec<EthLog>> {
     let mut events = vec![];
     EthEventHandler::collect_events(
-        ctx,
+        &ctx.state_manager,
         ts,
         spec.as_ref(),
         SkipEvent::OnUnresolvedAddress,
@@ -1800,7 +1835,7 @@ async fn eth_estimate_gas(
                 err = e.into();
             }
 
-            Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+            Err(anyhow::anyhow!("failed to estimate gas: {}", err.message()).into())
         }
         Ok(gassed_msg) => {
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
@@ -1814,6 +1849,18 @@ async fn apply_message(
     tipset: Option<Tipset>,
     msg: Message,
 ) -> Result<ApiInvocResult, Error> {
+    if let Some(ts) = &tipset
+        && ts.epoch() > 0
+    {
+        let parent = ctx.chain_index().load_required_tipset(ts.parents())?;
+        if ctx
+            .chain_config()
+            .has_expensive_fork_between(parent.epoch(), ts.epoch() + 1)
+        {
+            return Err(crate::state_manager::Error::ExpensiveFork.into());
+        }
+    }
+
     let (invoc_res, _) = ctx
         .state_manager
         .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
@@ -3224,17 +3271,18 @@ impl RpcMethod<1> for EthGetLogs {
         (eth_filter,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let pf = ctx
-            .eth_event_handler
-            .parse_eth_filter_spec(&ctx, &eth_filter)
-            .map_err(|e| {
-                if e.downcast_ref::<EthErrors>()
-                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::BlockRangeExceeded { .. }))
-                {
-                    return e;
-                }
-                e.context("failed to parse events for filter")
-            })?;
+        let pf = Arc::new(
+            ctx.eth_event_handler
+                .parse_eth_filter_spec(&ctx, &eth_filter)
+                .map_err(|e| {
+                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
+                        matches!(eth_err, EthErrors::BlockRangeExceeded { .. })
+                    }) {
+                        return e;
+                    }
+                    e.context("failed to parse events for filter")
+                })?,
+        );
         let events = ctx
             .eth_event_handler
             .get_events_for_parsed_filter(&ctx, &pf, SkipEvent::OnUnresolvedAddress)
@@ -3267,7 +3315,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &event_filter.into(),
+                        &Arc::new(event_filter.into()),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3318,7 +3366,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &event_filter.into(),
+                        &Arc::new(event_filter.into()),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3343,7 +3391,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                        &Arc::new(ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
                             // heaviest tipset doesn't have events because its messages haven't been executed yet
                             RangeInclusive::new(
                                 tipset_filter
@@ -3352,7 +3400,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                                 // Use -1 to indicate that the range extends until the latest available tipset.
                                 -1,
                             ),
-                        )),
+                        ))),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3375,7 +3423,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                        &Arc::new(ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
                             // heaviest tipset doesn't have events because its messages haven't been executed yet
                             RangeInclusive::new(
                                 mempool_filter
@@ -3384,7 +3432,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                                 // Use -1 to indicate that the range extends until the latest available tipset.
                                 -1,
                             ),
-                        )),
+                        ))),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;

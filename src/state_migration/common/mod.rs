@@ -4,14 +4,13 @@
 //! Common code that's shared across all migration code.
 //! Each network upgrade / state migration code lives in their own module.
 
-use std::{num::NonZeroUsize, sync::Arc};
+use std::num::NonZeroUsize;
 
 use crate::{
+    prelude::*,
     shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree},
-    utils::{cache::SizeTrackingCache, get_size::CidWrapper},
+    utils::cache::SizeTrackingCache,
 };
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 
 mod macros;
 mod migration_job;
@@ -23,37 +22,38 @@ pub(in crate::state_migration) use state_migration::StateMigration;
 pub(in crate::state_migration) type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
 
 /// Cache of existing CID to CID migrations for an actor.
-#[derive(Clone)]
-pub(in crate::state_migration) struct MigrationCache {
-    cache: Arc<SizeTrackingCache<String, CidWrapper>>,
-}
+#[derive(derive_more::Deref)]
+pub(in crate::state_migration) struct MigrationCache(SizeTrackingCache<String, CidWrapper>);
 
 impl MigrationCache {
     pub fn new(size: NonZeroUsize) -> Self {
-        Self {
-            cache: Arc::new(SizeTrackingCache::new_with_metrics("migration", size)),
-        }
+        Self(SizeTrackingCache::new_with_metrics("migration", size))
     }
 
     pub fn get(&self, key: &str) -> Option<Cid> {
-        self.cache.get_cloned(key).map(From::from)
+        self.deref().get(key).map(From::from)
     }
 
-    pub fn get_or_insert_with<F>(&self, key: String, f: F) -> anyhow::Result<Cid>
+    pub fn get_or_insert_with<F>(&self, key: &str, f: F) -> anyhow::Result<Cid>
     where
         F: FnOnce() -> anyhow::Result<Cid>,
     {
-        if let Some(v) = self.cache.get_cloned(&key) {
-            Ok(v.into())
-        } else {
-            let v = f()?;
-            self.push(key, v);
-            Ok(v)
-        }
+        self.deref()
+            .get_or_insert_with(key, || {
+                let cid = f()?;
+                Ok(cid.into())
+            })
+            .map(From::from)
     }
 
     pub fn push(&self, key: String, value: Cid) {
-        self.cache.push(key, value.into());
+        self.deref().insert(key, value.into());
+    }
+}
+
+impl ShallowClone for MigrationCache {
+    fn shallow_clone(&self) -> Self {
+        Self(self.deref().shallow_clone())
     }
 }
 
@@ -143,15 +143,13 @@ mod tests {
         let cid = Cid::from_cbor_blake2b256(&666).unwrap();
         assert_eq!(cache.get("Azathoth"), None);
 
-        let value = cache
-            .get_or_insert_with("Azathoth".to_owned(), || Ok(cid))
-            .unwrap();
+        let value = cache.get_or_insert_with("Azathoth", || Ok(cid)).unwrap();
         assert_eq!(value, cid);
         assert_eq!(cache.get("Azathoth"), Some(cid));
 
         // Tests that there is no deadlock when inserting a value while reading the cache.
         let value = cache
-            .get_or_insert_with("Dagon".to_owned(), || Ok(cache.get("Azathoth").unwrap()))
+            .get_or_insert_with("Dagon", || Ok(cache.get("Azathoth").unwrap()))
             .unwrap();
         assert_eq!(value, cid);
         assert_eq!(cache.get("Dagon"), Some(cid));

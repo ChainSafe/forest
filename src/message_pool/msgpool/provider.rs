@@ -134,7 +134,7 @@ impl Provider for ChainStore {
                 let state = StateTree::new_from_root(self.db(), lookback_ts.parent_state())
                     .map_err(|e| Error::Other(e.to_string()))?;
                 state
-                    .resolve_to_deterministic_addr(self.db(), *addr)
+                    .resolve_to_deterministic_address(self.db(), *addr)
                     .map_err(|e| Error::Other(e.to_string()))
             }
         }
