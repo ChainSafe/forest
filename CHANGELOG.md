@@ -43,6 +43,8 @@
 
 ### Fixed
 
+- [#7018](https://github.com/ChainSafe/forest/issues/7018): Fixed `forest-wallet set-default` failing when the keystore has no `default` entry.
+
 - [#6941](https://github.com/ChainSafe/forest/pull/6941): The `eth_subscribe` `logs` subscription now emits one log object per notification instead of one array of logs per tipset.
 
 ## Forest v0.33.4 "Stray"
