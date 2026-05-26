@@ -122,9 +122,9 @@ where
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
     if !BUNDLE_CHECKED.load(atomic::Ordering::Relaxed) {
         BUNDLE_CHECKED.store(true, atomic::Ordering::Relaxed);
-        for (height, _) in mappings
+        for height in mappings
             .iter()
-            .filter_map(|(height, migrate)| migrate.as_ref().map(|migrate| (height, migrate)))
+            .filter_map(|(height, migrate)| migrate.as_ref().map(|_| height))
         {
             let Some(info) = chain_config.height_infos.get(height) else {
                 anyhow::bail!("Missing `HeightInfo` for migration height {height}");
