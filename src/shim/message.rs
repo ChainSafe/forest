@@ -11,6 +11,7 @@ use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
 
 use crate::shim::{address::Address, econ::TokenAmount};
+use crate::utils::get_size::raw_bytes_heap_size_helper;
 
 /// Method number indicator for calling actor methods.
 pub type MethodNum = u64;
@@ -27,18 +28,11 @@ pub struct Message {
     #[cfg_attr(test, arbitrary(gen(
         |g| RawBytes::new(Vec::arbitrary(g))
     )))]
-    #[get_size(size_fn = raw_bytes_heap_size)]
+    #[get_size(size_fn = raw_bytes_heap_size_helper)]
     pub params: RawBytes,
     pub gas_limit: u64,
     pub gas_fee_cap: TokenAmount,
     pub gas_premium: TokenAmount,
-}
-
-fn raw_bytes_heap_size(b: &RawBytes) -> usize {
-    // Note: this is a cheap but inaccurate estimation,
-    // the correct implementation should be `Vec<u8>.from(b.clone()).get_heap_size()`,
-    // or `b.bytes.get_heap_size()` if `bytes` is made public.
-    b.bytes().get_heap_size()
 }
 
 impl From<Message_v4> for Message {
