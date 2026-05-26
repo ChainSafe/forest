@@ -232,10 +232,8 @@ impl TableData {
             }
         }
         let mut data = vec![];
-        for r in sqlx::query(&format!("SELECT * FROM {name}"))
-            .fetch_all(db)
-            .await?
-        {
+        let mut query_builder = sqlx::QueryBuilder::new(format!("SELECT * FROM {name}"));
+        for r in query_builder.build().fetch_all(db).await? {
             let len = r.columns().len();
             let mut array = Vec::with_capacity(len);
             for i in 0..len {

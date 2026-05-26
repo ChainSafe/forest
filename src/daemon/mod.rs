@@ -814,7 +814,9 @@ fn warmup_in_background(ctx: &AppContext) {
         let start = Instant::now();
         let mut from = cs.heaviest_tipset();
         let ec_calculator_finalized_epoch = cs.ec_calculator_finalized_epoch();
-        let warmup_epochs = (19..ec_calculator_finalized_epoch).step_by(20).collect_vec();
+        let warmup_epochs = (19..ec_calculator_finalized_epoch)
+            .step_by(20)
+            .collect_vec();
         for epoch in warmup_epochs.into_iter().rev() {
             tracing::info!("warming up tipset_by_height@{epoch}");
             from = match cs.chain_index().tipset_by_height(

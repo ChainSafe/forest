@@ -835,6 +835,23 @@ impl RpcMethod<0> for EthAccounts {
 }
 
 pub enum EthBaseFee {}
+
+impl EthBaseFee {
+    fn get_base_fee(ctx: &Ctx, ts: &Tipset) -> anyhow::Result<TokenAmount> {
+        let heights = &ctx.chain_config().height_infos;
+        let smoke_height = heights
+            .get(&Height::Smoke)
+            .context("Missing Smoke height")?
+            .epoch;
+        let firehorse_height = heights
+            .get(&Height::FireHorse)
+            .context("Missing FireHorse height")?
+            .epoch;
+        compute_base_fee(ctx.db(), ts, smoke_height, firehorse_height)
+            .context("failed to compute base fee for eth_baseFee")
+    }
+}
+
 impl RpcMethod<0> for EthBaseFee {
     const NAME: &'static str = "Filecoin.EthBaseFee";
     const NAME_ALIAS: Option<&'static str> = Some("eth_baseFee");
@@ -852,18 +869,36 @@ impl RpcMethod<0> for EthBaseFee {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store().heaviest_tipset();
-        let heights = &ctx.chain_config().height_infos;
-        let smoke_height = heights
-            .get(&Height::Smoke)
-            .context("Missing Smoke height")?
-            .epoch;
-        let firehorse_height = heights
-            .get(&Height::FireHorse)
-            .context("Missing FireHorse height")?
-            .epoch;
-        let base_fee = compute_base_fee(ctx.db(), &ts, smoke_height, firehorse_height)
-            .context("failed to compute base fee for eth_baseFee")?;
+        let base_fee = Self::get_base_fee(&ctx, &ctx.chain_store().heaviest_tipset())?;
+        Ok(EthBigInt(base_fee.atto().clone()))
+    }
+}
+
+pub enum BaseFeeByHeight {}
+impl RpcMethod<1> for BaseFeeByHeight {
+    const NAME: &'static str = "Forest.BaseFeeByHeight";
+    const NAME_ALIAS: Option<&'static str> = None;
+    const PARAM_NAMES: [&'static str; 1] = ["height"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the calculated upcoming base fee of the tipset at the given height in attoFIL",
+    );
+
+    type Params = (ChainEpoch,);
+    type Ok = EthBigInt;
+
+    async fn handle(
+        ctx: Ctx,
+        (height,): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_index().load_required_tipset_by_height(
+            height,
+            ctx.chain_store().heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        )?;
+        let base_fee = EthBaseFee::get_base_fee(&ctx, &ts)?;
         Ok(EthBigInt(base_fee.atto().clone()))
     }
 }
@@ -1800,7 +1835,7 @@ async fn eth_estimate_gas(
                 err = e.into();
             }
 
-            Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+            Err(anyhow::anyhow!("failed to estimate gas: {}", err.message()).into())
         }
         Ok(gassed_msg) => {
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
@@ -1814,6 +1849,18 @@ async fn apply_message(
     tipset: Option<Tipset>,
     msg: Message,
 ) -> Result<ApiInvocResult, Error> {
+    if let Some(ts) = &tipset
+        && ts.epoch() > 0
+    {
+        let parent = ctx.chain_index().load_required_tipset(ts.parents())?;
+        if ctx
+            .chain_config()
+            .has_expensive_fork_between(parent.epoch(), ts.epoch() + 1)
+        {
+            return Err(crate::state_manager::Error::ExpensiveFork.into());
+        }
+    }
+
     let (invoc_res, _) = ctx
         .state_manager
         .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)

@@ -12,6 +12,7 @@ mod filter_list;
 pub mod json_validator;
 mod log_layer;
 mod metrics_layer;
+mod parallel_batch_layer;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
@@ -28,6 +29,7 @@ pub use filter_list::FilterList;
 use futures::FutureExt as _;
 use jsonrpsee::server::ServerConfig;
 use log_layer::LogLayer;
+use parallel_batch_layer::ParallelBatchLayer;
 use reflect::Ctx;
 pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
@@ -107,6 +109,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthAddressToFilecoinAddress);
         $callback!($crate::rpc::eth::FilecoinAddressToEthAddress);
         $callback!($crate::rpc::eth::EthBaseFee);
+        $callback!($crate::rpc::eth::BaseFeeByHeight);
         $callback!($crate::rpc::eth::EthBlockNumber);
         $callback!($crate::rpc::eth::EthCall);
         $callback!($crate::rpc::eth::EthChainId);
@@ -573,18 +576,18 @@ pub async fn start_rpc(
     let methods: Arc<HashMap<ApiPaths, Methods>> =
         Arc::new(modules.into_iter().map(|(k, v)| (k, v.into())).collect());
 
+    let server_config = ServerConfig::builder()
+        .max_request_body_size(MAX_REQUEST_BODY_SIZE)
+        // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+        .max_response_body_size(*MAX_RESPONSE_BODY_SIZE)
+        .max_connections(default_max_connections())
+        .set_id_provider(RandomHexStringIdProvider::new())
+        .build();
+    let max_response_body_size = *MAX_RESPONSE_BODY_SIZE as usize;
     let per_conn = PerConnection {
         stop_handle: stop_handle.clone(),
         svc_builder: Server::builder()
-            .set_config(
-                ServerConfig::builder()
-                    .max_request_body_size(MAX_REQUEST_BODY_SIZE)
-                    // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
-                    .max_response_body_size(*MAX_RESPONSE_BODY_SIZE)
-                    .max_connections(default_max_connections())
-                    .set_id_provider(RandomHexStringIdProvider::new())
-                    .build(),
-            )
+            .set_config(server_config.clone())
             .set_http_middleware(
                 tower::ServiceBuilder::new()
                     .option_layer(COMPRESS_MIN_BODY_SIZE.map(CompressionLayer::new))
@@ -647,7 +650,9 @@ pub async fn start_rpc(
                         keystore: keystore.clone(),
                     })
                     .layer(LogLayer::default())
-                    .layer(MetricsLayer::default());
+                    .layer(MetricsLayer::default())
+                    // `ParallelBatchLayer` has to be the last layer
+                    .layer(ParallelBatchLayer::new(max_response_body_size));
                 let mut jsonrpsee_svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
@@ -801,10 +806,18 @@ pub fn openrpc(path: ApiPaths, include: Option<&[&str]>) -> openrpc_types::OpenR
 mod tests {
     use super::*;
     use crate::{
-        db::MemoryDB, networks::NetworkChain, rpc::common::ShiftingVersion,
+        db::MemoryDB,
+        networks::NetworkChain,
+        rpc::{client::UrlClient, common::ShiftingVersion},
         tool::offline_server::server::offline_rpc_state,
     };
-    use jsonrpsee::server::stop_channel;
+    use jsonrpsee::{
+        core::{
+            client::{BatchResponse, ClientT},
+            params::BatchRequestBuilder,
+        },
+        server::stop_channel,
+    };
     use std::net::{Ipv4Addr, SocketAddr};
     use tokio::task::JoinSet;
 
@@ -912,6 +925,29 @@ mod tests {
         assert_eq!(response, jwt_read_permissions);
 
         drop(client);
+
+        // Sending a batch request
+        let client = UrlClient::new(
+            format!("http://{}:{}/rpc/v1", rpc_address.ip(), rpc_address.port())
+                .parse()
+                .unwrap(),
+            None,
+        )
+        .await
+        .unwrap();
+        let mut batch_request_builder = BatchRequestBuilder::new();
+        let empty_payload: [(); 0] = [];
+        batch_request_builder
+            .insert("Filecoin.Version", empty_payload)
+            .unwrap();
+        batch_request_builder
+            .insert("eth_chainId", empty_payload)
+            .unwrap();
+        let batch_response: BatchResponse<serde_json::Value> =
+            client.batch_request(batch_request_builder).await.unwrap();
+        assert_eq!(batch_response.len(), 2);
+        assert_eq!(batch_response.num_successful_calls(), 2);
+        assert_eq!(batch_response.num_failed_calls(), 0);
 
         // Gracefully shutdown the RPC server
         println!("sending shutdown signal");
