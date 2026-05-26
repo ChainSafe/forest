@@ -132,11 +132,20 @@ pub enum SkipEvent {
 
 impl EthEventHandler {
     pub fn new() -> Self {
-        let config = EventsConfig::default();
-        Self::from_config(&config)
+        // Standalone handler with no live mempool: subscribers see an empty
+        // stream forever. Used in tests, snapshot tools, and other contexts
+        // where no `MessagePool` is available.
+        let (dummy, _) = tokio::sync::broadcast::channel(1);
+        Self::from_config(&EventsConfig::default(), dummy)
     }
 
-    pub fn from_config(config: &EventsConfig) -> Self {
+    /// Build a handler from `config`. Each `MempoolFilter` installed via the
+    /// returned handler subscribes to `mpool_event_sender` for pending-tx
+    /// updates.
+    pub fn from_config(
+        config: &EventsConfig,
+        mpool_event_sender: tokio::sync::broadcast::Sender<crate::message_pool::MpoolUpdate>,
+    ) -> Self {
         let max_filters: usize = env_or_default("FOREST_MAX_FILTERS", 100);
         let max_filter_results = std::env::var("FOREST_MAX_FILTER_RESULTS")
             .ok()
@@ -162,7 +171,10 @@ impl EthEventHandler {
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
         let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
-        let mempool_filter_manager = Some(MempoolFilterManager::new(max_filter_results));
+        let mempool_filter_manager = Some(MempoolFilterManager::new(
+            max_filter_results,
+            mpool_event_sender,
+        ));
 
         Self {
             filter_store,
