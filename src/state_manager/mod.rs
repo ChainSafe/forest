@@ -31,6 +31,7 @@ use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::ChainMessage;
 use crate::networks::ChainConfig;
 use crate::prelude::*;
+use crate::rpc::state::ApiInvocResult;
 use crate::rpc::types::SectorOnChainInfo;
 use crate::shim::actors::init::{self, State};
 use crate::shim::actors::*;
@@ -167,6 +168,8 @@ pub struct StateManager {
     cs: ChainStore,
     /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
     cache: ForestCache<TipsetKey, ExecutedTipset>,
+    /// This is a cache which indexes tipsets to their traces.
+    trace_cache: ForestCache<TipsetKey, (CidWrapper, Vec<Arc<ApiInvocResult>>)>,
     id_to_deterministic_address_cache: IdToAddressCache,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
@@ -177,6 +180,7 @@ impl ShallowClone for StateManager {
         Self {
             cs: self.cs.shallow_clone(),
             cache: self.cache.shallow_clone(),
+            trace_cache: self.trace_cache.shallow_clone(),
             id_to_deterministic_address_cache: self
                 .id_to_deterministic_address_cache
                 .shallow_clone(),
@@ -209,6 +213,7 @@ impl StateManager {
         Ok(Self {
             cs,
             cache: ForestCache::new("tipset_state_executed_tipset"), // For StateOutput
+            trace_cache: ForestCache::new("tipset_trace"),
             beacon,
             engine,
             id_to_deterministic_address_cache: SizeTrackingCache::new_with_metrics(

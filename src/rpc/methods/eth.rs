@@ -3515,8 +3515,8 @@ async fn execute_tipset_traces(
 /// `transactionIndex` from `eth_getBlockByNumber`. System-actor messages
 /// are filtered out without consuming a position.
 fn non_system_traces_with_positions(
-    raw_traces: impl IntoIterator<Item = ApiInvocResult>,
-) -> impl Iterator<Item = (i64, ApiInvocResult)> {
+    raw_traces: impl IntoIterator<Item = Arc<ApiInvocResult>>,
+) -> impl Iterator<Item = (i64, Arc<ApiInvocResult>)> {
     raw_traces
         .into_iter()
         .filter(|ir| ir.msg.from != system::ADDRESS.into())
@@ -3662,6 +3662,7 @@ async fn debug_trace_transaction(
     let execution_trace = entry
         .invoc_result
         .execution_trace
+        .clone()
         .context("no execution trace for transaction")?;
 
     let mut env = trace::base_environment(&state, &entry.invoc_result.msg.from).map_err(|e| {
@@ -4086,7 +4087,7 @@ mod test {
         use crate::shim::address::Address as ShimAddress;
         use crate::shim::message::Message_v3;
 
-        let invoc_with_from = |from: ShimAddress| -> ApiInvocResult {
+        let invoc_with_from = |from: ShimAddress| -> Arc<ApiInvocResult> {
             ApiInvocResult {
                 msg: Message_v3 {
                     to: ShimAddress::new_id(1).into(),
@@ -4096,6 +4097,7 @@ mod test {
                 .into(),
                 ..Default::default()
             }
+            .into()
         };
 
         let raw_traces = vec![
