@@ -136,7 +136,7 @@ impl ChainStore {
                     .as_ref()
                     .map(|ts| ts.epoch())
                     .unwrap_or_default()
-                    .max(ec_calculator_finalized_epoch.load(atomic::Ordering::Relaxed));
+                    .max(ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire));
                 ts.epoch() <= finalized
             }
         }));
@@ -167,7 +167,7 @@ impl ChainStore {
     /// Gets the EC calculator finalized epoch
     pub fn ec_calculator_finalized_epoch(&self) -> ChainEpoch {
         self.ec_calculator_finalized_epoch
-            .load(atomic::Ordering::Relaxed)
+            .load(atomic::Ordering::Acquire)
     }
 
     /// Cache for messages in tipsets, keyed by tipset key.
@@ -186,7 +186,7 @@ impl ChainStore {
                 self.chain_config(),
                 &head,
             ),
-            atomic::Ordering::Relaxed,
+            atomic::Ordering::Release,
         );
         if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
