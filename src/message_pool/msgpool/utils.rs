@@ -3,7 +3,10 @@
 
 use crate::chain::MINIMUM_BASE_FEE;
 use crate::message::{MessageRead as _, SignedMessage};
-use crate::message_pool::Error;
+use crate::message_pool::{
+    Error,
+    msgpool::{RBF_DENOM, REPLACE_BY_FEE_RATIO_MIN},
+};
 use crate::shim::address::Address;
 use crate::shim::{crypto::Signature, econ::TokenAmount, message::Message};
 use crate::utils::cache::SizeTrackingCache;
@@ -62,4 +65,42 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) {
     rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
+}
+
+/// Computes the minimum gas premium required to replace an existing message
+/// using [`REPLACE_BY_FEE_RATIO_MIN`].
+///
+/// See <https://github.com/filecoin-project/lotus/blob/v1.36.0/chain/messagepool/messagepool.go#L210-L213>
+pub(crate) fn compute_rbf_min_premium(premium: &TokenAmount) -> TokenAmount {
+    (premium * REPLACE_BY_FEE_RATIO_MIN).div_floor(RBF_DENOM) + TokenAmount::from_atto(1u8)
+}
+
+/// Computes the gas premium required to replace an existing message
+/// using provided replace-by-fee ratio.
+///
+/// See <https://github.com/filecoin-project/lotus/blob/v1.36.0/chain/messagepool/messagepool.go#L215-L219>
+pub(crate) fn compute_rbf(premium: &TokenAmount, replace_by_fee_ratio: u64) -> TokenAmount {
+    (premium * replace_by_fee_ratio).div_floor(RBF_DENOM) + TokenAmount::from_atto(1u8)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_rbf() {
+        let replace_by_fee_ratio = 125;
+        assert_eq!(
+            super::compute_rbf(&TokenAmount::from_atto(100u64), replace_by_fee_ratio),
+            TokenAmount::from_atto(126u64) // 100 * 125/100 + 1
+        );
+    }
+
+    #[test]
+    fn test_compute_rbf_min_premium() {
+        assert_eq!(
+            super::compute_rbf_min_premium(&TokenAmount::from_atto(100u64)),
+            TokenAmount::from_atto(111u64) // 100 * 110/100 + 1
+        );
+    }
 }

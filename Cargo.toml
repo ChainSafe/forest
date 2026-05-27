@@ -349,7 +349,7 @@ cargo-test = []                                  # group of tests that is recomm
 doctest-private = []                             # see lib.rs::doctest_private
 benchmark-private = ["dep:criterion"]            # see lib.rs::benchmark_private
 interop-tests-private = []                       # see lib.rs::interop_tests_private
-calibnet-wallet-integration = []                 # see tests/calibnet_wallet.rs
+calibnet-integration = []                        # see tests/calibnet_*.rs (wallet, mpool_tools, etc.)
 sqlite = ["dep:sqlx"]
 
 # Allocator. Use at most one of these.
@@ -378,9 +378,14 @@ harness = false
 required-features = ["benchmark-private"]
 
 [[test]]
-name = "calibnet_wallet"
+name = "mpool_tools"
+path = "tests/calibnet_mpool_tools.rs"
+required-features = ["calibnet-integration"]
+
+[[test]]
+name = "wallet"
 path = "tests/calibnet_wallet.rs"
-required-features = ["calibnet-wallet-integration"]
+required-features = ["calibnet-integration"]
 
 [package.metadata.docs.rs]
 # See https://docs.rs/about/metadata

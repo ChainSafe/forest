@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 const SIZE_LIMIT_LOW: i64 = 20000;
 const SIZE_LIMIT_HIGH: i64 = 30000;
 const PRUNE_COOLDOWN: Duration = Duration::from_secs(60); // 1 minute
-const REPLACE_BY_FEE_RATIO: f64 = 1.25;
 const GAS_LIMIT_OVERESTIMATION: f64 = 1.25;
+pub const REPLACE_BY_FEE_RATIO_DEFAULT: u64 = 125;
 
 /// Configuration available for the [`crate::message_pool::MessagePool`].
 ///
@@ -24,7 +24,7 @@ pub struct MpoolConfig {
     pub priority_addrs: Vec<Address>,
     pub size_limit_high: i64,
     pub size_limit_low: i64,
-    pub replace_by_fee_ratio: f64,
+    pub replace_by_fee_ratio: u64,
     pub prune_cooldown: Duration,
     pub gas_limit_overestimation: f64,
 }
@@ -35,7 +35,7 @@ impl Default for MpoolConfig {
             priority_addrs: vec![],
             size_limit_high: SIZE_LIMIT_HIGH,
             size_limit_low: SIZE_LIMIT_LOW,
-            replace_by_fee_ratio: REPLACE_BY_FEE_RATIO,
+            replace_by_fee_ratio: REPLACE_BY_FEE_RATIO_DEFAULT,
             prune_cooldown: PRUNE_COOLDOWN,
             gas_limit_overestimation: GAS_LIMIT_OVERESTIMATION,
         }

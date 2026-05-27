@@ -20,9 +20,8 @@ pub use events::MpoolUpdate;
 
 pub(in crate::message_pool) use utils::recover_sig;
 
-const REPLACE_BY_FEE_RATIO: f32 = 1.25;
-const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
-const RBF_DENOM: u64 = 256;
+const REPLACE_BY_FEE_RATIO_MIN: u64 = 110;
+const RBF_DENOM: u64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const MIN_GAS: u64 = 1298450;
 
