@@ -235,6 +235,18 @@ impl Chains {
         }
     }
 
+    pub(in crate::message_pool) fn bubble_down_after_trim(&mut self, from: usize) {
+        let mut j = from;
+        while j < self.key_vec.len().saturating_sub(1) {
+            #[allow(clippy::indexing_slicing)]
+            if self[j].compare(&self[j + 1]) == Ordering::Less {
+                break;
+            }
+            self.key_vec.swap(j, j + 1);
+            j += 1;
+        }
+    }
+
     pub(in crate::message_pool) fn invalidate(&mut self, mut key: Option<NodeKey>) {
         let mut next_keys = vec![];
 

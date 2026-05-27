@@ -4,12 +4,14 @@ use super::actors::LoadActorStateFromBlockstore;
 pub use super::fvm_shared_latest::{ActorID, state::StateRoot};
 use crate::{
     blocks::Tipset,
-    prelude::*,
-    shim::{actors::AccountActorStateLoad as _, address::Address, econ::TokenAmount},
-};
-use crate::{
     networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata},
-    shim::actors::account,
+    prelude::*,
+    shim::{
+        actors::{AccountActorStateLoad as _, account},
+        address::Address,
+        econ::TokenAmount,
+    },
+    utils::get_size::big_int_heap_size_helper,
 };
 use anyhow::bail;
 use fvm_ipld_encoding::{
@@ -24,6 +26,7 @@ pub use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3}
 pub use fvm4::state_tree::{
     ActorState as ActorStateV4, ActorState as ActorState_latest, StateTree as StateTreeV4,
 };
+use get_size2::GetSize;
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -420,6 +423,12 @@ impl ActorState {
             code,
             delegated_address.map(Into::into),
         ))
+    }
+}
+
+impl GetSize for ActorState {
+    fn get_heap_size(&self) -> usize {
+        big_int_heap_size_helper(self.balance.atto())
     }
 }
 

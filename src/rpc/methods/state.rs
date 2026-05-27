@@ -1612,7 +1612,7 @@ impl RpcMethod<3> for ForestStateCompute {
         {
             let chain_store = ctx.chain_store().shallow_clone();
             let network_context = ctx.sync_network_context.shallow_clone();
-            futures.push_front(async move {
+            futures.push_front(tokio::spawn(async move {
                 if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
                     // Backfill full tipset from the network
                     const MAX_RETRIES: usize = 5;
@@ -1630,11 +1630,12 @@ impl RpcMethod<3> for ForestStateCompute {
                     fts.persist(chain_store.db())?;
                 }
                 anyhow::Ok(ts)
-            });
+            }));
         }
 
         let mut results = Vec::with_capacity(n_epochs as _);
         while let Some(ts) = futures.try_next().await? {
+            let ts = ts?;
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
             if !force_recompute {

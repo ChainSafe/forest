@@ -119,13 +119,17 @@ async fn ctx(
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
     let state_manager = StateManager::new(chain_store.shallow_clone())?;
+    let mut services: JoinSet<anyhow::Result<()>> = JoinSet::new();
     let message_pool = MessagePool::new(
         chain_store,
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        &mut JoinSet::new(),
+        &mut services,
     )?;
+    // See `super::test_snapshot::drain_mpool_services` for rationale.
+    services.abort_all();
+    tokio::spawn(super::test_snapshot::drain_mpool_services(services));
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =

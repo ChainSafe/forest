@@ -400,7 +400,11 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                     warn!("failed to call `Block::from_filecoin_tipset` for cache warmup: {e:#}");
                 }
             }
-
+            {
+                if let Err(e) = state_manager.execution_trace(&ts).await {
+                    warn!("failed to call `StateManager::execution_trace` for cache warmup: {e:#}");
+                }
+            }
             {
                 use crate::rpc::eth::filter::{Matcher, SkipEvent};
                 struct CollectEventsCachePrefillingMatcher;
