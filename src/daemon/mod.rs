@@ -406,6 +406,31 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                 }
             }
             {
+                let finalized_epoch = state_manager
+                    .chain_store()
+                    .ec_calculator_finalized_epoch()
+                    .max(
+                        state_manager
+                            .chain_store()
+                            .f3_finalized_tipset()
+                            .map(|ts| ts.epoch())
+                            .unwrap_or(0),
+                    );
+                if let Err(e) = state_manager
+                    .chain_index()
+                    .tipset_by_height_async(
+                        finalized_epoch,
+                        ts.shallow_clone(),
+                        ResolveNullTipset::TakeOlder,
+                    )
+                    .await
+                {
+                    warn!(
+                        "failed to call `ChainIndex::tipset_by_height` at finalized epoch {finalized_epoch} for cache warmup: {e:#}"
+                    );
+                }
+            }
+            {
                 use crate::rpc::eth::filter::{Matcher, SkipEvent};
                 struct CollectEventsCachePrefillingMatcher;
                 impl Matcher for CollectEventsCachePrefillingMatcher {

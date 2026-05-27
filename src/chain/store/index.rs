@@ -225,6 +225,18 @@ impl ChainIndex {
         Ok(None)
     }
 
+    pub async fn tipset_by_height_async(
+        &self,
+        to: ChainEpoch,
+        from: Tipset,
+        resolve: ResolveNullTipset,
+    ) -> Result<Option<Tipset>, Error> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || this.tipset_by_height(to, from, resolve))
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?
+    }
+
     /// Same as [`Self::tipset_by_height`], but errors if that would return `None`.
     pub fn load_required_tipset_by_height(
         &self,

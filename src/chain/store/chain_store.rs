@@ -162,7 +162,6 @@ impl ChainStore {
     }
 
     /// Gets the EC calculator finalized epoch
-    #[allow(dead_code)]
     pub fn ec_calculator_finalized_epoch(&self) -> ChainEpoch {
         *self.ec_calculator_finalized_epoch.read()
     }
