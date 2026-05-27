@@ -166,6 +166,10 @@ impl ChainIndex {
             epoch.mod_floor(&CHECKPOINT_INTERVAL) == 0
         }
 
+        if to == 0 {
+            return Ok(Some(Tipset::from(from.genesis(&self.db)?)));
+        }
+
         let from_epoch = from.epoch();
 
         let mut checkpoint_from_epoch = to;
@@ -180,14 +184,13 @@ impl ChainIndex {
             checkpoint_from_epoch = next_checkpoint(checkpoint_from_epoch);
         }
 
-        if to == 0 {
-            return Ok(Some(Tipset::from(from.genesis(&self.db)?)));
-        }
         if to > from.epoch() {
             return Err(Error::Other(format!(
                 "looking for tipset with height greater than start point, req: {to}, head: {from}",
                 from = from.epoch()
             )));
+        } else if to == from.epoch() {
+            return Ok(Some(from));
         }
 
         let from_epoch = from.epoch();

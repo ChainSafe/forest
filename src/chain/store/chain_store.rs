@@ -33,7 +33,10 @@ use fvm_ipld_encoding::CborStore;
 use nonzero_ext::nonzero;
 use parking_lot::{Mutex, RwLock};
 use serde::{Serialize, de::DeserializeOwned};
-use std::num::NonZeroUsize;
+use std::{
+    num::NonZeroUsize,
+    sync::atomic::{self, AtomicI64},
+};
 use tokio::sync::broadcast;
 use tracing::{debug, error, trace, warn};
 
@@ -64,7 +67,7 @@ pub struct ChainStore {
     f3_finalized_tipset: Arc<RwLock<Option<Tipset>>>,
 
     /// EC calculator finalized epoch cache
-    ec_calculator_finalized_epoch: Arc<RwLock<ChainEpoch>>,
+    ec_calculator_finalized_epoch: Arc<AtomicI64>,
 
     /// Used as a cache for tipset `lookbacks`.
     chain_index: ChainIndex,
@@ -121,7 +124,7 @@ impl ChainStore {
         let heaviest_tipset = Arc::new(RwLock::new(head.shallow_clone()));
         let f3_finalized_tipset: Arc<RwLock<Option<Tipset>>> = Default::default();
         let chain_index = ChainIndex::new(db.shallow_clone());
-        let ec_calculator_finalized_epoch = Arc::new(RwLock::new(
+        let ec_calculator_finalized_epoch = Arc::new(AtomicI64::new(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(&chain_index, &chain_config, &head),
         ));
         let chain_index = chain_index.with_is_tipset_finalized(Arc::new({
@@ -133,7 +136,7 @@ impl ChainStore {
                     .as_ref()
                     .map(|ts| ts.epoch())
                     .unwrap_or_default()
-                    .max(*ec_calculator_finalized_epoch.read());
+                    .max(ec_calculator_finalized_epoch.load(atomic::Ordering::Relaxed));
                 ts.epoch() <= finalized
             }
         }));
@@ -163,7 +166,8 @@ impl ChainStore {
 
     /// Gets the EC calculator finalized epoch
     pub fn ec_calculator_finalized_epoch(&self) -> ChainEpoch {
-        *self.ec_calculator_finalized_epoch.read()
+        self.ec_calculator_finalized_epoch
+            .load(atomic::Ordering::Relaxed)
     }
 
     /// Cache for messages in tipsets, keyed by tipset key.
@@ -176,12 +180,14 @@ impl ChainStore {
         head.key().save(self.db())?;
         self.db().set_heaviest_tipset_key(head.key())?;
         let old_head = std::mem::replace(&mut *self.heaviest_tipset.write(), head.shallow_clone());
-        *self.ec_calculator_finalized_epoch.write() =
+        self.ec_calculator_finalized_epoch.store(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(
                 self.chain_index(),
                 self.chain_config(),
                 &head,
-            );
+            ),
+            atomic::Ordering::Relaxed,
+        );
         if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
             {
