@@ -164,52 +164,32 @@ fn find_pending_message(
         .with_context(|| format!("no pending message found from {from} with nonce {nonce}"))
 }
 
-enum ReplaceGasInput {
-    Auto {
-        estimated_msg: Message,
-        original_premium: TokenAmount,
-    },
-    Manual {
-        gas_premium: TokenAmount,
-        gas_feecap: TokenAmount,
-        gas_limit: Option<u64>,
-        original_msg: Message,
-    },
+fn auto_compute_replacement_gas(
+    mut estimated_msg: Message,
+    original_premium: TokenAmount,
+) -> anyhow::Result<Message> {
+    let min_premium = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
+    if estimated_msg.gas_premium < min_premium {
+        estimated_msg.gas_premium = min_premium;
+    }
+    if estimated_msg.gas_fee_cap < estimated_msg.gas_premium {
+        estimated_msg.gas_fee_cap = estimated_msg.gas_premium.clone();
+    }
+    Ok(estimated_msg)
 }
 
-/// Computes auto/manual replacement gas values.
-///
-/// In auto mode, the gas premium is bumped to the RBF floor if needed.
-/// In manual mode, the provided gas premium and fee cap are used as-is.
-fn compute_replacement_gas(input: ReplaceGasInput) -> anyhow::Result<Message> {
-    match input {
-        ReplaceGasInput::Auto {
-            mut estimated_msg,
-            original_premium,
-        } => {
-            let min_premium = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
-            if estimated_msg.gas_premium < min_premium {
-                estimated_msg.gas_premium = min_premium;
-            }
-            if estimated_msg.gas_fee_cap < estimated_msg.gas_premium {
-                estimated_msg.gas_fee_cap = estimated_msg.gas_premium.clone();
-            }
-            Ok(estimated_msg)
-        }
-        ReplaceGasInput::Manual {
-            gas_premium,
-            gas_feecap,
-            gas_limit,
-            mut original_msg,
-        } => {
-            original_msg.gas_premium = gas_premium;
-            original_msg.gas_fee_cap = gas_feecap;
-            if let Some(limit) = gas_limit {
-                original_msg.gas_limit = limit;
-            }
-            Ok(original_msg)
-        }
+fn manual_compute_replacement_gas(
+    gas_premium: TokenAmount,
+    gas_feecap: TokenAmount,
+    gas_limit: Option<u64>,
+    mut original_msg: Message,
+) -> anyhow::Result<Message> {
+    original_msg.gas_premium = gas_premium;
+    original_msg.gas_fee_cap = gas_feecap;
+    if let Some(limit) = gas_limit {
+        original_msg.gas_limit = limit;
     }
+    Ok(original_msg)
 }
 
 async fn get_actor_sequence(
@@ -521,10 +501,8 @@ impl MpoolCommands {
                     )
                     .await?;
 
-                    let mut replacement = compute_replacement_gas(ReplaceGasInput::Auto {
-                        estimated_msg,
-                        original_premium: original_msg.gas_premium,
-                    })?;
+                    let mut replacement =
+                        auto_compute_replacement_gas(estimated_msg, original_msg.gas_premium)?;
                     cap_gas_fee(
                         &FeeConfig::default().max_fee,
                         &mut replacement,
@@ -536,12 +514,12 @@ impl MpoolCommands {
                         gas_premium.context("--gas-premium is required unless --auto is set")?;
                     let gas_feecap =
                         gas_feecap.context("--gas-feecap is required unless --auto is set")?;
-                    compute_replacement_gas(ReplaceGasInput::Manual {
+                    manual_compute_replacement_gas(
                         gas_premium,
                         gas_feecap,
                         gas_limit,
                         original_msg,
-                    })?
+                    )?
                 };
 
                 let smsg = WalletSignMessage::call(&client, (sender, replacement)).await?;
@@ -561,6 +539,7 @@ mod tests {
     use crate::message_pool::tests::create_smsg;
     use crate::shim::crypto::SignatureType;
     use itertools::Itertools as _;
+    use rstest::rstest;
     use std::borrow::BorrowMut;
 
     #[test]
@@ -753,104 +732,54 @@ mod tests {
         }
     }
 
-    #[test]
-    fn nonce_fix_fill_range_auto() {
-        struct Case {
-            name: &'static str,
-            next_on_chain: u64,
-            addr_nonces: &'static [u64],
-            other_sender_nonce: Option<u64>,
-            expected: Option<Range<u64>>,
+    #[rstest]
+    #[case::empty_pool(0, &[], None, None)]
+    #[case::wrong_sender(5, &[], Some(10), None)]
+    #[case::gap(5, &[7], None, Some(5..7))]
+    #[case::min_pending_nonce(5, &[10, 8], None, Some(5..8))]
+    #[case::next_nonce_in_mpool(5, &[5], None, None)]
+    #[case::ignores_stale_pending(5, &[3, 9], None, Some(5..9))]
+    #[case::only_stale_pending(5, &[3], None, None)]
+    fn nonce_fix_fill_range_auto(
+        #[case] next_on_chain: u64,
+        #[case] addr_nonces: &[u64],
+        #[case] other_sender_nonce: Option<u64>,
+        #[case] expected: Option<Range<u64>>,
+    ) {
+        let (mut wallet, addrs) = test_wallet();
+        let mut pending = pending_from(&mut wallet, &addrs.target, &addrs.addr, addr_nonces);
+        if let Some(nonce) = other_sender_nonce {
+            pending.push(create_smsg(
+                &addrs.target,
+                &addrs.other,
+                wallet.borrow_mut(),
+                nonce,
+                1_000_000,
+                1,
+            ));
         }
-
-        let cases = [
-            Case {
-                name: "empty_pool",
-                next_on_chain: 0,
-                addr_nonces: &[],
-                other_sender_nonce: None,
-                expected: None,
-            },
-            Case {
-                name: "wrong_sender",
-                next_on_chain: 5,
-                addr_nonces: &[],
-                other_sender_nonce: Some(10),
-                expected: None,
-            },
-            Case {
-                name: "gap",
-                next_on_chain: 5,
-                addr_nonces: &[7],
-                other_sender_nonce: None,
-                expected: Some(5..7),
-            },
-            Case {
-                name: "min_pending_nonce",
-                next_on_chain: 5,
-                addr_nonces: &[10, 8],
-                other_sender_nonce: None,
-                expected: Some(5..8),
-            },
-            Case {
-                name: "next_nonce_in_mpool",
-                next_on_chain: 5,
-                addr_nonces: &[5],
-                other_sender_nonce: None,
-                expected: None,
-            },
-            Case {
-                name: "ignores_stale_pending",
-                next_on_chain: 5,
-                addr_nonces: &[3, 9],
-                other_sender_nonce: None,
-                expected: Some(5..9),
-            },
-            Case {
-                name: "only_stale_pending",
-                next_on_chain: 5,
-                addr_nonces: &[3],
-                other_sender_nonce: None,
-                expected: None,
-            },
-        ];
-
-        for case in cases {
-            let (mut wallet, addrs) = test_wallet();
-            let mut pending =
-                pending_from(&mut wallet, &addrs.target, &addrs.addr, case.addr_nonces);
-            if let Some(nonce) = case.other_sender_nonce {
-                pending.push(create_smsg(
-                    &addrs.target,
-                    &addrs.other,
-                    wallet.borrow_mut(),
-                    nonce,
-                    1_000_000,
-                    1,
-                ));
-            }
-            let got = auto_fill_range(addrs.addr, case.next_on_chain, &pending);
-            assert_eq!(got, case.expected, "case {}", case.name);
-        }
+        assert_eq!(
+            auto_fill_range(addrs.addr, next_on_chain, &pending),
+            expected
+        );
     }
 
-    #[test]
-    fn nonce_fix_fill_range_manual() {
-        for (start, end, err) in [
-            (None, Some(10), Some("manual mode requires --start")),
-            (Some(1), None, Some("manual mode requires --end")),
-            (Some(5), Some(5), Some("--end must be greater than --start")),
-            (Some(5), Some(3), Some("--end must be greater than --start")),
-        ] {
-            let e = manual_fill_range(start, end).unwrap_err();
-            assert!(
-                e.to_string().contains(err.unwrap()),
-                "start={start:?} end={end:?}: {e}"
-            );
+    #[rstest]
+    #[case::missing_start(None, Some(10), Err("manual mode requires --start"))]
+    #[case::missing_end(Some(1), None, Err("manual mode requires --end"))]
+    #[case::equal(Some(5), Some(5), Err("--end must be greater than --start"))]
+    #[case::reversed(Some(5), Some(3), Err("--end must be greater than --start"))]
+    #[case::ok(Some(2), Some(5), Ok(2..5))]
+    fn nonce_fix_fill_range_manual(
+        #[case] start: Option<u64>,
+        #[case] end: Option<u64>,
+        #[case] expected: Result<Range<u64>, &str>,
+    ) {
+        let got = manual_fill_range(start, end);
+        match expected {
+            Ok(want) => assert_eq!(got.unwrap(), want),
+            Err(want) => assert!(got.unwrap_err().to_string().contains(want)),
         }
-
-        let r = manual_fill_range(Some(2), Some(5)).unwrap();
-        assert_eq!(r, 2..5);
     }
 
     #[test]
@@ -963,7 +892,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_replacement_gas_auto() {
+    fn test_auto_compute_replacement_gas() {
         let (_wallet, addrs) = test_wallet();
         let addr = addrs.addr;
         let target = addrs.target;
@@ -973,11 +902,8 @@ mod tests {
         let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let estimated = make_test_message(addr, target, 5, 2_000_000, 200, 500);
         assert!(estimated.gas_premium > floor);
-        let result = compute_replacement_gas(ReplaceGasInput::Auto {
-            estimated_msg: estimated.clone(),
-            original_premium: original_premium.clone(),
-        })
-        .unwrap();
+        let result =
+            auto_compute_replacement_gas(estimated.clone(), original_premium.clone()).unwrap();
         assert_eq!(result.gas_premium, estimated.gas_premium);
 
         // Below RBF floor: premium bumped, fee cap >= premium.
@@ -985,11 +911,7 @@ mod tests {
         let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let estimated = make_test_message(addr, target, 5, 2_000_000, 50, 500);
         assert!(estimated.gas_premium < floor);
-        let result = compute_replacement_gas(ReplaceGasInput::Auto {
-            estimated_msg: estimated,
-            original_premium: original_premium.clone(),
-        })
-        .unwrap();
+        let result = auto_compute_replacement_gas(estimated, original_premium.clone()).unwrap();
         assert_eq!(result.gas_premium, floor);
         assert!(result.gas_fee_cap >= result.gas_premium);
 
@@ -999,11 +921,7 @@ mod tests {
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 0, 500);
         estimated.gas_premium = floor.clone();
         estimated.gas_fee_cap = floor.clone();
-        let result = compute_replacement_gas(ReplaceGasInput::Auto {
-            estimated_msg: estimated,
-            original_premium: original_premium.clone(),
-        })
-        .unwrap();
+        let result = auto_compute_replacement_gas(estimated, original_premium.clone()).unwrap();
         assert_eq!(result.gas_premium, floor);
         assert_eq!(result.gas_fee_cap, floor);
 
@@ -1012,11 +930,7 @@ mod tests {
         let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 50, 10);
         estimated.gas_premium = floor.clone();
-        let result = compute_replacement_gas(ReplaceGasInput::Auto {
-            estimated_msg: estimated,
-            original_premium,
-        })
-        .unwrap();
+        let result = auto_compute_replacement_gas(estimated, original_premium).unwrap();
         assert_eq!(result.gas_premium, floor);
         assert_eq!(result.gas_fee_cap, floor);
 
@@ -1024,11 +938,7 @@ mod tests {
         let original_premium = TokenAmount::from_atto(1_000_000u64);
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 50, 10_000_000_000);
         estimated.gas_premium = TokenAmount::from_atto(50u64);
-        let mut replacement = compute_replacement_gas(ReplaceGasInput::Auto {
-            estimated_msg: estimated,
-            original_premium,
-        })
-        .unwrap();
+        let mut replacement = auto_compute_replacement_gas(estimated, original_premium).unwrap();
         let max_fee = TokenAmount::from_atto(1_000_000u64);
         cap_gas_fee(&max_fee, &mut replacement, None).unwrap();
         let total_fee = replacement.gas_fee_cap.clone() * replacement.gas_limit;
@@ -1037,18 +947,18 @@ mod tests {
     }
 
     #[test]
-    fn compute_replacement_gas_manual() {
+    fn test_manual_compute_replacement_gas() {
         let (_wallet, addrs) = test_wallet();
         let addr = addrs.addr;
         let target = addrs.target;
 
         let original = make_test_message(addr, target, 5, 1_000_000, 100, 300);
-        let result = compute_replacement_gas(ReplaceGasInput::Manual {
-            gas_premium: TokenAmount::from_atto(200u64),
-            gas_feecap: TokenAmount::from_atto(600u64),
-            gas_limit: None,
-            original_msg: original.clone(),
-        })
+        let result = manual_compute_replacement_gas(
+            TokenAmount::from_atto(200u64),
+            TokenAmount::from_atto(600u64),
+            None,
+            original.clone(),
+        )
         .unwrap();
         assert_eq!(result.gas_premium, TokenAmount::from_atto(200u64));
         assert_eq!(result.gas_fee_cap, TokenAmount::from_atto(600u64));
@@ -1056,12 +966,12 @@ mod tests {
 
         let original = make_test_message(addr, target, 5, 1_000_000, 100, 300);
         let min_premium = compute_rbf(&original.gas_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
-        let result = compute_replacement_gas(ReplaceGasInput::Manual {
-            gas_premium: min_premium,
-            gas_feecap: TokenAmount::from_atto(300u64),
-            gas_limit: Some(5_000_000),
-            original_msg: original,
-        })
+        let result = manual_compute_replacement_gas(
+            min_premium,
+            TokenAmount::from_atto(300u64),
+            Some(5_000_000),
+            original,
+        )
         .unwrap();
         assert_eq!(result.gas_limit, 5_000_000);
     }
