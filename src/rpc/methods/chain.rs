@@ -44,6 +44,7 @@ use num::BigInt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::convert::Infallible;
 use std::fs::File;
 use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
 use tokio::sync::{
@@ -1122,6 +1123,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
 
 pub enum ChainGetTipSetFinalityStatus {}
 
+const EC_CALCULATOR_FINALITY_CACHE_SIZE: usize = 4;
 impl ChainGetTipSetFinalityStatus {
     pub fn get_finality_status(ctx: &Ctx) -> anyhow::Result<ChainFinalityStatus> {
         let head = ctx.chain_store().heaviest_tipset();
@@ -1153,19 +1155,11 @@ impl ChainGetTipSetFinalityStatus {
         ctx: &Ctx,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
-        static CACHE: parking_lot::Mutex<Option<(Tipset, i64, Option<Tipset>)>> =
-            parking_lot::Mutex::new(None);
-        let mut cache = CACHE.lock();
-        if let Some((cached_head, cached_threshold, cached_tipset)) = &*cache
-            && cached_head == &head
-        {
-            Ok((*cached_threshold, cached_tipset.shallow_clone()))
-        } else {
-            let (threshold, tipset) =
-                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head.shallow_clone())?;
-            *cache = Some((head, threshold, tipset.shallow_clone()));
-            Ok((threshold, tipset))
-        }
+        static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, (i64, Option<Tipset>)>> =
+            LazyLock::new(|| quick_cache::sync::Cache::new(EC_CALCULATOR_FINALITY_CACHE_SIZE));
+        CACHE.get_or_insert_with(head.shallow_clone().key(), move || {
+            Self::get_ec_finality_threshold_depth_and_tipset(ctx, head)
+        })
     }
 
     pub fn get_ec_finality_epoch(
@@ -1195,17 +1189,17 @@ impl ChainGetTipSetFinalityStatus {
         chain_config: &ChainConfig,
         head: &Tipset,
     ) -> i64 {
-        static CACHE: parking_lot::Mutex<Option<(Tipset, i64)>> = parking_lot::Mutex::new(None);
-        let mut cache = CACHE.lock();
-        if let Some((cached_head, cached_threshold)) = &*cache
-            && cached_head == head
-        {
-            *cached_threshold
-        } else {
-            let threshold = Self::get_ec_finality_threshold_depth(chain_index, chain_config, head);
-            *cache = Some((head.shallow_clone(), threshold));
-            threshold
-        }
+        static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, i64>> =
+            LazyLock::new(|| quick_cache::sync::Cache::new(EC_CALCULATOR_FINALITY_CACHE_SIZE));
+        CACHE
+            .get_or_insert_with(head.key(), move || -> Result<i64, Infallible> {
+                Ok(Self::get_ec_finality_threshold_depth(
+                    chain_index,
+                    chain_config,
+                    head,
+                ))
+            })
+            .expect("infallible")
     }
 
     fn get_ec_finality_threshold_depth(
