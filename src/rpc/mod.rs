@@ -650,9 +650,11 @@ pub async fn start_rpc(
                         keystore: keystore.clone(),
                     })
                     .layer(LogLayer::default())
-                    .layer(MetricsLayer::default())
-                    // `ParallelBatchLayer` has to be the last layer
-                    .layer(ParallelBatchLayer::new(max_response_body_size));
+                    // `ParallelBatchLayer` fans a batch out into per-entry `call`s, so it must be
+                    // outer to `MetricsLayer` for batched methods to be measured. Both must stay
+                    // inner to the batch-transforming layers above.
+                    .layer(ParallelBatchLayer::new(max_response_body_size))
+                    .layer(MetricsLayer::default());
                 let mut jsonrpsee_svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
@@ -948,6 +950,29 @@ mod tests {
         assert_eq!(batch_response.len(), 2);
         assert_eq!(batch_response.num_successful_calls(), 2);
         assert_eq!(batch_response.num_failed_calls(), 0);
+
+        // `eth_chainId` is only ever requested inside the batch above, so its presence in the RPC
+        // timing metric proves batched methods flow through `MetricsLayer`. Guards against batch
+        // entries bypassing metrics (which happens if `MetricsLayer` is outer to `ParallelBatchLayer`).
+        let mut encoded = String::new();
+        prometheus_client::encoding::text::encode_registry(
+            &mut encoded,
+            &crate::metrics::default_registry(),
+        )
+        .unwrap();
+        let recorded = encoded.lines().any(|line| {
+            line.starts_with("rpc_processing_time_count{")
+                && line.contains(r#"method="eth_chainId""#)
+                && line
+                    .rsplit(' ')
+                    .next()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .is_some_and(|count| count == 1)
+        });
+        assert!(
+            recorded,
+            "batched method `eth_chainId` was not recorded in rpc_processing_time:\n{encoded}"
+        );
 
         // Gracefully shutdown the RPC server
         println!("sending shutdown signal");
