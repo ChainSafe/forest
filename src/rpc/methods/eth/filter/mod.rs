@@ -346,7 +346,7 @@ impl EthEventHandler {
         let tipset_key = tipset.key();
         let ExecutedTipset {
             executed_messages, ..
-        } = state_manager.load_executed_tipset(tipset).await?;
+        } = state_manager.load_executed_tipset_for_rpc(tipset).await?;
         let mut resolved_id_addrs = HashMap::default();
         let mut event_count = 0;
         for (
