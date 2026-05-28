@@ -389,6 +389,12 @@ fn maybe_prefill_rpc_caches(
 async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetKey) {
     match state_manager.chain_index().load_required_tipset(&tsk) {
         Ok(ts) => {
+            {
+                // First, compute state for the ts as it's disallowed for RPC methods by default
+                if let Err(e) = state_manager.load_executed_tipset(&ts).await {
+                    warn!("failed to load executed tipset for cache warmup: {e:#}");
+                }
+            }
             for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash] {
                 if let Err(e) = crate::rpc::eth::Block::from_filecoin_tipset(
                     &state_manager,
