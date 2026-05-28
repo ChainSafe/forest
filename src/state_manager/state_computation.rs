@@ -46,6 +46,14 @@ impl StateManager {
         } else {
             StateRecomputePolicy::Disallowed
         };
+
+        // https://github.com/ChainSafe/forest/issues/7118
+        #[cfg(test)]
+        let policy = {
+            _ = policy;
+            StateRecomputePolicy::Allowed
+        };
+
         self.load_executed_tipset_with_cache(ts, policy).await
     }
 

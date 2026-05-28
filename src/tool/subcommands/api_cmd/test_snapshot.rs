@@ -65,7 +65,6 @@ fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<
 }
 
 pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
-    unsafe { std::env::set_var("FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS", "1") };
     let mut run = false;
     let snapshot_bytes = std::fs::read(path)?;
     let snapshot_bytes = if let Ok(bytes) = zstd::decode_all(snapshot_bytes.as_slice()) {
