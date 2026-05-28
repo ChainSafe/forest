@@ -86,6 +86,14 @@ impl StateManager {
         receipt_ts: Option<&Tipset>,
         policy: StateRecomputePolicy,
     ) -> anyhow::Result<ExecutedTipset> {
+        let state_compute_disallow_error = || {
+            format!(
+                "failed to load tipset state output and recomputation is disallowed, epoch={}, key={}",
+                msg_ts.epoch(),
+                msg_ts.key()
+            )
+        };
+
         if let Some(receipt_ts) = receipt_ts {
             anyhow::ensure!(
                 msg_ts.key() == receipt_ts.parents(),
@@ -103,11 +111,7 @@ impl StateManager {
             Some((state_root, receipt_root, receipts)) => (state_root, receipt_root, receipts),
             None => {
                 if !allow_state_compute {
-                    anyhow::bail!(
-                        "failed to load tipset state output, epoch={}, key={}",
-                        msg_ts.epoch(),
-                        msg_ts.key()
-                    );
+                    anyhow::bail!(state_compute_disallow_error());
                 }
                 let state_output = self
                     .compute_tipset_state(msg_ts.shallow_clone(), NO_CALLBACK, VMTrace::NotTraced)
@@ -136,11 +140,7 @@ impl StateManager {
                     Err(e) if recomputed => return Err(e),
                     Err(_) => {
                         if !allow_state_compute {
-                            anyhow::bail!(
-                                "failed to load tipset state output, epoch={}, key={}",
-                                msg_ts.epoch(),
-                                msg_ts.key()
-                            );
+                            anyhow::bail!(state_compute_disallow_error());
                         }
                         self.compute_tipset_state(
                             msg_ts.shallow_clone(),
