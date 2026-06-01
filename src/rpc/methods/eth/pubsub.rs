@@ -102,15 +102,35 @@ impl EthPubSubApiServer for EthPubSub {
     }
 }
 
-/// Stream of tipsets as they are applied to the chain head. Reverts are
-/// ignored; lagged events are dropped (and logged) by [`subscription_stream`].
-fn head_applied_tipsets(ctx: &Arc<RPCState>) -> impl Stream<Item = Tipset> + Send + use<> {
-    subscription_stream(ctx.chain_store().subscribe_head_changes())
-        .flat_map(|changes| futures::stream::iter(changes.applies))
+/// Stream of "message tipsets", the parent of each newly applied tipset.
+/// Reverts are ignored; lagged events are dropped (and logged) by [`subscription_stream`].
+fn head_message_tipsets(ctx: &Arc<RPCState>) -> impl Stream<Item = Tipset> + Send + use<> {
+    let rx = ctx.chain_store().subscribe_head_changes();
+    let ctx = ctx.shallow_clone();
+    subscription_stream(rx).flat_map(move |changes| {
+        let ctx = ctx.shallow_clone();
+        let items: Vec<_> = changes
+            .applies
+            .into_iter()
+            .filter_map(|applied| {
+                if applied.epoch() == 0 {
+                    return None;
+                }
+                match ctx.chain_index().load_required_tipset(applied.parents()) {
+                    Ok(parent) => Some(parent),
+                    Err(e) => {
+                        tracing::error!("Failed to load parent tipset of {}: {e:#}", applied.key());
+                        None
+                    }
+                }
+            })
+            .collect();
+        futures::stream::iter(items)
+    })
 }
 
 fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
-    let stream = head_applied_tipsets(&ctx)
+    let stream = head_message_tipsets(&ctx)
         .filter_map(move |ts| {
             let state_mngr = ctx.state_manager.shallow_clone();
             async move {
@@ -128,7 +148,7 @@ fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
 }
 
 fn spawn_logs(sink: SubscriptionSink, ctx: Arc<RPCState>, filter: Option<EthFilterSpec>) {
-    let stream = head_applied_tipsets(&ctx)
+    let stream = head_message_tipsets(&ctx)
         .filter_map(move |ts| {
             let ctx = ctx.shallow_clone();
             let filter = filter.clone();
