@@ -59,9 +59,9 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use tracing::warn;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
-const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
-const DEFAULT_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(32usize); // maximum ~135MiB on mainnet
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
+const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
+const DEFAULT_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(16usize); // maximum ~70MiB on mainnet
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
 
