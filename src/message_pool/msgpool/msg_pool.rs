@@ -55,7 +55,7 @@ use tracing::warn;
 const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 
 pub(in crate::message_pool) const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
-pub(in crate::message_pool) const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+pub(in crate::message_pool) const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 100;
 
 // Cache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
