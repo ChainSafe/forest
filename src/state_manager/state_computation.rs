@@ -11,6 +11,11 @@ use anyhow::{bail, ensure};
 use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
 use tracing::{error, info, instrument};
 
+enum StateRecomputePolicy {
+    Allowed,
+    Disallowed,
+}
+
 impl StateManager {
     /// Load the state of a tipset, including state root, message receipts
     pub async fn load_tipset_state(&self, ts: &Tipset) -> anyhow::Result<TipsetState> {
@@ -27,8 +32,42 @@ impl StateManager {
         }
     }
 
+    /// Load an executed tipset for RPC methods, with state computation unless explicitly enabled.
+    pub async fn load_executed_tipset_for_rpc(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<ExecutedTipset> {
+        crate::def_is_env_truthy!(
+            enable_state_computation,
+            "FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS"
+        );
+        let policy = if enable_state_computation() {
+            StateRecomputePolicy::Allowed
+        } else {
+            StateRecomputePolicy::Disallowed
+        };
+
+        // https://github.com/ChainSafe/forest/issues/7118
+        #[cfg(test)]
+        let policy = {
+            _ = policy;
+            StateRecomputePolicy::Allowed
+        };
+
+        self.load_executed_tipset_with_cache(ts, policy).await
+    }
+
     /// Load an executed tipset, including state root, message receipts and events with caching.
     pub async fn load_executed_tipset(&self, ts: &Tipset) -> anyhow::Result<ExecutedTipset> {
+        self.load_executed_tipset_with_cache(ts, StateRecomputePolicy::Allowed)
+            .await
+    }
+
+    async fn load_executed_tipset_with_cache(
+        &self,
+        ts: &Tipset,
+        policy: StateRecomputePolicy,
+    ) -> anyhow::Result<ExecutedTipset> {
         // validate the existence of state trees for post-chain-head-epoch tipsets in case chain head is reset(e.g. manually or via GC).
         if ts.epoch() >= self.heaviest_tipset().epoch()
             && let Some(cached) = self.cache.get(ts.key())
@@ -42,7 +81,7 @@ impl StateManager {
         self.cache
             .get_or_insert_async(ts.key(), async move {
                 let receipt_ts = self.chain_store().load_child_tipset(ts)?;
-                self.load_executed_tipset_inner(ts, receipt_ts.as_ref())
+                self.load_executed_tipset_inner(ts, receipt_ts.as_ref(), policy)
                     .await
             })
             .await
@@ -53,13 +92,23 @@ impl StateManager {
         msg_ts: &Tipset,
         // when `msg_ts` is the current head, `receipt_ts` is `None`
         receipt_ts: Option<&Tipset>,
+        policy: StateRecomputePolicy,
     ) -> anyhow::Result<ExecutedTipset> {
+        let state_compute_disallow_error = || {
+            format!(
+                "failed to load tipset state output and recomputation is disallowed, epoch={}, key={}",
+                msg_ts.epoch(),
+                msg_ts.key()
+            )
+        };
+
         if let Some(receipt_ts) = receipt_ts {
             anyhow::ensure!(
                 msg_ts.key() == receipt_ts.parents(),
                 "message tipset should be the parent of message receipt tipset"
             );
         }
+        let allow_state_compute = matches!(policy, StateRecomputePolicy::Allowed);
         let mut recomputed = false;
         let (state_root, receipt_root, receipts) = match receipt_ts.and_then(|ts| {
             let receipt_root = *ts.parent_message_receipts();
@@ -69,6 +118,9 @@ impl StateManager {
         }) {
             Some((state_root, receipt_root, receipts)) => (state_root, receipt_root, receipts),
             None => {
+                if !allow_state_compute {
+                    anyhow::bail!(state_compute_disallow_error());
+                }
                 let state_output = self
                     .compute_tipset_state(msg_ts.shallow_clone(), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
@@ -95,6 +147,9 @@ impl StateManager {
                     Ok(events) => events,
                     Err(e) if recomputed => return Err(e),
                     Err(_) => {
+                        if !allow_state_compute {
+                            anyhow::bail!(state_compute_disallow_error());
+                        }
                         self.compute_tipset_state(
                             msg_ts.shallow_clone(),
                             NO_CALLBACK,

@@ -8,7 +8,10 @@ use super::{
 };
 use crate::networks::{ChainConfig, Height};
 use crate::prelude::*;
-use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
+use crate::rpc::{
+    chain::ChainGetTipSetFinalityStatus,
+    eth::{eth_tx_from_signed_eth_message, types::EthHash},
+};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{executor::Receipt, message::Message, version::NetworkVersion};
 use crate::state_manager::ExecutedTipset;
@@ -30,7 +33,10 @@ use fvm_ipld_encoding::CborStore;
 use nonzero_ext::nonzero;
 use parking_lot::{Mutex, RwLock};
 use serde::{Serialize, de::DeserializeOwned};
-use std::num::NonZeroUsize;
+use std::{
+    num::NonZeroUsize,
+    sync::atomic::{self, AtomicI64},
+};
 use tokio::sync::broadcast;
 use tracing::{debug, error, trace, warn};
 
@@ -60,6 +66,9 @@ pub struct ChainStore {
     /// F3 finalized tipset cache
     f3_finalized_tipset: Arc<RwLock<Option<Tipset>>>,
 
+    /// EC calculator finalized epoch cache
+    ec_calculator_finalized_epoch: Arc<AtomicI64>,
+
     /// Used as a cache for tipset `lookbacks`.
     chain_index: ChainIndex,
 
@@ -84,6 +93,7 @@ impl ShallowClone for ChainStore {
             head_changes_tx: self.head_changes_tx.clone(),
             heaviest_tipset: self.heaviest_tipset.shallow_clone(),
             f3_finalized_tipset: self.f3_finalized_tipset.shallow_clone(),
+            ec_calculator_finalized_epoch: self.ec_calculator_finalized_epoch.shallow_clone(),
             chain_index: self.chain_index.shallow_clone(),
             tipset_tracker: self.tipset_tracker.shallow_clone(),
             genesis_block_header: self.genesis_block_header.shallow_clone(),
@@ -111,35 +121,37 @@ impl ChainStore {
         } else {
             Tipset::from(&genesis_block_header)
         };
-        let heaviest_tipset = Arc::new(RwLock::new(head));
+        let heaviest_tipset = Arc::new(RwLock::new(head.shallow_clone()));
         let f3_finalized_tipset: Arc<RwLock<Option<Tipset>>> = Default::default();
-        let chain_index = ChainIndex::new(db.shallow_clone()).with_is_tipset_finalized(Arc::new({
-            let chain_finality = chain_config.policy.chain_finality;
-            let heaviest_tipset = heaviest_tipset.clone();
-            let f3_finalized_tipset = f3_finalized_tipset.clone();
+        let chain_index = ChainIndex::new(db.shallow_clone());
+        let ec_calculator_finalized_epoch = Arc::new(AtomicI64::new(
+            ChainGetTipSetFinalityStatus::get_ec_finality_epoch(&chain_index, &chain_config, &head),
+        ));
+        let chain_index = chain_index.with_is_tipset_finalized(Arc::new({
+            let f3_finalized_tipset = f3_finalized_tipset.shallow_clone();
+            let ec_calculator_finalized_epoch = ec_calculator_finalized_epoch.shallow_clone();
             move |ts| {
                 let finalized = f3_finalized_tipset
                     .read()
                     .as_ref()
                     .map(|ts| ts.epoch())
                     .unwrap_or_default()
-                    .max(heaviest_tipset.read().epoch() - chain_finality);
+                    .max(ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire));
                 ts.epoch() <= finalized
             }
         }));
-        let cs = Self {
+        Ok(Self {
             head_changes_tx: publisher,
             chain_index,
             tipset_tracker: TipsetTracker::new(db, chain_config.clone()),
             heaviest_tipset,
             f3_finalized_tipset,
+            ec_calculator_finalized_epoch,
             genesis_block_header: genesis_block_header.into(),
             validated_blocks: Default::default(),
             chain_config,
             messages_in_tipset_cache: Default::default(),
-        };
-
-        Ok(cs)
+        })
     }
 
     /// Sets F3 finalized tipset
@@ -152,6 +164,12 @@ impl ChainStore {
         self.f3_finalized_tipset.read().clone()
     }
 
+    /// Gets the EC calculator finalized epoch
+    pub fn ec_calculator_finalized_epoch(&self) -> ChainEpoch {
+        self.ec_calculator_finalized_epoch
+            .load(atomic::Ordering::Acquire)
+    }
+
     /// Cache for messages in tipsets, keyed by tipset key.
     pub fn messages_in_tipset_cache(&self) -> &MessagesInTipsetCache {
         &self.messages_in_tipset_cache
@@ -161,8 +179,15 @@ impl ChainStore {
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
         head.key().save(self.db())?;
         self.db().set_heaviest_tipset_key(head.key())?;
-        let old_head = std::mem::replace(&mut *self.heaviest_tipset.write(), head.clone());
-
+        let old_head = std::mem::replace(&mut *self.heaviest_tipset.write(), head.shallow_clone());
+        self.ec_calculator_finalized_epoch.store(
+            ChainGetTipSetFinalityStatus::get_ec_finality_epoch(
+                self.chain_index(),
+                self.chain_config(),
+                &head,
+            ),
+            atomic::Ordering::Release,
+        );
         if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
             {

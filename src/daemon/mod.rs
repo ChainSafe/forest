@@ -389,6 +389,12 @@ fn maybe_prefill_rpc_caches(
 async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetKey) {
     match state_manager.chain_index().load_required_tipset(&tsk) {
         Ok(ts) => {
+            {
+                // First, compute state for the ts as it's disallowed for RPC methods by default
+                if let Err(e) = state_manager.load_executed_tipset(&ts).await {
+                    warn!("failed to load executed tipset for cache warmup: {e:#}");
+                }
+            }
             for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash] {
                 if let Err(e) = crate::rpc::eth::Block::from_filecoin_tipset(
                     &state_manager,
@@ -400,7 +406,36 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                     warn!("failed to call `Block::from_filecoin_tipset` for cache warmup: {e:#}");
                 }
             }
-
+            {
+                if let Err(e) = state_manager.execution_trace(&ts).await {
+                    warn!("failed to call `StateManager::execution_trace` for cache warmup: {e:#}");
+                }
+            }
+            {
+                let finalized_epoch = state_manager
+                    .chain_store()
+                    .ec_calculator_finalized_epoch()
+                    .max(
+                        state_manager
+                            .chain_store()
+                            .f3_finalized_tipset()
+                            .map(|ts| ts.epoch())
+                            .unwrap_or(0),
+                    );
+                if let Err(e) = state_manager
+                    .chain_index()
+                    .tipset_by_height_async(
+                        finalized_epoch,
+                        ts.shallow_clone(),
+                        ResolveNullTipset::TakeOlder,
+                    )
+                    .await
+                {
+                    warn!(
+                        "failed to call `ChainIndex::tipset_by_height` at finalized epoch {finalized_epoch} for cache warmup: {e:#}"
+                    );
+                }
+            }
             {
                 use crate::rpc::eth::filter::{Matcher, SkipEvent};
                 struct CollectEventsCachePrefillingMatcher;

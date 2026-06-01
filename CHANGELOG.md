@@ -29,15 +29,23 @@
 
 - [#7073](https://github.com/ChainSafe/forest/pull/7073) and [#7077](https://github.com/ChainSafe/forest/pull/7077): Replaced the underlying cache engine across the node. The eviction policy is no longer strict LRU — it is now CLOCK-PRO via [`quick_cache`](https://crates.io/crates/quick_cache), which is scan-resistant and typically gives higher hit rates on chain workloads. Refactored internal cache metrics to include `hits` and `misses` for all automatically. The old metrics `lru_cache_hit_total` and `lru_cache_miss_total` are deprecated in favor of `cache_{name}_hits` and `cache_{name}_misses`. Details can be found in https://forest-docs.pages.dev/reference/metrics
 
+- [#7116](https://github.com/ChainSafe/forest/pull/7116): Disable state computation for Ethereum RPC methods by default. It could be explictly enabled by setting environment variable `FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS=1`
+
 ### Added
 
 - [#6031](https://github.com/ChainSafe/forest/issues/6031): The `eth_subscribe` RPC method now supports the `pendingTransactions` subscription.
 
 - [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
 
+- [#7085](https://github.com/ChainSafe/forest/issues/7085): Implemented `nonce-fix` mpool cmd to fill mempool nonce gaps.
+
+- [#7086](https://github.com/ChainSafe/forest/issues/7086): Implemented `replace` mpool cmd to replace a message in the mempool.
+
 ### Changed
 
 - [`#7066`](https://github.com/ChainSafe/forest/pull/7066): Disable JSON-RPC HTTP response compression by default. Set `FOREST_RPC_COMPRESS_MIN_BODY_SIZE` to a non-negative value (e.g. `1024`) to re-enable gzip compression of responses above that size.
+
+- [#7084](https://github.com/ChainSafe/forest/pull/7084): Updated `replace-by-fee` calculation to match Lotus, reducing the minimum premium bump for replacement messages from `1.25x` to `1.10x`. Ports [filecoin-project/lotus#10416](https://github.com/filecoin-project/lotus/pull/10416).
 
 ### Removed
 
