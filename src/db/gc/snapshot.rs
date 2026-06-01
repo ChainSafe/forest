@@ -48,6 +48,7 @@ use crate::db::{
     db_engine::db_root,
     parity_db::GarbageCollectableDb,
 };
+use crate::interpreter::VMTrace;
 use crate::prelude::*;
 use crate::shim::clock::EPOCHS_IN_DAY;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -238,8 +239,21 @@ impl SnapshotGarbageCollector {
             map
         });
         let start = Instant::now();
-        let (head_ts, _) = crate::chain::export_from_head::<Sha256, _>(
+        let head_ts = self.chain_follower.state_manager.heaviest_tipset();
+        // The RPC cache prefilling logic might have run state computation for the same tipset before `db.subscribe_write_ops()`.
+        // We run it again to ensure the output is tracked in the backfilling memory-db, because the output state tree is
+        // not exported as part of the GC snapshot.
+        self.chain_follower
+            .state_manager
+            .compute_tipset_state(
+                head_ts.shallow_clone(),
+                crate::state_manager::NO_CALLBACK,
+                VMTrace::NotTraced,
+            )
+            .await?;
+        let _ = crate::chain::export::<Sha256, _>(
             db,
+            &head_ts,
             self.recent_state_roots,
             file,
             ExportOptions {
