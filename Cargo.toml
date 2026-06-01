@@ -215,7 +215,7 @@ stacker = "0.1"
 static_assertions = "1"
 statrs = "0.18"
 strum = { version = "0.28", features = ["derive", "strum_macros"] }
-tabled = { version = "0.20", default-features = false, features = ["std"] }
+tabled = { version = "0.21", default-features = false, features = ["std"] }
 tap = "1"
 tar = "0.4"
 tempfile = "3"
