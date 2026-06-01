@@ -10,18 +10,15 @@ mod weight;
 
 pub use self::{snapshot_format::*, store::*, weight::*};
 
-use crate::blocks::{Tipset, TipsetKey};
+use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSetLike;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
-use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::ipld::stream_chain;
 use crate::prelude::*;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
 use crate::utils::stream::par_buffer;
-use anyhow::Context as _;
-use cid::Cid;
 use futures::StreamExt as _;
 use fvm_ipld_encoding::DAG_CBOR;
 use multihash_derive::MultihashDigest as _;
@@ -48,19 +45,6 @@ impl<S: Default> Default for ExportOptions<S> {
             seen: Default::default(),
         }
     }
-}
-
-pub async fn export_from_head<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
-    db: &(impl Blockstore + ShallowClone + SettingsStore + Unpin + Send + Sync + 'static),
-    lookup_depth: ChainEpochDelta,
-    writer: impl AsyncWrite + Unpin,
-    options: ExportOptions<S>,
-) -> anyhow::Result<(Tipset, Option<digest::Output<D>>)> {
-    let head_key = SettingsStoreExt::read_obj::<TipsetKey>(db, crate::db::setting_keys::HEAD_KEY)?
-        .context("chain head key not found")?;
-    let head_ts = Tipset::load_required(&db, &head_key)?;
-    let digest = export::<D, S>(db, &head_ts, lookup_depth, writer, options).await?;
-    Ok((head_ts, digest))
 }
 
 /// Exports a Filecoin snapshot in v1 format
