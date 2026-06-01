@@ -154,7 +154,11 @@ fn spawn_pending_transactions(sink: SubscriptionSink, ctx: Arc<RPCState>) {
             let MpoolUpdate::Add(msg) = update else {
                 return None;
             };
-            eth_tx_hash_from_signed_message(&msg, eth_chain_id).ok()
+            eth_tx_hash_from_signed_message(&msg, eth_chain_id)
+                .inspect_err(|e| {
+                    tracing::error!("Failed to compute eth tx hash from mpool message: {e:#}")
+                })
+                .ok()
         })
         .boxed();
     tokio::spawn(pipe_stream_to_sink(stream, sink));
@@ -182,7 +186,7 @@ where
                     Ok(m) => m,
                     Err(e) => {
                         tracing::error!("Failed to serialize subscription message: {e:?}");
-                        break;
+                        continue;
                     }
                 };
                 if let Err(e) = sink.send(msg).await {
