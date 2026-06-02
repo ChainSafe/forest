@@ -121,7 +121,6 @@ impl PendingStore {
 
     /// Subscribe to the [`MpoolUpdate`] stream. Returned receiver is
     /// independent; dropping it does not affect other subscribers.
-    #[allow(dead_code)] // consumed by MessagePool::subscribe_to_updates / external subscribers.
     pub fn subscribe(&self) -> broadcast::Receiver<MpoolUpdate> {
         self.inner.events.subscribe()
     }

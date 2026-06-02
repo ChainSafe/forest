@@ -33,6 +33,8 @@
 
 ### Added
 
+- [#6031](https://github.com/ChainSafe/forest/issues/6031): The `eth_subscribe` RPC method now supports the `pendingTransactions` subscription.
+
 - [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
 
 - [#7085](https://github.com/ChainSafe/forest/issues/7085): Implemented `nonce-fix` mpool cmd to fill mempool nonce gaps.
@@ -52,6 +54,8 @@
 ### Fixed
 
 - [#7018](https://github.com/ChainSafe/forest/issues/7018): Fixed `forest-wallet set-default` failing when the keystore has no `default` entry.
+
+- [#6941](https://github.com/ChainSafe/forest/pull/6941): The `eth_subscribe` `logs` subscription now emits one log object per notification instead of one array of logs per tipset.
 
 ## Forest v0.33.4 "Stray"
 
