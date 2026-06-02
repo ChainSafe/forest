@@ -167,10 +167,9 @@ impl Default for TipsetKey {
 ///
 /// Represents non-null tipsets, see the documentation on [`crate::state_manager::apply_block_messages`]
 /// for more.
-#[derive(Clone, Debug, GetSize)]
+#[derive(Clone, Debug)]
 pub struct Tipset {
     /// Sorted
-    #[get_size(size_fn = nunny_vec_heap_size_helper)]
     headers: Arc<NonEmpty<CachingBlockHeader>>,
     // key is lazily initialized via `fn key()`.
     key: Arc<OnceLock<TipsetKey>>,
@@ -182,6 +181,17 @@ impl ShallowClone for Tipset {
             headers: self.headers.shallow_clone(),
             key: self.key.shallow_clone(),
         }
+    }
+}
+
+impl get_size2::GetSize for Tipset {
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(
+        &self,
+        mut tracker: T,
+    ) -> (usize, T) {
+        let heap_size = nunny_vec_heap_size_helper(&self.headers, &mut tracker).0
+            + self.key.get_heap_size_with_tracker(&mut tracker).0;
+        (heap_size, tracker)
     }
 }
 

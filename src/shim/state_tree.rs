@@ -427,8 +427,8 @@ impl ActorState {
 }
 
 impl GetSize for ActorState {
-    fn get_heap_size(&self) -> usize {
-        big_int_heap_size_helper(self.balance.atto())
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        (big_int_heap_size_helper(self.balance.atto()), tracker)
     }
 }
 

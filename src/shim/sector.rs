@@ -375,8 +375,8 @@ impl From<PoStProofV2> for PoStProof {
 }
 
 impl GetSize for PoStProof {
-    fn get_heap_size(&self) -> usize {
-        self.0.proof_bytes.get_heap_size()
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        self.0.proof_bytes.get_heap_size_with_tracker(tracker)
     }
 }
 
