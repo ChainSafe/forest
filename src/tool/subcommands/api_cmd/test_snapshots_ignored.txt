@@ -77,6 +77,7 @@ Filecoin.WalletSetDefault
 Filecoin.WalletSign
 Filecoin.WalletSignMessage
 Filecoin.Web3ClientVersion
+Forest.BaseFeeByHeight
 Forest.ChainExport
 Forest.ChainExportCancel
 Forest.ChainExportDiff

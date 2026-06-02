@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use ambassador::delegatable_trait;
 use multihash_derive::MultihashDigest;
 use std::marker::PhantomData;
-use std::ops::Deref;
 
 /// Trait implemented by a block store for reading.
 #[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
 pub trait BitswapStoreRead {
     /// A have query needs to know if the block store contains the block.
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool>;
@@ -18,6 +19,7 @@ pub trait BitswapStoreRead {
 
 /// Trait implemented by a block store for reading and writing.
 #[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
 pub trait BitswapStoreReadWrite: BitswapStoreRead + Send + Sync + 'static {
     /// The hashes parameters.
     type Hashes: MultihashDigest<64>;
@@ -36,14 +38,6 @@ pub struct Block<H, const S: usize> {
     /// Binary data.
     data: Vec<u8>,
     _pd: PhantomData<H>,
-}
-
-impl<H, const S: usize> Deref for Block<H, S> {
-    type Target = Cid;
-
-    fn deref(&self) -> &Self::Target {
-        &self.cid
-    }
 }
 
 impl<H, const S: usize> PartialEq for Block<H, S> {

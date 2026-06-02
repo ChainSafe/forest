@@ -27,6 +27,58 @@
 
 ### Breaking
 
+- [#7073](https://github.com/ChainSafe/forest/pull/7073) and [#7077](https://github.com/ChainSafe/forest/pull/7077): Replaced the underlying cache engine across the node. The eviction policy is no longer strict LRU — it is now CLOCK-PRO via [`quick_cache`](https://crates.io/crates/quick_cache), which is scan-resistant and typically gives higher hit rates on chain workloads. Refactored internal cache metrics to include `hits` and `misses` for all automatically. The old metrics `lru_cache_hit_total` and `lru_cache_miss_total` are deprecated in favor of `cache_{name}_hits` and `cache_{name}_misses`. Details can be found in https://forest-docs.pages.dev/reference/metrics
+
+- [#7116](https://github.com/ChainSafe/forest/pull/7116): Disable state computation for Ethereum RPC methods by default. It could be explictly enabled by setting environment variable `FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS=1`
+
+### Added
+
+- [#6031](https://github.com/ChainSafe/forest/issues/6031): The `eth_subscribe` RPC method now supports the `pendingTransactions` subscription.
+
+- [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
+
+- [#7085](https://github.com/ChainSafe/forest/issues/7085): Implemented `nonce-fix` mpool cmd to fill mempool nonce gaps.
+
+- [#7086](https://github.com/ChainSafe/forest/issues/7086): Implemented `replace` mpool cmd to replace a message in the mempool.
+
+- [#7127](https://github.com/ChainSafe/forest/pull/7127): Raise the default per-sender limit for pending messages accepted via the untrusted mempool path from 10 to 100.
+
+### Changed
+
+- [`#7066`](https://github.com/ChainSafe/forest/pull/7066): Disable JSON-RPC HTTP response compression by default. Set `FOREST_RPC_COMPRESS_MIN_BODY_SIZE` to a non-negative value (e.g. `1024`) to re-enable gzip compression of responses above that size.
+
+- [#7084](https://github.com/ChainSafe/forest/pull/7084): Updated `replace-by-fee` calculation to match Lotus, reducing the minimum premium bump for replacement messages from `1.25x` to `1.10x`. Ports [filecoin-project/lotus#10416](https://github.com/filecoin-project/lotus/pull/10416).
+
+### Removed
+
+### Fixed
+
+- [#7018](https://github.com/ChainSafe/forest/issues/7018): Fixed `forest-wallet set-default` failing when the keystore has no `default` entry.
+
+- [#6941](https://github.com/ChainSafe/forest/pull/6941): The `eth_subscribe` `logs` subscription now emits one log object per notification instead of one array of logs per tipset.
+
+## Forest v0.33.4 "Stray"
+
+Mandatory release for mainnet node operators. It includes support for the _NV28 FireHorse_ network upgrade on mainnet, which is set to activate at epoch `6052800` (2026-05-27T14:00:00Z). It also includes a few improvements and fixes for the JSON-RPC server.
+
+### Added
+
+- [#7025](https://github.com/ChainSafe/forest/pull/7025): `FOREST_RPC_MAX_RESPONSE_BODY_SIZE` environment variable. Sets the JSON-RPC server's maximum response body size in bytes (default 64 MiB). Operators serving log-heavy `eth_getTransactionReceipt`/`eth_getBlockReceipts` calls can raise this above 64 MiB.
+
+- [#6917](https://github.com/ChainSafe/forest/issues/6917): Set the mainnet NV28 _FireHorse_ network upgrade epoch to `6052800` which corresponds to `Wed May 27 02:00:00 PM UTC 2026`.
+
+### Fixed
+
+- [#7001](https://github.com/ChainSafe/forest/pull/7001): Fix `transactionPosition` to be 0-indexed in `Filecoin.EthTraceBlock`, `Filecoin.EthTraceFilter`, and `Filecoin.EthTraceTransaction` responses, matching Lotus.
+
+- [#7025](https://github.com/ChainSafe/forest/pull/7025): `eth_getTransactionReceipt` no longer fails when another transaction in the same tipset emits a large number of events. `max_filter_results` now caps only multi-tipset event queries; single-block calls (`eth_getLogs` with `blockHash`, `eth_getBlockReceipts`, `eth_getTransactionReceipt`) bypass it. Public RPC operators should apply rate and response-size limits at the proxy layer for these calls; a single response can be large when a block contains log-heavy transactions. Ports [filecoin-project/lotus#13617](https://github.com/filecoin-project/lotus/pull/13617).
+
+## Forest v0.33.3 "Dawn"
+
+Non-mandatory release for all node operators. It includes a few fixes to make the chain following logic more robust and eliminate a few non-critical warnings.
+
+### Breaking
+
 ### Added
 
 ### Changed
@@ -34,6 +86,8 @@
 ### Removed
 
 ### Fixed
+
+- [#7019](https://github.com/ChainSafe/forest/pull/7019): [chain follower] skip a sync target tipset if it's part of the current chain.
 
 ## Forest v0.33.2 "Night Mare"
 

@@ -176,7 +176,7 @@ fn trace_params(params: impl jsonrpsee::core::traits::ToRpcParams) {
 
 /// Represents a single, perhaps persistent connection to a URL over which requests
 /// can be made using [`jsonrpsee`] primitives.
-struct UrlClient {
+pub struct UrlClient {
     url: Url,
     inner: UrlClientInner,
 }
@@ -190,7 +190,7 @@ impl Debug for UrlClient {
 }
 
 impl UrlClient {
-    async fn new(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
+    pub async fn new(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
         const ONE_DAY: Duration = Duration::from_secs(24 * 3600); // we handle timeouts ourselves.
         let headers = match token.into() {
             Some(token) => HeaderMap::from_iter([(
@@ -211,7 +211,7 @@ impl UrlClient {
                 jsonrpsee::ws_client::WsClientBuilder::new()
                     .set_headers(headers)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
-                    .max_response_size(MAX_RESPONSE_BODY_SIZE)
+                    .max_response_size(*MAX_RESPONSE_BODY_SIZE)
                     .request_timeout(ONE_DAY)
                     .build(&url)
                     .await?,
@@ -220,7 +220,7 @@ impl UrlClient {
                 jsonrpsee::http_client::HttpClientBuilder::new()
                     .set_headers(headers)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
-                    .max_response_size(MAX_RESPONSE_BODY_SIZE)
+                    .max_response_size(*MAX_RESPONSE_BODY_SIZE)
                     .request_timeout(ONE_DAY)
                     .build(&url)?,
             ),

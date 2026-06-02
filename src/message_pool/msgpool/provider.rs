@@ -19,7 +19,6 @@ use crate::shim::{
 use crate::utils::db::CborStoreExt;
 use auto_impl::auto_impl;
 use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -67,7 +66,7 @@ pub trait Provider {
     }
 }
 
-impl<DB: Blockstore> Provider for ChainStore<DB> {
+impl Provider for ChainStore {
     fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
         self.subscribe_head_changes()
     }
@@ -78,14 +77,14 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
 
     fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error> {
         let cid = self
-            .blockstore()
+            .db()
             .put_cbor_default(msg)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }
 
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
-        let state = StateTree::new_from_root(self.blockstore().clone(), ts.parent_state())
+        let state = StateTree::new_from_root(self.db(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
         Ok(state.get_required_actor(addr)?)
     }
@@ -94,7 +93,7 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
         &self,
         h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
-        crate::chain::block_messages(self.blockstore(), h).map_err(|err| err.into())
+        crate::chain::block_messages(self.db(), h).map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Tipset, Error> {
@@ -104,7 +103,7 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.chain_config().epoch(Height::Smoke);
         let firehorse_height = self.chain_config().epoch(Height::FireHorse);
-        crate::chain::compute_base_fee(self.blockstore(), ts, smoke_height, firehorse_height)
+        crate::chain::compute_base_fee(self.db(), ts, smoke_height, firehorse_height)
             .map_err(|err| err.into())
     }
 
@@ -132,11 +131,10 @@ impl<DB: Blockstore> Provider for ChainStore<DB> {
                     ts.clone()
                 };
 
-                let state =
-                    StateTree::new_from_root(self.blockstore().clone(), lookback_ts.parent_state())
-                        .map_err(|e| Error::Other(e.to_string()))?;
+                let state = StateTree::new_from_root(self.db(), lookback_ts.parent_state())
+                    .map_err(|e| Error::Other(e.to_string()))?;
                 state
-                    .resolve_to_deterministic_addr(self.blockstore(), *addr)
+                    .resolve_to_deterministic_address(self.db(), *addr)
                     .map_err(|e| Error::Other(e.to_string()))
             }
         }

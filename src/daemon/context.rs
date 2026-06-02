@@ -12,13 +12,12 @@ use crate::daemon::db_util::load_all_forest_cars_with_cleanup;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::db_root;
 use crate::db::parity_db::{GarbageCollectableParityDb, ParityDb};
-use crate::db::{
-    CAR_DB_DIR_NAME, DummyStore, EthMappingsStore, INDEX_DB_DIR_NAME, INDEX_DB_FILE_NAME,
-};
+use crate::db::{CAR_DB_DIR_NAME, INDEX_DB_DIR_NAME, INDEX_DB_FILE_NAME};
 use crate::genesis::read_genesis_header;
 use crate::interpreter::VMTrace;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
+use crate::prelude::*;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::address::{Address, CurrentNetwork};
 use crate::state_manager::{NO_CALLBACK, StateManager};
@@ -35,13 +34,15 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::{info, warn};
 
+type DbType = Arc<ManyCar<Arc<GarbageCollectableParityDb>>>;
+
 pub struct AppContext {
     pub net_keypair: Keypair,
     pub p2p_peer_id: PeerId,
-    pub db: Arc<DbType>,
+    pub db: DbType,
     pub db_meta_data: DbMetadata,
-    pub state_manager: Arc<StateManager<DbType>>,
-    pub chain_indexer: Option<Arc<SqliteIndexer<DbType>>>,
+    pub state_manager: StateManager,
+    pub chain_indexer: Option<Arc<SqliteIndexer>>,
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
@@ -60,14 +61,14 @@ impl AppContext {
             Some(Arc::new(
                 SqliteIndexer::new(
                     crate::utils::sqlite::open_file(db_meta_data.index_db_path()).await?,
-                    state_manager.chain_store().clone(),
+                    state_manager.chain_store().shallow_clone(),
                     SqliteIndexerOptions::default().with_gc_retention_epochs(i64::from(
                         cfg.chain_indexer.gc_retention_epochs.unwrap_or_default(),
                     )),
                 )
                 .await?
                 .with_actor_to_delegated_address_func(Arc::new({
-                    let state_manager = state_manager.clone();
+                    let state_manager = state_manager.shallow_clone();
                     move |actor_id, ts| {
                         let id_addr = Address::new_id(actor_id);
                         Ok(
@@ -82,7 +83,7 @@ impl AppContext {
                     }
                 }))
                 .with_recompute_tipset_state_func(Arc::new({
-                    let state_manager = state_manager.clone();
+                    let state_manager = state_manager.shallow_clone();
                     move |ts| {
                         state_manager.compute_tipset_state_blocking(
                             ts,
@@ -116,7 +117,7 @@ impl AppContext {
         self.state_manager.chain_config()
     }
 
-    pub fn chain_store(&self) -> &Arc<ChainStore<DbType>> {
+    pub fn chain_store(&self) -> &ChainStore {
         self.state_manager.chain_store()
     }
 }
@@ -228,8 +229,6 @@ fn maybe_migrate_db(config: &Config) {
     }
 }
 
-pub type DbType = ManyCar<Arc<GarbageCollectableParityDb>>;
-
 pub(crate) struct DbMetadata {
     db_root_dir: PathBuf,
     forest_car_db_dir: PathBuf,
@@ -256,7 +255,7 @@ impl DbMetadata {
 /// - load CAR database
 /// - load actor bundles
 /// - setup index db folder and file
-async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType>, DbMetadata)> {
+async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(DbType, DbMetadata)> {
     maybe_migrate_db(config);
     let chain_data_path = chain_path(config);
     let db_root_dir = db_root(&chain_data_path)?;
@@ -287,9 +286,9 @@ async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType
 
 async fn create_state_manager(
     config: &Config,
-    db: &Arc<DbType>,
+    db: &DbType,
     chain_config: &Arc<ChainConfig>,
-) -> anyhow::Result<Arc<StateManager<DbType>>> {
+) -> anyhow::Result<StateManager> {
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be
     //   initialized
@@ -300,23 +299,14 @@ async fn create_state_manager(
     )
     .await?;
 
-    let eth_mappings: Arc<dyn EthMappingsStore + Sync + Send> =
-        if config.chain_indexer.enable_indexer {
-            db.writer().clone()
-        } else {
-            Arc::new(DummyStore {})
-        };
-    let chain_store = Arc::new(ChainStore::new(
-        Arc::clone(db),
-        Arc::new(db.clone()),
-        eth_mappings,
-        chain_config.clone(),
-        genesis_header.clone(),
-    )?);
+    let chain_store = ChainStore::new(
+        db.shallow_clone(),
+        chain_config.shallow_clone(),
+        genesis_header,
+    )?;
 
     // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(Arc::clone(&chain_store))?);
-
+    let state_manager = StateManager::new(chain_store)?;
     Ok(state_manager)
 }
 

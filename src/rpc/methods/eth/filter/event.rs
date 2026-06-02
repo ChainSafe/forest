@@ -33,6 +33,7 @@ impl From<&EventFilter> for ParsedFilter {
             tipsets: event_filter.tipsets.clone(),
             addresses: event_filter.addresses.clone(),
             keys: event_filter.keys_with_codec.clone(),
+            msg_cid: None,
         }
     }
 }
@@ -102,6 +103,7 @@ mod tests {
             tipsets: ParsedFilterTipsets::Range(RangeInclusive::new(0, 100)),
             addresses: vec![Address::new_id(123)],
             keys: HashMap::new(),
+            msg_cid: None,
         };
         // Test case 1: Install the EventFilter
         let filter = event_manager

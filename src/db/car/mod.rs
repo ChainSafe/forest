@@ -11,17 +11,13 @@ use get_size2::GetSize as _;
 pub use many::{ManyCar, ReloadableManyCar};
 pub use plain::PlainCar;
 
-use cid::Cid;
+use bytes::Bytes;
 use positioned_io::{ReadAt, Size};
-use std::{
-    num::NonZeroUsize,
-    sync::{
-        Arc, LazyLock,
-        atomic::{AtomicUsize, Ordering},
-    },
-};
+use std::{num::NonZeroUsize, sync::LazyLock};
 
-use crate::utils::{ShallowClone, cache::SizeTrackingLruCache, get_size::CidWrapper};
+use crate::prelude::*;
+use quick_cache::Weighter;
+use quick_cache::sync::Cache as QuickCache;
 
 pub trait RandomAccessFileReader: ReadAt + Size + Send + Sync + 'static {}
 impl<X: ReadAt + Size + Send + Sync + 'static> RandomAccessFileReader for X {}
@@ -52,22 +48,40 @@ pub static ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE: LazyLock<usize> = LazyLock::new(||
     256 * 1024 * 1024
 });
 
+/// One decompressed zstd frame's index, shared via [`Arc`] so cache lookups
+/// don't deep-copy the inner [`hashbrown::HashMap`]. Snapshot export hits the
+/// cache once per CID; a per-call `HashMap` clone destroys throughput.
+type FrameIndex = Arc<hashbrown::HashMap<CidWrapper, Bytes>>;
+
+/// A [`Weighter`] that bills each entry by `key.get_size() + value.get_size()`.
+/// Used to make [`ZstdFrameCache`] evict by byte size.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ZstdFrameWeighter;
+
+impl Weighter<(FrameOffset, CacheKey), FrameIndex> for ZstdFrameWeighter {
+    fn weight(&self, key: &(FrameOffset, CacheKey), value: &FrameIndex) -> u64 {
+        // quick_cache treats weight 0 as "do not evict" — clamp to 1 so the
+        // cache never silently pins entries.
+        (key.get_size().saturating_add(value.get_size()) as u64).max(1)
+    }
+}
+
+type ZstdFrameInner = QuickCache<(FrameOffset, CacheKey), FrameIndex, ZstdFrameWeighter>;
+
+#[derive(derive_more::Deref)]
 pub struct ZstdFrameCache {
-    /// Maximum size in bytes. Pages will be evicted if the total size of the
-    /// cache exceeds this amount.
+    /// Maximum size in bytes. Pages are evicted by the cache when the total
+    /// weight exceeds this amount.
     pub max_size: usize,
-    current_size: Arc<AtomicUsize>,
-    // use `hashbrown::HashMap` here because its `GetSize` implementation is accurate
-    // (thanks to `hashbrown::HashMap::allocation_size`).
-    lru: SizeTrackingLruCache<(FrameOffset, CacheKey), hashbrown::HashMap<CidWrapper, Vec<u8>>>,
+    #[deref]
+    cache: Arc<ZstdFrameInner>,
 }
 
 impl ShallowClone for ZstdFrameCache {
     fn shallow_clone(&self) -> Self {
         Self {
             max_size: self.max_size,
-            current_size: self.current_size.shallow_clone(),
-            lru: self.lru.shallow_clone(),
+            cache: self.cache.shallow_clone(),
         }
     }
 }
@@ -80,59 +94,48 @@ impl Default for ZstdFrameCache {
 
 impl ZstdFrameCache {
     pub fn new(max_size: usize) -> Self {
+        // Items in this cache are decompressed zstd frame indexes — large
+        // hashmaps, so we don't expect many of them. The 64 estimate is a
+        // hint to quick_cache for initial table sizing only; the real bound
+        // is the weight capacity.
+        const ESTIMATED_ITEMS: usize = 64;
         ZstdFrameCache {
             max_size,
-            current_size: Arc::new(AtomicUsize::new(0)),
-            lru: SizeTrackingLruCache::unbounded_with_metrics("zstd_frame".into()),
+            cache: Arc::new(QuickCache::with_weighter(
+                ESTIMATED_ITEMS,
+                max_size as u64,
+                ZstdFrameWeighter,
+            )),
         }
     }
 
     /// Return a clone of the value associated with `cid`. If a value is found,
-    /// the cache entry is moved to the top of the queue.
-    pub fn get(&self, offset: FrameOffset, key: CacheKey, cid: Cid) -> Option<Option<Vec<u8>>> {
-        self.lru
-            .cache()
-            .write()
+    /// the cache entry is touched (moved to the top of the eviction order).
+    pub fn get(&self, offset: FrameOffset, key: CacheKey, cid: Cid) -> Option<Option<Bytes>> {
+        self.cache
             .get(&(offset, key))
             .map(|index| index.get(&CidWrapper::from(cid)).cloned())
     }
 
-    /// Insert entry into lru-cache and evict pages if `max_size` has been exceeded.
+    /// Insert entry into the cache. Eviction happens automatically based on
+    /// weight (see [`ZstdFrameWeighter`]).
     pub fn put(
         &self,
         offset: FrameOffset,
         key: CacheKey,
-        mut index: hashbrown::HashMap<CidWrapper, Vec<u8>>,
+        mut index: hashbrown::HashMap<CidWrapper, Bytes>,
     ) {
         index.shrink_to_fit();
 
-        let lru_key = (offset, key);
-        let lru_key_size = lru_key.get_size();
+        let cache_key = (offset, key);
+        let cache_key_size = cache_key.get_size();
         let entry_size = index.get_size();
-        // Skip large items
-        if entry_size.saturating_add(lru_key_size) >= self.max_size {
+        // Skip individual items larger than the whole cache — they'd evict
+        // everything and still not fit.
+        if entry_size.saturating_add(cache_key_size) > self.max_size {
             return;
         }
-
-        if let Some(prev_entry) = self.lru.push(lru_key, index) {
-            // keys are cancelled out
-            self.current_size.fetch_add(entry_size, Ordering::Relaxed);
-            self.current_size
-                .fetch_sub(prev_entry.get_size(), Ordering::Relaxed);
-        } else {
-            self.current_size
-                .fetch_add(entry_size.saturating_add(lru_key_size), Ordering::Relaxed);
-        }
-        while self.current_size.load(Ordering::Relaxed) > self.max_size {
-            if let Some((prev_key, prev_entry)) = self.lru.pop_lru() {
-                self.current_size.fetch_sub(
-                    prev_key.get_size().saturating_add(prev_entry.get_size()),
-                    Ordering::Relaxed,
-                );
-            } else {
-                break;
-            }
-        }
+        self.insert(cache_key, Arc::new(index));
     }
 }
 
@@ -145,33 +148,35 @@ mod tests {
     use rand::Rng;
 
     #[test]
-    fn test_zstd_frame_cache_size() {
+    fn test_zstd_frame_cache_stays_under_max_size() {
         let mut rng = forest_rng();
-        let cache = ZstdFrameCache::new(10);
+        // Pick a non-trivial cap so a few entries fit before eviction kicks in.
+        let max_size: usize = 64 * 1024;
+        let cache = ZstdFrameCache::new(max_size);
         for i in 0..100 {
-            let index = gen_index(&mut rng);
-            cache.put(i, i, index);
-            assert_eq!(
-                cache.current_size.load(Ordering::Relaxed),
-                cache.lru.size_in_bytes()
-            );
-            let index2 = gen_index(&mut rng);
-            cache.put(i, i, index2);
-            assert_eq!(
-                cache.current_size.load(Ordering::Relaxed),
-                cache.lru.size_in_bytes()
+            cache.put(i, i, gen_index(&mut rng));
+            // After every insert the live weight must remain under the cap;
+            // quick_cache evicts synchronously to keep it that way.
+            assert!(
+                cache.weight() <= max_size as u64,
+                "weight {} exceeds cap {}",
+                cache.weight(),
+                max_size
             );
         }
+        // Sanity: after stuffing 100 entries into a cap-bounded cache, at
+        // least one eviction must have happened.
+        assert!(cache.len() < 100);
     }
 
-    fn gen_index(rng: &mut impl Rng) -> hashbrown::HashMap<CidWrapper, Vec<u8>> {
+    fn gen_index(rng: &mut impl Rng) -> hashbrown::HashMap<CidWrapper, Bytes> {
         let mut map = hashbrown::HashMap::default();
         for _ in 0..10 {
             let vec_len = rng.gen_range(64..1024);
             let mut data = vec![0; vec_len];
             rng.fill_bytes(&mut data);
             let cid = Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data));
-            map.insert(cid.into(), data);
+            map.insert(cid.into(), data.into());
         }
         map
     }

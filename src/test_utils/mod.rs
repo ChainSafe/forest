@@ -21,6 +21,12 @@ pub fn construct_ticket() -> Ticket {
     Ticket::new(vrf_result)
 }
 
+/// Returns a deterministic dummy ticket seeded by `seed`. Useful for keeping per-block
+/// tickets distinct within a tipset.
+pub fn dummy_ticket(seed: u8) -> Option<Ticket> {
+    Some(Ticket::new(VRFProof::new(vec![seed])))
+}
+
 /// Returns a tuple of unsigned and signed messages used for testing
 pub fn construct_messages() -> (Message, SignedMessage) {
     let bls_messages: Message = Message_v3 {

@@ -7,7 +7,7 @@ use types::*;
 #[cfg(test)]
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
-use crate::chain::index::ResolveNullTipset;
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
@@ -17,10 +17,8 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
-use crate::rpc::eth::Block as EthBlock;
-use crate::rpc::eth::{
-    EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec,
-};
+use crate::networks::ChainConfig;
+use crate::prelude::*;
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
@@ -28,32 +26,27 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
-use crate::utils::ShallowClone;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
 use anyhow::{Context as _, Result};
-use cid::Cid;
 use enumflags2::{BitFlags, make_bitflags};
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use ipld_core::ipld::Ipld;
-use itertools::Itertools as _;
 use jsonrpsee::types::Params;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use num::BigInt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::convert::Infallible;
 use std::fs::File;
-use std::sync::Arc;
 use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
 use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
 };
-use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
@@ -76,81 +69,6 @@ pub const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
 static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
     LazyLock::new(|| Mutex::new(None));
 
-/// Subscribes to head changes from the chain store and broadcasts new blocks.
-///
-/// # Notes
-///
-/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
-/// allowing manual cleanup if needed.
-pub(crate) fn new_heads<DB: Blockstore + Send + Sync + 'static>(
-    data: Ctx<DB>,
-) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
-
-    let mut head_changes_rx = data.chain_store().subscribe_head_changes();
-
-    let handle = tokio::spawn(async move {
-        while let Ok(changes) = head_changes_rx.recv().await {
-            for ts in changes.applies {
-                // Convert the tipset to an Ethereum block with full transaction info
-                // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
-                match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
-                    Ok(block) => {
-                        if let Err(e) = sender.send(ApiHeaders(block)) {
-                            tracing::error!("Failed to send headers: {}", e);
-                            return;
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to convert tipset to eth block: {}", e);
-                    }
-                }
-            }
-        }
-    });
-
-    (receiver, handle)
-}
-
-/// Subscribes to head changes from the chain store and broadcasts new `Ethereum` logs.
-///
-/// # Notes
-///
-/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
-/// allowing manual cleanup if needed.
-pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
-    ctx: &Ctx<DB>,
-    filter: Option<EthFilterSpec>,
-) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
-
-    let mut head_changes_rx = ctx.chain_store().subscribe_head_changes();
-
-    let ctx = ctx.clone();
-
-    let handle = tokio::spawn(async move {
-        while let Ok(changes) = head_changes_rx.recv().await {
-            for ts in changes.applies {
-                match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
-                    Ok(logs) => {
-                        if !logs.is_empty()
-                            && let Err(e) = sender.send(logs)
-                        {
-                            tracing::error!("Failed to send logs for tipset {}: {}", ts.key(), e);
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
-                    }
-                }
-            }
-        }
-    });
-
-    (receiver, handle)
-}
-
 pub enum ChainGetFinalizedTipset {}
 impl RpcMethod<0> for ChainGetFinalizedTipset {
     const NAME: &'static str = "Filecoin.ChainGetFinalizedTipSet";
@@ -165,7 +83,7 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -184,7 +102,7 @@ impl RpcMethod<2> for ChainValidateIndex {
     type Ok = ChainIndexValidation;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (epoch, backfill): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -205,15 +123,15 @@ impl RpcMethod<1> for ChainGetMessage {
     const DESCRIPTION: Option<&'static str> = Some("Returns the message with the specified CID.");
 
     type Params = (Cid,);
-    type Ok = FlattenedApiMessage;
+    type Ok = Message;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (message_cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let chain_message: ChainMessage = ctx
-            .store()
+            .db()
             .get_cbor(&message_cid)?
             .with_context(|| format!("can't find message with cid {message_cid}"))?;
         let message = match chain_message {
@@ -221,8 +139,7 @@ impl RpcMethod<1> for ChainGetMessage {
             ChainMessage::Unsigned(m) => Arc::unwrap_or_clone(m),
         };
 
-        let cid = message.cid();
-        Ok(FlattenedApiMessage { message, cid })
+        Ok(message)
     }
 }
 
@@ -240,7 +157,7 @@ impl RpcMethod<1> for ChainGetEvents {
     type Params = (Cid,);
     type Ok = Vec<Event>;
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (root_cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -262,11 +179,11 @@ impl RpcMethod<1> for ChainGetParentMessages {
     type Ok = Vec<ApiMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (block_cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.store();
+        let store = ctx.db();
         let block_header: CachingBlockHeader = store
             .get_cbor(&block_cid)?
             .with_context(|| format!("can't find block header with cid {block_cid}"))?;
@@ -294,11 +211,11 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     type Ok = Vec<ApiReceipt>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (block_cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.store();
+        let store = ctx.db();
         let block_header: CachingBlockHeader = store
             .get_cbor(&block_cid)?
             .with_context(|| format!("can't find block header with cid {block_cid}"))?;
@@ -340,7 +257,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     type Ok = Vec<ApiMessage>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ApiTipsetKey(tipset_key),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -362,7 +279,7 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     type Ok = ();
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        _ctx: Ctx,
         (blocking,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -387,7 +304,7 @@ impl RpcMethod<1> for ForestChainExport {
     type Ok = ApiExportResult;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -437,7 +354,7 @@ impl RpcMethod<1> for ForestChainExport {
         };
         let result = match version {
             FilecoinSnapshotVersion::V1 => {
-                let db = ctx.store_owned();
+                let db = ctx.db_owned();
 
                 let chain_export = crate::chain::export::<Sha256, _>(
                     &db,
@@ -459,7 +376,7 @@ impl RpcMethod<1> for ForestChainExport {
                 }
             }
             FilecoinSnapshotVersion::V2 => {
-                let db = ctx.store_owned();
+                let db = ctx.db_owned();
 
                 let f3_snap_tmp_path = {
                     let mut f3_snap_dir = output_path.clone();
@@ -526,7 +443,7 @@ impl RpcMethod<0> for ForestChainExportStatus {
     type Ok = ApiExportStatus;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore>,
+        _ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -567,7 +484,7 @@ impl RpcMethod<0> for ForestChainExportCancel {
     type Ok = bool;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore>,
+        _ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -591,7 +508,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
     type Ok = ();
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -624,7 +541,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
         )?;
 
         crate::tool::subcommands::archive_cmd::do_export(
-            &ctx.store_owned(),
+            ctx.chain_index().db(),
             start_ts,
             output_path,
             None,
@@ -650,7 +567,7 @@ impl RpcMethod<1> for ChainExport {
     type Ok = ApiExportResult;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (ChainExportParams {
             epoch,
             recent_roots,
@@ -695,12 +612,12 @@ impl RpcMethod<1> for ChainReadObj {
     type Ok = Vec<u8>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let bytes = ctx
-            .store()
+            .db()
             .get(&cid)?
             .with_context(|| format!("can't find object with cid={cid}"))?;
         Ok(bytes)
@@ -720,11 +637,11 @@ impl RpcMethod<1> for ChainHasObj {
     type Ok = bool;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.store().get(&cid)?.is_some())
+        Ok(ctx.db().get(&cid)?.is_some())
     }
 }
 
@@ -741,7 +658,7 @@ impl RpcMethod<2> for ChainStatObj {
     type Ok = ObjStat;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (obj_cid, base_cid): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -754,7 +671,7 @@ impl RpcMethod<2> for ChainStatObj {
                 if !seen.insert(link_cid) {
                     continue;
                 }
-                let data = ctx.store().get(&link_cid)?;
+                let data = ctx.db().get(&link_cid)?;
                 if let Some(data) = data {
                     if collect {
                         stats.links += 1;
@@ -795,14 +712,14 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     type Ok = BlockMessages;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (block_cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let blk: CachingBlockHeader = ctx.store().get_cbor_required(&block_cid)?;
-        let (unsigned_cids, signed_cids) = crate::chain::read_msg_cids(ctx.store(), &blk)?;
+        let blk: CachingBlockHeader = ctx.db().get_cbor_required(&block_cid)?;
+        let (unsigned_cids, signed_cids) = crate::chain::read_msg_cids(ctx.db(), &blk)?;
         let (bls_msg, secp_msg) =
-            crate::chain::block_messages_from_cids(ctx.store(), &unsigned_cids, &signed_cids)?;
+            crate::chain::block_messages_from_cids(ctx.db(), &unsigned_cids, &signed_cids)?;
         let cids = unsigned_cids.into_iter().chain(signed_cids).collect();
 
         let ret = BlockMessages {
@@ -827,7 +744,7 @@ impl RpcMethod<2> for ChainGetPath {
     type Ok = Vec<PathChange>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (from, to): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -853,7 +770,7 @@ impl RpcMethod<2> for ChainGetPath {
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
 pub fn chain_get_path(
-    chain_store: &ChainStore<impl Blockstore>,
+    chain_store: &ChainStore,
     from: &TipsetKey,
     to: &TipsetKey,
 ) -> anyhow::Result<PathChanges> {
@@ -911,7 +828,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (height, ApiTipsetKey(tipset_key)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -943,7 +860,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (height, ApiTipsetKey(tipset_key)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -970,7 +887,7 @@ impl RpcMethod<0> for ChainGetGenesis {
     type Ok = Option<Tipset>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -991,7 +908,7 @@ impl RpcMethod<0> for ChainHead {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1012,11 +929,11 @@ impl RpcMethod<1> for ChainGetBlock {
     type Ok = CachingBlockHeader;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (block_cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let blk: CachingBlockHeader = ctx.store().get_cbor_required(&block_cid)?;
+        let blk: CachingBlockHeader = ctx.db().get_cbor_required(&block_cid)?;
         Ok(blk)
     }
 }
@@ -1034,7 +951,7 @@ impl RpcMethod<1> for ChainGetTipSet {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1055,7 +972,7 @@ pub enum ChainGetTipSetV2 {}
 
 impl ChainGetTipSetV2 {
     pub async fn get_tipset_by_anchor(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: &Ctx,
         anchor: Option<&TipsetAnchor>,
     ) -> anyhow::Result<Tipset> {
         if let Some(anchor) = anchor {
@@ -1075,10 +992,7 @@ impl ChainGetTipSetV2 {
         }
     }
 
-    pub async fn get_tipset_by_tag(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        tag: TipsetTag,
-    ) -> anyhow::Result<Tipset> {
+    pub async fn get_tipset_by_tag(ctx: &Ctx, tag: TipsetTag) -> anyhow::Result<Tipset> {
         match tag {
             TipsetTag::Latest => Ok(ctx.state_manager.heaviest_tipset()),
             TipsetTag::Finalized => Self::get_latest_finalized_tipset(ctx).await,
@@ -1086,9 +1000,7 @@ impl ChainGetTipSetV2 {
         }
     }
 
-    pub async fn get_latest_safe_tipset(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-    ) -> anyhow::Result<Tipset> {
+    pub async fn get_latest_safe_tipset(ctx: &Ctx) -> anyhow::Result<Tipset> {
         let finalized = Self::get_latest_finalized_tipset(ctx).await?;
         let head = ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
@@ -1103,18 +1015,13 @@ impl ChainGetTipSetV2 {
         }
     }
 
-    pub async fn get_latest_finalized_tipset(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-    ) -> anyhow::Result<Tipset> {
+    pub async fn get_latest_finalized_tipset(ctx: &Ctx) -> anyhow::Result<Tipset> {
         ChainGetTipSetFinalityStatus::get_finality_status(ctx)?
             .finalized_tip_set
             .context("failed to resolve finalized tipset")
     }
 
-    pub async fn get_tipset(
-        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
-        selector: &TipsetSelector,
-    ) -> anyhow::Result<Tipset> {
+    pub async fn get_tipset(ctx: &Ctx, selector: &TipsetSelector) -> anyhow::Result<Tipset> {
         selector.validate()?;
         // Get tipset by key.
         if let ApiTipsetKey(Some(tsk)) = &selector.key {
@@ -1151,7 +1058,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     type Ok = Tipset;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (selector,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1161,8 +1068,9 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
 
 pub enum ChainGetTipSetFinalityStatus {}
 
+const EC_CALCULATOR_FINALITY_CACHE_SIZE: usize = 4;
 impl ChainGetTipSetFinalityStatus {
-    pub fn get_finality_status(ctx: &Ctx<impl Blockstore>) -> anyhow::Result<ChainFinalityStatus> {
+    pub fn get_finality_status(ctx: &Ctx) -> anyhow::Result<ChainFinalityStatus> {
         let head = ctx.chain_store().heaviest_tipset();
         let (ec_finality_threshold_depth, ec_finalized_tip_set) =
             Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone())?;
@@ -1189,28 +1097,61 @@ impl ChainGetTipSetFinalityStatus {
     }
 
     pub fn get_ec_finality_threshold_depth_and_tipset_with_cache(
-        ctx: &Ctx<impl Blockstore>,
+        ctx: &Ctx,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
-        static CACHE: parking_lot::Mutex<Option<(Tipset, i64, Option<Tipset>)>> =
-            parking_lot::Mutex::new(None);
-        let mut cache = CACHE.lock();
-        if let Some((cached_head, cached_threshold, cached_tipset)) = &*cache
-            && cached_head == &head
-        {
-            Ok((*cached_threshold, cached_tipset.shallow_clone()))
+        static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, (i64, Option<Tipset>)>> =
+            LazyLock::new(|| quick_cache::sync::Cache::new(EC_CALCULATOR_FINALITY_CACHE_SIZE));
+        CACHE.get_or_insert_with(head.shallow_clone().key(), move || {
+            Self::get_ec_finality_threshold_depth_and_tipset(ctx, head)
+        })
+    }
+
+    pub fn get_ec_finality_epoch(
+        chain_index: &ChainIndex,
+        chain_config: &ChainConfig,
+        head: &Tipset,
+    ) -> i64 {
+        let depth =
+            Self::get_ec_finality_threshold_depth_with_cache(chain_index, chain_config, head);
+        Self::get_ec_finality_epoch_by_depth(chain_config, head, depth)
+    }
+
+    fn get_ec_finality_epoch_by_depth(
+        chain_config: &ChainConfig,
+        head: &Tipset,
+        depth: i64,
+    ) -> i64 {
+        if depth >= 0 {
+            (head.epoch() - depth).max(0)
         } else {
-            let (threshold, tipset) =
-                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head.shallow_clone())?;
-            *cache = Some((head, threshold, tipset.shallow_clone()));
-            Ok((threshold, tipset))
+            (head.epoch() - chain_config.policy.chain_finality).max(0)
         }
     }
 
-    fn get_ec_finality_threshold_depth_and_tipset(
-        ctx: &Ctx<impl Blockstore>,
-        head: Tipset,
-    ) -> anyhow::Result<(i64, Option<Tipset>)> {
+    fn get_ec_finality_threshold_depth_with_cache(
+        chain_index: &ChainIndex,
+        chain_config: &ChainConfig,
+        head: &Tipset,
+    ) -> i64 {
+        static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, i64>> =
+            LazyLock::new(|| quick_cache::sync::Cache::new(EC_CALCULATOR_FINALITY_CACHE_SIZE));
+        CACHE
+            .get_or_insert_with(head.key(), move || -> Result<i64, Infallible> {
+                Ok(Self::get_ec_finality_threshold_depth(
+                    chain_index,
+                    chain_config,
+                    head,
+                ))
+            })
+            .expect("infallible")
+    }
+
+    fn get_ec_finality_threshold_depth(
+        chain_index: &ChainIndex,
+        chain_config: &ChainConfig,
+        head: &Tipset,
+    ) -> i64 {
         use crate::chain::ec_finality::calculator::{
             DEFAULT_BLOCKS_PER_EPOCH, DEFAULT_BYZANTINE_FRACTION, DEFAULT_GUARANTEE,
             find_threshold_depth,
@@ -1224,13 +1165,13 @@ impl ChainGetTipSetFinalityStatus {
         /// they consume array slots without advancing the meaningful epoch count.
         const FINALITY_CHAIN_EXTRA_EPOCHS: usize = 5;
 
-        let finality = ctx.chain_config().policy.chain_finality;
+        let finality = chain_config.policy.chain_finality;
         let chain_len = finality as usize + FINALITY_CHAIN_EXTRA_EPOCHS;
         let mut chain = Vec::with_capacity(chain_len);
         let mut ts = head.shallow_clone();
         while chain.len() < chain_len {
             chain.push(ts.len() as i64);
-            if let Ok(parent) = ctx.chain_index().load_required_tipset(ts.parents()) {
+            if let Ok(parent) = chain_index.load_required_tipset(ts.parents()) {
                 // insert 0 for null rounds
                 if let Ok(n_null_tipsets_to_pad) = usize::try_from(ts.epoch() - parent.epoch() - 1)
                     && n_null_tipsets_to_pad > 0
@@ -1246,7 +1187,7 @@ impl ChainGetTipSetFinalityStatus {
         }
         // Reverse to chronological order (oldest first).
         chain.reverse();
-        let depth = match find_threshold_depth(
+        match find_threshold_depth(
             &chain,
             finality,
             DEFAULT_BLOCKS_PER_EPOCH,
@@ -1260,23 +1201,25 @@ impl ChainGetTipSetFinalityStatus {
                 );
                 -1
             }
-        };
-        let finalized = if depth >= 0
-            && let Ok(Some(ts)) = ctx.chain_index().tipset_by_height(
-                (head.epoch() - depth).max(0),
-                head.shallow_clone(),
-                ResolveNullTipset::TakeOlder,
-            ) {
-            Some(ts)
-        } else {
-            let ec_finality_epoch =
-                (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
-            ctx.chain_index().tipset_by_height(
-                ec_finality_epoch,
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?
-        };
+        }
+    }
+
+    fn get_ec_finality_threshold_depth_and_tipset(
+        ctx: &Ctx,
+        head: Tipset,
+    ) -> anyhow::Result<(i64, Option<Tipset>)> {
+        let depth = Self::get_ec_finality_threshold_depth_with_cache(
+            ctx.chain_index(),
+            ctx.chain_config(),
+            &head,
+        );
+        let ec_finality_epoch =
+            Self::get_ec_finality_epoch_by_depth(ctx.chain_config(), &head, depth);
+        let finalized = ctx.chain_index().tipset_by_height(
+            ec_finality_epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?;
         Ok((depth, finalized))
     }
 }
@@ -1293,7 +1236,7 @@ impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
     type Ok = ChainFinalityStatus;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1312,7 +1255,7 @@ impl RpcMethod<1> for ChainSetHead {
     type Ok = ();
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (tsk,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1345,7 +1288,7 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
     type Ok = String;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (lookback,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -1376,14 +1319,14 @@ impl RpcMethod<1> for ChainTipSetWeight {
     type Ok = BigInt;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (ApiTipsetKey(tipset_key),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        let weight = crate::fil_cns::weight(ctx.store(), &ts)?;
+        let weight = crate::fil_cns::weight(ctx.db(), &ts)?;
         Ok(weight)
     }
 }
@@ -1399,23 +1342,23 @@ impl RpcMethod<1> for ChainGetTipsetByParentState {
     type Ok = Option<Tipset>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (parent_state,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx
             .chain_store()
             .heaviest_tipset()
-            .chain(ctx.store())
+            .chain(ctx.db())
             .find(|ts| ts.parent_state() == &parent_state)
             .shallow_clone())
     }
 }
 
 pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
-pub(crate) fn chain_notify<DB: Blockstore>(
+pub(crate) fn chain_notify(
     _params: Params<'_>,
-    data: &crate::rpc::RPCState<DB>,
+    data: &crate::rpc::RPCState,
 ) -> Subscriber<Vec<ApiHeadChange>> {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
@@ -1445,8 +1388,8 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     receiver
 }
 
-async fn load_api_messages_from_tipset<DB: Blockstore + Send + Sync + 'static>(
-    ctx: &crate::rpc::RPCState<DB>,
+async fn load_api_messages_from_tipset(
+    ctx: &crate::rpc::RPCState,
     tipset_keys: &TipsetKey,
 ) -> Result<Vec<ApiMessage>, ServerError> {
     static SHOULD_BACKFILL: LazyLock<bool> = LazyLock::new(|| {
@@ -1544,18 +1487,6 @@ pub struct ApiMessage {
 
 lotus_json_with_self!(ApiMessage);
 
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, Eq, PartialEq)]
-pub struct FlattenedApiMessage {
-    #[serde(flatten, with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Message>")]
-    pub message: Message,
-    #[serde(rename = "CID", with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Cid>")]
-    pub cid: Cid,
-}
-
-lotus_json_with_self!(FlattenedApiMessage);
-
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ForestChainExportParams {
     pub version: FilecoinSnapshotVersion,
@@ -1645,7 +1576,13 @@ impl HasLotusJson for PathChange {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        use crate::test_utils::dummy_ticket;
         use serde_json::json;
+        let header = CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
+            ..Default::default()
+        });
+        let header_cid = *header.cid();
         vec![(
             json!({
                 "Type": "revert",
@@ -1662,17 +1599,18 @@ impl HasLotusJson for PathChange {
                             "ParentStateRoot": { "/":"baeaaaaa" },
                             "ParentWeight": "0",
                             "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
+                            "Ticket": { "VRFProof": "AA==" },
                             "Timestamp": 0,
                             "WinPoStProof": null
                         }
                     ],
                     "Cids": [
-                        { "/": "bafy2bzaceag62hjj3o43lf6oyeox3fvg5aqkgl5zagbwpjje3ajwg6yw4iixk" }
+                        { "/": header_cid.to_string() }
                     ],
                     "Height": 0
                 }
             }),
-            Self::Revert(RawBlockHeader::default().into()),
+            Self::Revert(Tipset::from(header)),
         )]
     }
 
@@ -1758,40 +1696,42 @@ mod tests {
 
     #[test]
     fn revert_to_ancestor_linear() {
-        let store = ChainStore::calibnet();
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
         chain4u! {
-            in store.blockstore();
-            [_genesis = store.genesis_block_header()]
+            in db;
+            [_genesis = cs.genesis_block_header()]
             -> [a] -> [b] -> [c, d] -> [e]
         };
 
         // simple
-        assert_path_change(&store, b, a, [Revert(&[b])]);
+        assert_path_change(&cs, b, a, [Revert(&[b])]);
 
         // from multi-member tipset
-        assert_path_change(&store, [c, d], a, [Revert(&[c, d][..]), Revert(&[b])]);
+        assert_path_change(&cs, [c, d], a, [Revert(&[c, d][..]), Revert(&[b])]);
 
         // to multi-member tipset
-        assert_path_change(&store, e, [c, d], [Revert(e)]);
+        assert_path_change(&cs, e, [c, d], [Revert(e)]);
 
         // over multi-member tipset
-        assert_path_change(&store, e, b, [Revert(&[e][..]), Revert(&[c, d])]);
+        assert_path_change(&cs, e, b, [Revert(&[e][..]), Revert(&[c, d])]);
     }
 
     /// Mirror how lotus handles passing an incomplete `TipsetKey`s.
     /// Tested on lotus `1.23.2`
     #[test]
     fn incomplete_tipsets() {
-        let store = ChainStore::calibnet();
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
         chain4u! {
-            in store.blockstore();
-            [_genesis = store.genesis_block_header()]
+            in db;
+            [_genesis = cs.genesis_block_header()]
             -> [a, b] -> [c] -> [d, _e] // this pattern 2 -> 1 -> 2 can be found at calibnet epoch 1369126
         };
 
         // apply to descendant with incomplete `from`
         assert_path_change(
-            &store,
+            &cs,
             a,
             c,
             [
@@ -1802,14 +1742,14 @@ mod tests {
         );
 
         // apply to descendant with incomplete `to`
-        assert_path_change(&store, c, d, [Apply(d)]);
+        assert_path_change(&cs, c, d, [Apply(d)]);
 
         // revert to ancestor with incomplete `from`
-        assert_path_change(&store, d, c, [Revert(d)]);
+        assert_path_change(&cs, d, c, [Revert(d)]);
 
         // revert to ancestor with incomplete `to`
         assert_path_change(
-            &store,
+            &cs,
             c,
             a,
             [
@@ -1822,64 +1762,59 @@ mod tests {
 
     #[test]
     fn apply_to_descendant_linear() {
-        let store = ChainStore::calibnet();
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
         chain4u! {
-            in store.blockstore();
-            [_genesis = store.genesis_block_header()]
+            in db;
+            [_genesis = cs.genesis_block_header()]
             -> [a] -> [b] -> [c, d] -> [e]
         };
 
         // simple
-        assert_path_change(&store, a, b, [Apply(&[b])]);
+        assert_path_change(&cs, a, b, [Apply(&[b])]);
 
         // from multi-member tipset
-        assert_path_change(&store, [c, d], e, [Apply(e)]);
+        assert_path_change(&cs, [c, d], e, [Apply(e)]);
 
         // to multi-member tipset
-        assert_path_change(&store, b, [c, d], [Apply([c, d])]);
+        assert_path_change(&cs, b, [c, d], [Apply([c, d])]);
 
         // over multi-member tipset
-        assert_path_change(&store, b, e, [Apply(&[c, d][..]), Apply(&[e])]);
+        assert_path_change(&cs, b, e, [Apply(&[c, d][..]), Apply(&[e])]);
     }
 
     #[test]
     fn cross_fork_simple() {
-        let store = ChainStore::calibnet();
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
         chain4u! {
-            in store.blockstore();
-            [_genesis = store.genesis_block_header()]
+            in db;
+            [_genesis = cs.genesis_block_header()]
             -> [a] -> [b1] -> [c1]
         };
         chain4u! {
-            from [a] in store.blockstore();
+            from [a] in db;
             [b2] -> [c2]
         };
 
         // same height
-        assert_path_change(&store, b1, b2, [Revert(b1), Apply(b2)]);
+        assert_path_change(&cs, b1, b2, [Revert(b1), Apply(b2)]);
 
         // different height
-        assert_path_change(&store, b1, c2, [Revert(b1), Apply(b2), Apply(c2)]);
+        assert_path_change(&cs, b1, c2, [Revert(b1), Apply(b2), Apply(c2)]);
 
         let _ = (a, c1);
     }
 
-    impl ChainStore<Chain4U<ManyCar>> {
+    impl ChainStore {
         fn _load(genesis_car: &'static [u8], genesis_cid: Cid) -> Self {
-            let db = Arc::new(Chain4U::with_blockstore(
+            let db = Arc::new(
                 ManyCar::new(MemoryDB::default())
                     .with_read_only(AnyCar::new(genesis_car).unwrap())
                     .unwrap(),
-            ));
+            );
             let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
-            ChainStore::new(
-                db,
-                Arc::new(MemoryDB::default()),
-                Arc::new(MemoryDB::default()),
-                Arc::new(ChainConfig::calibnet()),
-                genesis_block_header,
-            )
-            .unwrap()
+            ChainStore::new(db, Arc::new(ChainConfig::calibnet()), genesis_block_header).unwrap()
         }
         pub fn calibnet() -> Self {
             Self::_load(
@@ -1920,7 +1855,7 @@ mod tests {
 
     #[track_caller]
     fn assert_path_change<T: MakeTipset>(
-        store: &ChainStore<impl Blockstore>,
+        store: &ChainStore,
         from: impl MakeTipset,
         to: impl MakeTipset,
         expected: impl IntoIterator<Item = PathChange<T>>,

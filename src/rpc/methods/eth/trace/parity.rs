@@ -17,6 +17,7 @@ use super::types::{
 };
 use super::utils::trace_to_address;
 use crate::eth::{EAMMethod, EVMMethod};
+use crate::prelude::*;
 use crate::rpc::methods::state::ExecutionTrace;
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
@@ -603,12 +604,12 @@ fn trace_evm_private(
 pub struct TipsetTraceEntry {
     pub tx_hash: EthHash,
     pub msg_position: i64,
-    pub invoc_result: crate::rpc::state::ApiInvocResult,
+    pub invoc_result: Arc<crate::rpc::state::ApiInvocResult>,
 }
 
 impl TipsetTraceEntry {
     /// Builds Parity-style traces for this entry using the given state tree.
-    pub fn build_parity_traces<DB: Blockstore + Send + Sync>(
+    pub fn build_parity_traces<DB: Blockstore + ShallowClone + Send + Sync>(
         &self,
         state: &StateTree<DB>,
     ) -> Result<Vec<EthTrace>, crate::rpc::error::ServerError> {

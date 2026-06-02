@@ -3,12 +3,11 @@
 
 use std::num::NonZeroUsize;
 
-use anyhow::Context as _;
-use itertools::Itertools;
 use nonzero_ext::nonzero;
 use num::{BigInt, Zero as _};
 
 use crate::{
+    prelude::*,
     rpc::{
         self, RpcMethodExt as _,
         chain::{
@@ -17,7 +16,6 @@ use crate::{
         },
     },
     shim::econ::{BLOCK_GAS_LIMIT, TokenAmount},
-    utils::ShallowClone as _,
 };
 
 /// View a segment of the chain

@@ -5,7 +5,7 @@ expression: spec
 openrpc: 1.3.2
 info:
   title: forest
-  version: 0.33.2
+  version: 0.33.4
 methods:
   - name: Filecoin.AuthNew
     params:
@@ -147,7 +147,7 @@ methods:
       name: Filecoin.ChainGetMessage.Result
       required: true
       schema:
-        $ref: "#/components/schemas/FlattenedApiMessage"
+        $ref: "#/components/schemas/Message"
     paramStructure: by-position
   - name: Filecoin.ChainGetMessagesInTipset
     params:
@@ -524,6 +524,38 @@ methods:
       required: true
       schema:
         $ref: "#/components/schemas/EthAddress"
+    paramStructure: by-position
+  - name: Filecoin.EthBaseFee
+    description: Returns the calculated base fee of the upcoming tipset in attoFIL
+    params: []
+    result:
+      name: Filecoin.EthBaseFee.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthBigInt"
+    paramStructure: by-position
+  - name: eth_baseFee
+    description: Returns the calculated base fee of the upcoming tipset in attoFIL
+    params: []
+    result:
+      name: eth_baseFee.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthBigInt"
+    paramStructure: by-position
+  - name: Forest.BaseFeeByHeight
+    description: Returns the calculated upcoming base fee of the tipset at the given height in attoFIL
+    params:
+      - name: height
+        required: true
+        schema:
+          type: integer
+          format: int64
+    result:
+      name: Forest.BaseFeeByHeight.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: Filecoin.EthBlockNumber
     params: []
@@ -1846,7 +1878,7 @@ methods:
       name: Filecoin.GasEstimateMessageGas.Result
       required: true
       schema:
-        $ref: "#/components/schemas/FlattenedApiMessage"
+        $ref: "#/components/schemas/Message"
     paramStructure: by-position
   - name: Filecoin.MarketAddBalance
     params:
@@ -5977,6 +6009,15 @@ components:
           anyOf:
             - $ref: "#/components/schemas/ActorTrace"
             - type: "null"
+        IpldOps:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceIpld"
+        Logs:
+          description: "FVM invocation logs (not EVM actor / `eth_getLogs` event logs)."
+          type: array
+          items:
+            type: string
         Msg:
           $ref: "#/components/schemas/MessageTrace"
         MsgRct:
@@ -6179,50 +6220,6 @@ components:
         - SupplementalData
         - Signers
         - Signature
-    FlattenedApiMessage:
-      type: object
-      properties:
-        CID:
-          $ref: "#/components/schemas/Cid"
-        From:
-          $ref: "#/components/schemas/Address"
-        GasFeeCap:
-          $ref: "#/components/schemas/TokenAmount"
-          default: "0"
-        GasLimit:
-          type: integer
-          format: uint64
-          default: 0
-          minimum: 0
-        GasPremium:
-          $ref: "#/components/schemas/TokenAmount"
-          default: "0"
-        Method:
-          type: integer
-          format: uint64
-          default: 0
-          minimum: 0
-        Nonce:
-          type: integer
-          format: uint64
-          default: 0
-          minimum: 0
-        Params:
-          $ref: "#/components/schemas/Nullable_Base64String"
-        To:
-          $ref: "#/components/schemas/Address"
-        Value:
-          $ref: "#/components/schemas/TokenAmount"
-          default: "0"
-        Version:
-          type: integer
-          format: uint64
-          default: 0
-          minimum: 0
-      required:
-        - To
-        - From
-        - CID
     ForestChainExportDiffParams:
       type: object
       properties:
@@ -6374,6 +6371,9 @@ components:
         UpgradeDragonHeight:
           type: integer
           format: int64
+        UpgradeFireHorseHeight:
+          type: integer
+          format: int64
         UpgradeGoldenWeekHeight:
           type: integer
           format: int64
@@ -6482,6 +6482,7 @@ components:
         - UpgradeTeepHeight
         - UpgradeTockHeight
         - UpgradeGoldenWeekHeight
+        - UpgradeFireHorseHeight
     GasTrace:
       type: object
       properties:
@@ -6595,6 +6596,8 @@ components:
     Message:
       type: object
       properties:
+        CID:
+          $ref: "#/components/schemas/Nullable_Cid"
         From:
           $ref: "#/components/schemas/Address"
         GasFeeCap:
@@ -6619,7 +6622,8 @@ components:
           default: 0
           minimum: 0
         Params:
-          $ref: "#/components/schemas/Nullable_Base64String"
+          $ref: "#/components/schemas/Base64String"
+          default: ~
         To:
           $ref: "#/components/schemas/Address"
         Value:
@@ -6952,6 +6956,10 @@ components:
           minimum: 0
         ForkUpgradeParams:
           $ref: "#/components/schemas/ForkUpgradeParams"
+        GenesisTimestamp:
+          type: integer
+          format: uint64
+          minimum: 0
         NetworkName:
           type: string
         PreCommitChallengeDelay:
@@ -6964,6 +6972,7 @@ components:
         - PreCommitChallengeDelay
         - ForkUpgradeParams
         - Eip155ChainID
+        - GenesisTimestamp
     NetworkVersion:
       description: "Specifies the network version\n\n# Examples\n```\n# use forest::doctest_private::NetworkVersion;\nlet v0 = NetworkVersion::V0;\n\n// dereference to convert to FVM4\nassert_eq!(fvm_shared4::version::NetworkVersion::V0, *v0);\n\n// use `.into()` when FVM3 has to be specified.\nassert_eq!(fvm_shared3::version::NetworkVersion::V0, v0.into());\n\n// use `.into()` when FVM2 has to be specified.\nassert_eq!(fvm_shared2::version::NetworkVersion::V0, v0.into());\n```"
       type: integer
@@ -7135,10 +7144,6 @@ components:
         type: integer
         format: uint64
         minimum: 0
-    Nullable_Base64String:
-      anyOf:
-        - $ref: "#/components/schemas/Base64String"
-        - type: "null"
     Nullable_Cid:
       anyOf:
         - $ref: "#/components/schemas/Cid"
@@ -7308,6 +7313,8 @@ components:
       properties:
         APIVersion:
           $ref: "#/components/schemas/ShiftingVersion"
+        Agent:
+          type: string
         BlockDelay:
           type: integer
           format: uint32
@@ -7318,6 +7325,7 @@ components:
         - Version
         - APIVersion
         - BlockDelay
+        - Agent
     Receipt:
       type: object
       properties:
@@ -7665,6 +7673,28 @@ components:
       anyOf:
         - $ref: "#/components/schemas/EthCallTraceAction"
         - $ref: "#/components/schemas/EthCreateTraceAction"
+    TraceIpld:
+      description: "IPLD operation details attached to an [`ExecutionTrace`]."
+      type: object
+      properties:
+        Cid:
+          $ref: "#/components/schemas/Cid"
+        Op:
+          $ref: "#/components/schemas/TraceIpldOp"
+        Size:
+          type: integer
+          format: uint64
+          minimum: 0
+      required:
+        - Op
+        - Cid
+        - Size
+    TraceIpldOp:
+      type: string
+      enum:
+        - Get
+        - Put
+        - Unknown
     TraceResult:
       anyOf:
         - $ref: "#/components/schemas/EthCallTraceResult"

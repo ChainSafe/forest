@@ -6,7 +6,7 @@ mod context;
 pub mod db_util;
 pub mod main;
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::ChainFollower;
@@ -16,23 +16,23 @@ use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
-use crate::daemon::{
-    context::{AppContext, DbType},
-    db_util::import_chain_as_forest_car,
-};
+use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolLocker, NonceTracker};
 use crate::networks::{self, ChainConfig};
+use crate::prelude::*;
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::start_rpc;
+use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
+use crate::state_manager::StateManager;
 use crate::utils::misc::env::is_env_truthy;
-use crate::utils::{self, ShallowClone as _};
+use crate::utils::{self};
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
 use backon::{ExponentialBuilder, Retryable};
@@ -42,8 +42,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
+use tokio::sync::broadcast::error::RecvError;
 use tokio::{
-    net::TcpListener,
     signal::{
         ctrl_c,
         unix::{SignalKind, signal},
@@ -53,7 +53,7 @@ use tokio::{
 };
 use tracing::{debug, info, warn};
 
-pub static GLOBAL_SNAPSHOT_GC: OnceLock<Arc<SnapshotGarbageCollector<DbType>>> = OnceLock::new();
+pub static GLOBAL_SNAPSHOT_GC: OnceLock<Arc<SnapshotGarbageCollector>> = OnceLock::new();
 
 /// Increase the file descriptor limit to a reasonable number.
 /// This prevents the node from failing if the default soft limit is too low.
@@ -187,7 +187,7 @@ async fn maybe_import_snapshot(
         let validation_range = validation_range(current_height, validate_from)?;
         // `validate_range` is CPU-bound (drives rayon-parallel VM execution) and
         // can run for minutes. Safer to spawn it on a blocking thread.
-        let state_manager = ctx.state_manager.clone();
+        let state_manager = ctx.state_manager.shallow_clone();
         tokio::task::spawn_blocking(move || state_manager.validate_range(validation_range))
             .await??;
     }
@@ -230,10 +230,8 @@ async fn maybe_start_metrics_service(
     ctx: &AppContext,
 ) -> anyhow::Result<()> {
     if config.client.enable_metrics_endpoint {
-        // Start Prometheus server port
-        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
-            .await
-            .with_context(|| format!("could not bind to {}", config.client.metrics_address))?;
+        let prometheus_listener =
+            crate::utils::net::bind_tcp_listener(config.client.metrics_address, 0).await?;
         info!(
             "Prometheus server started at {}",
             config.client.metrics_address
@@ -242,30 +240,21 @@ async fn maybe_start_metrics_service(
         let db = ctx.db.writer().clone();
 
         let get_chain_head_height = Arc::new({
-            // Use `Weak` to not dead lock GC.
-            let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
-            move || {
-                chain_store
-                    .upgrade()
-                    .map(|cs| cs.heaviest_tipset().epoch())
-                    .unwrap_or_default()
-            }
+            let cs = ctx.state_manager.chain_store().shallow_clone();
+            move || cs.heaviest_tipset().epoch()
         });
         let get_chain_head_actor_version = Arc::new({
-            // Use `Weak` to not dead lock GC.
-            let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
+            let cs = ctx.state_manager.chain_store().shallow_clone();
             move || {
-                if let Some(cs) = chain_store.upgrade()
-                    && let Ok(state) = StateTree::new_from_root(
-                        cs.blockstore().clone(),
-                        cs.heaviest_tipset().parent_state(),
-                    )
+                if let Ok(state) =
+                    StateTree::new_from_root(cs.db(), cs.heaviest_tipset().parent_state())
                     && let Ok(bundle_meta) = state.get_actor_bundle_metadata()
                     && let Ok(actor_version) = bundle_meta.actor_major_version()
                 {
-                    return actor_version;
+                    actor_version
+                } else {
+                    0
                 }
-                0
             }
         });
         services.spawn({
@@ -303,7 +292,7 @@ async fn create_p2p_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &mut Config,
     ctx: &AppContext,
-) -> anyhow::Result<Libp2pService<DbType>> {
+) -> anyhow::Result<Libp2pService> {
     // if bootstrap peers are not set, set them
     if config.network.bootstrap_peers.is_empty() {
         config.network.bootstrap_peers = ctx.state_manager.chain_config().bootstrap_peers.clone();
@@ -314,7 +303,7 @@ async fn create_p2p_service(
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
-        Arc::clone(ctx.state_manager.chain_store()),
+        ctx.state_manager.chain_store().shallow_clone(),
         peer_manager.clone(),
         ctx.net_keypair.clone(),
         config.chain.genesis_name(),
@@ -326,50 +315,172 @@ async fn create_p2p_service(
 
 fn create_mpool(
     services: &mut JoinSet<anyhow::Result<()>>,
-    p2p_service: &Libp2pService<DbType>,
+    p2p_service: &Libp2pService,
     ctx: &AppContext,
-) -> anyhow::Result<Arc<MessagePool<Arc<ChainStore<DbType>>>>> {
+) -> anyhow::Result<MessagePool<ChainStore>> {
     Ok(MessagePool::new(
-        ctx.state_manager.chain_store().clone(),
+        ctx.state_manager.chain_store().shallow_clone(),
         p2p_service.network_sender().clone(),
         MpoolConfig::load_config(ctx.db.writer().as_ref())?,
         ctx.state_manager.chain_config().clone(),
         services,
-    )
-    .map(Arc::new)?)
+    )?)
 }
 
 fn create_chain_follower(
     opts: &CliOpts,
-    p2p_service: &Libp2pService<DbType>,
-    mpool: Arc<MessagePool<Arc<ChainStore<DbType>>>>,
+    p2p_service: &Libp2pService,
+    mpool: MessagePool<ChainStore>,
     ctx: &AppContext,
-) -> anyhow::Result<Arc<ChainFollower<DbType>>> {
+) -> anyhow::Result<ChainFollower> {
     let network_send = p2p_service.network_sender().clone();
     let peer_manager = p2p_service.peer_manager().clone();
-    let network = SyncNetworkContext::new(network_send, peer_manager, ctx.db.clone());
-    Ok(Arc::new(ChainFollower::new(
-        ctx.state_manager.clone(),
+    let network = SyncNetworkContext::new(network_send, peer_manager, ctx.db.clone().into());
+    Ok(ChainFollower::new(
+        ctx.state_manager.shallow_clone(),
         network,
         Tipset::from(ctx.state_manager.chain_store().genesis_block_header()),
         p2p_service.network_receiver(),
         opts.stateless,
         mpool,
-    )))
+    ))
 }
 
 fn start_chain_follower_service(
     services: &mut JoinSet<anyhow::Result<()>>,
-    chain_follower: Arc<ChainFollower<DbType>>,
+    opts: &CliOpts,
+    config: &Config,
+    chain_follower: ChainFollower,
 ) {
-    services.spawn(async move { chain_follower.run().await });
+    services.spawn({
+        let chain_follower = chain_follower.shallow_clone();
+        async move { chain_follower.run().await }
+    });
+    maybe_prefill_rpc_caches(services, opts, config, chain_follower);
+}
+
+fn maybe_prefill_rpc_caches(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
+    config: &Config,
+    chain_follower: ChainFollower,
+) {
+    // Prefill RPC method caches for newly validated tipsets to speed up subsequent RPC calls.
+    if config.client.enable_rpc && !opts.stateless {
+        let sync_status = chain_follower.sync_status.shallow_clone();
+        let state_manager = chain_follower.state_manager.shallow_clone();
+        let mut validated_tipset_rx = chain_follower.subscribe_validated_tipset();
+        services.spawn(async move {
+            loop {
+                match validated_tipset_rx.recv().await {
+                    Ok(_) if !sync_status.read().is_synced() => {
+                        // Skip if the node is catching up to avoid unnecessary work, as the head may be changing rapidly.
+                        continue;
+                    }
+                    Ok(tsk) => {
+                        let state_manager = state_manager.shallow_clone();
+                        tokio::spawn(prefill_rpc_caches_for_tipset(state_manager, tsk));
+                    }
+                    Err(RecvError::Lagged(n)) => {
+                        warn!("validated tipset broadcast lagged: skipped {n} tipsets")
+                    }
+                    Err(RecvError::Closed) => break Ok(()),
+                }
+            }
+        });
+    }
+}
+
+async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetKey) {
+    match state_manager.chain_index().load_required_tipset(&tsk) {
+        Ok(ts) => {
+            {
+                // First, compute state for the ts as it's disallowed for RPC methods by default
+                if let Err(e) = state_manager.load_executed_tipset(&ts).await {
+                    warn!("failed to load executed tipset for cache warmup: {e:#}");
+                }
+            }
+            for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash] {
+                if let Err(e) = crate::rpc::eth::Block::from_filecoin_tipset(
+                    &state_manager,
+                    ts.shallow_clone(),
+                    tx_info,
+                )
+                .await
+                {
+                    warn!("failed to call `Block::from_filecoin_tipset` for cache warmup: {e:#}");
+                }
+            }
+            {
+                if let Err(e) = state_manager.execution_trace(&ts).await {
+                    warn!("failed to call `StateManager::execution_trace` for cache warmup: {e:#}");
+                }
+            }
+            {
+                let finalized_epoch = state_manager
+                    .chain_store()
+                    .ec_calculator_finalized_epoch()
+                    .max(
+                        state_manager
+                            .chain_store()
+                            .f3_finalized_tipset()
+                            .map(|ts| ts.epoch())
+                            .unwrap_or(0),
+                    );
+                if let Err(e) = state_manager
+                    .chain_index()
+                    .tipset_by_height_async(
+                        finalized_epoch,
+                        ts.shallow_clone(),
+                        ResolveNullTipset::TakeOlder,
+                    )
+                    .await
+                {
+                    warn!(
+                        "failed to call `ChainIndex::tipset_by_height` at finalized epoch {finalized_epoch} for cache warmup: {e:#}"
+                    );
+                }
+            }
+            {
+                use crate::rpc::eth::filter::{Matcher, SkipEvent};
+                struct CollectEventsCachePrefillingMatcher;
+                impl Matcher for CollectEventsCachePrefillingMatcher {
+                    fn msg_cid_filter(&self) -> Option<&Cid> {
+                        None
+                    }
+                    fn matches(
+                        &self,
+                        _: &Address,
+                        _: &[crate::shim::executor::Entry],
+                    ) -> anyhow::Result<bool> {
+                        Ok(false)
+                    }
+                }
+                let mut collected_events = vec![];
+                if let Err(e) = EthEventHandler::collect_events(
+                    &state_manager,
+                    &ts,
+                    Some(&CollectEventsCachePrefillingMatcher),
+                    SkipEvent::OnUnresolvedAddress,
+                    &mut collected_events,
+                )
+                .await
+                {
+                    warn!("failed to collect events for cache warmup: {e:#}");
+                }
+            }
+        }
+        Err(e) => {
+            warn!("failed to load tipset for cache warmup: {e:#}");
+        }
+    }
 }
 
 async fn maybe_start_health_check_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    p2p_service: &Libp2pService<DbType>,
-    chain_follower: &ChainFollower<DbType>,
+    p2p_service: &Libp2pService,
+    chain_follower: &ChainFollower,
     ctx: &AppContext,
 ) -> anyhow::Result<()> {
     if config.client.enable_health_check {
@@ -386,7 +497,7 @@ async fn maybe_start_health_check_service(
         };
         let healthcheck_address = forest_state.config.client.healthcheck_address;
         info!("Healthcheck endpoint will listen at {healthcheck_address}");
-        let listener = tokio::net::TcpListener::bind(healthcheck_address).await?;
+        let listener = crate::utils::net::bind_tcp_listener(healthcheck_address, 0).await?;
         services.spawn(async move {
             crate::health::init_healthcheck_server(forest_state, listener)
                 .await
@@ -402,7 +513,7 @@ fn maybe_start_gc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
     config: &Config,
-    chain_follower: Arc<ChainFollower<DbType>>,
+    chain_follower: ChainFollower,
 ) -> anyhow::Result<()> {
     // If the node is stateless, GC shouldn't get triggered even on demand.
     if opts.stateless {
@@ -442,8 +553,8 @@ fn maybe_start_gc_service(
 fn maybe_start_rpc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    mpool: Arc<MessagePool<Arc<ChainStore<DbType>>>>,
-    chain_follower: &ChainFollower<DbType>,
+    mpool: MessagePool<ChainStore>,
+    chain_follower: &ChainFollower,
     start_time: chrono::DateTime<chrono::Utc>,
     shutdown: mpsc::Sender<()>,
     rpc_stop_handle: jsonrpsee::server::StopHandle,
@@ -477,12 +588,11 @@ fn maybe_start_rpc_service(
             let mpool_locker = MpoolLocker::new();
             let temp_dir = Arc::new(ctx.temp_dir.clone());
             async move {
-                let rpc_listener = tokio::net::TcpListener::bind(rpc_address)
-                    .await
-                    .map_err(|e| {
-                        anyhow::anyhow!("Unable to listen on RPC endpoint {rpc_address}: {e}")
-                    })
-                    .unwrap();
+                let rpc_listener = crate::utils::net::bind_tcp_listener(
+                    rpc_address,
+                    crate::rpc::default_max_connections(),
+                )
+                .await?;
                 start_rpc(
                     RPCState {
                         state_manager,
@@ -562,7 +672,7 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) -> 
             }
         });
         tokio::task::spawn({
-            let chain_store = ctx.chain_store().clone();
+            let chain_store = ctx.chain_store().shallow_clone();
             async move {
                 // wait 1s to let F3 RPC server start
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -617,28 +727,37 @@ fn maybe_start_indexer_service(
         // Old indexer
         {
             let mut head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
-            let chain_store = ctx.state_manager.chain_store().clone();
+            let chain_store = ctx.state_manager.chain_store().shallow_clone();
             services.spawn(async move {
                 tracing::info!("Starting indexer service");
+
                 // Continuously listen for head changes
                 loop {
-                    for ts in head_changes_rx.recv().await?.applies {
-                        tracing::debug!("Indexing tipset {}", ts.key());
-                        let delegated_messages =
-                            chain_store.headers_delegated_messages(ts.block_headers().iter())?;
-                        chain_store.process_signed_messages(&delegated_messages)?;
+                    match head_changes_rx.recv().await {
+                        Ok(changes) => {
+                            for ts in changes.applies {
+                                tracing::debug!("Indexing tipset {}", ts.key());
+                                let delegated_messages = chain_store
+                                    .headers_delegated_messages(ts.block_headers().iter())?;
+                                chain_store.process_signed_messages(&delegated_messages)?;
+                            }
+                        }
+                        Err(RecvError::Lagged(n)) => {
+                            warn!("indexer service lagged: skipping {n} events")
+                        }
+                        Err(RecvError::Closed) => break Ok(()),
                     }
                 }
             });
 
             // Run the collector only if chain indexer is enabled
             if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
-                let chain_store = ctx.state_manager.chain_store().clone();
+                let chain_store = ctx.state_manager.chain_store().shallow_clone();
                 let chain_config = ctx.state_manager.chain_config().clone();
                 services.spawn(async move {
                     tracing::info!("Starting collector for eth_mappings");
                     let mut collector = EthMappingCollector::new(
-                        chain_store.blockstore().clone(),
+                        chain_store.db_owned(),
                         chain_config.eth_chain_id,
                         retention_epochs.into(),
                     );
@@ -648,24 +767,26 @@ fn maybe_start_indexer_service(
         }
 
         // New SQLITE indexer
-        if let Some(indexer) = &ctx.chain_indexer {
-            services.spawn({
-                let head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
-                let indexer = indexer.clone();
-                async move {
-                    if let Err(e) = indexer.index_loop(head_changes_rx).await {
-                        tracing::warn!("indexer stopped unexpectedly: {e}");
+        {
+            if let Some(indexer) = &ctx.chain_indexer {
+                services.spawn({
+                    let head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
+                    let indexer = indexer.clone();
+                    async move {
+                        if let Err(e) = indexer.index_loop(head_changes_rx).await {
+                            tracing::warn!("indexer stopped unexpectedly: {e}");
+                        }
+                        Ok(())
                     }
-                    Ok(())
-                }
-            });
-            services.spawn({
-                let indexer = indexer.clone();
-                async move {
-                    indexer.gc_loop().await;
-                    Ok(())
-                }
-            });
+                });
+                services.spawn({
+                    let indexer = indexer.clone();
+                    async move {
+                        indexer.gc_loop().await;
+                        Ok(())
+                    }
+                });
+            }
         }
     }
 }
@@ -715,12 +836,12 @@ pub(super) async fn start_services(
 
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
-    let chain_follower = create_chain_follower(opts, &p2p_service, mpool.clone(), &ctx)?;
+    let chain_follower = create_chain_follower(opts, &p2p_service, mpool.shallow_clone(), &ctx)?;
 
     maybe_start_rpc_service(
         &mut services,
         &config,
-        mpool.clone(),
+        mpool.shallow_clone(),
         &chain_follower,
         start_time,
         shutdown_send.clone(),
@@ -736,7 +857,7 @@ pub(super) async fn start_services(
     }
 
     warmup_in_background(&ctx);
-    maybe_start_gc_service(&mut services, opts, &config, chain_follower.clone())?;
+    maybe_start_gc_service(&mut services, opts, &config, chain_follower.shallow_clone())?;
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_f3_service(opts, &config, &ctx)?;
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
@@ -746,7 +867,7 @@ pub(super) async fn start_services(
         ensure_proof_params_downloaded().await?;
     }
     services.spawn(p2p_service.run());
-    start_chain_follower_service(&mut services, chain_follower);
+    start_chain_follower_service(&mut services, opts, &config, chain_follower);
     // blocking until any of the services returns an error,
     propagate_error(&mut services)
         .await
@@ -756,7 +877,7 @@ pub(super) async fn start_services(
 
 fn warmup_in_background(ctx: &AppContext) {
     // Populate `tipset_by_height` cache
-    let cs = ctx.chain_store().clone();
+    let cs = ctx.chain_store().shallow_clone();
     tokio::task::spawn_blocking(move || {
         let start = Instant::now();
         match cs.chain_index().tipset_by_height(

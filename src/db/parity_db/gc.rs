@@ -151,6 +151,14 @@ impl EthMappingsStore for GarbageCollectableParityDb {
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         EthMappingsStore::delete(&*self.db.read(), keys)
     }
+
+    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+        EthMappingsStore::tipset_key_by_epoch(&*self.db.read(), epoch)
+    }
+
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
+        EthMappingsStore::set_tipset_key_at_epoch(&*self.db.read(), ts)
+    }
 }
 
 impl PersistentStore for GarbageCollectableParityDb {
@@ -184,7 +192,9 @@ impl DBStatistics for GarbageCollectableParityDb {
 }
 
 impl BlockstoreWriteOpsSubscribable for GarbageCollectableParityDb {
-    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>> {
+    fn subscribe_write_ops(
+        &self,
+    ) -> anyhow::Result<tokio::sync::broadcast::Receiver<Vec<(Cid, bytes::Bytes)>>> {
         BlockstoreWriteOpsSubscribable::subscribe_write_ops(&*self.db.read())
     }
 
@@ -210,7 +220,10 @@ mod tests {
         }
         // check blocks are present
         for b in &blocks {
-            assert_eq!(Blockstore::get(&db, &b.cid)?.as_ref(), Some(&b.data));
+            assert_eq!(
+                Blockstore::get(&db, &b.cid)?.map(Bytes::from).as_ref(),
+                Some(&b.data)
+            );
         }
         // reset gc columns
         db.reset_gc_columns()?;
@@ -224,7 +237,10 @@ mod tests {
         }
         // check blocks are present
         for b in &blocks {
-            assert_eq!(Blockstore::get(&db, &b.cid)?.as_ref(), Some(&b.data));
+            assert_eq!(
+                Blockstore::get(&db, &b.cid)?.map(Bytes::from).as_ref(),
+                Some(&b.data)
+            );
         }
         Ok(())
     }

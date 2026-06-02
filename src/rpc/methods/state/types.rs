@@ -4,21 +4,24 @@
 use crate::blocks::TipsetKey;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::MessageRead as _;
-use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     econ::TokenAmount,
     error::ExitCode,
-    executor::Receipt,
+    executor::{ApplyRet, Receipt},
+    fvm_latest::trace::IpldOperation,
     message::Message,
     state_tree::{ActorID, ActorState},
 };
+use crate::utils::get_size::raw_bytes_heap_size_helper;
 use cid::Cid;
 use fvm_ipld_encoding::RawBytes;
+use get_size2::GetSize;
 use num::Zero as _;
-use schemars::JsonSchema;
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -47,11 +50,12 @@ pub struct ForestComputeStateOutput {
 
 lotus_json_with_self!(ForestComputeStateOutput);
 
-#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Cid>")]
+    #[get_size(ignore)]
     pub msg_cid: Cid,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Message>")]
@@ -79,11 +83,12 @@ impl PartialEq for ApiInvocResult {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageGasCost {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Option<Cid>>")]
+    #[get_size(ignore)]
     pub message: Option<Cid>,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<TokenAmount>")]
@@ -139,7 +144,63 @@ impl MessageGasCost {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+/// IPLD operation kind for [`TraceIpld`].
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    SerializeDisplay,
+    DeserializeFromStr,
+    strum::Display,
+    strum::EnumString,
+    GetSize,
+)]
+#[strum(serialize_all = "PascalCase")]
+pub enum TraceIpldOp {
+    Get,
+    Put,
+    #[strum(to_string = "Unknown", default)]
+    Unknown(String),
+}
+
+impl JsonSchema for TraceIpldOp {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "TraceIpldOp".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        schemars::json_schema!({
+            "type": "string",
+            "enum": ["Get", "Put", "Unknown"],
+        })
+    }
+}
+
+impl From<IpldOperation> for TraceIpldOp {
+    fn from(op: IpldOperation) -> Self {
+        match op {
+            IpldOperation::Get => Self::Get,
+            IpldOperation::Put => Self::Put,
+        }
+    }
+}
+
+/// IPLD operation details attached to an [`ExecutionTrace`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, GetSize)]
+#[serde(rename_all = "PascalCase")]
+pub struct TraceIpld {
+    pub op: TraceIpldOp,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Cid>")]
+    #[get_size(ignore)]
+    pub cid: Cid,
+    pub size: u64,
+}
+
+lotus_json_with_self!(TraceIpld);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ExecutionTrace {
     pub msg: MessageTrace,
@@ -149,6 +210,13 @@ pub struct ExecutionTrace {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Vec<ExecutionTrace>>")]
     pub subcalls: Vec<ExecutionTrace>,
+    /// FVM invocation logs (not EVM actor / `eth_getLogs` event logs).
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L115>
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub logs: Vec<String>,
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/chain/types/execresult.go#L116>
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ipld_ops: Vec<TraceIpld>,
 }
 
 impl ExecutionTrace {
@@ -165,7 +233,7 @@ impl ExecutionTrace {
 
 lotus_json_with_self!(ExecutionTrace);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageTrace {
     #[serde(with = "crate::lotus_json")]
@@ -180,6 +248,7 @@ pub struct MessageTrace {
     pub method: u64,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<RawBytes>")]
+    #[get_size(size_fn = raw_bytes_heap_size_helper)]
     pub params: RawBytes,
     pub params_codec: u64,
     pub gas_limit: Option<u64>,
@@ -188,7 +257,7 @@ pub struct MessageTrace {
 
 lotus_json_with_self!(MessageTrace);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorTrace {
     pub id: ActorID,
@@ -199,19 +268,21 @@ pub struct ActorTrace {
 
 lotus_json_with_self!(ActorTrace);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ReturnTrace {
+    #[get_size(ignore)]
     pub exit_code: ExitCode,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<RawBytes>")]
+    #[get_size(size_fn = raw_bytes_heap_size_helper)]
     pub r#return: RawBytes,
     pub return_codec: u64,
 }
 
 lotus_json_with_self!(ReturnTrace);
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "PascalCase")]
 pub struct GasTrace {
     pub name: String,
@@ -228,7 +299,7 @@ pub struct GasTrace {
 lotus_json_with_self!(GasTrace);
 
 impl PartialEq for GasTrace {
-    /// Ignore [`Self::total_gas`] as it is implementation-dependent
+    /// Ignore [`Self::time_taken`] as it is implementation-dependent
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.total_gas == other.total_gas

@@ -55,6 +55,9 @@ jobs:
               echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
             } >> "$GITHUB_ENV"
           fi
+      - uses: rui314/setup-mold@v1
+        with:
+          make-default: false
       - name: Checkout Sources
         uses: actions/checkout@v6
       - name: Setup sccache
@@ -65,7 +68,7 @@ jobs:
       - name: Cargo Install
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
-          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
         run: mise run install ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'release' || 'quick' }}
       - uses: actions/upload-artifact@v7
         with:
@@ -93,6 +96,9 @@ jobs:
             } >> "$GITHUB_ENV"
           fi
           echo "SCCACHE_S3_KEY_PREFIX=aarch64" >> "$GITHUB_ENV"
+      - uses: rui314/setup-mold@v1
+        with:
+          make-default: false
       - name: Checkout Sources
         uses: actions/checkout@v6
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
@@ -105,6 +111,9 @@ jobs:
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
       - name: Cargo Install
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
         run: mise run install release
       - uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')

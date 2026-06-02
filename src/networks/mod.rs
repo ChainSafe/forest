@@ -512,6 +512,22 @@ impl ChainConfig {
             .unwrap_or(0)
     }
 
+    /// Returns true if executing between `parent` and `height` (exclusive of `height`) would
+    /// cross an expensive state migration, as registered in
+    /// [`crate::state_migration::get_migrations`].
+    pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
+        if parent >= height {
+            return false;
+        }
+        crate::state_migration::get_migrations::<crate::db::DbImpl>(&self.network)
+            .iter()
+            .any(|(h, _)| {
+                self.height_infos
+                    .get(h)
+                    .is_some_and(|info| info.epoch >= parent && info.epoch < height)
+            })
+    }
+
     pub async fn genesis_bytes<DB: SettingsStore>(
         &self,
         db: &DB,
@@ -676,6 +692,14 @@ mod tests {
     #[test]
     fn test_mainnet_heights() {
         heights_are_present(&mainnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn has_expensive_fork_between_matches_upgrade_epochs() {
+        let cfg = ChainConfig::mainnet();
+        let shark = cfg.epoch(Height::Shark);
+        assert!(cfg.has_expensive_fork_between(shark - 1, shark + 1));
+        assert!(!cfg.has_expensive_fork_between(shark - 1, shark));
     }
 
     #[test]

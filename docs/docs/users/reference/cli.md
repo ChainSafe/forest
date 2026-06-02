@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.33.2
+forest-filecoin 0.33.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.33.2
+forest-filecoin 0.33.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -307,7 +307,7 @@ Send funds between accounts
 Usage: forest-wallet send [OPTIONS] <TARGET_ADDRESS> <AMOUNT>
 
 Arguments:
-  <TARGET_ADDRESS>
+  <TARGET_ADDRESS>  The recipient address. Accepts either a FIL address (e.g. `f1.../t1...`) or an ETH address (e.g. `0x...`)
   <AMOUNT>
 
 Options:
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.33.2
+forest-filecoin 0.33.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -617,10 +617,12 @@ Interact with the message pool
 Usage: forest-cli mpool <COMMAND>
 
 Commands:
-  pending  Get pending messages
-  nonce    Get the current nonce for an address
-  stat     Print mempool stats
-  help     Print this message or the help of the given subcommand(s)
+  pending    Get pending messages
+  nonce      Get the current nonce for an address
+  stat       Print mempool stats
+  nonce-fix  Fill an on-chain nonce gap by pushing signed self-transfer messages
+  replace    Replace a pending message in the mempool with updated gas parameters (replace-by-fee)
+  help       Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
@@ -1023,7 +1025,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.33.2
+forest-filecoin 0.33.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2116,7 +2118,7 @@ Options:
 ## `forest-dev`
 
 ```
-forest-filecoin 0.33.2
+forest-filecoin 0.33.4
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 

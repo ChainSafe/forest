@@ -6,16 +6,14 @@ mod ddls;
 mod tests;
 
 use ahash::HashMap;
-use anyhow::Context as _;
-use cid::Cid;
 pub use ddls::{DDLS, PreparedStatements};
-use fvm_ipld_blockstore::Blockstore;
 use sqlx::Row as _;
 
 use crate::{
     blocks::Tipset,
     chain::{ChainStore, HeadChanges, index::ResolveNullTipset},
     message::{ChainMessage, SignedMessage},
+    prelude::*,
     rpc::{
         chain::types::ChainIndexValidation,
         eth::{eth_tx_from_signed_eth_message, types::EthHash},
@@ -67,23 +65,20 @@ impl SqliteIndexerOptions {
     }
 }
 
-pub struct SqliteIndexer<BS> {
+pub struct SqliteIndexer {
     lock: tokio::sync::Mutex<()>,
     options: SqliteIndexerOptions,
-    cs: Arc<ChainStore<BS>>,
+    cs: ChainStore,
     db: sqlx::SqlitePool,
     stmts: PreparedStatements,
     actor_to_delegated_address_func: Option<ActorToDelegatedAddressFunc>,
     recompute_tipset_state_func: Option<RecomputeTipsetStateFunc>,
 }
 
-impl<BS> SqliteIndexer<BS>
-where
-    BS: Blockstore,
-{
+impl SqliteIndexer {
     pub async fn new(
         db: sqlx::SqlitePool,
-        cs: Arc<ChainStore<BS>>,
+        cs: ChainStore,
         options: SqliteIndexerOptions,
     ) -> anyhow::Result<Self> {
         options.validate()?;
@@ -227,7 +222,7 @@ where
         );
         let mut tx = self.db.begin().await?;
         let mut total_indexed = 0;
-        for ts in head.chain(self.cs.blockstore()) {
+        for ts in head.chain(self.cs.db()) {
             if let Err(e) = self.index_tipset_with_tx(&mut tx, &ts).await {
                 tracing::info!(
                     "stopping chainindex population at epoch {}: {e}",
@@ -609,17 +604,15 @@ where
             );
             anyhow::Ok(())
         };
-        let receipts = match Receipt::get_receipts(
-            self.cs.blockstore(),
-            *receipt_ts.parent_message_receipts(),
-        ) {
-            Ok(receipts) => receipts,
-            Err(_) => {
-                recompute()?;
-                recomputed = true;
-                Receipt::get_receipts(self.cs.blockstore(), *receipt_ts.parent_message_receipts())?
-            }
-        };
+        let receipts =
+            match Receipt::get_receipts(self.cs.db(), *receipt_ts.parent_message_receipts()) {
+                Ok(receipts) => receipts,
+                Err(_) => {
+                    recompute()?;
+                    recomputed = true;
+                    Receipt::get_receipts(self.cs.db(), *receipt_ts.parent_message_receipts())?
+                }
+            };
         anyhow::ensure!(
             msgs.len() == receipts.len(),
             "mismatching message and receipt counts ({} msgs, {} rcts)",
@@ -629,17 +622,15 @@ where
         let mut executed = Vec::with_capacity(msgs.len());
         for (message, receipt) in msgs.iter().zip(receipts) {
             let events = if let Some(events_root) = receipt.events_root() {
-                Some(
-                    match StampedEvent::get_events(self.cs.blockstore(), &events_root) {
-                        Ok(events) => events,
-                        Err(e) if recomputed => return Err(e),
-                        Err(_) => {
-                            recompute()?;
-                            recomputed = true;
-                            StampedEvent::get_events(self.cs.blockstore(), &events_root)?
-                        }
-                    },
-                )
+                Some(match StampedEvent::get_events(self.cs.db(), &events_root) {
+                    Ok(events) => events,
+                    Err(e) if recomputed => return Err(e),
+                    Err(_) => {
+                        recompute()?;
+                        recomputed = true;
+                        StampedEvent::get_events(self.cs.db(), &events_root)?
+                    }
+                })
             } else {
                 None
             };
@@ -653,7 +644,7 @@ where
         let tsk_cid_bytes = ts.key().cid()?.to_bytes();
         // Because of deferred execution in Filecoin, events at tipset T are reverted when a tipset T+1 is reverted.
         // However, the tipet `T` itself is not reverted.
-        let pts = Tipset::load_required(self.cs.blockstore(), ts.parents())?;
+        let pts = Tipset::load_required(self.cs.db(), ts.parents())?;
         let events_tsk_cid_bytes = pts.key().cid()?.to_bytes();
         let mut tx = self.db.begin().await?;
         sqlx::query(self.stmts.update_tipset_to_reverted)
@@ -720,7 +711,7 @@ where
                 }
 
                 for block in ts.block_headers() {
-                    let (_, smsgs) = crate::chain::block_messages(self.cs.blockstore(), block)
+                    let (_, smsgs) = crate::chain::block_messages(self.cs.db(), block)
                         .map_err(|e| anyhow::anyhow!("failed to get messages for block: {e}"))?;
                     for smsg in smsgs.into_iter().filter(SignedMessage::is_delegated) {
                         self.index_signed_message_with_tx(tx, &smsg)
@@ -745,7 +736,7 @@ where
             // Skip parent if ts is genesis
             return Ok(());
         }
-        let pts = Tipset::load_required(self.cs.blockstore(), ts.parents())?;
+        let pts = Tipset::load_required(self.cs.db(), ts.parents())?;
         // Index the parent tipset if it doesn't exist yet.
         // This is necessary to properly index events produced by executing
         // messages included in the parent tipset by the current tipset (deferred execution).

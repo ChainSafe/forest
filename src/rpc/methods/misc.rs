@@ -3,12 +3,11 @@
 
 use std::collections::BTreeMap;
 
-use cid::Cid;
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::prelude::*;
 use crate::rpc::eth::CollectedEvent;
 use crate::rpc::eth::filter::{ParsedFilter, SkipEvent};
 use crate::{
@@ -31,16 +30,16 @@ impl RpcMethod<1> for GetActorEventsRaw {
     type Params = (Option<ActorEventFilter>,);
     type Ok = Vec<ActorEvent>;
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx,
         (filter,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         if let Some(filter) = filter {
-            let parsed_filter = ParsedFilter::from_actor_event_filter(
+            let parsed_filter = Arc::new(ParsedFilter::from_actor_event_filter(
                 ctx.chain_store().heaviest_tipset().epoch(),
                 ctx.eth_event_handler.max_filter_height_range,
                 filter,
-            )?;
+            )?);
             let events = ctx
                 .eth_event_handler
                 .get_events_for_parsed_filter(&ctx, &parsed_filter, SkipEvent::Never)

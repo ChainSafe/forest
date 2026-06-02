@@ -120,15 +120,8 @@ impl Wallet {
 
     /// Set a default `KeyInfo` to the wallet
     pub fn set_default(&mut self, addr: Address) -> anyhow::Result<()> {
-        let addr_string = format!("wallet-{addr}");
-        let key_info = self.keystore.get(&addr_string)?;
-        if self.keystore.get("default").is_ok() {
-            self.keystore.remove("default")?; // This line should
-            // unregister current
-            // default key then
-            // continue
-        }
-        self.keystore.put("default", key_info)?;
+        let key_info = try_find(&addr, &self.keystore)?;
+        self.keystore.set_default(key_info)?;
         Ok(())
     }
 
@@ -481,6 +474,19 @@ mod tests {
         // check to make sure that the test_addr is actually the default addr for the
         // wallet
         assert_eq!(wallet.get_default().unwrap(), test_addr);
+    }
+
+    #[test]
+    fn set_default_replaces_existing_default() {
+        let mut wallet = generate_wallet();
+        let addr_1 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let addr_2 = wallet.generate_addr(SignatureType::Bls).unwrap();
+
+        // check to make sure that there is a default
+        assert_eq!(wallet.get_default().unwrap(), addr_1);
+        wallet.set_default(addr_2).unwrap();
+        // check to make sure that default is replaced
+        assert_eq!(wallet.get_default().unwrap(), addr_2);
     }
 
     #[test]

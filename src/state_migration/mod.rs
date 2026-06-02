@@ -1,17 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::{
-    Arc,
-    atomic::{self, AtomicBool},
-};
+use std::sync::atomic::{self, AtomicBool};
 
 use crate::db::BlockstoreWithWriteBuffer;
 use crate::networks::{ChainConfig, Height, NetworkChain};
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
 pub(in crate::state_migration) mod common;
@@ -31,59 +27,74 @@ mod nv27;
 mod nv28;
 mod type_migrations;
 
-type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
+type RunMigration<DB> = fn(&ChainConfig, &DB, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
 
-pub fn get_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, RunMigration<DB>)>
+pub fn get_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, Option<RunMigration<DB>>)>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     match chain {
         NetworkChain::Mainnet => {
             vec![
-                (Height::Shark, nv17::run_migration::<DB>),
-                (Height::Hygge, nv18::run_migration::<DB>),
-                (Height::Lightning, nv19::run_migration::<DB>),
-                (Height::Watermelon, nv21::run_migration::<DB>),
-                (Height::Dragon, nv22::run_migration::<DB>),
-                (Height::Waffle, nv23::run_migration::<DB>),
-                (Height::TukTuk, nv24::run_migration::<DB>),
-                (Height::Teep, nv25::run_migration::<DB>),
-                (Height::GoldenWeek, nv27::run_migration::<DB>),
+                (Height::Assembly, None),
+                (Height::Trust, None),
+                (Height::Turbo, None),
+                (Height::Hyperdrive, None),
+                (Height::Chocolate, None),
+                (Height::OhSnap, None),
+                (Height::Skyr, None),
+                (Height::Shark, Some(nv17::run_migration::<DB>)),
+                (Height::Hygge, Some(nv18::run_migration::<DB>)),
+                (Height::Lightning, Some(nv19::run_migration::<DB>)),
+                (Height::Watermelon, Some(nv21::run_migration::<DB>)),
+                (Height::Dragon, Some(nv22::run_migration::<DB>)),
+                (Height::Waffle, Some(nv23::run_migration::<DB>)),
+                (Height::TukTuk, Some(nv24::run_migration::<DB>)),
+                (Height::Teep, Some(nv25::run_migration::<DB>)),
+                (Height::GoldenWeek, Some(nv27::run_migration::<DB>)),
+                (Height::FireHorse, Some(nv28::run_migration::<DB>)),
             ]
         }
         NetworkChain::Calibnet => {
             vec![
-                (Height::Shark, nv17::run_migration::<DB>),
-                (Height::Hygge, nv18::run_migration::<DB>),
-                (Height::Lightning, nv19::run_migration::<DB>),
-                (Height::Watermelon, nv21::run_migration::<DB>),
-                (Height::WatermelonFix, nv21fix::run_migration::<DB>),
-                (Height::WatermelonFix2, nv21fix2::run_migration::<DB>),
-                (Height::Dragon, nv22::run_migration::<DB>),
-                (Height::DragonFix, nv22fix::run_migration::<DB>),
-                (Height::Waffle, nv23::run_migration::<DB>),
-                (Height::TukTuk, nv24::run_migration::<DB>),
-                (Height::Teep, nv25::run_migration::<DB>),
-                (Height::TockFix, nv26fix::run_migration::<DB>),
-                (Height::GoldenWeek, nv27::run_migration::<DB>),
-                (Height::FireHorse, nv28::run_migration::<DB>),
+                (Height::Assembly, None),
+                (Height::Trust, None),
+                (Height::Turbo, None),
+                (Height::Hyperdrive, None),
+                (Height::Chocolate, None),
+                (Height::OhSnap, None),
+                (Height::Skyr, None),
+                (Height::Shark, Some(nv17::run_migration::<DB>)),
+                (Height::Hygge, Some(nv18::run_migration::<DB>)),
+                (Height::Lightning, Some(nv19::run_migration::<DB>)),
+                (Height::Watermelon, Some(nv21::run_migration::<DB>)),
+                (Height::WatermelonFix, Some(nv21fix::run_migration::<DB>)),
+                (Height::WatermelonFix2, Some(nv21fix2::run_migration::<DB>)),
+                (Height::Dragon, Some(nv22::run_migration::<DB>)),
+                (Height::DragonFix, Some(nv22fix::run_migration::<DB>)),
+                (Height::Waffle, Some(nv23::run_migration::<DB>)),
+                (Height::TukTuk, Some(nv24::run_migration::<DB>)),
+                (Height::Teep, Some(nv25::run_migration::<DB>)),
+                (Height::TockFix, Some(nv26fix::run_migration::<DB>)),
+                (Height::GoldenWeek, Some(nv27::run_migration::<DB>)),
+                (Height::FireHorse, Some(nv28::run_migration::<DB>)),
             ]
         }
         NetworkChain::Butterflynet => {
-            vec![(Height::FireHorse, nv28::run_migration::<DB>)]
+            vec![(Height::FireHorse, Some(nv28::run_migration::<DB>))]
         }
         NetworkChain::Devnet(_) => {
             vec![
-                (Height::Shark, nv17::run_migration::<DB>),
-                (Height::Hygge, nv18::run_migration::<DB>),
-                (Height::Lightning, nv19::run_migration::<DB>),
-                (Height::Watermelon, nv21::run_migration::<DB>),
-                (Height::Dragon, nv22::run_migration::<DB>),
-                (Height::Waffle, nv23::run_migration::<DB>),
-                (Height::TukTuk, nv24::run_migration::<DB>),
-                (Height::Teep, nv25::run_migration::<DB>),
-                (Height::GoldenWeek, nv27::run_migration::<DB>),
-                (Height::FireHorse, nv28::run_migration::<DB>),
+                (Height::Shark, Some(nv17::run_migration::<DB>)),
+                (Height::Hygge, Some(nv18::run_migration::<DB>)),
+                (Height::Lightning, Some(nv19::run_migration::<DB>)),
+                (Height::Watermelon, Some(nv21::run_migration::<DB>)),
+                (Height::Dragon, Some(nv22::run_migration::<DB>)),
+                (Height::Waffle, Some(nv23::run_migration::<DB>)),
+                (Height::TukTuk, Some(nv24::run_migration::<DB>)),
+                (Height::Teep, Some(nv25::run_migration::<DB>)),
+                (Height::GoldenWeek, Some(nv27::run_migration::<DB>)),
+                (Height::FireHorse, Some(nv28::run_migration::<DB>)),
             ]
         }
     }
@@ -93,11 +104,11 @@ where
 pub fn run_state_migrations<DB>(
     epoch: ChainEpoch,
     chain_config: &ChainConfig,
-    db: &Arc<DB>,
+    db: &DB,
     parent_state: &Cid,
 ) -> anyhow::Result<Option<Cid>>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     // ~10MB RAM per 10k buffer
     let db_write_buffer = match std::env::var("FOREST_STATE_MIGRATION_DB_WRITE_BUFFER") {
@@ -107,20 +118,21 @@ where
     .unwrap_or(10000);
     let mappings = get_migrations(&chain_config.network);
 
-    // Make sure bundle is defined.
+    // Make sure bundle is defined (skip unimplemented stubs).
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
     if !BUNDLE_CHECKED.load(atomic::Ordering::Relaxed) {
         BUNDLE_CHECKED.store(true, atomic::Ordering::Relaxed);
-        for (info_height, info) in chain_config.height_infos.iter() {
-            for (height, _) in &mappings {
-                if height == info_height {
-                    assert!(
-                        info.bundle.is_some(),
-                        "Actor bundle info for height {height} needs to be defined in `src/networks/mod.rs` to run state migration"
-                    );
-                    break;
-                }
-            }
+        for height in mappings
+            .iter()
+            .filter_map(|(height, migrate)| migrate.as_ref().map(|_| height))
+        {
+            let Some(info) = chain_config.height_infos.get(height) else {
+                anyhow::bail!("Missing `HeightInfo` for migration height {height}");
+            };
+            anyhow::ensure!(
+                info.bundle.is_some(),
+                "Actor bundle info for height {height} needs to be defined in `src/networks/mod.rs` to run state migration"
+            );
         }
     }
 
@@ -129,9 +141,12 @@ where
             tracing::info!("Running {height} migration at epoch {epoch}");
             let start_time = std::time::Instant::now();
             let db = Arc::new(BlockstoreWithWriteBuffer::new_with_capacity(
-                db.clone(),
+                db.shallow_clone(),
                 db_write_buffer,
             ));
+            let migrate = migrate.ok_or_else(|| {
+                anyhow::anyhow!("Unimplemented state migration at height {height}")
+            })?;
             let new_state = migrate(chain_config, &db, parent_state, epoch)?;
             let elapsed = start_time.elapsed();
             // `new_state_actors` is the Go state migration output, log for comparision

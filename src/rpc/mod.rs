@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::db::DbImpl;
 use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 mod auth_layer;
 mod channel;
@@ -11,6 +12,7 @@ mod filter_list;
 pub mod json_validator;
 mod log_layer;
 mod metrics_layer;
+mod parallel_batch_layer;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
@@ -27,6 +29,7 @@ pub use filter_list::FilterList;
 use futures::FutureExt as _;
 use jsonrpsee::server::ServerConfig;
 use log_layer::LogLayer;
+use parallel_batch_layer::ParallelBatchLayer;
 use reflect::Ctx;
 pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
@@ -106,6 +109,8 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthAccounts);
         $callback!($crate::rpc::eth::EthAddressToFilecoinAddress);
         $callback!($crate::rpc::eth::FilecoinAddressToEthAddress);
+        $callback!($crate::rpc::eth::EthBaseFee);
+        $callback!($crate::rpc::eth::BaseFeeByHeight);
         $callback!($crate::rpc::eth::EthBlockNumber);
         $callback!($crate::rpc::eth::EthCall);
         $callback!($crate::rpc::eth::EthChainId);
@@ -433,7 +438,7 @@ use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
 use crate::blocks::FullTipset;
-use fvm_ipld_blockstore::Blockstore;
+use crate::utils::misc::env::env_or_default;
 use jsonrpsee::{
     Methods,
     core::middleware::RpcServiceBuilder,
@@ -459,29 +464,43 @@ static DEFAULT_REQUEST_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
         .unwrap_or(Duration::from_secs(60))
 });
 
-/// Default maximum connections for the RPC server. This needs to be high enough to
-/// accommodate the regular usage for RPC providers.
-static DEFAULT_MAX_CONNECTIONS: LazyLock<u32> = LazyLock::new(|| {
-    env::var("FOREST_RPC_MAX_CONNECTIONS")
-        .ok()
-        .and_then(|it| it.parse().ok())
-        .unwrap_or(1000)
-});
+/// Maximum concurrent connections accepted by the RPC server.
+///
+/// Configurable via `FOREST_RPC_MAX_CONNECTIONS`. The value also bounds the
+/// TCP listen backlog so that bursts of connection attempts do not get
+/// silently dropped by the kernel.
+pub fn default_max_connections() -> u32 {
+    static VALUE: LazyLock<u32> = LazyLock::new(|| {
+        env::var("FOREST_RPC_MAX_CONNECTIONS")
+            .ok()
+            .and_then(|it| it.parse().ok())
+            .unwrap_or(1000)
+    });
+    *VALUE
+}
 
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
-const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
+
+/// Maximum JSON-RPC response body size in bytes. Defaults to 64 MiB.
+///
+/// `eth_getTransactionReceipt` and `eth_getBlockReceipts` can return very
+/// large responses for log-heavy transactions (a single tx emitting hundreds
+/// of thousands of events can exceed 64 MiB). Operators serving such queries
+/// can raise this with `FOREST_RPC_MAX_RESPONSE_BODY_SIZE` (in bytes).
+static MAX_RESPONSE_BODY_SIZE: LazyLock<u32> =
+    LazyLock::new(|| env_or_default("FOREST_RPC_MAX_RESPONSE_BODY_SIZE", MAX_REQUEST_BODY_SIZE));
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
-pub struct RPCState<DB> {
+pub struct RPCState {
     pub keystore: Arc<RwLock<KeyStore>>,
-    pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
-    pub mpool: Arc<crate::message_pool::MessagePool<Arc<crate::chain::ChainStore<DB>>>>,
-    pub chain_indexer: Option<Arc<crate::chain::indexer::SqliteIndexer<DB>>>,
-    pub bad_blocks: Option<Arc<crate::chain_sync::BadBlockCache>>,
+    pub state_manager: crate::state_manager::StateManager,
+    pub mpool: crate::message_pool::MessagePool<crate::chain::ChainStore>,
+    pub chain_indexer: Option<Arc<crate::chain::indexer::SqliteIndexer>>,
+    pub bad_blocks: Option<crate::chain_sync::BadBlockCache>,
     pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,
-    pub sync_network_context: SyncNetworkContext<DB>,
+    pub sync_network_context: SyncNetworkContext,
     pub tipset_send: flume::Sender<FullTipset>,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
@@ -491,16 +510,16 @@ pub struct RPCState<DB> {
     pub temp_dir: Arc<std::path::PathBuf>,
 }
 
-impl<DB: Blockstore> RPCState<DB> {
+impl RPCState {
     pub fn beacon(&self) -> &Arc<crate::beacon::BeaconSchedule> {
         self.state_manager.beacon_schedule()
     }
 
-    pub fn chain_store(&self) -> &Arc<crate::chain::ChainStore<DB>> {
+    pub fn chain_store(&self) -> &crate::chain::ChainStore {
         self.state_manager.chain_store()
     }
 
-    pub fn chain_index(&self) -> &crate::chain::index::ChainIndex<DB> {
+    pub fn chain_index(&self) -> &crate::chain::index::ChainIndex {
         self.chain_store().chain_index()
     }
 
@@ -508,12 +527,12 @@ impl<DB: Blockstore> RPCState<DB> {
         self.state_manager.chain_config()
     }
 
-    pub fn store(&self) -> &Arc<DB> {
-        self.chain_store().blockstore()
+    pub fn db(&self) -> &DbImpl {
+        self.state_manager.db()
     }
 
-    pub fn store_owned(&self) -> Arc<DB> {
-        self.state_manager.blockstore_owned()
+    pub fn db_owned(&self) -> DbImpl {
+        self.state_manager.db_owned()
     }
 
     pub fn network_send(&self) -> &flume::Sender<crate::libp2p::NetworkMessage> {
@@ -532,15 +551,12 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
     keystore: Arc<RwLock<KeyStore>>,
 }
 
-pub async fn start_rpc<DB>(
-    state: RPCState<DB>,
+pub async fn start_rpc(
+    state: RPCState,
     rpc_listener: tokio::net::TcpListener,
     stop_handle: StopHandle,
     filter_list: Option<FilterList>,
-) -> anyhow::Result<()>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+) -> anyhow::Result<()> {
     let filter_list = filter_list.unwrap_or_default();
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
@@ -562,18 +578,18 @@ where
     let methods: Arc<HashMap<ApiPaths, Methods>> =
         Arc::new(modules.into_iter().map(|(k, v)| (k, v.into())).collect());
 
+    let server_config = ServerConfig::builder()
+        .max_request_body_size(MAX_REQUEST_BODY_SIZE)
+        // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+        .max_response_body_size(*MAX_RESPONSE_BODY_SIZE)
+        .max_connections(default_max_connections())
+        .set_id_provider(RandomHexStringIdProvider::new())
+        .build();
+    let max_response_body_size = *MAX_RESPONSE_BODY_SIZE as usize;
     let per_conn = PerConnection {
         stop_handle: stop_handle.clone(),
         svc_builder: Server::builder()
-            .set_config(
-                ServerConfig::builder()
-                    // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
-                    .max_request_body_size(MAX_REQUEST_BODY_SIZE)
-                    .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
-                    .max_connections(*DEFAULT_MAX_CONNECTIONS)
-                    .set_id_provider(RandomHexStringIdProvider::new())
-                    .build(),
-            )
+            .set_config(server_config.clone())
             .set_http_middleware(
                 tower::ServiceBuilder::new()
                     .option_layer(COMPRESS_MIN_BODY_SIZE.map(CompressionLayer::new))
@@ -636,6 +652,10 @@ where
                         keystore: keystore.clone(),
                     })
                     .layer(LogLayer::default())
+                    // `ParallelBatchLayer` fans a batch out into per-entry `call`s, so it must be
+                    // outer to `MetricsLayer` for batched methods to be measured. Both must stay
+                    // inner to the batch-transforming layers above.
+                    .layer(ParallelBatchLayer::new(max_response_body_size))
                     .layer(MetricsLayer::default());
                 let mut jsonrpsee_svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
@@ -690,10 +710,7 @@ where
     Ok(())
 }
 
-fn create_modules<DB>(state: Arc<RPCState<DB>>) -> HashMap<ApiPaths, RpcModule<RPCState<DB>>>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+fn create_modules(state: Arc<RPCState>) -> HashMap<ApiPaths, RpcModule<RPCState>> {
     let mut modules = HashMap::default();
     for api_version in ApiPaths::value_variants() {
         modules.insert(*api_version, RpcModule::from_arc(state.clone()));
@@ -793,10 +810,18 @@ pub fn openrpc(path: ApiPaths, include: Option<&[&str]>) -> openrpc_types::OpenR
 mod tests {
     use super::*;
     use crate::{
-        db::MemoryDB, networks::NetworkChain, rpc::common::ShiftingVersion,
+        db::MemoryDB,
+        networks::NetworkChain,
+        rpc::{client::UrlClient, common::ShiftingVersion},
         tool::offline_server::server::offline_rpc_state,
     };
-    use jsonrpsee::server::stop_channel;
+    use jsonrpsee::{
+        core::{
+            client::{BatchResponse, ClientT},
+            params::BatchRequestBuilder,
+        },
+        server::stop_channel,
+    };
     use std::net::{Ipv4Addr, SocketAddr};
     use tokio::task::JoinSet;
 
@@ -904,6 +929,52 @@ mod tests {
         assert_eq!(response, jwt_read_permissions);
 
         drop(client);
+
+        // Sending a batch request
+        let client = UrlClient::new(
+            format!("http://{}:{}/rpc/v1", rpc_address.ip(), rpc_address.port())
+                .parse()
+                .unwrap(),
+            None,
+        )
+        .await
+        .unwrap();
+        let mut batch_request_builder = BatchRequestBuilder::new();
+        let empty_payload: [(); 0] = [];
+        batch_request_builder
+            .insert("Filecoin.Version", empty_payload)
+            .unwrap();
+        batch_request_builder
+            .insert("eth_chainId", empty_payload)
+            .unwrap();
+        let batch_response: BatchResponse<serde_json::Value> =
+            client.batch_request(batch_request_builder).await.unwrap();
+        assert_eq!(batch_response.len(), 2);
+        assert_eq!(batch_response.num_successful_calls(), 2);
+        assert_eq!(batch_response.num_failed_calls(), 0);
+
+        // `eth_chainId` is only ever requested inside the batch above, so its presence in the RPC
+        // timing metric proves batched methods flow through `MetricsLayer`. Guards against batch
+        // entries bypassing metrics (which happens if `MetricsLayer` is outer to `ParallelBatchLayer`).
+        let mut encoded = String::new();
+        prometheus_client::encoding::text::encode_registry(
+            &mut encoded,
+            &crate::metrics::default_registry(),
+        )
+        .unwrap();
+        let recorded = encoded.lines().any(|line| {
+            line.starts_with("rpc_processing_time_count{")
+                && line.contains(r#"method="eth_chainId""#)
+                && line
+                    .rsplit(' ')
+                    .next()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .is_some_and(|count| count == 1)
+        });
+        assert!(
+            recorded,
+            "batched method `eth_chainId` was not recorded in rpc_processing_time:\n{encoded}"
+        );
 
         // Gracefully shutdown the RPC server
         println!("sending shutdown signal");

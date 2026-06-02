@@ -135,7 +135,7 @@ When a `SyncTask::ValidateTipset` task is executed, it kicks off a comprehensive
 
 When the `SyncStateMachine` receives a `SyncEvent::BadTipset` event, it takes two important actions to protect the node:
 
-1.  **Cache the Bad Block:** It adds the CID of every block in the failed tipset to the `BadBlockCache` struct. This is an LRU cache that prevents the node from wasting resources by re-fetching or re-validating a block that is already known to be invalid. (`src/chain_sync/bad_block_cache.rs`)
+1.  **Cache the Bad Block:** It adds the CID of every block in the failed tipset to the `BadBlockCache` struct. This is a `CLOCK-Pro` cache that prevents the node from wasting resources by re-fetching or re-validating a block that is already known to be invalid. (`src/chain_sync/bad_block_cache.rs`)
 2.  **Prune Descendants:** It traverses its internal map of tipsets and removes all known descendants of the bad tipset. Since a child of an invalid block is also invalid, this prunes entire invalid forks from the processing queue.
 
 ### Committing to the Chain

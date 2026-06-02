@@ -9,15 +9,14 @@ use crate::{
     genesis::read_genesis_header,
     interpreter::VMTrace,
     networks::{ChainConfig, NetworkChain},
+    prelude::*,
     shim::clock::ChainEpoch,
     state_manager::{ExecutedTipset, StateManager},
     tool::subcommands::api_cmd::generate_test_snapshot,
-    utils::ShallowClone as _,
 };
-use anyhow::Context as _;
 use human_repr::HumanCount as _;
 use nonzero_ext::nonzero;
-use std::{num::NonZeroUsize, path::PathBuf, sync::Arc, time::Instant};
+use std::{num::NonZeroUsize, path::PathBuf, time::Instant};
 
 /// Interact with Filecoin chain state
 #[derive(Debug, clap::Subcommand)]
@@ -76,13 +75,7 @@ impl ComputeCommand {
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
-        let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )?);
+        let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
         let chain_index = chain_store.chain_index();
         let (ts, ts_next) = {
             // We don't want to track all entries that are visited by `tipset_by_height`
@@ -111,7 +104,7 @@ impl ComputeCommand {
             )
         };
         let epoch = ts.epoch();
-        let state_manager = Arc::new(StateManager::new(chain_store)?);
+        let state_manager = StateManager::new(chain_store)?;
 
         let ExecutedTipset {
             state_root,
@@ -126,6 +119,9 @@ impl ComputeCommand {
             "epoch: {epoch}, state_root: {state_root}, receipt_root: {receipt_root}, db_snapshot_size: {}",
             db_snapshot.len().human_count_bytes()
         );
+        if let Some(export_db_to) = export_db_to {
+            std::fs::write(export_db_to, db_snapshot)?;
+        }
         let expected_state_root = *ts_next.parent_state();
         let expected_receipt_root = *ts_next.parent_message_receipts();
         anyhow::ensure!(
@@ -136,9 +132,6 @@ impl ComputeCommand {
             receipt_root == expected_receipt_root,
             "receipt root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
         );
-        if let Some(export_db_to) = export_db_to {
-            std::fs::write(export_db_to, db_snapshot)?;
-        }
         Ok(())
     }
 }
@@ -212,13 +205,7 @@ impl ValidateCommand {
         let genesis_header =
             read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db)
                 .await?;
-        let chain_store = Arc::new(ChainStore::new(
-            db.clone(),
-            db.clone(),
-            db.clone(),
-            chain_config,
-            genesis_header,
-        )?);
+        let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
         let chain_index = chain_store.chain_index();
         let ts = {
             // We don't want to track all entries that are visited by `tipset_by_height`
@@ -235,7 +222,7 @@ impl ValidateCommand {
         };
         let epoch = ts.epoch();
         let fts = load_full_tipset(&chain_store, ts.key())?;
-        let state_manager = Arc::new(StateManager::new(chain_store)?);
+        let state_manager = StateManager::new(chain_store)?;
         validate_tipset(&state_manager, fts, None).await?;
         let mut db_snapshot = vec![];
         db.export_forest_car(&mut db_snapshot).await?;
@@ -287,5 +274,6 @@ impl ReplayValidateCommand {
 fn disable_tipset_cache() {
     unsafe {
         std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1");
+        std::env::set_var("FOREST_TIPSET_LOOKUP_TABLE_DISABLED", "1");
     }
 }

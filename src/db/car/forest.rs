@@ -33,7 +33,7 @@
 //! Looking up a block uses an [`index::Reader`] to find
 //! the right z-frame. The frame is then decoded and each block is linearly
 //! scanned until a match is found. Decoded (and scanned) z-frames are stored in
-//! a lru-cache for faster repeat retrievals.
+//! a cache for faster repeat retrievals.
 //!
 //! `forest.car.zst` files are backward compatible with Lotus (and all other
 //! tools that consume compressed CAR files). All Forest-specifc information is
@@ -52,14 +52,12 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::FilecoinSnapshotMetadata;
 use crate::db::car::RandomAccessFileReader;
 use crate::db::car::forest::index::ZstdSkipFramesEncodedDataReader;
+use crate::prelude::*;
 use crate::utils::db::car_stream::{CarBlock, CarV1Header, uvi_bytes};
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::get_size::CidWrapper;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use bytes::{BufMut as _, Bytes, BytesMut, buf::Writer};
-use cid::Cid;
 use futures::{Stream, TryStreamExt as _};
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 use integer_encoding::VarIntReader;
 use nunny::Vec as NonEmpty;
@@ -265,7 +263,7 @@ where
             let cache_query = self.frame_cache.get(position, self.cache_key, *k);
             match cache_query {
                 // Frame cache hit, found value.
-                Some(Some(val)) => return Ok(Some(val)),
+                Some(Some(val)) => return Ok(Some(val.to_vec())),
                 // Frame cache hit, no value. This only happens when hashes collide
                 Some(None) => {}
                 None => {
@@ -279,12 +277,12 @@ where
                         let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
                         block_map.insert(cid.into(), data);
                     }
-                    let get_result = block_map.get(&CidWrapper::from(*k)).cloned();
+                    let get_result = block_map.get(k).cloned();
                     self.frame_cache.put(position, self.cache_key, block_map);
 
                     // This lookup only fails in case of a hash collision
                     if let Some(value) = get_result {
-                        return Ok(Some(value));
+                        return Ok(Some(value.to_vec()));
                     }
                 }
             }
@@ -552,7 +550,10 @@ mod tests {
         .unwrap();
         assert_eq!(forest_car.head_tipset_key(), &roots);
         for block in blocks {
-            assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
+            assert_eq!(
+                forest_car.get(&block.cid).unwrap().map(Bytes::from),
+                Some(block.data)
+            );
         }
     }
 
@@ -586,11 +587,11 @@ mod tests {
         let blocks = nonempty![
             CarBlock {
                 cid: cid_a,
-                data: Vec::from_iter(*b"bill and ben"),
+                data: "bill and ben".into(),
             },
             CarBlock {
                 cid: cid_b,
-                data: Vec::from_iter(*b"the flowerpot men"),
+                data: "the flowerpot men".into(),
             },
         ];
 

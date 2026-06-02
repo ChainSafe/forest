@@ -5,10 +5,8 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::error::ServerError;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use enumflags2::BitFlags;
-use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::any::Any;
 use std::sync::LazyLock;
 use uuid::Uuid;
 
@@ -25,11 +23,7 @@ impl RpcMethod<0> for Session {
     type Params = ();
     type Ok = Uuid;
 
-    async fn handle(
-        _: Ctx<impl Any>,
-        (): Self::Params,
-        _: &http::Extensions,
-    ) -> Result<Uuid, ServerError> {
+    async fn handle(_: Ctx, (): Self::Params, _: &http::Extensions) -> Result<Uuid, ServerError> {
         Ok(*SESSION_UUID)
     }
 }
@@ -45,7 +39,7 @@ impl RpcMethod<0> for Version {
     type Ok = PublicVersion;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -55,6 +49,7 @@ impl RpcMethod<0> for Version {
             // For the API v0, we don't support it but it should be `1.5.0`.
             api_version: ShiftingVersion::new(2, 3, 0),
             block_delay: ctx.chain_config().block_delay_secs,
+            agent: "forest".into(),
         })
     }
 }
@@ -70,7 +65,7 @@ impl RpcMethod<0> for Shutdown {
     type Ok = ();
 
     async fn handle(
-        ctx: Ctx<impl Any>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -90,7 +85,7 @@ impl RpcMethod<0> for StartTime {
     type Ok = chrono::DateTime<chrono::Utc>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore>,
+        ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
@@ -106,6 +101,8 @@ pub struct PublicVersion {
     #[serde(rename = "APIVersion")]
     pub api_version: ShiftingVersion,
     pub block_delay: u32,
+    // See <https://github.com/filecoin-project/lotus/blob/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/api/api_common.go#L78>
+    pub agent: String,
 }
 lotus_json_with_self!(PublicVersion);
 

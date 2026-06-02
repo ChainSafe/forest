@@ -11,6 +11,7 @@ use std::{
 
 fn main() {
     // Only needed when profiling Forest with `gperftools`. This might not work on all platforms.
+    println!("cargo:rerun-if-env-changed=FOREST_PROFILING_GPERFTOOLS_BUILD");
     if is_env_truthy("FOREST_PROFILING_GPERFTOOLS_BUILD") {
         println!("cargo:rustc-link-lib=tcmalloc");
     }

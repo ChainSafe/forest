@@ -17,16 +17,12 @@ async fn test_indexer_new() {
     };
 
     let bs = Arc::new(MemoryDB::default());
-    let cs = Arc::new(
-        ChainStore::new(
-            bs.clone(),
-            bs.clone(),
-            bs,
-            Arc::new(ChainConfig::devnet()),
-            t0.min_ticket_block().clone(),
-        )
-        .unwrap(),
-    );
+    let cs = ChainStore::new(
+        bs,
+        Arc::new(ChainConfig::devnet()),
+        t0.min_ticket_block().clone(),
+    )
+    .unwrap();
     let temp_db_path = tempfile::Builder::new()
         .suffix(".sqlite3")
         .tempfile_in(std::env::temp_dir())

@@ -10,8 +10,8 @@ use std::{
 };
 
 use crate::cid_collections::CidHashMap;
+use crate::prelude::*;
 use ahash::{HashSet, HashSetExt};
-use cid::Cid;
 use flume::TryRecvError;
 use futures::StreamExt;
 use libp2p::PeerId;
@@ -118,20 +118,20 @@ impl BitswapRequestManager {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn get_block(
         self: Arc<Self>,
-        store: Arc<impl BitswapStoreReadWrite>,
+        store: impl BitswapStoreReadWrite + ShallowClone,
         cid: Cid,
         timeout: Duration,
         responder: Option<flume::Sender<bool>>,
         validate_peer: Option<Arc<ValidatePeerCallback>>,
     ) {
         let start = Instant::now();
-        let store_cloned = store.clone();
         task::spawn(async move {
             let mut success = store.contains(&cid).unwrap_or_default();
             if !success {
                 let deadline = start.checked_add(timeout).expect("Infallible");
-                success = task::spawn_blocking(move || {
-                    self.get_block_sync(store_cloned, cid, deadline, validate_peer)
+                success = task::spawn_blocking({
+                    let store = store.shallow_clone();
+                    move || self.get_block_sync(&store, cid, deadline, validate_peer)
                 })
                 .await
                 .unwrap_or_default();
@@ -161,7 +161,7 @@ impl BitswapRequestManager {
 
     fn get_block_sync(
         &self,
-        store: Arc<impl BitswapStoreReadWrite>,
+        store: &impl BitswapStoreReadWrite,
         cid: Cid,
         deadline: Instant,
         validate_peer: Option<Arc<ValidatePeerCallback>>,

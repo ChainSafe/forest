@@ -6,15 +6,8 @@ mod resolve;
 use std::{
     fmt::Write as FmtWrite,
     io::{Write, stdout},
-    sync::Arc,
 };
 
-use crate::shim::actors::{
-    account::State as AccountState, cron::State as CronState, datacap::State as DatacapState,
-    evm::State as EvmState, init::State as InitState, market::State as MarketState,
-    miner::State as MinerState, multisig::State as MultiSigState, power::State as PowerState,
-    reward::State as RewardState, system::State as SystemState,
-};
 use crate::{
     lotus_json::HasLotusJson as _,
     shim::{
@@ -23,12 +16,19 @@ use crate::{
         state_tree::{ActorState, StateTree},
     },
 };
+use crate::{
+    prelude::*,
+    shim::actors::{
+        account::State as AccountState, cron::State as CronState, datacap::State as DatacapState,
+        evm::State as EvmState, init::State as InitState, market::State as MarketState,
+        miner::State as MinerState, multisig::State as MultiSigState, power::State as PowerState,
+        reward::State as RewardState, system::State as SystemState,
+    },
+};
 use ahash::HashMap;
-use cid::Cid;
 use colored::*;
 use fvm_ipld_blockstore::Blockstore;
 use ipld_core::ipld::Ipld;
-use itertools::Itertools as _;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
 use similar::{ChangeTag, TextDiff};
@@ -58,12 +58,12 @@ fn actor_to_resolved(
     }
 }
 
-fn root_to_state_map<BS: Blockstore>(
-    bs: &Arc<BS>,
+fn root_to_state_map<BS: Blockstore + ShallowClone>(
+    bs: &BS,
     root: &Cid,
 ) -> anyhow::Result<HashMap<Address, ActorState>> {
     let mut actors = HashMap::default();
-    let state_tree = StateTree::new_from_root(bs.clone(), root)?;
+    let state_tree = StateTree::new_from_root(bs, root)?;
     state_tree.for_each(|addr: Address, actor: &ActorState| {
         actors.insert(addr, actor.clone());
         Ok(())
@@ -76,8 +76,8 @@ fn root_to_state_map<BS: Blockstore>(
 /// The actors HAMT is hard to parse in a diff, so this attempts to remedy this.
 /// This function will only print the actors that are added, removed, or changed
 /// so it can be used on large state trees.
-fn try_print_actor_states<BS: Blockstore>(
-    bs: &Arc<BS>,
+fn try_print_actor_states<BS: Blockstore + ShallowClone>(
+    bs: &BS,
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,
@@ -87,7 +87,7 @@ fn try_print_actor_states<BS: Blockstore>(
     let mut e_state = root_to_state_map(bs, expected_root)?;
 
     // Compare state with expected
-    let state_tree = StateTree::new_from_root(bs.clone(), root)?;
+    let state_tree = StateTree::new_from_root(bs, root)?;
 
     state_tree.for_each(|addr: Address, actor| {
         if let Some(other) = e_state.remove(&addr) {

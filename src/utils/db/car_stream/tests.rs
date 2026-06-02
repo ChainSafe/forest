@@ -30,7 +30,10 @@ impl Arbitrary for CarBlock {
             .choose(&[MultihashCode::Blake2b256, MultihashCode::Sha2_256])
             .unwrap();
         let cid = Cid::new_v1(*encoding, code.digest(&data));
-        CarBlock { cid, data }
+        CarBlock {
+            cid,
+            data: data.into(),
+        }
     }
 }
 

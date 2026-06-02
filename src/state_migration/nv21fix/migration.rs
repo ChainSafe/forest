@@ -1,9 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
-
+use super::{SystemStateOld, system, verifier::Verifier};
 use crate::networks::{ChainConfig, Height};
+use crate::prelude::*;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -11,22 +11,18 @@ use crate::shim::{
     state_tree::{StateTree, StateTreeVersion},
 };
 use crate::state_migration::common::PostMigrationCheck;
-use crate::utils::db::CborStoreExt as _;
-use anyhow::{Context, bail};
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
-
-use super::{SystemStateOld, system, verifier::Verifier};
 use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
+use crate::utils::db::CborStoreExt as _;
+use anyhow::bail;
 
-impl<BS: Blockstore> StateMigration<BS> {
+impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
     pub fn add_nv21fix_migrations(
         &mut self,
-        store: &Arc<BS>,
+        store: &BS,
         state: &Cid,
         new_manifest: &BuiltinActorManifest,
     ) -> anyhow::Result<()> {
-        let state_tree = StateTree::new_from_root(store.clone(), state)?;
+        let state_tree = StateTree::new_from_root(store, state)?;
         let system_actor = state_tree.get_required_actor(&Address::new_id(0))?;
 
         let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;
@@ -54,9 +50,9 @@ struct PostMigrationVerifier {
     state_pre: Cid,
 }
 
-impl<BS: Blockstore> PostMigrationCheck<BS> for PostMigrationVerifier {
+impl<BS: Blockstore + ShallowClone> PostMigrationCheck<BS> for PostMigrationVerifier {
     fn post_migrate_check(&self, store: &BS, actors_out: &StateTree<BS>) -> anyhow::Result<()> {
-        let actors_in = StateTree::new_from_root(Arc::new(store), &self.state_pre)?;
+        let actors_in = StateTree::new_from_root(store, &self.state_pre)?;
         let system_actor = actors_in.get_required_actor(&Address::new_id(0))?;
 
         let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;
@@ -113,12 +109,12 @@ impl<BS: Blockstore> PostMigrationCheck<BS> for PostMigrationVerifier {
 /// Runs the light-weight patch for the `NV21` calibration network. Returns the new state root.
 pub fn run_migration<DB>(
     chain_config: &ChainConfig,
-    blockstore: &Arc<DB>,
+    blockstore: &DB,
     state: &Cid,
     epoch: ChainEpoch,
 ) -> anyhow::Result<Cid>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore + ShallowClone + Send + Sync,
 {
     assert!(
         chain_config.network.is_testnet(),
@@ -147,8 +143,8 @@ where
     migration.add_nv21fix_migrations(blockstore, state, &new_manifest)?;
     migration.add_post_migration_check(Arc::new(PostMigrationVerifier { state_pre: *state }));
 
-    let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
-    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
+    let actors_in = StateTree::new_from_root(blockstore, state)?;
+    let actors_out = StateTree::new(blockstore, StateTreeVersion::V5)?;
     let new_state = migration.migrate_state_tree(blockstore, epoch, actors_in, actors_out)?;
 
     Ok(new_state)

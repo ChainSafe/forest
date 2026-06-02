@@ -24,6 +24,8 @@ pub enum EthErrors {
         given: i64,
         message: String,
     },
+    #[error("events for the requested block are not yet available")]
+    EventsNotYetAvailable,
 }
 
 impl EthErrors {
@@ -57,6 +59,7 @@ impl RpcErrorData for EthErrors {
         match self {
             EthErrors::ExecutionReverted { .. } => Some(EXECUTION_REVERTED_CODE),
             EthErrors::BlockRangeExceeded { .. } => Some(LIMIT_EXCEEDED_CODE),
+            EthErrors::EventsNotYetAvailable => None,
         }
     }
 
@@ -64,6 +67,7 @@ impl RpcErrorData for EthErrors {
         match self {
             EthErrors::ExecutionReverted { message, .. } => Some(message.clone()),
             EthErrors::BlockRangeExceeded { message, .. } => Some(message.clone()),
+            EthErrors::EventsNotYetAvailable => Some(self.to_string()),
         }
     }
 
@@ -73,6 +77,7 @@ impl RpcErrorData for EthErrors {
                 Some(serde_json::Value::String(data.clone()))
             }
             EthErrors::BlockRangeExceeded { .. } => None,
+            EthErrors::EventsNotYetAvailable => None,
         }
     }
 }
@@ -87,7 +92,7 @@ mod tests {
         let err = EthErrors::limit_exceeded(100, 500);
         let server_err: ServerError = err.into();
 
-        assert_eq!(server_err.inner().code(), LIMIT_EXCEEDED_CODE);
+        assert_eq!(server_err.code(), LIMIT_EXCEEDED_CODE);
         assert_eq!(
             server_err.message(),
             "block range exceeds maximum of 100 (got 500)"
@@ -100,10 +105,22 @@ mod tests {
         let anyhow_err: anyhow::Error = eth_err.into();
         let server_err: ServerError = anyhow_err.into();
 
-        assert_eq!(server_err.inner().code(), LIMIT_EXCEEDED_CODE);
+        assert_eq!(server_err.code(), LIMIT_EXCEEDED_CODE);
         assert_eq!(
             server_err.message(),
             "block range exceeds maximum of 2880 (got 5000)"
+        );
+    }
+
+    #[test]
+    fn test_events_not_yet_available_converts_to_server_error() {
+        let err = EthErrors::EventsNotYetAvailable;
+        let server_err: ServerError = err.into();
+
+        // No specific RPC error code is assigned; falls back to default.
+        assert_eq!(
+            server_err.message(),
+            "events for the requested block are not yet available"
         );
     }
 }

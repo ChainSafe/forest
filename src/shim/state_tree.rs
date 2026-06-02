@@ -4,15 +4,16 @@ use super::actors::LoadActorStateFromBlockstore;
 pub use super::fvm_shared_latest::{ActorID, state::StateRoot};
 use crate::{
     blocks::Tipset,
-    shim::{actors::AccountActorStateLoad as _, address::Address, econ::TokenAmount},
-};
-use crate::{
     networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata},
-    shim::actors::account,
+    prelude::*,
+    shim::{
+        actors::{AccountActorStateLoad as _, account},
+        address::Address,
+        econ::TokenAmount,
+    },
+    utils::get_size::big_int_heap_size_helper,
 };
-use anyhow::{Context as _, bail};
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
+use anyhow::bail;
 use fvm_ipld_encoding::{
     CborStore as _,
     repr::{Deserialize_repr, Serialize_repr},
@@ -25,11 +26,11 @@ pub use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3}
 pub use fvm4::state_tree::{
     ActorState as ActorStateV4, ActorState as ActorState_latest, StateTree as StateTreeV4,
 };
+use get_size2::GetSize;
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use spire_enum::prelude::delegated_enum;
-use std::sync::Arc;
 
 #[derive(
     Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr, FromPrimitive,
@@ -136,40 +137,42 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV4 {
 #[delegated_enum(impl_conversions)]
 pub enum StateTree<S> {
     // Version 0 is used to parse the genesis block.
-    V0(super::state_tree_v0::StateTreeV0<Arc<S>>),
+    V0(super::state_tree_v0::StateTreeV0<S>),
     // fvm-2 support state tree versions 3 and 4.
-    FvmV2(StateTreeV2<Arc<S>>),
+    FvmV2(StateTreeV2<S>),
     // fvm-3 support state tree versions 5.
-    FvmV3(StateTreeV3<Arc<S>>),
+    FvmV3(StateTreeV3<S>),
     // fvm-4 support state tree versions *.
-    FvmV4(StateTreeV4<Arc<S>>),
+    FvmV4(StateTreeV4<S>),
 }
 
 impl<S> StateTree<S>
 where
-    S: Blockstore,
+    S: Blockstore + ShallowClone,
 {
     /// Constructor for a HAMT state tree given an IPLD store
-    pub fn new(store: Arc<S>, version: StateTreeVersion) -> anyhow::Result<Self> {
-        if let Ok(st) = StateTreeV4::new(store.clone(), version.try_into()?) {
+    pub fn new(store: &S, version: StateTreeVersion) -> anyhow::Result<Self> {
+        if let Ok(st) = StateTreeV4::new(store.shallow_clone(), version.try_into()?) {
             Ok(StateTree::FvmV4(st))
-        } else if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
+        } else if let Ok(st) = StateTreeV3::new(store.shallow_clone(), version.try_into()?) {
             Ok(StateTree::FvmV3(st))
-        } else if let Ok(st) = StateTreeV2::new(store, version.try_into()?) {
+        } else if let Ok(st) = StateTreeV2::new(store.shallow_clone(), version.try_into()?) {
             Ok(StateTree::FvmV2(st))
         } else {
             bail!("Can't create a valid state tree for the given version.");
         }
     }
 
-    pub fn new_from_root(store: Arc<S>, c: &Cid) -> anyhow::Result<Self> {
-        if let Ok(st) = StateTreeV4::new_from_root(store.clone(), c) {
+    pub fn new_from_root(store: &S, c: &Cid) -> anyhow::Result<Self> {
+        if let Ok(st) = StateTreeV4::new_from_root(store.shallow_clone(), c) {
             Ok(StateTree::FvmV4(st))
-        } else if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
+        } else if let Ok(st) = StateTreeV3::new_from_root(store.shallow_clone(), c) {
             Ok(StateTree::FvmV3(st))
-        } else if let Ok(st) = StateTreeV2::new_from_root(store.clone(), c) {
+        } else if let Ok(st) = StateTreeV2::new_from_root(store.shallow_clone(), c) {
             Ok(StateTree::FvmV2(st))
-        } else if let Ok(st) = super::state_tree_v0::StateTreeV0::new_from_root(store.clone(), c) {
+        } else if let Ok(st) =
+            super::state_tree_v0::StateTreeV0::new_from_root(store.shallow_clone(), c)
+        {
             Ok(StateTree::V0(st))
         } else if !store.has(c)? {
             bail!("No state tree exists for the root {c}.")
@@ -184,10 +187,15 @@ where
         }
     }
 
-    pub fn new_from_tipset(store: Arc<S>, ts: &Tipset) -> anyhow::Result<Self> {
+    pub fn new_from_tipset(store: &S, ts: &Tipset) -> anyhow::Result<Self> {
         Self::new_from_root(store, ts.parent_state())
     }
+}
 
+impl<S> StateTree<S>
+where
+    S: Blockstore,
+{
     /// Get required actor state from an address. Will be resolved to ID address.
     pub fn get_required_actor(&self, addr: &Address) -> anyhow::Result<ActorState> {
         self.get_actor(addr)?
@@ -338,7 +346,7 @@ where
     /// Returns the public key type of
     /// address(`BLS`/`SECP256K1`) of an actor identified by `addr`,
     /// or its delegated address.
-    pub fn resolve_to_deterministic_addr(
+    pub fn resolve_to_deterministic_address(
         &self,
         store: &impl Blockstore,
         addr: Address,
@@ -350,17 +358,12 @@ where
                 let actor = self
                     .get_actor(&addr)?
                     .with_context(|| format!("failed to find actor: {addr}"))?;
-
-                // A workaround to implement `if state.Version() >= types.StateTreeVersion5`
-                // When state tree version is not available in rust APIs
-                if !matches!(self, Self::FvmV2(_) | Self::V0(_))
-                    && let Some(address) = actor.delegated_address
-                {
-                    return Ok(address.into());
+                if let Some(address) = actor.delegated_address {
+                    Ok(address.into())
+                } else {
+                    let account_state = account::State::load(store, actor.code, actor.state)?;
+                    Ok(account_state.pubkey_address())
                 }
-
-                let account_state = account::State::load(store, actor.code, actor.state)?;
-                Ok(account_state.pubkey_address())
             }
         }
     }
@@ -420,6 +423,12 @@ impl ActorState {
             code,
             delegated_address.map(Into::into),
         ))
+    }
+}
+
+impl GetSize for ActorState {
+    fn get_heap_size(&self) -> usize {
+        big_int_heap_size_helper(self.balance.atto())
     }
 }
 
@@ -527,12 +536,11 @@ mod tests {
 
     // refactored from `StateManager::get_network_name`
     fn get_network_name(car: &'static [u8], genesis_cid: Cid) -> String {
-        let forest_car = AnyCar::new(car).unwrap();
+        let forest_car = Arc::new(AnyCar::new(car).unwrap());
         let genesis_block = CachingBlockHeader::load(&forest_car, genesis_cid)
             .unwrap()
             .unwrap();
-        let state_tree =
-            StateTree::new_from_root(Arc::new(&forest_car), &genesis_block.state_root).unwrap();
+        let state_tree = StateTree::new_from_root(&forest_car, &genesis_block.state_root).unwrap();
         let state: init::State = state_tree.get_actor_state().unwrap();
         state.into_network_name()
     }
