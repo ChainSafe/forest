@@ -355,6 +355,8 @@ async fn chain_follower(
                         });
                     }
                 }
+
+                tasks_set.shrink_to_fit();
             }
         }
     });
@@ -768,6 +770,8 @@ impl SyncStateMachine {
             self.tipsets
                 .insert(merged_tipset.key().clone(), merged_tipset);
         }
+
+        self.tipsets.shrink_to_fit();
     }
 
     // Mark blocks in tipset as bad.
