@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.33.5 "Drift"
+
+Non-mandatory release for all node operators. It includes a few bug fixes as well as performance improvements for JSON-RPC calls, especially for batch requests.
+
+### Breaking
+
 - [#7073](https://github.com/ChainSafe/forest/pull/7073) and [#7077](https://github.com/ChainSafe/forest/pull/7077): Replaced the underlying cache engine across the node. The eviction policy is no longer strict LRU — it is now CLOCK-PRO via [`quick_cache`](https://crates.io/crates/quick_cache), which is scan-resistant and typically gives higher hit rates on chain workloads. Refactored internal cache metrics to include `hits` and `misses` for all automatically. The old metrics `lru_cache_hit_total` and `lru_cache_miss_total` are deprecated in favor of `cache_{name}_hits` and `cache_{name}_misses`. Details can be found in https://forest-docs.pages.dev/reference/metrics
 
 - [#7116](https://github.com/ChainSafe/forest/pull/7116): Disable state computation for Ethereum RPC methods by default. It could be explictly enabled by setting environment variable `FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS=1`
