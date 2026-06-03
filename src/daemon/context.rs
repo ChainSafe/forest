@@ -54,6 +54,7 @@ impl AppContext {
         let chain_cfg = get_chain_config_and_set_network(cfg);
         let (net_keypair, p2p_peer_id) = get_or_create_p2p_keypair_and_peer_id(cfg)?;
         let (db, db_meta_data) = setup_db(opts, cfg).await?;
+        db.shallow_clone().register_metrics();
         let state_manager = create_state_manager(cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(opts, cfg).await?;
         let snapshot_progress_tracker = SnapshotProgressTracker::default();

@@ -22,9 +22,6 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::multihash::prelude::*;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
-use anyhow::Context as _;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use std::{
     cmp::Ord,
@@ -84,6 +81,13 @@ impl<WriterT> ManyCar<WriterT> {
 
     pub fn writer(&self) -> &WriterT {
         &self.writer
+    }
+
+    pub fn register_metrics(self: Arc<Self>)
+    where
+        WriterT: Send + Sync + 'static,
+    {
+        crate::metrics::register_collector(Box::new(ManyCarMetricsCollector(self)));
     }
 }
 
@@ -339,6 +343,71 @@ impl<WriterT: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for
 impl<T: GarbageCollectableDb> GarbageCollectableDb for ManyCar<T> {
     fn reset_gc_columns(&self) -> anyhow::Result<()> {
         self.writer().reset_gc_columns()
+    }
+}
+
+#[derive(derive_more::Debug, derive_more::Deref)]
+struct ManyCarMetricsCollector<T>(#[debug(skip)] Arc<ManyCar<T>>);
+
+mod metrics_collection {
+    use super::*;
+    use prometheus_client::{
+        collector::Collector,
+        encoding::{DescriptorEncoder, EncodeMetric},
+        metrics::gauge::Gauge,
+        registry::Unit,
+    };
+
+    impl<T> Collector for ManyCarMetricsCollector<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
+            {
+                let size_in_bytes = {
+                    let g: Gauge = Default::default();
+                    g.set(self.shared_cache.read().cache.weight() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "many_car_cache_size",
+                    "Size of the many car zstd frame cache in bytes",
+                    Some(&Unit::Bytes),
+                    size_in_bytes.metric_type(),
+                )?;
+                size_in_bytes.encode(size_metric_encoder)?;
+            }
+            {
+                let len = {
+                    let g: Gauge = Default::default();
+                    g.set(self.shared_cache.read().len() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "many_car_cache_len",
+                    "Length of the many car zstd frame cache",
+                    None,
+                    len.metric_type(),
+                )?;
+                len.encode(size_metric_encoder)?;
+            }
+            {
+                let cap = {
+                    let g: Gauge = Default::default();
+                    g.set(self.shared_cache.read().capacity() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "many_car_cache_cap",
+                    "Capacity of the many car zstd frame cache in bytes",
+                    Some(&Unit::Bytes),
+                    cap.metric_type(),
+                )?;
+                cap.encode(size_metric_encoder)?;
+            }
+
+            Ok(())
+        }
     }
 }
 

@@ -63,6 +63,7 @@ impl HelloBehaviour {
         response: HelloResponse,
     ) {
         if let Some(channel) = self.response_channels.remove(request_id) {
+            self.response_channels.shrink_to_fit();
             self.track_metrics();
             if let Err(err) = channel.send_async(response).await {
                 warn!("{err}");
@@ -72,6 +73,7 @@ impl HelloBehaviour {
 
     pub fn on_outbound_failure(&mut self, request_id: &OutboundRequestId) {
         if self.response_channels.remove(request_id).is_some() {
+            self.response_channels.shrink_to_fit();
             self.track_metrics();
         }
     }
@@ -181,8 +183,9 @@ impl NetworkBehaviour for HelloBehaviour {
                     },
                 ..
             }) = &ev
+                && self.pending_inbound_hello_peers.remove(peer).is_some()
             {
-                self.pending_inbound_hello_peers.remove(peer);
+                self.pending_inbound_hello_peers.shrink_to_fit();
             }
 
             return Poll::Ready(ev);
@@ -198,7 +201,13 @@ impl NetworkBehaviour for HelloBehaviour {
                     now.duration_since(connected_instant) > INBOUND_HELLO_WAIT_TIMEOUT
                 })
         {
-            self.pending_inbound_hello_peers.remove(&peer_to_disconnect);
+            if self
+                .pending_inbound_hello_peers
+                .remove(&peer_to_disconnect)
+                .is_some()
+            {
+                self.pending_inbound_hello_peers.shrink_to_fit();
+            }
             if !self.peer_manager.is_peer_protected(&peer_to_disconnect) {
                 tracing::debug!(peer=%peer_to_disconnect, "Disconnecting peer for not receiving hello in 30s");
                 return Poll::Ready(ToSwarm::CloseConnection {
