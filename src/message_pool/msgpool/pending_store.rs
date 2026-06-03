@@ -153,7 +153,7 @@ mod metrics_collection {
                 };
                 let size_metric_encoder = encoder.encode_descriptor(
                     "mpool_pending_size",
-                    "Size of message pool pending messages in bytes",
+                    "Allocation size of message pool pending messages in bytes",
                     Some(&Unit::Bytes),
                     size_in_bytes.metric_type(),
                 )?;
