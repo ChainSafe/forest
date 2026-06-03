@@ -34,8 +34,8 @@ use crate::{
     shim::clock::ChainEpoch,
     state_manager::StateManager,
 };
-use ahash::{HashMap, HashSet};
 use chrono::Utc;
+use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
 use parking_lot::{Mutex, RwLock};
 use std::time::Instant;
@@ -127,6 +127,12 @@ impl ChainFollower {
             bad_blocks.shallow_clone(),
             stateless_mode,
         )));
+
+        crate::metrics::register_collector(Box::new(SyncTasks(tasks.shallow_clone())));
+        crate::metrics::register_collector(Box::new(SyncStateMachineWrapper(
+            state_machine.shallow_clone(),
+        )));
+
         Self {
             tasks,
             state_machine,
@@ -147,11 +153,7 @@ impl ChainFollower {
     pub fn reset(&self) {
         let start = Instant::now();
         self.tasks.lock().clear();
-        self.state_manager
-            .chain_store()
-            .validated_blocks
-            .lock()
-            .clear();
+        self.state_manager.chain_store().validated_blocks.clear();
         self.state_machine.lock().tipsets.clear();
         if let Some(bad_blocks) = &self.bad_blocks {
             bad_blocks.clear();
@@ -353,6 +355,8 @@ async fn chain_follower(
                         });
                     }
                 }
+
+                tasks_set.shrink_to_fit();
             }
         }
     });
@@ -612,7 +616,9 @@ impl std::fmt::Display for SyncEvent {
     }
 }
 
+#[derive(derive_more::Debug)]
 struct SyncStateMachine {
+    #[debug(skip)]
     cs: ChainStore,
     bad_block_cache: Option<BadBlockCache>,
     // Map from TipsetKey to FullTipset
@@ -764,6 +770,8 @@ impl SyncStateMachine {
             self.tipsets
                 .insert(merged_tipset.key().clone(), merged_tipset);
         }
+
+        self.tipsets.shrink_to_fit();
     }
 
     // Mark blocks in tipset as bad.
@@ -975,6 +983,120 @@ impl SyncTask {
                     }
                 }
             }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct SyncTasks(Arc<Mutex<HashSet<SyncTask>>>);
+
+#[derive(Debug)]
+struct SyncStateMachineWrapper(Arc<Mutex<SyncStateMachine>>);
+
+mod metrics_collection {
+    use super::*;
+    use prometheus_client::{
+        collector::Collector,
+        encoding::{DescriptorEncoder, EncodeMetric},
+        metrics::gauge::Gauge,
+        registry::Unit,
+    };
+
+    impl Collector for SyncTasks {
+        fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
+            {
+                let size_in_bytes = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().allocation_size() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tasks_size",
+                    "Size of the chain follower tasks in bytes",
+                    Some(&Unit::Bytes),
+                    size_in_bytes.metric_type(),
+                )?;
+                size_in_bytes.encode(size_metric_encoder)?;
+            }
+            {
+                let len = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().len() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tasks_len",
+                    "Length of the chain follower tasks",
+                    None,
+                    len.metric_type(),
+                )?;
+                len.encode(size_metric_encoder)?;
+            }
+            {
+                let cap = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().capacity() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tasks_cap",
+                    "Capacity of the chain follower tasks",
+                    None,
+                    cap.metric_type(),
+                )?;
+                cap.encode(size_metric_encoder)?;
+            }
+
+            Ok(())
+        }
+    }
+
+    impl Collector for SyncStateMachineWrapper {
+        fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
+            {
+                let size_in_bytes = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().tipsets.allocation_size() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tipsets_size",
+                    "Size of the chain follower tipsets in bytes",
+                    Some(&Unit::Bytes),
+                    size_in_bytes.metric_type(),
+                )?;
+                size_in_bytes.encode(size_metric_encoder)?;
+            }
+            {
+                let len = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().tipsets.len() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tipsets_len",
+                    "Length of the chain follower tipsets",
+                    None,
+                    len.metric_type(),
+                )?;
+                len.encode(size_metric_encoder)?;
+            }
+            {
+                let cap = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().tipsets.capacity() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tipsets_cap",
+                    "Capacity of the chain follower tipsets",
+                    None,
+                    cap.metric_type(),
+                )?;
+                cap.encode(size_metric_encoder)?;
+            }
+
+            Ok(())
         }
     }
 }

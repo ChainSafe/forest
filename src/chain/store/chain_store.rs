@@ -27,11 +27,11 @@ use crate::{
     interpreter::{BlockMessages, VMTrace},
     rpc::chain::PathChanges,
 };
-use ahash::{HashMap, HashSet};
+use ahash::HashMap;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_encoding::CborStore;
 use nonzero_ext::nonzero;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
     num::NonZeroUsize,
@@ -42,6 +42,9 @@ use tracing::{debug, error, trace, warn};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
+
+// Assume a tipset has 5 blocks on average, we cache 1-day-worth of validated blocks. (5 * 2 * 60 * 24 = 14400)
+const VALIDATED_BLOCKS_CACHE_SIZE: NonZeroUsize = nonzero!(14400usize);
 
 /// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
 /// while maintaining the same type.
@@ -78,7 +81,7 @@ pub struct ChainStore {
     genesis_block_header: Arc<CachingBlockHeader>,
 
     /// validated blocks
-    pub(crate) validated_blocks: Arc<Mutex<HashSet<Cid>>>,
+    pub(crate) validated_blocks: SizeTrackingCache<CidWrapper, ()>,
 
     /// Needed by the Ethereum mapping.
     chain_config: Arc<ChainConfig>,
@@ -148,7 +151,10 @@ impl ChainStore {
             f3_finalized_tipset,
             ec_calculator_finalized_epoch,
             genesis_block_header: genesis_block_header.into(),
-            validated_blocks: Default::default(),
+            validated_blocks: SizeTrackingCache::new_with_metrics(
+                "validated_blocks",
+                VALIDATED_BLOCKS_CACHE_SIZE,
+            ),
             chain_config,
             messages_in_tipset_cache: Default::default(),
         })
@@ -341,7 +347,7 @@ impl ChainStore {
 
     /// Checks metadata file if block has already been validated.
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
-        let validated = self.validated_blocks.lock().contains(cid);
+        let validated = self.validated_blocks.get(cid).is_some();
         if validated {
             trace!("Block {cid} was previously validated");
         }
@@ -350,13 +356,11 @@ impl ChainStore {
 
     /// Marks block as validated in the metadata file.
     pub fn mark_block_as_validated(&self, cid: &Cid) {
-        let mut file = self.validated_blocks.lock();
-        file.insert(*cid);
+        self.validated_blocks.insert((*cid).into(), ());
     }
 
     pub fn unmark_block_as_validated(&self, cid: &Cid) {
-        let mut file = self.validated_blocks.lock();
-        let _did_work = file.remove(cid);
+        self.validated_blocks.remove(cid);
     }
 
     /// Retrieves ordered valid messages from a `Tipset`. This will only include
@@ -634,7 +638,7 @@ impl MessagesInTipsetCache {
     /// Reads the intended cache size for this process from the environment or uses the default.
     fn read_cache_size() -> NonZeroUsize {
         // Arbitrary number, can be adjusted
-        const DEFAULT: NonZeroUsize = nonzero!(8192usize);
+        const DEFAULT: NonZeroUsize = nonzero!(1024usize);
         std::env::var("FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE")
             .ok()
             .and_then(|s| s.parse().ok())

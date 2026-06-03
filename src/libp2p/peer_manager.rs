@@ -157,6 +157,7 @@ impl PeerManager {
         let mut peers = self.peers.write();
         // Attempt to remove the peer and decrement bad peer count
         if peers.bad_peers.remove(peer) {
+            peers.bad_peers.shrink_to_fit();
             metrics::BAD_PEERS.set(peers.bad_peers.len() as _);
         };
         let peer_stats = peers.full_peers.entry(*peer).or_default();
@@ -198,6 +199,7 @@ impl PeerManager {
     pub fn unmark_peer_bad(&self, peer_id: &PeerId) {
         let mut peers = self.peers.write();
         if peers.bad_peers.remove(peer_id) {
+            peers.bad_peers.shrink_to_fit();
             metrics::BAD_PEERS.set(peers.bad_peers.len() as _);
         }
     }
@@ -291,6 +293,7 @@ impl PeerManager {
                     }
                 }
             }
+            self.peer_ban_list.write().await.shrink_to_fit();
             tokio::time::sleep(Duration::from_secs(60)).await;
         }
     }
@@ -318,6 +321,7 @@ impl PeerManager {
 
 fn remove_peer(peers: &mut PeerSets, peer_id: &PeerId) {
     if peers.full_peers.remove(peer_id).is_some() {
+        peers.full_peers.shrink_to_fit();
         metrics::FULL_PEERS.set(peers.full_peers.len() as i64);
     }
     trace!(

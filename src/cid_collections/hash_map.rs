@@ -38,12 +38,6 @@ impl<V> CidHashMap<V> {
         let Self { compact, uncompact } = self;
         compact.len() + uncompact.len()
     }
-    /// How many values this map is guaranteed to hold without reallocating.
-    #[allow(dead_code)] // mirror of `total_capacity`, below
-    pub fn capacity_min(&self) -> usize {
-        let Self { compact, uncompact } = self;
-        std::cmp::min(compact.capacity(), uncompact.capacity())
-    }
     /// Reflective of reserved capacity of this map.
     pub fn total_capacity(&self) -> usize {
         let Self { compact, uncompact } = self;
@@ -91,12 +85,10 @@ impl<V> CidHashMap<V> {
             MaybeCompactedCid::Uncompactable(u) => self.uncompact.remove(&u),
         }
     }
-    /// Returns `true` if the map is empty.
-    ///
-    /// See also [`HashMap::is_empty`].
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        self.compact.is_empty() && self.uncompact.is_empty()
+    /// Shrinks the capacity of the internal map as much as possible.
+    pub fn shrink_to_fit(&mut self) {
+        self.compact.shrink_to_fit();
+        self.uncompact.shrink_to_fit();
     }
 }
 
