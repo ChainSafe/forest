@@ -105,6 +105,7 @@ where
                 }
             }
         }
+        self.pending.shrink_to_fit();
         Ok(())
     }
 
