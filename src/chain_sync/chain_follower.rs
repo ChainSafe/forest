@@ -153,11 +153,7 @@ impl ChainFollower {
     pub fn reset(&self) {
         let start = Instant::now();
         self.tasks.lock().clear();
-        self.state_manager
-            .chain_store()
-            .validated_blocks
-            .lock()
-            .clear();
+        self.state_manager.chain_store().validated_blocks.clear();
         self.state_machine.lock().tipsets.clear();
         if let Some(bad_blocks) = &self.bad_blocks {
             bad_blocks.clear();
