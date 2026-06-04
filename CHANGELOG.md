@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7141](https://github.com/ChainSafe/forest/pull/7141): Implemented `Filecoin.MpoolGetConfig` RPC method.
+
 ### Changed
 
 ### Removed
