@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::shim::percent::Percent;
+use std::convert::TryFrom;
 
 impl HasLotusJson for Percent {
     type LotusJson = f64;
@@ -17,12 +18,14 @@ impl HasLotusJson for Percent {
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        let scaled = lotus_json * 100.0;
-        let rounded = scaled.round();
-        if (scaled - rounded).abs() > 1e-6 {
-            panic!("ratio may only have two decimals: {lotus_json}");
-        }
-        Percent(rounded as u64)
+        let scaled = format!("{lotus_json}e2")
+            .parse::<f64>()
+            .expect("unable to parse ratio");
+        assert!(
+            scaled.trunc() == scaled,
+            "ratio may only have two decimals: {lotus_json}"
+        );
+        Percent(u64::try_from(scaled as i64).expect("ratio out of range"))
     }
 }
 
