@@ -952,12 +952,9 @@ mod tests {
         let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 50, 10);
         estimated.gas_premium = floor.clone();
-        let result = auto_compute_replacement_gas(
-            estimated,
-            original_premium,
-            REPLACE_BY_FEE_RATIO_DEFAULT,
-        )
-        .unwrap();
+        let result =
+            auto_compute_replacement_gas(estimated, original_premium, REPLACE_BY_FEE_RATIO_DEFAULT)
+                .unwrap();
         assert_eq!(result.gas_premium, floor);
         assert_eq!(result.gas_fee_cap, floor);
 
@@ -965,12 +962,9 @@ mod tests {
         let original_premium = TokenAmount::from_atto(1_000_000u64);
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 50, 10_000_000_000);
         estimated.gas_premium = TokenAmount::from_atto(50u64);
-        let mut replacement = auto_compute_replacement_gas(
-            estimated,
-            original_premium,
-            REPLACE_BY_FEE_RATIO_DEFAULT,
-        )
-        .unwrap();
+        let mut replacement =
+            auto_compute_replacement_gas(estimated, original_premium, REPLACE_BY_FEE_RATIO_DEFAULT)
+                .unwrap();
         let max_fee = TokenAmount::from_atto(1_000_000u64);
         cap_gas_fee(&max_fee, &mut replacement, None).unwrap();
         let total_fee = replacement.gas_fee_cap.clone() * replacement.gas_limit;
