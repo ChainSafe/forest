@@ -172,6 +172,7 @@ macro_rules! for_each_rpc_method {
         // mpool vertical
         $callback!($crate::rpc::mpool::MpoolBatchPush);
         $callback!($crate::rpc::mpool::MpoolBatchPushUntrusted);
+        $callback!($crate::rpc::mpool::MpoolGetConfig);
         $callback!($crate::rpc::mpool::MpoolGetNonce);
         $callback!($crate::rpc::mpool::MpoolPending);
         $callback!($crate::rpc::mpool::MpoolPush);
