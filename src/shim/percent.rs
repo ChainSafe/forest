@@ -3,8 +3,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Lotus [`types.Percent`](https://github.com/filecoin-project/lotus/blob/master/chain/types/percent.go):
-/// hundredths in memory (`125` = 25% over base).
 #[derive(
     Debug,
     Clone,
@@ -18,4 +16,5 @@ use serde::{Deserialize, Serialize};
     derive_more::From,
 )]
 #[serde(transparent)]
+/// See <https://github.com/filecoin-project/lotus/blob/abe268e4011a7695cd270ee3ae988b63104fb79e/chain/types/percent.go>
 pub struct Percent(pub u64);
