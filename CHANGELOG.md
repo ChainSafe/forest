@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7143](https://github.com/ChainSafe/forest/pull/7143): Fixed a critical memory leak in `quick_cache`.
+
 ## Forest v0.33.5 "Drift"
 
 Non-mandatory release for all node operators. It includes a few bug fixes as well as performance improvements for JSON-RPC calls, especially for batch requests.
