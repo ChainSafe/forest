@@ -490,7 +490,6 @@ impl MpoolCommands {
 
                 let replacement = if auto {
                     let cfg = MpoolGetConfig::call(&client, ()).await?;
-                    let replace_by_fee_ratio = cfg.replace_by_fee_ratio;
 
                     let mut msg_for_estimate = original_msg.clone();
                     // Keep the original gas limit when replacing a pending message.
@@ -508,7 +507,7 @@ impl MpoolCommands {
                     let mut replacement = auto_compute_replacement_gas(
                         estimated_msg,
                         original_msg.gas_premium,
-                        replace_by_fee_ratio,
+                        cfg.replace_by_fee_ratio,
                     )?;
                     cap_gas_fee(
                         &FeeConfig::default().max_fee,
