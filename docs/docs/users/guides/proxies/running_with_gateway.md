@@ -128,7 +128,7 @@ services:
     command:
       - |
         set -euxo pipefail
-        # Perform basic initliazation, including generating the JWT token
+        # Perform basic initialization, including generating the JWT token
         forest --chain ${CHAIN} --no-gc \
           --exit-after-init --save-token /data/forest-token
 
