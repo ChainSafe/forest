@@ -334,7 +334,8 @@ inherits = "release"
 lto = "fat"
 
 # Release-equivalent build with debug symbols retained, for use with
-# samply/perf/flamegraph. Run with: cargo build --profile release-symbols --bin forest
+# samply/perf/flamegraph. Run with: cargo build --profile release-symbols --bin forest.
+# use feature `jemalloc-profiling` to enable jemalloc profiling.
 [profile.release-symbols]
 inherits = "release"
 strip = false
@@ -343,13 +344,18 @@ debug = "line-tables-only"
 # These should be refactored (probably removed) in #2984
 [features]
 default = ["jemalloc", "tracing-loki", "sqlite"]
-test = []                                        # default feature set for unit tests
+test = [] # default feature set for unit tests
 slim = ["rustalloc"]
-cargo-test = []                                  # group of tests that is recommended to run with `cargo test` instead of `nextest`
-doctest-private = []                             # see lib.rs::doctest_private
-benchmark-private = ["dep:criterion"]            # see lib.rs::benchmark_private
-interop-tests-private = []                       # see lib.rs::interop_tests_private
-calibnet-integration = []                        # see tests/calibnet_*.rs (wallet, mpool_tools, etc.)
+cargo-test = [] # group of tests that is recommended to run with `cargo test` instead of `nextest`
+doctest-private = [] # see lib.rs::doctest_private
+benchmark-private = ["dep:criterion"] # see lib.rs::benchmark_private
+interop-tests-private = [] # see lib.rs::interop_tests_private
+calibnet-integration = [] # see tests/calibnet_*.rs (wallet, mpool_tools, etc.)
+jemalloc-profiling = [
+  "jemalloc",
+  "tikv-jemallocator?/profiling",
+  "tikv-jemallocator?/unprefixed_malloc_on_supported_platforms",
+] # enable jemalloc profiling features, use with `release-symbols` build profile for best results
 sqlite = ["dep:sqlx"]
 
 # Allocator. Use at most one of these.
