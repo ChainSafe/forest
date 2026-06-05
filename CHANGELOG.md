@@ -29,6 +29,20 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.33.6 "Ebb"
+
+Non-mandatory release for all node operators. It fixes a critical memory leak in `v0.33.5`. (Earlier releases are not affected)
+
+### Breaking
+
+### Added
+
 - [#7141](https://github.com/ChainSafe/forest/pull/7141): Implemented `Filecoin.MpoolGetConfig` RPC method.
 
 ### Changed
