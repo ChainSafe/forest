@@ -3,7 +3,7 @@
 
 //! Pending message storage and event broadcast.
 
-use ahash::{HashMap, HashMapExt};
+use hashbrown::HashMap;
 use parking_lot::RwLock as SyncRwLock;
 use tokio::sync::broadcast;
 
@@ -43,13 +43,13 @@ impl PendingStore {
     /// Construct an empty store with the given per-actor limits.
     pub(in crate::message_pool) fn new(limits: MsgSetLimits) -> Self {
         let (events, _) = broadcast::channel(MPOOL_UPDATE_CHANNEL_CAPACITY);
-        Self {
-            inner: Arc::new(Inner {
-                pending: SyncRwLock::new(HashMap::new()),
-                events,
-                limits,
-            }),
-        }
+        let inner = Arc::new(Inner {
+            pending: SyncRwLock::new(HashMap::new()),
+            events,
+            limits,
+        });
+        crate::metrics::register_collector(Box::new(InnerMetricsCollector(inner.shallow_clone())));
+        Self { inner }
     }
 
     /// Insert a signed message under its already-resolved sender address.
@@ -109,6 +109,11 @@ impl PendingStore {
         removed
     }
 
+    /// Shrinks the capacity of the internal map as much as possible.
+    pub(in crate::message_pool) fn shrink_to_fit(&self) {
+        self.inner.pending.write().shrink_to_fit();
+    }
+
     /// Deep-clone of the pending map — one read-lock acquisition.
     pub(in crate::message_pool) fn snapshot(&self) -> HashMap<Address, MsgSet> {
         self.inner.pending.read().clone()
@@ -121,9 +126,70 @@ impl PendingStore {
 
     /// Subscribe to the [`MpoolUpdate`] stream. Returned receiver is
     /// independent; dropping it does not affect other subscribers.
-    #[allow(dead_code)] // consumed by MessagePool::subscribe_to_updates / external subscribers.
     pub fn subscribe(&self) -> broadcast::Receiver<MpoolUpdate> {
         self.inner.events.subscribe()
+    }
+}
+
+#[derive(derive_more::Debug, derive_more::Deref)]
+struct InnerMetricsCollector(#[debug(skip)] Arc<Inner>);
+
+mod metrics_collection {
+    use super::*;
+    use prometheus_client::{
+        collector::Collector,
+        encoding::{DescriptorEncoder, EncodeMetric},
+        metrics::gauge::Gauge,
+        registry::Unit,
+    };
+
+    impl Collector for InnerMetricsCollector {
+        fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
+            {
+                let size_in_bytes = {
+                    let g: Gauge = Default::default();
+                    g.set(self.pending.read().allocation_size() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "mpool_pending_size",
+                    "Allocation size of message pool pending messages in bytes",
+                    Some(&Unit::Bytes),
+                    size_in_bytes.metric_type(),
+                )?;
+                size_in_bytes.encode(size_metric_encoder)?;
+            }
+            {
+                let len = {
+                    let g: Gauge = Default::default();
+                    g.set(self.pending.read().len() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "mpool_pending_len",
+                    "Length of the message pool pending messages",
+                    None,
+                    len.metric_type(),
+                )?;
+                len.encode(size_metric_encoder)?;
+            }
+            {
+                let cap = {
+                    let g: Gauge = Default::default();
+                    g.set(self.pending.read().capacity() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "mpool_pending_cap",
+                    "Capacity of the message pool pending messages",
+                    None,
+                    cap.metric_type(),
+                )?;
+                cap.encode(size_metric_encoder)?;
+            }
+
+            Ok(())
+        }
     }
 }
 

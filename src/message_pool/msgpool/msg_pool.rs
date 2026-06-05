@@ -430,7 +430,6 @@ where
 
     /// Subscribe to [`MpoolUpdate`] events for every insertion into and
     /// removal from the pending pool.
-    #[allow(dead_code)] // surfaces the MpoolUpdate API for external subscribers.
     pub fn subscribe_to_updates(&self) -> broadcast::Receiver<MpoolUpdate> {
         self.pending.subscribe()
     }
@@ -456,6 +455,10 @@ where
 
     pub fn gas_limit_overestimation(&self) -> f64 {
         self.config.gas_limit_overestimation
+    }
+
+    pub fn config(&self) -> MpoolConfig {
+        (*self.config).clone()
     }
 }
 

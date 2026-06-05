@@ -19,10 +19,6 @@ use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::prelude::*;
-use crate::rpc::eth::{
-    Block as EthBlock, EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders,
-    types::EthFilterSpec,
-};
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
@@ -51,7 +47,6 @@ use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
 };
-use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
@@ -73,79 +68,6 @@ pub const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
 
 static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
     LazyLock::new(|| Mutex::new(None));
-
-/// Subscribes to head changes from the chain store and broadcasts new blocks.
-///
-/// # Notes
-///
-/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
-/// allowing manual cleanup if needed.
-pub(crate) fn new_heads(data: Ctx) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
-
-    let mut head_changes_rx = data.chain_store().subscribe_head_changes();
-
-    let handle = tokio::spawn(async move {
-        while let Ok(changes) = head_changes_rx.recv().await {
-            for ts in changes.applies {
-                // Convert the tipset to an Ethereum block with full transaction info
-                // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
-                match EthBlock::from_filecoin_tipset(&data.state_manager, ts, TxInfo::Full).await {
-                    Ok(block) => {
-                        if let Err(e) = sender.send(ApiHeaders(block)) {
-                            tracing::error!("Failed to send headers: {}", e);
-                            return;
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to convert tipset to eth block: {}", e);
-                    }
-                }
-            }
-        }
-    });
-
-    (receiver, handle)
-}
-
-/// Subscribes to head changes from the chain store and broadcasts new `Ethereum` logs.
-///
-/// # Notes
-///
-/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
-/// allowing manual cleanup if needed.
-pub(crate) fn logs(
-    ctx: &Ctx,
-    filter: Option<EthFilterSpec>,
-) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
-
-    let mut head_changes_rx = ctx.chain_store().subscribe_head_changes();
-
-    let ctx = ctx.clone();
-
-    let handle = tokio::spawn(async move {
-        while let Ok(changes) = head_changes_rx.recv().await {
-            for ts in changes.applies {
-                match eth_logs_with_filter(&ctx, &ts, filter.clone()).await {
-                    Ok(logs) => {
-                        if !logs.is_empty()
-                            && let Err(e) = sender.send(logs)
-                        {
-                            tracing::error!("Failed to send logs for tipset {}: {}", ts.key(), e);
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
-                    }
-                }
-            }
-        }
-    });
-
-    (receiver, handle)
-}
 
 pub enum ChainGetFinalizedTipset {}
 impl RpcMethod<0> for ChainGetFinalizedTipset {

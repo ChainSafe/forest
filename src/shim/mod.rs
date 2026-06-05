@@ -16,6 +16,7 @@ pub mod gas;
 pub mod kernel;
 pub mod machine;
 pub mod message;
+pub mod percent;
 pub mod piece;
 pub mod policy;
 pub mod randomness;

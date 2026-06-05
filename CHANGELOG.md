@@ -27,11 +27,45 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.33.6 "Ebb"
+
+Non-mandatory release for all node operators. It fixes a critical memory leak in `v0.33.5`. (Earlier releases are not affected)
+
+### Breaking
+
+### Added
+
+- [#7141](https://github.com/ChainSafe/forest/pull/7141): Implemented `Filecoin.MpoolGetConfig` RPC method.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#7143](https://github.com/ChainSafe/forest/pull/7143): Fixed a critical memory leak in `quick_cache`.
+
+## Forest v0.33.5 "Drift"
+
+Non-mandatory release for all node operators. It includes a few bug fixes as well as performance improvements for JSON-RPC calls, especially for batch requests.
+
+### Breaking
+
 - [#7073](https://github.com/ChainSafe/forest/pull/7073) and [#7077](https://github.com/ChainSafe/forest/pull/7077): Replaced the underlying cache engine across the node. The eviction policy is no longer strict LRU — it is now CLOCK-PRO via [`quick_cache`](https://crates.io/crates/quick_cache), which is scan-resistant and typically gives higher hit rates on chain workloads. Refactored internal cache metrics to include `hits` and `misses` for all automatically. The old metrics `lru_cache_hit_total` and `lru_cache_miss_total` are deprecated in favor of `cache_{name}_hits` and `cache_{name}_misses`. Details can be found in https://forest-docs.pages.dev/reference/metrics
 
 - [#7116](https://github.com/ChainSafe/forest/pull/7116): Disable state computation for Ethereum RPC methods by default. It could be explictly enabled by setting environment variable `FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS=1`
 
 ### Added
+
+- [#6031](https://github.com/ChainSafe/forest/issues/6031): The `eth_subscribe` RPC method now supports the `pendingTransactions` subscription.
 
 - [#6012](https://github.com/ChainSafe/forest/issues/6012): Stricter validation of address arguments in `forest-wallet` subcommands.
 
@@ -52,6 +86,8 @@
 ### Fixed
 
 - [#7018](https://github.com/ChainSafe/forest/issues/7018): Fixed `forest-wallet set-default` failing when the keystore has no `default` entry.
+
+- [#6941](https://github.com/ChainSafe/forest/pull/6941): The `eth_subscribe` `logs` subscription now emits one log object per notification instead of one array of logs per tipset.
 
 ## Forest v0.33.4 "Stray"
 

@@ -153,7 +153,7 @@ impl ChainRand {
 
 impl Rand for ChainRand {
     fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        // Inspect and log errors as this is only called in `FVM` and errors are not propogated to the caller
+        // Inspect and log errors as this is only called in `FVM` and errors are not propagated to the caller
         self.get_chain_randomness_v2(round).inspect_err(|e| {
             tracing::warn!(
                 "get_chain_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
@@ -164,7 +164,7 @@ impl Rand for ChainRand {
     }
 
     fn get_beacon_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        // Inspect and log errors as this is only called in `FVM` and errors are not propogated to the caller
+        // Inspect and log errors as this is only called in `FVM` and errors are not propagated to the caller
         self.get_beacon_randomness_v3(round).inspect_err(|e| {
             tracing::warn!(
                 "get_beacon_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",

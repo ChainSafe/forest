@@ -252,9 +252,11 @@ impl BitswapRequestManager {
         // Cleanup
         {
             let mut response_channels = self.response_channels.write();
-            response_channels.remove(&cid);
-            metrics::response_channel_container_capacity()
-                .set(response_channels.total_capacity() as _);
+            if response_channels.remove(&cid).is_some() {
+                response_channels.shrink_to_fit();
+                metrics::response_channel_container_capacity()
+                    .set(response_channels.total_capacity() as _);
+            }
         }
 
         success
@@ -313,6 +315,7 @@ impl BitswapRequestManager {
         let mut peers = self.peers.write();
         let success = peers.remove(peer);
         if success {
+            peers.shrink_to_fit();
             metrics::peer_container_capacity().set(peers.capacity() as _);
         }
         success

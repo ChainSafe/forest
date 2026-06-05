@@ -4,6 +4,7 @@ use crate::eth::EVMMethod;
 use crate::message::SignedMessage;
 use crate::networks::calibnet::ETH_CHAIN_ID;
 use crate::rpc::eth::EthUint64;
+use crate::rpc::eth::pubsub_trait::SubscriptionKind;
 use crate::rpc::eth::types::*;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{self, RpcMethod, prelude::*};
@@ -172,12 +173,30 @@ pub(super) async fn run_tests(
     Ok(())
 }
 
+/// A client-side WebSocket stream to the node's JSON-RPC endpoint.
+type EthSubStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// Open a WebSocket to the node's JSON-RPC endpoint (`/rpc/v1`).
+/// Returns the live stream.
+async fn connect_ws(client: &rpc::Client) -> anyhow::Result<EthSubStream> {
+    let mut url = client.base_url().clone();
+    let ws_scheme = match url.scheme() {
+        "http" => "ws",
+        "https" => "wss",
+        scheme => anyhow::bail!("unsupported RPC URL scheme: {scheme}"),
+    };
+    url.set_scheme(ws_scheme)
+        .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
+    url.set_path("/rpc/v1");
+    let (ws_stream, _) = connect_async(url.as_str()).await?;
+    Ok(ws_stream)
+}
+
 #[allow(unreachable_code)]
 async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     async fn close_channel(
-        stream: &mut tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
+        stream: &mut EthSubStream,
         id: &serde_json::Value,
     ) -> anyhow::Result<()> {
         let request = json!({
@@ -195,13 +214,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
         Ok(())
     }
 
-    let mut url = client.base_url().clone();
-    url.set_scheme("ws")
-        .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
-    url.set_path("/rpc/v1");
-
-    // Note: The token is not required for the ChainNotify method.
-    let (mut ws_stream, _) = connect_async(url.as_str()).await?;
+    let mut ws_stream = connect_ws(client).await?;
 
     let request = json!({
         "jsonrpc": "2.0",
@@ -357,6 +370,267 @@ async fn invoke_contract(client: &rpc::Client, tx: &TestTransaction) -> anyhow::
     client.call(MpoolPush::request((smsg,))?).await?;
 
     Ok(cid)
+}
+
+/// Open a WebSocket and start an `eth_subscribe` subscription of the given
+/// `kind`, with optional `filter` params (used by `logs`). Returns the live
+/// stream and the assigned subscription id.
+async fn open_eth_subscription(
+    client: &rpc::Client,
+    kind: SubscriptionKind,
+    filter: Option<serde_json::Value>,
+) -> anyhow::Result<(EthSubStream, serde_json::Value)> {
+    let mut ws_stream = connect_ws(client).await?;
+
+    let mut params = vec![serde_json::to_value(kind)?];
+    params.extend(filter);
+    let request = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_subscribe",
+        "params": params,
+    });
+    ws_stream
+        .send(WsMessage::Text(request.to_string().into()))
+        .await
+        .context("failed to send eth_subscribe request")?;
+
+    // The acknowledgement carries the subscription id in `result`.
+    let subscription_id = loop {
+        let msg = match tokio::time::timeout(Duration::from_secs(30), ws_stream.next()).await {
+            Ok(Some(msg)) => msg,
+            Ok(None) => anyhow::bail!("WebSocket stream closed before eth_subscribe ack"),
+            Err(_) => anyhow::bail!("timeout waiting for eth_subscribe ack"),
+        };
+        match msg {
+            Ok(WsMessage::Text(text)) => {
+                let json: serde_json::Value = serde_json::from_str(&text)?;
+                if let Some(error) = json.get("error") {
+                    anyhow::bail!("eth_subscribe failed: {error}");
+                }
+                if let Some(result) = json.get("result") {
+                    break result.clone();
+                }
+            }
+            Err(..) | Ok(WsMessage::Close(..)) => {
+                anyhow::bail!("WebSocket closed before eth_subscribe ack")
+            }
+            _ => {}
+        }
+    };
+
+    Ok((ws_stream, subscription_id))
+}
+
+/// Wait for the next `eth_subscription` notification on `subscription_id` and
+/// return its `result` payload.
+async fn next_subscription_payload(
+    ws_stream: &mut EthSubStream,
+    subscription_id: &serde_json::Value,
+    timeout: Duration,
+) -> anyhow::Result<serde_json::Value> {
+    loop {
+        let msg = match tokio::time::timeout(timeout, ws_stream.next()).await {
+            Ok(Some(msg)) => msg,
+            Ok(None) => anyhow::bail!("WebSocket stream closed"),
+            Err(_) => anyhow::bail!("timeout waiting for subscription notification"),
+        };
+        match msg {
+            Ok(WsMessage::Text(text)) => {
+                let json: serde_json::Value = serde_json::from_str(&text)?;
+                if json.get("method").and_then(|m| m.as_str()) != Some("eth_subscription") {
+                    continue;
+                }
+                let params = json
+                    .get("params")
+                    .context("subscription notification missing params")?;
+                anyhow::ensure!(
+                    params.get("subscription") == Some(subscription_id),
+                    "subscription id mismatch in notification"
+                );
+                return params
+                    .get("result")
+                    .cloned()
+                    .context("subscription notification missing result");
+            }
+            Err(..) | Ok(WsMessage::Close(..)) => anyhow::bail!("WebSocket closed unexpectedly"),
+            _ => {}
+        }
+    }
+}
+
+/// Cancel the subscription and close the WebSocket. Best-effort: the node also
+/// drops the subscription when the socket closes.
+async fn close_eth_subscription(
+    ws_stream: &mut EthSubStream,
+    subscription_id: &serde_json::Value,
+) -> anyhow::Result<()> {
+    let request = json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "eth_unsubscribe",
+        "params": [subscription_id],
+    });
+    ws_stream
+        .send(WsMessage::Text(request.to_string().into()))
+        .await
+        .context("failed to send eth_unsubscribe request")?;
+    ws_stream.close(None).await?;
+    Ok(())
+}
+
+fn eth_subscribe_new_heads() -> RpcTestScenario {
+    RpcTestScenario::basic(|client| async move {
+        // Remember the chain head before subscribing so we can prove the head we
+        // receive is real, advancing — not stale or random data.
+        let start = client.call(EthBlockNumber::request(())?).await?;
+
+        let (mut ws_stream, subscription_id) =
+            open_eth_subscription(&client, SubscriptionKind::NewHeads, None).await?;
+
+        // A new head is published once per tipset (~30s on calibnet).
+        let payload =
+            next_subscription_payload(&mut ws_stream, &subscription_id, Duration::from_secs(180))
+                .await;
+
+        let _ = close_eth_subscription(&mut ws_stream, &subscription_id).await;
+        let payload = payload?;
+
+        // `newHeads` must yield a block-header object
+        anyhow::ensure!(
+            payload.is_object(),
+            "newHeads must yield a block-header object, got: {payload}"
+        );
+        let header: ApiHeaders = serde_json::from_value(payload)
+            .context("newHeads payload is not a valid Eth block header")?;
+
+        // Identity: the header's number must be at or beyond the head seen at
+        // subscription time, proving it's a genuine fresh head.
+        anyhow::ensure!(
+            header.0.number.0 >= start.0 as i64,
+            "newHeads number {} precedes the head {} seen at subscription time",
+            header.0.number.0,
+            start.0
+        );
+        Ok(())
+    })
+}
+
+fn eth_subscribe_pending_transactions(tx: TestTransaction) -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| {
+        let tx = tx.clone();
+        async move {
+            let (mut ws_stream, subscription_id) =
+                open_eth_subscription(&client, SubscriptionKind::PendingTransactions, None).await?;
+
+            // The subscription is active, so the pending tx we push now is observable.
+            let cid = invoke_contract(&client, &tx).await?;
+            let tx_hash = client
+                .call(EthGetTransactionHashByCid::request((cid,))?)
+                .await?
+                .context("no Eth transaction hash for CID")?;
+
+            // Watch pending-tx hashes until `our` transaction shows up.
+            let watch = async {
+                loop {
+                    let payload = next_subscription_payload(
+                        &mut ws_stream,
+                        &subscription_id,
+                        Duration::from_secs(120),
+                    )
+                    .await?;
+                    // a pending tx is a single hash string.
+                    anyhow::ensure!(
+                        payload.is_string(),
+                        "pendingTransactions must yield a tx-hash string, got: {payload}"
+                    );
+                    let hash: EthHash = serde_json::from_value(payload)
+                        .context("pendingTransactions payload is not an Eth hash")?;
+                    // received hash must be `our` transaction hash.
+                    if hash.eq(&tx_hash) {
+                        break;
+                    }
+                }
+                anyhow::Ok(())
+            };
+            let outcome = tokio::time::timeout(Duration::from_secs(120), watch)
+                .await
+                .unwrap_or_else(|_| {
+                    Err(anyhow::anyhow!(
+                        "timed out waiting for our pendingTransactions notification"
+                    ))
+                });
+
+            let _ = close_eth_subscription(&mut ws_stream, &subscription_id).await;
+            outcome
+        }
+    })
+}
+
+/// Minimal typed view of an `EthLog` for the fields the log test asserts on.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LogView {
+    topics: Vec<EthHash>,
+    transaction_hash: EthHash,
+}
+
+fn eth_subscribe_logs(tx: TestTransaction) -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| {
+        let tx = tx.clone();
+        async move {
+            let filter = json!({
+                "address": [],
+                "topics": [tx.topic.to_string()],
+            });
+            let (mut ws_stream, subscription_id) =
+                open_eth_subscription(&client, SubscriptionKind::Logs, Some(filter)).await?;
+
+            // Emit the event on-chain and remember the exact tx that produced it,
+            // so we can confirm the log we receive is `ours`
+            let cid = invoke_contract(&client, &tx).await?;
+            let tx_hash = client
+                .call(EthGetTransactionHashByCid::request((cid,))?)
+                .await?
+                .context("no Eth transaction hash for CID")?;
+
+            // Logs are delivered when the tipset holding the event is applied,
+            // which can take a few epochs (~30s each) on calibnet
+            let watch = async {
+                loop {
+                    let payload = next_subscription_payload(
+                        &mut ws_stream,
+                        &subscription_id,
+                        Duration::from_secs(300),
+                    )
+                    .await?;
+                    // A logs notification is a single log object (one per log,
+                    // matching geth/reth/Lotus) — not an array.
+                    anyhow::ensure!(
+                        payload.is_object(),
+                        "logs must yield a single log object, got: {payload}"
+                    );
+                    let log: LogView = serde_json::from_value(payload)
+                        .context("logs payload is not an Eth log")?;
+                    // Identity: the log must carry our event topic and `our` tx hash.
+                    if log.transaction_hash == tx_hash && log.topics.contains(&tx.topic) {
+                        break;
+                    }
+                }
+                anyhow::Ok(())
+            };
+            let outcome = tokio::time::timeout(Duration::from_secs(300), watch)
+                .await
+                .unwrap_or_else(|_| {
+                    Err(anyhow::anyhow!(
+                        "timed out waiting for our logs notification"
+                    ))
+                });
+
+            let _ = close_eth_subscription(&mut ws_stream, &subscription_id).await;
+            outcome
+        }
+    })
 }
 
 fn create_eth_new_filter_test() -> RpcTestScenario {
@@ -671,6 +945,24 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
             EthNewFilter,
             EthGetFilterLogs,
             EthUninstallFilter
+        ),
+        with_methods!(
+            eth_subscribe_new_heads().name("eth_subscribe newHeads works"),
+            EthSubscribe,
+            EthUnsubscribe
+        ),
+        with_methods!(
+            eth_subscribe_pending_transactions(tx.clone())
+                .name("eth_subscribe pendingTransactions works"),
+            EthSubscribe,
+            EthUnsubscribe,
+            EthGetTransactionHashByCid
+        ),
+        with_methods!(
+            eth_subscribe_logs(tx.clone()).name("eth_subscribe logs works"),
+            EthSubscribe,
+            EthUnsubscribe,
+            EthGetTransactionHashByCid
         ),
     ]
 }
