@@ -20,7 +20,9 @@ pub use events::MpoolUpdate;
 
 pub(in crate::message_pool) use utils::recover_sig;
 
-const REPLACE_BY_FEE_RATIO_MIN: u64 = 110;
+use crate::shim::percent::Percent;
+
+const REPLACE_BY_FEE_RATIO_MIN: Percent = Percent(110);
 const RBF_DENOM: u64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const MIN_GAS: u64 = 1298450;

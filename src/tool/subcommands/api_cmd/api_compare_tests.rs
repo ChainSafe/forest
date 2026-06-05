@@ -663,6 +663,7 @@ fn auth_tests() -> anyhow::Result<Vec<RpcTest>> {
 
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
+        RpcTest::identity(MpoolGetConfig::request(()).unwrap()),
         RpcTest::identity(MpoolGetNonce::request((*KNOWN_CALIBNET_ADDRESS,)).unwrap()),
         // This should cause an error with `actor not found` in both Lotus and Forest. The messages
         // are quite different, so we don't do strict equality check.

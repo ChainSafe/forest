@@ -196,6 +196,7 @@ decl_and_test!(
     block_header for crate::blocks::CachingBlockHeader,
     cid for ::cid::Cid,
     duration for std::time::Duration,
+    percent for crate::shim::percent::Percent,
     election_proof for crate::blocks::ElectionProof,
     extended_sector_info for crate::shim::sector::ExtendedSectorInfo,
     gossip_block for crate::blocks::GossipBlock,
