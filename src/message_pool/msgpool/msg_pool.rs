@@ -456,6 +456,10 @@ where
     pub fn gas_limit_overestimation(&self) -> f64 {
         self.config.gas_limit_overestimation
     }
+
+    pub fn config(&self) -> MpoolConfig {
+        (*self.config).clone()
+    }
 }
 
 impl<T> MessagePool<T>
