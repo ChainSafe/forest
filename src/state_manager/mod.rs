@@ -6,7 +6,7 @@ mod tests;
 
 mod actor_queries;
 mod address_resolution;
-mod cache;
+pub mod cache;
 pub mod chain_rand;
 pub mod circulating_supply;
 mod errors;
@@ -20,18 +20,18 @@ pub mod utils;
 pub use self::errors::*;
 pub use self::state_computation::{apply_block_messages, validate_tipsets};
 use crate::beacon::BeaconSchedule;
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
     ChainStore,
     index::{ChainIndex, ResolveNullTipset},
 };
 use crate::db::DbImpl;
 use crate::interpreter::MessageCallbackCtx;
-use crate::interpreter::resolve_to_key_addr;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::ChainMessage;
 use crate::networks::ChainConfig;
 use crate::prelude::*;
+use crate::rpc::state::ApiInvocResult;
 use crate::rpc::types::SectorOnChainInfo;
 use crate::shim::actors::init::{self, State};
 use crate::shim::actors::*;
@@ -48,8 +48,8 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
-use crate::state_manager::cache::TipsetStateCache;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::state_manager::cache::ForestCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::get_size::{GetSize, vec_heap_size_helper};
 use anyhow::Context as _;
 use chain_rand::ChainRand;
@@ -61,8 +61,9 @@ use tracing::warn;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
+const DEFAULT_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(16usize); // maximum ~70MiB on mainnet
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
-pub type IdToAddressCache = SizeTrackingLruCache<AddressId, Address>;
+pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
 
 /// Result of executing an individual chain message in a tipset.
 ///
@@ -167,7 +168,9 @@ pub struct StateManager {
     /// Chain store
     cs: ChainStore,
     /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
-    cache: TipsetStateCache<ExecutedTipset>,
+    cache: ForestCache<TipsetKey, ExecutedTipset>,
+    /// This is a cache which indexes tipsets to their traces.
+    trace_cache: ForestCache<TipsetKey, (CidWrapper, Vec<Arc<ApiInvocResult>>)>,
     id_to_deterministic_address_cache: IdToAddressCache,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
@@ -178,6 +181,7 @@ impl ShallowClone for StateManager {
         Self {
             cs: self.cs.shallow_clone(),
             cache: self.cache.shallow_clone(),
+            trace_cache: self.trace_cache.shallow_clone(),
             id_to_deterministic_address_cache: self
                 .id_to_deterministic_address_cache
                 .shallow_clone(),
@@ -209,11 +213,12 @@ impl StateManager {
 
         Ok(Self {
             cs,
-            cache: TipsetStateCache::new("executed_tipset"), // For StateOutput
+            cache: ForestCache::new("tipset_state_executed_tipset"), // For StateOutput
+            trace_cache: ForestCache::with_size("tipset_trace", DEFAULT_TRACE_CACHE_SIZE),
             beacon,
             engine,
-            id_to_deterministic_address_cache: SizeTrackingLruCache::new_with_metrics(
-                "id_to_deterministic_address".into(),
+            id_to_deterministic_address_cache: SizeTrackingCache::new_with_metrics(
+                "id_to_deterministic_address",
                 DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE,
             ),
         })
@@ -382,7 +387,7 @@ impl StateManager {
         let state = StateTree::new_from_root(self.db(), &state_cid).map_err(Error::other)?;
         let ms: miner::State = state.get_actor_state_from_address(addr)?;
         let info = ms.info(self.db()).map_err(|e| e.to_string())?;
-        let addr = resolve_to_key_addr(&state, self.db(), &info.worker())?;
+        let addr = state.resolve_to_deterministic_address(self.db(), info.worker())?;
         Ok(addr)
     }
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas::estimate_message_gas;
-use crate::lotus_json::NotNullVec;
+use crate::lotus_json::{LotusJson, NotNullVec, lotus_json_with_self};
 use crate::message::SignedMessage;
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
@@ -10,10 +10,62 @@ use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::{
     address::{Address, Protocol},
     message::Message,
+    percent::Percent,
 };
 use ahash::{HashSet, HashSetExt as _};
 use cid::Cid;
 use enumflags2::BitFlags;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiMpoolConfig {
+    #[schemars(with = "LotusJson<Vec<Address>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub priority_addrs: Vec<Address>,
+    pub size_limit_high: i64,
+    pub size_limit_low: i64,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Percent>")]
+    pub replace_by_fee_ratio: Percent,
+    #[schemars(with = "LotusJson<Duration>")]
+    #[serde(with = "crate::lotus_json")]
+    pub prune_cooldown: Duration,
+    pub gas_limit_overestimation: f64,
+}
+
+lotus_json_with_self!(ApiMpoolConfig);
+
+/// Returns a copy of the current mpool config.
+pub enum MpoolGetConfig {}
+impl RpcMethod<0> for MpoolGetConfig {
+    const NAME: &'static str = "Filecoin.MpoolGetConfig";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns a copy of the current mpool config.");
+
+    type Params = ();
+    type Ok = ApiMpoolConfig;
+
+    async fn handle(
+        ctx: Ctx,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let cfg = ctx.mpool.config();
+        Ok(ApiMpoolConfig {
+            priority_addrs: cfg.priority_addrs,
+            size_limit_high: cfg.size_limit_high,
+            size_limit_low: cfg.size_limit_low,
+            replace_by_fee_ratio: cfg.replace_by_fee_ratio,
+            prune_cooldown: cfg.prune_cooldown,
+            gas_limit_overestimation: cfg.gas_limit_overestimation,
+        })
+    }
+}
 
 /// Gets next nonce for the specified sender.
 pub enum MpoolGetNonce {}
@@ -250,7 +302,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
             .state_manager
-            .resolve_to_key_addr(&from, &heaviest_tipset)
+            .resolve_to_deterministic_address(from, &heaviest_tipset)
             .await?;
 
         if message.sequence != 0 {

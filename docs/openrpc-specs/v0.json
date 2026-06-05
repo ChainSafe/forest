@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.33.4"
+    "version": "0.33.5"
   },
   "methods": [
     {
@@ -2498,6 +2498,19 @@
           "items": {
             "$ref": "#/components/schemas/Cid"
           }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.MpoolGetConfig",
+      "description": "Returns a copy of the current mpool config.",
+      "params": [],
+      "result": {
+        "name": "Filecoin.MpoolGetConfig.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/ApiMpoolConfig"
         }
       },
       "paramStructure": "by-position"
@@ -5797,6 +5810,28 @@
       "paramStructure": "by-position"
     },
     {
+      "name": "Forest.BaseFeeByHeight",
+      "description": "Returns the calculated upcoming base fee of the tipset at the given height in attoFIL",
+      "params": [
+        {
+          "name": "height",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "result": {
+        "name": "Forest.BaseFeeByHeight.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBigInt"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
       "name": "Forest.ChainExport",
       "params": [
         {
@@ -7816,6 +7851,40 @@
         "required": [
           "Cid",
           "Message"
+        ]
+      },
+      "ApiMpoolConfig": {
+        "type": "object",
+        "properties": {
+          "GasLimitOverestimation": {
+            "type": "number",
+            "format": "double"
+          },
+          "PriorityAddrs": {
+            "$ref": "#/components/schemas/Nullable_Array_of_Address"
+          },
+          "PruneCooldown": {
+            "$ref": "#/components/schemas/uint64"
+          },
+          "ReplaceByFeeRatio": {
+            "$ref": "#/components/schemas/double"
+          },
+          "SizeLimitHigh": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "SizeLimitLow": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "PriorityAddrs",
+          "SizeLimitHigh",
+          "SizeLimitLow",
+          "ReplaceByFeeRatio",
+          "PruneCooldown",
+          "GasLimitOverestimation"
         ]
       },
       "ApiReceipt": {
@@ -11997,9 +12066,18 @@
           }
         ]
       },
+      "double": {
+        "type": "number",
+        "format": "double"
+      },
       "int64": {
         "type": "integer",
         "format": "int64"
+      },
+      "uint64": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0
       }
     }
   }

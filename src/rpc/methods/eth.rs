@@ -54,11 +54,11 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::{ExecutedMessage, ExecutedTipset, TipsetState, VMFlush};
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, TipsetState, VMFlush};
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::get_size::{CidWrapper, big_int_heap_size_helper};
+use crate::utils::get_size::big_int_heap_size_helper;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
@@ -474,98 +474,128 @@ impl Block {
     ///
     /// Reference: <https://github.com/filecoin-project/lotus/blob/941455f1d23e73b9ee92a1a4ce745d8848969858/node/impl/eth/utils.go#L44>
     pub async fn from_filecoin_tipset(
-        ctx: Ctx,
+        state_manager: &StateManager,
         tipset: crate::blocks::Tipset,
         tx_info: TxInfo,
-    ) -> Result<Self> {
-        static ETH_BLOCK_CACHE: LazyLock<SizeTrackingLruCache<CidWrapper, Block>> =
+    ) -> Result<Arc<Self>> {
+        static ETH_BLOCK_HASH_TX_CACHE: LazyLock<SizeTrackingCache<CidWrapper, Arc<Block>>> =
             LazyLock::new(|| {
-                const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(500usize);
-                let cache_size = std::env::var("FOREST_ETH_BLOCK_CACHE_SIZE")
-                    .ok()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(DEFAULT_CACHE_SIZE);
-                SizeTrackingLruCache::new_with_metrics("eth_block".into(), cache_size)
+                SizeTrackingCache::new_with_metrics("eth_block_hash_tx", Block::block_cache_size())
+            });
+
+        match tx_info {
+            TxInfo::Full => Self::from_filecoin_tipset_with_full_tx(state_manager, tipset).await,
+            TxInfo::Hash => {
+                let block_cid = tipset.key().cid()?;
+                ETH_BLOCK_HASH_TX_CACHE
+                    .get_or_insert_async(&CidWrapper::from(block_cid), async move {
+                        let block_with_full_tx =
+                            Self::from_filecoin_tipset_with_full_tx(state_manager, tipset).await?;
+                        Ok(Arc::new(
+                            Arc::unwrap_or_clone(block_with_full_tx)
+                                .downcast_full_transaction_to_hash(),
+                        ))
+                    })
+                    .await
+            }
+        }
+    }
+
+    async fn from_filecoin_tipset_with_full_tx(
+        state_manager: &StateManager,
+        tipset: crate::blocks::Tipset,
+    ) -> Result<Arc<Self>> {
+        static ETH_BLOCK_FULL_TX_CACHE: LazyLock<SizeTrackingCache<CidWrapper, Arc<Block>>> =
+            LazyLock::new(|| {
+                SizeTrackingCache::new_with_metrics("eth_block_full_tx", Block::block_cache_size())
             });
 
         let block_cid = tipset.key().cid()?;
-        let mut block = if let Some(b) = ETH_BLOCK_CACHE.get_cloned(&block_cid.into()) {
-            b
-        } else {
-            let parent_cid = tipset.parents().cid()?;
-            let block_number = EthInt64(tipset.epoch());
-            let block_hash: EthHash = block_cid.into();
+        ETH_BLOCK_FULL_TX_CACHE
+            .get_or_insert_async(&CidWrapper::from(block_cid), async move {
+                let parent_cid = tipset.parents().cid()?;
+                let block_number = EthInt64(tipset.epoch());
+                let block_hash: EthHash = block_cid.into();
 
-            let ExecutedTipset {
-                state_root,
-                executed_messages,
-                ..
-            } = ctx.state_manager.load_executed_tipset(&tipset).await?;
-            let has_transactions = !executed_messages.is_empty();
-            let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
+                let ExecutedTipset {
+                    state_root,
+                    executed_messages,
+                    ..
+                } = state_manager.load_executed_tipset_for_rpc(&tipset).await?;
+                let has_transactions = !executed_messages.is_empty();
+                let state_tree = state_manager.get_state_tree(&state_root)?;
 
-            let mut full_transactions = vec![];
-            let mut gas_used = 0;
-            for (
-                i,
-                ExecutedMessage {
-                    message, receipt, ..
-                },
-            ) in executed_messages.iter().enumerate()
-            {
-                let ti = EthUint64(i as u64);
-                gas_used += receipt.gas_used();
-                let mut tx = match message {
-                    ChainMessage::Signed(smsg) => new_eth_tx_from_signed_message(
-                        smsg,
-                        &state_tree,
-                        ctx.chain_config().eth_chain_id,
-                    )?,
-                    ChainMessage::Unsigned(msg) => {
-                        let tx = eth_tx_from_native_message(
-                            msg,
+                let mut full_transactions = vec![];
+                let mut gas_used = 0;
+                for (
+                    i,
+                    ExecutedMessage {
+                        message, receipt, ..
+                    },
+                ) in executed_messages.iter().enumerate()
+                {
+                    let ti = EthUint64(i as u64);
+                    gas_used += receipt.gas_used();
+                    let mut tx = match message {
+                        ChainMessage::Signed(smsg) => new_eth_tx_from_signed_message(
+                            smsg,
                             &state_tree,
-                            ctx.chain_config().eth_chain_id,
-                        )?;
-                        ApiEthTx {
-                            hash: msg.cid().into(),
-                            ..tx
+                            state_manager.chain_config().eth_chain_id,
+                        )?,
+                        ChainMessage::Unsigned(msg) => {
+                            let tx = eth_tx_from_native_message(
+                                msg,
+                                &state_tree,
+                                state_manager.chain_config().eth_chain_id,
+                            )?;
+                            ApiEthTx {
+                                hash: msg.cid().into(),
+                                ..tx
+                            }
                         }
-                    }
-                };
-                tx.block_hash = block_hash;
-                tx.block_number = block_number;
-                tx.transaction_index = ti;
-                full_transactions.push(tx);
-            }
+                    };
+                    tx.block_hash = block_hash;
+                    tx.block_number = block_number;
+                    tx.transaction_index = ti;
+                    full_transactions.push(tx);
+                }
 
-            let b = Block {
-                hash: block_hash,
-                number: block_number,
-                parent_hash: parent_cid.into(),
-                timestamp: EthUint64(tipset.block_headers().first().timestamp),
-                base_fee_per_gas: tipset
-                    .block_headers()
-                    .first()
-                    .parent_base_fee
-                    .clone()
-                    .into(),
-                gas_used: EthUint64(gas_used),
-                transactions: Transactions::Full(full_transactions),
-                ..Block::new(has_transactions, tipset.len())
-            };
-            ETH_BLOCK_CACHE.push(block_cid.into(), b.clone());
-            b
-        };
+                Ok(Arc::new(Block {
+                    hash: block_hash,
+                    number: block_number,
+                    parent_hash: parent_cid.into(),
+                    timestamp: EthUint64(tipset.block_headers().first().timestamp),
+                    base_fee_per_gas: tipset
+                        .block_headers()
+                        .first()
+                        .parent_base_fee
+                        .clone()
+                        .into(),
+                    gas_used: EthUint64(gas_used),
+                    transactions: Transactions::Full(full_transactions),
+                    ..Block::new(has_transactions, tipset.len())
+                }))
+            })
+            .await
+    }
 
-        if tx_info == TxInfo::Hash
-            && let Transactions::Full(transactions) = &block.transactions
-        {
-            block.transactions =
+    fn block_cache_size() -> NonZeroUsize {
+        const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(500usize);
+        static CACHE_SIZE: std::sync::LazyLock<NonZeroUsize> = std::sync::LazyLock::new(|| {
+            std::env::var("FOREST_ETH_BLOCK_CACHE_SIZE")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(DEFAULT_CACHE_SIZE)
+        });
+        *CACHE_SIZE
+    }
+
+    fn downcast_full_transaction_to_hash(mut self) -> Self {
+        if let Transactions::Full(transactions) = &self.transactions {
+            self.transactions =
                 Transactions::Hash(transactions.iter().map(|tx| tx.hash.to_string()).collect())
         }
-
-        Ok(block)
+        self
     }
 }
 
@@ -805,6 +835,23 @@ impl RpcMethod<0> for EthAccounts {
 }
 
 pub enum EthBaseFee {}
+
+impl EthBaseFee {
+    fn get_base_fee(ctx: &Ctx, ts: &Tipset) -> anyhow::Result<TokenAmount> {
+        let heights = &ctx.chain_config().height_infos;
+        let smoke_height = heights
+            .get(&Height::Smoke)
+            .context("Missing Smoke height")?
+            .epoch;
+        let firehorse_height = heights
+            .get(&Height::FireHorse)
+            .context("Missing FireHorse height")?
+            .epoch;
+        compute_base_fee(ctx.db(), ts, smoke_height, firehorse_height)
+            .context("failed to compute base fee for eth_baseFee")
+    }
+}
+
 impl RpcMethod<0> for EthBaseFee {
     const NAME: &'static str = "Filecoin.EthBaseFee";
     const NAME_ALIAS: Option<&'static str> = Some("eth_baseFee");
@@ -822,18 +869,36 @@ impl RpcMethod<0> for EthBaseFee {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store().heaviest_tipset();
-        let heights = &ctx.chain_config().height_infos;
-        let smoke_height = heights
-            .get(&Height::Smoke)
-            .context("Missing Smoke height")?
-            .epoch;
-        let firehorse_height = heights
-            .get(&Height::FireHorse)
-            .context("Missing FireHorse height")?
-            .epoch;
-        let base_fee = compute_base_fee(ctx.db(), &ts, smoke_height, firehorse_height)
-            .context("failed to compute base fee for eth_baseFee")?;
+        let base_fee = Self::get_base_fee(&ctx, &ctx.chain_store().heaviest_tipset())?;
+        Ok(EthBigInt(base_fee.atto().clone()))
+    }
+}
+
+pub enum BaseFeeByHeight {}
+impl RpcMethod<1> for BaseFeeByHeight {
+    const NAME: &'static str = "Forest.BaseFeeByHeight";
+    const NAME_ALIAS: Option<&'static str> = None;
+    const PARAM_NAMES: [&'static str; 1] = ["height"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the calculated upcoming base fee of the tipset at the given height in attoFIL",
+    );
+
+    type Params = (ChainEpoch,);
+    type Ok = EthBigInt;
+
+    async fn handle(
+        ctx: Ctx,
+        (height,): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_index().load_required_tipset_by_height(
+            height,
+            ctx.chain_store().heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        )?;
+        let base_fee = EthBaseFee::get_base_fee(&ctx, &ts)?;
         Ok(EthBigInt(base_fee.atto().clone()))
     }
 }
@@ -1345,7 +1410,7 @@ pub async fn eth_logs_for_block_and_transaction(
     );
     let mut events = vec![];
     EthEventHandler::collect_events(
-        ctx,
+        &ctx.state_manager,
         ts,
         Some(&parsed_filter),
         SkipEvent::OnUnresolvedAddress,
@@ -1362,7 +1427,7 @@ pub async fn eth_logs_with_filter(
 ) -> anyhow::Result<Vec<EthLog>> {
     let mut events = vec![];
     EthEventHandler::collect_events(
-        ctx,
+        &ctx.state_manager,
         ts,
         spec.as_ref(),
         SkipEvent::OnUnresolvedAddress,
@@ -1396,7 +1461,7 @@ impl RpcMethod<2> for EthGetBlockByHash {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash, bool);
-    type Ok = Block;
+    type Ok = Arc<Block>;
 
     async fn handle(
         ctx: Ctx,
@@ -1407,7 +1472,7 @@ impl RpcMethod<2> for EthGetBlockByHash {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_hash, ResolveNullTipset::TakeOlder)
             .await?;
-        Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
+        Block::from_filecoin_tipset(&ctx.state_manager, ts, full_tx_info.into())
             .await
             .map_err(ServerError::from)
     }
@@ -1424,7 +1489,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         Some("Retrieves a block by its number or a special tag.");
 
     type Params = (BlockNumberOrPredefined, bool);
-    type Ok = Block;
+    type Ok = Arc<Block>;
 
     async fn handle(
         ctx: Ctx,
@@ -1435,7 +1500,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        Block::from_filecoin_tipset(ctx, ts, full_tx_info.into())
+        Block::from_filecoin_tipset(&ctx.state_manager, ts, full_tx_info.into())
             .await
             .map_err(ServerError::from)
     }
@@ -1463,7 +1528,10 @@ async fn get_block_receipts(
         state_root,
         executed_messages,
         ..
-    } = ctx.state_manager.load_executed_tipset(&ts_ref).await?;
+    } = ctx
+        .state_manager
+        .load_executed_tipset_for_rpc(&ts_ref)
+        .await?;
 
     // Load the state tree
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
@@ -1770,7 +1838,7 @@ async fn eth_estimate_gas(
                 err = e.into();
             }
 
-            Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
+            Err(anyhow::anyhow!("failed to estimate gas: {}", err.message()).into())
         }
         Ok(gassed_msg) => {
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
@@ -1784,6 +1852,18 @@ async fn apply_message(
     tipset: Option<Tipset>,
     msg: Message,
 ) -> Result<ApiInvocResult, Error> {
+    if let Some(ts) = &tipset
+        && ts.epoch() > 0
+    {
+        let parent = ctx.chain_index().load_required_tipset(ts.parents())?;
+        if ctx
+            .chain_config()
+            .has_expensive_fork_between(parent.epoch(), ts.epoch() + 1)
+        {
+            return Err(crate::state_manager::Error::ExpensiveFork.into());
+        }
+    }
+
     let (invoc_res, _) = ctx
         .state_manager
         .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
@@ -1830,7 +1910,7 @@ pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> any
         )
     }) {
         let ret = gas_search(data, &msg, &prior_messages, ts).await?;
-        Ok(((ret as f64) * data.mpool.config.gas_limit_overestimation) as u64)
+        Ok(((ret as f64) * data.mpool.gas_limit_overestimation()) as u64)
     } else {
         anyhow::bail!(
             "message execution failed: exit {}, reason: {}",
@@ -1955,7 +2035,7 @@ async fn eth_fee_history(
         let base_fee = &ts.block_headers().first().parent_base_fee;
         let ExecutedTipset {
             executed_messages, ..
-        } = ctx.state_manager.load_executed_tipset(&ts).await?;
+        } = ctx.state_manager.load_executed_tipset_for_rpc(&ts).await?;
         let mut tx_gas_rewards = Vec::with_capacity(executed_messages.len());
         for ExecutedMessage {
             message, receipt, ..
@@ -2520,6 +2600,34 @@ async fn get_eth_transaction_by_hash(
 }
 
 pub enum EthGetTransactionHashByCid {}
+
+impl EthGetTransactionHashByCid {
+    fn run(db: &DbImpl, eth_chain_id: EthChainIdType, cid: Cid) -> anyhow::Result<Option<EthHash>> {
+        let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
+            crate::chain::messages_from_cids(db, &[cid]);
+        if let Ok(smsgs) = smsgs_result
+            && let Some(smsg) = smsgs.first()
+        {
+            let hash = if smsg.is_delegated() {
+                let (_, tx) = eth_tx_from_signed_eth_message(smsg, eth_chain_id)?;
+                tx.eth_hash()?.into()
+            } else if smsg.is_secp256k1() {
+                smsg.cid().into()
+            } else {
+                smsg.message().cid().into()
+            };
+            return Ok(Some(hash));
+        }
+
+        let msg_result = crate::chain::get_chain_message(db, &cid);
+        if let Ok(msg) = msg_result {
+            return Ok(Some(msg.cid().into()));
+        }
+
+        Ok(None)
+    }
+}
+
 impl RpcMethod<1> for EthGetTransactionHashByCid {
     const NAME: &'static str = "Filecoin.EthGetTransactionHashByCid";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionHashByCid");
@@ -2535,29 +2643,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
         (cid,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
-            crate::chain::messages_from_cids(ctx.db(), &[cid]);
-        if let Ok(smsgs) = smsgs_result
-            && let Some(smsg) = smsgs.first()
-        {
-            let hash = if smsg.is_delegated() {
-                let chain_id = ctx.chain_config().eth_chain_id;
-                let (_, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
-                tx.eth_hash()?.into()
-            } else if smsg.is_secp256k1() {
-                smsg.cid().into()
-            } else {
-                smsg.message().cid().into()
-            };
-            return Ok(Some(hash));
-        }
-
-        let msg_result = crate::chain::get_chain_message(ctx.db(), &cid);
-        if let Ok(msg) = msg_result {
-            return Ok(Some(msg.cid().into()));
-        }
-
-        Ok(None)
+        Ok(Self::run(ctx.db(), ctx.chain_config().eth_chain_id, cid)?)
     }
 }
 
@@ -3026,7 +3112,7 @@ fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)
     Some((data, topics))
 }
 
-fn eth_tx_hash_from_signed_message(
+pub(crate) fn eth_tx_hash_from_signed_message(
     message: &SignedMessage,
     eth_chain_id: EthChainIdType,
 ) -> anyhow::Result<EthHash> {
@@ -3194,17 +3280,18 @@ impl RpcMethod<1> for EthGetLogs {
         (eth_filter,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let pf = ctx
-            .eth_event_handler
-            .parse_eth_filter_spec(&ctx, &eth_filter)
-            .map_err(|e| {
-                if e.downcast_ref::<EthErrors>()
-                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::BlockRangeExceeded { .. }))
-                {
-                    return e;
-                }
-                e.context("failed to parse events for filter")
-            })?;
+        let pf = Arc::new(
+            ctx.eth_event_handler
+                .parse_eth_filter_spec(&ctx, &eth_filter)
+                .map_err(|e| {
+                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
+                        matches!(eth_err, EthErrors::BlockRangeExceeded { .. })
+                    }) {
+                        return e;
+                    }
+                    e.context("failed to parse events for filter")
+                })?,
+        );
         let events = ctx
             .eth_event_handler
             .get_events_for_parsed_filter(&ctx, &pf, SkipEvent::OnUnresolvedAddress)
@@ -3237,7 +3324,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &event_filter.into(),
+                        &Arc::new(event_filter.into()),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3288,7 +3375,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &event_filter.into(),
+                        &Arc::new(event_filter.into()),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3313,7 +3400,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                        &Arc::new(ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
                             // heaviest tipset doesn't have events because its messages haven't been executed yet
                             RangeInclusive::new(
                                 tipset_filter
@@ -3322,7 +3409,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                                 // Use -1 to indicate that the range extends until the latest available tipset.
                                 -1,
                             ),
-                        )),
+                        ))),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3345,7 +3432,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .eth_event_handler
                     .get_events_for_parsed_filter(
                         &ctx,
-                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                        &Arc::new(ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
                             // heaviest tipset doesn't have events because its messages haven't been executed yet
                             RangeInclusive::new(
                                 mempool_filter
@@ -3354,7 +3441,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                                 // Use -1 to indicate that the range extends until the latest available tipset.
                                 -1,
                             ),
-                        )),
+                        ))),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
@@ -3398,7 +3485,7 @@ impl RpcMethod<1> for EthTraceBlock {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        eth_trace_block(&ctx, &ts, ext).await
+        eth_trace_block(&ctx, &ts).await
     }
 }
 
@@ -3406,29 +3493,39 @@ impl RpcMethod<1> for EthTraceBlock {
 async fn execute_tipset_traces(
     ctx: &Ctx,
     ts: &Tipset,
-    ext: &http::Extensions,
 ) -> Result<(StateTree<DbImpl>, Vec<trace::TipsetTraceEntry>), ServerError> {
-    let (state_root, raw_traces) = {
-        let sm = ctx.state_manager.shallow_clone();
-        let ts = ts.shallow_clone();
-        tokio::task::spawn_blocking(move || sm.execution_trace(&ts))
-            .await
-            .context("execution_trace task panicked")??
-    };
-
+    let (state_root, raw_traces) = ctx.state_manager.execution_trace(ts).await?;
     let state = ctx.state_manager.get_state_tree(&state_root)?;
 
-    let mut entries = Vec::new();
-    for (msg_idx, ir) in non_system_traces_with_positions(raw_traces) {
-        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,), ext).await?;
-        let tx_hash = tx_hash
-            .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
-        entries.push(trace::TipsetTraceEntry {
-            tx_hash,
-            msg_position: msg_idx,
-            invoc_result: ir,
+    // Resolve every non-system message's tx hash in parallel. Each lookup is
+    // an independent DB read; running them sequentially adds O(N) IO
+    // latency to every trace_block response.
+    let raw = non_system_traces_with_positions(raw_traces).collect_vec();
+    let mut entries: Vec<trace::TipsetTraceEntry> = Vec::with_capacity(raw.len());
+    let mut join_set = tokio::task::JoinSet::new();
+    let db = ctx.db();
+    let eth_chain_id = ctx.chain_config().eth_chain_id;
+    for (msg_position, invoc_result) in raw {
+        let db = db.shallow_clone();
+        join_set.spawn_blocking(move || {
+            let tx_hash = EthGetTransactionHashByCid::run(&db, eth_chain_id, invoc_result.msg_cid)?
+                .with_context(|| {
+                    format!(
+                        "cannot find transaction hash for cid {}",
+                        invoc_result.msg_cid
+                    )
+                })?;
+            anyhow::Ok(trace::TipsetTraceEntry {
+                tx_hash,
+                msg_position,
+                invoc_result,
+            })
         });
     }
+    while let Some(joined) = join_set.join_next().await {
+        entries.push(joined.context("trace tx-hash task panicked")??);
+    }
+    entries.sort_by_key(|e| e.msg_position);
 
     Ok((state, entries))
 }
@@ -3437,8 +3534,8 @@ async fn execute_tipset_traces(
 /// `transactionIndex` from `eth_getBlockByNumber`. System-actor messages
 /// are filtered out without consuming a position.
 fn non_system_traces_with_positions(
-    raw_traces: impl IntoIterator<Item = ApiInvocResult>,
-) -> impl Iterator<Item = (i64, ApiInvocResult)> {
+    raw_traces: impl IntoIterator<Item = Arc<ApiInvocResult>>,
+) -> impl Iterator<Item = (i64, Arc<ApiInvocResult>)> {
     raw_traces
         .into_iter()
         .filter(|ir| ir.msg.from != system::ADDRESS.into())
@@ -3446,12 +3543,8 @@ fn non_system_traces_with_positions(
         .map(|(idx, ir)| (idx as i64, ir))
 }
 
-async fn eth_trace_block(
-    ctx: &Ctx,
-    ts: &Tipset,
-    ext: &http::Extensions,
-) -> Result<Vec<EthBlockTrace>, ServerError> {
-    let (state, entries) = execute_tipset_traces(ctx, ts, ext).await?;
+async fn eth_trace_block(ctx: &Ctx, ts: &Tipset) -> Result<Vec<EthBlockTrace>, ServerError> {
+    let (state, entries) = execute_tipset_traces(ctx, ts).await?;
     let block_hash: EthHash = ts.key().cid()?.into();
     let mut all_traces = vec![];
 
@@ -3489,13 +3582,12 @@ impl RpcMethod<2> for EthDebugTraceTransaction {
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let opts = opts.unwrap_or_default();
-        debug_trace_transaction(ctx, ext, Self::api_path(ext)?, tx_hash, opts).await
+        debug_trace_transaction(ctx, Self::api_path(ext)?, tx_hash, opts).await
     }
 }
 
 async fn debug_trace_transaction(
     ctx: Ctx,
-    ext: &http::Extensions,
     api_path: ApiPaths,
     tx_hash: String,
     opts: GethDebugTracingOptions,
@@ -3575,7 +3667,7 @@ async fn debug_trace_transaction(
         return Ok(GethTrace::PreState(frame));
     }
 
-    let (state, entries) = execute_tipset_traces(&ctx, &ts, ext).await?;
+    let (state, entries) = execute_tipset_traces(&ctx, &ts).await?;
     let entry = entries
         .into_iter()
         .find(|e| e.tx_hash == eth_hash)
@@ -3584,6 +3676,7 @@ async fn debug_trace_transaction(
     let execution_trace = entry
         .invoc_result
         .execution_trace
+        .clone()
         .context("no execution trace for transaction")?;
 
     let mut env = trace::base_environment(&state, &entry.invoc_result.msg.from).map_err(|e| {
@@ -3777,7 +3870,7 @@ impl RpcMethod<1> for EthTraceTransaction {
             .tipset_by_block_number_or_hash(eth_txn.block_number, ResolveNullTipset::TakeOlder)
             .await?;
 
-        let traces = eth_trace_block(&ctx, &ts, ext)
+        let traces = eth_trace_block(&ctx, &ts)
             .await?
             .into_iter()
             .filter(|trace| trace.transaction_hash == eth_hash)
@@ -3818,16 +3911,15 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
 
-        eth_trace_replay_block_transactions(&ctx, &ts, ext).await
+        eth_trace_replay_block_transactions(&ctx, &ts).await
     }
 }
 
 async fn eth_trace_replay_block_transactions(
     ctx: &Ctx,
     ts: &Tipset,
-    ext: &http::Extensions,
 ) -> Result<Vec<EthReplayBlockTransactionTrace>, ServerError> {
-    let (state, entries) = execute_tipset_traces(ctx, ts, ext).await?;
+    let (state, entries) = execute_tipset_traces(ctx, ts).await?;
 
     let mut all_traces = vec![];
     for entry in entries {
@@ -4008,7 +4100,7 @@ mod test {
         use crate::shim::address::Address as ShimAddress;
         use crate::shim::message::Message_v3;
 
-        let invoc_with_from = |from: ShimAddress| -> ApiInvocResult {
+        let invoc_with_from = |from: ShimAddress| -> Arc<ApiInvocResult> {
             ApiInvocResult {
                 msg: Message_v3 {
                     to: ShimAddress::new_id(1).into(),
@@ -4018,6 +4110,7 @@ mod test {
                 .into(),
                 ..Default::default()
             }
+            .into()
         };
 
         let raw_traces = vec![

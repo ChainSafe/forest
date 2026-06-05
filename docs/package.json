@@ -27,7 +27,7 @@
     "@docusaurus/theme-mermaid": "^3.10.1",
     "@easyops-cn/docusaurus-search-local": "^0.55.1",
     "mdx-mermaid": "^2.0.3",
-    "mermaid": "^11.14.0",
+    "mermaid": "^11.15.0",
     "prettier": "^3.8.3",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.2.6",
@@ -39,9 +39,9 @@
     "@docusaurus/tsconfig": "^3.10.1",
     "@docusaurus/types": "^3.10.1",
     "@types/node": "^25.6.0",
-    "@types/react": "^19.2.14",
+    "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
-    "tsx": "^4.21.0",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   },
   "browserslist": {

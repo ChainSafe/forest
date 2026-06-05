@@ -119,6 +119,9 @@ impl ComputeCommand {
             "epoch: {epoch}, state_root: {state_root}, receipt_root: {receipt_root}, db_snapshot_size: {}",
             db_snapshot.len().human_count_bytes()
         );
+        if let Some(export_db_to) = export_db_to {
+            std::fs::write(export_db_to, db_snapshot)?;
+        }
         let expected_state_root = *ts_next.parent_state();
         let expected_receipt_root = *ts_next.parent_message_receipts();
         anyhow::ensure!(
@@ -129,9 +132,6 @@ impl ComputeCommand {
             receipt_root == expected_receipt_root,
             "receipt root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
         );
-        if let Some(export_db_to) = export_db_to {
-            std::fs::write(export_db_to, db_snapshot)?;
-        }
         Ok(())
     }
 }
@@ -274,5 +274,6 @@ impl ReplayValidateCommand {
 fn disable_tipset_cache() {
     unsafe {
         std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1");
+        std::env::set_var("FOREST_TIPSET_LOOKUP_TABLE_DISABLED", "1");
     }
 }

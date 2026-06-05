@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.33.4"
+version = "0.33.6"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -23,7 +23,7 @@ anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.12"
 futures = "0.3"
-get-size2 = { version = "0.8", features = ["derive", "bytes", "hashbrown"] }
+get-size2 = { version = "0.9", features = ["derive", "bytes", "hashbrown"] }
 hashlink = "0.11"
 libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
@@ -183,6 +183,7 @@ prometheus-client = "0.23"
 puruspe = "0.4"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.3"
+quick_cache = { version = "0.6", features = ["stats"] }
 rand = "0.8"
 rand_chacha = "0.3"
 rand_distr = "0.4"
@@ -217,7 +218,7 @@ stacker = "0.1"
 static_assertions = "1"
 statrs = "0.18"
 strum = { version = "0.28", features = ["derive", "strum_macros"] }
-tabled = { version = "0.20", default-features = false, features = ["std"] }
+tabled = { version = "0.21", default-features = false, features = ["std"] }
 tap = "1"
 tar = "0.4"
 tempfile = "3"
@@ -242,8 +243,8 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
-sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
-tikv-jemallocator = { version = "0.6", optional = true }
+sqlx = { version = "0.9", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
+tikv-jemallocator = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -351,6 +352,7 @@ cargo-test = []                                  # group of tests that is recomm
 doctest-private = []                             # see lib.rs::doctest_private
 benchmark-private = ["dep:criterion"]            # see lib.rs::benchmark_private
 interop-tests-private = []                       # see lib.rs::interop_tests_private
+calibnet-integration = []                        # see tests/calibnet_*.rs (wallet, mpool_tools, etc.)
 sqlite = ["dep:sqlx"]
 
 # Allocator. Use at most one of these.
@@ -377,6 +379,16 @@ required-features = ["benchmark-private"]
 name = "tipset-validation"
 harness = false
 required-features = ["benchmark-private"]
+
+[[test]]
+name = "mpool_tools"
+path = "tests/calibnet_mpool_tools.rs"
+required-features = ["calibnet-integration"]
+
+[[test]]
+name = "wallet"
+path = "tests/calibnet_wallet.rs"
+required-features = ["calibnet-integration"]
 
 [package.metadata.docs.rs]
 # See https://docs.rs/about/metadata

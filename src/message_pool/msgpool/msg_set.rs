@@ -11,8 +11,8 @@ use ahash::{HashMap, HashMapExt};
 use crate::message::{MessageRead, SignedMessage};
 use crate::message_pool::errors::Error;
 use crate::message_pool::metrics;
-use crate::message_pool::msgpool::{RBF_DENOM, RBF_NUM, TrustPolicy};
-use crate::shim::econ::TokenAmount;
+use crate::message_pool::msg_pool::TrustPolicy;
+use crate::message_pool::msgpool::utils::compute_rbf_min_premium;
 
 /// Maximum allowed nonce gap for trusted message inserts under [`StrictnessPolicy::Strict`].
 pub(in crate::message_pool) const MAX_NONCE_GAP: u64 = 4;
@@ -115,10 +115,8 @@ impl MsgSet {
             }
             if m.cid() != exms.cid() {
                 let premium = &exms.message().gas_premium;
-                let min_price = premium.clone()
-                    + ((premium * RBF_NUM).div_floor(RBF_DENOM))
-                    + TokenAmount::from_atto(1u8);
-                if m.message().gas_premium <= min_price {
+                let min_price = compute_rbf_min_premium(premium);
+                if m.message().gas_premium < min_price {
                     return Err(Error::GasPriceTooLow);
                 }
             } else {

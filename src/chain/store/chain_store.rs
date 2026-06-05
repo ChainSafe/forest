@@ -8,7 +8,10 @@ use super::{
 };
 use crate::networks::{ChainConfig, Height};
 use crate::prelude::*;
-use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
+use crate::rpc::{
+    chain::ChainGetTipSetFinalityStatus,
+    eth::{eth_tx_from_signed_eth_message, types::EthHash},
+};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{executor::Receipt, message::Message, version::NetworkVersion};
 use crate::state_manager::ExecutedTipset;
@@ -19,23 +22,29 @@ use crate::{
     message::{ChainMessage, SignedMessage},
 };
 use crate::{db::EthMappingsStoreExt, rpc::chain::PathChange};
-use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
+use crate::{fil_cns, utils::cache::SizeTrackingCache};
 use crate::{
     interpreter::{BlockMessages, VMTrace},
     rpc::chain::PathChanges,
 };
-use ahash::{HashMap, HashSet};
+use ahash::HashMap;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_encoding::CborStore;
 use nonzero_ext::nonzero;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use serde::{Serialize, de::DeserializeOwned};
-use std::num::NonZeroUsize;
+use std::{
+    num::NonZeroUsize,
+    sync::atomic::{self, AtomicI64},
+};
 use tokio::sync::broadcast;
 use tracing::{debug, error, trace, warn};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
+
+// Assume a tipset has 5 blocks on average, we cache 1-day-worth of validated blocks. (5 * 2 * 60 * 24 = 14400)
+const VALIDATED_BLOCKS_CACHE_SIZE: NonZeroUsize = nonzero!(14400usize);
 
 /// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
 /// while maintaining the same type.
@@ -60,6 +69,9 @@ pub struct ChainStore {
     /// F3 finalized tipset cache
     f3_finalized_tipset: Arc<RwLock<Option<Tipset>>>,
 
+    /// EC calculator finalized epoch cache
+    ec_calculator_finalized_epoch: Arc<AtomicI64>,
+
     /// Used as a cache for tipset `lookbacks`.
     chain_index: ChainIndex,
 
@@ -69,7 +81,7 @@ pub struct ChainStore {
     genesis_block_header: Arc<CachingBlockHeader>,
 
     /// validated blocks
-    pub(crate) validated_blocks: Arc<Mutex<HashSet<Cid>>>,
+    pub(crate) validated_blocks: SizeTrackingCache<CidWrapper, ()>,
 
     /// Needed by the Ethereum mapping.
     chain_config: Arc<ChainConfig>,
@@ -84,6 +96,7 @@ impl ShallowClone for ChainStore {
             head_changes_tx: self.head_changes_tx.clone(),
             heaviest_tipset: self.heaviest_tipset.shallow_clone(),
             f3_finalized_tipset: self.f3_finalized_tipset.shallow_clone(),
+            ec_calculator_finalized_epoch: self.ec_calculator_finalized_epoch.shallow_clone(),
             chain_index: self.chain_index.shallow_clone(),
             tipset_tracker: self.tipset_tracker.shallow_clone(),
             genesis_block_header: self.genesis_block_header.shallow_clone(),
@@ -111,35 +124,40 @@ impl ChainStore {
         } else {
             Tipset::from(&genesis_block_header)
         };
-        let heaviest_tipset = Arc::new(RwLock::new(head));
+        let heaviest_tipset = Arc::new(RwLock::new(head.shallow_clone()));
         let f3_finalized_tipset: Arc<RwLock<Option<Tipset>>> = Default::default();
-        let chain_index = ChainIndex::new(db.shallow_clone()).with_is_tipset_finalized(Arc::new({
-            let chain_finality = chain_config.policy.chain_finality;
-            let heaviest_tipset = heaviest_tipset.clone();
-            let f3_finalized_tipset = f3_finalized_tipset.clone();
+        let chain_index = ChainIndex::new(db.shallow_clone());
+        let ec_calculator_finalized_epoch = Arc::new(AtomicI64::new(
+            ChainGetTipSetFinalityStatus::get_ec_finality_epoch(&chain_index, &chain_config, &head),
+        ));
+        let chain_index = chain_index.with_is_tipset_finalized(Arc::new({
+            let f3_finalized_tipset = f3_finalized_tipset.shallow_clone();
+            let ec_calculator_finalized_epoch = ec_calculator_finalized_epoch.shallow_clone();
             move |ts| {
                 let finalized = f3_finalized_tipset
                     .read()
                     .as_ref()
                     .map(|ts| ts.epoch())
                     .unwrap_or_default()
-                    .max(heaviest_tipset.read().epoch() - chain_finality);
+                    .max(ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire));
                 ts.epoch() <= finalized
             }
         }));
-        let cs = Self {
+        Ok(Self {
             head_changes_tx: publisher,
             chain_index,
             tipset_tracker: TipsetTracker::new(db, chain_config.clone()),
             heaviest_tipset,
             f3_finalized_tipset,
+            ec_calculator_finalized_epoch,
             genesis_block_header: genesis_block_header.into(),
-            validated_blocks: Default::default(),
+            validated_blocks: SizeTrackingCache::new_with_metrics(
+                "validated_blocks",
+                VALIDATED_BLOCKS_CACHE_SIZE,
+            ),
             chain_config,
             messages_in_tipset_cache: Default::default(),
-        };
-
-        Ok(cs)
+        })
     }
 
     /// Sets F3 finalized tipset
@@ -152,6 +170,12 @@ impl ChainStore {
         self.f3_finalized_tipset.read().clone()
     }
 
+    /// Gets the EC calculator finalized epoch
+    pub fn ec_calculator_finalized_epoch(&self) -> ChainEpoch {
+        self.ec_calculator_finalized_epoch
+            .load(atomic::Ordering::Acquire)
+    }
+
     /// Cache for messages in tipsets, keyed by tipset key.
     pub fn messages_in_tipset_cache(&self) -> &MessagesInTipsetCache {
         &self.messages_in_tipset_cache
@@ -161,8 +185,15 @@ impl ChainStore {
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
         head.key().save(self.db())?;
         self.db().set_heaviest_tipset_key(head.key())?;
-        let old_head = std::mem::replace(&mut *self.heaviest_tipset.write(), head.clone());
-
+        let old_head = std::mem::replace(&mut *self.heaviest_tipset.write(), head.shallow_clone());
+        self.ec_calculator_finalized_epoch.store(
+            ChainGetTipSetFinalityStatus::get_ec_finality_epoch(
+                self.chain_index(),
+                self.chain_config(),
+                &head,
+            ),
+            atomic::Ordering::Release,
+        );
         if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
             {
@@ -316,7 +347,7 @@ impl ChainStore {
 
     /// Checks metadata file if block has already been validated.
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
-        let validated = self.validated_blocks.lock().contains(cid);
+        let validated = self.validated_blocks.get(cid).is_some();
         if validated {
             trace!("Block {cid} was previously validated");
         }
@@ -325,13 +356,11 @@ impl ChainStore {
 
     /// Marks block as validated in the metadata file.
     pub fn mark_block_as_validated(&self, cid: &Cid) {
-        let mut file = self.validated_blocks.lock();
-        file.insert(*cid);
+        self.validated_blocks.insert((*cid).into(), ());
     }
 
     pub fn unmark_block_as_validated(&self, cid: &Cid) {
-        let mut file = self.validated_blocks.lock();
-        let _did_work = file.remove(cid);
+        self.validated_blocks.remove(cid);
     }
 
     /// Retrieves ordered valid messages from a `Tipset`. This will only include
@@ -341,7 +370,13 @@ impl ChainStore {
             .messages_in_tipset_cache()
             .get_or_insert_with(ts.key(), || {
                 let bmsgs = BlockMessages::for_tipset(self.db(), ts)?;
-                Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect_vec())
+                anyhow::Ok(
+                    bmsgs
+                        .into_iter()
+                        .flat_map(|bm| bm.messages)
+                        .collect_vec()
+                        .into(),
+                )
             })?)
     }
 
@@ -589,41 +624,15 @@ where
 /// on performance measurements, is resource-intensive and can be a bottleneck for certain
 /// use-cases. This cache is intended to be used with a complementary function;
 /// [`messages_for_tipset_with_cache`].
-pub struct MessagesInTipsetCache {
-    cache: SizeTrackingLruCache<TipsetKey, Arc<Vec<ChainMessage>>>,
-}
+#[derive(derive_more::Deref)]
+pub struct MessagesInTipsetCache(SizeTrackingCache<TipsetKey, Arc<Vec<ChainMessage>>>);
 
 impl MessagesInTipsetCache {
     pub fn new(capacity: NonZeroUsize) -> Self {
-        Self {
-            cache: SizeTrackingLruCache::new_with_metrics("msg_in_tipset".into(), capacity),
-        }
-    }
-
-    pub fn get(&self, key: &TipsetKey) -> Option<Arc<Vec<ChainMessage>>> {
-        self.cache.get_cloned(key)
-    }
-
-    pub fn get_or_insert_with<F>(
-        &self,
-        key: &TipsetKey,
-        f: F,
-    ) -> anyhow::Result<Arc<Vec<ChainMessage>>>
-    where
-        F: FnOnce() -> anyhow::Result<Vec<ChainMessage>>,
-    {
-        if let Some(cached) = self.get(key) {
-            Ok(cached)
-        } else {
-            Ok(self.insert(key.clone(), f()?))
-        }
-    }
-
-    pub fn insert(&self, key: TipsetKey, mut value: Vec<ChainMessage>) -> Arc<Vec<ChainMessage>> {
-        value.shrink_to_fit();
-        let value = Arc::new(value);
-        self.cache.push(key, value.clone());
-        value
+        Self(SizeTrackingCache::new_with_metrics(
+            "msg_in_tipset",
+            capacity,
+        ))
     }
 
     /// Reads the intended cache size for this process from the environment or uses the default.
@@ -645,9 +654,7 @@ impl Default for MessagesInTipsetCache {
 
 impl ShallowClone for MessagesInTipsetCache {
     fn shallow_clone(&self) -> Self {
-        Self {
-            cache: self.cache.shallow_clone(),
-        }
+        Self(self.deref().shallow_clone())
     }
 }
 
@@ -736,20 +743,20 @@ mod tests {
         )]);
         assert!(cache.get(&key1).is_none());
 
-        let msgs = vec![Message::default().into()];
+        let msgs = Arc::new(vec![Message::default().into()]);
         cache.insert(key1.clone(), msgs.clone());
-        assert_eq!(&msgs, &*cache.get(&key1).unwrap());
+        assert_eq!(&msgs, &cache.get(&key1).unwrap());
 
         let inserter_executed: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
         let key_inserter = || {
             inserter_executed.store(true, std::sync::atomic::Ordering::Relaxed);
-            Ok(msgs.clone())
+            anyhow::Ok(msgs.clone())
         };
 
         assert_eq!(
             &msgs,
-            &*cache.get_or_insert_with(&key1, key_inserter).unwrap()
+            &cache.get_or_insert_with(&key1, key_inserter).unwrap()
         );
         assert!(!inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
 
@@ -761,7 +768,7 @@ mod tests {
         assert!(cache.get(&key2).is_none());
         assert_eq!(
             &msgs,
-            &*cache.get_or_insert_with(&key2, key_inserter).unwrap()
+            &cache.get_or_insert_with(&key2, key_inserter).unwrap()
         );
         assert!(inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
     }

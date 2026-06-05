@@ -223,7 +223,7 @@ impl GasEstimateGasLimit {
         let curr_ts = data.chain_store().load_required_tipset_or_heaviest(tsk)?;
         let from_a = data
             .state_manager
-            .resolve_to_key_addr(&msg.from, &curr_ts)
+            .resolve_to_deterministic_address(msg.from, &curr_ts)
             .await?;
 
         let pending = data.mpool.pending_for(&from_a);
@@ -312,7 +312,7 @@ pub async fn estimate_message_gas(
 ) -> Result<Message, ServerError> {
     if msg.gas_limit == 0 {
         let gl = GasEstimateGasLimit::estimate_gas_limit(data, msg.clone(), &tsk).await?;
-        let gl = gl as f64 * data.mpool.config.gas_limit_overestimation;
+        let gl = gl as f64 * data.mpool.gas_limit_overestimation();
         msg.set_gas_limit((gl as u64).min(BLOCK_GAS_LIMIT));
     }
     if msg.gas_premium.is_zero() {
@@ -331,7 +331,7 @@ pub async fn estimate_message_gas(
 
 /// Caps the gas fee to ensure it doesn't exceed the maximum allowed fee.
 /// Returns an error if the msg `gas_limit` is zero
-fn cap_gas_fee(
+pub(crate) fn cap_gas_fee(
     default_max_fee: &TokenAmount,
     msg: &mut Message,
     msg_spec: Option<MessageSendSpec>,

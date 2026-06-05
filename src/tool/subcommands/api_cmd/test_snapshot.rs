@@ -112,7 +112,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
                 let result = <$ty>::handle(ctx.clone(), params, &ext)
                     .await
                     .map(|r| r.into_lotus_json())
-                    .map_err(|e| e.inner().to_string());
+                    .map_err(|e| e.deref().to_string());
                 let expected = match expected_response.clone() {
                     Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
                     Err(e) => Err(e),
@@ -144,13 +144,21 @@ async fn ctx(
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = ChainStore::new(db, chain_config, genesis_header.clone())?;
     let state_manager = StateManager::new(chain_store.shallow_clone()).unwrap();
+    let mut services: JoinSet<anyhow::Result<()>> = JoinSet::new();
     let message_pool = MessagePool::new(
         chain_store,
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
-        &mut JoinSet::new(),
+        &mut services,
     )?;
+    // The mpool services are not needed in this snapshot test context; abort
+    // them right away so they don't compete with the test for runtime time
+    // (the inherited `&mut JoinSet::new()` pattern was a temporary that
+    // dropped — same end state). The detached drain still polls the aborted
+    // set so any pre-abort error or panic is surfaced rather than dropped.
+    services.abort_all();
+    tokio::spawn(drain_mpool_services(services));
 
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
@@ -174,6 +182,21 @@ async fn ctx(
         temp_dir: Arc::new(std::env::temp_dir()),
     });
     Ok((rpc_state, network_rx, shutdown_recv))
+}
+
+/// Drains a `MessagePool` service [`JoinSet`] to completion, logging any
+/// errors or panics it produces. Intended to be used with `tokio::spawn` from
+/// test-utility `ctx()` helpers so that service-task errors are surfaced
+/// instead of being silently dropped when the `JoinSet` is dropped.
+pub(super) async fn drain_mpool_services(mut services: JoinSet<anyhow::Result<()>>) {
+    while let Some(result) = services.join_next().await {
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => tracing::warn!("message pool service task error: {e:#}"),
+            Err(je) if je.is_cancelled() => {}
+            Err(je) => tracing::warn!("message pool service task panicked: {je}"),
+        }
+    }
 }
 
 #[cfg(test)]

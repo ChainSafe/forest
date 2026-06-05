@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.33.4"
+    "version": "0.33.5"
   },
   "methods": [
     {
@@ -1229,6 +1229,28 @@
         "required": true,
         "schema": {
           "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Forest.BaseFeeByHeight",
+      "description": "Returns the calculated upcoming base fee of the tipset at the given height in attoFIL",
+      "params": [
+        {
+          "name": "height",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "result": {
+        "name": "Forest.BaseFeeByHeight.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/EthBigInt"
         }
       },
       "paramStructure": "by-position"

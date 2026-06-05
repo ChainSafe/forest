@@ -16,7 +16,7 @@ use super::{
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::cache::SizeTrackingCache;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::net::global_http_client;
 use ambassador::{Delegate, delegatable_trait};
@@ -223,7 +223,7 @@ pub struct DrandBeacon {
     fil_round_time: u64,
 
     /// Keeps track of verified beacon entries.
-    verified_beacons: SizeTrackingLruCache<u64, BeaconEntry>,
+    verified_beacons: SizeTrackingCache<u64, Arc<BeaconEntry>>,
 }
 
 impl DrandBeacon {
@@ -241,16 +241,12 @@ impl DrandBeacon {
             drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            verified_beacons: SizeTrackingLruCache::new_with_metrics(
-                "verified_beacons".into(),
-                CACHE_SIZE,
-            ),
+            verified_beacons: SizeTrackingCache::new_with_metrics("verified_beacons", CACHE_SIZE),
         }
     }
 
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
-        let cache = self.verified_beacons.cache().read();
-        cache.peek(&entry.round()) == Some(entry)
+        self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
     }
 }
 
@@ -313,12 +309,13 @@ impl Beacon for DrandBeacon {
         };
 
         if is_valid && !validated.is_empty() {
-            let cap = self.verified_beacons.cap();
-            if cap < validated.len() {
-                tracing::warn!(%cap, validated_len=%validated.len(), "verified_beacons.cap() is too small");
+            let capacity = self.verified_beacons.capacity() as usize;
+            if capacity < validated.len() {
+                tracing::warn!(%capacity, validated_len=%validated.len(), "verified_beacons.capacity() is too small");
             }
             for entry in validated {
-                self.verified_beacons.push(entry.round(), entry.clone());
+                self.verified_beacons
+                    .insert(entry.round(), Arc::new(entry.clone()));
             }
         }
 
@@ -326,9 +323,9 @@ impl Beacon for DrandBeacon {
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        let cached: Option<BeaconEntry> = self.verified_beacons.peek_cloned(&round);
+        let cached = self.verified_beacons.get(&round);
         match cached {
-            Some(cached_entry) => Ok(cached_entry),
+            Some(cached_entry) => Ok(Arc::unwrap_or_clone(cached_entry)),
             None => {
                 async fn fetch_entry_from_url(
                     url: impl reqwest::IntoUrl,

@@ -11,6 +11,12 @@ use num_bigint::BigInt;
 pub struct CidWrapper(pub Cid);
 impl GetSize for CidWrapper {}
 
+impl quick_cache::Equivalent<CidWrapper> for Cid {
+    fn equivalent(&self, other: &CidWrapper) -> bool {
+        self == &other.0
+    }
+}
+
 macro_rules! impl_vec_alike_heap_size_with_fn_helper {
     ($name:ident, $t:ty, $get_stack_size: expr, $get_heap_size: expr) => {{
         let mut heap_size = 0;
@@ -51,6 +57,13 @@ pub fn nunny_vec_heap_size_helper<T: GetSize>(v: &nunny::Vec<T>) -> usize {
 // once https://github.com/rust-num/num-bigint/pull/333 is accepted and released.
 pub fn big_int_heap_size_helper(b: &BigInt) -> usize {
     b.bits().div_ceil(8) as usize
+}
+
+pub fn raw_bytes_heap_size_helper(b: &fvm_ipld_encoding::RawBytes) -> usize {
+    // Note: this is a cheap but inaccurate estimation,
+    // the correct implementation should be `Vec<u8>.from(b.clone()).get_heap_size()`,
+    // or `b.bytes.get_heap_size()` if `bytes` is made public.
+    b.bytes().get_heap_size()
 }
 
 #[cfg(test)]

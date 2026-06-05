@@ -7,7 +7,7 @@ use types::*;
 #[cfg(test)]
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
-use crate::chain::index::ResolveNullTipset;
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
@@ -17,11 +17,8 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::networks::ChainConfig;
 use crate::prelude::*;
-use crate::rpc::eth::Block as EthBlock;
-use crate::rpc::eth::{
-    EthLog, TxInfo, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec,
-};
 use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::*;
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
@@ -43,13 +40,13 @@ use num::BigInt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::convert::Infallible;
 use std::fs::File;
 use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
 use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
 };
-use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
@@ -71,79 +68,6 @@ pub const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
 
 static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
     LazyLock::new(|| Mutex::new(None));
-
-/// Subscribes to head changes from the chain store and broadcasts new blocks.
-///
-/// # Notes
-///
-/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
-/// allowing manual cleanup if needed.
-pub(crate) fn new_heads(data: Ctx) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
-
-    let mut head_changes_rx = data.chain_store().subscribe_head_changes();
-
-    let handle = tokio::spawn(async move {
-        while let Ok(changes) = head_changes_rx.recv().await {
-            for ts in changes.applies {
-                // Convert the tipset to an Ethereum block with full transaction info
-                // Note: In Filecoin's Eth RPC, a tipset maps to a single Ethereum block
-                match EthBlock::from_filecoin_tipset(data.clone(), ts, TxInfo::Full).await {
-                    Ok(block) => {
-                        if let Err(e) = sender.send(ApiHeaders(block)) {
-                            tracing::error!("Failed to send headers: {}", e);
-                            return;
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to convert tipset to eth block: {}", e);
-                    }
-                }
-            }
-        }
-    });
-
-    (receiver, handle)
-}
-
-/// Subscribes to head changes from the chain store and broadcasts new `Ethereum` logs.
-///
-/// # Notes
-///
-/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
-/// allowing manual cleanup if needed.
-pub(crate) fn logs(
-    ctx: &Ctx,
-    filter: Option<EthFilterSpec>,
-) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
-
-    let mut head_changes_rx = ctx.chain_store().subscribe_head_changes();
-
-    let ctx = ctx.clone();
-
-    let handle = tokio::spawn(async move {
-        while let Ok(changes) = head_changes_rx.recv().await {
-            for ts in changes.applies {
-                match eth_logs_with_filter(&ctx, &ts, filter.clone()).await {
-                    Ok(logs) => {
-                        if !logs.is_empty()
-                            && let Err(e) = sender.send(logs)
-                        {
-                            tracing::error!("Failed to send logs for tipset {}: {}", ts.key(), e);
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
-                    }
-                }
-            }
-        }
-    });
-
-    (receiver, handle)
-}
 
 pub enum ChainGetFinalizedTipset {}
 impl RpcMethod<0> for ChainGetFinalizedTipset {
@@ -1121,6 +1045,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
 
 pub enum ChainGetTipSetFinalityStatus {}
 
+const EC_CALCULATOR_FINALITY_CACHE_SIZE: usize = 4;
 impl ChainGetTipSetFinalityStatus {
     pub fn get_finality_status(ctx: &Ctx) -> anyhow::Result<ChainFinalityStatus> {
         let head = ctx.chain_store().heaviest_tipset();
@@ -1152,25 +1077,58 @@ impl ChainGetTipSetFinalityStatus {
         ctx: &Ctx,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
-        static CACHE: parking_lot::Mutex<Option<(Tipset, i64, Option<Tipset>)>> =
-            parking_lot::Mutex::new(None);
-        let mut cache = CACHE.lock();
-        if let Some((cached_head, cached_threshold, cached_tipset)) = &*cache
-            && cached_head == &head
-        {
-            Ok((*cached_threshold, cached_tipset.shallow_clone()))
+        static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, (i64, Option<Tipset>)>> =
+            LazyLock::new(|| quick_cache::sync::Cache::new(EC_CALCULATOR_FINALITY_CACHE_SIZE));
+        CACHE.get_or_insert_with(head.shallow_clone().key(), move || {
+            Self::get_ec_finality_threshold_depth_and_tipset(ctx, head)
+        })
+    }
+
+    pub fn get_ec_finality_epoch(
+        chain_index: &ChainIndex,
+        chain_config: &ChainConfig,
+        head: &Tipset,
+    ) -> i64 {
+        let depth =
+            Self::get_ec_finality_threshold_depth_with_cache(chain_index, chain_config, head);
+        Self::get_ec_finality_epoch_by_depth(chain_config, head, depth)
+    }
+
+    fn get_ec_finality_epoch_by_depth(
+        chain_config: &ChainConfig,
+        head: &Tipset,
+        depth: i64,
+    ) -> i64 {
+        if depth >= 0 {
+            (head.epoch() - depth).max(0)
         } else {
-            let (threshold, tipset) =
-                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head.shallow_clone())?;
-            *cache = Some((head, threshold, tipset.shallow_clone()));
-            Ok((threshold, tipset))
+            (head.epoch() - chain_config.policy.chain_finality).max(0)
         }
     }
 
-    fn get_ec_finality_threshold_depth_and_tipset(
-        ctx: &Ctx,
-        head: Tipset,
-    ) -> anyhow::Result<(i64, Option<Tipset>)> {
+    fn get_ec_finality_threshold_depth_with_cache(
+        chain_index: &ChainIndex,
+        chain_config: &ChainConfig,
+        head: &Tipset,
+    ) -> i64 {
+        static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, i64>> =
+            LazyLock::new(|| quick_cache::sync::Cache::new(EC_CALCULATOR_FINALITY_CACHE_SIZE));
+        CACHE
+            .get_or_insert_with(head.key(), move || -> Result<i64, Infallible> {
+                Ok(Self::get_ec_finality_threshold_depth(
+                    chain_index,
+                    chain_config,
+                    head,
+                ))
+            })
+            .expect("infallible")
+    }
+
+    fn get_ec_finality_threshold_depth(
+        chain_index: &ChainIndex,
+        chain_config: &ChainConfig,
+        head: &Tipset,
+    ) -> i64 {
         use crate::chain::ec_finality::calculator::{
             DEFAULT_BLOCKS_PER_EPOCH, DEFAULT_BYZANTINE_FRACTION, DEFAULT_GUARANTEE,
             find_threshold_depth,
@@ -1184,13 +1142,13 @@ impl ChainGetTipSetFinalityStatus {
         /// they consume array slots without advancing the meaningful epoch count.
         const FINALITY_CHAIN_EXTRA_EPOCHS: usize = 5;
 
-        let finality = ctx.chain_config().policy.chain_finality;
+        let finality = chain_config.policy.chain_finality;
         let chain_len = finality as usize + FINALITY_CHAIN_EXTRA_EPOCHS;
         let mut chain = Vec::with_capacity(chain_len);
         let mut ts = head.shallow_clone();
         while chain.len() < chain_len {
             chain.push(ts.len() as i64);
-            if let Ok(parent) = ctx.chain_index().load_required_tipset(ts.parents()) {
+            if let Ok(parent) = chain_index.load_required_tipset(ts.parents()) {
                 // insert 0 for null rounds
                 if let Ok(n_null_tipsets_to_pad) = usize::try_from(ts.epoch() - parent.epoch() - 1)
                     && n_null_tipsets_to_pad > 0
@@ -1206,7 +1164,7 @@ impl ChainGetTipSetFinalityStatus {
         }
         // Reverse to chronological order (oldest first).
         chain.reverse();
-        let depth = match find_threshold_depth(
+        match find_threshold_depth(
             &chain,
             finality,
             DEFAULT_BLOCKS_PER_EPOCH,
@@ -1220,23 +1178,25 @@ impl ChainGetTipSetFinalityStatus {
                 );
                 -1
             }
-        };
-        let finalized = if depth >= 0
-            && let Ok(Some(ts)) = ctx.chain_index().tipset_by_height(
-                (head.epoch() - depth).max(0),
-                head.shallow_clone(),
-                ResolveNullTipset::TakeOlder,
-            ) {
-            Some(ts)
-        } else {
-            let ec_finality_epoch =
-                (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
-            ctx.chain_index().tipset_by_height(
-                ec_finality_epoch,
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?
-        };
+        }
+    }
+
+    fn get_ec_finality_threshold_depth_and_tipset(
+        ctx: &Ctx,
+        head: Tipset,
+    ) -> anyhow::Result<(i64, Option<Tipset>)> {
+        let depth = Self::get_ec_finality_threshold_depth_with_cache(
+            ctx.chain_index(),
+            ctx.chain_config(),
+            &head,
+        );
+        let ec_finality_epoch =
+            Self::get_ec_finality_epoch_by_depth(ctx.chain_config(), &head, depth);
+        let finalized = ctx.chain_index().tipset_by_height(
+            ec_finality_epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?;
         Ok((depth, finalized))
     }
 }

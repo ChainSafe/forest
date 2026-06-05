@@ -34,8 +34,8 @@ use crate::{
     shim::clock::ChainEpoch,
     state_manager::StateManager,
 };
-use ahash::{HashMap, HashSet};
 use chrono::Utc;
+use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
 use parking_lot::{Mutex, RwLock};
 use std::time::Instant;
@@ -127,6 +127,12 @@ impl ChainFollower {
             bad_blocks.shallow_clone(),
             stateless_mode,
         )));
+
+        crate::metrics::register_collector(Box::new(SyncTasks(tasks.shallow_clone())));
+        crate::metrics::register_collector(Box::new(SyncStateMachineWrapper(
+            state_machine.shallow_clone(),
+        )));
+
         Self {
             tasks,
             state_machine,
@@ -147,11 +153,7 @@ impl ChainFollower {
     pub fn reset(&self) {
         let start = Instant::now();
         self.tasks.lock().clear();
-        self.state_manager
-            .chain_store()
-            .validated_blocks
-            .lock()
-            .clear();
+        self.state_manager.chain_store().validated_blocks.clear();
         self.state_machine.lock().tipsets.clear();
         if let Some(bad_blocks) = &self.bad_blocks {
             bad_blocks.clear();
@@ -177,6 +179,14 @@ impl ChainFollower {
             self.stateless_mode,
         )
         .await
+    }
+
+    /// Subscribe to validated tipsets.
+    pub fn subscribe_validated_tipset(&self) -> tokio::sync::broadcast::Receiver<TipsetKey> {
+        self.state_machine
+            .lock()
+            .validated_tipset_broadcast_tx
+            .subscribe()
     }
 }
 
@@ -345,6 +355,8 @@ async fn chain_follower(
                         });
                     }
                 }
+
+                tasks_set.shrink_to_fit();
             }
         }
     });
@@ -604,12 +616,16 @@ impl std::fmt::Display for SyncEvent {
     }
 }
 
+#[derive(derive_more::Debug)]
 struct SyncStateMachine {
+    #[debug(skip)]
     cs: ChainStore,
     bad_block_cache: Option<BadBlockCache>,
     // Map from TipsetKey to FullTipset
     tipsets: HashMap<TipsetKey, FullTipset>,
     stateless_mode: bool,
+    /// Broadcast channel for validated tipsets, used to notify other components of new validated tipsets.
+    validated_tipset_broadcast_tx: tokio::sync::broadcast::Sender<TipsetKey>,
 }
 
 impl SyncStateMachine {
@@ -623,6 +639,7 @@ impl SyncStateMachine {
             bad_block_cache,
             tipsets: HashMap::default(),
             stateless_mode,
+            validated_tipset_broadcast_tx: tokio::sync::broadcast::Sender::new(1024),
         }
     }
 
@@ -753,6 +770,8 @@ impl SyncStateMachine {
             self.tipsets
                 .insert(merged_tipset.key().clone(), merged_tipset);
         }
+
+        self.tipsets.shrink_to_fit();
     }
 
     // Mark blocks in tipset as bad.
@@ -783,10 +802,10 @@ impl SyncStateMachine {
         }
     }
 
-    fn mark_validated_tipset(&mut self, tipset: FullTipset, is_proposed_head: bool) {
+    fn try_mark_tipset_as_validated(&mut self, tipset: FullTipset, is_proposed_head: bool) -> bool {
         if !self.is_parent_validated(&tipset) {
             tracing::error!(epoch = %tipset.epoch(), tsk = %tipset.key(), parent_state = %tipset.parent_state(), "Parent tipset must be validated");
-            return;
+            return false;
         }
 
         self.tipsets.remove(tipset.key());
@@ -798,6 +817,7 @@ impl SyncStateMachine {
             if self.cs.heaviest_tipset().weight() < tipset.weight() {
                 if let Err(e) = self.cs.set_heaviest_tipset(tipset) {
                     error!("Error setting heaviest tipset: {}", e);
+                    return false;
                 } else {
                     info!("Heaviest tipset: {} ({})", epoch, terse_key);
                 }
@@ -805,10 +825,13 @@ impl SyncStateMachine {
         } else if is_proposed_head {
             if let Err(e) = self.cs.put_tipset(&tipset) {
                 error!("Error putting tipset: {e}");
+                return false;
             }
         } else if let Err(e) = self.cs.set_heaviest_tipset(tipset) {
             error!("Error setting heaviest tipset: {e}");
+            return false;
         }
+        true
     }
 
     pub fn update(&mut self, event: SyncEvent) {
@@ -823,7 +846,15 @@ impl SyncStateMachine {
             SyncEvent::ValidatedTipset {
                 tipset,
                 is_proposed_head,
-            } => self.mark_validated_tipset(tipset, is_proposed_head),
+            } => {
+                let tsk = tipset.key().clone();
+                if self.try_mark_tipset_as_validated(tipset, is_proposed_head)
+                    && crate::utils::broadcast::has_subscribers(&self.validated_tipset_broadcast_tx)
+                    && let Err(e) = self.validated_tipset_broadcast_tx.send(tsk)
+                {
+                    warn!("Failed to broadcast validated tipset: {e}");
+                }
+            }
         }
     }
 
@@ -956,6 +987,120 @@ impl SyncTask {
     }
 }
 
+#[derive(Debug)]
+struct SyncTasks(Arc<Mutex<HashSet<SyncTask>>>);
+
+#[derive(Debug)]
+struct SyncStateMachineWrapper(Arc<Mutex<SyncStateMachine>>);
+
+mod metrics_collection {
+    use super::*;
+    use prometheus_client::{
+        collector::Collector,
+        encoding::{DescriptorEncoder, EncodeMetric},
+        metrics::gauge::Gauge,
+        registry::Unit,
+    };
+
+    impl Collector for SyncTasks {
+        fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
+            {
+                let size_in_bytes = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().allocation_size() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tasks_size",
+                    "Size of the chain follower tasks in bytes",
+                    Some(&Unit::Bytes),
+                    size_in_bytes.metric_type(),
+                )?;
+                size_in_bytes.encode(size_metric_encoder)?;
+            }
+            {
+                let len = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().len() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tasks_len",
+                    "Length of the chain follower tasks",
+                    None,
+                    len.metric_type(),
+                )?;
+                len.encode(size_metric_encoder)?;
+            }
+            {
+                let cap = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().capacity() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tasks_cap",
+                    "Capacity of the chain follower tasks",
+                    None,
+                    cap.metric_type(),
+                )?;
+                cap.encode(size_metric_encoder)?;
+            }
+
+            Ok(())
+        }
+    }
+
+    impl Collector for SyncStateMachineWrapper {
+        fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
+            {
+                let size_in_bytes = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().tipsets.allocation_size() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tipsets_size",
+                    "Size of the chain follower tipsets in bytes",
+                    Some(&Unit::Bytes),
+                    size_in_bytes.metric_type(),
+                )?;
+                size_in_bytes.encode(size_metric_encoder)?;
+            }
+            {
+                let len = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().tipsets.len() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tipsets_len",
+                    "Length of the chain follower tipsets",
+                    None,
+                    len.metric_type(),
+                )?;
+                len.encode(size_metric_encoder)?;
+            }
+            {
+                let cap = {
+                    let g: Gauge = Default::default();
+                    g.set(self.0.lock().tipsets.capacity() as i64);
+                    g
+                };
+                let size_metric_encoder = encoder.encode_descriptor(
+                    "chain_follower_tipsets_cap",
+                    "Capacity of the chain follower tipsets",
+                    None,
+                    cap.metric_type(),
+                )?;
+                cap.encode(size_metric_encoder)?;
+            }
+
+            Ok(())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1076,7 +1221,7 @@ mod tests {
             for (ts, is_proposed_head) in validation_tipsets {
                 validation_tasks.push(ts.epoch());
                 db.put_cbor_default(&ts.epoch()).unwrap();
-                state_machine.mark_validated_tipset(ts, is_proposed_head);
+                state_machine.try_mark_tipset_as_validated(ts, is_proposed_head);
             }
         }
 

@@ -12,6 +12,7 @@
 !Filecoin.F3
 !Filecoin.GasEstimateGasLimit
 !Filecoin.MinerCreateBlock
+!Filecoin.MpoolGetConfig
 !Filecoin.MpoolSelect
 !Filecoin.NetAddrsListen
 !Filecoin.NetAgentVersion

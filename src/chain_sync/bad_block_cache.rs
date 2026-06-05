@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use nonzero_ext::nonzero;
 
 use crate::prelude::*;
-use crate::utils::{cache::SizeTrackingLruCache, get_size};
+use crate::utils::cache::SizeTrackingCache;
 
 /// Default capacity for CID caches (32768 entries).
 /// That's about 4 MiB.
@@ -15,9 +15,9 @@ const DEFAULT_CID_CACHE_CAPACITY: NonZeroUsize = nonzero!(1usize << 15);
 /// Thread-safe cache for tracking bad blocks.
 /// This cache is checked before validating a block, to ensure no duplicate
 /// work.
-#[derive(Debug)]
+#[derive(Debug, derive_more::Deref)]
 pub struct BadBlockCache {
-    cache: SizeTrackingLruCache<get_size::CidWrapper, ()>,
+    cache: SizeTrackingCache<CidWrapper, ()>,
 }
 
 impl Default for BadBlockCache {
@@ -37,31 +37,21 @@ impl ShallowClone for BadBlockCache {
 impl BadBlockCache {
     pub fn new(cap: NonZeroUsize) -> Self {
         Self {
-            cache: SizeTrackingLruCache::new_with_metrics("bad_block".into(), cap),
+            cache: SizeTrackingCache::new_with_metrics("bad_block", cap),
         }
     }
 
     pub fn push(&self, c: Cid) {
-        self.cache.push(c.into(), ());
+        self.cache.insert(c.into(), ());
         tracing::warn!("Marked bad block: {c}");
-    }
-
-    /// Returns `Some` if the block CID is in bad block cache.
-    /// This function does not update the head position of the `Cid` key.
-    pub fn peek(&self, c: &Cid) -> Option<()> {
-        self.cache.peek_cloned(&(*c).into())
-    }
-
-    pub fn clear(&self) {
-        self.cache.clear()
     }
 }
 
-/// Thread-safe LRU cache for tracking recently seen gossip block CIDs.
+/// Thread-safe cache for tracking recently seen gossip block CIDs.
 /// Used to de-duplicate gossip blocks before expensive message fetching.
-#[derive(Debug)]
+#[derive(Debug, derive_more::Deref)]
 pub struct SeenBlockCache {
-    cache: SizeTrackingLruCache<get_size::CidWrapper, ()>,
+    cache: SizeTrackingCache<CidWrapper, ()>,
 }
 
 impl ShallowClone for SeenBlockCache {
@@ -81,13 +71,13 @@ impl Default for SeenBlockCache {
 impl SeenBlockCache {
     pub fn new(cap: NonZeroUsize) -> Self {
         Self {
-            cache: SizeTrackingLruCache::new_with_metrics("seen_gossip_block".into(), cap),
+            cache: SizeTrackingCache::new_with_metrics("seen_gossip_block", cap),
         }
     }
 
     /// Returns `true` if the CID was already present (duplicate).
     /// Always inserts/refreshes the entry.
     pub fn test_and_insert(&self, c: &Cid) -> bool {
-        self.cache.push((*c).into(), ()).is_some()
+        self.cache.push_and_get_prev((*c).into(), ()).is_some()
     }
 }
