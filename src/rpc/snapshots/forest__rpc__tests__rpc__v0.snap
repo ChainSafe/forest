@@ -1983,6 +1983,15 @@ methods:
         items:
           $ref: "#/components/schemas/Cid"
     paramStructure: by-position
+  - name: Filecoin.MpoolGetConfig
+    description: Returns a copy of the current mpool config.
+    params: []
+    result:
+      name: Filecoin.MpoolGetConfig.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/ApiMpoolConfig"
+    paramStructure: by-position
   - name: Filecoin.MpoolGetNonce
     description: Returns the current nonce for the specified address.
     params:
@@ -4845,6 +4854,31 @@ components:
       required:
         - Cid
         - Message
+    ApiMpoolConfig:
+      type: object
+      properties:
+        GasLimitOverestimation:
+          type: number
+          format: double
+        PriorityAddrs:
+          $ref: "#/components/schemas/Nullable_Array_of_Address"
+        PruneCooldown:
+          $ref: "#/components/schemas/uint64"
+        ReplaceByFeeRatio:
+          $ref: "#/components/schemas/double"
+        SizeLimitHigh:
+          type: integer
+          format: int64
+        SizeLimitLow:
+          type: integer
+          format: int64
+      required:
+        - PriorityAddrs
+        - SizeLimitHigh
+        - SizeLimitLow
+        - ReplaceByFeeRatio
+        - PruneCooldown
+        - GasLimitOverestimation
     ApiReceipt:
       type: object
       properties:
@@ -7732,6 +7766,13 @@ components:
         - type: array
           items:
             $ref: "#/components/schemas/ApiEthTx"
+    double:
+      type: number
+      format: double
     int64:
       type: integer
       format: int64
+    uint64:
+      type: integer
+      format: uint64
+      minimum: 0
