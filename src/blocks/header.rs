@@ -201,7 +201,10 @@ impl RawBlockHeader {
 
 // The derive macro does not compile for some reason
 impl GetSize for RawBlockHeader {
-    fn get_heap_size(&self) -> usize {
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(
+        &self,
+        mut tracker: T,
+    ) -> (usize, T) {
         let Self {
             miner_address,
             ticket,
@@ -220,16 +223,21 @@ impl GetSize for RawBlockHeader {
             fork_signal: _,
             parent_base_fee,
         } = self;
-        miner_address.get_heap_size()
-            + ticket.get_heap_size()
-            + election_proof.get_heap_size()
-            + beacon_entries.get_heap_size()
-            + winning_post_proof.get_heap_size()
-            + parents.get_heap_size()
-            + big_int_heap_size_helper(weight)
-            + bls_aggregate.get_heap_size()
-            + signature.get_heap_size()
-            + parent_base_fee.get_heap_size()
+        (
+            miner_address.get_heap_size_with_tracker(&mut tracker).0
+                + ticket.get_heap_size_with_tracker(&mut tracker).0
+                + election_proof.get_heap_size_with_tracker(&mut tracker).0
+                + beacon_entries.get_heap_size_with_tracker(&mut tracker).0
+                + winning_post_proof
+                    .get_heap_size_with_tracker(&mut tracker)
+                    .0
+                + parents.get_heap_size_with_tracker(&mut tracker).0
+                + big_int_heap_size_helper(weight)
+                + bls_aggregate.get_heap_size_with_tracker(&mut tracker).0
+                + signature.get_heap_size_with_tracker(&mut tracker).0
+                + parent_base_fee.get_heap_size_with_tracker(&mut tracker).0,
+            tracker,
+        )
     }
 }
 

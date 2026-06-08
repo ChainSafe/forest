@@ -18,39 +18,52 @@ impl quick_cache::Equivalent<CidWrapper> for Cid {
 }
 
 macro_rules! impl_vec_alike_heap_size_with_fn_helper {
-    ($name:ident, $t:ty, $get_stack_size: expr, $get_heap_size: expr) => {{
+    ($name:ident, $tracker:ident, $t:ty, $get_stack_size: expr, $get_heap_size_with_tracker: expr) => {{
         let mut heap_size = 0;
+        let mut tr = $tracker;
         // use `____v` to avoid naming conflict
         for ____v in $name.iter() {
-            heap_size += $get_stack_size() + $get_heap_size(____v);
+            let (_s, _tr) = $get_heap_size_with_tracker(____v, tr);
+            heap_size += $get_stack_size() + _s;
+            tr = _tr;
         }
         let additional = usize::from($name.capacity()) - usize::from($name.len());
         heap_size += additional * $get_stack_size();
-        heap_size
+        (heap_size, tr)
     }};
 }
 
 macro_rules! impl_vec_alike_heap_size_helper {
-    ($name:ident, $t:ty) => {
+    ($name:ident, $tracker:ident, $t:ty) => {
         impl_vec_alike_heap_size_with_fn_helper!(
             $name,
+            $tracker,
             $t,
             <$t>::get_stack_size,
-            GetSize::get_heap_size
+            GetSize::get_heap_size_with_tracker
         )
     };
 }
 
-pub fn vec_heap_size_helper<T: GetSize>(v: &Vec<T>) -> usize {
-    impl_vec_alike_heap_size_helper!(v, T)
+pub fn vec_heap_size_with_fn_helper<T, Tr: get_size2::GetSizeTracker>(
+    v: &Vec<T>,
+    tracker: Tr,
+    get_heap_size_with_tracker: impl Fn(&T, Tr) -> (usize, Tr),
+) -> (usize, Tr) {
+    impl_vec_alike_heap_size_with_fn_helper!(
+        v,
+        tracker,
+        T,
+        std::mem::size_of::<T>,
+        get_heap_size_with_tracker
+    )
 }
 
-pub fn vec_heap_size_with_fn_helper<T>(v: &Vec<T>, get_heap_size: impl Fn(&T) -> usize) -> usize {
-    impl_vec_alike_heap_size_with_fn_helper!(v, T, std::mem::size_of::<T>, get_heap_size)
-}
-
-pub fn nunny_vec_heap_size_helper<T: GetSize>(v: &nunny::Vec<T>) -> usize {
-    impl_vec_alike_heap_size_helper!(v, T)
+pub fn nunny_vec_heap_size_helper<T: GetSize, Tr: get_size2::GetSizeTracker>(
+    v: &nunny::Vec<T>,
+    tracker: Tr,
+) -> (usize, Tr) {
+    impl_vec_alike_heap_size_helper!(v, tracker, T)
 }
 
 // This is a rough estimation. Use `b.allocation_size()`
@@ -85,9 +98,50 @@ mod tests {
         let keys: nunny::Vec<CidWrapper> = nunny::vec![Cid::default().into(); 3];
         // It's likely > 3 (4 on my laptop)
         println!("keys.capacity() = {}", keys.capacity());
+        let tracker = get_size2::StandardTracker::new();
         assert_eq!(
-            nunny_vec_heap_size_helper(&keys),
+            nunny_vec_heap_size_helper(&keys, tracker).0,
             CidWrapper::get_stack_size() * usize::from(keys.capacity())
+        );
+    }
+
+    #[test]
+    fn test_derive_macro() {
+        #[derive(GetSize)]
+        struct A {
+            #[get_size(ignore)]
+            _cid: Cid,
+        }
+
+        #[derive(GetSize)]
+        struct B {
+            #[get_size(size = 0)]
+            _cid: Cid,
+        }
+
+        #[derive(GetSize)]
+        struct C {
+            #[get_size(size = 8)]
+            _cid: Cid,
+        }
+
+        let _cid = Cid::default();
+        let a = vec![A { _cid }];
+        assert_eq!(
+            a.get_heap_size(),
+            std::mem::size_of_val(&_cid) * a.capacity()
+        );
+
+        let b = vec![B { _cid }];
+        assert_eq!(
+            b.get_heap_size(),
+            std::mem::size_of_val(&_cid) * b.capacity()
+        );
+
+        let c = vec![C { _cid }];
+        assert_eq!(
+            c.get_heap_size(),
+            (std::mem::size_of_val(&_cid) + 8) * c.capacity()
         );
     }
 }
