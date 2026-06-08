@@ -44,8 +44,8 @@ pub static ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE: LazyLock<usize> = LazyLock::new(||
             );
         }
     }
-    // 256 MiB
-    256 * 1024 * 1024
+    // 512 MiB
+    512 * 1024 * 1024
 });
 
 /// One decompressed zstd frame's index, shared via [`Arc`] so cache lookups
