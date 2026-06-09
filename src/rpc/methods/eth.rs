@@ -550,6 +550,9 @@ impl Block {
                     full_transactions.push(tx);
                 }
 
+                let logs_bloom =
+                    compute_block_logs_bloom(state_manager, &tipset, &executed_messages).await?;
+
                 Ok(Arc::new(Block {
                     hash: block_hash,
                     number: block_number,
@@ -563,6 +566,7 @@ impl Block {
                         .into(),
                     gas_used: EthUint64(gas_used),
                     transactions: Transactions::Full(full_transactions),
+                    logs_bloom,
                     ..Block::new(has_transactions, tipset.len())
                 }))
             })
@@ -1372,10 +1376,7 @@ async fn new_eth_tx_receipt(
 
     let mut bloom = Bloom::default();
     for log in tx_receipt.logs.iter() {
-        for topic in log.topics.iter() {
-            bloom.accrue(topic.0.as_bytes());
-        }
-        bloom.accrue(log.address.0.as_bytes());
+        accrue_eth_log(&mut bloom, &log.address, &log.topics);
     }
     tx_receipt.logs_bloom = bloom.into();
 
@@ -3231,6 +3232,43 @@ fn eth_filter_logs_from_events(
     Ok(logs)
 }
 
+/// Accrues a single Ethereum log's address and topics into `bloom` using the standard `M3:2048` scheme.
+fn accrue_eth_log(bloom: &mut Bloom, address: &EthAddress, topics: &[EthHash]) {
+    for topic in topics {
+        bloom.accrue(topic.0.as_bytes());
+    }
+    bloom.accrue(address.0.as_bytes());
+}
+
+async fn compute_block_logs_bloom(
+    state_manager: &StateManager,
+    tipset: &Tipset,
+    executed_messages: &[ExecutedMessage],
+) -> Result<Bloom> {
+    let mut events = vec![];
+    EthEventHandler::collect_events_from_messages(
+        state_manager,
+        tipset,
+        executed_messages,
+        None::<&EthFilterSpec>,
+        SkipEvent::OnUnresolvedAddress,
+        &mut events,
+    )
+    .await?;
+
+    let mut bloom = Bloom::default();
+    for event in &events {
+        let Some((_data, topics)) = eth_log_from_event(&event.entries) else {
+            continue;
+        };
+        let Ok(address) = EthAddress::from_filecoin_address(&event.emitter_addr) else {
+            continue;
+        };
+        accrue_eth_log(&mut bloom, &address, &topics);
+    }
+    Ok(bloom)
+}
+
 fn eth_filter_result_from_events(
     ctx: &Ctx,
     events: &[CollectedEvent],
@@ -4519,6 +4557,46 @@ mod test {
             },
         ];
         assert!(eth_log_from_event(&entries).is_none());
+    }
+
+    #[test]
+    fn test_accrue_eth_log_and_block_bloom_decomposition() {
+        let empty = Bloom::default();
+        let full = Bloom(ethereum_types::Bloom(FULL_BLOOM));
+
+        // No logs yields the all-zeros bloom — the "definitely no events here" case
+        // indexers rely on.
+        assert_eq!(empty.0.0, EMPTY_BLOOM);
+
+        let addr_a = EthAddress(ethereum_types::H160::from_slice(&[0x11; ADDRESS_LENGTH]));
+        let topic_a = EthHash(ethereum_types::H256::from_slice(&[0x22; EVM_WORD_LENGTH]));
+        let addr_b = EthAddress(ethereum_types::H160::from_slice(&[0x33; ADDRESS_LENGTH]));
+        let topic_b = EthHash(ethereum_types::H256::from_slice(&[0x44; EVM_WORD_LENGTH]));
+
+        // A real log sets some bits, but not all of them.
+        let mut bloom_a = empty.clone();
+        accrue_eth_log(&mut bloom_a, &addr_a, std::slice::from_ref(&topic_a));
+        assert_ne!(bloom_a, empty);
+        assert_ne!(bloom_a, full);
+
+        let mut bloom_b = empty.clone();
+        accrue_eth_log(&mut bloom_b, &addr_b, std::slice::from_ref(&topic_b));
+
+        // The block bloom (both logs) equals the bitwise OR of the two individual
+        // (receipt) blooms.
+        let mut combined = bloom_a.clone();
+        accrue_eth_log(&mut combined, &addr_b, std::slice::from_ref(&topic_b));
+
+        let mut expected = bloom_a.0.0;
+        for (out, b) in expected.iter_mut().zip(bloom_b.0.0.iter()) {
+            *out |= *b;
+        }
+        assert_eq!(combined.0.0, expected);
+
+        // Accruing the same log twice equals accruing it once.
+        let mut twice = bloom_a.clone();
+        accrue_eth_log(&mut twice, &addr_a, std::slice::from_ref(&topic_a));
+        assert_eq!(twice, bloom_a);
     }
 
     #[test]
