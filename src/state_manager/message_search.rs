@@ -4,8 +4,7 @@
 use super::*;
 use crate::blocks::TipsetKey;
 use crate::message::MessageRead as _;
-use ahash::{HashMap, HashMapExt as _};
-use anyhow::Context as _;
+use ahash::HashMap;
 use futures::{FutureExt, channel::oneshot, select};
 use tokio::sync::{RwLock, broadcast::error::RecvError};
 use tracing::warn;
