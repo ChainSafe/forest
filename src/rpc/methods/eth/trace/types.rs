@@ -13,12 +13,13 @@ use crate::rpc::eth::trace::GETH_TRACE_REVERT_ERROR;
 use crate::rpc::eth::trace::utils::extract_revert_reason;
 use crate::shim::error::ExitCode;
 use anyhow::{Context as _, Result, bail};
+use get_size2::GetSize;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Typed error for Parity-style EVM trace entries.
-#[derive(Debug, Hash, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, thiserror::Error, GetSize)]
 pub enum TraceError {
     #[error("Reverted")]
     Reverted,
@@ -102,7 +103,9 @@ fn parse_exit_code_display(s: &str) -> u32 {
         .unwrap_or(0)
 }
 
-#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(
+    Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema, GetSize,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallTraceAction {
     pub call_type: String,
@@ -113,7 +116,9 @@ pub struct EthCallTraceAction {
     pub input: EthBytes,
 }
 
-#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(
+    Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema, GetSize,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCreateTraceAction {
     pub from: EthAddress,
@@ -122,7 +127,7 @@ pub struct EthCreateTraceAction {
     pub init: EthBytes,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(untagged)]
 pub enum TraceAction {
     Call(EthCallTraceAction),
@@ -135,14 +140,18 @@ impl Default for TraceAction {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(
+    Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema, GetSize,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallTraceResult {
     pub gas_used: EthUint64,
     pub output: EthBytes,
 }
 
-#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(
+    Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema, GetSize,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCreateTraceResult {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -151,7 +160,7 @@ pub struct EthCreateTraceResult {
     pub code: EthBytes,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(untagged)]
 pub enum TraceResult {
     Call(EthCallTraceResult),
@@ -496,7 +505,9 @@ impl EthTraceResults {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(
+    Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema, GetSize,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTrace {
     pub r#type: String,
@@ -595,7 +606,9 @@ impl EthTrace {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(
+    Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema, GetSize,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct EthBlockTrace {
     #[serde(flatten)]
