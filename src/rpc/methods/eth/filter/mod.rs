@@ -45,7 +45,7 @@ use crate::state_manager::StateManager;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset};
 use crate::utils::misc::env::env_or_default;
 use crate::utils::task::AbortHandles;
-use ahash::{HashMap, HashSet};
+use ahash::HashMap;
 use anyhow::{Error, anyhow, bail, ensure};
 use futures::{TryStreamExt as _, stream::FuturesOrdered};
 use fvm_ipld_encoding::IPLD_RAW;
@@ -545,7 +545,7 @@ impl EthFilterSpec {
                     ea.to_filecoin_address()
                         .map_err(|e| anyhow!("invalid address {}", e))
                 })
-                .collect::<Result<HashSet<_>, _>>()?
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             Default::default()
         };
@@ -593,7 +593,7 @@ impl Matcher for EthFilterSpec {
                 if let Some(slice) = get_word(entry.value()) {
                     let hash: EthHash = (*slice).into();
                     match spec.0.get(i) {
-                        Some(EthHashList::List(set)) => set.contains(&hash),
+                        Some(EthHashList::List(vec)) => vec.contains(&hash),
                         Some(EthHashList::Single(Some(h))) => h == &hash,
                         _ => true, /* wildcard */
                     }
@@ -738,7 +738,7 @@ pub enum ParsedFilterTipsets {
 #[derive(Debug)]
 pub struct ParsedFilter {
     pub(crate) tipsets: ParsedFilterTipsets,
-    pub(crate) addresses: HashSet<Address>,
+    pub(crate) addresses: Vec<Address>,
     pub(crate) keys: HashMap<String, Vec<ActorEventBlock>>,
     /// When set, only events emitted by this message CID are returned. Mirrors
     /// Lotus's `index.EventFilter.MsgCid`:
@@ -782,7 +782,7 @@ impl ParsedFilter {
             ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
         };
 
-        let addresses: HashSet<_> = filter.addresses.iter().map(|addr| addr.0).collect();
+        let addresses = filter.addresses.iter().map(|addr| addr.0).collect_vec();
 
         let mut keys: HashMap<String, Vec<ActorEventBlock>> = Default::default();
         for (k, v) in filter.fields.into_iter() {
@@ -1245,9 +1245,7 @@ mod tests {
 
     #[test]
     fn test_parse_eth_topics() {
-        let topics = EthTopicSpec(vec![EthHashList::List(HashSet::from_iter([
-            EthHash::default(),
-        ]))]);
+        let topics = EthTopicSpec(vec![EthHashList::List(vec![EthHash::default()])]);
         let actual = parse_eth_topics(&topics).expect("Failed to parse topics");
 
         let mut expected = HashMap::with_capacity(4);
@@ -1490,18 +1488,14 @@ mod tests {
         assert!(spec2.matches(&addr0, &entries0).unwrap());
 
         let spec3 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::List(HashSet::from_iter([
-                topic0,
-            ]))])),
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic0])])),
             ..Default::default()
         };
 
         assert!(spec3.matches(&addr0, &entries0).unwrap());
 
         let spec4 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::List(HashSet::from_iter([
-                topic1, topic0,
-            ]))])),
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic1, topic0])])),
             ..Default::default()
         };
 
@@ -1515,9 +1509,7 @@ mod tests {
         assert!(!spec5.matches(&addr0, &entries0).unwrap());
 
         let spec6 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::List(HashSet::from_iter([
-                topic2, topic3,
-            ]))])),
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic2, topic3])])),
             ..Default::default()
         };
 
@@ -1596,7 +1588,7 @@ mod tests {
         // Matching the given address 0
         let filter0 = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
-            addresses: HashSet::from_iter([addr0]),
+            addresses: vec![addr0],
             keys: Default::default(),
             msg_cid: None,
         };
@@ -1608,7 +1600,7 @@ mod tests {
         // Matching the given address 0 or 1
         let filter1 = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
-            addresses: HashSet::from_iter([addr0, addr1]),
+            addresses: vec![addr0, addr1],
             keys: Default::default(),
             msg_cid: None,
         };
