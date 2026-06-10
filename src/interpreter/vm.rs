@@ -24,7 +24,7 @@ use crate::shim::{
     state_tree::ActorState,
     version::NetworkVersion,
 };
-use ahash::{HashMap, HashMapExt, HashSet};
+use ahash::{HashMap, HashSet};
 use anyhow::bail;
 use fvm_ipld_encoding::{RawBytes, to_vec};
 use fvm_shared2::clock::ChainEpoch;

@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod ddls;
+mod events;
 #[cfg(test)]
 mod tests;
 
 use ahash::HashMap;
 pub use ddls::{DDLS, PreparedStatements};
+pub use events::IndexerEventFilter;
 use sqlx::Row as _;
 
 use crate::{

@@ -11,7 +11,7 @@ use std::{
 
 use crate::cid_collections::CidHashMap;
 use crate::prelude::*;
-use ahash::{HashSet, HashSetExt};
+use ahash::HashSet;
 use flume::TryRecvError;
 use futures::StreamExt;
 use libp2p::PeerId;

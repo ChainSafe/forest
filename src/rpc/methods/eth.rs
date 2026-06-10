@@ -61,7 +61,7 @@ use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::get_size::big_int_heap_size_helper;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
-use ahash::HashSet;
+use ahash::{HashMap, HashSet};
 use anyhow::{Error, Result, anyhow, bail, ensure};
 use enumflags2::{BitFlags, make_bitflags};
 use filter::{ParsedFilter, ParsedFilterTipsets};
@@ -3168,12 +3168,10 @@ fn eth_filter_logs_from_events(
     ctx: &Ctx,
     events: &[CollectedEvent],
 ) -> anyhow::Result<Vec<EthLog>> {
-    use ahash::AHashMap as HashMap;
-
     let chain_id = ctx.state_manager.chain_config().eth_chain_id;
-    let mut tx_hash_by_msg: HashMap<Cid, EthHash> = HashMap::new();
-    let mut block_hash_by_tipset: HashMap<TipsetKey, EthHash> = HashMap::new();
-    let mut eth_addr_by_emitter: HashMap<FilecoinAddress, EthAddress> = HashMap::new();
+    let mut tx_hash_by_msg: HashMap<Cid, EthHash> = HashMap::default();
+    let mut block_hash_by_tipset: HashMap<TipsetKey, EthHash> = HashMap::default();
+    let mut eth_addr_by_emitter: HashMap<FilecoinAddress, EthAddress> = HashMap::default();
 
     let mut logs = Vec::with_capacity(events.len());
     for event in events {

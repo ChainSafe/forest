@@ -45,7 +45,7 @@ use crate::state_manager::StateManager;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset};
 use crate::utils::misc::env::env_or_default;
 use crate::utils::task::AbortHandles;
-use ahash::AHashMap as HashMap;
+use ahash::HashMap;
 use anyhow::{Error, anyhow, bail, ensure};
 use futures::{TryStreamExt as _, stream::FuturesOrdered};
 use fvm_ipld_encoding::IPLD_RAW;
@@ -854,13 +854,11 @@ impl Matcher for EventFilter {
 
 #[cfg(test)]
 mod tests {
-    use ahash::AHashMap;
+    use super::*;
+    use crate::rpc::eth::{EthAddress, EthFilterSpec, EthTopicSpec};
     use base64::{Engine, prelude::BASE64_STANDARD};
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared4::event::Flags;
-
-    use super::*;
-    use crate::rpc::eth::{EthAddress, EthFilterSpec, EthTopicSpec};
     use std::str::FromStr;
 
     #[test]
@@ -1655,7 +1653,7 @@ mod tests {
 
         assert!(empty_filter.matches(&addr0, &entries0).unwrap());
 
-        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        let mut keys: HashMap<String, Vec<ActorEventBlock>> = Default::default();
         keys.insert(
             "t1".into(),
             vec![ActorEventBlock {
@@ -1675,7 +1673,7 @@ mod tests {
 
         assert!(filter1.matches(&addr0, &entries0).unwrap());
 
-        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        let mut keys: HashMap<String, Vec<ActorEventBlock>> = Default::default();
         keys.insert(
             "t1".into(),
             vec![ActorEventBlock {
@@ -1695,7 +1693,7 @@ mod tests {
 
         assert!(!filter2.matches(&addr0, &entries0).unwrap());
 
-        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        let mut keys: HashMap<String, Vec<ActorEventBlock>> = Default::default();
         keys.insert(
             "t1".into(),
             vec![ActorEventBlock {
@@ -1715,7 +1713,7 @@ mod tests {
 
         assert!(!filter2.matches(&addr0, &entries0).unwrap());
 
-        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        let mut keys: HashMap<String, Vec<ActorEventBlock>> = Default::default();
         keys.insert(
             "t1".into(),
             vec![ActorEventBlock {
