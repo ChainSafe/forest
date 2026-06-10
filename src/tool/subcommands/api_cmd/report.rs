@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::ReportMode;
-use crate::rpc;
-use crate::rpc::{FilterList, Permission};
+use crate::prelude::*;
+use crate::rpc::{self, FilterList, Permission};
 use crate::tool::subcommands::api_cmd::api_compare_tests::TestSummary;
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, DurationMilliSeconds, DurationSeconds, serde_as};
 use similar::{ChangeTag, TextDiff};

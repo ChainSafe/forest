@@ -1,16 +1,15 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::Arc;
+use crate::prelude::*;
 use crate::rpc::eth::filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets};
 use crate::rpc::eth::{CollectedEvent, FilterID, filter::Filter};
 use crate::shim::address::Address;
-use ahash::AHashMap as HashMap;
-use anyhow::{Context, Result};
+use ahash::{HashMap, HashSet};
+use anyhow::Result;
 use parking_lot::RwLock;
 use std::any::Any;
 
-#[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub struct EventFilter {
     // Unique id used to identify the filter
@@ -18,7 +17,7 @@ pub struct EventFilter {
     // Tipsets to filter
     pub tipsets: ParsedFilterTipsets,
     // list of actor addresses that are extpected to emit the event
-    pub addresses: Vec<Address>,
+    pub addresses: HashSet<Address>,
     // Map of key names to a list of alternate values that may match
     pub keys_with_codec: HashMap<String, Vec<ActorEventBlock>>,
     // Maximum number of results to collect
@@ -101,7 +100,7 @@ mod tests {
 
         let parsed_filter = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(RangeInclusive::new(0, 100)),
-            addresses: vec![Address::new_id(123)],
+            addresses: HashSet::from_iter([Address::new_id(123)]),
             keys: HashMap::new(),
             msg_cid: None,
         };

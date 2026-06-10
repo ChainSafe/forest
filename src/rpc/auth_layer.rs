@@ -5,7 +5,7 @@ use crate::auth::{JWT_IDENTIFIER, verify_token};
 use crate::key_management::KeyStore;
 use crate::prelude::*;
 use crate::rpc::{CANCEL_METHOD_NAME, Permission, RpcMethod as _, chain};
-use ahash::{HashMap, HashMapExt as _};
+use ahash::HashMap;
 use futures::future::Either;
 use http::{
     HeaderMap,

@@ -488,7 +488,7 @@ impl IdProvider for RandomHexStringIdProvider {
 #[derive(PartialEq, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(untagged)]
 pub enum EthHashList {
-    List(Vec<EthHash>),
+    List(HashSet<EthHash>),
     Single(Option<EthHash>),
 }
 
