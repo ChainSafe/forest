@@ -129,6 +129,12 @@ impl PendingStore {
     pub fn subscribe(&self) -> broadcast::Receiver<MpoolUpdate> {
         self.inner.events.subscribe()
     }
+
+    /// Clone of the [`MpoolUpdate`] broadcast sender. New independent
+    /// receivers can be derived by calling `subscribe()` on the clone.
+    pub(in crate::message_pool) fn event_sender(&self) -> broadcast::Sender<MpoolUpdate> {
+        self.inner.events.clone()
+    }
 }
 
 #[derive(derive_more::Debug, derive_more::Deref)]
