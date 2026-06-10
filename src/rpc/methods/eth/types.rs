@@ -116,19 +116,15 @@ impl GetStorageAtParams {
     derive_more::From,
     derive_more::Into,
     derive_more::FromStr,
+    GetSize,
 )]
 pub struct EthAddress(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_bytes")]
+    #[get_size(ignore)]
     pub ethereum_types::Address,
 );
 lotus_json_with_self!(EthAddress);
-
-impl GetSize for EthAddress {
-    fn get_heap_size(&self) -> usize {
-        0
-    }
-}
 
 impl EthAddress {
     pub fn to_filecoin_address(self) -> anyhow::Result<FilecoinAddress> {
@@ -436,16 +432,15 @@ impl TryFrom<EthCallMessage> for Message {
     derive_more::From,
     derive_more::Into,
     derive_more::FromStr,
+    GetSize,
 )]
 #[display("{_0:#x}")]
-pub struct EthHash(#[schemars(with = "String")] pub ethereum_types::H256);
+pub struct EthHash(
+    #[schemars(with = "String")]
+    #[get_size(ignore)]
+    pub ethereum_types::H256,
+);
 lotus_json_with_self!(EthHash);
-
-impl GetSize for EthHash {
-    fn get_heap_size(&self) -> usize {
-        0
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
 pub struct FilterID(EthHash);

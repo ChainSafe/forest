@@ -23,8 +23,8 @@ use crate::blocks::TipsetKey;
 pub struct SmallCidNonEmptyVec(NonEmpty<SmallCid>);
 
 impl GetSize for SmallCidNonEmptyVec {
-    fn get_heap_size(&self) -> usize {
-        nunny_vec_heap_size_helper(&self.0)
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        nunny_vec_heap_size_helper(&self.0, tracker)
     }
 }
 

@@ -638,7 +638,7 @@ impl MessagesInTipsetCache {
     /// Reads the intended cache size for this process from the environment or uses the default.
     fn read_cache_size() -> NonZeroUsize {
         // Arbitrary number, can be adjusted
-        const DEFAULT: NonZeroUsize = nonzero!(1024usize);
+        const DEFAULT: NonZeroUsize = nonzero!(8192usize); // maximum ~40MiB on mainnet
         std::env::var("FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE")
             .ok()
             .and_then(|s| s.parse().ok())

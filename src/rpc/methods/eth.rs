@@ -137,8 +137,8 @@ pub struct EthBigInt(
 lotus_json_with_self!(EthBigInt);
 
 impl GetSize for EthBigInt {
-    fn get_heap_size(&self) -> usize {
-        big_int_heap_size_helper(&self.0)
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        (big_int_heap_size_helper(&self.0), tracker)
     }
 }
 
@@ -156,33 +156,23 @@ impl From<&TokenAmount> for EthBigInt {
 
 type GasPriceResult = EthBigInt;
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema, GetSize)]
 pub struct Nonce(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_bytes")]
+    #[get_size(ignore)]
     pub ethereum_types::H64,
 );
 lotus_json_with_self!(Nonce);
 
-impl GetSize for Nonce {
-    fn get_heap_size(&self) -> usize {
-        0
-    }
-}
-
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema, GetSize)]
 pub struct Bloom(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_bytes")]
+    #[get_size(ignore)]
     pub ethereum_types::Bloom,
 );
 lotus_json_with_self!(Bloom);
-
-impl GetSize for Bloom {
-    fn get_heap_size(&self) -> usize {
-        0
-    }
-}
 
 impl Bloom {
     pub fn accrue(&mut self, input: &[u8]) {

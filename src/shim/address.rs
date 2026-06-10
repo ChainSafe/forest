@@ -264,11 +264,8 @@ impl Display for Address {
     }
 }
 
-impl GetSize for Address {
-    fn get_heap_size(&self) -> usize {
-        0 // all variants of the internal payload are stack-allocated
-    }
-}
+// all variants of the internal payload are stack-allocated
+impl GetSize for Address {}
 
 /// A Filecoin address is an identifier that refers to an actor in the Filecoin state. All actors
 /// (miner actors, the storage market actor, account actors) have an address. This address encodes

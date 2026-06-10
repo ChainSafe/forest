@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
+
 ## Forest v0.33.6 "Ebb"
 
 Non-mandatory release for all node operators. It fixes a critical memory leak in `v0.33.5`. (Earlier releases are not affected)
