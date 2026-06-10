@@ -5,9 +5,7 @@ use super::*;
 use crate::rpc::eth::filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets};
 
 impl SqliteIndexer {
-    pub async fn get_events_for_filter(filter: &IndexerEventFilter) {
-
-    }
+    pub async fn get_events_for_filter(filter: &IndexerEventFilter) {}
 }
 
 pub struct IndexerEventFilter {
@@ -19,9 +17,8 @@ pub struct IndexerEventFilter {
     pub keys: HashMap<String, Vec<ActorEventBlock>>,
 }
 
-impl IndexerEventFilter{
-    fn prefill_filter_query(&self) {
-    }
+impl IndexerEventFilter {
+    fn prefill_filter_query(&self) {}
 }
 
 impl TryFrom<ParsedFilter> for IndexerEventFilter {

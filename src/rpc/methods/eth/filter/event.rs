@@ -10,7 +10,6 @@ use anyhow::Result;
 use parking_lot::RwLock;
 use std::any::Any;
 
-#[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub struct EventFilter {
     // Unique id used to identify the filter

@@ -12,10 +12,9 @@ use crate::message_pool::{
     provider::Provider,
     utils::get_base_fee_lower_bound,
 };
-use crate::prelude::ShallowClone;
+use crate::prelude::*;
 use crate::shim::address::Address;
-use ahash::{HashMap, HashMapExt, HashSet};
-use cid::Cid;
+use ahash::{HashMap, HashSet};
 use parking_lot::RwLock as SyncRwLock;
 
 const REPUB_TRIGGER_CAPACITY: usize = 1;

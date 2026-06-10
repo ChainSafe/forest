@@ -538,7 +538,7 @@ impl EthFilterSpec {
             ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
         };
 
-        let addresses: Vec<_> = if let Some(ref address_list) = self.address {
+        let addresses = if let Some(ref address_list) = self.address {
             address_list
                 .iter()
                 .map(|ea| {
@@ -547,13 +547,13 @@ impl EthFilterSpec {
                 })
                 .collect::<Result<Vec<_>, _>>()?
         } else {
-            vec![]
+            Default::default()
         };
 
         let keys = if let Some(topics) = &self.topics {
             keys_to_keys_with_codec(parse_eth_topics(topics)?)
         } else {
-            HashMap::new()
+            Default::default()
         };
 
         Ok(ParsedFilter {
@@ -751,8 +751,8 @@ impl ParsedFilter {
     pub fn new_with_tipset(tipsets: ParsedFilterTipsets) -> Self {
         ParsedFilter {
             tipsets,
-            addresses: vec![],
-            keys: HashMap::new(),
+            addresses: Default::default(),
+            keys: Default::default(),
             msg_cid: None,
         }
     }
@@ -760,8 +760,8 @@ impl ParsedFilter {
     pub fn new_with_tipset_and_msg(tipsets: ParsedFilterTipsets, msg_cid: Option<Cid>) -> Self {
         ParsedFilter {
             tipsets,
-            addresses: vec![],
-            keys: HashMap::new(),
+            addresses: Default::default(),
+            keys: Default::default(),
             msg_cid,
         }
     }
@@ -782,7 +782,7 @@ impl ParsedFilter {
             ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
         };
 
-        let addresses: Vec<_> = filter.addresses.iter().map(|addr| addr.0).collect();
+        let addresses = filter.addresses.iter().map(|addr| addr.0).collect_vec();
 
         let mut keys: HashMap<String, Vec<ActorEventBlock>> = Default::default();
         for (k, v) in filter.fields.into_iter() {
@@ -1544,7 +1544,7 @@ mod tests {
 
         let empty_filter = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
-            addresses: vec![],
+            addresses: Default::default(),
             keys: Default::default(),
             msg_cid: None,
         };
@@ -1646,7 +1646,7 @@ mod tests {
 
         let empty_filter = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
-            addresses: vec![],
+            addresses: Default::default(),
             keys: Default::default(),
             msg_cid: None,
         };
@@ -1666,7 +1666,7 @@ mod tests {
 
         let filter1 = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
-            addresses: vec![],
+            addresses: Default::default(),
             keys,
             msg_cid: None,
         };
@@ -1686,7 +1686,7 @@ mod tests {
 
         let filter2 = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
-            addresses: vec![],
+            addresses: Default::default(),
             keys,
             msg_cid: None,
         };
@@ -1706,7 +1706,7 @@ mod tests {
 
         let filter2 = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
-            addresses: vec![],
+            addresses: Default::default(),
             keys,
             msg_cid: None,
         };
@@ -1735,7 +1735,7 @@ mod tests {
 
         let filter3 = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
-            addresses: vec![],
+            addresses: Default::default(),
             keys,
             msg_cid: None,
         };

@@ -4,10 +4,7 @@
 //! Request manager implementation that is optimized for `filecoin` network
 //! usage
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use crate::cid_collections::CidHashMap;
 use crate::prelude::*;
