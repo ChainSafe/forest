@@ -2337,6 +2337,7 @@ components:
         - type: array
           items:
             $ref: "#/components/schemas/EthHash"
+          uniqueItems: true
         - anyOf:
             - $ref: "#/components/schemas/EthHash"
             - type: "null"
