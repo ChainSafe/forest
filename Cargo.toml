@@ -211,7 +211,7 @@ smallvec = "1"
 smart-default = "0.7"
 sonic-rs = "0.5"
 spire_enum = "1"
-sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio", "macros"] }
+sqlx = { version = "0.9", default-features = false, features = ["sqlite", "runtime-tokio", "macros"] }
 stacker = "0.1"
 static_assertions = "1"
 statrs = "0.18"

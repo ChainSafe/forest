@@ -704,8 +704,8 @@ fn parse_eth_topics(
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ActorEventBlock {
-    codec: u64,
-    value: Vec<u8>,
+    pub codec: u64,
+    pub value: Vec<u8>,
 }
 
 fn keys_to_keys_with_codec(
