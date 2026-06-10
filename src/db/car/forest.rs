@@ -333,21 +333,26 @@ impl Encoder {
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
         let mut builder = index::Builder::new();
+        let mut n_frames = 0;
         while let Some((cids, zstd_frame)) = stream.try_next().await? {
             builder.extend(cids.into_iter().map(|cid| (cid, offset as u64)));
             sink.write_all(&zstd_frame).await?;
-            offset += zstd_frame.len()
+            offset += zstd_frame.len();
+            n_frames += 1;
         }
+
+        tracing::info!("Finished writing {n_frames} zstd CAR frames");
 
         // Create index
         let writer = builder.into_writer();
         writer.write_zstd_skip_frames_into(&mut sink).await?;
-
+        tracing::info!("Finished writing zstd CAR index frames");
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCarFooter {
             index: offset as u64 + ZSTD_SKIP_FRAME_LEN,
         };
         sink.write_all(&footer.to_le_bytes()).await?;
+        tracing::info!("Finished writing zstd CAR footer frame");
         Ok(())
     }
 
