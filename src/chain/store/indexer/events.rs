@@ -2,14 +2,27 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::rpc::eth::filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets};
+use crate::prelude::*;
+use crate::rpc::eth::{
+    CollectedEvent,
+    filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets},
+};
 use crate::shim::address::Protocol;
 use ahash::HashSet;
 use sqlx::Arguments as _;
 use std::borrow::Cow;
 
 impl SqliteIndexer {
-    pub async fn get_events_for_filter(filter: &IndexerEventFilter) {}
+    pub async fn get_events_for_filter(
+        &self,
+        filter: IndexerEventFilter,
+    ) -> anyhow::Result<Vec<CollectedEvent>> {
+        let mut qb = filter.to_query_builder()?;
+        let query = qb.build();
+        let results = query.fetch_all(self.db()).await?;
+        tracing::info!("results: {}, SQL: {}", results.len(), qb.into_string());
+        Ok(vec![])
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -23,7 +36,7 @@ pub struct IndexerEventFilter {
 }
 
 impl IndexerEventFilter {
-    fn to_query_builder(&self) -> anyhow::Result<sqlx::QueryBuilder<sqlx::Sqlite>> {
+    pub fn to_query_builder(&self) -> anyhow::Result<sqlx::QueryBuilder<sqlx::Sqlite>> {
         let arg_err = |e| anyhow::anyhow!("failed to push argument: {e}");
 
         let mut clauses: Vec<Cow<'static, str>> = vec![];

@@ -109,6 +109,10 @@ impl SqliteIndexer {
         self.lock.lock().await
     }
 
+    pub fn db(&self) -> &sqlx::SqlitePool {
+        &self.db
+    }
+
     pub fn with_actor_to_delegated_address_func(mut self, f: ActorToDelegatedAddressFunc) -> Self {
         self.actor_to_delegated_address_func = Some(f);
         self

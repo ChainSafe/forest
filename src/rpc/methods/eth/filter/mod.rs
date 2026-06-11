@@ -24,8 +24,7 @@ use super::BlockNumberOrHash;
 use super::CollectedEvent;
 use super::Predefined;
 use super::get_tipset_from_hash;
-use crate::blocks::Tipset;
-use crate::blocks::TipsetKey;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
 use crate::prelude::*;
@@ -735,7 +734,7 @@ pub enum ParsedFilterTipsets {
     Key(TipsetKey),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedFilter {
     pub(crate) tipsets: ParsedFilterTipsets,
     pub(crate) addresses: Vec<Address>,

@@ -528,6 +528,10 @@ impl RPCState {
         self.state_manager.chain_config()
     }
 
+    pub fn chain_indexer(&self) -> Option<&Arc<crate::chain::indexer::SqliteIndexer>> {
+        self.chain_indexer.as_ref()
+    }
+
     pub fn db(&self) -> &DbImpl {
         self.state_manager.db()
     }
