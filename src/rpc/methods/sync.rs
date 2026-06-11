@@ -234,6 +234,7 @@ mod tests {
             bad_blocks: Some(Default::default()),
             sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
             eth_event_handler: Arc::new(EthEventHandler::new()),
+            eth_logs_feed: Default::default(),
             sync_network_context,
             start_time,
             shutdown: mpsc::channel(1).0, // dummy for tests

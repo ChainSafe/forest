@@ -598,6 +598,7 @@ fn maybe_start_rpc_service(
                         bad_blocks,
                         sync_status,
                         eth_event_handler,
+                        eth_logs_feed: Default::default(),
                         sync_network_context,
                         start_time,
                         shutdown,

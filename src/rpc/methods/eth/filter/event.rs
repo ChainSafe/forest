@@ -3,7 +3,7 @@
 
 use crate::prelude::*;
 use crate::rpc::eth::filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets};
-use crate::rpc::eth::{CollectedEvent, FilterID, filter::Filter};
+use crate::rpc::eth::{FilterID, SeenEventPositions, filter::Filter};
 use crate::shim::address::Address;
 use ahash::HashMap;
 use anyhow::Result;
@@ -22,8 +22,8 @@ pub struct EventFilter {
     pub keys_with_codec: HashMap<String, Vec<ActorEventBlock>>,
     // Maximum number of results to collect
     pub max_results: usize,
-    // Collected events
-    pub collected: Vec<CollectedEvent>,
+    // Positions of the events returned by the last poll, used to compute the next poll's delta
+    pub seen_positions: SeenEventPositions,
 }
 
 impl From<&EventFilter> for ParsedFilter {
@@ -72,7 +72,7 @@ impl EventFilterManager {
             addresses: pf.addresses,
             keys_with_codec: pf.keys,
             max_results: self.max_filter_results,
-            collected: vec![],
+            seen_positions: Default::default(),
         });
 
         self.filters.write().insert(id, filter.clone());

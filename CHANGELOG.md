@@ -35,9 +35,13 @@
 
 - [#7164](https://github.com/ChainSafe/forest/issues/7164): JSON-RPC authentication is now performed once per connection (e.g. at the WebSocket upgrade) instead of on every request, matching Lotus. Note that token expiry is no longer re-checked for the lifetime of an established connection.
 
+- [#7096](https://github.com/ChainSafe/forest/issues/7096): `eth_subscribe` `logs` filters now match with go-ethereum's semantics: the event data payload no longer participates in topic matching, empty topic positions act as wildcards, and logs with fewer topics than the filter has positions never match.
+
 ### Removed
 
 ### Fixed
+
+- [#7096](https://github.com/ChainSafe/forest/issues/7096): `eth_subscribe` `logs` now re-emits the logs of reorg-reverted tipsets with `removed: true`, ahead of the logs of the replacing tipsets.
 
 - [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
 

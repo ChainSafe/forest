@@ -104,6 +104,7 @@ pub async fn offline_rpc_state(
             bad_blocks: Default::default(),
             sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
             eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
+            eth_logs_feed: Default::default(),
             sync_network_context,
             start_time: chrono::Utc::now(),
             shutdown,
