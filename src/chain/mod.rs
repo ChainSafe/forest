@@ -25,6 +25,7 @@ use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
 use sha2::digest::{self, Digest};
 use std::io::{Read, Seek, SeekFrom};
+use std::time::Instant;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 pub struct ExportOptions<S> {
@@ -146,6 +147,13 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
         anyhow::bail!("message receipts must be included when events are included");
     }
 
+    let start = Instant::now();
+    tracing::info!(
+        "Exporting snapshot, epoch={}, depth={lookup_depth}, prefix_frames={}",
+        tipset.epoch(),
+        prefix_data_frames.as_ref().map(|v| v.len()).unwrap_or(0)
+    );
+
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
 
     // Wrap writer in optional checksum calculator
@@ -181,6 +189,11 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
     writer.flush().await.context("failed to flush")?;
 
     let digest = writer.finalize().map_err(|e| Error::Other(e.to_string()))?;
+
+    tracing::info!(
+        "Exported snapshot, took {}",
+        humantime::format_duration(start.elapsed())
+    );
 
     Ok(digest)
 }
