@@ -35,7 +35,10 @@ use crate::rpc::{
     error::ServerError,
     eth::{
         errors::EthErrors,
-        filter::{SkipEvent, event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter},
+        filter::{
+            EventRevertStatus, SkipEvent, event::EventFilter, mempool::MempoolFilter,
+            tipset::TipSetFilter,
+        },
         utils::decode_revert_reason,
     },
     methods::chain::ChainGetTipSetV2,
@@ -1454,17 +1457,30 @@ pub async fn eth_logs_for_block_and_transaction(
     eth_filter_logs_from_events(ctx, &events)
 }
 
-pub async fn eth_logs_with_filter(
+/// Collects the Ethereum logs of the message tipset whose receipts live in `receipt_ts`
+/// (its child), marking them as removed when the head change that surfaced them was a reorg
+/// revert. The receipt tipset is passed explicitly because reverted tipsets can no longer be
+/// resolved through the canonical chain.
+pub(in crate::rpc) async fn eth_logs_for_head_change(
     ctx: &Ctx,
-    ts: &Tipset,
-    spec: Option<EthFilterSpec>,
+    receipt_ts: &Tipset,
+    revert_status: EventRevertStatus,
 ) -> anyhow::Result<Vec<EthLog>> {
+    let msg_ts = ctx
+        .chain_index()
+        .load_required_tipset(receipt_ts.parents())?;
+    let executed_ts = ctx
+        .state_manager
+        .load_executed_tipset_with_receipt(&msg_ts, receipt_ts)
+        .await?;
     let mut events = vec![];
-    EthEventHandler::collect_events(
+    EthEventHandler::collect_events_from_messages(
         &ctx.state_manager,
-        ts,
-        spec.as_ref(),
+        &msg_ts,
+        &executed_ts.executed_messages,
+        None::<&ParsedFilter>,
         SkipEvent::OnUnresolvedAddress,
+        revert_status,
         &mut events,
     )
     .await?;
@@ -3147,6 +3163,11 @@ pub struct CollectedEvent {
     pub(crate) msg_cid: Cid,
 }
 
+/// Positions `(message index, event index)` of collected events, grouped by tipset.
+/// Identifies events without retaining their entry payloads; grouping by tipset lets
+/// membership checks borrow the tipset key and stores each distinct key only once.
+pub type SeenEventPositions = HashMap<TipsetKey, HashSet<(u64, u64)>>;
+
 fn match_key(key: &str) -> Option<usize> {
     match key.get(0..2) {
         Some("t1") => Some(0),
@@ -3410,6 +3431,59 @@ impl RpcMethod<1> for EthGetLogs {
     }
 }
 
+/// Shared implementation of `eth_getFilterLogs` / `eth_getFilterChanges` for installed event
+/// filters: collects the filter's full result set from the canonical chain, returns only the
+/// events that were not present in the previous poll, and stores the latest set as the new
+/// baseline.
+async fn poll_event_filter(
+    ctx: &Ctx,
+    event_filter: &EventFilter,
+) -> anyhow::Result<Vec<CollectedEvent>> {
+    let events = ctx
+        .eth_event_handler
+        .get_events_for_parsed_filter(
+            ctx,
+            &Arc::new(event_filter.into()),
+            SkipEvent::OnUnresolvedAddress,
+        )
+        .await?;
+    // An event's position identifies it uniquely, so the poll baseline stores positions
+    // instead of whole `CollectedEvent`s and the filter does not pin entry payloads between
+    // polls. A re-orged duplicate lands under a different tipset key and is correctly
+    // reported again.
+    let mut seen_positions = SeenEventPositions::default();
+    let mut recent_events = Vec::new();
+    for event in events {
+        let position = (event.msg_idx, event.event_idx);
+        let already_seen = event_filter
+            .seen_positions
+            .get(&event.tipset_key)
+            .is_some_and(|positions| positions.contains(&position));
+        match seen_positions.get_mut(&event.tipset_key) {
+            Some(positions) => {
+                positions.insert(position);
+            }
+            None => {
+                seen_positions.insert(event.tipset_key.clone(), HashSet::from_iter([position]));
+            }
+        }
+        if !already_seen {
+            recent_events.push(event);
+        }
+    }
+    if let Some(store) = &ctx.eth_event_handler.filter_store {
+        store.update(Arc::new(EventFilter {
+            id: event_filter.id.clone(),
+            tipsets: event_filter.tipsets.clone(),
+            addresses: event_filter.addresses.clone(),
+            keys_with_codec: event_filter.keys_with_codec.clone(),
+            max_results: event_filter.max_results,
+            seen_positions,
+        }));
+    }
+    Ok(recent_events)
+}
+
 pub enum EthGetFilterLogs {}
 impl RpcMethod<1> for EthGetFilterLogs {
     const NAME: &'static str = "Filecoin.EthGetFilterLogs";
@@ -3432,28 +3506,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
         if let Some(store) = &eth_event_handler.filter_store {
             let filter = store.get(&filter_id)?;
             if let Some(event_filter) = filter.as_any().downcast_ref::<EventFilter>() {
-                let events = ctx
-                    .eth_event_handler
-                    .get_events_for_parsed_filter(
-                        &ctx,
-                        &Arc::new(event_filter.into()),
-                        SkipEvent::OnUnresolvedAddress,
-                    )
-                    .await?;
-                let recent_events: Vec<CollectedEvent> = events
-                    .clone()
-                    .into_iter()
-                    .filter(|event| !event_filter.collected.contains(event))
-                    .collect();
-                let filter = Arc::new(EventFilter {
-                    id: event_filter.id.clone(),
-                    tipsets: event_filter.tipsets.clone(),
-                    addresses: event_filter.addresses.clone(),
-                    keys_with_codec: event_filter.keys_with_codec.clone(),
-                    max_results: event_filter.max_results,
-                    collected: events.clone(),
-                });
-                store.update(filter);
+                let recent_events = poll_event_filter(&ctx, event_filter).await?;
                 return Ok(eth_filter_result_from_events(&ctx, &recent_events)?);
             }
         }
@@ -3483,28 +3536,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
         if let Some(store) = &eth_event_handler.filter_store {
             let filter = store.get(&filter_id)?;
             if let Some(event_filter) = filter.as_any().downcast_ref::<EventFilter>() {
-                let events = ctx
-                    .eth_event_handler
-                    .get_events_for_parsed_filter(
-                        &ctx,
-                        &Arc::new(event_filter.into()),
-                        SkipEvent::OnUnresolvedAddress,
-                    )
-                    .await?;
-                let recent_events: Vec<CollectedEvent> = events
-                    .clone()
-                    .into_iter()
-                    .filter(|event| !event_filter.collected.contains(event))
-                    .collect();
-                let filter = Arc::new(EventFilter {
-                    id: event_filter.id.clone(),
-                    tipsets: event_filter.tipsets.clone(),
-                    addresses: event_filter.addresses.clone(),
-                    keys_with_codec: event_filter.keys_with_codec.clone(),
-                    max_results: event_filter.max_results,
-                    collected: events.clone(),
-                });
-                store.update(filter);
+                let recent_events = poll_event_filter(&ctx, event_filter).await?;
                 return Ok(eth_filter_result_from_events(&ctx, &recent_events)?);
             }
             if let Some(tipset_filter) = filter.as_any().downcast_ref::<TipSetFilter>() {
