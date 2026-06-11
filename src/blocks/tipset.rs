@@ -649,12 +649,8 @@ mod lotus_json {
     #[schemars(rename = "TipsetInner")]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
-        #[serde(with = "crate::lotus_json")]
-        #[schemars(with = "LotusJson<TipsetKey>")]
-        cids: TipsetKey,
-        #[serde(with = "crate::lotus_json")]
-        #[schemars(with = "LotusJson<NonEmpty<CachingBlockHeader>>")]
-        blocks: NonEmpty<CachingBlockHeader>,
+        cids: <TipsetKey as HasLotusJson>::LotusJson,
+        blocks: <NonEmpty<CachingBlockHeader> as HasLotusJson>::LotusJson,
         height: i64,
     }
 
@@ -669,7 +665,10 @@ mod lotus_json {
                 height: _ignored1,
             } = Deserialize::deserialize(deserializer)?;
 
-            Ok(Self(Tipset::new(blocks).map_err(D::Error::custom)?))
+            Ok(Self(
+                Tipset::new(NonEmpty::<CachingBlockHeader>::from_lotus_json(blocks))
+                    .map_err(D::Error::custom)?,
+            ))
         }
     }
 
@@ -680,9 +679,9 @@ mod lotus_json {
         {
             let Self(tipset) = self;
             TipsetLotusJsonInner {
-                cids: tipset.key().clone(),
+                cids: tipset.key().clone().into_lotus_json(),
+                blocks: tipset.block_headers().clone().into_lotus_json(),
                 height: tipset.epoch(),
-                blocks: tipset.block_headers().clone(),
             }
             .serialize(serializer)
         }
