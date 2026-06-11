@@ -847,10 +847,10 @@ impl SyncStateMachine {
                 tipset,
                 is_proposed_head,
             } => {
-                let tsk = tipset.key().clone();
                 if self.try_mark_tipset_as_validated(tipset, is_proposed_head)
                     && crate::utils::broadcast::has_subscribers(&self.validated_tipset_broadcast_tx)
-                    && let Err(e) = self.validated_tipset_broadcast_tx.send(tsk)
+                    // Sending the actual head key here as it could be expanded from the above tipset when `is_proposed_head` is `true`
+                    && let Err(e) = self.validated_tipset_broadcast_tx.send(self.cs.heaviest_tipset().key().clone())
                 {
                     warn!("Failed to broadcast validated tipset: {e}");
                 }
