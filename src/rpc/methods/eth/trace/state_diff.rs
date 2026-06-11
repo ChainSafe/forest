@@ -11,12 +11,11 @@ use super::super::types::{EthAddress, EthHash};
 use super::super::utils::ActorStateEthExt as _;
 use super::types::{AccountDiff, ChangedType, Delta, StateDiff};
 use super::utils::{ZERO_HASH, u256_to_eth_hash};
+use crate::prelude::*;
 use crate::shim::actors::{EVMActorStateLoad as _, evm, is_evm_actor};
 use crate::shim::state_tree::{ActorState, StateTree};
 use ahash::{HashMap, HashSet};
-use anyhow::Context as _;
 use fil_actor_evm_state::evm_shared::v17::uints::U256;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_kamt::{AsHashedKey, Config as KamtConfig, HashedKey, Kamt};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -278,9 +277,7 @@ mod tests {
     use crate::rpc::eth::types::EthBytes;
     use crate::shim::address::Address as FilecoinAddress;
     use crate::shim::state_tree::StateTreeVersion;
-    use ahash::HashSetExt as _;
     use num::BigInt;
-    use std::sync::Arc;
 
     #[test]
     fn test_build_state_diff_empty_touched_addresses() {

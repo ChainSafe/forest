@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::HasLotusJson;
+use crate::prelude::*;
 use crate::rpc::registry::actors_reg::{ACTOR_REGISTRY, ActorRegistry};
 use crate::shim::machine::BuiltinActor;
 use crate::shim::message::MethodNum;
-use ahash::{HashMap, HashMapExt};
-use anyhow::{Context, Result, bail};
-use cid::Cid;
+use ahash::HashMap;
+use anyhow::{Result, bail};
 use fil_actors_shared::v11::runtime::builtins::Type;
 use serde::de::DeserializeOwned;
 use serde_json::Value;

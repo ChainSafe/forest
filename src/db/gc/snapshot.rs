@@ -85,6 +85,15 @@ impl SnapshotGarbageCollector {
     pub fn new(chain_follower: ChainFollower, config: &crate::Config) -> anyhow::Result<Self> {
         let chain_data_path = chain_path(config);
         let chain_tmp_root = chain_data_path.join("tmp");
+        // Clear in case there're left-overs from the last node run.
+        if chain_tmp_root.is_dir()
+            && let Err(e) = std::fs::remove_dir_all(&chain_tmp_root)
+        {
+            tracing::warn!(
+                "failed to clear tmp folder {}: {e}",
+                chain_tmp_root.display()
+            );
+        }
         std::fs::create_dir_all(&chain_tmp_root)?;
         let db_root_dir = db_root(&chain_data_path)?;
         let car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);

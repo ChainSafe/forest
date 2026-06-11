@@ -88,8 +88,8 @@ pub enum Receipt {
 }
 
 impl GetSize for Receipt {
-    fn get_heap_size(&self) -> usize {
-        delegate_receipt!(self.return_data.bytes().get_heap_size())
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        delegate_receipt!(self.return_data.bytes().get_heap_size_with_tracker(tracker))
     }
 }
 
@@ -227,9 +227,9 @@ pub enum StampedEvent {
 }
 
 impl GetSize for StampedEvent {
-    fn get_heap_size(&self) -> usize {
-        delegate_stamped_event!(self => |e| vec_heap_size_with_fn_helper(&e.event.entries, |e| {
-            e.key.get_heap_size() + e.value.get_heap_size()
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        delegate_stamped_event!(self => |e| vec_heap_size_with_fn_helper(&e.event.entries, tracker, |e, mut tr| {
+            (e.key.get_heap_size_with_tracker(&mut tr).0 + e.value.get_heap_size_with_tracker(&mut tr).0, tr)
         }))
     }
 }

@@ -4,14 +4,11 @@
 //! Request manager implementation that is optimized for `filecoin` network
 //! usage
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use crate::cid_collections::CidHashMap;
 use crate::prelude::*;
-use ahash::{HashSet, HashSetExt};
+use ahash::HashSet;
 use flume::TryRecvError;
 use futures::StreamExt;
 use libp2p::PeerId;

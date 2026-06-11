@@ -51,7 +51,7 @@ use crate::{
     beacon::BeaconEntry,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::*},
 };
-use ahash::{HashMap, HashMapExt, HashSet};
+use ahash::{HashMap, HashSet};
 use anyhow::Result;
 use enumflags2::{BitFlags, make_bitflags};
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};

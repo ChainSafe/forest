@@ -6,7 +6,7 @@
     "pnpm": ">=10"
   },
   "devDependencies": {
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.3"
   },
   "scripts": {
     "prettier-version": "prettier --version",
