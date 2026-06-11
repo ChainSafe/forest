@@ -559,6 +559,7 @@ fn maybe_start_rpc_service(
 ) -> anyhow::Result<()> {
     if config.client.enable_rpc {
         let rpc_address = config.client.rpc_address;
+        let metrics_mode = crate::rpc::MetricsMode::from(config.client.enable_metrics_endpoint);
         let filter_list = config
             .client
             .rpc_filter_list
@@ -609,6 +610,7 @@ fn maybe_start_rpc_service(
                     rpc_listener,
                     rpc_stop_handle,
                     filter_list,
+                    metrics_mode,
                 )
                 .await
             }

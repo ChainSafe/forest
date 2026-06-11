@@ -29,6 +29,7 @@ pub use filter_list::FilterList;
 use futures::FutureExt as _;
 use jsonrpsee::server::ServerConfig;
 use log_layer::LogLayer;
+pub use metrics_layer::MetricsMode;
 use parallel_batch_layer::ParallelBatchLayer;
 use reflect::Ctx;
 pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
@@ -555,6 +556,7 @@ pub async fn start_rpc(
     rpc_listener: tokio::net::TcpListener,
     stop_handle: StopHandle,
     filter_list: Option<FilterList>,
+    metrics_mode: MetricsMode,
 ) -> anyhow::Result<()> {
     let filter_list = filter_list.unwrap_or_default();
     // `Arc` is needed because we will share the state between two modules
@@ -655,7 +657,7 @@ pub async fn start_rpc(
                     // outer to `MetricsLayer` for batched methods to be measured. Both must stay
                     // inner to the batch-transforming layers above.
                     .layer(ParallelBatchLayer::new(max_response_body_size))
-                    .layer(MetricsLayer::default());
+                    .layer(MetricsLayer::new(metrics_mode));
                 let mut jsonrpsee_svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
@@ -887,7 +889,13 @@ mod tests {
 
         // Start an RPC server
 
-        let handle = tokio::spawn(start_rpc(state, rpc_listener, stop_handle, None));
+        let handle = tokio::spawn(start_rpc(
+            state,
+            rpc_listener,
+            stop_handle,
+            None,
+            MetricsMode::Enabled,
+        ));
 
         println!("sending a few http requests");
 
