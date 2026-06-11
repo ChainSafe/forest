@@ -13,7 +13,7 @@ use crate::utils::cache::SizeTrackingCache;
 use nonzero_ext::nonzero;
 use num::Integer;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize);
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize * 3); // 3-day-worth epochs, maximum ~50MiB
 
 type TipsetCache = SizeTrackingCache<TipsetKey, Tipset>;
 
