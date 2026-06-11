@@ -108,7 +108,7 @@ jobs:
         env:
           FOREST_TEST_SKIP_PROOF_PARAM_CHECK: 1
       - name: Upload Test Results to CodeCov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         if: ${{ !cancelled() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -122,7 +122,7 @@ jobs:
           path: lcov.info
           if-no-files-found: error
       - name: Upload CodeCov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info

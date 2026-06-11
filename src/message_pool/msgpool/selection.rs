@@ -23,7 +23,7 @@ use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::{address::Address, econ::TokenAmount};
 use crate::state_manager::IdToAddressCache;
 use crate::utils::cache::SizeTrackingCache;
-use ahash::{HashMap, HashMapExt};
+use ahash::HashMap;
 use anyhow::{bail, ensure};
 use rand::prelude::SliceRandom;
 use tracing::{debug, error, warn};

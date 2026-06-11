@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::prelude::*;
-use ahash::{HashMap, HashMapExt};
+use ahash::HashMap;
 use parking_lot::RwLock;
 
 pub struct BlockstoreWithWriteBuffer<DB: Blockstore> {

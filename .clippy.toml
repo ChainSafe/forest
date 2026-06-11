@@ -9,6 +9,14 @@ path = "std::collections::HashSet"
 reason = """the standard library hasher is secure by default, but not very fast.
 use ahash::HashSet instead."""
 
+[[disallowed-types]]
+path = "ahash::AHashMap"
+reason = """use ahash::HashMap instead."""
+
+[[disallowed-types]]
+path = "ahash::AHashSet"
+reason = """use ahash::HashSet instead."""
+
 # Banned in #2600, presumably so that poisoning won't need to be user-handled
 [[disallowed-types]]
 path = "std::sync::RwLock"
