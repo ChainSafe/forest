@@ -251,8 +251,7 @@ async fn chain_follower(
                             if let Err(reason) = GossipBlockValidator::new(&b).validate_pre_fetch(
                                 &genesis,
                                 cfg.block_delay_secs,
-                                cfg.policy.chain_finality,
-                                cs.heaviest_tipset().epoch(),
+                                cs.ec_calculator_finalized_epoch(), // Not using F3 finalized epoch as it could go above the chain head during catchup
                                 bad_block_cache.as_ref(),
                                 &seen_block_cache,
                             ) {
@@ -713,11 +712,9 @@ impl SyncStateMachine {
             return;
         }
 
-        // Check if tipset is outside the chain_finality window
-        let heaviest = self.cs.heaviest_tipset();
-        let epoch_diff = heaviest.epoch() - tipset.epoch();
-
-        if epoch_diff > self.cs.chain_config().policy.chain_finality {
+        // Check if tipset is outside the chain finality window.
+        // Not using F3 finalized epoch as it could go above the chain head during catchup
+        if tipset.epoch() < self.cs.ec_calculator_finalized_epoch() {
             self.mark_bad_tipset(tipset);
             return;
         }
