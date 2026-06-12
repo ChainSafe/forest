@@ -341,12 +341,31 @@ impl EthEventHandler {
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
-        let msg_cid_filter = spec.and_then(|s| s.msg_cid_filter()).copied();
-        let height = tipset.epoch();
-        let tipset_key = tipset.key();
         let ExecutedTipset {
             executed_messages, ..
         } = state_manager.load_executed_tipset_for_rpc(tipset).await?;
+        Self::collect_events_from_messages(
+            state_manager,
+            tipset,
+            &executed_messages,
+            spec,
+            skip_event,
+            collected_events,
+        )
+        .await
+    }
+
+    pub async fn collect_events_from_messages(
+        state_manager: &StateManager,
+        tipset: &Tipset,
+        executed_messages: &[ExecutedMessage],
+        spec: Option<&impl Matcher>,
+        skip_event: SkipEvent,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let msg_cid_filter = spec.and_then(|s| s.msg_cid_filter()).copied();
+        let height = tipset.epoch();
+        let tipset_key = tipset.key();
         let mut resolved_id_addrs = HashMap::default();
         let mut event_count = 0;
         for (

@@ -41,6 +41,8 @@
 
 - [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
 
+- [#7156](https://github.com/ChainSafe/forest/pull/7156): Fixed the block-level bloom is now computed from the block's logs.
+
 ## Forest v0.33.6 "Ebb"
 
 Non-mandatory release for all node operators. It fixes a critical memory leak in `v0.33.5`. (Earlier releases are not affected)
