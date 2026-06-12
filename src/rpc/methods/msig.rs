@@ -15,6 +15,8 @@ pub enum MsigGetAvailableBalance {}
 
 impl RpcMethod<2> for MsigGetAvailableBalance {
     const NAME: &'static str = "Filecoin.MsigGetAvailableBalance";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the portion of a multisig balance that can be immediately spent.");
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -44,6 +46,8 @@ pub enum MsigGetPending {}
 
 impl RpcMethod<2> for MsigGetPending {
     const NAME: &'static str = "Filecoin.MsigGetPending";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns all pending transactions for a multisig actor.");
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -79,6 +83,8 @@ impl RpcMethod<2> for MsigGetPending {
 pub enum MsigGetVested {}
 impl RpcMethod<3> for MsigGetVested {
     const NAME: &'static str = "Filecoin.MsigGetVested";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the amount of FIL that has vested in a multisig actor between two tipsets.");
     const PARAM_NAMES: [&'static str; 3] = ["address", "start_tsk", "end_tsk"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -119,6 +125,8 @@ impl RpcMethod<3> for MsigGetVested {
 pub enum MsigGetVestingSchedule {}
 impl RpcMethod<2> for MsigGetVestingSchedule {
     const NAME: &'static str = "Filecoin.MsigGetVestingSchedule";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the vesting schedule of a multisig actor.");
     const PARAM_NAMES: [&'static str; 2] = ["address", "tsk"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;

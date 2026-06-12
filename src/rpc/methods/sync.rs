@@ -17,6 +17,8 @@ pub use types::*;
 pub enum SyncCheckBad {}
 impl RpcMethod<1> for SyncCheckBad {
     const NAME: &'static str = "Filecoin.SyncCheckBad";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Checks whether a block CID is in the bad block cache.");
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -42,6 +44,8 @@ impl RpcMethod<1> for SyncCheckBad {
 pub enum SyncMarkBad {}
 impl RpcMethod<1> for SyncMarkBad {
     const NAME: &'static str = "Filecoin.SyncMarkBad";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Marks a block CID as bad, causing the node to ignore it.");
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;

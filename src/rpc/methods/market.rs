@@ -15,6 +15,8 @@ const METHOD_ADD_BALANCE: MethodNum = 2;
 pub enum MarketAddBalance {}
 impl RpcMethod<3> for MarketAddBalance {
     const NAME: &'static str = "Filecoin.MarketAddBalance";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Adds funds to the market actor escrow for the given address.");
     const PARAM_NAMES: [&'static str; 3] = ["wallet", "address", "amount"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;

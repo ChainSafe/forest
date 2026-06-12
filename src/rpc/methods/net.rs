@@ -83,6 +83,8 @@ impl RpcMethod<0> for NetPeers {
 pub enum NetFindPeer {}
 impl RpcMethod<1> for NetFindPeer {
     const NAME: &'static str = "Filecoin.NetFindPeer";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Finds a peer by ID and returns its multiaddresses.");
     const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -113,6 +115,8 @@ impl RpcMethod<1> for NetFindPeer {
 pub enum NetListening {}
 impl RpcMethod<0> for NetListening {
     const NAME: &'static str = "Filecoin.NetListening";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Indicates whether the node is currently listening for connections.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
@@ -133,6 +137,8 @@ impl RpcMethod<0> for NetListening {
 pub enum NetInfo {}
 impl RpcMethod<0> for NetInfo {
     const NAME: &'static str = "Forest.NetInfo";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns general information about the libp2p network stack.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -250,6 +256,7 @@ impl RpcMethod<1> for NetAgentVersion {
 pub enum NetAutoNatStatus {}
 impl RpcMethod<0> for NetAutoNatStatus {
     const NAME: &'static str = "Filecoin.NetAutoNatStatus";
+    const DESCRIPTION: Option<&'static str> = Some("Returns the AutoNAT status of the node.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -275,6 +282,8 @@ impl RpcMethod<0> for NetAutoNatStatus {
 pub enum NetVersion {}
 impl RpcMethod<0> for NetVersion {
     const NAME: &'static str = "Filecoin.NetVersion";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the current network version (chain ID) as a string.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;

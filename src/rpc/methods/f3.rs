@@ -57,6 +57,8 @@ pub enum GetRawNetworkName {}
 
 impl RpcMethod<0> for GetRawNetworkName {
     const NAME: &'static str = "F3.GetRawNetworkName";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the raw network name used by the F3 sidecar.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -82,6 +84,8 @@ impl RpcMethod<0> for GetRawNetworkName {
 pub enum GetTipsetByEpoch {}
 impl RpcMethod<1> for GetTipsetByEpoch {
     const NAME: &'static str = "F3.GetTipsetByEpoch";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the tipset at or before the given epoch.");
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -106,6 +110,8 @@ impl RpcMethod<1> for GetTipsetByEpoch {
 pub enum GetTipset {}
 impl RpcMethod<1> for GetTipset {
     const NAME: &'static str = "F3.GetTipset";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the tipset for the given F3 tipset key.");
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -127,6 +133,8 @@ impl RpcMethod<1> for GetTipset {
 pub enum GetHead {}
 impl RpcMethod<0> for GetHead {
     const NAME: &'static str = "F3.GetHead";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the current chain head as an F3 tipset.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -146,6 +154,8 @@ impl RpcMethod<0> for GetHead {
 pub enum GetParent {}
 impl RpcMethod<1> for GetParent {
     const NAME: &'static str = "F3.GetParent";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the parent tipset of the given F3 tipset.");
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -435,6 +445,8 @@ impl GetPowerTable {
 
 impl RpcMethod<1> for GetPowerTable {
     const NAME: &'static str = "F3.GetPowerTable";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the power table for the given F3 tipset.");
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -459,6 +471,8 @@ impl RpcMethod<1> for GetPowerTable {
 pub enum ProtectPeer {}
 impl RpcMethod<1> for ProtectPeer {
     const NAME: &'static str = "F3.ProtectPeer";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Marks the specified peer as protected from connection pruning.");
     const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -487,6 +501,8 @@ pub enum GetParticipatingMinerIDs {}
 
 impl RpcMethod<0> for GetParticipatingMinerIDs {
     const NAME: &'static str = "F3.GetParticipatingMinerIDs";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the IDs of miners currently participating in F3.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -511,6 +527,8 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
 pub enum Finalize {}
 impl RpcMethod<1> for Finalize {
     const NAME: &'static str = "F3.Finalize";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Signals finalization of an F3 instance at the given tipset.");
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
@@ -591,6 +609,8 @@ impl RpcMethod<1> for Finalize {
 pub enum SignMessage {}
 impl RpcMethod<2> for SignMessage {
     const NAME: &'static str = "F3.SignMessage";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Signs a message using the key of the miner identified by the given public key.");
     const PARAM_NAMES: [&'static str; 2] = ["pubkey", "message"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
@@ -647,6 +667,8 @@ impl RpcMethod<1> for F3ExportLatestSnapshot {
 pub enum F3GetCertificate {}
 impl RpcMethod<1> for F3GetCertificate {
     const NAME: &'static str = "Filecoin.F3GetCertificate";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the F3 finality certificate at the given instance number.");
     const PARAM_NAMES: [&'static str; 1] = ["instance"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -683,6 +705,7 @@ impl F3GetLatestCertificate {
 
 impl RpcMethod<0> for F3GetLatestCertificate {
     const NAME: &'static str = "Filecoin.F3GetLatestCertificate";
+    const DESCRIPTION: Option<&'static str> = Some("Returns the latest F3 finality certificate.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -702,6 +725,8 @@ impl RpcMethod<0> for F3GetLatestCertificate {
 pub enum F3GetECPowerTable {}
 impl RpcMethod<1> for F3GetECPowerTable {
     const NAME: &'static str = "Filecoin.F3GetECPowerTable";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the EC power table for the given tipset.");
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -722,6 +747,8 @@ impl RpcMethod<1> for F3GetECPowerTable {
 pub enum F3GetF3PowerTable {}
 impl RpcMethod<1> for F3GetF3PowerTable {
     const NAME: &'static str = "Filecoin.F3GetF3PowerTable";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the F3 power table for the given tipset.");
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -782,6 +809,8 @@ impl F3IsRunning {
 
 impl RpcMethod<0> for F3IsRunning {
     const NAME: &'static str = "Filecoin.F3IsRunning";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Indicates whether the F3 subsystem is currently running.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -812,6 +841,8 @@ impl F3GetProgress {
 
 impl RpcMethod<0> for F3GetProgress {
     const NAME: &'static str = "Filecoin.F3GetProgress";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the current progress of the F3 instance.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -842,6 +873,7 @@ impl F3GetManifest {
 
 impl RpcMethod<0> for F3GetManifest {
     const NAME: &'static str = "Filecoin.F3GetManifest";
+    const DESCRIPTION: Option<&'static str> = Some("Returns the current F3 manifest.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -862,6 +894,8 @@ impl RpcMethod<0> for F3GetManifest {
 pub enum F3ListParticipants {}
 impl RpcMethod<0> for F3ListParticipants {
     const NAME: &'static str = "Filecoin.F3ListParticipants";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the list of currently active F3 participants.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -896,6 +930,8 @@ impl F3ListParticipants {
 pub enum F3GetOrRenewParticipationTicket {}
 impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
     const NAME: &'static str = "Filecoin.F3GetOrRenewParticipationTicket";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Gets or renews a participation ticket for the F3 protocol.");
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "previous_lease_ticket", "instances"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
@@ -932,6 +968,9 @@ impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
 pub enum F3Participate {}
 impl RpcMethod<1> for F3Participate {
     const NAME: &'static str = "Filecoin.F3Participate";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Enrolls the caller as a participant in the F3 protocol using the given lease ticket.",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["lease_ticket"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;

@@ -13,6 +13,9 @@ use enumflags2::{BitFlags, make_bitflags};
 pub enum BeaconGetEntry {}
 impl RpcMethod<1> for BeaconGetEntry {
     const NAME: &'static str = "Filecoin.BeaconGetEntry";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the beacon entry for the given Filecoin epoch, blocking until the entry is available.",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["first"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Not supported in V1
     const PERMISSION: Permission = Permission::Read;

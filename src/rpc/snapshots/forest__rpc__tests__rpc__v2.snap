@@ -30,6 +30,7 @@ methods:
         $ref: "#/components/schemas/ChainFinalityStatus"
     paramStructure: by-position
   - name: Forest.ChainExport
+    description: Exports the chain state to a file using Forest-specific parameters.
     params:
       - name: params
         required: true
@@ -42,6 +43,7 @@ methods:
         $ref: "#/components/schemas/ApiExportResult"
     paramStructure: by-position
   - name: Forest.ChainExportDiff
+    description: Exports a diff between two chain states to a file.
     params:
       - name: params
         required: true
@@ -54,6 +56,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Forest.ChainExportStatus
+    description: Returns the status of the current chain export operation.
     params: []
     result:
       name: Forest.ChainExportStatus.Result
@@ -62,6 +65,7 @@ methods:
         $ref: "#/components/schemas/ApiExportStatus"
     paramStructure: by-position
   - name: Forest.ChainExportCancel
+    description: Cancels an in-progress chain export.
     params: []
     result:
       name: Forest.ChainExportCancel.Result
@@ -70,6 +74,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.EthAccounts
+    description: Returns a list of addresses owned by the client.
     params: []
     result:
       name: Filecoin.EthAccounts.Result
@@ -82,6 +87,7 @@ methods:
           type: string
     paramStructure: by-position
   - name: eth_accounts
+    description: Returns a list of addresses owned by the client.
     params: []
     result:
       name: eth_accounts.Result
@@ -158,6 +164,7 @@ methods:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: Filecoin.EthBlockNumber
+    description: Returns the number of the most recent block.
     params: []
     result:
       name: Filecoin.EthBlockNumber.Result
@@ -166,6 +173,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_blockNumber
+    description: Returns the number of the most recent block.
     params: []
     result:
       name: eth_blockNumber.Result
@@ -174,6 +182,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: Filecoin.EthCall
+    description: Executes a message call immediately without creating a transaction.
     params:
       - name: tx
         required: true
@@ -190,6 +199,7 @@ methods:
         $ref: "#/components/schemas/EthBytes"
     paramStructure: by-position
   - name: eth_call
+    description: Executes a message call immediately without creating a transaction.
     params:
       - name: tx
         required: true
@@ -206,6 +216,7 @@ methods:
         $ref: "#/components/schemas/EthBytes"
     paramStructure: by-position
   - name: Filecoin.EthChainId
+    description: Returns the chain ID used for signing EIP-155 transactions.
     params: []
     result:
       name: Filecoin.EthChainId.Result
@@ -214,6 +225,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: eth_chainId
+    description: Returns the chain ID used for signing EIP-155 transactions.
     params: []
     result:
       name: eth_chainId.Result
@@ -222,6 +234,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.EthEstimateGas
+    description: Estimates the gas needed to execute the given transaction.
     params:
       - name: tx
         required: true
@@ -240,6 +253,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_estimateGas
+    description: Estimates the gas needed to execute the given transaction.
     params:
       - name: tx
         required: true
@@ -258,6 +272,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: Filecoin.EthFeeHistory
+    description: Returns historical gas fee data for the given block range.
     params:
       - name: blockCount
         required: true
@@ -283,6 +298,7 @@ methods:
         $ref: "#/components/schemas/EthFeeHistoryResult"
     paramStructure: by-position
   - name: eth_feeHistory
+    description: Returns historical gas fee data for the given block range.
     params:
       - name: blockCount
         required: true
@@ -360,6 +376,7 @@ methods:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: Filecoin.EthGetBlockByHash
+    description: Returns the block with the given hash.
     params:
       - name: blockHash
         required: true
@@ -376,6 +393,7 @@ methods:
         $ref: "#/components/schemas/Block"
     paramStructure: by-position
   - name: eth_getBlockByHash
+    description: Returns the block with the given hash.
     params:
       - name: blockHash
         required: true
@@ -504,6 +522,7 @@ methods:
           $ref: "#/components/schemas/EthTxReceipt"
     paramStructure: by-position
   - name: Filecoin.EthGetBlockTransactionCountByHash
+    description: Returns the number of transactions in the block with the given hash.
     params:
       - name: blockHash
         required: true
@@ -516,6 +535,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_getBlockTransactionCountByHash
+    description: Returns the number of transactions in the block with the given hash.
     params:
       - name: blockHash
         required: true
@@ -588,6 +608,7 @@ methods:
         $ref: "#/components/schemas/EthBytes"
     paramStructure: by-position
   - name: Filecoin.EthGetLogs
+    description: Returns logs matching the given filter criteria.
     params:
       - name: ethFilter
         required: true
@@ -600,6 +621,7 @@ methods:
         $ref: "#/components/schemas/EthFilterResult"
     paramStructure: by-position
   - name: eth_getLogs
+    description: Returns logs matching the given filter criteria.
     params:
       - name: ethFilter
         required: true
@@ -612,6 +634,7 @@ methods:
         $ref: "#/components/schemas/EthFilterResult"
     paramStructure: by-position
   - name: Filecoin.EthGetFilterLogs
+    description: Returns logs matching the given filter.
     params:
       - name: filterId
         required: true
@@ -624,6 +647,7 @@ methods:
         $ref: "#/components/schemas/EthFilterResult"
     paramStructure: by-position
   - name: eth_getFilterLogs
+    description: Returns logs matching the given filter.
     params:
       - name: filterId
         required: true
@@ -732,6 +756,7 @@ methods:
         $ref: "#/components/schemas/EthBytes"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionByHash
+    description: Returns a transaction by its hash.
     params:
       - name: txHash
         required: true
@@ -746,6 +771,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getTransactionByHash
+    description: Returns a transaction by its hash.
     params:
       - name: txHash
         required: true
@@ -798,6 +824,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionCount
+    description: Returns the number of transactions sent from the given address.
     params:
       - name: sender
         required: true
@@ -814,6 +841,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_getTransactionCount
+    description: Returns the number of transactions sent from the given address.
     params:
       - name: sender
         required: true
@@ -896,6 +924,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionByBlockHashAndIndex
+    description: Returns a transaction by block hash and transaction index.
     params:
       - name: blockHash
         required: true
@@ -914,6 +943,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getTransactionByBlockHashAndIndex
+    description: Returns a transaction by block hash and transaction index.
     params:
       - name: blockHash
         required: true
@@ -932,6 +962,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthMaxPriorityFeePerGas
+    description: Returns the current maximum priority fee per gas in attoFIL.
     params: []
     result:
       name: Filecoin.EthMaxPriorityFeePerGas.Result
@@ -940,6 +971,7 @@ methods:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: eth_maxPriorityFeePerGas
+    description: Returns the current maximum priority fee per gas in attoFIL.
     params: []
     result:
       name: eth_maxPriorityFeePerGas.Result
@@ -948,6 +980,7 @@ methods:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: Filecoin.EthProtocolVersion
+    description: Returns the current Ethereum protocol version.
     params: []
     result:
       name: Filecoin.EthProtocolVersion.Result
@@ -956,6 +989,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_protocolVersion
+    description: Returns the current Ethereum protocol version.
     params: []
     result:
       name: eth_protocolVersion.Result
@@ -964,6 +998,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionReceipt
+    description: Returns the receipt of a transaction by its hash.
     params:
       - name: txHash
         required: true
@@ -978,6 +1013,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getTransactionReceipt
+    description: Returns the receipt of a transaction by its hash.
     params:
       - name: txHash
         required: true
@@ -1030,6 +1066,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthNewFilter
+    description: Creates a filter object based on filter options.
     params:
       - name: filterSpec
         required: true
@@ -1042,6 +1079,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: eth_newFilter
+    description: Creates a filter object based on filter options.
     params:
       - name: filterSpec
         required: true
@@ -1054,6 +1092,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: Filecoin.EthNewPendingTransactionFilter
+    description: Creates a filter that notifies when new pending transactions arrive.
     params: []
     result:
       name: Filecoin.EthNewPendingTransactionFilter.Result
@@ -1062,6 +1101,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: eth_newPendingTransactionFilter
+    description: Creates a filter that notifies when new pending transactions arrive.
     params: []
     result:
       name: eth_newPendingTransactionFilter.Result
@@ -1070,6 +1110,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: Filecoin.EthNewBlockFilter
+    description: Creates a filter that notifies when a new block is added.
     params: []
     result:
       name: Filecoin.EthNewBlockFilter.Result
@@ -1078,6 +1119,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: eth_newBlockFilter
+    description: Creates a filter that notifies when a new block is added.
     params: []
     result:
       name: eth_newBlockFilter.Result
@@ -1086,6 +1128,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: Filecoin.EthUninstallFilter
+    description: Removes the filter with the given ID.
     params:
       - name: filterId
         required: true
@@ -1098,6 +1141,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: eth_uninstallFilter
+    description: Removes the filter with the given ID.
     params:
       - name: filterId
         required: true
@@ -1110,6 +1154,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.EthUnsubscribe
+    description: Cancels an active subscription.
     params: []
     result:
       name: Filecoin.EthUnsubscribe.Result
@@ -1118,6 +1163,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: eth_unsubscribe
+    description: Cancels an active subscription.
     params: []
     result:
       name: eth_unsubscribe.Result
@@ -1126,6 +1172,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.EthSubscribe
+    description: Creates an event subscription.
     params: []
     result:
       name: Filecoin.EthSubscribe.Result
@@ -1134,6 +1181,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: eth_subscribe
+    description: Creates an event subscription.
     params: []
     result:
       name: eth_subscribe.Result
@@ -1142,6 +1190,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.EthSyncing
+    description: Returns the sync status of the node, or false if it is fully synced.
     params: []
     result:
       name: Filecoin.EthSyncing.Result
@@ -1150,6 +1199,7 @@ methods:
         $ref: "#/components/schemas/EthSyncingResultLotusJson"
     paramStructure: by-position
   - name: eth_syncing
+    description: Returns the sync status of the node, or false if it is fully synced.
     params: []
     result:
       name: eth_syncing.Result
@@ -1394,6 +1444,7 @@ methods:
           $ref: "#/components/schemas/EthReplayBlockTransactionTrace"
     paramStructure: by-position
   - name: Filecoin.Web3ClientVersion
+    description: Returns the current client version string.
     params: []
     result:
       name: Filecoin.Web3ClientVersion.Result
@@ -1402,6 +1453,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: web3_clientVersion
+    description: Returns the current client version string.
     params: []
     result:
       name: web3_clientVersion.Result
@@ -1410,6 +1462,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.EthSendRawTransaction
+    description: Submits a signed transaction to the network.
     params:
       - name: rawTx
         required: true
@@ -1422,6 +1475,7 @@ methods:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
   - name: eth_sendRawTransaction
+    description: Submits a signed transaction to the network.
     params:
       - name: rawTx
         required: true
@@ -1434,6 +1488,7 @@ methods:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
   - name: Filecoin.EthSendRawTransactionUntrusted
+    description: Submits a signed transaction to the network without trusted sender verification.
     params:
       - name: rawTx
         required: true
@@ -1446,6 +1501,7 @@ methods:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
   - name: eth_sendRawTransactionUntrusted
+    description: Submits a signed transaction to the network without trusted sender verification.
     params:
       - name: rawTx
         required: true
@@ -1458,6 +1514,7 @@ methods:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
   - name: Filecoin.NetListening
+    description: Indicates whether the node is currently listening for connections.
     params: []
     result:
       name: Filecoin.NetListening.Result
@@ -1466,6 +1523,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: net_listening
+    description: Indicates whether the node is currently listening for connections.
     params: []
     result:
       name: net_listening.Result
@@ -1474,6 +1532,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.NetVersion
+    description: Returns the current network version (chain ID) as a string.
     params: []
     result:
       name: Filecoin.NetVersion.Result
@@ -1482,6 +1541,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: net_version
+    description: Returns the current network version (chain ID) as a string.
     params: []
     result:
       name: net_version.Result
