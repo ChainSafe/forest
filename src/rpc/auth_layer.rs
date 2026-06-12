@@ -61,24 +61,34 @@ impl<S> Layer<S> for AuthLayer {
     type Service = Auth<S>;
 
     fn layer(&self, service: S) -> Self::Service {
-        Auth {
-            headers: self.headers.clone(),
-            keystore: self.keystore.clone(),
-            service,
-        }
+        // Resolve the JWT claims once per connection (e.g. at the WebSocket
+        // upgrade) instead of re-verifying the token on every request. This
+        // matches Lotus, which authenticates once when the connection is
+        // established. Note that a long-lived connection therefore keeps the
+        // permissions it was granted at connection time; token expiry is not
+        // re-checked mid-session.
+        let claims =
+            resolve_claims(&self.keystore, self.headers.get(AUTHORIZATION)).map(Into::into);
+        Auth { claims, service }
     }
 }
 
 #[derive(Clone)]
 pub struct Auth<S> {
-    headers: HeaderMap,
-    keystore: Arc<RwLock<KeyStore>>,
+    /// Permission claims resolved once for this connection. `Err` means the
+    /// auth header was malformed or the token failed verification, in which
+    /// case every call on this connection is rejected with that error.
+    claims: Result<Arc<[String]>, ErrorCode>,
     service: S,
 }
 
 impl<S> Auth<S> {
     fn authorize<'a>(&self, method_name: &str) -> Result<(), ErrorObject<'a>> {
-        match check_permissions(&self.keystore, self.headers.get(AUTHORIZATION), method_name) {
+        let allowed = match &self.claims {
+            Ok(claims) => is_method_allowed(claims, method_name),
+            Err(code) => Err(*code),
+        };
+        match allowed {
             Ok(true) => Ok(()),
             Ok(false) => {
                 tracing::warn!("Unauthorized access attempt for method {method_name}");
@@ -156,11 +166,14 @@ fn auth_verify(token: &str, keystore: &RwLock<KeyStore>) -> anyhow::Result<Vec<S
     Ok(verify_token(token, key_info.private_key())?)
 }
 
-fn check_permissions(
+/// Verify the auth header's JWT and return the token's permission claims.
+///
+/// This performs the (relatively expensive) JWT verification and is intended to
+/// be called once per connection, not once per request.
+fn resolve_claims(
     keystore: &RwLock<KeyStore>,
     auth_header: Option<&HeaderValue>,
-    method: &str,
-) -> Result<bool, ErrorCode> {
+) -> Result<Vec<String>, ErrorCode> {
     let claims = match auth_header {
         Some(token) => {
             let token = token
@@ -176,11 +189,27 @@ fn check_permissions(
         None => vec!["read".to_owned()],
     };
     debug!("Decoded JWT Claims: {}", claims.join(","));
+    Ok(claims)
+}
 
+/// Check whether the already-resolved `claims` permit calling `method`.
+fn is_method_allowed(claims: &[String], method: &str) -> Result<bool, ErrorCode> {
     match METHOD_NAME2REQUIRED_PERMISSION.get(&method) {
-        Some(required_by_method) => Ok(is_allowed(*required_by_method, &claims)),
+        Some(required_by_method) => Ok(is_allowed(*required_by_method, claims)),
         None => Err(ErrorCode::MethodNotFound),
     }
+}
+
+/// Combined token resolution and permission check. Now that the connection path
+/// resolves claims once via [`resolve_claims`], this is only used by tests.
+#[cfg(test)]
+fn check_permissions(
+    keystore: &RwLock<KeyStore>,
+    auth_header: Option<&HeaderValue>,
+    method: &str,
+) -> Result<bool, ErrorCode> {
+    let claims = resolve_claims(keystore, auth_header)?;
+    is_method_allowed(&claims, method)
 }
 
 #[cfg(test)]
@@ -254,5 +283,79 @@ mod tests {
         let auth_header = HeaderValue::from_str(&token).unwrap();
         let res = check_permissions(&keystore, Some(&auth_header), wallet::WalletNew::NAME);
         assert_eq!(res, Ok(true));
+    }
+
+    /// `AuthLayer::layer` resolves the connection's token to claims exactly once
+    /// (at connection setup); the resulting [`Auth`] service then authorizes
+    /// calls against those cached claims without re-verifying the token.
+    #[test]
+    fn layer_resolves_claims_once_from_connection_header() {
+        use crate::auth::*;
+        let keystore = Arc::new(RwLock::new(
+            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
+        ));
+        let key_info = generate_priv_key();
+        keystore
+            .write()
+            .put(JWT_IDENTIFIER, key_info.clone())
+            .unwrap();
+        let token = create_token(
+            ADMIN.iter().map(ToString::to_string).collect(),
+            key_info.private_key(),
+            Duration::hours(1),
+        )
+        .unwrap();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
+        );
+
+        // Building the per-connection service resolves the claims once.
+        let auth = AuthLayer { headers, keystore }.layer(());
+        let claims = auth.claims.clone().expect("admin token should resolve");
+        assert!(claims.iter().any(|c| c == "admin"));
+
+        // The cached claims authorize an admin method without touching the token again.
+        assert!(auth.authorize(wallet::WalletNew::NAME).is_ok());
+    }
+
+    /// Cached claims are reused per request: a read-only connection is allowed
+    /// read methods, rejected for write methods, and gets `MethodNotFound` for
+    /// unknown methods.
+    #[test]
+    fn authorize_enforces_cached_permissions() {
+        let auth = Auth {
+            claims: Ok(vec!["read".to_owned()].into()),
+            service: (),
+        };
+
+        assert!(auth.authorize(ChainHead::NAME).is_ok());
+
+        let err = auth.authorize(wallet::WalletNew::NAME).unwrap_err();
+        assert_eq!(
+            err.code(),
+            i32::from(http::StatusCode::UNAUTHORIZED.as_u16())
+        );
+
+        let err = auth.authorize("Cthulhu.InvokeElderGods").unwrap_err();
+        assert_eq!(err.code(), ErrorCode::MethodNotFound.code());
+    }
+
+    /// A connection whose token failed verification caches the error and rejects
+    /// every subsequent call with it, regardless of the method.
+    #[test]
+    fn authorize_with_failed_token_rejects_every_call() {
+        let auth = Auth {
+            claims: Err(ErrorCode::InvalidRequest),
+            service: (),
+        };
+
+        let err = auth.authorize(ChainHead::NAME).unwrap_err();
+        assert_eq!(err.code(), ErrorCode::InvalidRequest.code());
+
+        let err = auth.authorize(wallet::WalletNew::NAME).unwrap_err();
+        assert_eq!(err.code(), ErrorCode::InvalidRequest.code());
     }
 }
