@@ -11,7 +11,7 @@ use itertools::Itertools;
 use libp2p::Multiaddr;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumIter, IntoEnumIterator};
+use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
@@ -136,8 +136,20 @@ impl NetworkChain {
 
 /// Defines the meaningful heights of the protocol.
 #[derive(
-    Debug, Default, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter,
+    Debug,
+    Default,
+    Display,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    EnumIter,
+    EnumString,
 )]
+#[strum(ascii_case_insensitive)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum Height {
     #[default]

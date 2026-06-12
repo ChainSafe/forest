@@ -14,6 +14,7 @@ pub async fn load_car<R>(db: &impl Blockstore, reader: R) -> anyhow::Result<CarV
 where
     R: AsyncBufRead + AsyncSeek + Unpin,
 {
+    let db = crate::db::BlockstoreWithWriteBuffer::new_with_capacity(db, 10000);
     let mut stream = CarStream::new(BufReader::new(reader)).await?;
     while let Some(block) = stream.try_next().await? {
         db.put_keyed(&block.cid, &block.data)?;
