@@ -3,22 +3,24 @@
 
 use crate::auth::{ADMIN, create_token, generate_priv_key};
 use crate::chain::ChainStore;
+use crate::chain::indexer::{SqliteIndexer, SqliteIndexerOptions};
 use crate::cli_shared::chain_path;
 use crate::cli_shared::cli::CliOpts;
 use crate::daemon::asyncify;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::daemon::db_util::load_all_forest_cars_with_cleanup;
-use crate::db::CAR_DB_DIR_NAME;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::db_root;
 use crate::db::parity_db::{GarbageCollectableParityDb, ParityDb};
+use crate::db::{CAR_DB_DIR_NAME, INDEX_DB_DIR_NAME, INDEX_DB_FILE_NAME};
 use crate::genesis::read_genesis_header;
+use crate::interpreter::VMTrace;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::sync::SnapshotProgressTracker;
-use crate::shim::address::CurrentNetwork;
-use crate::state_manager::StateManager;
+use crate::shim::address::{Address, CurrentNetwork};
+use crate::state_manager::{NO_CALLBACK, StateManager};
 use crate::{
     Config, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, JWT_IDENTIFIER, KeyStore,
     KeyStoreConfig,
@@ -28,7 +30,7 @@ use dialoguer::console::Term;
 use fvm_shared4::address::Network;
 use parking_lot::RwLock;
 use std::cell::RefCell;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::{info, warn};
 
@@ -40,6 +42,7 @@ pub struct AppContext {
     pub db: DbType,
     pub db_meta_data: DbMetadata,
     pub state_manager: StateManager,
+    pub chain_indexer: Option<Arc<SqliteIndexer>>,
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
@@ -55,6 +58,46 @@ impl AppContext {
         let state_manager = create_state_manager(cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(opts, cfg).await?;
         let snapshot_progress_tracker = SnapshotProgressTracker::default();
+        let chain_indexer = if cfg.chain_indexer.enable_indexer {
+            Some(Arc::new(
+                SqliteIndexer::new(
+                    crate::utils::sqlite::open_file(db_meta_data.index_db_path()).await?,
+                    state_manager.chain_store().shallow_clone(),
+                    SqliteIndexerOptions::default().with_gc_retention_epochs(i64::from(
+                        cfg.chain_indexer.gc_retention_epochs.unwrap_or_default(),
+                    )),
+                )
+                .await?
+                .with_actor_to_delegated_address_func(Arc::new({
+                    let state_manager = state_manager.shallow_clone();
+                    move |actor_id, ts| {
+                        let id_addr = Address::new_id(actor_id);
+                        Ok(
+                            match state_manager.get_required_actor(&id_addr, *ts.parent_state()) {
+                                Ok(actor) => actor
+                                    .delegated_address
+                                    .map(Address::from)
+                                    .unwrap_or(id_addr),
+                                Err(_) => id_addr,
+                            },
+                        )
+                    }
+                }))
+                .with_recompute_tipset_state_func(Arc::new({
+                    let state_manager = state_manager.shallow_clone();
+                    move |ts| {
+                        state_manager.compute_tipset_state_blocking(
+                            ts,
+                            NO_CALLBACK,
+                            VMTrace::NotTraced,
+                        )?;
+                        Ok(())
+                    }
+                })),
+            ))
+        } else {
+            None
+        };
         let temp_dir = chain_path(cfg).join("tmp");
         std::fs::create_dir_all(&temp_dir).context("Failed to create temporary directory")?;
         Ok(Self {
@@ -63,6 +106,7 @@ impl AppContext {
             db,
             db_meta_data,
             state_manager,
+            chain_indexer,
             keystore,
             admin_jwt,
             snapshot_progress_tracker,
@@ -189,15 +233,20 @@ fn maybe_migrate_db(config: &Config) {
 pub(crate) struct DbMetadata {
     db_root_dir: PathBuf,
     forest_car_db_dir: PathBuf,
+    index_db_path: PathBuf,
 }
 
 impl DbMetadata {
-    pub(crate) fn get_root_dir(&self) -> PathBuf {
-        self.db_root_dir.clone()
+    pub(crate) fn root_dir(&self) -> &Path {
+        &self.db_root_dir
     }
 
-    pub(crate) fn get_forest_car_db_dir(&self) -> PathBuf {
-        self.forest_car_db_dir.clone()
+    pub(crate) fn forest_car_db_dir(&self) -> &Path {
+        &self.forest_car_db_dir
+    }
+
+    pub(crate) fn index_db_path(&self) -> &Path {
+        &self.index_db_path
     }
 }
 
@@ -206,6 +255,7 @@ impl DbMetadata {
 /// - load parity-db
 /// - load CAR database
 /// - load actor bundles
+/// - setup index db folder and file
 async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(DbType, DbMetadata)> {
     maybe_migrate_db(config);
     let chain_data_path = chain_path(config);
@@ -217,6 +267,11 @@ async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(DbType, Db
     let db = Arc::new(ManyCar::new(db_writer.clone()));
     let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars_with_cleanup(&db, &forest_car_db_dir)?;
+    let index_db_dir = db_root_dir.join(INDEX_DB_DIR_NAME);
+    if !index_db_dir.is_dir() {
+        std::fs::create_dir_all(&index_db_dir)?;
+    }
+    let index_db_path = index_db_dir.join(INDEX_DB_FILE_NAME);
     if config.client.load_actors && !opts.stateless {
         load_actor_bundles(&db, config.chain()).await?;
     }
@@ -225,6 +280,7 @@ async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(DbType, Db
         DbMetadata {
             db_root_dir,
             forest_car_db_dir,
+            index_db_path,
         },
     ))
 }

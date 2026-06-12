@@ -91,6 +91,29 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
     }
 }
 
+pub enum ChainValidateIndex {}
+impl RpcMethod<2> for ChainValidateIndex {
+    const NAME: &'static str = "Filecoin.ChainValidateIndex";
+    const PARAM_NAMES: [&'static str; 2] = ["epoch", "backfill"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Write;
+
+    type Params = (ChainEpoch, bool);
+    type Ok = ChainIndexValidation;
+
+    async fn handle(
+        ctx: Ctx,
+        (epoch, backfill): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        if let Some(ci) = &ctx.chain_indexer {
+            Ok(ci.validate_index(epoch, backfill).await?)
+        } else {
+            Err(anyhow::anyhow!("chain indexer is disabled").into())
+        }
+    }
+}
+
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
     const NAME: &'static str = "Filecoin.ChainGetMessage";

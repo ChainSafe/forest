@@ -11,6 +11,7 @@ mod chain_cmd;
 mod config_cmd;
 mod f3_cmd;
 mod healthcheck_cmd;
+mod index_cmd;
 mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
@@ -22,9 +23,10 @@ mod wait_api_cmd;
 
 pub(super) use self::{
     auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
-    f3_cmd::F3Commands, healthcheck_cmd::HealthcheckCommand, mpool_cmd::MpoolCommands,
-    net_cmd::NetCommands, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
-    state_cmd::StateCommands, sync_cmd::SyncCommands, wait_api_cmd::WaitApiCommand,
+    f3_cmd::F3Commands, healthcheck_cmd::HealthcheckCommand, index_cmd::IndexCommands,
+    mpool_cmd::MpoolCommands, net_cmd::NetCommands, shutdown_cmd::ShutdownCommand,
+    snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
+    wait_api_cmd::WaitApiCommand,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 pub(crate) use crate::cli_shared::cli::Config;
@@ -95,12 +97,15 @@ pub enum Subcommand {
     #[command(subcommand)]
     Healthcheck(HealthcheckCommand),
 
-    /// Manages Filecoin Fast Finality (F3) interactions
+    /// Manage Filecoin Fast Finality (F3) interactions
     #[command(subcommand)]
     F3(F3Commands),
 
     /// Wait for lotus API to come online
     WaitApi(WaitApiCommand),
+
+    #[command(subcommand)]
+    Index(IndexCommands),
 }
 
 impl Subcommand {

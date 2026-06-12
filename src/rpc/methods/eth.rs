@@ -18,7 +18,9 @@ use self::trace::types::*;
 use self::types::*;
 use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::{ChainStore, compute_base_fee, index::ResolveNullTipset};
+use crate::chain::{
+    ChainStore, compute_base_fee, index::ResolveNullTipset, indexer::IndexerEventFilter,
+};
 use crate::chain_sync::NodeSyncStatus;
 use crate::cid_collections::CidHashSet;
 use crate::db::DbImpl;
@@ -3024,7 +3026,7 @@ pub struct CollectedEvent {
     pub(crate) reverted: bool,
     pub(crate) height: ChainEpoch,
     pub(crate) tipset_key: TipsetKey,
-    msg_idx: u64,
+    pub(crate) msg_idx: u64,
     pub(crate) msg_cid: Cid,
 }
 
@@ -3169,9 +3171,9 @@ fn eth_filter_logs_from_events(
     events: &[CollectedEvent],
 ) -> anyhow::Result<Vec<EthLog>> {
     let chain_id = ctx.state_manager.chain_config().eth_chain_id;
-    let mut tx_hash_by_msg: HashMap<Cid, EthHash> = HashMap::new();
-    let mut block_hash_by_tipset: HashMap<TipsetKey, EthHash> = HashMap::new();
-    let mut eth_addr_by_emitter: HashMap<FilecoinAddress, EthAddress> = HashMap::new();
+    let mut tx_hash_by_msg: HashMap<Cid, EthHash> = HashMap::default();
+    let mut block_hash_by_tipset: HashMap<TipsetKey, EthHash> = HashMap::default();
+    let mut eth_addr_by_emitter: HashMap<FilecoinAddress, EthAddress> = HashMap::default();
 
     let mut logs = Vec::with_capacity(events.len());
     for event in events {
@@ -3268,23 +3270,30 @@ impl RpcMethod<1> for EthGetLogs {
         (eth_filter,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let pf = Arc::new(
-            ctx.eth_event_handler
-                .parse_eth_filter_spec(&ctx, &eth_filter)
-                .map_err(|e| {
-                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
-                        matches!(eth_err, EthErrors::BlockRangeExceeded { .. })
-                    }) {
-                        return e;
-                    }
-                    e.context("failed to parse events for filter")
-                })?,
-        );
-        let events = ctx
+        let pf = ctx
             .eth_event_handler
-            .get_events_for_parsed_filter(&ctx, &pf, SkipEvent::OnUnresolvedAddress)
-            .await
-            .context("failed to get events for filter")?;
+            .parse_eth_filter_spec(&ctx, &eth_filter)
+            .map_err(|e| {
+                if e.downcast_ref::<EthErrors>()
+                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::BlockRangeExceeded { .. }))
+                {
+                    return e;
+                }
+                e.context("failed to parse events for filter")
+            })?;
+        let events = if let Some(chain_indexer) = ctx.chain_indexer() {
+            chain_indexer
+                .get_events_for_filter(
+                    IndexerEventFilter::try_from(pf)?,
+                    ctx.eth_event_handler.max_filter_results,
+                )
+                .await
+        } else {
+            ctx.eth_event_handler
+                .get_events_for_parsed_filter(&ctx, &pf.into(), SkipEvent::OnUnresolvedAddress)
+                .await
+        }
+        .context("failed to get events for filter")?;
         Ok(eth_filter_result_from_events(&ctx, &events)?)
     }
 }
