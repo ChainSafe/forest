@@ -1673,10 +1673,11 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(api_path),
             ),
             RpcTest::basic(
-                EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(api_path),
+                EthGetBlockReceipts::request((Predefined::Safe.into(),))?.with_api_path(api_path),
             ),
             RpcTest::basic(
-                EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(api_path),
+                EthGetBlockReceipts::request((Predefined::Finalized.into(),))?
+                    .with_api_path(api_path),
             ),
             RpcTest::identity(
                 EthGetBlockReceipts::request((BlockNumberOrHash::from_block_hash_object(
