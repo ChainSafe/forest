@@ -570,6 +570,8 @@ pub struct ApiExportStatus {
     pub progress: f64,
     pub exporting: bool,
     pub cancelled: bool,
+    pub start_epoch: i64,
+    pub current_epoch: i64,
     pub start_time: Option<chrono::DateTime<Utc>>,
 }
 

@@ -1705,11 +1705,17 @@ components:
       properties:
         cancelled:
           type: boolean
+        current_epoch:
+          type: integer
+          format: int64
         exporting:
           type: boolean
         progress:
           type: number
           format: double
+        start_epoch:
+          type: integer
+          format: int64
         start_time:
           type:
             - string
@@ -1719,6 +1725,8 @@ components:
         - progress
         - exporting
         - cancelled
+        - start_epoch
+        - current_epoch
     Base64String:
       type:
         - string
