@@ -216,7 +216,7 @@ async fn start_offline_rpc(
     let mut terminate = signal(SignalKind::terminate())?;
     let (stop_handle, server_handle) = stop_channel();
     let result = tokio::select! {
-        ret = start_rpc(state, rpc_listener,stop_handle, None) => ret,
+        ret = start_rpc(state, rpc_listener, stop_handle, None, crate::rpc::MetricsMode::Enabled) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
