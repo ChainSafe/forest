@@ -2,26 +2,109 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::blocks::TipsetKey;
 use crate::prelude::*;
+use crate::rpc::eth::filter::ensure_filter_cap;
 use crate::rpc::eth::{
     CollectedEvent,
     filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets},
 };
+use crate::rpc::types::EventEntry;
 use crate::shim::address::Protocol;
 use ahash::HashSet;
-use sqlx::Arguments as _;
+use sqlx::{Arguments as _, FromRow};
 use std::borrow::Cow;
+
+#[derive(Debug, sqlx::FromRow)]
+struct EventRow {
+    id: i64,
+    height: i64,
+    tipset_key_cid: Vec<u8>,
+    #[sqlx(try_from = "i64")]
+    emitter_id: u64,
+    emitter_addr: Vec<u8>,
+    #[sqlx(try_from = "i64")]
+    event_index: u64,
+    message_cid: Vec<u8>,
+    #[sqlx(try_from = "i64")]
+    message_index: u64,
+    reverted: bool,
+    flags: Vec<u8>,
+    key: String,
+    #[sqlx(try_from = "i64")]
+    codec: u64,
+    value: Vec<u8>,
+}
 
 impl SqliteIndexer {
     pub async fn get_events_for_filter(
         &self,
         filter: IndexerEventFilter,
+        max_filter_results: usize,
     ) -> anyhow::Result<Vec<CollectedEvent>> {
+        let bs = self.cs.db();
         let mut qb = filter.to_query_builder()?;
         let query = qb.build();
         let results = query.fetch_all(self.db()).await?;
-        tracing::info!("results: {}, SQL: {}", results.len(), qb.into_string());
-        Ok(vec![])
+        let mut current_id = -1;
+        let mut last_height = -1;
+        let mut tipsets_seen = 0;
+        let mut collected_events = vec![];
+        let mut ce = None;
+        for row in results {
+            let event = EventRow::from_row(&row).inspect_err(|e| {
+                tracing::warn!("{e}");
+            })?;
+            // The query returns all entries for all matching events; create a new CollectedEvent each time we see a new id.
+            if event.id != current_id {
+                if let Some(ce) = ce.take() {
+                    collected_events.push(ce);
+                }
+
+                if event.height != last_height {
+                    tipsets_seen += 1;
+                    last_height = event.height;
+                }
+
+                ensure_filter_cap(max_filter_results, tipsets_seen, collected_events.len() + 1)?;
+
+                current_id = event.id;
+                let tsk_cid = Cid::read_bytes(event.tipset_key_cid.as_slice())?;
+                let emitter_addr = if event.emitter_addr.is_empty() {
+                    Address::new_id(event.emitter_id)
+                } else {
+                    Address::from_bytes(event.emitter_addr.as_slice())?
+                };
+                ce = Some(CollectedEvent {
+                    event_idx: event.event_index,
+                    reverted: event.reverted,
+                    height: event.height,
+                    msg_idx: event.message_index,
+                    msg_cid: Cid::read_bytes(event.message_cid.as_slice())?,
+                    tipset_key: TipsetKey::load(bs, &tsk_cid)?,
+                    emitter_addr,
+                    entries: vec![],
+                });
+            }
+
+            if let Some(ce) = ce.as_mut() {
+                ce.entries.push(EventEntry {
+                    flags: event
+                        .flags
+                        .first()
+                        .copied()
+                        .context("failed to get flags")?
+                        .into(),
+                    key: event.key,
+                    codec: event.codec,
+                    value: event.value.into(),
+                });
+            }
+        }
+        if let Some(ce) = ce.take() {
+            collected_events.push(ce);
+        }
+        Ok(collected_events)
     }
 }
 
@@ -196,20 +279,5 @@ impl TryFrom<ParsedFilter> for IndexerEventFilter {
             addresses,
             keys,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn t1() {
-        let f = IndexerEventFilter {
-            tipset_cid: Some(Cid::default()),
-            ..Default::default()
-        };
-        let qb = f.to_query_builder().unwrap();
-        println!("{:?}", qb.into_sql());
     }
 }

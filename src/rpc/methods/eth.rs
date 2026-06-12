@@ -3026,7 +3026,7 @@ pub struct CollectedEvent {
     pub(crate) reverted: bool,
     pub(crate) height: ChainEpoch,
     pub(crate) tipset_key: TipsetKey,
-    msg_idx: u64,
+    pub(crate) msg_idx: u64,
     pub(crate) msg_cid: Cid,
 }
 
@@ -3283,7 +3283,10 @@ impl RpcMethod<1> for EthGetLogs {
             })?;
         let events = if let Some(chain_indexer) = ctx.chain_indexer() {
             chain_indexer
-                .get_events_for_filter(IndexerEventFilter::try_from(pf)?)
+                .get_events_for_filter(
+                    IndexerEventFilter::try_from(pf)?,
+                    ctx.eth_event_handler.max_filter_results,
+                )
                 .await
         } else {
             ctx.eth_event_handler

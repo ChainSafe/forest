@@ -97,7 +97,7 @@ pub trait FilterManager {
 /// (`tipsets_contributing <= 1`) always pass — the natural unit is the tipset.
 /// Once two or more tipsets have contributed events, returns an error if the
 /// running total exceeds `max_filter_results`.
-fn ensure_filter_cap(
+pub fn ensure_filter_cap(
     max_filter_results: usize,
     tipsets_contributing: usize,
     total_events: usize,
