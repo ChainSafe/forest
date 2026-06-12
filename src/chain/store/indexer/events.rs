@@ -264,11 +264,7 @@ impl TryFrom<ParsedFilter> for IndexerEventFilter {
     ) -> Result<Self, Self::Error> {
         let (min_height, max_height, tipset_cid) = match tipsets {
             ParsedFilterTipsets::Hash(h) => (-1, -1, Some(h.to_cid())),
-            ParsedFilterTipsets::Range(mut r) => {
-                let first = r.next().unwrap_or(-1);
-                let last = r.last().unwrap_or(first);
-                (first, last, None)
-            }
+            ParsedFilterTipsets::Range(r) => (*r.start(), *r.end(), None),
             ParsedFilterTipsets::Key(k) => (-1, -1, Some(k.cid()?)),
         };
         Ok(Self {
