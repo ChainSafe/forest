@@ -38,7 +38,7 @@ use chrono::Utc;
 use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
 use parking_lot::{Mutex, RwLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
@@ -312,10 +312,16 @@ async fn chain_follower(
         let tasks = tasks.shallow_clone();
         let bad_block_cache = bad_block_cache.shallow_clone();
         async move {
+            const FORK_CLEANUP_INTERVAL: Duration = Duration::from_mins(1);
+            let mut last_fork_cleanup = Instant::now();
             loop {
                 state_changed.notified().await;
 
                 let mut tasks_set = tasks.lock();
+                if last_fork_cleanup + FORK_CLEANUP_INTERVAL < Instant::now() {
+                    state_machine.lock().clean_tipsets();
+                    last_fork_cleanup = Instant::now();
+                }
                 let (task_vec, current_active_forks) = state_machine.lock().tasks();
 
                 // Update the sync states
@@ -341,21 +347,21 @@ async fn chain_follower(
                             bad_block_cache.shallow_clone(),
                         );
                         tokio::spawn({
-                            let tasks = tasks.clone();
-                            let state_machine = state_machine.clone();
-                            let state_changed = state_changed.clone();
+                            let tasks = tasks.shallow_clone();
+                            let state_machine = state_machine.shallow_clone();
+                            let state_changed = state_changed.shallow_clone();
                             async move {
                                 if let Some(event) = action.await {
                                     state_machine.lock().update(event);
                                     state_changed.notify_one();
                                 }
-                                tasks.lock().remove(&task);
+                                let mut tasks = tasks.lock();
+                                tasks.remove(&task);
+                                tasks.shrink_to_fit();
                             }
                         });
                     }
                 }
-
-                tasks_set.shrink_to_fit();
             }
         }
     });
@@ -896,6 +902,25 @@ impl SyncStateMachine {
             }
         }
         (tasks, active_sync_info)
+    }
+
+    pub fn clean_tipsets(&mut self) {
+        let finalized_epoch = self.cs.ec_calculator_finalized_epoch();
+        for chain in self.chains() {
+            // Cleanup dangling fork when its target epoch is finalized
+            if let Some(target) = chain.last()
+                && target.epoch() < finalized_epoch
+            {
+                chain.iter().for_each(|ts| {
+                    self.tipsets.remove(ts.key());
+                });
+                tracing::info!(
+                    "Cleaned up dangling fork from epoch {} to {}",
+                    chain.first().map(|ts| ts.epoch()).unwrap_or_default(),
+                    chain.last().map(|ts| ts.epoch()).unwrap_or_default(),
+                );
+            }
+        }
     }
 }
 
