@@ -319,7 +319,7 @@ async fn chain_follower(
 
                 let mut tasks_set = tasks.lock();
                 if last_fork_cleanup + FORK_CLEANUP_INTERVAL < Instant::now() {
-                    state_machine.lock().clean_tipsets();
+                    state_machine.lock().cleanup_dangling_forks();
                     last_fork_cleanup = Instant::now();
                 }
                 let (task_vec, current_active_forks) = state_machine.lock().tasks();
@@ -904,7 +904,7 @@ impl SyncStateMachine {
         (tasks, active_sync_info)
     }
 
-    pub fn clean_tipsets(&mut self) {
+    pub fn cleanup_dangling_forks(&mut self) {
         let finalized_epoch = self.cs.ec_calculator_finalized_epoch();
         for chain in self.chains() {
             // Cleanup dangling fork when its target epoch is finalized
@@ -1000,7 +1000,8 @@ impl SyncTask {
                 {
                     Ok(parents) => Some(SyncEvent::NewFullTipsets(parents)),
                     Err(e) => {
-                        tracing::warn!(%key, %epoch, "failed to fetch tipset: {e:#}");
+                        // It's not a massive error; could be a transient network issue or a fork.
+                        tracing::debug!(%key, %epoch, "failed to fetch tipset: {e:#}");
                         None
                     }
                 }
