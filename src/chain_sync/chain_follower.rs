@@ -975,7 +975,8 @@ impl SyncTask {
                 {
                     Ok(parents) => Some(SyncEvent::NewFullTipsets(parents)),
                     Err(e) => {
-                        tracing::warn!(%key, %epoch, "failed to fetch tipset: {e:#}");
+                        // It's not a massive error; could be a transient network issue or a fork.
+                        tracing::debug!(%key, %epoch, "failed to fetch tipset: {e:#}");
                         None
                     }
                 }
