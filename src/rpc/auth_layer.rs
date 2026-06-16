@@ -53,23 +53,33 @@ fn is_allowed(required_by_method: Permission, claimed_by_user: &[String]) -> boo
 
 #[derive(Clone)]
 pub struct AuthLayer {
-    pub headers: HeaderMap,
-    pub keystore: Arc<RwLock<KeyStore>>,
+    /// Permission claims resolved once for this connection. `Err` means the
+    /// auth header was malformed or the token failed verification, in which
+    /// case every call on this connection is rejected with that error.
+    claims: Result<Arc<[String]>, ErrorCode>,
 }
 
-impl<S> Layer<S> for AuthLayer {
-    type Service = Auth<S>;
-
-    fn layer(&self, service: S) -> Self::Service {
+impl AuthLayer {
+    pub fn new(headers: &HeaderMap, keystore: &RwLock<KeyStore>) -> Self {
         // Resolve the JWT claims once per connection (e.g. at the WebSocket
         // upgrade) instead of re-verifying the token on every request. This
         // matches Lotus, which authenticates once when the connection is
         // established. Note that a long-lived connection therefore keeps the
         // permissions it was granted at connection time; token expiry is not
         // re-checked mid-session.
-        let claims =
-            resolve_claims(&self.keystore, self.headers.get(AUTHORIZATION)).map(Into::into);
-        Auth { claims, service }
+        let claims = resolve_claims(keystore, headers.get(AUTHORIZATION)).map(Into::into);
+        Self { claims }
+    }
+}
+
+impl<S> Layer<S> for AuthLayer {
+    type Service = Auth<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        Auth {
+            claims: self.claims.clone(),
+            service,
+        }
     }
 }
 
@@ -313,7 +323,7 @@ mod tests {
         );
 
         // Building the per-connection service resolves the claims once.
-        let auth = AuthLayer { headers, keystore }.layer(());
+        let auth = AuthLayer::new(&headers, &keystore).layer(());
         let claims = auth.claims.clone().expect("admin token should resolve");
         assert!(claims.iter().any(|c| c == "admin"));
 
