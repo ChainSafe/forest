@@ -41,6 +41,8 @@
 
 - [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
 
+- [#6974](https://github.com/ChainSafe/forest/issues/6974): Fixed the message pool reporting a still-pending nonce as the next nonce after an applied message was removed.
+
 ## Forest v0.33.6 "Ebb"
 
 Non-mandatory release for all node operators. It fixes a critical memory leak in `v0.33.5`. (Earlier releases are not affected)
