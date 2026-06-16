@@ -564,7 +564,7 @@ fn maybe_start_rpc_service(
             .client
             .rpc_filter_list
             .as_ref()
-            .map(|path| crate::rpc::FilterList::new_from_file(path))
+            .map(|path| crate::rpc::FilterList::new_from_file(path).map(Arc::new))
             .transpose()?;
         info!("JSON-RPC endpoint will listen at {rpc_address}");
         let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
