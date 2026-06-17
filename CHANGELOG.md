@@ -43,6 +43,8 @@
 
 - [#6974](https://github.com/ChainSafe/forest/issues/6974): Fixed the message pool reporting a still-pending nonce as the next nonce after an applied message was removed.
 
+- [#6975](https://github.com/ChainSafe/forest/issues/6975): Fixed `Filecoin.MpoolSelect` to not remove the messages from the live pool, only simulate the head change.
+
 ## Forest v0.33.6 "Ebb"
 
 Non-mandatory release for all node operators. It fixes a critical memory leak in `v0.33.5`. (Earlier releases are not affected)
