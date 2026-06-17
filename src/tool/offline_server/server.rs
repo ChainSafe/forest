@@ -191,7 +191,7 @@ pub async fn start_offline_server(
         head_ts.epoch() + height + 1
     };
     if validate_until_epoch <= head_ts.epoch() {
-        state_manager.validate_tipsets(
+        state_manager.validate_tipsets_blocking(
             head_ts
                 .chain(rpc_state.db())
                 .take_while(|ts| ts.epoch() >= validate_until_epoch),

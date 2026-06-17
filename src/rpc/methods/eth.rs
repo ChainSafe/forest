@@ -1899,7 +1899,7 @@ pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> any
             })
         )
     }) {
-        let ret = gas_search(data, &msg, &prior_messages, ts).await?;
+        let ret = gas_search(data, &msg, prior_messages, ts).await?;
         Ok(((ret as f64) * data.mpool.gas_limit_overestimation()) as u64)
     } else {
         anyhow::bail!(
@@ -1917,7 +1917,7 @@ pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> any
 async fn gas_search(
     data: &Ctx,
     msg: &Message,
-    prior_messages: &[ChainMessage],
+    prior_messages: Arc<Vec<ChainMessage>>,
     ts: Tipset,
 ) -> anyhow::Result<u64> {
     let mut high = msg.gas_limit;
@@ -1926,20 +1926,28 @@ async fn gas_search(
     async fn can_succeed(
         data: &Ctx,
         mut msg: Message,
-        prior_messages: &[ChainMessage],
+        prior_messages: Arc<Vec<ChainMessage>>,
         ts: Tipset,
         limit: u64,
     ) -> anyhow::Result<bool> {
         msg.gas_limit = limit;
         let (_invoc_res, apply_ret, _, _) = data
             .state_manager
-            .call_with_gas(&mut msg.into(), prior_messages, Some(ts), VMFlush::Skip)
+            .call_with_gas(msg.into(), prior_messages, Some(ts), VMFlush::Skip)
             .await?;
         Ok(apply_ret.msg_receipt().exit_code().is_success())
     }
 
     while high < BLOCK_GAS_LIMIT {
-        if can_succeed(data, msg.clone(), prior_messages, ts.shallow_clone(), high).await? {
+        if can_succeed(
+            data,
+            msg.clone(),
+            prior_messages.shallow_clone(),
+            ts.shallow_clone(),
+            high,
+        )
+        .await?
+        {
             break;
         }
         low = high;
@@ -1952,7 +1960,7 @@ async fn gas_search(
         if can_succeed(
             data,
             msg.clone(),
-            prior_messages,
+            prior_messages.shallow_clone(),
             ts.shallow_clone(),
             median,
         )

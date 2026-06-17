@@ -182,8 +182,10 @@ async fn maybe_import_snapshot(
         // `validate_range` is CPU-bound (drives rayon-parallel VM execution) and
         // can run for minutes. Safer to spawn it on a blocking thread.
         let state_manager = ctx.state_manager.shallow_clone();
-        tokio::task::spawn_blocking(move || state_manager.validate_range(validation_range))
-            .await??;
+        tokio::task::spawn_blocking(move || {
+            state_manager.validate_range_blocking(validation_range)
+        })
+        .await??;
     }
 
     Ok(())

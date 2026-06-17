@@ -65,11 +65,12 @@ pub(in crate::fil_cns) async fn validate_block(
 
     // Retrieve lookback tipset for validation
     let (lookback_tipset, lookback_state) = ChainStore::get_lookback_tipset_for_round(
-        chain_store.chain_index(),
-        state_manager.chain_config(),
-        &base_tipset,
+        chain_store.chain_index().shallow_clone(),
+        state_manager.chain_config().shallow_clone(),
+        base_tipset.shallow_clone(),
         block.header().epoch,
     )
+    .await
     .map_err(to_errs)?;
 
     let lookback_state = Arc::new(lookback_state);
