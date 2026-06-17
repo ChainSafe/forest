@@ -501,10 +501,6 @@ pub struct RPCState {
     pub bad_blocks: Option<crate::chain_sync::BadBlockCache>,
     pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,
-    /// Broadcast of per-tipset Ethereum logs derived from chain head changes, covering both
-    /// applied tipsets and reorg-reverted ones (whose logs carry `removed: true`). Started
-    /// lazily by the first `eth_subscribe("logs")` subscription and shared by all of them, so
-    /// events are collected and converted once per tipset regardless of the subscriber count.
     pub eth_logs_feed: std::sync::OnceLock<eth::pubsub::LogsFeed>,
     pub sync_network_context: SyncNetworkContext,
     pub tipset_send: flume::Sender<FullTipset>,

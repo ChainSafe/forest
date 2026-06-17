@@ -1578,6 +1578,14 @@ impl<T: Clone> Clone for PathChange<T> {
     }
 }
 
+impl<T> PathChange<T> {
+    pub fn tipset(&self) -> &T {
+        match self {
+            Self::Revert(ts) | Self::Apply(ts) => ts,
+        }
+    }
+}
+
 impl HasLotusJson for PathChange {
     type LotusJson = PathChange<<Tipset as HasLotusJson>::LotusJson>;
 

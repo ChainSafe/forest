@@ -60,12 +60,9 @@
 //!
 
 use crate::blocks::Tipset;
-use crate::chain::HeadChanges;
 use crate::message_pool::MpoolUpdate;
 use crate::prelude::ShallowClone;
 use crate::rpc::RPCState;
-use crate::rpc::chain::PathChange;
-use crate::rpc::eth::filter::EventRevertStatus;
 use crate::rpc::eth::pubsub_trait::{EthPubSubApiServer, SubscriptionKind, SubscriptionParams};
 use crate::rpc::eth::types::{ApiHeaders, EthFilterSpec, EthHashList, EthTopicSpec};
 use crate::rpc::eth::{
@@ -112,9 +109,8 @@ impl EthPubSubApiServer for EthPubSub {
     }
 }
 
-/// Stream of "message tipsets", the parent of each newly applied tipset; only used by the
-/// `newHeads` subscription. Reverts are ignored; lagged events are dropped (and logged) by
-/// [`subscription_stream`].
+/// Stream of "message tipsets", the parent of each newly applied tipset.
+/// Reverts are ignored; lagged events are dropped (and logged) by [`subscription_stream`].
 fn head_message_tipsets(ctx: &Arc<RPCState>) -> impl Stream<Item = Tipset> + Send + use<> {
     let rx = ctx.chain_store().subscribe_head_changes();
     let ctx = ctx.shallow_clone();
@@ -158,19 +154,7 @@ fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
     tokio::spawn(pipe_stream_to_sink(stream, sink));
 }
 
-fn flatten_head_changes(changes: HeadChanges) -> impl Iterator<Item = (Tipset, EventRevertStatus)> {
-    changes
-        .into_change_vec()
-        .into_iter()
-        .map(|change| match change {
-            PathChange::Revert(tipset) => (tipset, EventRevertStatus::Reverted),
-            PathChange::Apply(tipset) => (tipset, EventRevertStatus::Applied),
-        })
-}
-
-/// Drives the shared logs feed: for every chain head change, collects the Ethereum logs of
-/// the affected tipsets — reorg-reverted ones (marked `removed: true`) before applied ones —
-/// and broadcasts each tipset's logs to all live `eth_subscribe("logs")` subscriptions.
+/// Drives the shared logs feed for every chain head change, collects the Ethereum logs of the affected tipsets
 async fn run_logs_feed(ctx: Arc<RPCState>, feed: broadcast::Sender<Arc<Vec<EthLog>>>) {
     let mut head_changes = subscription_stream(ctx.chain_store().subscribe_head_changes());
     while let Some(changes) = head_changes.next().await {
@@ -178,11 +162,8 @@ async fn run_logs_feed(ctx: Arc<RPCState>, feed: broadcast::Sender<Arc<Vec<EthLo
         if feed.receiver_count() == 0 {
             continue;
         }
-        for (tipset, revert_status) in flatten_head_changes(changes) {
-            if tipset.epoch() == 0 {
-                continue;
-            }
-            match eth_logs_for_head_change(&ctx, &tipset, revert_status).await {
+        for change in changes.into_change_vec() {
+            match eth_logs_for_head_change(&ctx, &change).await {
                 Ok(logs) if !logs.is_empty() => {
                     // An error only means every receiver vanished since the check above.
                     let _ = feed.send(Arc::new(logs));
@@ -190,8 +171,8 @@ async fn run_logs_feed(ctx: Arc<RPCState>, feed: broadcast::Sender<Arc<Vec<EthLo
                 Ok(_) => {}
                 Err(e) => {
                     tracing::error!(
-                        "Failed to collect logs for tipset {} ({revert_status:?}): {e:#}",
-                        tipset.key()
+                        "Failed to collect logs for head change {}: {e:#}",
+                        change.tipset().key()
                     );
                 }
             }
@@ -199,6 +180,7 @@ async fn run_logs_feed(ctx: Arc<RPCState>, feed: broadcast::Sender<Arc<Vec<EthLo
     }
 }
 
+/// Returns a receiver of the shared logs feed, starting the feed task on first use.
 fn subscribe_logs_feed(ctx: &Arc<RPCState>) -> broadcast::Receiver<Arc<Vec<EthLog>>> {
     ctx.eth_logs_feed
         .get_or_init(|| {
@@ -303,51 +285,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
     use crate::rpc::eth::{EthAddress, EthHash};
-    use crate::shim::clock::ChainEpoch;
     use std::str::FromStr as _;
-
-    fn tipset(epoch: ChainEpoch) -> Tipset {
-        Tipset::from(&CachingBlockHeader::new(RawBlockHeader {
-            epoch,
-            ..Default::default()
-        }))
-    }
-
-    #[test]
-    fn flatten_head_changes_emits_reverts_before_applies() {
-        // `chain_get_path` produces reverts newest-first and applies oldest-first; the
-        // flattened order must preserve that and put every revert before any apply.
-        let changes = HeadChanges {
-            reverts: vec![tipset(5), tipset(4)],
-            applies: vec![tipset(14), tipset(15)],
-        };
-        let flattened: Vec<(ChainEpoch, EventRevertStatus)> = flatten_head_changes(changes)
-            .map(|(ts, status)| (ts.epoch(), status))
-            .collect();
-        assert_eq!(
-            flattened,
-            vec![
-                (5, EventRevertStatus::Reverted),
-                (4, EventRevertStatus::Reverted),
-                (14, EventRevertStatus::Applied),
-                (15, EventRevertStatus::Applied),
-            ]
-        );
-    }
-
-    #[test]
-    fn flatten_head_changes_plain_apply() {
-        let changes = HeadChanges {
-            reverts: vec![],
-            applies: vec![tipset(7)],
-        };
-        let flattened: Vec<(ChainEpoch, EventRevertStatus)> = flatten_head_changes(changes)
-            .map(|(ts, status)| (ts.epoch(), status))
-            .collect();
-        assert_eq!(flattened, vec![(7, EventRevertStatus::Applied)]);
-    }
 
     fn eth_log(address: &EthAddress, topics: Vec<EthHash>) -> EthLog {
         EthLog {

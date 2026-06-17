@@ -41,7 +41,7 @@ use crate::rpc::{
         },
         utils::decode_revert_reason,
     },
-    methods::chain::ChainGetTipSetV2,
+    methods::chain::{ChainGetTipSetV2, PathChange},
     state::ApiInvocResult,
     types::{ApiTipsetKey, EventEntry, MessageLookup},
 };
@@ -1457,15 +1457,23 @@ pub async fn eth_logs_for_block_and_transaction(
     eth_filter_logs_from_events(ctx, &events)
 }
 
-/// Collects the Ethereum logs of the message tipset whose receipts live in `receipt_ts`
-/// (its child), marking them as removed when the head change that surfaced them was a reorg
-/// revert. The receipt tipset is passed explicitly because reverted tipsets can no longer be
-/// resolved through the canonical chain.
+/// Collects the Ethereum logs produced by a single chain head change, for the logs
+/// subscription. The change's tipset is the *receipt* tipset (the applied or reverted tipset
+/// itself); its parent is the message tipset whose events those receipts carry. A reverting
+/// change marks the logs `removed: true`. The receipt tipset is taken from the change rather
+/// than resolved through the canonical chain, because a reverted tipset is no longer on it.
 pub(in crate::rpc) async fn eth_logs_for_head_change(
     ctx: &Ctx,
-    receipt_ts: &Tipset,
-    revert_status: EventRevertStatus,
+    change: &PathChange<Tipset>,
 ) -> anyhow::Result<Vec<EthLog>> {
+    let (receipt_ts, revert_status) = match change {
+        PathChange::Revert(ts) => (ts, EventRevertStatus::Reverted),
+        PathChange::Apply(ts) => (ts, EventRevertStatus::Applied),
+    };
+    // Genesis carries no events and has no parent message tipset to load.
+    if receipt_ts.epoch() == 0 {
+        return Ok(vec![]);
+    }
     let msg_ts = ctx
         .chain_index()
         .load_required_tipset(receipt_ts.parents())?;
