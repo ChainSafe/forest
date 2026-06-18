@@ -39,6 +39,8 @@
 
 ### Fixed
 
+- [#7194](https://github.com/ChainSafe/forest/pull/7194): Added missing `UpgradeXxHeight` fork-upgrade parameter to `Filecoin.StateGetNetworkParams` for Lotus v1.36.1 parity.
+
 - [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
 
 - [#6974](https://github.com/ChainSafe/forest/issues/6974): Fixed the message pool reporting a still-pending nonce as the next nonce after an applied message was removed.
