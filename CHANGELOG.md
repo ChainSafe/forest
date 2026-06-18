@@ -39,7 +39,7 @@
 
 ### Fixed
 
-- [#7194](https://github.com/ChainSafe/forest/pull/7194): Added missing `UpgradeXxHeight` fork-upgrade parameter to `Filecoin.StateGetNetworkParams` for Lotus v1.36.1 parity.
+- [#7194](https://github.com/ChainSafe/forest/pull/7194): Added `UpgradeXxHeight` placeholder for the NV29 network upgrade.
 
 - [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
 
