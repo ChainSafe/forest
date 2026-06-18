@@ -715,7 +715,10 @@ mod tests {
         let hygge = cfg.epoch(Height::Hygge);
         assert_eq!(cfg.expensive_fork_between(shark - 1, shark), None);
         assert_eq!(cfg.expensive_fork_between(shark, shark + 1), Some(shark));
-        assert_eq!(cfg.expensive_fork_between(shark - 1, hygge + 1), Some(shark));
+        assert_eq!(
+            cfg.expensive_fork_between(shark - 1, hygge + 1),
+            Some(shark)
+        );
         assert_eq!(cfg.expensive_fork_between(shark + 1, shark + 1), None);
     }
 

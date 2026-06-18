@@ -39,6 +39,8 @@
 
 ### Fixed
 
+- [#7128](https://github.com/ChainSafe/forest/pull/7128): `eth_call` and `eth_estimateGas` are no longer refused at the epoch immediately after an expensive network-upgrade migration; only the upgrade epoch itself is refused. Expensive-fork refusals now return JSON-RPC code `-32002` with the fork epoch in `data`. Ports ([filecoin-project/lotus#13644](https://github.com/filecoin-project/lotus/pull/13644)).
+
 - [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
 
 - [#6974](https://github.com/ChainSafe/forest/issues/6974): Fixed the message pool reporting a still-pending nonce as the next nonce after an applied message was removed.
