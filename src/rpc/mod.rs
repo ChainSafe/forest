@@ -609,7 +609,10 @@ pub async fn start_rpc(
         let sock = tokio::select! {
         res = rpc_listener.accept() => {
             match res {
-              Ok((stream, _remote_addr)) => stream,
+              Ok((stream, _remote_addr)) => {
+                let _ = stream.set_nodelay(true); // Disable Nagle's algorithm
+                stream
+              }
               Err(e) => {
                 tracing::error!("failed to accept v4 connection: {:?}", e);
                 continue;
