@@ -31,6 +31,8 @@
 
 - [#7168](https://github.com/ChainSafe/forest/pull/7168): Added the `FOREST_RPC_METRICS_DISABLED` environment variable to disable JSON-RPC per-method metrics while leaving other metrics intact.
 
+- [#7195](https://github.com/ChainSafe/forest/pull/7195): Added the `rpc_in_flight_requests` metric reporting the number of JSON-RPC requests currently being processed.
+
 ### Changed
 
 - [#7164](https://github.com/ChainSafe/forest/issues/7164): JSON-RPC authentication is now performed once per connection (e.g. at the WebSocket upgrade) instead of on every request, matching Lotus. Note that token expiry is no longer re-checked for the lifetime of an established connection.

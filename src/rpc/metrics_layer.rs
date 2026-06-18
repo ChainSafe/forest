@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::metrics;
+use crate::metrics::GaugeGuardExt as _;
 use crate::{for_each_rpc_method, rpc::reflect::RpcMethod as _};
 use ahash::HashMap;
 use futures::future::Either;
@@ -117,6 +118,9 @@ impl<S> RecordMetrics<S> {
     where
         F: Future<Output = MethodResponse>,
     {
+        // Held across the `.await` below, so the in-flight gauge is decremented on
+        // normal completion, cancellation (future dropped), or panic-unwind alike.
+        let _in_flight = metrics::RPC_IN_FLIGHT.inc_guard();
         let start_time = std::time::Instant::now();
         let resp = future.await;
         // Observe the elapsed time in milliseconds.

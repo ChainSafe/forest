@@ -12,6 +12,7 @@ use prometheus_client::{
     metrics::{
         counter::Counter,
         family::Family,
+        gauge::Gauge,
         histogram::{Histogram, exponential_buckets},
     },
 };
@@ -49,6 +50,16 @@ pub static RPC_METHOD_FAILURE: LazyLock<Family<RpcMethodLabel, Counter>> = LazyL
     DEFAULT_REGISTRY.write().register(
         "rpc_method_failure",
         "Number of failed RPC calls",
+        metric.clone(),
+    );
+    metric
+});
+
+pub static RPC_IN_FLIGHT: LazyLock<Gauge> = LazyLock::new(|| {
+    let metric = Gauge::default();
+    DEFAULT_REGISTRY.write().register(
+        "rpc_in_flight_requests",
+        "Number of RPC requests currently being processed",
         metric.clone(),
     );
     metric
@@ -188,5 +199,31 @@ impl HistogramTimerExt for Histogram {
             histogram: self,
             start: Instant::now(),
         }
+    }
+}
+
+/// RAII guard that increments a gauge on creation and decrements it on drop,
+/// keeping the count balanced even if the guarded scope ends via cancellation
+/// (its future is dropped) or panic-unwind. Created via [`GaugeGuardExt::inc_guard`].
+pub struct GaugeGuard<'a> {
+    gauge: &'a Gauge,
+}
+
+impl Drop for GaugeGuard<'_> {
+    fn drop(&mut self) {
+        self.gauge.dec();
+    }
+}
+
+pub trait GaugeGuardExt {
+    /// Increments the gauge and returns a [`GaugeGuard`] that decrements it on drop.
+    #[must_use = "dropping the guard immediately makes the increment a no-op; bind it to a variable"]
+    fn inc_guard(&self) -> GaugeGuard<'_>;
+}
+
+impl GaugeGuardExt for Gauge {
+    fn inc_guard(&self) -> GaugeGuard<'_> {
+        self.inc();
+        GaugeGuard { gauge: self }
     }
 }
