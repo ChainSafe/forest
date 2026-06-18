@@ -10257,6 +10257,10 @@
           "UpgradeWatermelonHeight": {
             "type": "integer",
             "format": "int64"
+          },
+          "UpgradeXxHeight": {
+            "type": "integer",
+            "format": "int64"
           }
         },
         "required": [
@@ -10292,7 +10296,8 @@
           "UpgradeTeepHeight",
           "UpgradeTockHeight",
           "UpgradeGoldenWeekHeight",
-          "UpgradeFireHorseHeight"
+          "UpgradeFireHorseHeight",
+          "UpgradeXxHeight"
         ]
       },
       "GasTrace": {
