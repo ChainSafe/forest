@@ -80,6 +80,7 @@ mod prelude {
         db::Blockstore,
         utils::{ShallowClone, get_size::CidWrapper},
     };
+    pub use ahash::{HashMapExt as _, HashSetExt as _};
     pub use anyhow::Context as _;
     pub use cid::Cid;
     pub use itertools::Itertools as _;

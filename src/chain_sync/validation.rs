@@ -169,8 +169,11 @@ impl TipsetValidator<'_> {
 pub enum GossipBlockRejectReason {
     #[error("block epoch {0} is too far in the future")]
     EpochTooFarAhead(ChainEpoch),
-    #[error("block epoch {0} is beyond finality (heaviest: {1})")]
-    EpochBeyondFinality(ChainEpoch, ChainEpoch),
+    #[error("block epoch {epoch} is beyond finality (finalized: {finalized_epoch})")]
+    EpochBeyondFinality {
+        epoch: ChainEpoch,
+        finalized_epoch: ChainEpoch,
+    },
     #[error("block epoch {0} is negative")]
     NegativeEpoch(ChainEpoch),
     #[error("block timestamp {timestamp} inconsistent with epoch {epoch} (expected {expected})")]
@@ -197,7 +200,7 @@ impl GossipBlockRejectReason {
     pub fn label(&self) -> &'static str {
         match self {
             Self::EpochTooFarAhead(_) => "epoch_too_far_ahead",
-            Self::EpochBeyondFinality(_, _) => "epoch_beyond_finality",
+            Self::EpochBeyondFinality { .. } => "epoch_beyond_finality",
             Self::NegativeEpoch(_) => "negative_epoch",
             Self::TimestampMismatch { .. } => "timestamp_mismatch",
             Self::MissingSignature => "missing_signature",
@@ -228,14 +231,13 @@ impl<'a> GossipBlockValidator<'a> {
         &self,
         genesis_tipset: &Tipset,
         block_delay: u32,
-        chain_finality: ChainEpoch,
-        heaviest_epoch: ChainEpoch,
+        finalized_epoch: ChainEpoch,
         bad_block_cache: Option<&BadBlockCache>,
         seen_block_cache: &SeenBlockCache,
     ) -> Result<(), GossipBlockRejectReason> {
         let cid = *self.block.header.cid();
         Self::check_bad_block_cache(cid, bad_block_cache)?;
-        self.validate_epoch_range(genesis_tipset, block_delay, chain_finality, heaviest_epoch)?;
+        self.validate_epoch_range(genesis_tipset, block_delay, finalized_epoch)?;
         self.validate_timestamp(genesis_tipset, block_delay)?;
         self.validate_election_proof()?;
         self.validate_signature_present()?;
@@ -272,8 +274,7 @@ impl<'a> GossipBlockValidator<'a> {
         &self,
         genesis_tipset: &Tipset,
         block_delay: u32,
-        chain_finality: ChainEpoch,
-        heaviest_epoch: ChainEpoch,
+        finalized_epoch: ChainEpoch,
     ) -> Result<(), GossipBlockRejectReason> {
         let epoch = self.block.header.epoch;
         if epoch < 0 {
@@ -284,11 +285,11 @@ impl<'a> GossipBlockValidator<'a> {
         if epoch > max {
             return Err(GossipBlockRejectReason::EpochTooFarAhead(epoch));
         }
-        if heaviest_epoch.saturating_sub(epoch) > chain_finality {
-            return Err(GossipBlockRejectReason::EpochBeyondFinality(
+        if epoch < finalized_epoch {
+            return Err(GossipBlockRejectReason::EpochBeyondFinality {
                 epoch,
-                heaviest_epoch,
-            ));
+                finalized_epoch,
+            });
         }
         Ok(())
     }
@@ -450,8 +451,7 @@ mod tests {
 
         let result = GossipBlockValidator::new(&block).validate_pre_fetch(
             &genesis, 30,   // block_delay
-            900,  // chain_finality
-            0,    // heaviest_epoch (same as block epoch)
+            0,    // finalized_epoch
             None, // no bad block cache
             &seen,
         );
@@ -466,12 +466,12 @@ mod tests {
 
         assert!(
             GossipBlockValidator::new(&block)
-                .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+                .validate_pre_fetch(&genesis, 30, 0, None, &seen)
                 .is_ok()
         );
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::DuplicateBlock(_)));
     }
@@ -485,7 +485,7 @@ mod tests {
         bad_cache.push(*block.header.cid());
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, Some(&bad_cache), &seen)
+            .validate_pre_fetch(&genesis, 30, 0, Some(&bad_cache), &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::BadBlock(_)));
     }
@@ -497,7 +497,7 @@ mod tests {
         let seen = SeenBlockCache::default();
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::EpochTooFarAhead(_)));
     }
@@ -509,11 +509,11 @@ mod tests {
         let seen = SeenBlockCache::default();
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 1000, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 100, None, &seen)
             .unwrap_err();
         assert!(matches!(
             err,
-            GossipBlockRejectReason::EpochBeyondFinality(_, _)
+            GossipBlockRejectReason::EpochBeyondFinality { .. }
         ));
     }
 
@@ -524,7 +524,7 @@ mod tests {
         let seen = SeenBlockCache::default();
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::MissingElectionProof));
     }
@@ -541,7 +541,7 @@ mod tests {
         let seen = SeenBlockCache::default();
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::InvalidWinCount(0)));
     }
@@ -553,7 +553,7 @@ mod tests {
         let seen = SeenBlockCache::default();
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::MissingSignature));
     }
@@ -566,7 +566,7 @@ mod tests {
         let seen = SeenBlockCache::default();
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::TooManyMessages(_)));
     }
@@ -578,7 +578,7 @@ mod tests {
         let seen = SeenBlockCache::default();
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::NegativeEpoch(-1)));
     }
@@ -592,7 +592,7 @@ mod tests {
         let seen = SeenBlockCache::default();
 
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(
             err,
@@ -612,13 +612,13 @@ mod tests {
 
         // First attempt: rejected as too far ahead
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::EpochTooFarAhead(_)));
 
         // Second attempt: must still be EpochTooFarAhead, NOT DuplicateBlock
         let err = GossipBlockValidator::new(&block)
-            .validate_pre_fetch(&genesis, 30, 900, 0, None, &seen)
+            .validate_pre_fetch(&genesis, 30, 0, None, &seen)
             .unwrap_err();
         assert!(matches!(err, GossipBlockRejectReason::EpochTooFarAhead(_)));
     }

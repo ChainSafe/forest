@@ -424,12 +424,13 @@ impl RpcMethod<0> for ForestChainExportStatus {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let mutex = CHAIN_EXPORT_STATUS.lock();
-
-        let progress = if mutex.initial_epoch == 0 {
+        let status = &*CHAIN_EXPORT_STATUS;
+        let initial_epoch = status.initial_epoch();
+        let epoch = status.epoch();
+        let progress = if initial_epoch == 0 {
             0.0
         } else {
-            let p = 1.0 - ((mutex.epoch as f64) / (mutex.initial_epoch as f64));
+            let p = 1.0 - ((epoch as f64) / (initial_epoch as f64));
             if p.is_finite() {
                 p.clamp(0.0, 1.0)
             } else {
@@ -441,9 +442,11 @@ impl RpcMethod<0> for ForestChainExportStatus {
 
         let status = ApiExportStatus {
             progress,
-            exporting: mutex.exporting,
-            cancelled: mutex.cancelled,
-            start_time: mutex.start_time,
+            exporting: status.exporting(),
+            cancelled: status.cancelled(),
+            start_time: status.start_time(),
+            current_epoch: epoch,
+            start_epoch: initial_epoch,
         };
 
         Ok(status)

@@ -1,34 +1,41 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::db::DbImpl;
-use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 mod auth_layer;
 mod channel;
 mod client;
 mod compression_layer;
+mod error;
 mod filter_layer;
 mod filter_list;
 pub mod json_validator;
 mod log_layer;
 mod metrics_layer;
 mod parallel_batch_layer;
+mod reflect;
+mod registry;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
+pub mod types;
 mod validation_layer;
 
+use crate::db::DbImpl;
+use crate::prelude::*;
 use crate::rpc::eth::types::RandomHexStringIdProvider;
+use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 use crate::shim::clock::ChainEpoch;
+use ahash::HashMap;
 use clap::ValueEnum as _;
 pub use client::Client;
 pub use error::ServerError;
 use eth::filter::EthEventHandler;
 use filter_layer::FilterLayer;
 pub use filter_list::FilterList;
-use futures::FutureExt as _;
+use futures::future::Either;
 use jsonrpsee::server::ServerConfig;
 use log_layer::LogLayer;
+pub use metrics_layer::MetricsMode;
 use parallel_batch_layer::ParallelBatchLayer;
 use reflect::Ctx;
 pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
@@ -36,11 +43,6 @@ pub use request::Request;
 use schemars::Schema;
 use segregation_layer::SegregationLayer;
 use set_extension_layer::SetExtensionLayer;
-mod error;
-mod reflect;
-use ahash::HashMap;
-mod registry;
-pub mod types;
 
 pub use methods::*;
 
@@ -546,7 +548,7 @@ impl RPCState {
 #[derive(Clone)]
 struct PerConnection<RpcMiddleware, HttpMiddleware> {
     stop_handle: StopHandle,
-    svc_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
+    svc_builder: Arc<TowerServiceBuilder<RpcMiddleware, HttpMiddleware>>,
     keystore: Arc<RwLock<KeyStore>>,
 }
 
@@ -554,23 +556,24 @@ pub async fn start_rpc(
     state: RPCState,
     rpc_listener: tokio::net::TcpListener,
     stop_handle: StopHandle,
-    filter_list: Option<FilterList>,
+    filter_list: Option<Arc<FilterList>>,
+    metrics_mode: MetricsMode,
 ) -> anyhow::Result<()> {
     let filter_list = filter_list.unwrap_or_default();
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
-    let keystore = state.keystore.clone();
-    let mut modules = create_modules(state.clone());
+    let keystore = state.keystore.shallow_clone();
+    let mut modules = create_modules(state.shallow_clone());
 
     let mut pubsub_module = FilRpcModule::default();
     pubsub_module.register_channel("Filecoin.ChainNotify", {
-        let state_clone = state.clone();
+        let state_clone = state.shallow_clone();
         move |params| chain::chain_notify(params, &state_clone)
     })?;
 
     for module in modules.values_mut() {
         // register eth subscription APIs
-        module.merge(EthPubSub::new(state.clone()).into_rpc())?;
+        module.merge(EthPubSub::new(state.shallow_clone()).into_rpc())?;
         module.merge(pubsub_module.clone())?;
     }
 
@@ -588,7 +591,7 @@ pub async fn start_rpc(
     let per_conn = PerConnection {
         stop_handle: stop_handle.clone(),
         svc_builder: Server::builder()
-            .set_config(server_config.clone())
+            .set_config(server_config)
             .set_http_middleware(
                 tower::ServiceBuilder::new()
                     .option_layer(COMPRESS_MIN_BODY_SIZE.map(CompressionLayer::new))
@@ -597,7 +600,8 @@ pub async fn start_rpc(
                         http::header::AUTHORIZATION,
                     ))),
             )
-            .to_service_builder(),
+            .to_service_builder()
+            .into(),
         keystore,
     };
     tracing::info!("Ready for RPC connections");
@@ -616,85 +620,52 @@ pub async fn start_rpc(
         };
 
         let svc = tower::service_fn({
-            let methods = methods.clone();
+            let methods = methods.shallow_clone();
             let per_conn = per_conn.clone();
-            let filter_list = filter_list.clone();
-            move |req| {
-                let is_websocket = jsonrpsee::server::ws::is_upgrade_request(&req);
-                let path = if let Ok(p) = ApiPaths::from_uri(req.uri()) {
-                    p
+            let filter_list = filter_list.shallow_clone();
+            move |req: http::Request<_>| {
+                let svc_or_result = if let Ok(path) = ApiPaths::from_uri(req.uri()) {
+                    let methods = methods.get(&path).cloned().unwrap_or_default();
+                    let PerConnection {
+                        stop_handle,
+                        svc_builder,
+                        keystore,
+                    } = per_conn.clone();
+                    // NOTE, the rpc middleware must be initialized here to be able to be created once per connection
+                    // with data from the connection such as the headers in this example
+                    let rpc_middleware = RpcServiceBuilder::new()
+                        .layer(SetExtensionLayer { path })
+                        .layer(SegregationLayer)
+                        .layer(FilterLayer::new(filter_list.shallow_clone()))
+                        .layer(validation_layer::JsonValidationLayer)
+                        .layer(AuthLayer::new(req.headers(), &keystore))
+                        .layer(LogLayer::default())
+                        // `ParallelBatchLayer` fans a batch out into per-entry `call`s, so it must be
+                        // outer to `MetricsLayer` for batched methods to be measured. Both must stay
+                        // inner to the batch-transforming layers above.
+                        .layer(ParallelBatchLayer::new(max_response_body_size))
+                        .layer(MetricsLayer::new(metrics_mode));
+                    Either::Left(
+                        Arc::unwrap_or_clone(svc_builder)
+                            .set_rpc_middleware(rpc_middleware)
+                            .build(methods, stop_handle),
+                    )
                 } else {
-                    return async move {
-                        Ok(http::Response::builder()
-                            .status(http::StatusCode::NOT_FOUND)
-                            .body(Default::default())
-                            .unwrap_or_else(|_| http::Response::new(Default::default())))
-                    }
-                    .boxed();
+                    Either::Right(Ok(http::Response::builder()
+                        .status(http::StatusCode::NOT_FOUND)
+                        .body(Default::default())
+                        .unwrap_or_else(|_| http::Response::new(Default::default()))))
                 };
-                let methods = methods.get(&path).cloned().unwrap_or_default();
-                let PerConnection {
-                    stop_handle,
-                    svc_builder,
-                    keystore,
-                } = per_conn.clone();
-                // NOTE, the rpc middleware must be initialized here to be able to be created once per connection
-                // with data from the connection such as the headers in this example
-                let headers = req.headers().clone();
-                let rpc_middleware = RpcServiceBuilder::new()
-                    .layer(SetExtensionLayer { path })
-                    .layer(SegregationLayer)
-                    .layer(FilterLayer::new(filter_list.clone()))
-                    .layer(validation_layer::JsonValidationLayer)
-                    .layer(AuthLayer {
-                        headers,
-                        keystore: keystore.clone(),
-                    })
-                    .layer(LogLayer::default())
-                    // `ParallelBatchLayer` fans a batch out into per-entry `call`s, so it must be
-                    // outer to `MetricsLayer` for batched methods to be measured. Both must stay
-                    // inner to the batch-transforming layers above.
-                    .layer(ParallelBatchLayer::new(max_response_body_size))
-                    .layer(MetricsLayer::default());
-                let mut jsonrpsee_svc = svc_builder
-                    .set_rpc_middleware(rpc_middleware)
-                    .build(methods, stop_handle);
-
-                if is_websocket {
-                    // Utilize the session close future to know when the actual WebSocket
-                    // session was closed.
-                    let session_close = jsonrpsee_svc.on_session_closed();
-
-                    // A little bit weird API but the response to HTTP request must be returned below
-                    // and we spawn a task to register when the session is closed.
-                    tokio::spawn(async move {
-                        session_close.await;
-                        tracing::trace!("Closed WebSocket connection");
-                    });
-
-                    async move {
-                        tracing::trace!("Opened WebSocket connection");
-                        // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
-                        // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
-                        // as workaround.
-                        jsonrpsee_svc
-                            .call(req)
-                            .await
-                            .map_err(|e| anyhow::anyhow!("{:?}", e))
+                async move {
+                    match svc_or_result {
+                        Either::Left(mut svc) => {
+                            // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+                            // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
+                            // as workaround.
+                            svc.call(req).await.map_err(|e| anyhow::anyhow!("{:?}", e))
+                        }
+                        Either::Right(result) => result,
                     }
-                    .boxed()
-                } else {
-                    // HTTP.
-                    async move {
-                        tracing::trace!("Opened HTTP connection");
-                        let rp = jsonrpsee_svc.call(req).await;
-                        tracing::trace!("Closed HTTP connection");
-                        // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
-                        // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
-                        // as workaround.
-                        rp.map_err(|e| anyhow::anyhow!("{:?}", e))
-                    }
-                    .boxed()
                 }
             }
         });
@@ -712,7 +683,7 @@ pub async fn start_rpc(
 fn create_modules(state: Arc<RPCState>) -> HashMap<ApiPaths, RpcModule<RPCState>> {
     let mut modules = HashMap::default();
     for api_version in ApiPaths::value_variants() {
-        modules.insert(*api_version, RpcModule::from_arc(state.clone()));
+        modules.insert(*api_version, RpcModule::from_arc(state.shallow_clone()));
     }
     macro_rules! register {
         ($ty:ty) => {
@@ -887,7 +858,13 @@ mod tests {
 
         // Start an RPC server
 
-        let handle = tokio::spawn(start_rpc(state, rpc_listener, stop_handle, None));
+        let handle = tokio::spawn(start_rpc(
+            state,
+            rpc_listener,
+            stop_handle,
+            None,
+            MetricsMode::Enabled,
+        ));
 
         println!("sending a few http requests");
 

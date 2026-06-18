@@ -251,8 +251,7 @@ async fn chain_follower(
                             if let Err(reason) = GossipBlockValidator::new(&b).validate_pre_fetch(
                                 &genesis,
                                 cfg.block_delay_secs,
-                                cfg.policy.chain_finality,
-                                cs.heaviest_tipset().epoch(),
+                                cs.ec_calculator_finalized_epoch(), // Not using F3 finalized epoch as it could go above the chain head during catchup
                                 bad_block_cache.as_ref(),
                                 &seen_block_cache,
                             ) {
@@ -713,11 +712,9 @@ impl SyncStateMachine {
             return;
         }
 
-        // Check if tipset is outside the chain_finality window
-        let heaviest = self.cs.heaviest_tipset();
-        let epoch_diff = heaviest.epoch() - tipset.epoch();
-
-        if epoch_diff > self.cs.chain_config().policy.chain_finality {
+        // Check if tipset is outside the chain finality window.
+        // Not using F3 finalized epoch as it could go above the chain head during catchup
+        if tipset.epoch() < self.cs.ec_calculator_finalized_epoch() {
             self.mark_bad_tipset(tipset);
             return;
         }
@@ -847,10 +844,10 @@ impl SyncStateMachine {
                 tipset,
                 is_proposed_head,
             } => {
-                let tsk = tipset.key().clone();
                 if self.try_mark_tipset_as_validated(tipset, is_proposed_head)
                     && crate::utils::broadcast::has_subscribers(&self.validated_tipset_broadcast_tx)
-                    && let Err(e) = self.validated_tipset_broadcast_tx.send(tsk)
+                    // Sending the actual head key here as it could be expanded from the above tipset when `is_proposed_head` is `true`
+                    && let Err(e) = self.validated_tipset_broadcast_tx.send(self.cs.heaviest_tipset().key().clone())
                 {
                     warn!("Failed to broadcast validated tipset: {e}");
                 }
@@ -978,7 +975,8 @@ impl SyncTask {
                 {
                     Ok(parents) => Some(SyncEvent::NewFullTipsets(parents)),
                     Err(e) => {
-                        tracing::warn!(%key, %epoch, "failed to fetch tipset: {e:#}");
+                        // It's not a massive error; could be a transient network issue or a fork.
+                        tracing::debug!(%key, %epoch, "failed to fetch tipset: {e:#}");
                         None
                     }
                 }

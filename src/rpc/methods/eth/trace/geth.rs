@@ -20,13 +20,13 @@ use super::types::{
 };
 use super::utils::{ZERO_HASH, trace_to_address, u256_to_eth_hash};
 use crate::eth::EAMMethod;
+use crate::prelude::*;
 use crate::rpc::state::ExecutionTrace;
 use crate::shim::actors::is_evm_actor;
 use crate::shim::address::Address;
 use crate::shim::state_tree::{ActorState, StateTree};
 use ahash::{HashMap, HashSet};
 use fil_actor_evm_state::evm_shared::v17::uints::U256;
-use fvm_ipld_blockstore::Blockstore;
 use num::FromPrimitive as _;
 use std::collections::BTreeMap;
 
@@ -267,7 +267,6 @@ mod tests {
     use super::super::types::{PreStateConfig, PreStateFrame};
     use super::*;
     use crate::rpc::eth::{EthBigInt, EthUint64};
-    use ahash::HashSetExt as _;
     use num::BigInt;
 
     #[test]

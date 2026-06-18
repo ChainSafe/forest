@@ -14,52 +14,78 @@ use chrono::{DateTime, Utc};
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::pin::Pin;
-use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, AtomicI64};
+use std::sync::{LazyLock, atomic};
 use std::task::{Context, Poll};
 
 #[derive(Default)]
 pub struct ExportStatus {
-    pub epoch: i64,
-    pub initial_epoch: i64,
-    pub exporting: bool,
-    pub cancelled: bool,
-    pub start_time: Option<DateTime<Utc>>,
+    pub epoch: AtomicI64,
+    pub initial_epoch: AtomicI64,
+    pub exporting: AtomicBool,
+    pub cancelled: AtomicBool,
+    pub start_time: RwLock<Option<DateTime<Utc>>>,
 }
 
-pub static CHAIN_EXPORT_STATUS: LazyLock<Mutex<ExportStatus>> =
-    LazyLock::new(|| ExportStatus::default().into());
+impl ExportStatus {
+    pub fn epoch(&self) -> i64 {
+        self.epoch.load(atomic::Ordering::Relaxed)
+    }
 
-fn update_epoch(new_value: i64) {
-    let mut mutex = CHAIN_EXPORT_STATUS.lock();
-    mutex.epoch = new_value;
-    if mutex.initial_epoch == 0 {
-        mutex.initial_epoch = new_value;
+    pub fn initial_epoch(&self) -> i64 {
+        self.initial_epoch.load(atomic::Ordering::Relaxed)
+    }
+
+    pub fn exporting(&self) -> bool {
+        self.exporting.load(atomic::Ordering::Relaxed)
+    }
+
+    pub fn cancelled(&self) -> bool {
+        self.cancelled.load(atomic::Ordering::Relaxed)
+    }
+
+    pub fn start_time(&self) -> Option<DateTime<Utc>> {
+        *self.start_time.read()
     }
 }
 
+pub static CHAIN_EXPORT_STATUS: LazyLock<ExportStatus> = LazyLock::new(ExportStatus::default);
+
+fn update_epoch(new_value: i64) {
+    let status = &*CHAIN_EXPORT_STATUS;
+    status.epoch.store(new_value, atomic::Ordering::Relaxed);
+    _ = status.initial_epoch.compare_exchange(
+        0,
+        new_value,
+        atomic::Ordering::Relaxed,
+        atomic::Ordering::Relaxed,
+    );
+}
+
 pub fn start_export() {
-    let mut mutex = CHAIN_EXPORT_STATUS.lock();
-    mutex.epoch = 0;
-    mutex.initial_epoch = 0;
-    mutex.exporting = true;
-    mutex.cancelled = false;
-    mutex.start_time = Some(Utc::now());
+    let status = &*CHAIN_EXPORT_STATUS;
+    status.epoch.store(0, atomic::Ordering::Relaxed);
+    status.initial_epoch.store(0, atomic::Ordering::Relaxed);
+    status.exporting.store(true, atomic::Ordering::Relaxed);
+    status.cancelled.store(false, atomic::Ordering::Relaxed);
+    *status.start_time.write() = Some(Utc::now());
 }
 
 pub fn end_export() {
-    let mut mutex = CHAIN_EXPORT_STATUS.lock();
-    mutex.exporting = false;
+    CHAIN_EXPORT_STATUS
+        .exporting
+        .store(false, atomic::Ordering::Relaxed);
 }
 
 pub fn cancel_export() {
-    let mut mutex = CHAIN_EXPORT_STATUS.lock();
-    mutex.exporting = false;
-    mutex.cancelled = true;
+    let status = &*CHAIN_EXPORT_STATUS;
+    status.exporting.store(false, atomic::Ordering::Relaxed);
+    status.cancelled.store(true, atomic::Ordering::Relaxed);
 }
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {

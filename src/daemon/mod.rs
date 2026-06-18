@@ -407,8 +407,10 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                 }
             }
             {
-                if let Err(e) = state_manager.execution_trace(&ts).await {
-                    warn!("failed to call `StateManager::execution_trace` for cache warmup: {e:#}");
+                // Warms both the FVM-replay cache and the parity-trace cache,
+                // since `eth_trace_block` calls `execution_trace` internally.
+                if let Err(e) = crate::rpc::eth::eth_trace_block(&state_manager, &ts).await {
+                    warn!("failed to call `eth_trace_block` for cache warmup: {e:#}");
                 }
             }
             {
@@ -557,11 +559,12 @@ fn maybe_start_rpc_service(
 ) -> anyhow::Result<()> {
     if config.client.enable_rpc {
         let rpc_address = config.client.rpc_address;
+        let metrics_mode = crate::rpc::MetricsMode::from(config.client.enable_metrics_endpoint);
         let filter_list = config
             .client
             .rpc_filter_list
             .as_ref()
-            .map(|path| crate::rpc::FilterList::new_from_file(path))
+            .map(|path| crate::rpc::FilterList::new_from_file(path).map(Arc::new))
             .transpose()?;
         info!("JSON-RPC endpoint will listen at {rpc_address}");
         let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
@@ -607,6 +610,7 @@ fn maybe_start_rpc_service(
                     rpc_listener,
                     rpc_stop_handle,
                     filter_list,
+                    metrics_mode,
                 )
                 .await
             }

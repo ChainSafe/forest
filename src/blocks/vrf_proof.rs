@@ -27,7 +27,7 @@ impl VRFProof {
 }
 
 impl GetSize for VRFProof {
-    fn get_heap_size(&self) -> usize {
-        self.0.get_heap_size()
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(&self, tracker: T) -> (usize, T) {
+        self.0.get_heap_size_with_tracker(tracker)
     }
 }

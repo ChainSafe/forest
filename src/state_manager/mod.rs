@@ -50,7 +50,7 @@ use crate::shim::{
 };
 use crate::state_manager::cache::ForestCache;
 use crate::utils::cache::SizeTrackingCache;
-use crate::utils::get_size::{GetSize, vec_heap_size_helper};
+use crate::utils::get_size::GetSize;
 use anyhow::Context as _;
 use chain_rand::ChainRand;
 use nonzero_ext::nonzero;
@@ -59,8 +59,8 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use tracing::warn;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
-const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum ~150MiB on mainnet
+const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum ~0.7MiB on mainnet
 const DEFAULT_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(16usize); // maximum ~70MiB on mainnet
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
@@ -77,14 +77,16 @@ pub struct ExecutedMessage {
 }
 
 impl GetSize for ExecutedMessage {
-    fn get_heap_size(&self) -> usize {
-        self.message.get_heap_size()
-            + self.receipt.get_heap_size()
-            + self
-                .events
-                .as_ref()
-                .map(vec_heap_size_helper)
-                .unwrap_or_default()
+    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(
+        &self,
+        mut tracker: T,
+    ) -> (usize, T) {
+        (
+            self.message.get_heap_size_with_tracker(&mut tracker).0
+                + self.receipt.get_heap_size_with_tracker(&mut tracker).0
+                + self.events.get_heap_size_with_tracker(&mut tracker).0,
+            tracker,
+        )
     }
 }
 

@@ -66,6 +66,7 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::OnceLock;
 use std::task::Poll;
+use std::time::Duration;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
 
@@ -312,6 +313,9 @@ impl Encoder {
         roots: NonEmpty<Cid>,
         mut stream: impl Stream<Item = anyhow::Result<ForestCarFrame>> + Unpin,
     ) -> anyhow::Result<()> {
+        // For troubleshooting stuck-ness issue
+        const ASYNC_OPS_TIMEOUT: Duration = Duration::from_mins(5);
+
         let mut offset = 0;
 
         // Write CARv1 header
@@ -333,21 +337,39 @@ impl Encoder {
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
         let mut builder = index::Builder::new();
-        while let Some((cids, zstd_frame)) = stream.try_next().await? {
+        let mut n_frames = 0;
+        while let Some((cids, zstd_frame)) =
+            tokio::time::timeout(ASYNC_OPS_TIMEOUT, stream.try_next())
+                .await
+                .with_context(|| {
+                    format!("`stream.try_next` timed out, offset={offset}, n_frames={n_frames}")
+                })??
+        {
             builder.extend(cids.into_iter().map(|cid| (cid, offset as u64)));
-            sink.write_all(&zstd_frame).await?;
-            offset += zstd_frame.len()
+            tokio::time::timeout(ASYNC_OPS_TIMEOUT, sink.write_all(&zstd_frame))
+                .await
+                .with_context(|| format!("`sink.write_all` timed out, offset={offset}, n_frames={n_frames}, zstd_frame_len={}", zstd_frame.len()))??;
+            offset += zstd_frame.len();
+            n_frames += 1;
         }
+
+        tracing::info!("Finished writing {n_frames} zstd CAR frames");
 
         // Create index
         let writer = builder.into_writer();
-        writer.write_zstd_skip_frames_into(&mut sink).await?;
-
+        tokio::time::timeout(
+            ASYNC_OPS_TIMEOUT,
+            writer.write_zstd_skip_frames_into(&mut sink),
+        )
+        .await
+        .context("`writer.write_zstd_skip_frames_into` timed out")??;
+        tracing::info!("Finished writing zstd CAR index frames");
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCarFooter {
             index: offset as u64 + ZSTD_SKIP_FRAME_LEN,
         };
         sink.write_all(&footer.to_le_bytes()).await?;
+        tracing::info!("Finished writing zstd CAR footer frame");
         Ok(())
     }
 
