@@ -2453,7 +2453,7 @@ fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<Rpc
         crate::state_migration::get_migrations::<crate::db::DbImpl>(&NetworkChain::Calibnet)
             .iter()
             .filter_map(|(h, _)| chain_config.height_infos.get(h).map(|info| info.epoch))
-            .filter(|epoch| *epoch <= heaviest_tipset.epoch())
+            .filter(|epoch| *epoch < heaviest_tipset.epoch())
             .max()
             .ok_or_else(|| anyhow::anyhow!("calibnet must define at least one expensive fork"))?;
 
@@ -2463,6 +2463,10 @@ fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<Rpc
             BlockNumberOrHash::from_block_number(expensive_fork_epoch),
         ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(EthCall::request((
+            EthCallMessage::default(),
+            BlockNumberOrHash::from_block_number(expensive_fork_epoch + 1),
+        ))?),
         RpcTest::identity(EthEstimateGas::request((
             EthCallMessage {
                 from: Some(generate_eth_random_address()?),

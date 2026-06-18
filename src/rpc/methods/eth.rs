@@ -1809,7 +1809,7 @@ async fn eth_estimate_gas(
     msg.gas_limit = 0;
 
     match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
-        Err(mut err) => {
+        Err(server_err) => {
             // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
             // it just returns an error. That means we can't get the revert reason.
             //
@@ -1817,18 +1817,19 @@ async fn eth_estimate_gas(
             // guts of EthCall). This will give us an ethereum specific error with revert
             // information.
             msg.set_gas_limit(BLOCK_GAS_LIMIT);
-            if let Err(e) = apply_message(ctx, Some(tipset), msg).await {
-                // if the error is an execution reverted, return it directly
-                if e.downcast_ref::<EthErrors>()
-                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::ExecutionReverted { .. }))
+            let err = match apply_message(ctx, Some(tipset), msg).await {
+                Ok(_) => Error::msg(server_err.to_string()),
+                Err(e)
+                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
+                        matches!(eth_err, EthErrors::ExecutionReverted { .. })
+                    }) =>
                 {
                     return Err(e.into());
                 }
+                Err(e) => e,
+            };
 
-                err = e.into();
-            }
-
-            Err(anyhow::anyhow!("failed to estimate gas: {}", err.message()).into())
+            Err(err.context("failed to estimate gas").into())
         }
         Ok(gassed_msg) => {
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;

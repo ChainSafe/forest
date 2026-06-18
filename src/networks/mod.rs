@@ -709,6 +709,17 @@ mod tests {
     }
 
     #[test]
+    fn expensive_fork_between_returns_lowest_fork_in_window() {
+        let cfg = ChainConfig::calibnet();
+        let shark = cfg.epoch(Height::Shark);
+        let hygge = cfg.epoch(Height::Hygge);
+        assert_eq!(cfg.expensive_fork_between(shark - 1, shark), None);
+        assert_eq!(cfg.expensive_fork_between(shark, shark + 1), Some(shark));
+        assert_eq!(cfg.expensive_fork_between(shark - 1, hygge + 1), Some(shark));
+        assert_eq!(cfg.expensive_fork_between(shark + 1, shark + 1), None);
+    }
+
+    #[test]
     fn test_calibnet_heights() {
         heights_are_present(&calibnet::HEIGHT_INFOS);
     }
