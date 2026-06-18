@@ -9,6 +9,7 @@
 !Filecoin.ChainStatObj
 !Filecoin.ChainTipSetWeight
 !Filecoin.EthGetBlockReceiptsLimited
+!Filecoin.EthGetTransactionByHashLimited
 !Filecoin.F3
 !Filecoin.GasEstimateGasLimit
 !Filecoin.MinerCreateBlock
@@ -64,3 +65,8 @@
 !Filecoin.StateSearchMsg
 # https://github.com/filecoin-project/lotus/pull/13562
 !Filecoin.EthGetTransactionReceiptLimited
+# https://github.com/filecoin-project/lotus/pull/13640
+!Filecoin.StateGetNetworkParams
+# https://github.com/filecoin-project/lotus/pull/13618
+!Filecoin.EthGetBlockByHash
+!Filecoin.EthGetBlockByNumber
