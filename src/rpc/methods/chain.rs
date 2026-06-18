@@ -630,7 +630,7 @@ impl RpcMethod<1> for ChainHasObj {
 pub enum ChainStatObj {}
 impl RpcMethod<2> for ChainStatObj {
     const NAME: &'static str = "Filecoin.ChainStatObj";
-    const PARAM_NAMES: [&'static str; 2] = ["obj_cid", "base_cid"];
+    const PARAM_NAMES: [&'static str; 2] = ["objCid", "baseCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 

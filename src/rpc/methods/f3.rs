@@ -106,7 +106,7 @@ impl RpcMethod<1> for GetTipsetByEpoch {
 pub enum GetTipset {}
 impl RpcMethod<1> for GetTipset {
     const NAME: &'static str = "F3.GetTipset";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
@@ -146,7 +146,7 @@ impl RpcMethod<0> for GetHead {
 pub enum GetParent {}
 impl RpcMethod<1> for GetParent {
     const NAME: &'static str = "F3.GetParent";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
@@ -435,7 +435,7 @@ impl GetPowerTable {
 
 impl RpcMethod<1> for GetPowerTable {
     const NAME: &'static str = "F3.GetPowerTable";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
@@ -459,7 +459,7 @@ impl RpcMethod<1> for GetPowerTable {
 pub enum ProtectPeer {}
 impl RpcMethod<1> for ProtectPeer {
     const NAME: &'static str = "F3.ProtectPeer";
-    const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
+    const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
@@ -511,7 +511,7 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
 pub enum Finalize {}
 impl RpcMethod<1> for Finalize {
     const NAME: &'static str = "F3.Finalize";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
 
@@ -702,7 +702,7 @@ impl RpcMethod<0> for F3GetLatestCertificate {
 pub enum F3GetECPowerTable {}
 impl RpcMethod<1> for F3GetECPowerTable {
     const NAME: &'static str = "Filecoin.F3GetECPowerTable";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
@@ -722,7 +722,7 @@ impl RpcMethod<1> for F3GetECPowerTable {
 pub enum F3GetF3PowerTable {}
 impl RpcMethod<1> for F3GetF3PowerTable {
     const NAME: &'static str = "Filecoin.F3GetF3PowerTable";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
@@ -896,7 +896,7 @@ impl F3ListParticipants {
 pub enum F3GetOrRenewParticipationTicket {}
 impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
     const NAME: &'static str = "Filecoin.F3GetOrRenewParticipationTicket";
-    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "previous_lease_ticket", "instances"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "previousLeaseTicket", "instances"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
 
@@ -932,7 +932,7 @@ impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
 pub enum F3Participate {}
 impl RpcMethod<1> for F3Participate {
     const NAME: &'static str = "Filecoin.F3Participate";
-    const PARAM_NAMES: [&'static str; 1] = ["lease_ticket"];
+    const PARAM_NAMES: [&'static str; 1] = ["leaseTicket"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
 
