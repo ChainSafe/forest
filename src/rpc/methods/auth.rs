@@ -32,7 +32,7 @@ impl RpcMethod<2> for AuthNew {
     const NAME: &'static str = "Filecoin.AuthNew";
     const N_REQUIRED_PARAMS: usize = 1;
     // Note: Lotus does not support the optional `expiration_secs` parameter
-    const PARAM_NAMES: [&'static str; 2] = ["permissions", "expiration_secs"];
+    const PARAM_NAMES: [&'static str; 2] = ["permissions", "expirationSecs"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
     type Params = (Vec<String>, Option<i64>);
@@ -57,7 +57,7 @@ impl RpcMethod<2> for AuthNew {
 pub enum AuthVerify {}
 impl RpcMethod<1> for AuthVerify {
     const NAME: &'static str = "Filecoin.AuthVerify";
-    const PARAM_NAMES: [&'static str; 1] = ["header_raw"];
+    const PARAM_NAMES: [&'static str; 1] = ["headerRaw"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (String,);

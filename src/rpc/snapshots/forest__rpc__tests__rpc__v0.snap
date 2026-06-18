@@ -17,7 +17,7 @@ methods:
             - "null"
           items:
             type: string
-      - name: expiration_secs
+      - name: expirationSecs
         required: true
         schema:
           type:
@@ -32,7 +32,7 @@ methods:
     paramStructure: by-position
   - name: Filecoin.AuthVerify
     params:
-      - name: header_raw
+      - name: headerRaw
         required: true
         schema:
           type: string
@@ -348,11 +348,11 @@ methods:
     paramStructure: by-position
   - name: Filecoin.ChainStatObj
     params:
-      - name: obj_cid
+      - name: objCid
         required: true
         schema:
           $ref: "#/components/schemas/Cid"
-      - name: base_cid
+      - name: baseCid
         required: true
         schema:
           anyOf:
@@ -2103,7 +2103,7 @@ methods:
         required: true
         schema:
           $ref: "#/components/schemas/Address"
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           type:
@@ -2123,7 +2123,7 @@ methods:
         required: true
         schema:
           $ref: "#/components/schemas/Address"
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           type:
@@ -2147,7 +2147,7 @@ methods:
         required: true
         schema:
           $ref: "#/components/schemas/Address"
-      - name: start_tsk
+      - name: startTipsetKey
         required: true
         schema:
           type:
@@ -2155,7 +2155,7 @@ methods:
             - "null"
           items:
             $ref: "#/components/schemas/Cid"
-      - name: end_tsk
+      - name: endTipsetKey
         required: true
         schema:
           type:
@@ -2247,7 +2247,7 @@ methods:
     paramStructure: by-position
   - name: Filecoin.NetFindPeer
     params:
-      - name: peer_id
+      - name: peerId
         required: true
         schema:
           type: string
@@ -2461,7 +2461,7 @@ methods:
         schema:
           type: integer
           format: int64
-      - name: n_epochs
+      - name: nEpochs
         required: true
         schema:
           type:
@@ -2469,7 +2469,7 @@ methods:
             - "null"
           format: uint
           minimum: 1
-      - name: force_recompute
+      - name: forceRecompute
         required: false
         schema:
           type:
@@ -2544,11 +2544,11 @@ methods:
     paramStructure: by-position
   - name: Forest.StateFetchRoot
     params:
-      - name: root_cid
+      - name: rootCid
         required: true
         schema:
           $ref: "#/components/schemas/Cid"
-      - name: save_to_file
+      - name: saveToFile
         required: true
         schema:
           type:
@@ -2918,7 +2918,7 @@ methods:
         required: true
         schema:
           $ref: "#/components/schemas/Cid"
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           type:
@@ -3626,11 +3626,11 @@ methods:
   - name: Filecoin.StateSearchMsgLimited
     description: "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed, or null if it was not found."
     params:
-      - name: message_cid
+      - name: messageCid
         required: true
         schema:
           $ref: "#/components/schemas/Cid"
-      - name: look_back_limit
+      - name: lookBackLimit
         required: true
         schema:
           type: integer
@@ -4022,7 +4022,7 @@ methods:
     paramStructure: by-position
   - name: Filecoin.WalletNew
     params:
-      - name: signature_type
+      - name: signatureType
         required: true
         schema:
           $ref: "#/components/schemas/SignatureTypeLotusJson"
@@ -4134,7 +4134,7 @@ methods:
     paramStructure: by-position
   - name: Filecoin.F3GetECPowerTable
     params:
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           type:
@@ -4154,7 +4154,7 @@ methods:
     paramStructure: by-position
   - name: Filecoin.F3GetF3PowerTable
     params:
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           type:
@@ -4237,11 +4237,11 @@ methods:
     paramStructure: by-position
   - name: Filecoin.F3GetOrRenewParticipationTicket
     params:
-      - name: miner_address
+      - name: minerAddress
         required: true
         schema:
           $ref: "#/components/schemas/Address"
-      - name: previous_lease_ticket
+      - name: previousLeaseTicket
         required: true
         schema:
           $ref: "#/components/schemas/Base64String"
@@ -4259,7 +4259,7 @@ methods:
     paramStructure: by-position
   - name: Filecoin.F3Participate
     params:
-      - name: lease_ticket
+      - name: leaseTicket
         required: true
         schema:
           $ref: "#/components/schemas/Base64String"
@@ -4292,7 +4292,7 @@ methods:
     paramStructure: by-position
   - name: F3.GetParent
     params:
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           $ref: "#/components/schemas/F3TipSetKey"
@@ -4318,7 +4318,7 @@ methods:
     paramStructure: by-position
   - name: F3.GetPowerTable
     params:
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           $ref: "#/components/schemas/F3TipSetKey"
@@ -4334,7 +4334,7 @@ methods:
     paramStructure: by-position
   - name: F3.GetTipset
     params:
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           $ref: "#/components/schemas/F3TipSetKey"
@@ -4359,7 +4359,7 @@ methods:
     paramStructure: by-position
   - name: F3.Finalize
     params:
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           $ref: "#/components/schemas/F3TipSetKey"
@@ -4371,7 +4371,7 @@ methods:
     paramStructure: by-position
   - name: F3.ProtectPeer
     params:
-      - name: peer_id
+      - name: peerId
         required: true
         schema:
           type: string
