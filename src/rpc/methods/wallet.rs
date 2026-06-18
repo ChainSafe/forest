@@ -149,7 +149,7 @@ impl RpcMethod<0> for WalletList {
 pub enum WalletNew {}
 impl RpcMethod<1> for WalletNew {
     const NAME: &'static str = "Filecoin.WalletNew";
-    const PARAM_NAMES: [&'static str; 1] = ["signature_type"];
+    const PARAM_NAMES: [&'static str; 1] = ["signatureType"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
 

@@ -83,7 +83,7 @@ impl RpcMethod<0> for NetPeers {
 pub enum NetFindPeer {}
 impl RpcMethod<1> for NetFindPeer {
     const NAME: &'static str = "Filecoin.NetFindPeer";
-    const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
+    const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 

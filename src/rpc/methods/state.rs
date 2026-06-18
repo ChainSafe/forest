@@ -1197,7 +1197,7 @@ pub enum StateGetReceipt {}
 
 impl RpcMethod<2> for StateGetReceipt {
     const NAME: &'static str = "Filecoin.StateGetReceipt";
-    const PARAM_NAMES: [&'static str; 2] = ["cid", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["cid", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // deprecated in V1
     const PERMISSION: Permission = Permission::Read;
 
@@ -1348,7 +1348,7 @@ pub enum StateSearchMsgLimited {}
 
 impl RpcMethod<2> for StateSearchMsgLimited {
     const NAME: &'static str = "Filecoin.StateSearchMsgLimited";
-    const PARAM_NAMES: [&'static str; 2] = ["message_cid", "look_back_limit"];
+    const PARAM_NAMES: [&'static str; 2] = ["messageCid", "lookBackLimit"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Not supported in V1
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
@@ -1398,7 +1398,7 @@ pub enum StateFetchRoot {}
 
 impl RpcMethod<2> for StateFetchRoot {
     const NAME: &'static str = "Forest.StateFetchRoot";
-    const PARAM_NAMES: [&'static str; 2] = ["root_cid", "save_to_file"];
+    const PARAM_NAMES: [&'static str; 2] = ["rootCid", "saveToFile"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
@@ -1570,7 +1570,7 @@ pub enum ForestStateCompute {}
 impl RpcMethod<3> for ForestStateCompute {
     const NAME: &'static str = "Forest.StateCompute";
     const N_REQUIRED_PARAMS: usize = 1;
-    const PARAM_NAMES: [&'static str; 3] = ["epoch", "n_epochs", "force_recompute"];
+    const PARAM_NAMES: [&'static str; 3] = ["epoch", "nEpochs", "forceRecompute"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
