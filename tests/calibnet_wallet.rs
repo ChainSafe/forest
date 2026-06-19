@@ -52,7 +52,7 @@ async fn market_add_balance_message_on_chain() {
     .await
     .unwrap();
     let msg_cid = cid_from_lotus_json_result(&result).unwrap();
-    poll_until_state_search_msg(&msg_cid).await.unwrap();
+    wait_for_msg(&msg_cid).await.unwrap();
 }
 
 #[rstest]

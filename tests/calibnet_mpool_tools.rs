@@ -61,7 +61,7 @@ async fn mpool_replace_auto_unblocks_pending() {
     .unwrap();
 
     assert!(
-        poll_until_state_search_msg(&cid).await.is_ok(),
+        wait_for_msg(&cid).await.is_ok(),
         "mpool replace --auto should replace message {cid} from {addr} at nonce {nonce}."
     );
 }

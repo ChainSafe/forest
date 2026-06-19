@@ -307,19 +307,6 @@ pub fn cid_from_lotus_json_result(result: &Value) -> anyhow::Result<String> {
         .with_context(|| format!("expected CID (lotus JSON or string), got {result}"))
 }
 
-/// Poll `Filecoin.StateSearchMsg` until the message is mined or [`POLL_TIMEOUT`] elapses.
-pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
-    let label = format!("StateSearchMsg for {msg_cid}");
-    poll(&label, || async {
-        let params = json!([[], { "/": msg_cid }, 800_i64, true]);
-        Ok((rpc_call_opt("Filecoin.StateSearchMsg", params)
-            .await?
-            .is_some())
-        .then_some(()))
-    })
-    .await
-}
-
 /// Waits for a sent message to be included on-chain and confirms it executed successfully.
 pub async fn wait_for_msg(msg_cid: &str) -> anyhow::Result<()> {
     let params = json!([{ "/": msg_cid }, 0, -1_i64, true]);
