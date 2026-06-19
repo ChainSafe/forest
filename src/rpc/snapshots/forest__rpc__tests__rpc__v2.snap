@@ -30,6 +30,7 @@ methods:
         $ref: "#/components/schemas/ChainFinalityStatus"
     paramStructure: by-position
   - name: Forest.ChainExport
+    description: "Calls the `Forest.ChainExport` RPC method."
     params:
       - name: params
         required: true
@@ -42,6 +43,7 @@ methods:
         $ref: "#/components/schemas/ApiExportResult"
     paramStructure: by-position
   - name: Forest.ChainExportDiff
+    description: "Calls the `Forest.ChainExportDiff` RPC method."
     params:
       - name: params
         required: true
@@ -54,6 +56,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Forest.ChainExportStatus
+    description: "Calls the `Forest.ChainExportStatus` RPC method."
     params: []
     result:
       name: Forest.ChainExportStatus.Result
@@ -62,6 +65,7 @@ methods:
         $ref: "#/components/schemas/ApiExportStatus"
     paramStructure: by-position
   - name: Forest.ChainExportCancel
+    description: "Calls the `Forest.ChainExportCancel` RPC method."
     params: []
     result:
       name: Forest.ChainExportCancel.Result
@@ -70,6 +74,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.EthAccounts
+    description: "EthAccounts will always return [] since we don't expect Lotus to manage private keys\n"
     params: []
     result:
       name: Filecoin.EthAccounts.Result
@@ -82,6 +87,7 @@ methods:
           type: string
     paramStructure: by-position
   - name: eth_accounts
+    description: "EthAccounts will always return [] since we don't expect Lotus to manage private keys\n"
     params: []
     result:
       name: eth_accounts.Result
@@ -158,6 +164,7 @@ methods:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: Filecoin.EthBlockNumber
+    description: "EthBlockNumber returns the height of the latest (heaviest) TipSet\n"
     params: []
     result:
       name: Filecoin.EthBlockNumber.Result
@@ -166,6 +173,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_blockNumber
+    description: "EthBlockNumber returns the height of the latest (heaviest) TipSet\n"
     params: []
     result:
       name: eth_blockNumber.Result
@@ -174,6 +182,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: Filecoin.EthCall
+    description: "Calls the `Filecoin.EthCall` RPC method."
     params:
       - name: tx
         required: true
@@ -190,6 +199,7 @@ methods:
         $ref: "#/components/schemas/EthBytes"
     paramStructure: by-position
   - name: eth_call
+    description: "Calls the `Filecoin.EthCall` RPC method."
     params:
       - name: tx
         required: true
@@ -206,6 +216,7 @@ methods:
         $ref: "#/components/schemas/EthBytes"
     paramStructure: by-position
   - name: Filecoin.EthChainId
+    description: "Calls the `Filecoin.EthChainId` RPC method."
     params: []
     result:
       name: Filecoin.EthChainId.Result
@@ -214,6 +225,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: eth_chainId
+    description: "Calls the `Filecoin.EthChainId` RPC method."
     params: []
     result:
       name: eth_chainId.Result
@@ -222,6 +234,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.EthEstimateGas
+    description: "Calls the `Filecoin.EthEstimateGas` RPC method."
     params:
       - name: tx
         required: true
@@ -240,6 +253,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_estimateGas
+    description: "Calls the `Filecoin.EthEstimateGas` RPC method."
     params:
       - name: tx
         required: true
@@ -258,6 +272,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: Filecoin.EthFeeHistory
+    description: "Calls the `Filecoin.EthFeeHistory` RPC method."
     params:
       - name: blockCount
         required: true
@@ -283,6 +298,7 @@ methods:
         $ref: "#/components/schemas/EthFeeHistoryResult"
     paramStructure: by-position
   - name: eth_feeHistory
+    description: "Calls the `Filecoin.EthFeeHistory` RPC method."
     params:
       - name: blockCount
         required: true
@@ -360,6 +376,7 @@ methods:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: Filecoin.EthGetBlockByHash
+    description: "Calls the `Filecoin.EthGetBlockByHash` RPC method."
     params:
       - name: blockHash
         required: true
@@ -376,6 +393,7 @@ methods:
         $ref: "#/components/schemas/Block"
     paramStructure: by-position
   - name: eth_getBlockByHash
+    description: "Calls the `Filecoin.EthGetBlockByHash` RPC method."
     params:
       - name: blockHash
         required: true
@@ -504,6 +522,7 @@ methods:
           $ref: "#/components/schemas/EthTxReceipt"
     paramStructure: by-position
   - name: Filecoin.EthGetBlockTransactionCountByHash
+    description: "EthGetBlockTransactionCountByHash returns the number of messages in the TipSet\n"
     params:
       - name: blockHash
         required: true
@@ -516,6 +535,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_getBlockTransactionCountByHash
+    description: "EthGetBlockTransactionCountByHash returns the number of messages in the TipSet\n"
     params:
       - name: blockHash
         required: true
@@ -588,6 +608,7 @@ methods:
         $ref: "#/components/schemas/EthBytes"
     paramStructure: by-position
   - name: Filecoin.EthGetLogs
+    description: "Returns event logs matching given filter spec.\n"
     params:
       - name: ethFilter
         required: true
@@ -600,6 +621,7 @@ methods:
         $ref: "#/components/schemas/EthFilterResult"
     paramStructure: by-position
   - name: eth_getLogs
+    description: "Returns event logs matching given filter spec.\n"
     params:
       - name: ethFilter
         required: true
@@ -612,6 +634,7 @@ methods:
         $ref: "#/components/schemas/EthFilterResult"
     paramStructure: by-position
   - name: Filecoin.EthGetFilterLogs
+    description: "Returns event logs matching filter with given id.\n(requires write perm since timestamp of last filter execution will be written)\n"
     params:
       - name: filterId
         required: true
@@ -624,6 +647,7 @@ methods:
         $ref: "#/components/schemas/EthFilterResult"
     paramStructure: by-position
   - name: eth_getFilterLogs
+    description: "Returns event logs matching filter with given id.\n(requires write perm since timestamp of last filter execution will be written)\n"
     params:
       - name: filterId
         required: true
@@ -662,6 +686,7 @@ methods:
         $ref: "#/components/schemas/EthFilterResult"
     paramStructure: by-position
   - name: Filecoin.EthGetMessageCidByTransactionHash
+    description: "Calls the `Filecoin.EthGetMessageCidByTransactionHash` RPC method."
     params:
       - name: txHash
         required: true
@@ -676,6 +701,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getMessageCidByTransactionHash
+    description: "Calls the `Filecoin.EthGetMessageCidByTransactionHash` RPC method."
     params:
       - name: txHash
         required: true
@@ -732,6 +758,7 @@ methods:
         $ref: "#/components/schemas/EthBytes"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionByHash
+    description: "Calls the `Filecoin.EthGetTransactionByHash` RPC method."
     params:
       - name: txHash
         required: true
@@ -746,6 +773,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getTransactionByHash
+    description: "Calls the `Filecoin.EthGetTransactionByHash` RPC method."
     params:
       - name: txHash
         required: true
@@ -760,6 +788,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionByHashLimited
+    description: "Calls the `Filecoin.EthGetTransactionByHashLimited` RPC method."
     params:
       - name: txHash
         required: true
@@ -779,6 +808,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getTransactionByHashLimited
+    description: "Calls the `Filecoin.EthGetTransactionByHashLimited` RPC method."
     params:
       - name: txHash
         required: true
@@ -798,6 +828,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionCount
+    description: "Calls the `Filecoin.EthGetTransactionCount` RPC method."
     params:
       - name: sender
         required: true
@@ -814,6 +845,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_getTransactionCount
+    description: "Calls the `Filecoin.EthGetTransactionCount` RPC method."
     params:
       - name: sender
         required: true
@@ -830,6 +862,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionHashByCid
+    description: "Calls the `Filecoin.EthGetTransactionHashByCid` RPC method."
     params:
       - name: cid
         required: true
@@ -844,6 +877,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getTransactionHashByCid
+    description: "Calls the `Filecoin.EthGetTransactionHashByCid` RPC method."
     params:
       - name: cid
         required: true
@@ -896,6 +930,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionByBlockHashAndIndex
+    description: "Calls the `Filecoin.EthGetTransactionByBlockHashAndIndex` RPC method."
     params:
       - name: blockHash
         required: true
@@ -914,6 +949,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getTransactionByBlockHashAndIndex
+    description: "Calls the `Filecoin.EthGetTransactionByBlockHashAndIndex` RPC method."
     params:
       - name: blockHash
         required: true
@@ -932,6 +968,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthMaxPriorityFeePerGas
+    description: "Calls the `Filecoin.EthMaxPriorityFeePerGas` RPC method."
     params: []
     result:
       name: Filecoin.EthMaxPriorityFeePerGas.Result
@@ -940,6 +977,7 @@ methods:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: eth_maxPriorityFeePerGas
+    description: "Calls the `Filecoin.EthMaxPriorityFeePerGas` RPC method."
     params: []
     result:
       name: eth_maxPriorityFeePerGas.Result
@@ -948,6 +986,7 @@ methods:
         $ref: "#/components/schemas/EthBigInt"
     paramStructure: by-position
   - name: Filecoin.EthProtocolVersion
+    description: "Calls the `Filecoin.EthProtocolVersion` RPC method."
     params: []
     result:
       name: Filecoin.EthProtocolVersion.Result
@@ -956,6 +995,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: eth_protocolVersion
+    description: "Calls the `Filecoin.EthProtocolVersion` RPC method."
     params: []
     result:
       name: eth_protocolVersion.Result
@@ -964,6 +1004,7 @@ methods:
         $ref: "#/components/schemas/EthUint64"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionReceipt
+    description: "Calls the `Filecoin.EthGetTransactionReceipt` RPC method."
     params:
       - name: txHash
         required: true
@@ -978,6 +1019,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getTransactionReceipt
+    description: "Calls the `Filecoin.EthGetTransactionReceipt` RPC method."
     params:
       - name: txHash
         required: true
@@ -992,6 +1034,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthGetTransactionReceiptLimited
+    description: "Calls the `Filecoin.EthGetTransactionReceiptLimited` RPC method."
     params:
       - name: txHash
         required: true
@@ -1011,6 +1054,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: eth_getTransactionReceiptLimited
+    description: "Calls the `Filecoin.EthGetTransactionReceiptLimited` RPC method."
     params:
       - name: txHash
         required: true
@@ -1030,6 +1074,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.EthNewFilter
+    description: "Installs a persistent filter based on given filter spec.\n"
     params:
       - name: filterSpec
         required: true
@@ -1042,6 +1087,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: eth_newFilter
+    description: "Installs a persistent filter based on given filter spec.\n"
     params:
       - name: filterSpec
         required: true
@@ -1054,6 +1100,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: Filecoin.EthNewPendingTransactionFilter
+    description: "Installs a persistent filter to notify when new messages arrive in the message pool.\n"
     params: []
     result:
       name: Filecoin.EthNewPendingTransactionFilter.Result
@@ -1062,6 +1109,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: eth_newPendingTransactionFilter
+    description: "Installs a persistent filter to notify when new messages arrive in the message pool.\n"
     params: []
     result:
       name: eth_newPendingTransactionFilter.Result
@@ -1070,6 +1118,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: Filecoin.EthNewBlockFilter
+    description: "Installs a persistent filter to notify when a new block arrives.\n"
     params: []
     result:
       name: Filecoin.EthNewBlockFilter.Result
@@ -1078,6 +1127,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: eth_newBlockFilter
+    description: "Installs a persistent filter to notify when a new block arrives.\n"
     params: []
     result:
       name: eth_newBlockFilter.Result
@@ -1086,6 +1136,7 @@ methods:
         $ref: "#/components/schemas/FilterID"
     paramStructure: by-position
   - name: Filecoin.EthUninstallFilter
+    description: "Uninstalls a filter with given id.\n"
     params:
       - name: filterId
         required: true
@@ -1098,6 +1149,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: eth_uninstallFilter
+    description: "Uninstalls a filter with given id.\n"
     params:
       - name: filterId
         required: true
@@ -1110,6 +1162,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.EthUnsubscribe
+    description: "Unsubscribe from a websocket subscription\n"
     params: []
     result:
       name: Filecoin.EthUnsubscribe.Result
@@ -1118,6 +1171,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: eth_unsubscribe
+    description: "Unsubscribe from a websocket subscription\n"
     params: []
     result:
       name: eth_unsubscribe.Result
@@ -1126,6 +1180,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.EthSubscribe
+    description: "Subscribe to different event types using websockets\neventTypes is one or more of:\n - newHeads: notify when new blocks arrive.\n - pendingTransactions: notify when new messages arrive in the message pool.\n - logs: notify new event logs that match a criteria\nparams contains additional parameters used with the log event type\nThe client will receive a stream of EthSubscriptionResponse values until EthUnsubscribe is called.\n"
     params: []
     result:
       name: Filecoin.EthSubscribe.Result
@@ -1134,6 +1189,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: eth_subscribe
+    description: "Subscribe to different event types using websockets\neventTypes is one or more of:\n - newHeads: notify when new blocks arrive.\n - pendingTransactions: notify when new messages arrive in the message pool.\n - logs: notify new event logs that match a criteria\nparams contains additional parameters used with the log event type\nThe client will receive a stream of EthSubscriptionResponse values until EthUnsubscribe is called.\n"
     params: []
     result:
       name: eth_subscribe.Result
@@ -1142,6 +1198,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.EthSyncing
+    description: "Calls the `Filecoin.EthSyncing` RPC method."
     params: []
     result:
       name: Filecoin.EthSyncing.Result
@@ -1150,6 +1207,7 @@ methods:
         $ref: "#/components/schemas/EthSyncingResultLotusJson"
     paramStructure: by-position
   - name: eth_syncing
+    description: "Calls the `Filecoin.EthSyncing` RPC method."
     params: []
     result:
       name: eth_syncing.Result
@@ -1394,6 +1452,7 @@ methods:
           $ref: "#/components/schemas/EthReplayBlockTransactionTrace"
     paramStructure: by-position
   - name: Filecoin.Web3ClientVersion
+    description: "Returns the client version\n"
     params: []
     result:
       name: Filecoin.Web3ClientVersion.Result
@@ -1402,6 +1461,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: web3_clientVersion
+    description: "Returns the client version\n"
     params: []
     result:
       name: web3_clientVersion.Result
@@ -1410,6 +1470,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.EthSendRawTransaction
+    description: "Calls the `Filecoin.EthSendRawTransaction` RPC method."
     params:
       - name: rawTx
         required: true
@@ -1422,6 +1483,7 @@ methods:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
   - name: eth_sendRawTransaction
+    description: "Calls the `Filecoin.EthSendRawTransaction` RPC method."
     params:
       - name: rawTx
         required: true
@@ -1434,6 +1496,7 @@ methods:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
   - name: Filecoin.EthSendRawTransactionUntrusted
+    description: "EthSendRawTransactionUntrusted sends a transaction from an untrusted source, using MpoolPushUntrusted to submit the message."
     params:
       - name: rawTx
         required: true
@@ -1446,6 +1509,7 @@ methods:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
   - name: eth_sendRawTransactionUntrusted
+    description: "EthSendRawTransactionUntrusted sends a transaction from an untrusted source, using MpoolPushUntrusted to submit the message."
     params:
       - name: rawTx
         required: true
@@ -1458,6 +1522,7 @@ methods:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
   - name: Filecoin.NetListening
+    description: "Calls the `Filecoin.NetListening` RPC method."
     params: []
     result:
       name: Filecoin.NetListening.Result
@@ -1466,6 +1531,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: net_listening
+    description: "Calls the `Filecoin.NetListening` RPC method."
     params: []
     result:
       name: net_listening.Result
@@ -1474,6 +1540,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.NetVersion
+    description: "Calls the `Filecoin.NetVersion` RPC method."
     params: []
     result:
       name: Filecoin.NetVersion.Result
@@ -1482,6 +1549,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: net_version
+    description: "Calls the `Filecoin.NetVersion` RPC method."
     params: []
     result:
       name: net_version.Result

@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 pub enum NodeStatus {}
 impl RpcMethod<0> for NodeStatus {
     const NAME: &'static str = "Filecoin.NodeStatus";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns sync, peer, and chain status information for the node.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;

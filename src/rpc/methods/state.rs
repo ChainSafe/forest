@@ -160,6 +160,10 @@ impl RpcMethod<2> for StateReplay {
 pub enum StateNetworkName {}
 impl RpcMethod<0> for StateNetworkName {
     const NAME: &'static str = "Filecoin.StateNetworkName";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "StateNetworkName returns the name of the network the node is synced to
+",
+    );
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -1197,6 +1201,8 @@ pub enum StateGetReceipt {}
 
 impl RpcMethod<2> for StateGetReceipt {
     const NAME: &'static str = "Filecoin.StateGetReceipt";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Calls the `Filecoin.StateGetReceipt` RPC method.");
     const PARAM_NAMES: [&'static str; 2] = ["cid", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // deprecated in V1
     const PERMISSION: Permission = Permission::Read;
@@ -1222,6 +1228,27 @@ pub enum StateWaitMsgV0 {}
 
 impl RpcMethod<2> for StateWaitMsgV0 {
     const NAME: &'static str = "Filecoin.StateWaitMsg";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "StateWaitMsg looks back up to limit epochs in the chain for a message.
+If not found, it blocks until the message arrives on chain, and gets to the
+indicated confidence depth.
+
+NOTE: If a replacing message is found on chain, this method will return
+a MsgLookup for the replacing message - the MsgLookup.Message will be a different
+CID than the one provided in the 'cid' param, MsgLookup.Receipt will contain the
+result of the execution of the replacing message.
+
+If the caller wants to ensure that exactly the requested message was executed,
+they must check that MsgLookup.Message is equal to the provided 'cid', or set the
+`allowReplaced` parameter to false. Without this check, and with `allowReplaced`
+set to true, both the requested and original message may appear as
+successfully executed on-chain, which may look like a double-spend.
+
+A replacing message is a message with a different CID, any of Gas values, and
+different signature, but with all other parameters matching (source/destination,
+nonce, params, etc.)
+",
+    );
     const PARAM_NAMES: [&'static str; 2] = ["messageCid", "confidence"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
@@ -1398,6 +1425,7 @@ pub enum StateFetchRoot {}
 
 impl RpcMethod<2> for StateFetchRoot {
     const NAME: &'static str = "Forest.StateFetchRoot";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Forest.StateFetchRoot` RPC method.");
     const PARAM_NAMES: [&'static str; 2] = ["rootCid", "saveToFile"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -2203,6 +2231,9 @@ pub enum StateSectorPreCommitInfoV0 {}
 
 impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
     const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "StateSectorPreCommitInfo returns the PreCommit info for the specified miner's sector. Returns nil and no error if the sector isn't precommitted. Note that the sector number may be allocated while PreCommitInfo is nil. This means that either allocated sector numbers were compacted, and the sector number was marked as allocated in order to reduce size of the allocated sectors bitfield, or that the sector was precommitted, but the precommit has expired.",
+    );
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
@@ -3308,6 +3339,15 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
 pub enum StateMinerInitialPledgeForSector {}
 impl RpcMethod<4> for StateMinerInitialPledgeForSector {
     const NAME: &'static str = "Filecoin.StateMinerInitialPledgeForSector";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "StateMinerInitialPledgeForSector returns the initial pledge collateral for a given sector
+duration, size, and combined size of any verified pieces within the sector. This calculation
+depends on current network conditions (total power, total pledge and current rewards) at the
+given tipset.
+Note: The value returned is overestimated by 10% (multiplied by 110/100).
+See: node/impl/full/state.go StateMinerInitialPledgeForSector implementation.
+",
+    );
     const PARAM_NAMES: [&'static str; 4] = [
         "sector_duration",
         "sector_size",

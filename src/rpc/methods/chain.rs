@@ -226,6 +226,10 @@ impl RpcMethod<1> for ChainGetParentReceipts {
 pub enum ChainGetMessagesInTipset {}
 impl RpcMethod<1> for ChainGetMessagesInTipset {
     const NAME: &'static str = "Filecoin.ChainGetMessagesInTipset";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "ChainGetMessagesInTipset returns message stores in current tipset
+",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -248,6 +252,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
 pub enum ChainPruneSnapshot {}
 impl RpcMethod<1> for ChainPruneSnapshot {
     const NAME: &'static str = "Forest.SnapshotGC";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Forest.SnapshotGC` RPC method.");
     const PARAM_NAMES: [&'static str; 1] = ["blocking"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
@@ -273,6 +278,7 @@ impl RpcMethod<1> for ChainPruneSnapshot {
 pub enum ForestChainExport {}
 impl RpcMethod<1> for ForestChainExport {
     const NAME: &'static str = "Forest.ChainExport";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Forest.ChainExport` RPC method.");
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
@@ -412,6 +418,8 @@ impl RpcMethod<1> for ForestChainExport {
 pub enum ForestChainExportStatus {}
 impl RpcMethod<0> for ForestChainExportStatus {
     const NAME: &'static str = "Forest.ChainExportStatus";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Calls the `Forest.ChainExportStatus` RPC method.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
@@ -456,6 +464,8 @@ impl RpcMethod<0> for ForestChainExportStatus {
 pub enum ForestChainExportCancel {}
 impl RpcMethod<0> for ForestChainExportCancel {
     const NAME: &'static str = "Forest.ChainExportCancel";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Calls the `Forest.ChainExportCancel` RPC method.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
@@ -480,6 +490,8 @@ impl RpcMethod<0> for ForestChainExportCancel {
 pub enum ForestChainExportDiff {}
 impl RpcMethod<1> for ForestChainExportDiff {
     const NAME: &'static str = "Forest.ChainExportDiff";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Calls the `Forest.ChainExportDiff` RPC method.");
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
@@ -539,6 +551,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
 pub enum ChainExport {}
 impl RpcMethod<1> for ChainExport {
     const NAME: &'static str = "Filecoin.ChainExport";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Filecoin.ChainExport` RPC method.");
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -630,6 +643,12 @@ impl RpcMethod<1> for ChainHasObj {
 pub enum ChainStatObj {}
 impl RpcMethod<2> for ChainStatObj {
     const NAME: &'static str = "Filecoin.ChainStatObj";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "ChainStatObj returns statistics about the graph referenced by 'obj'.
+If 'base' is also specified, then the returned stat will be a diff
+between the two objects.
+",
+    );
     const PARAM_NAMES: [&'static str; 2] = ["objCid", "baseCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -859,6 +878,10 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
 pub enum ChainGetGenesis {}
 impl RpcMethod<0> for ChainGetGenesis {
     const NAME: &'static str = "Filecoin.ChainGetGenesis";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "ChainGetGenesis returns the genesis tipset.
+",
+    );
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -1227,6 +1250,10 @@ impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
 pub enum ChainSetHead {}
 impl RpcMethod<1> for ChainSetHead {
     const NAME: &'static str = "Filecoin.ChainSetHead";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "ChainSetHead forcefully sets current chain head. Use with caution.
+",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
@@ -1260,6 +1287,8 @@ impl RpcMethod<1> for ChainSetHead {
 pub enum ChainGetMinBaseFee {}
 impl RpcMethod<1> for ChainGetMinBaseFee {
     const NAME: &'static str = "Forest.ChainGetMinBaseFee";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Calls the `Forest.ChainGetMinBaseFee` RPC method.");
     const PARAM_NAMES: [&'static str; 1] = ["lookback"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -1314,6 +1343,8 @@ impl RpcMethod<1> for ChainTipSetWeight {
 pub enum ChainGetTipsetByParentState {}
 impl RpcMethod<1> for ChainGetTipsetByParentState {
     const NAME: &'static str = "Forest.ChainGetTipsetByParentState";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Calls the `Forest.ChainGetTipsetByParentState` RPC method.");
     const PARAM_NAMES: [&'static str; 1] = ["parentState"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;

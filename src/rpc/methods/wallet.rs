@@ -42,6 +42,8 @@ impl RpcMethod<1> for WalletBalance {
 pub enum WalletDefaultAddress {}
 impl RpcMethod<0> for WalletDefaultAddress {
     const NAME: &'static str = "Filecoin.WalletDefaultAddress";
+    const DESCRIPTION: Option<&'static str> =
+        Some("WalletDefaultAddress returns the address marked as default in the wallet.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -62,6 +64,8 @@ impl RpcMethod<0> for WalletDefaultAddress {
 pub enum WalletExport {}
 impl RpcMethod<1> for WalletExport {
     const NAME: &'static str = "Filecoin.WalletExport";
+    const DESCRIPTION: Option<&'static str> =
+        Some("WalletExport returns the private key of an address in the wallet.");
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
@@ -105,6 +109,9 @@ impl RpcMethod<1> for WalletHas {
 pub enum WalletImport {}
 impl RpcMethod<1> for WalletImport {
     const NAME: &'static str = "Filecoin.WalletImport";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "WalletImport receives a KeyInfo, which includes a private key, and imports it into the wallet.",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
@@ -149,6 +156,12 @@ impl RpcMethod<0> for WalletList {
 pub enum WalletNew {}
 impl RpcMethod<1> for WalletNew {
     const NAME: &'static str = "Filecoin.WalletNew";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "WalletNew creates a new address in the wallet with the given sigType.
+Available key types: bls, secp256k1, secp256k1-ledger
+Support for numerical types: 1 - secp256k1, 2 - BLS is deprecated
+",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["signatureType"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
@@ -177,6 +190,10 @@ impl RpcMethod<1> for WalletNew {
 pub enum WalletSetDefault {}
 impl RpcMethod<1> for WalletSetDefault {
     const NAME: &'static str = "Filecoin.WalletSetDefault";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "WalletSetDefault marks the given address as the default one.
+",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
@@ -263,6 +280,9 @@ impl RpcMethod<2> for WalletSignMessage {
 pub enum WalletValidateAddress {}
 impl RpcMethod<1> for WalletValidateAddress {
     const NAME: &'static str = "Filecoin.WalletValidateAddress";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "WalletValidateAddress validates whether a given string can be decoded as a well-formed address",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -282,6 +302,9 @@ impl RpcMethod<1> for WalletValidateAddress {
 pub enum WalletVerify {}
 impl RpcMethod<3> for WalletVerify {
     const NAME: &'static str = "Filecoin.WalletVerify";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "WalletVerify takes an address, a signature, and some bytes, and indicates whether the signature is valid. The address does not have to be in the wallet.",
+    );
     const PARAM_NAMES: [&'static str; 3] = ["address", "message", "signature"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -301,6 +324,10 @@ impl RpcMethod<3> for WalletVerify {
 pub enum WalletDelete {}
 impl RpcMethod<1> for WalletDelete {
     const NAME: &'static str = "Filecoin.WalletDelete";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "WalletDelete deletes an address from the wallet.
+",
+    );
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;

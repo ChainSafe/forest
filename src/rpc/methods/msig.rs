@@ -15,6 +15,9 @@ pub enum MsigGetAvailableBalance {}
 
 impl RpcMethod<2> for MsigGetAvailableBalance {
     const NAME: &'static str = "Filecoin.MsigGetAvailableBalance";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "MsigGetAvailableBalance returns the portion of a multisig's balance that can be withdrawn or spent",
+    );
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -44,6 +47,12 @@ pub enum MsigGetPending {}
 
 impl RpcMethod<2> for MsigGetPending {
     const NAME: &'static str = "Filecoin.MsigGetPending";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "MsigGetPending returns pending transactions for the given multisig
+wallet. Once pending transactions are fully approved, they will no longer
+appear here.
+",
+    );
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -79,6 +88,11 @@ impl RpcMethod<2> for MsigGetPending {
 pub enum MsigGetVested {}
 impl RpcMethod<3> for MsigGetVested {
     const NAME: &'static str = "Filecoin.MsigGetVested";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "MsigGetVested returns the amount of FIL that vested in a multisig in a certain period.
+It takes the following params: <multisig address>, <start epoch>, <end epoch>
+",
+    );
     const PARAM_NAMES: [&'static str; 3] = ["address", "startTipsetKey", "endTipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -119,6 +133,10 @@ impl RpcMethod<3> for MsigGetVested {
 pub enum MsigGetVestingSchedule {}
 impl RpcMethod<2> for MsigGetVestingSchedule {
     const NAME: &'static str = "Filecoin.MsigGetVestingSchedule";
+    const DESCRIPTION: Option<&'static str> = Some(
+        "MsigGetVestingSchedule returns the vesting details of a given multisig.
+",
+    );
     const PARAM_NAMES: [&'static str; 2] = ["address", "tsk"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;

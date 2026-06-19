@@ -16,6 +16,7 @@ static SESSION_UUID: LazyLock<Uuid> = LazyLock::new(crate::utils::rand::new_uuid
 pub enum Session {}
 impl RpcMethod<0> for Session {
     const NAME: &'static str = "Filecoin.Session";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Filecoin.Session` RPC method.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -31,6 +32,7 @@ impl RpcMethod<0> for Session {
 pub enum Version {}
 impl RpcMethod<0> for Version {
     const NAME: &'static str = "Filecoin.Version";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Filecoin.Version` RPC method.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -57,6 +59,7 @@ impl RpcMethod<0> for Version {
 pub enum Shutdown {}
 impl RpcMethod<0> for Shutdown {
     const NAME: &'static str = "Filecoin.Shutdown";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Filecoin.Shutdown` RPC method.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
@@ -77,6 +80,7 @@ impl RpcMethod<0> for Shutdown {
 pub enum StartTime {}
 impl RpcMethod<0> for StartTime {
     const NAME: &'static str = "Filecoin.StartTime";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Filecoin.StartTime` RPC method.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;

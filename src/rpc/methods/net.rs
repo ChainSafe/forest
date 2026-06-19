@@ -83,6 +83,7 @@ impl RpcMethod<0> for NetPeers {
 pub enum NetFindPeer {}
 impl RpcMethod<1> for NetFindPeer {
     const NAME: &'static str = "Filecoin.NetFindPeer";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Filecoin.NetFindPeer` RPC method.");
     const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -117,6 +118,7 @@ impl RpcMethod<0> for NetListening {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_listening");
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Filecoin.NetListening` RPC method.");
 
     type Params = ();
     type Ok = bool;
@@ -133,6 +135,7 @@ impl RpcMethod<0> for NetListening {
 pub enum NetInfo {}
 impl RpcMethod<0> for NetInfo {
     const NAME: &'static str = "Forest.NetInfo";
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Forest.NetInfo` RPC method.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -250,6 +253,8 @@ impl RpcMethod<1> for NetAgentVersion {
 pub enum NetAutoNatStatus {}
 impl RpcMethod<0> for NetAutoNatStatus {
     const NAME: &'static str = "Filecoin.NetAutoNatStatus";
+    const DESCRIPTION: Option<&'static str> =
+        Some("Calls the `Filecoin.NetAutoNatStatus` RPC method.");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -279,6 +284,7 @@ impl RpcMethod<0> for NetVersion {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_version");
+    const DESCRIPTION: Option<&'static str> = Some("Calls the `Filecoin.NetVersion` RPC method.");
 
     type Params = ();
     type Ok = Arc<str>;
