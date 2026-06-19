@@ -406,7 +406,7 @@ impl TryFrom<EthCallMessage> for Message {
         Ok(Message {
             from,
             to,
-            value: tx.value.unwrap_or_default().0.into(),
+            value: tx.value.unwrap_or_default().into(),
             method_num,
             params,
             gas_limit: BLOCK_GAS_LIMIT,

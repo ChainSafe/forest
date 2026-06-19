@@ -58,7 +58,6 @@ use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, Tipset
 use crate::utils::cache::SizeTrackingCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::get_size::big_int_heap_size_helper;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::{HashMap, HashSet};
@@ -69,7 +68,7 @@ use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
 use get_size2::GetSize;
 use ipld_core::ipld::Ipld;
 use nonzero_ext::nonzero;
-use num::{BigInt, Zero as _};
+use num::BigInt;
 use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -114,8 +113,6 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 
-// TODO(forest): https://github.com/ChainSafe/forest/issues/4436
-//               use ethereum_types::U256 or use lotus_json::big_int
 #[derive(
     Eq,
     Hash,
@@ -125,20 +122,39 @@ const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
     Serialize,
     Default,
     Clone,
+    Copy,
     JsonSchema,
+    GetSize,
     derive_more::From,
     derive_more::Into,
+    derive_more::Deref,
 )]
 pub struct EthBigInt(
-    #[serde(with = "crate::lotus_json::hexify")]
+    // `ethereum_types::U256` serializes as a `0x`-prefixed, leading-zero-trimmed hex string,
+    // which matches the Ethereum JSON-RPC wire format used by Lotus.
     #[schemars(with = "String")]
-    pub BigInt,
+    #[get_size(ignore)]
+    ethereum_types::U256,
 );
 lotus_json_with_self!(EthBigInt);
 
-impl GetSize for EthBigInt {
-    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(&self, tracker: T) -> (usize, T) {
-        (big_int_heap_size_helper(&self.0), tracker)
+impl From<BigInt> for EthBigInt {
+    fn from(value: BigInt) -> Self {
+        (&value).into()
+    }
+}
+
+impl From<&BigInt> for EthBigInt {
+    fn from(value: &BigInt) -> Self {
+        // Eth values are non-negative, so the sign is dropped.
+        let (_sign, bytes) = value.to_bytes_be();
+        Self(ethereum_types::U256::from_big_endian(&bytes))
+    }
+}
+
+impl From<u64> for EthBigInt {
+    fn from(value: u64) -> Self {
+        Self(value.into())
     }
 }
 
@@ -150,7 +166,20 @@ impl From<TokenAmount> for EthBigInt {
 
 impl From<&TokenAmount> for EthBigInt {
     fn from(amount: &TokenAmount) -> Self {
-        Self(amount.atto().to_owned())
+        amount.atto().into()
+    }
+}
+
+impl From<EthBigInt> for BigInt {
+    fn from(value: EthBigInt) -> Self {
+        // Eth values are non-negative, so the sign is always positive.
+        BigInt::from_bytes_be(num_bigint::Sign::Plus, &value.to_big_endian())
+    }
+}
+
+impl From<EthBigInt> for TokenAmount {
+    fn from(value: EthBigInt) -> Self {
+        TokenAmount::from_atto(value)
     }
 }
 
@@ -860,7 +889,7 @@ impl RpcMethod<0> for EthBaseFee {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let base_fee = Self::get_base_fee(&ctx, &ctx.chain_store().heaviest_tipset())?;
-        Ok(EthBigInt(base_fee.atto().clone()))
+        Ok(base_fee.atto().into())
     }
 }
 
@@ -889,7 +918,7 @@ impl RpcMethod<1> for BaseFeeByHeight {
             ResolveNullTipset::TakeOlder,
         )?;
         let base_fee = EthBaseFee::get_base_fee(&ctx, &ts)?;
-        Ok(EthBigInt(base_fee.atto().clone()))
+        Ok(base_fee.atto().into())
     }
 }
 
@@ -979,7 +1008,7 @@ impl RpcMethod<0> for EthGasPrice {
             .await
             .map(|gas_premium| gas_premium.atto().to_owned())
             .unwrap_or_default();
-        Ok(EthBigInt(base_fee + tip))
+        Ok((base_fee + tip).into())
     }
 }
 
@@ -1015,7 +1044,7 @@ async fn eth_get_balance(ctx: &Ctx, address: &EthAddress, ts: &Tipset) -> Result
     let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     match state_tree.get_actor(&fil_addr)? {
-        Some(actor) => Ok(EthBigInt(actor.balance.atto().clone())),
+        Some(actor) => Ok(actor.balance.atto().into()),
         None => Ok(EthBigInt::default()), // Balance is 0 if the actor doesn't exist
     }
 }
@@ -1343,8 +1372,8 @@ async fn new_eth_tx_receipt(
         msg_receipt.gas_used(),
         tx.gas.into(),
         &tipset.block_headers().first().parent_base_fee,
-        &gas_fee_cap.0.into(),
-        &gas_premium.0.into(),
+        &gas_fee_cap.into(),
+        &gas_premium.into(),
     );
     let total_spent: BigInt = gas_outputs.total_spent().into();
 
@@ -2105,7 +2134,7 @@ fn calculate_rewards_and_gas_used(
     let gas_used_total = tx_gas_rewards.iter().map(|i| i.gas_used).sum();
     let mut rewards = reward_percentiles
         .iter()
-        .map(|_| EthBigInt(MIN_GAS_PREMIUM.into()))
+        .map(|_| EthBigInt::from(MIN_GAS_PREMIUM))
         .collect_vec();
     if !tx_gas_rewards.is_empty() {
         tx_gas_rewards.sort_by(|a, b| a.premium.cmp(&b.premium));
@@ -2381,8 +2410,8 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         match gas::estimate_gas_premium(&ctx, 0, &ApiTipsetKey(None)).await {
-            Ok(gas_premium) => Ok(EthBigInt(gas_premium.atto().clone())),
-            Err(_) => Ok(EthBigInt(num_bigint::BigInt::zero())),
+            Ok(gas_premium) => Ok(gas_premium.atto().into()),
+            Err(_) => Ok(EthBigInt::default()),
         }
     }
 }
@@ -4102,11 +4131,11 @@ mod test {
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
-        let r = EthBigInt(i.into());
+        let r = EthBigInt(ethereum_types::U256::from(i));
         let encoded = serde_json::to_string(&r).unwrap();
         assert_eq!(encoded, format!("\"{i:#x}\""));
         let decoded: EthBigInt = serde_json::from_str(&encoded).unwrap();
-        assert_eq!(r.0, decoded.0);
+        assert_eq!(r, decoded);
     }
 
     /// `transactionPosition` must be 0-indexed and system-actor messages must
