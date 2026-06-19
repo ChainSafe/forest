@@ -61,7 +61,7 @@ impl ForestExterns {
     }
 
     fn get_lookback_tipset_state_root_for_round(&self, height: ChainEpoch) -> anyhow::Result<Cid> {
-        let (_, st) = ChainStore::get_lookback_tipset_for_round(
+        let (_, st) = ChainStore::get_lookback_tipset_for_round_blocking(
             &self.chain_index,
             &self.chain_config,
             &self.heaviest_tipset,

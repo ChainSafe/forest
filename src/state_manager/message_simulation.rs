@@ -155,10 +155,10 @@ impl StateManager {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
         let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
-        let mut chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
+        let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
 
         let (_invoc_res, apply_ret, duration, state_root) = self
-            .call_with_gas(&mut chain_msg, &[], Some(ts), vm_flush)
+            .call_with_gas(chain_msg, Default::default(), Some(ts), vm_flush)
             .await?;
 
         Ok((
@@ -180,8 +180,8 @@ impl StateManager {
     /// messages and returns the values computed in the VM.
     pub async fn call_with_gas(
         &self,
-        message: &mut ChainMessage,
-        prior_messages: &[ChainMessage],
+        mut message: ChainMessage,
+        prior_messages: Arc<Vec<ChainMessage>>,
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
     ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
@@ -196,51 +196,56 @@ impl StateManager {
         // "next" tipset
         let epoch = ts.epoch() + 1;
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
-        // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
-        // FVM, but that introduces some constraints, and possible deadlocks.
-        let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> anyhow::Result<_> {
-            let mut vm = VM::new(
-                ExecutionContext {
-                    heaviest_tipset: ts.clone(),
-                    state_tree_root: state_root,
-                    epoch,
-                    rand: Box::new(chain_rand),
-                    base_fee: ts.block_headers().first().parent_base_fee.clone(),
-                    circ_supply: genesis_info.get_vm_circulating_supply(
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || {
+            // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
+            // FVM, but that introduces some constraints, and possible deadlocks.
+            let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> anyhow::Result<_> {
+                let mut vm = VM::new(
+                    ExecutionContext {
+                        heaviest_tipset: ts.clone(),
+                        state_tree_root: state_root,
                         epoch,
-                        self.chain_index().db(),
-                        &state_root,
-                    )?,
-                    chain_config: self.chain_config().shallow_clone(),
-                    chain_index: self.chain_index().shallow_clone(),
-                    timestamp: ts.min_timestamp(),
-                },
-                &self.engine,
-                VMTrace::NotTraced,
-            )?;
+                        rand: Box::new(chain_rand),
+                        base_fee: ts.block_headers().first().parent_base_fee.clone(),
+                        circ_supply: genesis_info.get_vm_circulating_supply(
+                            epoch,
+                            this.chain_index().db(),
+                            &state_root,
+                        )?,
+                        chain_config: this.chain_config().shallow_clone(),
+                        chain_index: this.chain_index().shallow_clone(),
+                        timestamp: ts.min_timestamp(),
+                    },
+                    &this.engine,
+                    VMTrace::NotTraced,
+                )?;
 
-            for msg in prior_messages {
-                vm.apply_message(msg)?;
-            }
-            let from_actor = vm
-                .get_actor(&message.from())
-                .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
-                .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
+                for msg in prior_messages.iter() {
+                    vm.apply_message(msg)?;
+                }
 
-            message.set_sequence(from_actor.sequence);
-            let (ret, duration) = vm.apply_message(message)?;
-            let state_root = match vm_flush {
-                VMFlush::Flush => Some(vm.flush()?),
-                VMFlush::Skip => None,
-            };
-            Ok((ret, duration, state_root))
-        })?;
+                let from_actor = vm
+                    .get_actor(&message.from())
+                    .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
+                    .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
 
-        Ok((
-            InvocResult::new(message.message().clone(), &ret),
-            ret,
-            duration,
-            state_cid,
-        ))
+                message.set_sequence(from_actor.sequence);
+                let (ret, duration) = vm.apply_message(&message)?;
+                let state_root = match vm_flush {
+                    VMFlush::Flush => Some(vm.flush()?),
+                    VMFlush::Skip => None,
+                };
+                Ok((ret, duration, state_root))
+            })?;
+
+            Ok((
+                InvocResult::new(message.message().clone(), &ret),
+                ret,
+                duration,
+                state_cid,
+            ))
+        })
+        .await?
     }
 }

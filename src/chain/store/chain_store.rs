@@ -391,7 +391,7 @@ impl ChainStore {
     /// finality](https://docs.filecoin.io/reference/general/glossary/#finality)
     /// is usually 900. The `heaviest_tipset` is a reference point in the
     /// blockchain. It must be a child of the look-back tipset.
-    pub fn get_lookback_tipset_for_round(
+    pub fn get_lookback_tipset_for_round_blocking(
         chain_index: &ChainIndex,
         chain_config: &Arc<ChainConfig>,
         heaviest_tipset: &Tipset,
@@ -411,20 +411,21 @@ impl ChainStore {
             // state-root without caching.
             let genesis_timestamp = heaviest_tipset.genesis(chain_index.db())?.timestamp;
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
-            let ExecutedTipset { state_root, .. } = crate::state_manager::apply_block_messages(
-                genesis_timestamp,
-                chain_index.shallow_clone(),
-                chain_config.shallow_clone(),
-                beacon,
-                // Using shared WASM engine here as creating new WASM engines is expensive
-                // (takes seconds to minutes). It's only acceptable here because this situation is
-                // so rare (may happen in dev-networks, doesn't happen in calibnet or mainnet.)
-                &crate::shim::machine::GLOBAL_MULTI_ENGINE,
-                heaviest_tipset.clone(),
-                crate::state_manager::NO_CALLBACK,
-                VMTrace::NotTraced,
-            )
-            .map_err(|e| Error::Other(e.to_string()))?;
+            let ExecutedTipset { state_root, .. } =
+                crate::state_manager::apply_block_messages_blocking(
+                    genesis_timestamp,
+                    chain_index.shallow_clone(),
+                    chain_config.shallow_clone(),
+                    beacon,
+                    // Using shared WASM engine here as creating new WASM engines is expensive
+                    // (takes seconds to minutes). It's only acceptable here because this situation is
+                    // so rare (may happen in dev-networks, doesn't happen in calibnet or mainnet.)
+                    &crate::shim::machine::GLOBAL_MULTI_ENGINE,
+                    heaviest_tipset.clone(),
+                    crate::state_manager::NO_CALLBACK,
+                    VMTrace::NotTraced,
+                )
+                .map_err(|e| Error::Other(e.to_string()))?;
             return Ok((heaviest_tipset.clone(), state_root));
         }
 
@@ -448,6 +449,23 @@ impl ChainStore {
             .load_required_tipset(next_ts.parents())
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
+    }
+
+    pub async fn get_lookback_tipset_for_round(
+        chain_index: ChainIndex,
+        chain_config: Arc<ChainConfig>,
+        heaviest_tipset: Tipset,
+        round: ChainEpoch,
+    ) -> Result<(Tipset, Cid), Error> {
+        tokio::task::spawn_blocking(move || {
+            Self::get_lookback_tipset_for_round_blocking(
+                &chain_index,
+                &chain_config,
+                &heaviest_tipset,
+                round,
+            )
+        })
+        .await?
     }
 
     /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.

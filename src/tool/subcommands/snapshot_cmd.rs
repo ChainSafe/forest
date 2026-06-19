@@ -17,7 +17,7 @@ use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
-use crate::state_manager::{ExecutedTipset, apply_block_messages};
+use crate::state_manager::{ExecutedTipset, apply_block_messages_blocking};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::ensure_proof_params_downloaded;
 use anyhow::{Context as _, bail};
@@ -442,7 +442,7 @@ where
 
     // ProgressBar::wrap_iter believes the progress has been abandoned once the
     // iterator is consumed.
-    crate::state_manager::validate_tipsets(
+    crate::state_manager::validate_tipsets_blocking(
         genesis.timestamp,
         &chain_index,
         &chain_config,
@@ -489,7 +489,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
 
     let mut message_calls = vec![];
 
-    let ExecutedTipset { state_root, .. } = apply_block_messages(
+    let ExecutedTipset { state_root, .. } = apply_block_messages_blocking(
         timestamp,
         chain_index,
         Arc::new(chain_config),
