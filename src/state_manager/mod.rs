@@ -18,7 +18,7 @@ mod state_computation;
 pub mod utils;
 
 pub use self::errors::*;
-pub use self::state_computation::{apply_block_messages, validate_tipsets};
+pub use self::state_computation::{apply_block_messages_blocking, validate_tipsets_blocking};
 use crate::beacon::BeaconSchedule;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{

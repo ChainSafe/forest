@@ -147,6 +147,7 @@ jobs:
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
+      - run: ./scripts/optimize_disk_space_gh_worker.sh
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
