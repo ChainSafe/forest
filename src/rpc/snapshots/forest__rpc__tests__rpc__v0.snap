@@ -3949,6 +3949,7 @@ methods:
         $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Filecoin.WalletDefaultAddress
+    description: "Returns the default wallet address, or null if no default is set."
     params: []
     result:
       name: Filecoin.WalletDefaultAddress.Result
@@ -3959,6 +3960,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.WalletDelete
+    description: Removes the key for the given address from the wallet.
     params:
       - name: address
         required: true
@@ -3971,6 +3973,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.WalletExport
+    description: "Exports the key information, including the private key, for the given wallet address."
     params:
       - name: address
         required: true
@@ -3996,6 +3999,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.WalletImport
+    description: Imports a key into the wallet and returns its address.
     params:
       - name: key
         required: true
@@ -4021,6 +4025,7 @@ methods:
           $ref: "#/components/schemas/Address"
     paramStructure: by-position
   - name: Filecoin.WalletNew
+    description: "Generates a new key of the given signature type, adds it to the wallet, and returns its address."
     params:
       - name: signatureType
         required: true
@@ -4033,6 +4038,7 @@ methods:
         $ref: "#/components/schemas/Address"
     paramStructure: by-position
   - name: Filecoin.WalletSetDefault
+    description: Sets the given address as the default wallet address.
     params:
       - name: address
         required: true
@@ -4079,6 +4085,7 @@ methods:
         $ref: "#/components/schemas/SignedMessage"
     paramStructure: by-position
   - name: Filecoin.WalletValidateAddress
+    description: Validates the given string as a Filecoin address and returns the parsed address.
     params:
       - name: address
         required: true
@@ -4091,6 +4098,7 @@ methods:
         $ref: "#/components/schemas/Address"
     paramStructure: by-position
   - name: Filecoin.WalletVerify
+    description: Returns whether the given signature is valid for the message and address.
     params:
       - name: address
         required: true
