@@ -217,7 +217,7 @@ impl StateManager {
             tipset.len(),
             tipset.key(),
         );
-        Ok(apply_block_messages(
+        Ok(apply_block_messages_blocking(
             self.chain_store().genesis_block_header().timestamp,
             self.chain_index().shallow_clone(),
             self.chain_config().shallow_clone(),
@@ -262,7 +262,7 @@ impl StateManager {
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
     ) -> Result<ExecutedTipset, Error> {
-        Ok(compute_state(
+        Ok(compute_state_blocking(
             height,
             messages,
             tipset,
@@ -277,7 +277,7 @@ impl StateManager {
     }
 }
 
-pub fn validate_tipsets<T>(
+pub fn validate_tipsets_blocking<T>(
     genesis_timestamp: u64,
     chain_index: &ChainIndex,
     chain_config: &Arc<ChainConfig>,
@@ -298,7 +298,7 @@ where
             state_root: actual_state,
             receipt_root: actual_receipt,
             ..
-        } = apply_block_messages(
+        } = apply_block_messages_blocking(
             genesis_timestamp,
             chain_index.shallow_clone(),
             chain_config.shallow_clone(),
@@ -395,7 +395,7 @@ impl<'a> TipsetExecutor<'a> {
 
     /// Produces the state root ready for message execution by running
     /// null-epoch `crons` and any pending state migrations.
-    pub(in crate::state_manager) fn prepare_parent_state<F>(
+    pub(in crate::state_manager) fn prepare_parent_state_blocking<F>(
         &self,
         genesis_timestamp: u64,
         null_epoch_trace: VMTrace,
@@ -518,7 +518,7 @@ impl<'a> TipsetExecutor<'a> {
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
 /// The `ChainStore` caches recent tipsets to make these scans faster.
 #[allow(clippy::too_many_arguments)]
-pub fn apply_block_messages(
+pub fn apply_block_messages_blocking(
     genesis_timestamp: u64,
     chain_index: ChainIndex,
     chain_config: Arc<ChainConfig>,
@@ -560,7 +560,7 @@ pub fn apply_block_messages(
     // step 2: running cron for any null-tipsets
     // step 3: run migrations
     let (parent_state, epoch, block_messages) =
-        exec.prepare_parent_state(genesis_timestamp, enable_tracing, &mut callback)?;
+        exec.prepare_parent_state_blocking(genesis_timestamp, enable_tracing, &mut callback)?;
 
     // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
     // FVM, but that introduces some constraints, and possible deadlocks.
@@ -625,7 +625,7 @@ pub fn apply_block_messages(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(in crate::state_manager) fn compute_state(
+pub(in crate::state_manager) fn compute_state_blocking(
     _height: ChainEpoch,
     messages: Vec<Message>,
     tipset: Tipset,
@@ -641,7 +641,7 @@ pub(in crate::state_manager) fn compute_state(
         anyhow::bail!("Applying messages is not yet implemented.");
     }
 
-    let output = apply_block_messages(
+    let output = apply_block_messages_blocking(
         genesis_timestamp,
         chain_index,
         chain_config,

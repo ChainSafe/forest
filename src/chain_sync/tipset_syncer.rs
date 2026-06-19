@@ -209,11 +209,12 @@ async fn validate_block(
 
     // Retrieve lookback tipset for validation
     let lookback_state = ChainStore::get_lookback_tipset_for_round(
-        state_manager.chain_store().chain_index(),
-        state_manager.chain_config(),
-        &base_tipset,
+        state_manager.chain_store().chain_index().shallow_clone(),
+        state_manager.chain_config().shallow_clone(),
+        base_tipset.shallow_clone(),
         block.header().epoch,
     )
+    .await
     .map_err(|e| (*block_cid, e.into()))
     .map(|(_, s)| Arc::new(s))?;
 

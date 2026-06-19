@@ -35,6 +35,7 @@ ahash = { workspace = true }
 ambassador = "0.5"
 anes = "0.2"
 anyhow = { workspace = true }
+arc-swap = "1"
 argon2 = "0.5"
 async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"

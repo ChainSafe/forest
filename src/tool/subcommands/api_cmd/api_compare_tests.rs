@@ -2635,7 +2635,7 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
     // validation might fail due to missing proof parameters.
     proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
     ensure_proof_params_downloaded().await?;
-    state_manager.validate_tipsets(
+    state_manager.validate_tipsets_blocking(
         head_ts
             .chain(&db)
             .take(SAFE_EPOCH_DELAY_FOR_TESTING as usize + n_ts_to_validate),

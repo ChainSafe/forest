@@ -47,7 +47,7 @@ use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::executor::{Receipt, StampedEvent};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
-use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages};
+use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages_blocking};
 use crate::tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
 use crate::utils::multihash::MultihashCode;
@@ -853,7 +853,7 @@ async fn show_tipset_diff(
         ResolveNullTipset::TakeNewer,
     )?;
 
-    let ExecutedTipset { state_root, .. } = apply_block_messages(
+    let ExecutedTipset { state_root, .. } = apply_block_messages_blocking(
         timestamp,
         chain_index,
         Arc::new(chain_config),
