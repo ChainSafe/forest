@@ -2272,6 +2272,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.NetAutoNatStatus
+    description: "Returns the node's AutoNAT reachability status and observed public addresses."
     params: []
     result:
       name: Filecoin.NetAutoNatStatus.Result
@@ -2306,6 +2307,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.NetFindPeer
+    description: Returns the known addresses of the peer with the given peer ID.
     params:
       - name: peerId
         required: true
@@ -2318,6 +2320,7 @@ methods:
         $ref: "#/components/schemas/AddrInfo"
     paramStructure: by-position
   - name: Forest.NetInfo
+    description: "Returns peer and connection statistics for the node's libp2p network."
     params: []
     result:
       name: Forest.NetInfo.Result
@@ -2326,6 +2329,7 @@ methods:
         $ref: "#/components/schemas/NetInfoResult"
     paramStructure: by-position
   - name: Filecoin.NetListening
+    description: "Returns whether the node is listening for network connections (always `true`)."
     params: []
     result:
       name: Filecoin.NetListening.Result
@@ -2334,6 +2338,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: net_listening
+    description: "Returns whether the node is listening for network connections (always `true`)."
     params: []
     result:
       name: net_listening.Result
@@ -2402,6 +2407,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.NetVersion
+    description: Returns the current network ID (the EIP-155 chain ID) as a decimal string.
     params: []
     result:
       name: Filecoin.NetVersion.Result
@@ -2410,6 +2416,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: net_version
+    description: Returns the current network ID (the EIP-155 chain ID) as a decimal string.
     params: []
     result:
       name: net_version.Result
