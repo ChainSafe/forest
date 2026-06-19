@@ -22,9 +22,11 @@ pub struct Cli {
     #[arg(long)]
     pub remote_wallet: bool,
 
-    /// Encrypt local wallet
+    /// Use encrypted keystore.
+    ///
+    /// Note: When an encrypted keystore exists, it is used by default if `--encrypt` is omitted.
     #[arg(long)]
-    pub encrypt: bool,
+    pub encrypt: Option<bool>,
 
     #[command(subcommand)]
     pub cmd: wallet_cmd::WalletCommands,

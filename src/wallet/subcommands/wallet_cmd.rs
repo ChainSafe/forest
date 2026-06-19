@@ -61,18 +61,15 @@ impl WalletBackend {
         }
     }
 
-    fn new_local(client: rpc::Client, want_encryption: bool) -> anyhow::Result<Self> {
+    fn new_local(client: rpc::Client, want_encryption: Option<bool>) -> anyhow::Result<Self> {
         let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
             bail!("Failed to find wallet directory");
         };
-
         let wallet_dir = dir.data_dir().to_path_buf();
-
         let is_encrypted = wallet_dir.join(ENCRYPTED_KEYSTORE_NAME).exists();
-
-        // Always use the encrypted keystore if it exists. It it does not exist,
-        // only use encryption when explicitly asked for it.
-        let keystore = if is_encrypted || want_encryption {
+        // Default to an encrypted keystore if it exist.
+        let use_encryption = want_encryption.unwrap_or(is_encrypted);
+        let keystore = if use_encryption {
             input_password_to_load_encrypted_keystore(wallet_dir)?
         } else {
             KeyStore::new(KeyStoreConfig::Persistent(wallet_dir.to_path_buf()))?
@@ -311,7 +308,7 @@ impl WalletCommands {
         self,
         client: rpc::Client,
         remote_wallet: bool,
-        encrypt: bool,
+        encrypt: Option<bool>,
     ) -> anyhow::Result<()> {
         let mut backend = if remote_wallet {
             WalletBackend::new_remote(client)
