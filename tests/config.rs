@@ -94,6 +94,27 @@ fn test_config_parameter() {
     assert!(tmp_dir.is_dir());
 }
 
+// Verify that the data directory can be set with the `FOREST_PATH` environment
+// variable alone, without any configuration file. We assume 'data_dir' will be
+// created iff the path is correctly honored.
+#[test]
+fn test_data_dir_env_var() {
+    let tmp_dir = TempDir::new().unwrap();
+    let data_dir = tmp_dir.path().join("forest-path-data-dir");
+    assert!(!data_dir.exists());
+
+    daemon()
+        .common_args()
+        .arg("--chain")
+        .arg("calibnet")
+        .arg("--encrypt-keystore")
+        .arg("false")
+        .env("FOREST_PATH", &data_dir)
+        .assert()
+        .success();
+    assert!(data_dir.is_dir());
+}
+
 // Verify that a configuration path can be set with FOREST_CONFIG_PATH. We
 // assume 'data_dir' will be created iff the configuration is correctly parsed.
 #[test]

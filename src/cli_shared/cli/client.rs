@@ -99,8 +99,11 @@ impl Default for Client {
 }
 
 impl Client {
+    /// File name of the RPC admin token, stored within the data directory.
+    pub const RPC_TOKEN_FILENAME: &'static str = "token";
+
     pub fn default_rpc_token_path(&self) -> PathBuf {
-        self.data_dir.join("token")
+        self.data_dir.join(Self::RPC_TOKEN_FILENAME)
     }
 
     pub fn rpc_v1_endpoint(&self) -> Result<url::Url, url::ParseError> {
