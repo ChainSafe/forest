@@ -2543,6 +2543,7 @@ methods:
         $ref: "#/components/schemas/DealCollateralBounds"
     paramStructure: by-position
   - name: Forest.StateFetchRoot
+    description: "Traverses the IPLD graph under the given root CID, fetching any missing nodes over the network, and optionally writes them to a CAR file."
     params:
       - name: rootCid
         required: true
@@ -2913,6 +2914,7 @@ methods:
         $ref: "#/components/schemas/Base64String"
     paramStructure: by-position
   - name: Filecoin.StateGetReceipt
+    description: Returns the receipt for the message with the given CID at the specified tipset (deprecated in V1).
     params:
       - name: cid
         required: true
@@ -3486,6 +3488,7 @@ methods:
           $ref: "#/components/schemas/SectorOnChainInfo"
     paramStructure: by-position
   - name: Filecoin.StateNetworkName
+    description: Returns the name of the network the node is synced to.
     params: []
     result:
       name: Filecoin.StateNetworkName.Result
@@ -3727,6 +3730,7 @@ methods:
         $ref: "#/components/schemas/SectorLocation"
     paramStructure: by-position
   - name: Filecoin.StateSectorPreCommitInfo
+    description: "Returns the on-chain pre-commit information for the given miner's sector, erroring if the sector is not precommitted."
     params:
       - name: minerAddress
         required: true
@@ -3833,6 +3837,7 @@ methods:
         $ref: "#/components/schemas/CirculatingSupply"
     paramStructure: by-position
   - name: Filecoin.StateWaitMsg
+    description: "Searches the chain for the given message and, if not found, blocks until it appears on-chain and reaches the required confidence depth."
     params:
       - name: messageCid
         required: true
@@ -3850,6 +3855,7 @@ methods:
         $ref: "#/components/schemas/MessageLookup"
     paramStructure: by-position
   - name: Filecoin.StateMinerInitialPledgeForSector
+    description: "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset."
     params:
       - name: sector_duration
         required: true

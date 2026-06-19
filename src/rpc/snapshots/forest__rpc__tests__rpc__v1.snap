@@ -2623,6 +2623,7 @@ methods:
         $ref: "#/components/schemas/DealCollateralBounds"
     paramStructure: by-position
   - name: Forest.StateFetchRoot
+    description: "Traverses the IPLD graph under the given root CID, fetching any missing nodes over the network, and optionally writes them to a CAR file."
     params:
       - name: rootCid
         required: true
@@ -3546,6 +3547,7 @@ methods:
           $ref: "#/components/schemas/SectorOnChainInfo"
     paramStructure: by-position
   - name: Filecoin.StateNetworkName
+    description: Returns the name of the network the node is synced to.
     params: []
     result:
       name: Filecoin.StateNetworkName.Result
@@ -3903,6 +3905,7 @@ methods:
         $ref: "#/components/schemas/MessageLookup"
     paramStructure: by-position
   - name: Filecoin.StateMinerInitialPledgeForSector
+    description: "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset."
     params:
       - name: sector_duration
         required: true
