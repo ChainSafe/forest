@@ -138,7 +138,7 @@ fn build_account_snapshot_from_entries<DB: Blockstore>(
     };
 
     Ok(Some(super::types::AccountState {
-        balance: Some(EthBigInt(actor.balance.atto().clone())),
+        balance: Some(EthBigInt::from(actor.balance.atto())),
         code,
         nonce,
         storage,
@@ -267,7 +267,6 @@ mod tests {
     use super::super::types::{PreStateConfig, PreStateFrame};
     use super::*;
     use crate::rpc::eth::{EthBigInt, EthUint64};
-    use num::BigInt;
 
     #[test]
     fn test_build_prestate_frame_default_mode_empty() {
@@ -318,7 +317,7 @@ mod tests {
                 assert_eq!(mode.0.len(), 1);
                 let snap = mode.0.get(&actor_addr).unwrap();
                 // Default mode returns pre-state
-                assert_eq!(snap.balance, Some(EthBigInt(BigInt::from(1000))));
+                assert_eq!(snap.balance, Some(EthBigInt::from(1000)));
                 assert_eq!(snap.nonce, Some(EthUint64(5)));
             }
             _ => panic!("Expected Default mode"),
@@ -354,12 +353,12 @@ mod tests {
 
                 // Pre should contain the original state
                 let pre_snap = diff.pre.get(&addr).unwrap();
-                assert_eq!(pre_snap.balance, Some(EthBigInt(BigInt::from(1000))));
+                assert_eq!(pre_snap.balance, Some(EthBigInt::from(1000)));
                 assert_eq!(pre_snap.nonce, Some(EthUint64(5)));
 
                 // Post should only contain changed fields
                 let post_snap = diff.post.get(&addr).unwrap();
-                assert_eq!(post_snap.balance, Some(EthBigInt(BigInt::from(2000))));
+                assert_eq!(post_snap.balance, Some(EthBigInt::from(2000)));
                 assert_eq!(post_snap.nonce, Some(EthUint64(6)));
             }
             _ => panic!("Expected Diff mode"),
@@ -427,7 +426,7 @@ mod tests {
                 // Created accounts should only appear in post
                 assert!(!diff.pre.contains_key(&addr));
                 let post_snap = diff.post.get(&addr).unwrap();
-                assert_eq!(post_snap.balance, Some(EthBigInt(BigInt::from(5000))));
+                assert_eq!(post_snap.balance, Some(EthBigInt::from(5000)));
                 assert_eq!(post_snap.nonce, Some(EthUint64(0)));
             }
             _ => panic!("Expected Diff mode"),
@@ -461,7 +460,7 @@ mod tests {
                 let addr = create_masked_id_eth_address(actor_id);
                 // Deleted accounts should only appear in pre
                 let pre_snap = diff.pre.get(&addr).unwrap();
-                assert_eq!(pre_snap.balance, Some(EthBigInt(BigInt::from(3000))));
+                assert_eq!(pre_snap.balance, Some(EthBigInt::from(3000)));
                 assert_eq!(pre_snap.nonce, Some(EthUint64(10)));
                 assert!(!diff.post.contains_key(&addr));
             }
@@ -499,10 +498,10 @@ mod tests {
                 let pre_snap = diff.pre.get(&addr).unwrap();
                 let post_snap = diff.post.get(&addr).unwrap();
                 // Balance/nonce reflect actual values, storage skipped
-                assert_eq!(pre_snap.balance, Some(EthBigInt(BigInt::from(1000))));
+                assert_eq!(pre_snap.balance, Some(EthBigInt::from(1000)));
                 assert_eq!(pre_snap.nonce, Some(EthUint64(5)));
                 assert!(pre_snap.storage.is_empty());
-                assert_eq!(post_snap.balance, Some(EthBigInt(BigInt::from(2000))));
+                assert_eq!(post_snap.balance, Some(EthBigInt::from(2000)));
                 assert_eq!(post_snap.nonce, Some(EthUint64(6)));
                 assert!(post_snap.storage.is_empty());
             }
@@ -538,7 +537,7 @@ mod tests {
             PreStateFrame::Default(mode) => {
                 assert_eq!(mode.0.len(), 1);
                 let snap = mode.0.get(&actor_addr).unwrap();
-                assert_eq!(snap.balance, Some(EthBigInt(BigInt::from(1000))));
+                assert_eq!(snap.balance, Some(EthBigInt::from(1000)));
                 assert_eq!(snap.nonce, Some(EthUint64(5)));
                 assert!(snap.storage.is_empty());
             }
