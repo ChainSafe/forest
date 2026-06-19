@@ -2352,6 +2352,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.NetAutoNatStatus
+    description: "Returns the node's AutoNAT reachability status and observed public addresses."
     params: []
     result:
       name: Filecoin.NetAutoNatStatus.Result
@@ -2386,6 +2387,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.NetFindPeer
+    description: Returns the known addresses of the peer with the given peer ID.
     params:
       - name: peerId
         required: true
@@ -2398,6 +2400,7 @@ methods:
         $ref: "#/components/schemas/AddrInfo"
     paramStructure: by-position
   - name: Forest.NetInfo
+    description: "Returns peer and connection statistics for the node's libp2p network."
     params: []
     result:
       name: Forest.NetInfo.Result
@@ -2406,6 +2409,7 @@ methods:
         $ref: "#/components/schemas/NetInfoResult"
     paramStructure: by-position
   - name: Filecoin.NetListening
+    description: "Returns whether the node is listening for network connections (always `true`)."
     params: []
     result:
       name: Filecoin.NetListening.Result
@@ -2414,6 +2418,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: net_listening
+    description: "Returns whether the node is listening for network connections (always `true`)."
     params: []
     result:
       name: net_listening.Result
@@ -2482,6 +2487,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.NetVersion
+    description: Returns the current network ID (the EIP-155 chain ID) as a decimal string.
     params: []
     result:
       name: Filecoin.NetVersion.Result
@@ -2490,6 +2496,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: net_version
+    description: Returns the current network ID (the EIP-155 chain ID) as a decimal string.
     params: []
     result:
       name: net_version.Result
@@ -4065,6 +4072,7 @@ methods:
         $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Filecoin.WalletDefaultAddress
+    description: "Returns the default wallet address, or null if no default is set."
     params: []
     result:
       name: Filecoin.WalletDefaultAddress.Result
@@ -4075,6 +4083,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.WalletDelete
+    description: Removes the key for the given address from the wallet.
     params:
       - name: address
         required: true
@@ -4087,6 +4096,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.WalletExport
+    description: "Exports the key information, including the private key, for the given wallet address."
     params:
       - name: address
         required: true
@@ -4112,6 +4122,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.WalletImport
+    description: Imports a key into the wallet and returns its address.
     params:
       - name: key
         required: true
@@ -4137,6 +4148,7 @@ methods:
           $ref: "#/components/schemas/Address"
     paramStructure: by-position
   - name: Filecoin.WalletNew
+    description: "Generates a new key of the given signature type, adds it to the wallet, and returns its address."
     params:
       - name: signatureType
         required: true
@@ -4149,6 +4161,7 @@ methods:
         $ref: "#/components/schemas/Address"
     paramStructure: by-position
   - name: Filecoin.WalletSetDefault
+    description: Sets the given address as the default wallet address.
     params:
       - name: address
         required: true
@@ -4195,6 +4208,7 @@ methods:
         $ref: "#/components/schemas/SignedMessage"
     paramStructure: by-position
   - name: Filecoin.WalletValidateAddress
+    description: Validates the given string as a Filecoin address and returns the parsed address.
     params:
       - name: address
         required: true
@@ -4207,6 +4221,7 @@ methods:
         $ref: "#/components/schemas/Address"
     paramStructure: by-position
   - name: Filecoin.WalletVerify
+    description: Returns whether the given signature is valid for the message and address.
     params:
       - name: address
         required: true
