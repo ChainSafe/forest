@@ -111,11 +111,12 @@ impl RpcMethod<1> for MinerCreateBlock {
             .load_required_tipset(&block_template.parents)?;
 
         let lookback_state = ChainStore::get_lookback_tipset_for_round(
-            ctx.chain_index(),
-            ctx.chain_config(),
-            &parent_tipset,
+            ctx.chain_index().shallow_clone(),
+            ctx.chain_config().shallow_clone(),
+            parent_tipset.shallow_clone(),
             block_template.epoch,
         )
+        .await
         .map(|(_, s)| Arc::new(s))?;
 
         let worker = ctx

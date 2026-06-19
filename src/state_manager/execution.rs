@@ -1,7 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::state_computation::{TipsetExecutor, apply_block_messages, validate_tipsets};
+use super::state_computation::{
+    TipsetExecutor, apply_block_messages_blocking, validate_tipsets_blocking,
+};
 use super::utils::structured;
 use super::*;
 use crate::interpreter::{CalledAt, VMTrace};
@@ -90,7 +92,7 @@ impl StateManager {
         );
         let mut no_cb = NO_CALLBACK;
         let (parent_state, epoch, block_messages) =
-            exec.prepare_parent_state(genesis_timestamp, VMTrace::NotTraced, &mut no_cb)?;
+            exec.prepare_parent_state_blocking(genesis_timestamp, VMTrace::NotTraced, &mut no_cb)?;
 
         Ok(stacker::grow(64 << 20, || {
             let mut vm =
@@ -184,7 +186,7 @@ impl StateManager {
     ///
     /// See [`Self::compute_tipset_state_blocking`] for an explanation of state transitions.
     #[tracing::instrument(skip(self))]
-    pub fn validate_range(&self, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
+    pub fn validate_range_blocking(&self, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
         let heaviest = self.heaviest_tipset();
         let heaviest_epoch = heaviest.epoch();
         let end = self.chain_index().load_required_tipset_by_height(
@@ -202,15 +204,15 @@ impl StateManager {
             .chain(self.db())
             .take_while(|ts| ts.epoch() >= *epochs.start());
 
-        self.validate_tipsets(tipsets)
+        self.validate_tipsets_blocking(tipsets)
     }
 
-    pub fn validate_tipsets<T>(&self, tipsets: T) -> anyhow::Result<()>
+    pub fn validate_tipsets_blocking<T>(&self, tipsets: T) -> anyhow::Result<()>
     where
         T: Iterator<Item = Tipset> + Send,
     {
         let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
-        validate_tipsets(
+        validate_tipsets_blocking(
             genesis_timestamp,
             self.chain_index(),
             self.chain_config(),
@@ -227,23 +229,24 @@ impl StateManager {
         let key = tipset.key();
         let (state_root, invoc_trace) = self
             .trace_cache
-            .get_or_insert_async(key, {
-                let this = self.shallow_clone();
-                let tipset = tipset.shallow_clone();
-                async move {
-                    tokio::task::spawn_blocking(move || this.execution_trace_inner(&tipset))
-                        .await
-                        .context("tokio join error")
-                        .flatten()
-                }
-            })
+            .get_or_insert_async(key, self.execution_trace_inner(tipset.shallow_clone()))
             .await?;
         Ok((state_root.into(), invoc_trace))
     }
 
-    fn execution_trace_inner(
+    async fn execution_trace_inner(
         &self,
-        tipset: &Tipset,
+        tipset: Tipset,
+    ) -> anyhow::Result<(CidWrapper, Vec<Arc<ApiInvocResult>>)> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || this.execution_trace_inner_blocking(tipset))
+            .await
+            .context("tokio join error")?
+    }
+
+    fn execution_trace_inner_blocking(
+        &self,
+        tipset: Tipset,
     ) -> anyhow::Result<(CidWrapper, Vec<Arc<ApiInvocResult>>)> {
         let mut invoc_trace = vec![];
 
@@ -268,13 +271,13 @@ impl StateManager {
             }
         };
 
-        let ExecutedTipset { state_root, .. } = apply_block_messages(
+        let ExecutedTipset { state_root, .. } = apply_block_messages_blocking(
             genesis_timestamp,
             self.chain_index().shallow_clone(),
             self.chain_config().shallow_clone(),
             self.beacon_schedule().shallow_clone(),
             &self.engine,
-            tipset.shallow_clone(),
+            tipset,
             Some(callback),
             VMTrace::Traced,
         )?;
