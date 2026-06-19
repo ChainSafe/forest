@@ -10,31 +10,99 @@
 #[path = "common/calibnet_wallet_helpers.rs"]
 mod helpers;
 
+use std::io::Write as _;
+
+use anyhow::Context as _;
 use helpers::*;
 use rstest::rstest;
 use serde_json::json;
+use tempfile::NamedTempFile;
+use tokio::sync::OnceCell;
+
+/// Test amount to be transferred between accounts in wallet tests.
+const FIL_AMT: &str = "500 atto FIL";
+/// Amount to seed a freshly-created delegated wallet.
+const DELEGATE_FUND_AMT: &str = "3 micro FIL";
+
+static FUNDED_DELEGATED: OnceCell<String> = OnceCell::const_new();
+
+/// Delegated signer: create once on local, fund locally, mirror to remote.
+async fn funded_delegated_addr() -> &'static str {
+    let addr = FUNDED_DELEGATED
+        .get_or_try_init(|| async {
+            let addr = Backend::Local.run(&["new", "delegated"]).unwrap();
+            let fund_msg = Backend::Local
+                .send(&FOREST_TEST_PRELOADED_ADDRESS, &addr, DELEGATE_FUND_AMT)
+                .unwrap();
+            eprintln!("delegated funding send to {addr} msg: {fund_msg}");
+            wait_for_msg(&fund_msg).await.unwrap();
+            let funded = poll_until_funded(&addr, Backend::Local).await.unwrap();
+            eprintln!("delegated wallet {addr} funded balance: {funded}");
+
+            let mirrored = import_wallet(&addr, Backend::Local, Backend::Remote).unwrap();
+            assert_eq!(mirrored, addr, "mirror mismatch: {mirrored} != {addr}");
+            Ok::<_, anyhow::Error>(addr)
+        })
+        .await
+        .unwrap();
+    addr.as_str()
+}
+
+impl Backend {
+    /// Exact on-chain balance of `address`.
+    fn balance(self, address: &str) -> anyhow::Result<String> {
+        self.run(&["balance", address, "--exact-balance"])
+    }
+}
+
+/// Poll until the balance reported for `address` differs from `baseline`.
+async fn poll_until_changed(
+    address: &str,
+    baseline: &str,
+    backend: Backend,
+) -> anyhow::Result<String> {
+    let label = format!("{backend:?} balance change for {address}");
+    let baseline = baseline.to_string();
+    poll(&label, || async {
+        let bal = backend.balance(address)?;
+        Ok((bal != baseline).then_some(bal))
+    })
+    .await
+}
+
+/// Poll until the balance reported for `address` is no longer [`FIL_ZERO`].
+async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Result<String> {
+    poll_until_changed(address, FIL_ZERO, backend).await
+}
+
+/// Import an address from one backend into another.
+fn import_wallet(address: &str, from: Backend, to: Backend) -> anyhow::Result<String> {
+    let raw = from.run_raw(&["export", address])?;
+    let mut file = NamedTempFile::new_in(std::env::temp_dir())
+        .context("failed to create temp file for wallet export")?;
+    file.write_all(&raw)?;
+    file.flush()?;
+    let path = file
+        .path()
+        .to_str()
+        .context("temp path is not valid UTF-8")?;
+
+    if to == from {
+        to.run(&["delete", address])?;
+    }
+    to.run(&["import", path])
+}
 
 #[rstest]
 #[case::local(Backend::Local)]
 #[case::remote(Backend::Remote)]
 #[tokio::test]
 async fn export_import_roundtrip(#[case] backend: Backend) {
-    let addr = wallet(backend, &["new"]).unwrap();
-    let exported = export_to_temp_file(&addr, backend).unwrap();
-    let path = exported
-        .path()
-        .to_str()
-        .expect("temp path is not valid UTF-8");
-
-    let deleted = wallet(backend, &["delete", &addr]).unwrap();
-    eprintln!("delete output ({}): {deleted}", backend.label());
-
-    let imported = wallet(backend, &["import", path]).unwrap();
+    let addr = backend.run(&["new"]).unwrap();
+    let imported = import_wallet(&addr, backend, backend).unwrap();
     assert_eq!(
-        imported,
-        addr,
-        "round-trip mismatch on {} backend: {imported} != {addr}",
-        backend.label(),
+        imported, addr,
+        "round-trip mismatch on {backend:?}: {imported} != {addr}",
     );
 }
 
@@ -51,8 +119,11 @@ async fn market_add_balance_message_on_chain() {
     )
     .await
     .unwrap();
-    let msg_cid = cid_from_lotus_json_result(&result).unwrap();
-    wait_for_msg(&msg_cid).await.unwrap();
+    let msg_cid = result
+        .get("/")
+        .and_then(|v| v.as_str())
+        .expect("MarketAddBalance should return a CID");
+    wait_for_msg(msg_cid).await.unwrap();
 }
 
 #[rstest]
@@ -60,9 +131,11 @@ async fn market_add_balance_message_on_chain() {
 #[case::remote(Backend::Remote)]
 #[tokio::test]
 async fn send_to_filecoin_address(#[case] backend: Backend) {
-    let target = wallet(backend, &["new"]).unwrap();
-    let msg = send_from(&FOREST_TEST_PRELOADED_ADDRESS, &target, FIL_AMT, backend).unwrap();
-    eprintln!("send to {target} ({}) msg: {msg}", backend.label());
+    let target = backend.run(&["new"]).unwrap();
+    let msg = backend
+        .send(&FOREST_TEST_PRELOADED_ADDRESS, &target, FIL_AMT)
+        .unwrap();
+    eprintln!("send to {target} ({backend:?}) msg: {msg}");
     wait_for_msg(&msg).await.unwrap();
     let funded = poll_until_funded(&target, backend).await.unwrap();
     eprintln!("{target} funded balance: {funded}");
@@ -73,17 +146,24 @@ async fn send_to_filecoin_address(#[case] backend: Backend) {
 #[case::remote(Backend::Remote)]
 #[tokio::test]
 async fn send_to_eth_equivalent(#[case] backend: Backend) {
-    let target = wallet(backend, &["new"]).unwrap();
-    let initial_msg = send_from(&FOREST_TEST_PRELOADED_ADDRESS, &target, FIL_AMT, backend).unwrap();
-    eprintln!(
-        "initial send to {target} ({}) msg: {initial_msg}",
-        backend.label(),
-    );
+    let target = backend.run(&["new"]).unwrap();
+    let initial_msg = backend
+        .send(&FOREST_TEST_PRELOADED_ADDRESS, &target, FIL_AMT)
+        .unwrap();
+    eprintln!("initial send to {target} ({backend:?}) msg: {initial_msg}");
     wait_for_msg(&initial_msg).await.unwrap();
     let baseline = poll_until_funded(&target, backend).await.unwrap();
 
-    let eth = filecoin_to_eth(&target).await.unwrap();
-    let eth_msg = send_from(&FOREST_TEST_PRELOADED_ADDRESS, &eth, FIL_AMT, backend).unwrap();
+    let eth_result = rpc_call(
+        "Filecoin.FilecoinAddressToEthAddress",
+        json!([&target, "pending"]),
+    )
+    .await
+    .unwrap();
+    let eth = eth_result.as_str().expect("expected string ETH address");
+    let eth_msg = backend
+        .send(&FOREST_TEST_PRELOADED_ADDRESS, eth, FIL_AMT)
+        .unwrap();
     eprintln!("send to ETH {eth} (mapped from {target}) msg: {eth_msg}");
     wait_for_msg(&eth_msg).await.unwrap();
 
@@ -101,10 +181,10 @@ async fn send_to_eth_equivalent(#[case] backend: Backend) {
 #[case::remote(Backend::Remote)]
 #[tokio::test]
 async fn wallet_delete(#[case] backend: Backend) {
-    let addr = wallet(backend, &["new"]).unwrap();
-    let deleted = wallet(backend, &["delete", &addr]).unwrap();
-    eprintln!("delete output ({}): {deleted}", backend.label());
-    let listing = wallet(backend, &["list"]).unwrap();
+    let addr = backend.run(&["new"]).unwrap();
+    let deleted = backend.run(&["delete", &addr]).unwrap();
+    eprintln!("delete output ({backend:?}): {deleted}");
+    let listing = backend.run(&["list"]).unwrap();
     assert!(
         !listing.contains(&addr),
         "deleted wallet {addr} still appears in `list`:\n{listing}",
@@ -117,14 +197,11 @@ async fn wallet_delete(#[case] backend: Backend) {
 #[tokio::test]
 async fn delegated_send(#[case] target_backend: Backend) {
     let funded = funded_delegated_addr().await;
-    let target = wallet(target_backend, &["new", "delegated"]).unwrap();
+    let target = target_backend.run(&["new", "delegated"]).unwrap();
     // Baseline `FIL_ZERO` ⇒ first credit; otherwise expect a balance delta.
-    let baseline = balance(&target, target_backend).unwrap();
-    let msg = send_from(funded, &target, FIL_AMT, Backend::Local).unwrap();
-    eprintln!(
-        "delegated send to {target} ({}) msg: {msg}",
-        target_backend.label(),
-    );
+    let baseline = target_backend.balance(&target).unwrap();
+    let msg = Backend::Local.send(funded, &target, FIL_AMT).unwrap();
+    eprintln!("delegated send to {target} ({target_backend:?}) msg: {msg}");
     wait_for_msg(&msg).await.unwrap();
     let observed = if baseline == FIL_ZERO {
         poll_until_funded(&target, target_backend).await.unwrap()
@@ -142,9 +219,9 @@ async fn delegated_send(#[case] target_backend: Backend) {
 #[tokio::test]
 async fn delegated_remote_send() {
     let funded = funded_delegated_addr().await;
-    let target = wallet(Backend::Remote, &["new", "delegated"]).unwrap();
-    let baseline = balance(&target, Backend::Remote).unwrap();
-    let msg = send_from(funded, &target, FIL_AMT, Backend::Remote).unwrap();
+    let target = Backend::Remote.run(&["new", "delegated"]).unwrap();
+    let baseline = Backend::Remote.balance(&target).unwrap();
+    let msg = Backend::Remote.send(funded, &target, FIL_AMT).unwrap();
     eprintln!("delegated --remote-wallet send to {target} msg: {msg}");
     wait_for_msg(&msg).await.unwrap();
     let observed = if baseline == FIL_ZERO {
