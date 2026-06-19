@@ -1,6 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! Shared helpers for calibnet integration tests (`wallet`, `mpool_tools`).
+
+#![allow(dead_code)]
+
 use std::io::Write as _;
 use std::process::Command;
 use std::sync::LazyLock;
@@ -203,6 +207,7 @@ pub async fn funded_delegated_addr() -> &'static str {
             )
             .unwrap();
             eprintln!("delegated funding send to {addr} msg: {fund_msg}");
+            wait_for_msg(&fund_msg).await.unwrap();
             let funded = poll_until_funded(&addr, Backend::Local).await.unwrap();
             eprintln!("delegated wallet {addr} funded balance: {funded}");
 
@@ -313,6 +318,21 @@ pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
         .then_some(()))
     })
     .await
+}
+
+/// Waits for a sent message to be included on-chain and confirms it executed successfully.
+pub async fn wait_for_msg(msg_cid: &str) -> anyhow::Result<()> {
+    let params = json!([{ "/": msg_cid }, 0, -1_i64, true]);
+    let result = rpc_call("Filecoin.StateWaitMsg", params).await?;
+    let exit_code = result
+        .get("Receipt")
+        .and_then(|r| r.get("ExitCode"))
+        .and_then(Value::as_i64)
+        .with_context(|| format!("StateWaitMsg result missing Receipt.ExitCode: {result}"))?;
+    if exit_code != 0 {
+        bail!("message {msg_cid} landed on-chain but failed with exit code {exit_code}");
+    }
+    Ok(())
 }
 
 /// Run `forest-cli <args>` and return trimmed stdout.

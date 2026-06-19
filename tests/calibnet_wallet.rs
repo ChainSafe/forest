@@ -63,6 +63,7 @@ async fn send_to_filecoin_address(#[case] backend: Backend) {
     let target = wallet(backend, &["new"]).unwrap();
     let msg = send_from(&FOREST_TEST_PRELOADED_ADDRESS, &target, FIL_AMT, backend).unwrap();
     eprintln!("send to {target} ({}) msg: {msg}", backend.label());
+    wait_for_msg(&msg).await.unwrap();
     let funded = poll_until_funded(&target, backend).await.unwrap();
     eprintln!("{target} funded balance: {funded}");
 }
@@ -78,11 +79,13 @@ async fn send_to_eth_equivalent(#[case] backend: Backend) {
         "initial send to {target} ({}) msg: {initial_msg}",
         backend.label(),
     );
+    wait_for_msg(&initial_msg).await.unwrap();
     let baseline = poll_until_funded(&target, backend).await.unwrap();
 
     let eth = filecoin_to_eth(&target).await.unwrap();
     let eth_msg = send_from(&FOREST_TEST_PRELOADED_ADDRESS, &eth, FIL_AMT, backend).unwrap();
     eprintln!("send to ETH {eth} (mapped from {target}) msg: {eth_msg}");
+    wait_for_msg(&eth_msg).await.unwrap();
 
     let updated = poll_until_changed(&target, &baseline, backend)
         .await
@@ -122,6 +125,7 @@ async fn delegated_send(#[case] target_backend: Backend) {
         "delegated send to {target} ({}) msg: {msg}",
         target_backend.label(),
     );
+    wait_for_msg(&msg).await.unwrap();
     let observed = if baseline == FIL_ZERO {
         poll_until_funded(&target, target_backend).await.unwrap()
     } else {
@@ -142,6 +146,7 @@ async fn delegated_remote_send() {
     let baseline = balance(&target, Backend::Remote).unwrap();
     let msg = send_from(funded, &target, FIL_AMT, Backend::Remote).unwrap();
     eprintln!("delegated --remote-wallet send to {target} msg: {msg}");
+    wait_for_msg(&msg).await.unwrap();
     let observed = if baseline == FIL_ZERO {
         poll_until_funded(&target, Backend::Remote).await.unwrap()
     } else {
