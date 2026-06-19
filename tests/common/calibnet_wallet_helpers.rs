@@ -227,7 +227,7 @@ pub async fn funded_delegated_addr() -> &'static str {
 
 static HTTP: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
-        .timeout(Duration::from_secs(120))
+        .timeout(POLL_TIMEOUT)
         .build()
         .expect("failed to build reqwest client")
 });
