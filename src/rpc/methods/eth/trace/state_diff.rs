@@ -83,8 +83,8 @@ fn build_account_diff<DB: Blockstore>(
     let mut diff = AccountDiff::default();
 
     // Compare balance
-    let pre_balance = pre_actor.map(|a| EthBigInt(a.balance.atto().clone()));
-    let post_balance = post_actor.map(|a| EthBigInt(a.balance.atto().clone()));
+    let pre_balance = pre_actor.map(|a| EthBigInt::from(a.balance.atto()));
+    let post_balance = post_actor.map(|a| EthBigInt::from(a.balance.atto()));
     diff.balance = Delta::from_comparison(pre_balance, post_balance);
 
     // Compare nonce
@@ -277,7 +277,6 @@ mod tests {
     use crate::rpc::eth::types::EthBytes;
     use crate::shim::address::Address as FilecoinAddress;
     use crate::shim::state_tree::StateTreeVersion;
-    use num::BigInt;
 
     #[test]
     fn test_build_state_diff_empty_touched_addresses() {
@@ -319,8 +318,8 @@ mod tests {
         let diff = state_diff.0.get(&eth_addr).unwrap();
         match &diff.balance {
             Delta::Changed(change) => {
-                assert_eq!(change.from.0, BigInt::from(1000));
-                assert_eq!(change.to.0, BigInt::from(2000));
+                assert_eq!(change.from, EthBigInt::from(1000));
+                assert_eq!(change.to, EthBigInt::from(2000));
             }
             _ => panic!("Expected Delta::Changed for balance"),
         }
@@ -343,8 +342,8 @@ mod tests {
         let diff = state_diff.0.get(&eth_addr).unwrap();
         match &diff.balance {
             Delta::Changed(change) => {
-                assert_eq!(change.from.0, BigInt::from(5000));
-                assert_eq!(change.to.0, BigInt::from(3000));
+                assert_eq!(change.from, EthBigInt::from(5000));
+                assert_eq!(change.to, EthBigInt::from(3000));
             }
             _ => panic!("Expected Delta::Changed for balance"),
         }
@@ -391,8 +390,8 @@ mod tests {
         let diff = state_diff.0.get(&eth_addr).unwrap();
         match &diff.balance {
             Delta::Changed(change) => {
-                assert_eq!(change.from.0, BigInt::from(10000));
-                assert_eq!(change.to.0, BigInt::from(9000));
+                assert_eq!(change.from, EthBigInt::from(10000));
+                assert_eq!(change.to, EthBigInt::from(9000));
             }
             _ => panic!("Expected Delta::Changed for balance"),
         }
@@ -420,7 +419,7 @@ mod tests {
         let diff = state_diff.0.get(&eth_addr).unwrap();
         match &diff.balance {
             Delta::Added(balance) => {
-                assert_eq!(balance.0, BigInt::from(5000));
+                assert_eq!(balance, &EthBigInt::from(5000));
             }
             _ => panic!("Expected Delta::Added for balance"),
         }
@@ -447,7 +446,7 @@ mod tests {
         let diff = state_diff.0.get(&eth_addr).unwrap();
         match &diff.balance {
             Delta::Removed(balance) => {
-                assert_eq!(balance.0, BigInt::from(3000));
+                assert_eq!(balance, &EthBigInt::from(3000));
             }
             _ => panic!("Expected Delta::Removed for balance"),
         }
@@ -546,8 +545,8 @@ mod tests {
                 pre: Some((1000, 5, Some(bytecode1))),
                 post: Some((2000, 5, Some(bytecode1))),
                 expected_balance: Delta::Changed(ChangedType {
-                    from: EthBigInt(BigInt::from(1000)),
-                    to: EthBigInt(BigInt::from(2000)),
+                    from: EthBigInt::from(1000),
+                    to: EthBigInt::from(2000),
                 }),
                 expected_nonce: Delta::Unchanged,
                 expected_code: Delta::Unchanged,
@@ -579,8 +578,8 @@ mod tests {
                 pre: Some((1000, 5, Some(bytecode1))),
                 post: Some((2000, 6, Some(bytecode1))),
                 expected_balance: Delta::Changed(ChangedType {
-                    from: EthBigInt(BigInt::from(1000)),
-                    to: EthBigInt(BigInt::from(2000)),
+                    from: EthBigInt::from(1000),
+                    to: EthBigInt::from(2000),
                 }),
                 expected_nonce: Delta::Changed(ChangedType {
                     from: EthUint64(5),
@@ -592,7 +591,7 @@ mod tests {
                 name: "Creation",
                 pre: None,
                 post: Some((5000, 0, Some(bytecode1))),
-                expected_balance: Delta::Added(EthBigInt(BigInt::from(5000))),
+                expected_balance: Delta::Added(EthBigInt::from(5000)),
                 expected_nonce: Delta::Added(EthUint64(0)),
                 expected_code: Delta::Added(EthBytes(bytecode1.to_vec())),
             },
@@ -600,7 +599,7 @@ mod tests {
                 name: "Deletion",
                 pre: Some((3000, 10, Some(bytecode1))),
                 post: None,
-                expected_balance: Delta::Removed(EthBigInt(BigInt::from(3000))),
+                expected_balance: Delta::Removed(EthBigInt::from(3000)),
                 expected_nonce: Delta::Removed(EthUint64(10)),
                 expected_code: Delta::Removed(EthBytes(bytecode1.to_vec())),
             },

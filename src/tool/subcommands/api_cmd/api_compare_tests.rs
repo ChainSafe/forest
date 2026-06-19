@@ -1415,7 +1415,7 @@ fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
         // There is randomness in the result of this API, but at least check that the results are non-zero.
         tests.push(RpcTest::validate(
             EthGasPrice::request_with_alias((), use_alias)?,
-            |forest, lotus| forest.0.is_positive() && lotus.0.is_positive(),
+            |forest, lotus| !forest.is_zero() && !lotus.is_zero(),
         ));
         tests.push(RpcTest::basic(EthSyncing::request_with_alias(
             (),
