@@ -35,6 +35,8 @@ impl RpcMethod<2> for AuthNew {
     const PARAM_NAMES: [&'static str; 2] = ["permissions", "expirationSecs"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Creates a new JWT authentication token with the given permissions.");
     type Params = (Vec<String>, Option<i64>);
     type Ok = Vec<u8>;
     async fn handle(
@@ -60,6 +62,8 @@ impl RpcMethod<1> for AuthVerify {
     const PARAM_NAMES: [&'static str; 1] = ["headerRaw"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Verifies a JWT authentication token and returns its permissions.");
     type Params = (String,);
     type Ok = Vec<String>;
     async fn handle(
