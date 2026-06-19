@@ -1,6 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! Shared helpers for calibnet integration tests (`wallet`, `mpool_tools`).
+
+#![allow(dead_code)]
+
 use std::io::Write as _;
 use std::process::Command;
 use std::sync::LazyLock;
@@ -203,6 +207,7 @@ pub async fn funded_delegated_addr() -> &'static str {
             )
             .unwrap();
             eprintln!("delegated funding send to {addr} msg: {fund_msg}");
+            poll_until_state_search_msg(&fund_msg).await.unwrap();
             let funded = poll_until_funded(&addr, Backend::Local).await.unwrap();
             eprintln!("delegated wallet {addr} funded balance: {funded}");
 
