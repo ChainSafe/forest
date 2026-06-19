@@ -1458,6 +1458,7 @@ methods:
         $ref: "#/components/schemas/EthHash"
     paramStructure: by-position
   - name: Filecoin.NetListening
+    description: "Returns whether the node is listening for network connections (always `true`)."
     params: []
     result:
       name: Filecoin.NetListening.Result
@@ -1466,6 +1467,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: net_listening
+    description: "Returns whether the node is listening for network connections (always `true`)."
     params: []
     result:
       name: net_listening.Result
@@ -1474,6 +1476,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.NetVersion
+    description: Returns the current network ID (the EIP-155 chain ID) as a decimal string.
     params: []
     result:
       name: Filecoin.NetVersion.Result
@@ -1482,6 +1485,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: net_version
+    description: Returns the current network ID (the EIP-155 chain ID) as a decimal string.
     params: []
     result:
       name: net_version.Result
