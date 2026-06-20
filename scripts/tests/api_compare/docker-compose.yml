@@ -58,7 +58,7 @@ services:
           --halt-after-import
 
         SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
-        # backfill the index db
+        # backfill the index db (nosql)
         forest-tool index backfill --from $$SNAPSHOT_EPOCH --n-tipsets 200 --chain ${CHAIN}
 
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
@@ -90,6 +90,10 @@ services:
         export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
         echo "Waiting till Forest is ready"
         forest-cli healthcheck ready --healthcheck-port ${FOREST_HEALTHZ_RPC_PORT} --wait
+
+        # backfill the index db (sql)
+        SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
+        forest-cli index validate-backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 200))
   forest-wallet-import:
     depends_on:
       forest:

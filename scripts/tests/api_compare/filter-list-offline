@@ -1,5 +1,7 @@
 # This list contains potentially broken methods (or tests) that are ignored.
 # They should be considered bugged, and not used until the root cause is resolved.
+# Indexer disabled
+!Filecoin.ChainValidateIndex
 !Filecoin.EthSyncing
 !eth_syncing
 !Filecoin.NetAddrsListen

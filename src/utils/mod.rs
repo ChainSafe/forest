@@ -20,7 +20,6 @@ pub mod reqwest_resume;
 mod shallow_clone;
 pub mod task;
 pub use shallow_clone::ShallowClone;
-#[cfg(feature = "sqlite")]
 pub mod sqlite;
 pub mod stats;
 pub mod stream;
