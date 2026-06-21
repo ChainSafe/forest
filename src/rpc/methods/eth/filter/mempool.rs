@@ -5,7 +5,7 @@ use crate::eth::EthChainId as EthChainIdType;
 use crate::message::SignedMessage;
 use crate::message_pool::MpoolUpdate;
 use crate::rpc::Arc;
-use crate::rpc::eth::eth_hash_from_signed_message;
+use crate::rpc::eth::eth_tx_hash_from_signed_message;
 use crate::rpc::eth::types::EthHash;
 use crate::rpc::eth::{FilterID, filter::Filter, filter::FilterManager};
 use ahash::AHashMap as HashMap;
@@ -14,6 +14,46 @@ use indexmap::IndexSet;
 use parking_lot::{Mutex, RwLock};
 use std::any::Any;
 use tokio::sync::broadcast;
+
+/// Factory that yields a fresh independent `broadcast::Receiver<MpoolUpdate>`
+/// on each call. Wraps the `MessagePool` so the filter layer never sees the
+/// pool's broadcast `Sender` directly — preserves the send-only encapsulation
+/// owned by the message pool module.
+#[derive(Clone)]
+pub struct MpoolSubscriber {
+    inner: Arc<dyn Fn() -> broadcast::Receiver<MpoolUpdate> + Send + Sync>,
+}
+
+impl MpoolSubscriber {
+    /// Build a subscriber from a factory closure that yields a fresh
+    /// receiver on each call (typically `move || mp.subscribe_to_updates()`).
+    pub fn new<F>(factory: F) -> Self
+    where
+        F: Fn() -> broadcast::Receiver<MpoolUpdate> + Send + Sync + 'static,
+    {
+        Self {
+            inner: Arc::new(factory),
+        }
+    }
+
+    /// Subscriber whose receivers never receive any events. Used by
+    /// standalone contexts (tests, snapshot tools, offline server when no
+    /// real mempool is attached).
+    pub fn dummy() -> Self {
+        let (tx, _) = broadcast::channel::<MpoolUpdate>(1);
+        Self::new(move || tx.subscribe())
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<MpoolUpdate> {
+        (self.inner)()
+    }
+}
+
+impl std::fmt::Debug for MpoolSubscriber {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MpoolSubscriber").finish_non_exhaustive()
+    }
+}
 
 /// Filter backing `eth_newPendingTransactionFilter`. Each instance owns its
 /// own `broadcast::Receiver<MpoolUpdate>`.
@@ -40,7 +80,21 @@ impl MempoolFilter {
     }
 
     /// Drain queued mempool updates and return the resulting set of pending
-    /// tx hashes (`Add` minus subsequent `Remove`), capped at `max_results`.
+    /// tx hashes, capped at `max_results`.
+    ///
+    /// Semantics within a single drain window:
+    /// - `Add` inserts the tx hash.
+    /// - `Remove` cancels a prior `Add` from the *same* window. A `Remove`
+    ///   for a hash that was already returned by an earlier `drain` call is
+    ///   a no-op on the set — that hash was already reported as pending,
+    ///   so the client has seen it and the cancellation does not need to
+    ///   propagate.
+    ///
+    /// Why process `Remove` at all: a tx can leave the mempool between two
+    /// client polls (mined into a tipset, replaced via RBF, or evicted). If
+    /// we ignored `Remove` we would surface a hash whose tx is no longer
+    /// pending, which is misleading for `eth_newPendingTransactionFilter`
+    /// consumers.
     pub fn drain(&self, chain_id: EthChainIdType) -> Vec<EthHash> {
         use broadcast::error::TryRecvError;
 
@@ -55,6 +109,8 @@ impl MempoolFilter {
                 }
                 Ok(MpoolUpdate::Remove(m)) => {
                     if let Some(h) = hash_or_log(&m, chain_id) {
+                        // Cancels a matching Add buffered earlier in the
+                        // same window. No-op if the hash is not in the set.
                         pending.shift_remove(&h);
                     }
                 }
@@ -79,7 +135,7 @@ impl Filter for MempoolFilter {
 }
 
 fn hash_or_log(msg: &SignedMessage, chain_id: EthChainIdType) -> Option<EthHash> {
-    match eth_hash_from_signed_message(msg, chain_id) {
+    match eth_tx_hash_from_signed_message(msg, chain_id) {
         Ok(h) => Some(h),
         Err(e) => {
             tracing::debug!("mempool filter: dropping message, hash error: {e}");
@@ -88,34 +144,38 @@ fn hash_or_log(msg: &SignedMessage, chain_id: EthChainIdType) -> Option<EthHash>
     }
 }
 
-/// Manages installed `MempoolFilter`s. Each `install` derives a fresh
-/// `broadcast::Receiver` from the shared sender. Contexts without a real
-/// `MessagePool` (tests, snapshot tools, offline server) pass a dummy sender
-/// whose receivers always yield `Empty`.
-#[derive(Debug)]
+/// Manages installed `MempoolFilter`s. Each `install` calls the configured
+/// [`MpoolSubscriber`] to obtain a fresh independent
+/// `broadcast::Receiver<MpoolUpdate>`. Contexts without a real `MessagePool`
+/// (tests, snapshot tools, offline server) pass a subscriber whose receivers
+/// always yield `Empty`.
 pub struct MempoolFilterManager {
     filters: RwLock<HashMap<FilterID, Arc<dyn Filter>>>,
     max_filter_results: usize,
-    mpool_event_sender: broadcast::Sender<MpoolUpdate>,
+    subscriber: MpoolSubscriber,
+}
+
+impl std::fmt::Debug for MempoolFilterManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MempoolFilterManager")
+            .field("max_filter_results", &self.max_filter_results)
+            .finish_non_exhaustive()
+    }
 }
 
 impl MempoolFilterManager {
-    pub fn new(
-        max_filter_results: usize,
-        mpool_event_sender: broadcast::Sender<MpoolUpdate>,
-    ) -> Arc<Self> {
+    pub fn new(max_filter_results: usize, subscriber: MpoolSubscriber) -> Arc<Self> {
         Arc::new(Self {
             filters: RwLock::new(HashMap::new()),
             max_filter_results,
-            mpool_event_sender,
+            subscriber,
         })
     }
 }
 
 impl FilterManager for MempoolFilterManager {
     fn install(&self) -> Result<Arc<dyn Filter>> {
-        let rx = self.mpool_event_sender.subscribe();
-        let filter = MempoolFilter::new(self.max_filter_results, rx)
+        let filter = MempoolFilter::new(self.max_filter_results, self.subscriber.subscribe())
             .context("Failed to create a new mempool filter")?;
         self.filters
             .write()
@@ -149,17 +209,18 @@ mod tests {
     }
 
     fn hash_of(seq: u64) -> EthHash {
-        eth_hash_from_signed_message(&make_smsg(seq), TEST_CHAIN_ID).unwrap()
+        eth_tx_hash_from_signed_message(&make_smsg(seq), TEST_CHAIN_ID).unwrap()
     }
 
-    fn dummy_sender() -> broadcast::Sender<MpoolUpdate> {
-        let (tx, _) = broadcast::channel(1);
-        tx
+    /// Build a subscriber backed by `tx` so tests can drive
+    /// `MpoolUpdate` events through the manager.
+    fn subscriber_from(tx: broadcast::Sender<MpoolUpdate>) -> MpoolSubscriber {
+        MpoolSubscriber::new(move || tx.subscribe())
     }
 
     #[test]
     fn drain_returns_empty_when_no_events() {
-        let tx = dummy_sender();
+        let (tx, _) = broadcast::channel::<MpoolUpdate>(1);
         let filter = MempoolFilter::new(10, tx.subscribe()).unwrap();
         assert!(filter.drain(TEST_CHAIN_ID).is_empty());
     }
@@ -201,5 +262,37 @@ mod tests {
         // Buffer was 4; receiver lagged. Drain returns the remaining buffered
         // events without panicking.
         assert!(!filter.drain(TEST_CHAIN_ID).is_empty());
+    }
+
+    #[test]
+    fn manager_subscribes_each_filter_to_independent_receiver() {
+        let (tx, _) = broadcast::channel::<MpoolUpdate>(16);
+        let manager = MempoolFilterManager::new(100, subscriber_from(tx.clone()));
+
+        let f1 = manager.install().expect("install f1");
+        let f2 = manager.install().expect("install f2");
+
+        tx.send(MpoolUpdate::Add(make_smsg(0))).unwrap();
+        tx.send(MpoolUpdate::Add(make_smsg(1))).unwrap();
+
+        let f1 = f1.as_any().downcast_ref::<MempoolFilter>().unwrap();
+        let f2 = f2.as_any().downcast_ref::<MempoolFilter>().unwrap();
+
+        // Each receiver sees the full broadcast, independently.
+        let h1 = f1.drain(TEST_CHAIN_ID);
+        let h2 = f2.drain(TEST_CHAIN_ID);
+        assert_eq!(h1.len(), 2);
+        assert_eq!(h2.len(), 2);
+
+        // Draining once empties only that receiver.
+        assert!(f1.drain(TEST_CHAIN_ID).is_empty());
+    }
+
+    #[test]
+    fn manager_with_dummy_subscriber_yields_empty() {
+        let manager = MempoolFilterManager::new(100, MpoolSubscriber::dummy());
+        let f = manager.install().expect("install");
+        let f = f.as_any().downcast_ref::<MempoolFilter>().unwrap();
+        assert!(f.drain(TEST_CHAIN_ID).is_empty());
     }
 }

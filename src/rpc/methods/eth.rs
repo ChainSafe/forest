@@ -1103,22 +1103,6 @@ pub fn eth_tx_from_signed_eth_message(
     Ok((from, tx))
 }
 
-/// Derive the Ethereum-style hash for a `SignedMessage`.
-pub fn eth_hash_from_signed_message(
-    smsg: &SignedMessage,
-    chain_id: EthChainIdType,
-) -> Result<EthHash> {
-    let hash = if smsg.is_delegated() {
-        let (_, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
-        tx.eth_hash()?.into()
-    } else if smsg.is_secp256k1() {
-        smsg.cid().into()
-    } else {
-        smsg.message().cid().into()
-    };
-    Ok(hash)
-}
-
 /// See <https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector-and-argument-encoding>
 /// for ABI specification
 fn encode_filecoin_params_as_abi(
@@ -2624,7 +2608,7 @@ impl EthGetTransactionHashByCid {
         if let Ok(smsgs) = smsgs_result
             && let Some(smsg) = smsgs.first()
         {
-            return Ok(Some(eth_hash_from_signed_message(smsg, eth_chain_id)?));
+            return Ok(Some(eth_tx_hash_from_signed_message(smsg, eth_chain_id)?));
         }
 
         let msg_result = crate::chain::get_chain_message(db, &cid);

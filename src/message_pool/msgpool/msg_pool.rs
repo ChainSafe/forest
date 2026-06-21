@@ -434,12 +434,6 @@ where
         self.pending.subscribe()
     }
 
-    /// Clone of the [`MpoolUpdate`] sender. Each call to `subscribe()` on
-    /// the returned sender yields an independent receiver.
-    pub fn mpool_event_sender(&self) -> broadcast::Sender<MpoolUpdate> {
-        self.pending.event_sender()
-    }
-
     /// Return Vector of signed messages given a block header for self.
     pub fn messages_for_blocks<'a>(
         &self,
