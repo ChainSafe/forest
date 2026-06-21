@@ -825,6 +825,83 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
     })
 }
 
+/// Verify that successive `eth_getFilterChanges` polls return only the
+/// pending transactions added since the previous poll.
+///
+/// 1. Install a pending-tx filter.
+/// 2. Drain any baseline state with an initial poll.
+/// 3. Submit tx A, wait for it in the mempool, poll — assert hash A present.
+/// 4. Submit tx B, wait for it in the mempool, poll — assert hash B present
+///    and hash A absent (it was already consumed by the previous poll).
+fn eth_new_pending_transaction_filter_multi_poll(tx: TestTransaction) -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| {
+        let tx = tx.clone();
+        async move {
+            let filter_id = client
+                .call(EthNewPendingTransactionFilter::request(())?)
+                .await?;
+
+            let result = async {
+                // Baseline: clear any pre-existing pending state.
+                let _ = client
+                    .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+                    .await?;
+
+                // First tx.
+                let cid_a = invoke_contract(&client, &tx).await?;
+                let hash_a = client
+                    .call(EthGetTransactionHashByCid::request((cid_a,))?)
+                    .await?
+                    .context("no Eth transaction hash for cid_a")?;
+                wait_in_mempool(&client, cid_a).await?;
+                let poll_a = client
+                    .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+                    .await?;
+                let EthFilterResult::Hashes(hashes_a) = poll_a else {
+                    anyhow::bail!("expected hashes, got {poll_a:?}");
+                };
+                anyhow::ensure!(
+                    hashes_a.contains(&hash_a),
+                    "first poll missing tx_a: hash_a={hash_a:?} hashes={hashes_a:?}"
+                );
+
+                // Second tx.
+                let cid_b = invoke_contract(&client, &tx).await?;
+                let hash_b = client
+                    .call(EthGetTransactionHashByCid::request((cid_b,))?)
+                    .await?
+                    .context("no Eth transaction hash for cid_b")?;
+                wait_in_mempool(&client, cid_b).await?;
+                let poll_b = client
+                    .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+                    .await?;
+                let EthFilterResult::Hashes(hashes_b) = poll_b else {
+                    anyhow::bail!("expected hashes, got {poll_b:?}");
+                };
+                anyhow::ensure!(
+                    hashes_b.contains(&hash_b),
+                    "second poll missing tx_b: hash_b={hash_b:?} hashes={hashes_b:?}"
+                );
+                anyhow::ensure!(
+                    !hashes_b.contains(&hash_a),
+                    "second poll should not return previously-consumed tx_a: \
+                     hash_a={hash_a:?} hashes={hashes_b:?}"
+                );
+
+                anyhow::Ok(())
+            }
+            .await;
+
+            let removed = client
+                .call(EthUninstallFilter::request((filter_id,))?)
+                .await?;
+            anyhow::ensure!(removed);
+
+            result
+        }
+    })
+}
+
 fn as_logs(input: EthFilterResult) -> EthFilterResult {
     match input {
         EthFilterResult::Hashes(vec) if vec.is_empty() => EthFilterResult::Logs(Vec::new()),
@@ -929,6 +1006,14 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         with_methods!(
             eth_new_pending_transaction_filter(tx.clone())
                 .name("eth_newPendingTransactionFilter works"),
+            EthNewPendingTransactionFilter,
+            EthGetFilterChanges,
+            EthGetTransactionHashByCid,
+            EthUninstallFilter
+        ),
+        with_methods!(
+            eth_new_pending_transaction_filter_multi_poll(tx.clone())
+                .name("eth_getFilterChanges returns only new pending txs per poll"),
             EthNewPendingTransactionFilter,
             EthGetFilterChanges,
             EthGetTransactionHashByCid,
