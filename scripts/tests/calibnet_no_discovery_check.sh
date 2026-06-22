@@ -11,8 +11,8 @@ function shutdown {
 
 trap shutdown EXIT
 
-$FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --exit-after-init
-$FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --log-dir "$LOG_DIRECTORY" &
+$FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --exit-after-init
+$FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --log-dir "$LOG_DIRECTORY" &
 FOREST_NODE_PID=$!
 
 forest_wait_api

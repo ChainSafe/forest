@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::JWT_IDENTIFIER;
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
 use crate::chain_sync::SyncStatusReport;
@@ -21,7 +22,8 @@ use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
 use crate::utils::net::{DownloadFileOption, download_to};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
-use crate::{Config, JWT_IDENTIFIER};
+
+use arc_swap::ArcSwap;
 use jsonrpsee::server::stop_channel;
 use parking_lot::RwLock;
 use std::{
@@ -102,7 +104,7 @@ pub async fn offline_rpc_state(
             keystore: Arc::new(RwLock::new(keystore)),
             mpool: message_pool,
             bad_blocks: Default::default(),
-            sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
+            sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
             eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
             sync_network_context,
             start_time: chrono::Utc::now(),
@@ -132,7 +134,7 @@ pub async fn start_offline_server(
 
     // Set proof parameter data dir and make sure the proofs are available. Otherwise,
     // validation might fail due to missing proof parameters.
-    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
+    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&crate::cli_shared::default_data_dir());
     ensure_proof_params_downloaded().await?;
 
     let db = {

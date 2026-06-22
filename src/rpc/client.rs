@@ -58,8 +58,9 @@ impl Client {
         }
         // Set default token if not provided
         if token.is_none() && base_url.password().is_none() {
-            let client_config = crate::cli_shared::cli::Client::default();
-            let default_token_path = client_config.default_rpc_token_path();
+            // Honor the `FOREST_PATH` data directory override so the token saved
+            // by a daemon started with `FOREST_PATH` set is found here as well.
+            let default_token_path = crate::cli_shared::default_token_path();
             if default_token_path.is_file() {
                 if let Ok(token) = std::fs::read_to_string(&default_token_path) {
                     if base_url.set_password(Some(token.trim())).is_ok() {
@@ -323,5 +324,30 @@ impl jsonrpsee::core::client::SubscriptionClientT for UrlClient {
             UrlClientInner::Ws(it) => Either::Left(it.subscribe_to_method(method)),
             UrlClientInner::Https(it) => Either::Right(it.subscribe_to_method(method)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli_shared::FOREST_DATA_DIR_ENV;
+
+    // The RPC client should pick up the admin token from the data directory
+    // pointed to by `FOREST_PATH`, mirroring where a daemon started with the
+    // same variable saves it.
+    #[test]
+    #[serial_test::serial]
+    fn default_token_is_loaded_from_forest_path_data_dir() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        std::fs::write(tmp_dir.path().join("token"), "secret-token").unwrap();
+
+        unsafe {
+            env::remove_var("FULLNODE_API_INFO");
+            env::set_var(FOREST_DATA_DIR_ENV, tmp_dir.path());
+        }
+        let client = Client::default_or_from_env(None).unwrap();
+        unsafe { env::remove_var(FOREST_DATA_DIR_ENV) };
+
+        assert_eq!(client.token.as_deref(), Some("secret-token"));
     }
 }

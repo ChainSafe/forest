@@ -6,8 +6,8 @@ set -e
 # migration point and then we validate the last 200 tipsets. This triggers the
 # migration logic without connecting to the real Filecoin network.
 
-FOREST_PATH="forest"
-MIGRATION_TEST="/usr/bin/time -v $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --no-gc --import-snapshot"
+FOREST_DAEMON_PATH="forest"
+MIGRATION_TEST="/usr/bin/time -v $FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --no-gc --import-snapshot"
 
 # NV17 - Shark, uncomment when we support the nv17 migration
 echo NV17 - Shark
