@@ -181,7 +181,7 @@ impl GenesisInfo {
                         circ += avail_balance.max(TokenAmount::zero());
                         un_circ += actor_balance.min(locked_balance);
                     }
-                    _ => bail!("unexpected actor: {:?}", actor),
+                    _ => bail!("unexpected actor at epoch {height}: {actor:?}"),
                 }
             } else {
                 // Do nothing for zero-balance actors
