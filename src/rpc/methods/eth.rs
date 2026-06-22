@@ -58,7 +58,6 @@ use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, Tipset
 use crate::utils::cache::SizeTrackingCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::get_size::big_int_heap_size_helper;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::{HashMap, HashSet};
@@ -69,7 +68,7 @@ use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
 use get_size2::GetSize;
 use ipld_core::ipld::Ipld;
 use nonzero_ext::nonzero;
-use num::{BigInt, Zero as _};
+use num::BigInt;
 use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -114,8 +113,6 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 
-// TODO(forest): https://github.com/ChainSafe/forest/issues/4436
-//               use ethereum_types::U256 or use lotus_json::big_int
 #[derive(
     Eq,
     Hash,
@@ -125,20 +122,39 @@ const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
     Serialize,
     Default,
     Clone,
+    Copy,
     JsonSchema,
+    GetSize,
     derive_more::From,
     derive_more::Into,
+    derive_more::Deref,
 )]
 pub struct EthBigInt(
-    #[serde(with = "crate::lotus_json::hexify")]
+    // `ethereum_types::U256` serializes as a `0x`-prefixed, leading-zero-trimmed hex string,
+    // which matches the Ethereum JSON-RPC wire format used by Lotus.
     #[schemars(with = "String")]
-    pub BigInt,
+    #[get_size(ignore)]
+    ethereum_types::U256,
 );
 lotus_json_with_self!(EthBigInt);
 
-impl GetSize for EthBigInt {
-    fn get_heap_size_with_tracker<T: get_size2::GetSizeTracker>(&self, tracker: T) -> (usize, T) {
-        (big_int_heap_size_helper(&self.0), tracker)
+impl From<BigInt> for EthBigInt {
+    fn from(value: BigInt) -> Self {
+        (&value).into()
+    }
+}
+
+impl From<&BigInt> for EthBigInt {
+    fn from(value: &BigInt) -> Self {
+        // Eth values are non-negative, so the sign is dropped.
+        let (_sign, bytes) = value.to_bytes_be();
+        Self(ethereum_types::U256::from_big_endian(&bytes))
+    }
+}
+
+impl From<u64> for EthBigInt {
+    fn from(value: u64) -> Self {
+        Self(value.into())
     }
 }
 
@@ -150,7 +166,20 @@ impl From<TokenAmount> for EthBigInt {
 
 impl From<&TokenAmount> for EthBigInt {
     fn from(amount: &TokenAmount) -> Self {
-        Self(amount.atto().to_owned())
+        amount.atto().into()
+    }
+}
+
+impl From<EthBigInt> for BigInt {
+    fn from(value: EthBigInt) -> Self {
+        // Eth values are non-negative, so the sign is always positive.
+        BigInt::from_bytes_be(num_bigint::Sign::Plus, &value.to_big_endian())
+    }
+}
+
+impl From<EthBigInt> for TokenAmount {
+    fn from(value: EthBigInt) -> Self {
+        TokenAmount::from_atto(value)
     }
 }
 
@@ -781,6 +810,8 @@ impl RpcMethod<0> for Web3ClientVersion {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the client version string of the running node.");
 
     type Params = ();
     type Ok = Arc<str>;
@@ -810,6 +841,9 @@ impl RpcMethod<0> for EthAccounts {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the list of addresses owned by the client; always empty since Forest does not manage private keys.",
+    );
 
     type Params = ();
     type Ok = Vec<String>;
@@ -860,7 +894,7 @@ impl RpcMethod<0> for EthBaseFee {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let base_fee = Self::get_base_fee(&ctx, &ctx.chain_store().heaviest_tipset())?;
-        Ok(EthBigInt(base_fee.atto().clone()))
+        Ok(base_fee.atto().into())
     }
 }
 
@@ -889,7 +923,7 @@ impl RpcMethod<1> for BaseFeeByHeight {
             ResolveNullTipset::TakeOlder,
         )?;
         let base_fee = EthBaseFee::get_base_fee(&ctx, &ts)?;
-        Ok(EthBigInt(base_fee.atto().clone()))
+        Ok(base_fee.atto().into())
     }
 }
 
@@ -900,6 +934,9 @@ impl RpcMethod<0> for EthBlockNumber {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the height of the latest executed tipset, which is the parent of the current head.",
+    );
 
     type Params = ();
     type Ok = EthUint64;
@@ -936,6 +973,8 @@ impl RpcMethod<0> for EthChainId {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the EIP-155 chain ID of the current network.");
 
     type Params = ();
     type Ok = Arc<str>;
@@ -979,7 +1018,7 @@ impl RpcMethod<0> for EthGasPrice {
             .await
             .map(|gas_premium| gas_premium.atto().to_owned())
             .unwrap_or_default();
-        Ok(EthBigInt(base_fee + tip))
+        Ok((base_fee + tip).into())
     }
 }
 
@@ -1015,7 +1054,7 @@ async fn eth_get_balance(ctx: &Ctx, address: &EthAddress, ts: &Tipset) -> Result
     let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
     match state_tree.get_actor(&fil_addr)? {
-        Some(actor) => Ok(EthBigInt(actor.balance.atto().clone())),
+        Some(actor) => Ok(actor.balance.atto().into()),
         None => Ok(EthBigInt::default()), // Balance is 0 if the actor doesn't exist
     }
 }
@@ -1343,8 +1382,8 @@ async fn new_eth_tx_receipt(
         msg_receipt.gas_used(),
         tx.gas.into(),
         &tipset.block_headers().first().parent_base_fee,
-        &gas_fee_cap.0.into(),
-        &gas_premium.0.into(),
+        &gas_fee_cap.into(),
+        &gas_premium.into(),
     );
     let total_spent: BigInt = gas_outputs.total_spent().into();
 
@@ -1449,6 +1488,8 @@ impl RpcMethod<2> for EthGetBlockByHash {
     const PARAM_NAMES: [&'static str; 2] = ["blockHash", "fullTxInfo"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a block by its hash, optionally including full transaction objects.");
 
     type Params = (EthHash, bool);
     type Ok = Arc<Block>;
@@ -1614,6 +1655,8 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const PARAM_NAMES: [&'static str; 1] = ["blockHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the number of messages in the tipset identified by the given block hash.");
 
     type Params = (EthHash,);
     type Ok = EthUint64;
@@ -1669,6 +1712,9 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the CID of the Filecoin message corresponding to the given Ethereum transaction hash.",
+    );
 
     type Params = (EthHash,);
     type Ok = Option<Cid>;
@@ -1730,6 +1776,8 @@ impl RpcMethod<0> for EthSyncing {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the node's sync status, or `false` if the node is not currently syncing.");
 
     type Params = ();
     type Ok = EthSyncingResult;
@@ -1739,8 +1787,7 @@ impl RpcMethod<0> for EthSyncing {
         (): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let sync_status: crate::chain_sync::SyncStatusReport =
-            crate::rpc::sync::SyncStatus::handle(ctx, (), ext).await?;
+        let sync_status = crate::rpc::sync::SyncStatus::handle(ctx, (), ext).await?;
         match sync_status.status {
             NodeSyncStatus::Synced => Ok(EthSyncingResult {
                 done_sync: true,
@@ -1777,6 +1824,8 @@ impl RpcMethod<2> for EthEstimateGas {
     const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Estimates the amount of gas required to execute the given transaction.");
 
     type Params = (EthCallMessage, Option<BlockNumberOrHash>);
     type Ok = EthUint64;
@@ -1985,6 +2034,9 @@ impl RpcMethod<3> for EthFeeHistory {
     const PARAM_NAMES: [&'static str; 3] = ["blockCount", "newestBlockNumber", "rewardPercentiles"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns historical gas information for a range of blocks, including base fee per gas, gas used ratio, and priority fee percentiles.",
+    );
 
     type Params = (EthUint64, BlockNumberOrPredefined, Option<Vec<f64>>);
     type Ok = EthFeeHistoryResult;
@@ -2105,7 +2157,7 @@ fn calculate_rewards_and_gas_used(
     let gas_used_total = tx_gas_rewards.iter().map(|i| i.gas_used).sum();
     let mut rewards = reward_percentiles
         .iter()
-        .map(|_| EthBigInt(MIN_GAS_PREMIUM.into()))
+        .map(|_| EthBigInt::from(MIN_GAS_PREMIUM))
         .collect_vec();
     if !tx_gas_rewards.is_empty() {
         tx_gas_rewards.sort_by(|a, b| a.premium.cmp(&b.premium));
@@ -2315,6 +2367,9 @@ impl RpcMethod<2> for EthGetTransactionCount {
     const PARAM_NAMES: [&'static str; 2] = ["sender", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the number of transactions sent from an address (its nonce) at the specified block state.",
+    );
 
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthUint64;
@@ -2371,6 +2426,9 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns an estimate of the priority fee per gas (tip) needed for timely inclusion, in attoFIL.",
+    );
 
     type Params = ();
     type Ok = EthBigInt;
@@ -2381,8 +2439,8 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         match gas::estimate_gas_premium(&ctx, 0, &ApiTipsetKey(None)).await {
-            Ok(gas_premium) => Ok(EthBigInt(gas_premium.atto().clone())),
-            Err(_) => Ok(EthBigInt(num_bigint::BigInt::zero())),
+            Ok(gas_premium) => Ok(gas_premium.atto().into()),
+            Err(_) => Ok(EthBigInt::default()),
         }
     }
 }
@@ -2394,6 +2452,9 @@ impl RpcMethod<0> for EthProtocolVersion {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the current Filecoin network version, reported as the Ethereum protocol version.",
+    );
 
     type Params = ();
     type Ok = EthUint64;
@@ -2466,6 +2527,8 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     const PARAM_NAMES: [&'static str; 2] = ["blockHash", "txIndex"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Retrieves a transaction by its block hash and index.");
 
     type Params = (EthHash, EthUint64);
     type Ok = Option<ApiEthTx>;
@@ -2510,6 +2573,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Retrieves a transaction by its hash.");
 
     type Params = (EthHash,);
     type Ok = Option<ApiEthTx>;
@@ -2530,6 +2594,9 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "limit"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves a transaction by its hash, limiting state resolution to the given chain epoch.",
+    );
 
     type Params = (EthHash, ChainEpoch);
     type Ok = Option<ApiEthTx>;
@@ -2632,6 +2699,8 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the Ethereum transaction hash for the given Filecoin message CID.");
 
     type Params = (Cid,);
     type Ok = Option<EthHash>;
@@ -2653,6 +2722,9 @@ impl RpcMethod<2> for EthCall {
     const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Executes a read-only message call against the given block state without creating an on-chain transaction, returning the call output.",
+    );
     type Params = (EthCallMessage, BlockNumberOrHash);
     type Ok = EthBytes;
     async fn handle(
@@ -2693,6 +2765,9 @@ impl RpcMethod<1> for EthNewFilter {
     const PARAM_NAMES: [&'static str; 1] = ["filterSpec"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Installs a persistent filter for matching event logs based on the given filter spec.",
+    );
 
     type Params = (EthFilterSpec,);
     type Ok = FilterID;
@@ -2715,6 +2790,8 @@ impl RpcMethod<0> for EthNewPendingTransactionFilter {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Installs a persistent filter that tracks new messages arriving in the message pool.");
 
     type Params = ();
     type Ok = FilterID;
@@ -2736,6 +2813,8 @@ impl RpcMethod<0> for EthNewBlockFilter {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Installs a persistent filter that tracks the arrival of new blocks.");
 
     type Params = ();
     type Ok = FilterID;
@@ -2758,6 +2837,7 @@ impl RpcMethod<1> for EthUninstallFilter {
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Uninstalls the filter with the given ID.");
 
     type Params = (FilterID,);
     type Ok = bool;
@@ -2780,6 +2860,8 @@ impl RpcMethod<0> for EthUnsubscribe {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Cancels an existing websocket subscription identified by its subscription ID.");
     const SUBSCRIPTION: bool = true;
 
     type Params = ();
@@ -2806,6 +2888,9 @@ impl RpcMethod<0> for EthSubscribe {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Creates a websocket subscription that streams events (new heads, pending transactions, or logs) to the client.",
+    );
     const SUBSCRIPTION: bool = true;
 
     type Params = ();
@@ -2948,6 +3033,8 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the receipt of a transaction identified by its hash.");
     type Params = (EthHash,);
     type Ok = Option<EthTxReceipt>;
     async fn handle(
@@ -2967,6 +3054,9 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "limit"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the receipt of a transaction identified by its hash, limiting state resolution to the given chain epoch.",
+    );
     type Params = (EthHash, ChainEpoch);
     type Ok = Option<EthTxReceipt>;
     async fn handle(
@@ -2985,6 +3075,9 @@ impl RpcMethod<1> for EthSendRawTransaction {
     const PARAM_NAMES: [&'static str; 1] = ["rawTx"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Submits a signed raw transaction to the message pool and returns its transaction hash.",
+    );
 
     type Params = (EthBytes,);
     type Ok = EthHash;
@@ -3008,6 +3101,9 @@ impl RpcMethod<1> for EthSendRawTransactionUntrusted {
     const PARAM_NAMES: [&'static str; 1] = ["rawTx"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Submits a signed raw transaction from an untrusted source to the message pool and returns its transaction hash.",
+    );
 
     type Params = (EthBytes,);
     type Ok = EthHash;
@@ -3269,6 +3365,8 @@ impl RpcMethod<1> for EthGetLogs {
     const PARAM_NAMES: [&'static str; 1] = ["ethFilter"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns event logs matching the given filter specification.");
     type Params = (EthFilterSpec,);
     type Ok = EthFilterResult;
     async fn handle(
@@ -3305,6 +3403,9 @@ impl RpcMethod<1> for EthGetFilterLogs {
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns event logs matching the filter with the given ID that have not been collected since the last poll.",
+    );
     type Params = (FilterID,);
     type Ok = EthFilterResult;
     async fn handle(
@@ -4102,11 +4203,11 @@ mod test {
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
-        let r = EthBigInt(i.into());
+        let r = EthBigInt(ethereum_types::U256::from(i));
         let encoded = serde_json::to_string(&r).unwrap();
         assert_eq!(encoded, format!("\"{i:#x}\""));
         let decoded: EthBigInt = serde_json::from_str(&encoded).unwrap();
-        assert_eq!(r.0, decoded.0);
+        assert_eq!(r, decoded);
     }
 
     /// `transactionPosition` must be 0-indexed and system-actor messages must

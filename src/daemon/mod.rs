@@ -371,7 +371,7 @@ fn maybe_prefill_rpc_caches(
         services.spawn(async move {
             loop {
                 match validated_tipset_rx.recv().await {
-                    Ok(_) if !sync_status.read().is_synced() => {
+                    Ok(_) if !sync_status.load().is_synced() => {
                         // Skip if the node is catching up to avoid unnecessary work, as the head may be changing rapidly.
                         continue;
                     }

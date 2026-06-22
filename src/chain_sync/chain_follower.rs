@@ -34,10 +34,11 @@ use crate::{
     shim::clock::ChainEpoch,
     state_manager::StateManager,
 };
+use arc_swap::ArcSwap;
 use chrono::Utc;
 use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use std::time::{Duration, Instant};
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
@@ -136,7 +137,7 @@ impl ChainFollower {
         Self {
             tasks,
             state_machine,
-            sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
+            sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
             state_manager,
             network,
             genesis,
@@ -326,14 +327,13 @@ async fn chain_follower(
 
                 // Update the sync states
                 {
-                    let old_status_report = sync_status.read().clone();
+                    let old_status_report = sync_status.load().shallow_clone();
                     let new_status_report = old_status_report.update(
                         &state_manager,
                         current_active_forks,
                         stateless_mode,
                     );
-
-                    sync_status.write().clone_from(&new_status_report);
+                    sync_status.store(new_status_report.into());
                 }
 
                 for task in task_vec {

@@ -23,6 +23,7 @@ use crate::{
     state_manager::StateManager,
 };
 use anyhow::Context as _;
+use arc_swap::ArcSwap;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -170,7 +171,7 @@ async fn ctx(
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: message_pool,
         bad_blocks: Default::default(),
-        sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
+        sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         start_time: chrono::Utc::now(),
