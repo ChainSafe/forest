@@ -47,8 +47,7 @@ impl RpcMethod<1> for SyncMarkBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Marks the block with the given CID as bad in the bad-block cache.");
+    const DESCRIPTION: Option<&'static str> = Some("Marks the block with the given CID as bad.");
 
     type Params = (Cid,);
     type Ok = ();
