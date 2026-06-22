@@ -1285,7 +1285,7 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the minimum parent base fee across the given number of lookback tipsets, in attoFIL.",
+        "Returns the minimum base fee across the given number of lookback tipsets, in attoFIL.",
     );
 
     type Params = (u32,);
