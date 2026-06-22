@@ -444,11 +444,9 @@ methods:
           $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthGetBlockReceipts.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthTxReceipt"
     paramStructure: by-position
@@ -461,11 +459,9 @@ methods:
           $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: eth_getBlockReceipts.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthTxReceipt"
     paramStructure: by-position
@@ -483,11 +479,9 @@ methods:
           format: int64
     result:
       name: Filecoin.EthGetBlockReceiptsLimited.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthTxReceipt"
     paramStructure: by-position
@@ -505,11 +499,9 @@ methods:
           format: int64
     result:
       name: eth_getBlockReceiptsLimited.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthTxReceipt"
     paramStructure: by-position
@@ -1216,11 +1208,9 @@ methods:
           $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: Filecoin.EthTraceBlock.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
@@ -1233,11 +1223,9 @@ methods:
           $ref: "#/components/schemas/BlockNumberOrHash"
     result:
       name: trace_block.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
@@ -1296,11 +1284,9 @@ methods:
           $ref: "#/components/schemas/EthTraceFilterCriteria"
     result:
       name: Filecoin.EthTraceFilter.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
@@ -1313,11 +1299,9 @@ methods:
           $ref: "#/components/schemas/EthTraceFilterCriteria"
     result:
       name: trace_filter.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
@@ -1330,11 +1314,9 @@ methods:
           type: string
     result:
       name: Filecoin.EthTraceTransaction.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
@@ -1347,11 +1329,9 @@ methods:
           type: string
     result:
       name: trace_transaction.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthBlockTrace"
     paramStructure: by-position
@@ -1410,11 +1390,9 @@ methods:
             type: string
     result:
       name: Filecoin.EthTraceReplayBlockTransactions.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthReplayBlockTransactionTrace"
     paramStructure: by-position
@@ -1435,11 +1413,9 @@ methods:
             type: string
     result:
       name: trace_replayBlockTransactions.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           $ref: "#/components/schemas/EthReplayBlockTransactionTrace"
     paramStructure: by-position

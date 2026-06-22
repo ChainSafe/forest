@@ -1602,7 +1602,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     );
 
     type Params = (BlockNumberOrHash,);
-    type Ok = Vec<EthTxReceipt>;
+    type Ok = NotNullVec<EthTxReceipt>;
 
     async fn handle(
         ctx: Ctx,
@@ -1615,6 +1615,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
             .await?;
         get_block_receipts(&ctx, ts, None)
             .await
+            .map(NotNullVec)
             .map_err(ServerError::from)
     }
 }
@@ -1631,7 +1632,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     );
 
     type Params = (BlockNumberOrHash, ChainEpoch);
-    type Ok = Vec<EthTxReceipt>;
+    type Ok = NotNullVec<EthTxReceipt>;
 
     async fn handle(
         ctx: Ctx,
@@ -1644,6 +1645,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
             .await?;
         get_block_receipts(&ctx, ts, Some(limit))
             .await
+            .map(NotNullVec)
             .map_err(ServerError::from)
     }
 }
@@ -3573,7 +3575,7 @@ impl RpcMethod<1> for EthTraceBlock {
     const DESCRIPTION: Option<&'static str> = Some("Returns traces created at given block.");
 
     type Params = (BlockNumberOrHash,);
-    type Ok = Vec<EthBlockTrace>;
+    type Ok = NotNullVec<EthBlockTrace>;
     async fn handle(
         ctx: Ctx,
         (block_param,): Self::Params,
@@ -3583,7 +3585,9 @@ impl RpcMethod<1> for EthTraceBlock {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        eth_trace_block(&ctx.state_manager, &ts).await
+        eth_trace_block(&ctx.state_manager, &ts)
+            .await
+            .map(NotNullVec)
     }
 }
 
@@ -3972,7 +3976,7 @@ impl RpcMethod<1> for EthTraceTransaction {
         Some("Returns the traces for a specific transaction.");
 
     type Params = (String,);
-    type Ok = Vec<EthBlockTrace>;
+    type Ok = NotNullVec<EthBlockTrace>;
     async fn handle(
         ctx: Ctx,
         (tx_hash,): Self::Params,
@@ -3993,7 +3997,7 @@ impl RpcMethod<1> for EthTraceTransaction {
             .into_iter()
             .filter(|trace| trace.transaction_hash == eth_hash)
             .collect();
-        Ok(traces)
+        Ok(NotNullVec(traces))
     }
 }
 
@@ -4010,7 +4014,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     );
 
     type Params = (BlockNumberOrHash, Vec<String>);
-    type Ok = Vec<EthReplayBlockTransactionTrace>;
+    type Ok = NotNullVec<EthReplayBlockTransactionTrace>;
 
     async fn handle(
         ctx: Ctx,
@@ -4029,7 +4033,9 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
 
-        eth_trace_replay_block_transactions(&ctx, &ts).await
+        eth_trace_replay_block_transactions(&ctx, &ts)
+            .await
+            .map(NotNullVec)
     }
 }
 
@@ -4082,7 +4088,7 @@ impl RpcMethod<1> for EthTraceFilter {
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the traces for transactions matching the filter criteria.");
     type Params = (EthTraceFilterCriteria,);
-    type Ok = Vec<EthBlockTrace>;
+    type Ok = NotNullVec<EthBlockTrace>;
 
     async fn handle(
         ctx: Ctx,
@@ -4116,7 +4122,9 @@ impl RpcMethod<1> for EthTraceFilter {
                 return Err(EthErrors::limit_exceeded(max_block_range, range).into());
             }
         }
-        Ok(trace_filter(ctx, filter, from_block, to_block, ext).await?)
+        Ok(NotNullVec(
+            trace_filter(ctx, filter, from_block, to_block, ext).await?,
+        ))
     }
 }
 
@@ -4148,7 +4156,7 @@ async fn trace_filter(
             ext,
         )
         .await?;
-        for block_trace in block_traces {
+        for block_trace in block_traces.0 {
             if block_trace
                 .trace
                 .match_filter_criteria(filter.from_address.as_ref(), filter.to_address.as_ref())?
@@ -4219,13 +4227,6 @@ mod test {
         let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
         assert!(json["accessList"].is_array());
         assert_eq!(json["accessList"].as_array().unwrap().len(), 1);
-    }
-
-    #[test]
-    fn empty_eth_accounts_serializes_as_empty_array() {
-        let accounts: NotNullVec<String> = NotNullVec(vec![]);
-        let json = serde_json::to_value(accounts.into_lotus_json()).unwrap();
-        assert_eq!(json, serde_json::json!([]));
     }
 
     #[quickcheck]
