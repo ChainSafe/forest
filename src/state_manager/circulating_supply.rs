@@ -133,7 +133,11 @@ impl GenesisInfo {
             .get_or_insert_with(ts.key(), || {
                 anyhow::Ok(
                     self.get_state_circulating_supply_raw(height, db, root)
-                        .map_err(|e| e.to_string()),
+                        .map_err(|e| {
+                            let mut e = e.to_string();
+                            e.truncate(100); // To make error size bounded
+                            e
+                        }),
                 )
             })?
             .map_err(|e| anyhow::anyhow!(e))
