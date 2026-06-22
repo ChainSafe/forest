@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::LazyLock;
+
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
 use crate::prelude::*;
@@ -111,11 +114,41 @@ impl GenesisInfo {
     }
 
     /// Calculate total FIL circulating supply based on state, traversing the state tree and
+    /// checking Actor types. This can be a lengthy operation so cache it's used.
+    ///
+    /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_vm_circulating_supply`], that's being
+    /// calculated differently.
+    pub fn get_state_circulating_supply_with_cache(
+        &self,
+        db: &(impl Blockstore + ShallowClone),
+        ts: &Tipset,
+    ) -> anyhow::Result<TokenAmount> {
+        static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, Result<TokenAmount, String>>> =
+            LazyLock::new(|| quick_cache::sync::Cache::new(120)); // 120 for 1h-worth epochs
+
+        let height = ts.epoch() - 1;
+        let root = ts.parent_state();
+
+        CACHE
+            .get_or_insert_with(ts.key(), || {
+                anyhow::Ok(
+                    self.get_state_circulating_supply_raw(height, db, root)
+                        .map_err(|e| {
+                            let mut e = e.to_string();
+                            e.truncate(100); // To make error size bounded
+                            e
+                        }),
+                )
+            })?
+            .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    /// Calculate total FIL circulating supply based on state, traversing the state tree and
     /// checking Actor types. This can be a lengthy operation.
     ///
     /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_vm_circulating_supply`], that's being
     /// calculated differently.
-    pub fn get_state_circulating_supply(
+    pub fn get_state_circulating_supply_raw(
         &self,
         height: ChainEpoch,
         db: &(impl Blockstore + ShallowClone),
@@ -140,7 +173,8 @@ impl GenesisInfo {
                     | Address::BURNT_FUNDS_ACTOR
                     | Address::SAFT_ACTOR
                     | Address::RESERVE_ACTOR
-                    | Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR => {
+                    | Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
+                    | Address::DATACAP_TOKEN_ACTOR => {
                         un_circ += actor_balance;
                     }
                     Address::MARKET_ACTOR => {
@@ -181,7 +215,7 @@ impl GenesisInfo {
                         circ += avail_balance.max(TokenAmount::zero());
                         un_circ += actor_balance.min(locked_balance);
                     }
-                    _ => bail!("unexpected actor: {:?}", actor),
+                    _ => bail!("unexpected actor at epoch {height}: {actor:?}"),
                 }
             } else {
                 // Do nothing for zero-balance actors
