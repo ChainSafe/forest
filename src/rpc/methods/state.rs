@@ -1926,10 +1926,8 @@ impl RpcMethod<1> for StateCirculatingSupply {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let height = ts.epoch();
-        let root = ts.parent_state();
-        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
-        let supply = genesis_info.get_state_circulating_supply(height - 1, ctx.db(), root)?;
+        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().shallow_clone());
+        let supply = genesis_info.get_state_circulating_supply_with_cache(ctx.db(), &ts)?;
         Ok(supply)
     }
 }
