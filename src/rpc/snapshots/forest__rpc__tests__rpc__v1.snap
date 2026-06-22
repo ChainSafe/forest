@@ -170,7 +170,7 @@ methods:
           $ref: "#/components/schemas/ApiMessage"
     paramStructure: by-position
   - name: Forest.ChainGetMinBaseFee
-    description: "Returns the minimum parent base fee across the given number of lookback tipsets, in attoFIL."
+    description: "Returns the minimum base fee across the given number of lookback tipsets, in attoFIL."
     params:
       - name: lookback
         required: true
