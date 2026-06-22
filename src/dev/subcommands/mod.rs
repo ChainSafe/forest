@@ -71,7 +71,7 @@ impl Subcommand {
 async fn fetch_test_snapshots(actor_bundle: Option<PathBuf>) -> anyhow::Result<()> {
     // Prepare proof parameter files
     crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
-        &crate::Config::default().client.data_dir,
+        &crate::cli_shared::default_data_dir(),
     );
     ensure_proof_params_downloaded().await?;
 
