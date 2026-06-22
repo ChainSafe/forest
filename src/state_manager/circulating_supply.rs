@@ -124,7 +124,7 @@ impl GenesisInfo {
         ts: &Tipset,
     ) -> anyhow::Result<TokenAmount> {
         static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, Result<TokenAmount, String>>> =
-            LazyLock::new(|| quick_cache::sync::Cache::new(8));
+            LazyLock::new(|| quick_cache::sync::Cache::new(120)); // 120 for 1h-worth epochs
 
         let height = ts.epoch() - 1;
         let root = ts.parent_state();
