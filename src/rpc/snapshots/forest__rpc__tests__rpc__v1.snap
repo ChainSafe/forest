@@ -4214,6 +4214,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: F3.GetRawNetworkName
+    description: Returns the raw (genesis) network name.
     params: []
     result:
       name: F3.GetRawNetworkName.Result
@@ -4222,6 +4223,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.F3GetCertificate
+    description: Returns the finality certificate for the given F3 instance.
     params:
       - name: instance
         required: true
@@ -4236,6 +4238,7 @@ methods:
         $ref: "#/components/schemas/FinalityCertificate"
     paramStructure: by-position
   - name: Filecoin.F3GetECPowerTable
+    description: Returns the Expected Consensus power table at the given tipset (defaults to the chain head).
     params:
       - name: tipsetKey
         required: true
@@ -4256,6 +4259,7 @@ methods:
           $ref: "#/components/schemas/F3PowerEntryLotusJson"
     paramStructure: by-position
   - name: Filecoin.F3GetF3PowerTable
+    description: "Returns F3's power table at the given tipset (defaults to the chain head)."
     params:
       - name: tipsetKey
         required: true
@@ -4295,6 +4299,7 @@ methods:
           $ref: "#/components/schemas/F3PowerEntryLotusJson"
     paramStructure: by-position
   - name: Filecoin.F3IsRunning
+    description: Returns whether the F3 subsystem is currently running.
     params: []
     result:
       name: Filecoin.F3IsRunning.Result
@@ -4303,6 +4308,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Filecoin.F3GetProgress
+    description: "Returns the progress (instance, round, and phase) of the running F3 instance."
     params: []
     result:
       name: Filecoin.F3GetProgress.Result
@@ -4311,6 +4317,7 @@ methods:
         $ref: "#/components/schemas/F3InstanceProgress"
     paramStructure: by-position
   - name: Filecoin.F3GetManifest
+    description: "Returns the current F3 manifest (the network's F3 configuration)."
     params: []
     result:
       name: Filecoin.F3GetManifest.Result
@@ -4319,6 +4326,7 @@ methods:
         $ref: "#/components/schemas/F3Manifest"
     paramStructure: by-position
   - name: Filecoin.F3ListParticipants
+    description: Returns the miners currently participating in F3 through this node.
     params: []
     result:
       name: Filecoin.F3ListParticipants.Result
@@ -4331,6 +4339,7 @@ methods:
           $ref: "#/components/schemas/F3Participant"
     paramStructure: by-position
   - name: Filecoin.F3GetLatestCertificate
+    description: Returns the latest F3 finality certificate.
     params: []
     result:
       name: Filecoin.F3GetLatestCertificate.Result
@@ -4339,6 +4348,7 @@ methods:
         $ref: "#/components/schemas/FinalityCertificate"
     paramStructure: by-position
   - name: Filecoin.F3GetOrRenewParticipationTicket
+    description: "Returns a new or renewed F3 participation ticket for the given miner, valid for the requested number of instances."
     params:
       - name: minerAddress
         required: true
@@ -4361,6 +4371,7 @@ methods:
         $ref: "#/components/schemas/Base64String"
     paramStructure: by-position
   - name: Filecoin.F3Participate
+    description: "Enrolls a miner in F3 consensus using the given participation ticket, granting a temporary signing lease."
     params:
       - name: leaseTicket
         required: true
@@ -4386,6 +4397,7 @@ methods:
         $ref: "#/components/schemas/Cid"
     paramStructure: by-position
   - name: F3.GetHead
+    description: Returns the current chain head as an F3 tipset.
     params: []
     result:
       name: F3.GetHead.Result
@@ -4394,6 +4406,7 @@ methods:
         $ref: "#/components/schemas/F3TipSet"
     paramStructure: by-position
   - name: F3.GetParent
+    description: Returns the parent of the tipset with the given F3 tipset key.
     params:
       - name: tipsetKey
         required: true
@@ -4406,6 +4419,7 @@ methods:
         $ref: "#/components/schemas/F3TipSet"
     paramStructure: by-position
   - name: F3.GetParticipatingMinerIDs
+    description: Returns the IDs of the miners currently participating in F3 through this node.
     params: []
     result:
       name: F3.GetParticipatingMinerIDs.Result
@@ -4420,6 +4434,7 @@ methods:
           minimum: 0
     paramStructure: by-position
   - name: F3.GetPowerTable
+    description: Returns the power table (the participating miners and their power) at the given tipset.
     params:
       - name: tipsetKey
         required: true
@@ -4436,6 +4451,7 @@ methods:
           $ref: "#/components/schemas/F3PowerEntryLotusJson"
     paramStructure: by-position
   - name: F3.GetTipset
+    description: Returns the tipset with the given F3 tipset key.
     params:
       - name: tipsetKey
         required: true
@@ -4448,6 +4464,7 @@ methods:
         $ref: "#/components/schemas/F3TipSet"
     paramStructure: by-position
   - name: F3.GetTipsetByEpoch
+    description: Returns the tipset at the given epoch.
     params:
       - name: epoch
         required: true
@@ -4461,6 +4478,7 @@ methods:
         $ref: "#/components/schemas/F3TipSet"
     paramStructure: by-position
   - name: F3.Finalize
+    description: "Marks the given tipset as F3-finalized, resetting the chain head to it when appropriate."
     params:
       - name: tipsetKey
         required: true
@@ -4473,6 +4491,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: F3.ProtectPeer
+    description: Protects the given peer from connection pruning.
     params:
       - name: peerId
         required: true
@@ -4485,6 +4504,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: F3.SignMessage
+    description: Signs a message with the private key corresponding to the given BLS public key.
     params:
       - name: pubkey
         required: true

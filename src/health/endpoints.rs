@@ -95,7 +95,7 @@ pub(crate) async fn healthz(
 
 fn check_sync_status_synced(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_status.read().status == NodeSyncStatus::Synced {
+    if state.sync_status.load().status == NodeSyncStatus::Synced {
         acc.push_ok("sync complete");
         true
     } else {
@@ -106,7 +106,7 @@ fn check_sync_status_synced(state: &ForestState, acc: &mut MessageAccumulator) -
 
 fn check_sync_status_not_error(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_status.read().status != NodeSyncStatus::Error {
+    if state.sync_status.load().status != NodeSyncStatus::Error {
         acc.push_ok("sync ok");
         true
     } else {
@@ -128,7 +128,7 @@ fn check_epoch_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> 
     );
 
     // The current epoch of the node must be not too far behind the network
-    if state.sync_status.read().current_head_epoch >= now_epoch - MAX_EPOCH_DIFF {
+    if state.sync_status.load().current_head_epoch >= now_epoch - MAX_EPOCH_DIFF {
         acc.push_ok("epoch up to date");
         true
     } else {
@@ -181,7 +181,7 @@ async fn check_f3_running(state: &ForestState, acc: &mut MessageAccumulator) -> 
         acc.push_ok("f3 running");
         true
     } else if crate::f3::get_f3_sidecar_params(&state.chain_config).bootstrap_epoch
-        > state.sync_status.read().network_head_epoch
+        > state.sync_status.load().network_head_epoch
     {
         acc.push_ok("f3 pending activation");
         true
