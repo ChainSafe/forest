@@ -23,6 +23,7 @@ use crate::{
     state_manager::StateManager,
 };
 use anyhow::Context as _;
+use arc_swap::ArcSwap;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -170,7 +171,7 @@ async fn ctx(
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: message_pool,
         bad_blocks: Default::default(),
-        sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
+        sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         start_time: chrono::Utc::now(),
@@ -202,7 +203,6 @@ pub(super) async fn drain_mpool_services(mut services: JoinSet<anyhow::Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Config;
     use crate::utils::proofs_api::ensure_proof_params_downloaded;
     use ahash::HashSet;
     use std::sync::LazyLock;
@@ -228,7 +228,7 @@ mod tests {
         LazyLock::force(&INIT_RNG_SEED);
         tokio::time::timeout(RPC_REGRESSION_TEST_TIMEOUT, async {
             crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
-                &Config::default().client.data_dir,
+                &crate::cli_shared::default_data_dir(),
             );
             ensure_proof_params_downloaded().await.unwrap();
             let path = crate::dev::subcommands::fetch_rpc_test_snapshot(name.into())

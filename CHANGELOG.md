@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6008](https://github.com/ChainSafe/forest/issues/6008): Added the `FOREST_PATH` environment variable to override the Forest data directory (taking precedence over the configuration file and the default), mirroring Lotus' `LOTUS_PATH`. It is honored by all `forest*` binaries, so `forest-cli`/`forest-tool` read the JWT admin token from the same directory. The resolved data directory is now logged on daemon startup.
+
 - [#7168](https://github.com/ChainSafe/forest/pull/7168): Added the `FOREST_RPC_METRICS_DISABLED` environment variable to disable JSON-RPC per-method metrics while leaving other metrics intact.
 
 - [#7195](https://github.com/ChainSafe/forest/pull/7195): Added the `rpc_in_flight_requests` metric reporting the number of JSON-RPC requests currently being processed.
@@ -40,6 +42,10 @@
 ### Removed
 
 ### Fixed
+
+- [#7194](https://github.com/ChainSafe/forest/pull/7194): Added `UpgradeXxHeight` placeholder for the NV29 network upgrade.
+
+- [#7211](https://github.com/ChainSafe/forest/pull/7211): Fixed `forest-wallet` to allow using the unencrypted keystore with `--encrypt false` when an encrypted keystore also exists.
 
 - [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
 
