@@ -140,7 +140,9 @@ impl GenesisInfo {
                     | Address::BURNT_FUNDS_ACTOR
                     | Address::SAFT_ACTOR
                     | Address::RESERVE_ACTOR
-                    | Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR => {
+                    | Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
+                    | Address::DATACAP_TOKEN_ACTOR
+                     => {
                         un_circ += actor_balance;
                     }
                     Address::MARKET_ACTOR => {
