@@ -74,11 +74,9 @@ methods:
     params: []
     result:
       name: Filecoin.EthAccounts.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           type: string
     paramStructure: by-position
@@ -87,11 +85,9 @@ methods:
     params: []
     result:
       name: eth_accounts.Result
-      required: false
+      required: true
       schema:
-        type:
-          - array
-          - "null"
+        type: array
         items:
           type: string
     paramStructure: by-position
@@ -1686,9 +1682,7 @@ components:
       type: object
       properties:
         accessList:
-          type:
-            - array
-            - "null"
+          type: array
           items:
             $ref: "#/components/schemas/EthHash"
         blockHash:
@@ -1747,6 +1741,7 @@ components:
         - type
         - input
         - gas
+        - accessList
         - v
         - r
         - s

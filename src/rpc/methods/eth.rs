@@ -26,7 +26,7 @@ use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
 };
-use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
+use crate::lotus_json::{HasLotusJson, NotNullVec, lotus_json_with_self};
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
 use crate::networks::Height;
 use crate::prelude::*;
@@ -642,9 +642,9 @@ pub struct ApiEthTx {
     pub max_priority_fee_per_gas: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub gas_price: Option<EthBigInt>,
-    #[schemars(with = "Option<Vec<EthHash>>")]
+    #[schemars(with = "Vec<EthHash>")]
     #[serde(with = "crate::lotus_json")]
-    pub access_list: Vec<EthHash>,
+    pub access_list: NotNullVec<EthHash>,
     pub v: EthBigInt,
     pub r: EthBigInt,
     pub s: EthBigInt,
@@ -846,7 +846,7 @@ impl RpcMethod<0> for EthAccounts {
     );
 
     type Params = ();
-    type Ok = Vec<String>;
+    type Ok = NotNullVec<String>;
 
     async fn handle(
         _: Ctx,
@@ -854,7 +854,7 @@ impl RpcMethod<0> for EthAccounts {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // EthAccounts will always return [] since we don't expect Forest to manage private keys
-        Ok(vec![])
+        Ok(NotNullVec(vec![]))
     }
 }
 
@@ -1263,7 +1263,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         gas: EthUint64(msg.gas_limit),
         max_fee_per_gas: Some(msg.gas_fee_cap.clone().into()),
         max_priority_fee_per_gas: Some(msg.gas_premium.clone().into()),
-        access_list: vec![],
+        access_list: NotNullVec(vec![]),
         ..ApiEthTx::default()
     })
 }
@@ -4200,6 +4200,32 @@ mod test {
             let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
             Self(ethereum_types::H256(arr))
         }
+    }
+
+    #[test]
+    fn empty_access_list_serializes_as_empty_array() {
+        let tx = ApiEthTx::default();
+        assert!(tx.access_list.0.is_empty());
+        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
+        assert_eq!(json["accessList"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn populated_access_list_serializes_as_array() {
+        let tx = ApiEthTx {
+            access_list: NotNullVec(vec![EthHash::default()]),
+            ..Default::default()
+        };
+        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
+        assert!(json["accessList"].is_array());
+        assert_eq!(json["accessList"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn empty_eth_accounts_serializes_as_empty_array() {
+        let accounts: NotNullVec<String> = NotNullVec(vec![]);
+        let json = serde_json::to_value(accounts.into_lotus_json()).unwrap();
+        assert_eq!(json, serde_json::json!([]));
     }
 
     #[quickcheck]
