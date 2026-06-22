@@ -118,7 +118,7 @@ mod test {
                 .as_ref()
                 .clone()
                 .with_status(NodeSyncStatus::Synced)
-                .current_head_epoch(i64::MAX)
+                .with_current_head_epoch(i64::MAX)
                 .into(),
         );
 
@@ -141,7 +141,7 @@ mod test {
                 .as_ref()
                 .clone()
                 .with_status(NodeSyncStatus::Error)
-                .current_head_epoch(0)
+                .with_current_head_epoch(0)
                 .into(),
         );
 
@@ -295,7 +295,7 @@ mod test {
                 .as_ref()
                 .clone()
                 .with_status(NodeSyncStatus::Syncing)
-                .current_head_epoch(i64::MAX)
+                .with_current_head_epoch(i64::MAX)
                 .into(),
         );
         let peer = libp2p::PeerId::random();
@@ -321,7 +321,7 @@ mod test {
                 .as_ref()
                 .clone()
                 .with_status(NodeSyncStatus::Error)
-                .current_head_epoch(0)
+                .with_current_head_epoch(0)
                 .into(),
         );
         peer_manager.remove_peer(&peer);
