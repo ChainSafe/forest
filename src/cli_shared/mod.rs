@@ -82,20 +82,55 @@ mod tests {
         assert_eq!(config.chain(), &NetworkChain::Butterflynet);
     }
 
+    /// Restores [`FOREST_PATH_ENV`] to its prior value (or unsets it) on drop,
+    /// so cleanup runs even if the test panics.
+    struct EnvGuard(Option<String>);
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            // SAFETY: tests touching the process environment are gated by `#[serial]`.
+            unsafe {
+                match self.0.take() {
+                    Some(prev) => std::env::set_var(FOREST_PATH_ENV, prev),
+                    None => std::env::remove_var(FOREST_PATH_ENV),
+                }
+            }
+        }
+    }
+
     #[test]
     #[serial_test::serial]
     fn read_config_forest_path_env_override() {
         let temp_dir = tempfile::tempdir().expect("couldn't create temp dir");
+        let _guard = EnvGuard(std::env::var(FOREST_PATH_ENV).ok());
         // SAFETY: tests touching the process environment are gated by `#[serial]`.
         unsafe {
             std::env::set_var(FOREST_PATH_ENV, temp_dir.path());
         }
         let (_, config) = read_config(None, None).unwrap();
+        assert_eq!(config.client.data_dir, temp_dir.path());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn forest_path_from_env_empty_is_none() {
+        let _guard = EnvGuard(std::env::var(FOREST_PATH_ENV).ok());
+        // SAFETY: tests touching the process environment are gated by `#[serial]`.
+        unsafe {
+            std::env::set_var(FOREST_PATH_ENV, "");
+        }
+        assert!(forest_path_from_env().is_none());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn forest_path_from_env_unset_is_none() {
+        let _guard = EnvGuard(std::env::var(FOREST_PATH_ENV).ok());
         // SAFETY: tests touching the process environment are gated by `#[serial]`.
         unsafe {
             std::env::remove_var(FOREST_PATH_ENV);
         }
-        assert_eq!(config.client.data_dir, temp_dir.path());
+        assert!(forest_path_from_env().is_none());
     }
 
     #[test]
