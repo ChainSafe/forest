@@ -283,12 +283,13 @@ mod tests {
 
         // update cloned state
         st_copy.store(
-            SyncStatusReport {
-                status: NodeSyncStatus::Syncing,
-                current_head_epoch: 4,
-                ..Arc::unwrap_or_clone(st_copy.load().clone())
-            }
-            .into(),
+            st_copy
+                .load()
+                .as_ref()
+                .clone()
+                .with_status(NodeSyncStatus::Syncing)
+                .with_current_head_epoch(4)
+                .into(),
         );
 
         let sync_status = SyncStatus::handle(ctx.clone(), (), &Default::default())

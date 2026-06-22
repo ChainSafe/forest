@@ -200,4 +200,16 @@ impl SyncStatusReport {
             .map(|fork_info| fork_info.target_sync_epoch_start)
             .min()
     }
+
+    #[cfg(test)]
+    pub fn with_status(mut self, status: NodeSyncStatus) -> Self {
+        self.status = status;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_current_head_epoch(mut self, current_head_epoch: ChainEpoch) -> Self {
+        self.current_head_epoch = current_head_epoch;
+        self
+    }
 }
