@@ -22,6 +22,7 @@ use crate::{
     state_manager::StateManager,
 };
 use api_compare_tests::TestDump;
+use arc_swap::ArcSwap;
 use fvm_shared4::address::Network;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
@@ -141,7 +142,7 @@ async fn ctx(
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: message_pool,
         bad_blocks: Default::default(),
-        sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
+        sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         start_time: chrono::Utc::now(),
