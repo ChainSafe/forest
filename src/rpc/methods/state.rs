@@ -163,6 +163,8 @@ impl RpcMethod<0> for StateNetworkName {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the name of the network the node is synced to.");
 
     type Params = ();
     type Ok = String;
@@ -1200,6 +1202,9 @@ impl RpcMethod<2> for StateGetReceipt {
     const PARAM_NAMES: [&'static str; 2] = ["cid", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // deprecated in V1
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the receipt for the message with the given CID at the specified tipset (deprecated in V1).",
+    );
 
     type Params = (Cid, ApiTipsetKey);
     type Ok = Receipt;
@@ -1225,6 +1230,9 @@ impl RpcMethod<2> for StateWaitMsgV0 {
     const PARAM_NAMES: [&'static str; 2] = ["messageCid", "confidence"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Searches the chain for the given message and, if not found, blocks until it appears on-chain and reaches the required confidence depth.",
+    );
 
     type Params = (Cid, i64);
     type Ok = MessageLookup;
@@ -1401,6 +1409,9 @@ impl RpcMethod<2> for StateFetchRoot {
     const PARAM_NAMES: [&'static str; 2] = ["rootCid", "saveToFile"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Traverses the IPLD graph under the given root CID, fetching any missing nodes over the network, and optionally writes them to a CAR file.",
+    );
 
     type Params = (Cid, Option<PathBuf>);
     type Ok = String;
@@ -2206,6 +2217,9 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the on-chain pre-commit information for the given miner's sector, erroring if the sector is not precommitted.",
+    );
 
     type Params = (Address, u64, ApiTipsetKey);
     type Ok = SectorPreCommitOnChainInfo;
@@ -3316,6 +3330,9 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
     ];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset.",
+    );
 
     type Params = (ChainEpoch, SectorSize, u64, ApiTipsetKey);
     type Ok = TokenAmount;

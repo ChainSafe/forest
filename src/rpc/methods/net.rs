@@ -86,6 +86,8 @@ impl RpcMethod<1> for NetFindPeer {
     const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the known addresses of the peer with the given peer ID.");
 
     type Params = (String,);
     type Ok = AddrInfo;
@@ -117,6 +119,8 @@ impl RpcMethod<0> for NetListening {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_listening");
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns whether the node is listening for network connections (always `true`).");
 
     type Params = ();
     type Ok = bool;
@@ -136,6 +140,8 @@ impl RpcMethod<0> for NetInfo {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns peer and connection statistics for the node's libp2p network.");
 
     type Params = ();
     type Ok = NetInfoResult;
@@ -253,6 +259,8 @@ impl RpcMethod<0> for NetAutoNatStatus {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the node's AutoNAT reachability status and observed public addresses.");
 
     type Params = ();
     type Ok = NatStatusResult;
@@ -279,6 +287,8 @@ impl RpcMethod<0> for NetVersion {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_version");
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the current network ID (the EIP-155 chain ID) as a decimal string.");
 
     type Params = ();
     type Ok = Arc<str>;

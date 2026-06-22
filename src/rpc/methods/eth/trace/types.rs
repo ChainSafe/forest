@@ -832,7 +832,6 @@ lotus_json_with_self!(StateDiff);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_bigint::BigInt;
     use rstest::rstest;
 
     #[test]
@@ -916,7 +915,7 @@ mod tests {
 
         assert!(
             !AccountState {
-                balance: Some(EthBigInt(BigInt::from(100))),
+                balance: Some(EthBigInt::from(100)),
                 ..Default::default()
             }
             .is_empty()
@@ -949,7 +948,7 @@ mod tests {
     #[test]
     fn test_account_state_retain_changed_strips_identical_fields() {
         let pre = AccountState {
-            balance: Some(EthBigInt(num::BigInt::from(1000))),
+            balance: Some(EthBigInt::from(1000)),
             nonce: Some(EthUint64(5)),
             code: Some(EthBytes(vec![0x60])),
             storage: BTreeMap::new(),
@@ -964,24 +963,21 @@ mod tests {
     #[test]
     fn test_account_state_retain_changed_keeps_different_fields() {
         let pre = AccountState {
-            balance: Some(EthBigInt(num::BigInt::from(1000))),
+            balance: Some(EthBigInt::from(1000)),
             nonce: Some(EthUint64(5)),
             code: Some(EthBytes(vec![0x60])),
             storage: BTreeMap::new(),
         };
 
         let mut post = AccountState {
-            balance: Some(EthBigInt(BigInt::from(2000))), // changed
-            nonce: Some(EthUint64(5)),                    // same
-            code: Some(EthBytes(vec![0x60, 0x80])),       // changed
+            balance: Some(EthBigInt::from(2000)),   // changed
+            nonce: Some(EthUint64(5)),              // same
+            code: Some(EthBytes(vec![0x60, 0x80])), // changed
             storage: BTreeMap::new(),
         };
 
         post.retain_changed(&pre);
-        assert!(
-            post.balance
-                .is_some_and(|b| b.eq(&EthBigInt(BigInt::from(2000))))
-        );
+        assert!(post.balance.is_some_and(|b| b.eq(&EthBigInt::from(2000))));
         assert!(post.nonce.is_none()); // stripped
         assert!(post.code.is_some_and(|b| b.eq(&EthBytes(vec![0x60, 0x80]))));
     }
@@ -1031,7 +1027,7 @@ mod tests {
         assert!(AccountDiff::default().is_unchanged());
         assert!(
             !AccountDiff {
-                balance: Delta::Added(EthBigInt(num::BigInt::from(1))),
+                balance: Delta::Added(EthBigInt::from(1)),
                 ..Default::default()
             }
             .is_unchanged()
@@ -1062,7 +1058,7 @@ mod tests {
         assert!(sd.0.is_empty());
         // Changed diff is inserted
         let changed = AccountDiff {
-            balance: Delta::Added(EthBigInt(num::BigInt::from(100))),
+            balance: Delta::Added(EthBigInt::from(100)),
             ..Default::default()
         };
         sd.insert_if_changed(addr, changed);
@@ -1152,7 +1148,7 @@ mod tests {
                 from,
                 to: Some(to),
                 gas: EthUint64(21000),
-                value: EthBigInt(num::BigInt::from(1000)),
+                value: EthBigInt::from(1000),
                 input: EthBytes(vec![0x01, 0x02]),
             }),
             result: TraceResult::Call(EthCallTraceResult {
@@ -1171,7 +1167,7 @@ mod tests {
         assert_eq!(frame.gas_used.0, 5000);
         assert!(frame.error.is_none());
         assert!(frame.revert_reason.is_none());
-        assert_eq!(frame.value, Some(EthBigInt(num::BigInt::from(1000))));
+        assert_eq!(frame.value, Some(EthBigInt::from(1000)));
     }
 
     #[test]
@@ -1183,7 +1179,7 @@ mod tests {
                 from: EthAddress::default(),
                 to: Some(EthAddress::from_actor_id(100)),
                 gas: EthUint64(21000),
-                value: EthBigInt(num::BigInt::from(0)),
+                value: EthBigInt::from(0),
                 input: EthBytes(vec![]),
             }),
             result: TraceResult::Call(EthCallTraceResult {
@@ -1214,7 +1210,7 @@ mod tests {
                 from: EthAddress::default(),
                 to: Some(EthAddress::from_actor_id(100)),
                 gas: EthUint64(21000),
-                value: EthBigInt(num::BigInt::from(0)),
+                value: EthBigInt::from(0),
                 input: EthBytes(vec![]),
             }),
             result: TraceResult::Call(EthCallTraceResult {
@@ -1244,7 +1240,7 @@ mod tests {
             action: TraceAction::Create(EthCreateTraceAction {
                 from,
                 gas: EthUint64(100000),
-                value: EthBigInt(num::BigInt::from(0)),
+                value: EthBigInt::from(0),
                 init: init_code.clone(),
             }),
             result: TraceResult::Create(EthCreateTraceResult {
@@ -1262,7 +1258,7 @@ mod tests {
         assert_eq!(frame.to, Some(created));
         assert_eq!(frame.gas.0, 100000);
         assert_eq!(frame.gas_used.0, 50000);
-        assert_eq!(frame.value, Some(EthBigInt(num::BigInt::from(0))));
+        assert_eq!(frame.value, Some(EthBigInt::from(0)));
         assert_eq!(frame.input.0, init_code.0); // initcode goes to input
         assert_eq!(frame.output, Some(EthBytes(vec![0xFE]))); // deployed code
         assert!(frame.error.is_none());
@@ -1278,7 +1274,7 @@ mod tests {
                 from: EthAddress::default(),
                 to: None,
                 gas: EthUint64(0),
-                value: EthBigInt(num::BigInt::from(0)),
+                value: EthBigInt::from(0),
                 input: EthBytes(vec![]),
             }),
             result: TraceResult::Create(EthCreateTraceResult {
@@ -1302,7 +1298,7 @@ mod tests {
                 from,
                 to,
                 gas: EthUint64(21000),
-                value: EthBigInt(num::BigInt::from(0)),
+                value: EthBigInt::from(0),
                 input: EthBytes(vec![]),
             }),
             result: TraceResult::Call(EthCallTraceResult {
@@ -1321,7 +1317,7 @@ mod tests {
             action: TraceAction::Create(EthCreateTraceAction {
                 from,
                 gas: EthUint64(100000),
-                value: EthBigInt(num::BigInt::from(0)),
+                value: EthBigInt::from(0),
                 init: EthBytes(vec![0x60, 0x80]),
             }),
             result: TraceResult::Create(EthCreateTraceResult {
@@ -1433,7 +1429,7 @@ mod tests {
             action: TraceAction::Create(EthCreateTraceAction {
                 from: EthAddress::default(),
                 gas: EthUint64(100000),
-                value: EthBigInt(num::BigInt::from(0)),
+                value: EthBigInt::from(0),
                 init: EthBytes(vec![]),
             }),
             result: TraceResult::Call(EthCallTraceResult {
