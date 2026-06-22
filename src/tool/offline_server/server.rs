@@ -22,6 +22,7 @@ use crate::state_manager::StateManager;
 use crate::utils::net::{DownloadFileOption, download_to};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, JWT_IDENTIFIER};
+use arc_swap::ArcSwap;
 use jsonrpsee::server::stop_channel;
 use parking_lot::RwLock;
 use std::{
@@ -102,7 +103,7 @@ pub async fn offline_rpc_state(
             keystore: Arc::new(RwLock::new(keystore)),
             mpool: message_pool,
             bad_blocks: Default::default(),
-            sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
+            sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
             eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
             sync_network_context,
             start_time: chrono::Utc::now(),

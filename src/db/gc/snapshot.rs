@@ -162,7 +162,7 @@ impl SnapshotGarbageCollector {
                 && let Some(car_db_head_epoch) =
                     self.db().heaviest_car_tipset().ok().map(|ts| ts.epoch())
             {
-                let sync_status = &*self.sync_status().read();
+                let sync_status = (*self.sync_status().load()).shallow_clone();
                 let network_head_epoch = sync_status.network_head_epoch;
                 let head_epoch = sync_status.current_head_epoch;
                 if head_epoch > 0 // sync_status has been initialized

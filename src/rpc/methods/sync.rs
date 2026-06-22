@@ -92,14 +92,14 @@ impl RpcMethod<0> for SyncStatus {
     const DESCRIPTION: Option<&'static str> = Some("Returns the current sync status of the node.");
 
     type Params = ();
-    type Ok = SyncStatusReport;
+    type Ok = Arc<SyncStatusReport>;
 
     async fn handle(
         ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let sync_status = ctx.sync_status.as_ref().read().clone();
+        let sync_status = ctx.sync_status.load().shallow_clone();
         Ok(sync_status)
     }
 }
@@ -122,7 +122,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
         (block_msg,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        if !matches!(ctx.sync_status.read().status, NodeSyncStatus::Synced) {
+        if !matches!(ctx.sync_status.load().status, NodeSyncStatus::Synced) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
         }
         let genesis_network_name = ctx.chain_config().network.genesis_name();
@@ -232,7 +232,7 @@ mod tests {
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool,
             bad_blocks: Some(Default::default()),
-            sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
+            sync_status: Default::default(),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
             start_time,
@@ -279,16 +279,22 @@ mod tests {
         let sync_status = SyncStatus::handle(ctx.clone(), (), &Default::default())
             .await
             .unwrap();
-        assert_eq!(sync_status, st_copy.as_ref().read().clone());
+        assert_eq!(sync_status, st_copy.load().clone());
 
         // update cloned state
-        st_copy.write().status = NodeSyncStatus::Syncing;
-        st_copy.write().current_head_epoch = 4;
+        st_copy.store(
+            SyncStatusReport {
+                status: NodeSyncStatus::Syncing,
+                current_head_epoch: 4,
+                ..Arc::unwrap_or_clone(st_copy.load().clone())
+            }
+            .into(),
+        );
 
         let sync_status = SyncStatus::handle(ctx.clone(), (), &Default::default())
             .await
             .unwrap();
 
-        assert_eq!(sync_status, st_copy.as_ref().read().clone());
+        assert_eq!(sync_status, st_copy.load().clone());
     }
 }

@@ -5,8 +5,8 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::networks::calculate_expected_epoch;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
+use arc_swap::ArcSwap;
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -101,7 +101,7 @@ pub struct ForkSyncInfo {
     pub(crate) last_updated: Option<DateTime<Utc>>,
 }
 
-pub type SyncStatus = Arc<RwLock<SyncStatusReport>>;
+pub type SyncStatus = Arc<ArcSwap<SyncStatusReport>>;
 
 /// Contains information about the current status of the node's synchronization process.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, JsonSchema)]

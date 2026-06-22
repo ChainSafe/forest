@@ -62,7 +62,7 @@ mod test {
     use crate::Client;
     use crate::chain_sync::{NodeSyncStatus, SyncStatusReport};
     use crate::cli_shared::cli::ChainIndexerConfig;
-    use parking_lot::RwLock;
+    use arc_swap::ArcSwap;
     use reqwest::StatusCode;
 
     #[tokio::test]
@@ -70,7 +70,7 @@ mod test {
         let healthcheck_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
 
-        let sync_status = Arc::new(RwLock::new(SyncStatusReport::init()));
+        let sync_status = Arc::new(ArcSwap::from_pointee(SyncStatusReport::init()));
 
         let forest_state = ForestState {
             config: Config {
@@ -85,10 +85,10 @@ mod test {
                 },
                 ..Default::default()
             },
-            chain_config: Arc::new(ChainConfig::default()),
+            chain_config: Default::default(),
             genesis_timestamp: 0,
             sync_status: sync_status.clone(),
-            peer_manager: Arc::new(PeerManager::default()),
+            peer_manager: Default::default(),
         };
 
         let listener =
@@ -112,8 +112,14 @@ mod test {
         };
 
         // instrument the state so that the ready requirements are met
-        sync_status.write().status = NodeSyncStatus::Synced;
-        sync_status.write().current_head_epoch = i64::MAX;
+        sync_status.store(
+            SyncStatusReport {
+                status: NodeSyncStatus::Synced,
+                current_head_epoch: i64::MAX,
+                ..Arc::unwrap_or_clone(sync_status.load().clone())
+            }
+            .into(),
+        );
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
@@ -128,8 +134,14 @@ mod test {
 
         // instrument the state so that the ready requirements are not met
         drop(rpc_listener);
-        sync_status.write().status = NodeSyncStatus::Error;
-        sync_status.write().current_head_epoch = 0;
+        sync_status.store(
+            SyncStatusReport {
+                status: NodeSyncStatus::Error,
+                current_head_epoch: 0,
+                ..Arc::unwrap_or_clone(sync_status.load().clone())
+            }
+            .into(),
+        );
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
@@ -149,7 +161,7 @@ mod test {
         let healthcheck_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
 
-        let sync_status = Arc::new(RwLock::new(SyncStatusReport::default()));
+        let sync_status = Arc::new(ArcSwap::from_pointee(SyncStatusReport::default()));
         let peer_manager = Arc::new(PeerManager::default());
         let forest_state = ForestState {
             config: Config {
@@ -187,7 +199,13 @@ mod test {
         };
 
         // instrument the state so that the live requirements are met
-        sync_status.write().status = NodeSyncStatus::Syncing;
+        sync_status.store(
+            SyncStatusReport {
+                status: NodeSyncStatus::Syncing,
+                ..Arc::unwrap_or_clone(sync_status.load().clone())
+            }
+            .into(),
+        );
         let peer = libp2p::PeerId::random();
         peer_manager.touch_peer(&peer);
 
@@ -203,7 +221,13 @@ mod test {
         assert!(text.contains("[+] peers connected"));
 
         // instrument the state so that the live requirements are not met
-        sync_status.write().status = NodeSyncStatus::Error;
+        sync_status.store(
+            SyncStatusReport {
+                status: NodeSyncStatus::Error,
+                ..Arc::unwrap_or_clone(sync_status.load().clone())
+            }
+            .into(),
+        );
         peer_manager.remove_peer(&peer);
 
         assert_eq!(
@@ -224,7 +248,7 @@ mod test {
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let peer_manager = Arc::new(PeerManager::default());
 
-        let sync_status = Arc::new(RwLock::new(SyncStatusReport::default()));
+        let sync_status = Arc::new(ArcSwap::from_pointee(SyncStatusReport::default()));
         let forest_state = ForestState {
             config: Config {
                 client: Client {
@@ -261,8 +285,14 @@ mod test {
         };
 
         // instrument the state so that the health requirements are met
-        sync_status.write().current_head_epoch = i64::MAX;
-        sync_status.write().status = NodeSyncStatus::Syncing;
+        sync_status.store(
+            SyncStatusReport {
+                status: NodeSyncStatus::Syncing,
+                current_head_epoch: i64::MAX,
+                ..Arc::unwrap_or_clone(sync_status.load().clone())
+            }
+            .into(),
+        );
         let peer = libp2p::PeerId::random();
         peer_manager.touch_peer(&peer);
 
@@ -280,8 +310,14 @@ mod test {
 
         // instrument the state so that the health requirements are not met
         drop(rpc_listener);
-        sync_status.write().status = NodeSyncStatus::Error;
-        sync_status.write().current_head_epoch = 0;
+        sync_status.store(
+            SyncStatusReport {
+                status: NodeSyncStatus::Error,
+                current_head_epoch: 0,
+                ..Arc::unwrap_or_clone(sync_status.load().clone())
+            }
+            .into(),
+        );
         peer_manager.remove_peer(&peer);
 
         assert_eq!(
@@ -311,7 +347,7 @@ mod test {
             },
             chain_config: Arc::default(),
             genesis_timestamp: 0,
-            sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
+            sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::default())),
             peer_manager: Arc::default(),
         };
         let listener =
