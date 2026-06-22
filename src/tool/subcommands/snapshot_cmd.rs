@@ -419,7 +419,7 @@ where
 
     // Set proof parameter data dir before downloading proofs.
     crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
-        &Config::default().client.data_dir,
+        &crate::cli_shared::default_data_dir(),
     );
 
     // independent downloads - fetch in parallel
