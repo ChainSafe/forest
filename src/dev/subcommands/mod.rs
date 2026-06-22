@@ -5,6 +5,7 @@ mod archive_missing_cmd;
 mod export_state_tree_cmd;
 mod export_tipset_lookup_cmd;
 mod state_cmd;
+mod tests_cmd;
 mod update_checkpoints_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
@@ -53,6 +54,8 @@ pub enum Subcommand {
     ArchiveMissing(archive_missing_cmd::ArchiveMissingCommand),
     ExportTipsetLookup(export_tipset_lookup_cmd::ExportTipsetLookupCommand),
     ExportStateTree(export_state_tree_cmd::ExportStateTreeCommand),
+    #[command(subcommand)]
+    Tests(tests_cmd::TestsCommand),
 }
 
 impl Subcommand {
@@ -64,6 +67,7 @@ impl Subcommand {
             Self::ArchiveMissing(cmd) => cmd.run().await,
             Self::ExportTipsetLookup(cmd) => cmd.run().await,
             Self::ExportStateTree(cmd) => cmd.run().await,
+            Self::Tests(cmd) => cmd.run().await,
         }
     }
 }
