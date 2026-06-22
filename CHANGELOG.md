@@ -43,6 +43,8 @@
 
 - [#7194](https://github.com/ChainSafe/forest/pull/7194): Added `UpgradeXxHeight` placeholder for the NV29 network upgrade.
 
+- [#7211](https://github.com/ChainSafe/forest/pull/7211): Fixed `forest-wallet` to allow using the unencrypted keystore with `--encrypt false` when an encrypted keystore also exists.
+
 - [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
 
 - [#6974](https://github.com/ChainSafe/forest/issues/6974): Fixed the message pool reporting a still-pending nonce as the next nonce after an applied message was removed.
