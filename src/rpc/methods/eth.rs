@@ -642,9 +642,9 @@ pub struct ApiEthTx {
     pub max_priority_fee_per_gas: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub gas_price: Option<EthBigInt>,
-    #[schemars(with = "Vec<EthHash>")]
+    #[schemars(with = "Option<Vec<EthHash>>")]
     #[serde(with = "crate::lotus_json")]
-    pub access_list: NotNullVec<EthHash>,
+    pub access_list: Option<NotNullVec<EthHash>>,
     pub v: EthBigInt,
     pub r: EthBigInt,
     pub s: EthBigInt,
@@ -1263,7 +1263,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         gas: EthUint64(msg.gas_limit),
         max_fee_per_gas: Some(msg.gas_fee_cap.clone().into()),
         max_priority_fee_per_gas: Some(msg.gas_premium.clone().into()),
-        access_list: NotNullVec(vec![]),
+        access_list: Some(NotNullVec(vec![])),
         ..ApiEthTx::default()
     })
 }
@@ -4212,8 +4212,10 @@ mod test {
 
     #[test]
     fn empty_access_list_serializes_as_empty_array() {
-        let tx = ApiEthTx::default();
-        assert!(tx.access_list.0.is_empty());
+        let tx = ApiEthTx {
+            access_list: Some(NotNullVec(vec![])),
+            ..Default::default()
+        };
         let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
         assert_eq!(json["accessList"], serde_json::json!([]));
     }
@@ -4221,7 +4223,7 @@ mod test {
     #[test]
     fn populated_access_list_serializes_as_array() {
         let tx = ApiEthTx {
-            access_list: NotNullVec(vec![EthHash::default()]),
+            access_list: Some(NotNullVec(vec![EthHash::default()])),
             ..Default::default()
         };
         let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
