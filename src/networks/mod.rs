@@ -332,7 +332,6 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS
                 .clone()
                 .into_iter()
-                .filter(|(_, v)| v.epoch >= 0)
                 .sorted_by_key(|(_, v)| v.epoch)
                 .collect(),
             policy: make_calibnet_policy!(v13).into(),
@@ -370,7 +369,6 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS
                 .clone()
                 .into_iter()
-                .filter(|(_, v)| v.epoch >= 0)
                 .sorted_by_key(|(_, v)| v.epoch)
                 .collect(),
             policy: make_devnet_policy!(v13).into(),
@@ -404,7 +402,6 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS
                 .clone()
                 .into_iter()
-                .filter(|(_, v)| v.epoch >= 0)
                 .sorted_by_key(|(_, v)| v.epoch)
                 .collect(),
             policy: make_butterfly_policy!(v13).into(),
