@@ -2388,7 +2388,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         // return reasonable values within expected bounds rather than exact equality.
         RpcTest::validate(
             GasEstimateMessageGas::request((
-                message,
+                message.clone(),
                 None, // No MessageSendSpec
                 shared_tipset.key().into(),
             ))
@@ -2429,6 +2429,20 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 }
 
                 forest_premium.is_within_percent(&lotus_premium, 5)
+            },
+        ),
+        // The fee cap depends on the (non-deterministic) gas premium, so validate
+        // that both implementations return non-negative values within expected bounds
+        // rather than exact equality. This also guards against the response being
+        // serialized as a FIL decimal string instead of an attoFIL integer.
+        RpcTest::validate(
+            GasEstimateFeeCap::request((message, 20, ApiTipsetKey(None))).unwrap(),
+            |forest_fee_cap, lotus_fee_cap| {
+                if forest_fee_cap.is_negative() || lotus_fee_cap.is_negative() {
+                    return false;
+                }
+
+                forest_fee_cap.is_within_percent(&lotus_fee_cap, 5)
             },
         ),
     ]

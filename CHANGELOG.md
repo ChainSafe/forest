@@ -35,7 +35,7 @@
 
 ### Fixed
 
-- [#7227](https://github.com/ChainSafe/forest/issues/7227): Fixed invalid `Filecoin.GasEstimateGasPremium` response that was returning a fraction instead of an integer.
+- [#7227](https://github.com/ChainSafe/forest/issues/7227): Fixed invalid `Filecoin.GasEstimateGasPremium` and `Filecoin.GasEstimateFeeCap` responses that were returning a fraction instead of an integer.
 
 ## Forest v0.33.7 "Shimmergloom"
 
