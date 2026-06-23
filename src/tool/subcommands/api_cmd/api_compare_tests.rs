@@ -9,6 +9,7 @@ use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::prelude::*;
+use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
@@ -39,7 +40,6 @@ use crate::tool::subcommands::api_cmd::NetworkChain;
 use crate::tool::subcommands::api_cmd::report::ReportBuilder;
 use crate::tool::subcommands::api_cmd::state_decode_params_tests::create_all_state_decode_params_tests;
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
-use crate::{Config, rpc};
 use ahash::HashMap;
 use bls_signatures::Serialize as _;
 use chrono::Utc;
@@ -2633,7 +2633,7 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
 
     // Set proof parameter data dir and make sure the proofs are available. Otherwise,
     // validation might fail due to missing proof parameters.
-    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
+    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&crate::cli_shared::default_data_dir());
     ensure_proof_params_downloaded().await?;
     state_manager.validate_tipsets_blocking(
         head_ts

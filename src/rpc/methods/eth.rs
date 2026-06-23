@@ -1787,8 +1787,7 @@ impl RpcMethod<0> for EthSyncing {
         (): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let sync_status: crate::chain_sync::SyncStatusReport =
-            crate::rpc::sync::SyncStatus::handle(ctx, (), ext).await?;
+        let sync_status = crate::rpc::sync::SyncStatus::handle(ctx, (), ext).await?;
         match sync_status.status {
             NodeSyncStatus::Synced => Ok(EthSyncingResult {
                 done_sync: true,

@@ -115,6 +115,7 @@ fn startup_init(config: &Config) -> anyhow::Result<()> {
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
     );
+    info!("Using data directory: {}", config.client.data_dir.display());
     Ok(())
 }
 
@@ -370,7 +371,7 @@ fn maybe_prefill_rpc_caches(
         services.spawn(async move {
             loop {
                 match validated_tipset_rx.recv().await {
-                    Ok(_) if !sync_status.read().is_synced() => {
+                    Ok(_) if !sync_status.load().is_synced() => {
                         // Skip if the node is catching up to avoid unnecessary work, as the head may be changing rapidly.
                         continue;
                     }
@@ -395,6 +396,7 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                 // First, compute state for the ts as it's disallowed for RPC methods by default
                 if let Err(e) = state_manager.load_executed_tipset(&ts).await {
                     warn!("failed to load executed tipset for cache warmup: {e:#}");
+                    return; // Skip when state computation fails
                 }
             }
             for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash] {
