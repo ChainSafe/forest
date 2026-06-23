@@ -396,6 +396,7 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                 // First, compute state for the ts as it's disallowed for RPC methods by default
                 if let Err(e) = state_manager.load_executed_tipset(&ts).await {
                     warn!("failed to load executed tipset for cache warmup: {e:#}");
+                    return; // Skip when state computation fails
                 }
             }
             for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash] {
