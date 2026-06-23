@@ -2417,6 +2417,20 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                     && forest_premium.is_within_percent(lotus_premium, 5)
             },
         ),
+        RpcTest::validate(
+            GasEstimateGasPremium::request((3, addr, 9, ApiTipsetKey(None))).unwrap(),
+            // Gas estimation is inherently non-deterministic due to randomness in gas premium
+            // calculation and network state changes. We validate that both implementations
+            // return reasonable values within expected bounds rather than exact equality.
+            |forest_premium, lotus_premium| {
+                // Gas premium should not be negative
+                if forest_premium.is_negative() || lotus_premium.is_negative() {
+                    return false;
+                }
+
+                forest_premium.is_within_percent(&lotus_premium, 5)
+            },
+        ),
     ]
 }
 
