@@ -4213,59 +4213,51 @@ mod test {
         }
     }
 
-    #[test]
-    fn empty_access_list_serializes_as_empty_array() {
-        let tx = ApiEthTx {
-            access_list: Some(NotNullVec(vec![])),
-            ..Default::default()
-        };
+    #[rstest]
+    #[case::empty_array(ApiEthTx { access_list: Some(NotNullVec(vec![])), ..Default::default() }, Some(0))]
+    #[case::populated_array(ApiEthTx { access_list: Some(NotNullVec(vec![EthHash::default()])), ..Default::default() }, Some(1))]
+    #[case::explicit_none_omitted(ApiEthTx { access_list: None, ..Default::default() }, None)]
+    #[case::legacy_homestead_omitted(EthLegacyHomesteadTxArgs::default().into(), None)]
+    #[case::legacy_eip155_omitted(EthLegacyEip155TxArgs::default().into(), None)]
+    #[case::eip1559_empty_array(EthEip1559TxArgs::default().into(), Some(0))]
+    fn access_list_serialization(#[case] tx: ApiEthTx, #[case] expected: Option<usize>) {
         let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
-        assert_eq!(json["accessList"], serde_json::json!([]));
+        match expected {
+            Some(len) => assert_eq!(
+                json["accessList"]
+                    .as_array()
+                    .expect("accessList should serialize as an array")
+                    .len(),
+                len
+            ),
+            None => assert!(!json.as_object().unwrap().contains_key("accessList")),
+        }
     }
 
-    #[test]
-    fn populated_access_list_serializes_as_array() {
-        let tx = ApiEthTx {
-            access_list: Some(NotNullVec(vec![EthHash::default()])),
-            ..Default::default()
-        };
-        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
-        assert!(json["accessList"].is_array());
-        assert_eq!(json["accessList"].as_array().unwrap().len(), 1);
-    }
-
-    #[test]
-    fn none_access_list_is_omitted_not_null() {
-        let tx = ApiEthTx {
-            access_list: None,
-            ..Default::default()
-        };
-        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
-        assert!(!json.as_object().unwrap().contains_key("accessList"));
-    }
-
-    #[test]
-    fn legacy_homestead_tx_omits_access_list() {
-        let tx: ApiEthTx = EthLegacyHomesteadTxArgs::default().into();
-        assert_eq!(tx.access_list, None);
-        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
-        assert!(!json.as_object().unwrap().contains_key("accessList"));
-    }
-
-    #[test]
-    fn legacy_eip155_tx_omits_access_list() {
-        let tx: ApiEthTx = EthLegacyEip155TxArgs::default().into();
-        assert_eq!(tx.access_list, None);
-        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
-        assert!(!json.as_object().unwrap().contains_key("accessList"));
-    }
-
-    #[test]
-    fn eip1559_tx_serializes_empty_access_list() {
-        let tx: ApiEthTx = EthEip1559TxArgs::default().into();
-        assert_eq!(tx.access_list, Some(NotNullVec(vec![])));
-        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
-        assert_eq!(json["accessList"], serde_json::json!([]));
+    #[rstest]
+    #[case::null_to_none(Some(serde_json::Value::Null), None)]
+    #[case::missing_to_none(None, None)]
+    #[case::empty_array_to_some(Some(serde_json::json!([])), Some(NotNullVec(vec![])))]
+    #[case::populated_array_to_some(
+        Some(serde_json::json!([EthHash::default()])),
+        Some(NotNullVec(vec![EthHash::default()]))
+    )]
+    fn access_list_deserialization(
+        #[case] access_list_value: Option<serde_json::Value>,
+        #[case] expected: Option<NotNullVec<EthHash>>,
+    ) {
+        let mut json = serde_json::to_value(ApiEthTx::default().into_lotus_json()).unwrap();
+        let obj = json.as_object_mut().unwrap();
+        match access_list_value {
+            Some(value) => {
+                obj.insert("accessList".into(), value);
+            }
+            None => {
+                obj.remove("accessList");
+            }
+        }
+        let tx = ApiEthTx::from_lotus_json(serde_json::from_value(json).unwrap());
+        assert_eq!(tx.access_list, expected);
     }
 
     #[quickcheck]
