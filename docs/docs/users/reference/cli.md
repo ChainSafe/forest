@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -127,11 +127,24 @@ SUBCOMMANDS:
   help              Print this message or the help of the given subcommand(s)
 
 OPTIONS:
-      --token <TOKEN>  Admin token to interact with the node
-      --remote-wallet  Use remote wallet associated with the Filecoin node. Warning! You should ensure that your connection is encrypted and secure, as the communication between the wallet and the node is **not** encrypted
-      --encrypt        Encrypt local wallet
-  -h, --help           Print help
-  -V, --version        Print version
+      --token <TOKEN>
+          Admin token to interact with the node
+
+      --remote-wallet
+          Use remote wallet associated with the Filecoin node. Warning! You should ensure that your connection is encrypted and secure, as the communication between the wallet and the node is **not** encrypted
+
+      --encrypt <ENCRYPT>
+          Use encrypted keystore.
+
+          Note: When an encrypted keystore exists, it is used by default if `--encrypt` is omitted.
+
+          [possible values: true, false]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
 ```
 
 ### `forest-wallet new`
@@ -321,7 +334,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1025,7 +1038,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2118,7 +2131,7 @@ Options:
 ## `forest-dev`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
