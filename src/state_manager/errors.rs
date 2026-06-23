@@ -3,6 +3,7 @@
 
 use std::fmt::{Debug, Display};
 
+use crate::shim::clock::ChainEpoch;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -13,8 +14,10 @@ pub enum Error {
     #[error("{0}")]
     State(String),
     /// Refusing explicit call due to an expensive state migration at the requested epoch.
-    #[error("refusing explicit call due to state fork at epoch")]
-    ExpensiveFork,
+    #[error(
+        "required historical state unavailable: refusing explicit call due to state fork at epoch {epoch}"
+    )]
+    ExpensiveFork { epoch: ChainEpoch },
     /// Other state manager error
     #[error("{0}")]
     Other(String),
