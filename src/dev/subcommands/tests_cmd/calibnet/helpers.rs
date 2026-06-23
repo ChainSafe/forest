@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::future::Future;
 use std::io::Write as _;
 use std::process::Command;
 use std::sync::LazyLock;
@@ -149,7 +150,7 @@ fn is_min_gas_price_error(err: &anyhow::Error) -> bool {
 async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
 where
     F: FnMut() -> Fut,
-    Fut: std::future::Future<Output = anyhow::Result<Option<T>>>,
+    Fut: Future<Output = anyhow::Result<Option<T>>>,
 {
     let started = tokio::time::Instant::now();
     let mut attempt = 0u32;
@@ -379,9 +380,17 @@ pub async fn filecoin_to_eth(address: &str) -> anyhow::Result<String> {
         .with_context(|| format!("expected string ETH address, got {result}"))
 }
 
-pub fn block_on<F: std::future::Future>(future: F) -> F::Output {
-    tokio::task::block_in_place(|| {
-        let rt = tokio::runtime::Handle::current();
+pub fn block_on<F: Future + Send + Sync + 'static>(future: F) -> F::Output
+where
+    F::Output: Send + Sync + 'static,
+{
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         rt.block_on(future)
     })
+    .join()
+    .unwrap()
 }

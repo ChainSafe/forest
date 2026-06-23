@@ -226,10 +226,6 @@ jobs:
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-wallet-check:
-    if: github.event.pull_request.draft == false
-    concurrency:
-      group: calibnet-wallet-tests
-      cancel-in-progress: false
     needs:
       - build-ubuntu
     name: Wallet tests
