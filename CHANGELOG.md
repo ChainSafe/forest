@@ -29,6 +29,16 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.33.7 "Shimmergloom"
+
+### Added
+
 - [#6008](https://github.com/ChainSafe/forest/issues/6008): Added the `FOREST_PATH` environment variable to override the Forest data directory (taking precedence over the configuration file and the default), mirroring Lotus' `LOTUS_PATH`. It is honored by all `forest*` binaries, so `forest-cli`/`forest-tool` read the JWT admin token from the same directory. The resolved data directory is now logged on daemon startup.
 
 - [#7168](https://github.com/ChainSafe/forest/pull/7168): Added the `FOREST_RPC_METRICS_DISABLED` environment variable to disable JSON-RPC per-method metrics while leaving other metrics intact.
@@ -38,8 +48,6 @@
 ### Changed
 
 - [#7164](https://github.com/ChainSafe/forest/issues/7164): JSON-RPC authentication is now performed once per connection (e.g. at the WebSocket upgrade) instead of on every request, matching Lotus. Note that token expiry is no longer re-checked for the lifetime of an established connection.
-
-### Removed
 
 ### Fixed
 
@@ -54,6 +62,8 @@
 - [#6975](https://github.com/ChainSafe/forest/issues/6975): Fixed `Filecoin.MpoolSelect` to not remove the messages from the live pool, only simulate the head change.
 
 - [#7205](https://github.com/ChainSafe/forest/issues/7205): Fixed eth methods serializing empty lists as `null` instead of `[]`.
+
+- [#7217](https://github.com/ChainSafe/forest/pull/7217): Fixed a bug that `Filecoin.StateCirculatingSupply` returns error on mainnet.
 
 ## Forest v0.33.6 "Ebb"
 
