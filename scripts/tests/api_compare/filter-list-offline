@@ -35,3 +35,8 @@
 !Filecoin.EthTraceReplayBlockTransactions
 !Filecoin.EthEstimateGas
 !Filecoin.EthGetBlockByHash
+# Lotus empty-slice null vs Forest accessList [] for type-0x2 txs.
+# https://github.com/filecoin-project/lotus/issues/12214
+!Filecoin.EthGetTransactionByBlockHashAndIndex
+!Filecoin.EthGetTransactionByHash
+!Filecoin.EthGetTransactionByHashLimited
