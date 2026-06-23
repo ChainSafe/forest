@@ -241,6 +241,7 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
+libtest-mimic = "0.8"
 sqlx = { version = "0.9", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
 tikv-jemallocator = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
@@ -351,7 +352,6 @@ cargo-test = [] # group of tests that is recommended to run with `cargo test` in
 doctest-private = [] # see lib.rs::doctest_private
 benchmark-private = ["dep:criterion"] # see lib.rs::benchmark_private
 interop-tests-private = [] # see lib.rs::interop_tests_private
-calibnet-integration = [] # see tests/calibnet_*.rs (wallet, mpool_tools, etc.)
 jemalloc-profiling = [
   "jemalloc",
   "tikv-jemallocator?/profiling",
@@ -383,16 +383,6 @@ required-features = ["benchmark-private"]
 name = "tipset-validation"
 harness = false
 required-features = ["benchmark-private"]
-
-[[test]]
-name = "mpool_tools"
-path = "tests/calibnet_mpool_tools.rs"
-required-features = ["calibnet-integration"]
-
-[[test]]
-name = "wallet"
-path = "tests/calibnet_wallet.rs"
-required-features = ["calibnet-integration"]
 
 [package.metadata.docs.rs]
 # See https://docs.rs/about/metadata

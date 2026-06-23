@@ -6,14 +6,36 @@
 //! Run via [`calibnet_wallet_mpool`] before [`calibnet_wallet`]; see `mise test:wallet`.
 //! Each test assumes the same environment as [`calibnet_wallet`].
 
-#[path = "common/calibnet_wallet_helpers.rs"]
-mod helpers;
+use super::helpers::*;
+use libtest_mimic::{Arguments, Trial};
 
-use helpers::*;
-use serial_test::serial;
+/// Calibnet mpool integration tests
+#[derive(Debug, clap::Args)]
+pub struct CalibnetMpoolTestCommand {}
 
-#[tokio::test]
-#[serial]
+impl CalibnetMpoolTestCommand {
+    pub async fn run(self) -> anyhow::Result<()> {
+        let args = Arguments {
+            test_threads: Some(1),
+            ..Default::default()
+        };
+        libtest_mimic::run(&args, tests()).exit();
+    }
+}
+
+fn tests() -> Vec<Trial> {
+    vec![
+        Trial::test("mpool_nonce_fix_auto_unblocks_pending", || {
+            block_on(mpool_nonce_fix_auto_unblocks_pending());
+            Ok(())
+        }),
+        Trial::test("mpool_replace_auto_unblocks_pending", || {
+            block_on(mpool_replace_auto_unblocks_pending());
+            Ok(())
+        }),
+    ]
+}
+
 async fn mpool_nonce_fix_auto_unblocks_pending() {
     let addr = FOREST_TEST_PRELOADED_ADDRESS.as_str();
     let nonce = mpool_nonce(addr).unwrap();
@@ -40,8 +62,6 @@ async fn mpool_nonce_fix_auto_unblocks_pending() {
     );
 }
 
-#[tokio::test]
-#[serial]
 async fn mpool_replace_auto_unblocks_pending() {
     let addr = FOREST_TEST_PRELOADED_ADDRESS.as_str();
     let nonce = mpool_nonce(addr).unwrap();
