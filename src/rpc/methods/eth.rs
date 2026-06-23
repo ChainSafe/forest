@@ -642,8 +642,12 @@ pub struct ApiEthTx {
     pub max_priority_fee_per_gas: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub gas_price: Option<EthBigInt>,
-    #[schemars(with = "Option<Vec<EthHash>>")]
-    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "Vec<EthHash>")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "crate::lotus_json"
+    )]
     pub access_list: Option<NotNullVec<EthHash>>,
     pub v: EthBigInt,
     pub r: EthBigInt,
@@ -4228,6 +4232,40 @@ mod test {
         let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
         assert!(json["accessList"].is_array());
         assert_eq!(json["accessList"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn none_access_list_is_omitted_not_null() {
+        let tx = ApiEthTx {
+            access_list: None,
+            ..Default::default()
+        };
+        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
+        assert!(!json.as_object().unwrap().contains_key("accessList"));
+    }
+
+    #[test]
+    fn legacy_homestead_tx_omits_access_list() {
+        let tx: ApiEthTx = EthLegacyHomesteadTxArgs::default().into();
+        assert_eq!(tx.access_list, None);
+        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
+        assert!(!json.as_object().unwrap().contains_key("accessList"));
+    }
+
+    #[test]
+    fn legacy_eip155_tx_omits_access_list() {
+        let tx: ApiEthTx = EthLegacyEip155TxArgs::default().into();
+        assert_eq!(tx.access_list, None);
+        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
+        assert!(!json.as_object().unwrap().contains_key("accessList"));
+    }
+
+    #[test]
+    fn eip1559_tx_serializes_empty_access_list() {
+        let tx: ApiEthTx = EthEip1559TxArgs::default().into();
+        assert_eq!(tx.access_list, Some(NotNullVec(vec![])));
+        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
+        assert_eq!(json["accessList"], serde_json::json!([]));
     }
 
     #[quickcheck]

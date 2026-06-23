@@ -4821,9 +4821,7 @@ components:
       type: object
       properties:
         accessList:
-          type:
-            - array
-            - "null"
+          type: array
           items:
             $ref: "#/components/schemas/EthHash"
         blockHash:

@@ -798,12 +798,9 @@
       "params": [],
       "result": {
         "name": "Filecoin.EthAccounts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "type": "string"
           }
@@ -1087,12 +1084,9 @@
       ],
       "result": {
         "name": "Filecoin.EthGetBlockReceipts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -1122,12 +1116,9 @@
       ],
       "result": {
         "name": "Filecoin.EthGetBlockReceiptsLimited.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -1740,12 +1731,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceBlock.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1767,12 +1755,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceFilter.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1807,12 +1792,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceReplayBlockTransactions.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
           }
@@ -1834,12 +1816,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceTransaction.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -6271,12 +6250,9 @@
       "params": [],
       "result": {
         "name": "eth_accounts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "type": "string"
           }
@@ -6539,12 +6515,9 @@
       ],
       "result": {
         "name": "eth_getBlockReceipts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -6574,12 +6547,9 @@
       ],
       "result": {
         "name": "eth_getBlockReceiptsLimited.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -7252,12 +7222,9 @@
       ],
       "result": {
         "name": "trace_block.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -7321,12 +7288,9 @@
       ],
       "result": {
         "name": "trace_filter.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -7361,12 +7325,9 @@
       ],
       "result": {
         "name": "trace_replayBlockTransactions.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
           }
@@ -7388,12 +7349,9 @@
       ],
       "result": {
         "name": "trace_transaction.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -7822,10 +7780,7 @@
         "type": "object",
         "properties": {
           "accessList": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/EthHash"
             }

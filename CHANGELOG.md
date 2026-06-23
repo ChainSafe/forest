@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7214](https://github.com/ChainSafe/forest/pull/7214): Aligned the `accessList` field of `eth` transactions with go-ethereum/reth: typed (EIP-1559) transactions now serialize it as `[]` (never `null`), and legacy (Homestead/EIP-155) transactions omit the field entirely.
+
 ## Forest v0.33.7 "Shimmergloom"
 
 ### Added
