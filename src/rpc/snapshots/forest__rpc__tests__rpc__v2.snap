@@ -30,6 +30,7 @@ methods:
         $ref: "#/components/schemas/ChainFinalityStatus"
     paramStructure: by-position
   - name: Forest.ChainExport
+    description: Exports a chain snapshot to a CAR file from the given epoch; only one export may run at a time.
     params:
       - name: params
         required: true
@@ -42,6 +43,7 @@ methods:
         $ref: "#/components/schemas/ApiExportResult"
     paramStructure: by-position
   - name: Forest.ChainExportDiff
+    description: Exports a differential snapshot covering the given epoch range to a CAR file.
     params:
       - name: params
         required: true
@@ -54,6 +56,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Forest.ChainExportStatus
+    description: Returns the progress and status of the in-progress chain export.
     params: []
     result:
       name: Forest.ChainExportStatus.Result
@@ -62,6 +65,7 @@ methods:
         $ref: "#/components/schemas/ApiExportStatus"
     paramStructure: by-position
   - name: Forest.ChainExportCancel
+    description: "Cancels the in-progress chain export, returning whether one was running."
     params: []
     result:
       name: Forest.ChainExportCancel.Result

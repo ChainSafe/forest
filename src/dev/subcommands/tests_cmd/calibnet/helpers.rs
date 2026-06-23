@@ -378,3 +378,10 @@ pub async fn filecoin_to_eth(address: &str) -> anyhow::Result<String> {
         .map(str::to_owned)
         .with_context(|| format!("expected string ETH address, got {result}"))
 }
+
+pub fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    tokio::task::block_in_place(|| {
+        let rt = tokio::runtime::Handle::current();
+        rt.block_on(future)
+    })
+}

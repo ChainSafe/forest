@@ -47,6 +47,7 @@ methods:
           type: string
     paramStructure: by-position
   - name: Forest.SnapshotGC
+    description: "Triggers database garbage collection, optionally blocking until it completes."
     params:
       - name: blocking
         required: true
@@ -59,6 +60,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.ChainExport
+    description: Exports a v1 chain snapshot to a CAR file from the given epoch.
     params:
       - name: params
         required: true
@@ -114,6 +116,7 @@ methods:
           $ref: "#/components/schemas/Event"
     paramStructure: by-position
   - name: Filecoin.ChainGetGenesis
+    description: Returns the genesis tipset of the chain.
     params: []
     result:
       name: Filecoin.ChainGetGenesis.Result
@@ -146,6 +149,7 @@ methods:
         $ref: "#/components/schemas/Message"
     paramStructure: by-position
   - name: Filecoin.ChainGetMessagesInTipset
+    description: Returns all messages included in the tipset with the given key.
     params:
       - name: tipsetKey
         required: true
@@ -166,6 +170,7 @@ methods:
           $ref: "#/components/schemas/ApiMessage"
     paramStructure: by-position
   - name: Forest.ChainGetMinBaseFee
+    description: "Returns the minimum base fee across the given number of lookback tipsets, in attoFIL."
     params:
       - name: lookback
         required: true
@@ -331,6 +336,7 @@ methods:
         $ref: "#/components/schemas/Base64String"
     paramStructure: by-position
   - name: Filecoin.ChainSetHead
+    description: Forcibly sets the chain head to the tipset with the given key.
     params:
       - name: tsk
         required: true
@@ -343,6 +349,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.ChainStatObj
+    description: "Returns the size and link count of the IPLD graph under the given CID, or the difference relative to an optional base CID."
     params:
       - name: objCid
         required: true
@@ -378,6 +385,7 @@ methods:
         $ref: "#/components/schemas/BigInt"
     paramStructure: by-position
   - name: Forest.ChainExport
+    description: Exports a chain snapshot to a CAR file from the given epoch; only one export may run at a time.
     params:
       - name: params
         required: true
@@ -390,6 +398,7 @@ methods:
         $ref: "#/components/schemas/ApiExportResult"
     paramStructure: by-position
   - name: Forest.ChainExportDiff
+    description: Exports a differential snapshot covering the given epoch range to a CAR file.
     params:
       - name: params
         required: true
@@ -402,6 +411,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Forest.ChainExportStatus
+    description: Returns the progress and status of the in-progress chain export.
     params: []
     result:
       name: Forest.ChainExportStatus.Result
@@ -410,6 +420,7 @@ methods:
         $ref: "#/components/schemas/ApiExportStatus"
     paramStructure: by-position
   - name: Forest.ChainExportCancel
+    description: "Cancels the in-progress chain export, returning whether one was running."
     params: []
     result:
       name: Forest.ChainExportCancel.Result
@@ -418,6 +429,7 @@ methods:
         type: boolean
     paramStructure: by-position
   - name: Forest.ChainGetTipsetByParentState
+    description: "Returns the tipset whose parent state root matches the given CID, or null if none is found."
     params:
       - name: parentState
         required: true

@@ -15,7 +15,7 @@ on:
       - main
     # This needs to be declared explicitly so that the RPC checks job is actually
     # run when PR is labeled.
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
@@ -226,6 +226,7 @@ jobs:
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-wallet-check:
+    if: github.event.pull_request.draft == false
     concurrency:
       group: calibnet-wallet-tests
       cancel-in-progress: false
