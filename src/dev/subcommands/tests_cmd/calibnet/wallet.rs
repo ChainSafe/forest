@@ -11,7 +11,7 @@ pub struct CalibnetWalletTestCommand {}
 impl CalibnetWalletTestCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let args = Arguments {
-            test_threads: Some(1),
+            test_threads: Some(8),
             ..Default::default()
         };
         libtest_mimic::run(&args, tests()).exit();

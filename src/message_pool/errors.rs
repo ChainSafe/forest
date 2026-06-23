@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::chain::Error as ChainError;
+use crate::shim::econ::TokenAmount;
 use fvm_ipld_encoding::Error as EncodeError;
 use thiserror::Error;
 
@@ -17,8 +18,11 @@ pub enum Error {
     GasFeeCapTooLow,
     #[error("Message sequence too low")]
     SequenceTooLow,
-    #[error("Not enough funds to execute transaction")]
-    NotEnoughFunds,
+    #[error("Not enough funds to execute transaction, balance: {balance}, required: {required}")]
+    NotEnoughFunds {
+        balance: TokenAmount,
+        required: TokenAmount,
+    },
     #[cfg(test)]
     #[error("Invalid to address for message")]
     InvalidToAddr,

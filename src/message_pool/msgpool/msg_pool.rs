@@ -610,8 +610,9 @@ fn validate_with_state(
     let publish = check_base_fee_floor(msg, cur_ts, local)?;
 
     let balance = TokenAmount::from(&sender_actor.balance);
-    if balance < msg.required_funds() {
-        return Err(Error::NotEnoughFunds);
+    let required = msg.required_funds();
+    if balance < required {
+        return Err(Error::NotEnoughFunds { balance, required });
     }
 
     Ok(publish)
