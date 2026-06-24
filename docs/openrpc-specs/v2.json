@@ -1289,6 +1289,7 @@
     },
     {
       "name": "Forest.ChainExport",
+      "description": "Exports a chain snapshot to a CAR file from the given epoch; only one export may run at a time.",
       "params": [
         {
           "name": "params",
@@ -1309,6 +1310,7 @@
     },
     {
       "name": "Forest.ChainExportCancel",
+      "description": "Cancels the in-progress chain export, returning whether one was running.",
       "params": [],
       "result": {
         "name": "Forest.ChainExportCancel.Result",
@@ -1321,6 +1323,7 @@
     },
     {
       "name": "Forest.ChainExportDiff",
+      "description": "Exports a differential snapshot covering the given epoch range to a CAR file.",
       "params": [
         {
           "name": "params",
@@ -1341,6 +1344,7 @@
     },
     {
       "name": "Forest.ChainExportStatus",
+      "description": "Returns the progress and status of the in-progress chain export.",
       "params": [],
       "result": {
         "name": "Forest.ChainExportStatus.Result",
