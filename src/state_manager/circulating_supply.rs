@@ -135,7 +135,7 @@ impl GenesisInfo {
                     self.get_state_circulating_supply_raw(height, db, root)
                         .map_err(|e| {
                             let mut e = e.to_string();
-                            e.truncate(100); // To make error size bounded
+                            e.truncate(e.floor_char_boundary(100)); // To make error size bounded
                             e
                         }),
                 )
