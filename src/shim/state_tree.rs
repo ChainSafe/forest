@@ -291,7 +291,7 @@ where
     }
 
     /// Use [`Self::for_each_cacheless`] instead unless cache is really needed.
-    /// Note that this method caches all hamt node and can be memory-intensive.
+    /// Note that this method caches all HAMT nodes and can be memory-intensive.
     pub fn for_each<F>(&self, mut f: F) -> anyhow::Result<()>
     where
         F: FnMut(Address, &ActorState) -> anyhow::Result<()>,
@@ -325,7 +325,9 @@ where
             StateTree::FvmV4(st) => {
                 st.for_each_cacheless(|address, actor_state| f(address.into(), &actor_state.into()))
             }
-            StateTree::V0(_) => bail!("StateTree::for_each not supported on old state trees"),
+            StateTree::V0(_) => {
+                bail!("StateTree::for_each_cacheless not supported on old state trees")
+            }
         }
     }
 
