@@ -117,7 +117,7 @@ jobs:
     name: Forest CLI checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
           key: proof-params-keys
@@ -138,7 +138,7 @@ jobs:
     name: Calibnet check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -168,7 +168,7 @@ jobs:
     name: Calibnet stateless mode check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -189,7 +189,7 @@ jobs:
     name: Calibnet stateless RPC check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -210,7 +210,7 @@ jobs:
     name: State migrations
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -231,7 +231,7 @@ jobs:
     name: Wallet tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -277,7 +277,7 @@ jobs:
     name: V1 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -299,7 +299,7 @@ jobs:
     name: V2 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -321,7 +321,7 @@ jobs:
     name: Diff snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -342,7 +342,7 @@ jobs:
     name: Calibnet no discovery checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -362,7 +362,7 @@ jobs:
     name: Calibnet kademlia checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -382,7 +382,7 @@ jobs:
     name: Calibnet eth mapping check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -407,7 +407,7 @@ jobs:
     name: Calibnet api test-stateful check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -433,7 +433,7 @@ jobs:
       - build-ubuntu
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
@@ -456,7 +456,7 @@ jobs:
     env: # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         id: cache
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
