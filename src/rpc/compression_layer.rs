@@ -28,12 +28,12 @@ const COMPRESS_MIN_BODY_SIZE_VAR: &str = "FOREST_RPC_COMPRESS_MIN_BODY_SIZE";
 /// means install a layer that compresses responses whose body is at least
 /// `bytes`.
 ///
-/// - Any value in `0..=u16::MAX` sets the minimum response size that will
+/// - Any value in `0..=u64::MAX` sets the minimum response size that will
 ///   be gzip-encoded; smaller responses are sent as-is. Values above
-///   `u16::MAX` are clamped because `SizeAbove` is backed by a `u16`.
+///   `u64::MAX` are clamped because `SizeAbove` is backed by a `u64`.
 /// - Any negative integer (e.g. `-1`) disables compression entirely.
 /// - Unset defaults to disabled.
-pub(crate) static COMPRESS_MIN_BODY_SIZE: LazyLock<Option<u16>> = LazyLock::new(|| {
+pub(crate) static COMPRESS_MIN_BODY_SIZE: LazyLock<Option<u64>> = LazyLock::new(|| {
     parse_compress_min_body_size(env::var(COMPRESS_MIN_BODY_SIZE_VAR).ok().as_deref())
 });
 
@@ -42,8 +42,8 @@ pub(crate) static COMPRESS_MIN_BODY_SIZE: LazyLock<Option<u16>> = LazyLock::new(
 /// Returns `None` to signal "compression disabled", `Some(bytes)` for the
 /// minimum response size above which compression should be applied.
 /// Unset and unparsable values fall back to disabled.
-/// Values above `u16::MAX` are clamped to `u16::MAX`.
-fn parse_compress_min_body_size(raw: Option<&str>) -> Option<u16> {
+/// Values above `u64::MAX` are clamped to `u64::MAX`.
+fn parse_compress_min_body_size(raw: Option<&str>) -> Option<u64> {
     // Parse as i128 so any realistically-typable integer lands in one of the
     // defined branches (negative → disabled, too-large → clamp) rather than
     // silently disabling just because it didn't fit in i32.
@@ -57,15 +57,15 @@ fn parse_compress_min_body_size(raw: Option<&str>) -> Option<u16> {
     if parsed < 0 {
         return None;
     }
-    let max = i128::from(u16::MAX);
+    let max = i128::from(u64::MAX);
     if parsed > max {
         tracing::warn!(
             "{COMPRESS_MIN_BODY_SIZE_VAR}={parsed} exceeds the maximum of {max}; \
              clamping to {max} bytes"
         );
     }
-    // The prior branches bound `parsed.min(max)` to `[0, u16::MAX]`.
-    Some(u16::try_from(parsed.min(max)).expect("bounded above to u16::MAX"))
+    // The prior branches bound `parsed.min(max)` to `[0, u64::MAX]`.
+    Some(u64::try_from(parsed.min(max)).expect("bounded above to u64::MAX"))
 }
 
 /// Compresses responses with a body above `min_body_size` bytes.
@@ -76,7 +76,7 @@ pub(crate) struct CompressionLayer {
 
 impl CompressionLayer {
     /// Compress responses whose body is at least `min_body_size` bytes.
-    pub(crate) fn new(min_body_size: u16) -> Self {
+    pub(crate) fn new(min_body_size: u64) -> Self {
         Self {
             inner: TowerCompressionLayer::new().compress_when(SizeAbove::new(min_body_size)),
         }
@@ -184,7 +184,7 @@ mod tests {
 
     #[tokio::test]
     async fn below_threshold_is_not_compressed() {
-        let mut svc = CompressionLayer::new(u16::MAX).layer(MockService);
+        let mut svc = CompressionLayer::new(u64::MAX).layer(MockService);
         let req = HttpRequest::builder()
             .header(ACCEPT_ENCODING, "gzip")
             .body(HttpBody::empty())
@@ -216,28 +216,25 @@ mod tests {
         assert_eq!(parse_compress_min_body_size(Some("0")), Some(0));
         assert_eq!(parse_compress_min_body_size(Some("512")), Some(512));
         assert_eq!(parse_compress_min_body_size(Some("1024")), Some(1024));
-        assert_eq!(parse_compress_min_body_size(Some("65535")), Some(u16::MAX));
+        assert_eq!(
+            parse_compress_min_body_size(Some("18446744073709551615")),
+            Some(u64::MAX)
+        );
     }
 
     #[test]
-    fn parse_clamps_above_u16_max() {
-        assert_eq!(parse_compress_min_body_size(Some("65536")), Some(u16::MAX));
+    fn parse_clamps_above_u64_max() {
         assert_eq!(
-            parse_compress_min_body_size(Some("1000000")),
-            Some(u16::MAX)
+            parse_compress_min_body_size(Some("18446744073709551616")), // u64::MAX + 1
+            Some(u64::MAX)
         );
         assert_eq!(
-            parse_compress_min_body_size(Some("2147483647")), // i32::MAX
-            Some(u16::MAX)
-        );
-        // Values above i32::MAX must still clamp rather than fall back.
-        assert_eq!(
-            parse_compress_min_body_size(Some("99999999999")),
-            Some(u16::MAX)
+            parse_compress_min_body_size(Some("118446744073709551616")),
+            Some(u64::MAX)
         );
         assert_eq!(
-            parse_compress_min_body_size(Some("9223372036854775807")), // i64::MAX
-            Some(u16::MAX)
+            parse_compress_min_body_size(Some("170141183460469231731687303715884105727")), // i128::MAX
+            Some(u64::MAX)
         );
     }
 
