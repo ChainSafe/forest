@@ -26,7 +26,7 @@ use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
 };
-use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
+use crate::lotus_json::{HasLotusJson, NotNullVec, lotus_json_with_self};
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
 use crate::networks::Height;
 use crate::prelude::*;
@@ -642,9 +642,14 @@ pub struct ApiEthTx {
     pub max_priority_fee_per_gas: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub gas_price: Option<EthBigInt>,
-    #[schemars(with = "Option<Vec<EthHash>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub access_list: Vec<EthHash>,
+    #[schemars(with = "Vec<EthHash>")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::lotus_json::serialize",
+        deserialize_with = "crate::lotus_json::deserialize_empty_not_null_opt"
+    )]
+    pub access_list: Option<NotNullVec<EthHash>>,
     pub v: EthBigInt,
     pub r: EthBigInt,
     pub s: EthBigInt,
@@ -846,7 +851,7 @@ impl RpcMethod<0> for EthAccounts {
     );
 
     type Params = ();
-    type Ok = Vec<String>;
+    type Ok = NotNullVec<String>;
 
     async fn handle(
         _: Ctx,
@@ -854,7 +859,7 @@ impl RpcMethod<0> for EthAccounts {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // EthAccounts will always return [] since we don't expect Forest to manage private keys
-        Ok(vec![])
+        Ok(NotNullVec(vec![]))
     }
 }
 
@@ -1263,7 +1268,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         gas: EthUint64(msg.gas_limit),
         max_fee_per_gas: Some(msg.gas_fee_cap.clone().into()),
         max_priority_fee_per_gas: Some(msg.gas_premium.clone().into()),
-        access_list: vec![],
+        access_list: Some(NotNullVec(vec![])),
         ..ApiEthTx::default()
     })
 }
@@ -1602,7 +1607,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     );
 
     type Params = (BlockNumberOrHash,);
-    type Ok = Vec<EthTxReceipt>;
+    type Ok = NotNullVec<EthTxReceipt>;
 
     async fn handle(
         ctx: Ctx,
@@ -1615,6 +1620,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
             .await?;
         get_block_receipts(&ctx, ts, None)
             .await
+            .map(NotNullVec)
             .map_err(ServerError::from)
     }
 }
@@ -1631,7 +1637,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     );
 
     type Params = (BlockNumberOrHash, ChainEpoch);
-    type Ok = Vec<EthTxReceipt>;
+    type Ok = NotNullVec<EthTxReceipt>;
 
     async fn handle(
         ctx: Ctx,
@@ -1644,6 +1650,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
             .await?;
         get_block_receipts(&ctx, ts, Some(limit))
             .await
+            .map(NotNullVec)
             .map_err(ServerError::from)
     }
 }
@@ -3580,7 +3587,7 @@ impl RpcMethod<1> for EthTraceBlock {
     const DESCRIPTION: Option<&'static str> = Some("Returns traces created at given block.");
 
     type Params = (BlockNumberOrHash,);
-    type Ok = Vec<EthBlockTrace>;
+    type Ok = NotNullVec<EthBlockTrace>;
     async fn handle(
         ctx: Ctx,
         (block_param,): Self::Params,
@@ -3590,7 +3597,9 @@ impl RpcMethod<1> for EthTraceBlock {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
-        eth_trace_block(&ctx.state_manager, &ts).await
+        eth_trace_block(&ctx.state_manager, &ts)
+            .await
+            .map(NotNullVec)
     }
 }
 
@@ -3979,7 +3988,7 @@ impl RpcMethod<1> for EthTraceTransaction {
         Some("Returns the traces for a specific transaction.");
 
     type Params = (String,);
-    type Ok = Vec<EthBlockTrace>;
+    type Ok = NotNullVec<EthBlockTrace>;
     async fn handle(
         ctx: Ctx,
         (tx_hash,): Self::Params,
@@ -4000,7 +4009,7 @@ impl RpcMethod<1> for EthTraceTransaction {
             .into_iter()
             .filter(|trace| trace.transaction_hash == eth_hash)
             .collect();
-        Ok(traces)
+        Ok(NotNullVec(traces))
     }
 }
 
@@ -4017,7 +4026,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     );
 
     type Params = (BlockNumberOrHash, Vec<String>);
-    type Ok = Vec<EthReplayBlockTransactionTrace>;
+    type Ok = NotNullVec<EthReplayBlockTransactionTrace>;
 
     async fn handle(
         ctx: Ctx,
@@ -4036,7 +4045,9 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
             .await?;
 
-        eth_trace_replay_block_transactions(&ctx, &ts).await
+        eth_trace_replay_block_transactions(&ctx, &ts)
+            .await
+            .map(NotNullVec)
     }
 }
 
@@ -4089,7 +4100,7 @@ impl RpcMethod<1> for EthTraceFilter {
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the traces for transactions matching the filter criteria.");
     type Params = (EthTraceFilterCriteria,);
-    type Ok = Vec<EthBlockTrace>;
+    type Ok = NotNullVec<EthBlockTrace>;
 
     async fn handle(
         ctx: Ctx,
@@ -4123,7 +4134,9 @@ impl RpcMethod<1> for EthTraceFilter {
                 return Err(EthErrors::limit_exceeded(max_block_range, range).into());
             }
         }
-        Ok(trace_filter(ctx, filter, from_block, to_block, ext).await?)
+        Ok(NotNullVec(
+            trace_filter(ctx, filter, from_block, to_block, ext).await?,
+        ))
     }
 }
 
@@ -4155,7 +4168,7 @@ async fn trace_filter(
             ext,
         )
         .await?;
-        for block_trace in block_traces {
+        for block_trace in block_traces.0 {
             if block_trace
                 .trace
                 .match_filter_criteria(filter.from_address.as_ref(), filter.to_address.as_ref())?
@@ -4207,6 +4220,59 @@ mod test {
             let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
             Self(ethereum_types::H256(arr))
         }
+    }
+
+    #[rstest]
+    // Non-empty access list → JSON array.
+    #[case::populated_array(ApiEthTx { access_list: Some(NotNullVec(vec![EthHash::default()])), ..Default::default() }, Some(1))]
+    // `access_list: None` → field omitted.
+    #[case::explicit_none_omitted(ApiEthTx { access_list: None, ..Default::default() }, None)]
+    // Legacy tx → field omitted.
+    #[case::legacy_homestead_omitted(EthLegacyHomesteadTxArgs::default().into(), None)]
+    // Typed tx with no entries → `[]`.
+    #[case::eip1559_empty_array(EthEip1559TxArgs::default().into(), Some(0))]
+    fn access_list_serialization(#[case] tx: ApiEthTx, #[case] expected: Option<usize>) {
+        let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
+        match expected {
+            Some(len) => assert_eq!(
+                json["accessList"]
+                    .as_array()
+                    .expect("accessList should serialize as an array")
+                    .len(),
+                len
+            ),
+            None => assert!(!json.as_object().unwrap().contains_key("accessList")),
+        }
+    }
+
+    #[rstest]
+    // `"accessList": null` → `None`.
+    #[case::null_to_none(Some(serde_json::Value::Null), None)]
+    // Omitted/Missing field → `None`.
+    #[case::missing_to_none(None, None)]
+    // `"accessList": []` → `None`.
+    #[case::empty_array_to_none(Some(serde_json::json!([])), None)]
+    // Non-empty array → `Some(...)`.
+    #[case::populated_array_to_some(
+        Some(serde_json::json!([EthHash::default()])),
+        Some(NotNullVec(vec![EthHash::default()]))
+    )]
+    fn access_list_deserialization(
+        #[case] access_list_value: Option<serde_json::Value>,
+        #[case] expected: Option<NotNullVec<EthHash>>,
+    ) {
+        let mut json = serde_json::to_value(ApiEthTx::default().into_lotus_json()).unwrap();
+        let obj = json.as_object_mut().unwrap();
+        match access_list_value {
+            Some(value) => {
+                obj.insert("accessList".into(), value);
+            }
+            None => {
+                obj.remove("accessList");
+            }
+        }
+        let tx = ApiEthTx::from_lotus_json(serde_json::from_value(json).unwrap());
+        assert_eq!(tx.access_list, expected);
     }
 
     #[quickcheck]

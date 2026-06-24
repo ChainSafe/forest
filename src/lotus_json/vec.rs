@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use get_size2::GetSize;
 
 impl<T> HasLotusJson for Vec<T>
 // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
@@ -37,7 +38,7 @@ where
 // while an empty `NotNullVec<T>` serializes into `[]`
 // this is a temporary workaround and will likely be deprecated once
 // other issues on serde of `Vec<T>` are resolved.
-#[derive(Debug, Clone, PartialEq, JsonSchema)]
+#[derive(Debug, Clone, Default, PartialEq, JsonSchema, GetSize)]
 pub struct NotNullVec<T>(pub Vec<T>);
 
 impl<T> HasLotusJson for NotNullVec<T>
@@ -58,6 +59,22 @@ where
     fn from_lotus_json(it: Self::LotusJson) -> Self {
         Self(it.into_iter().map(T::from_lotus_json).collect())
     }
+}
+
+/// Deserialize `Option<NotNullVec<T>>`, mapping `null` and empty `[]` to `None`.
+///
+/// Generic `HasLotusJson for Option<T>` keeps `Some(NotNullVec([]))` on `[]`;
+/// Lotus sends `null` for empty access lists and we treat both as absent.
+pub fn deserialize_empty_not_null_opt<'de, T, D>(
+    deserializer: D,
+) -> Result<Option<NotNullVec<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Ok(Option::<Vec<T>>::deserialize(deserializer)?
+        .filter(|l| !l.is_empty())
+        .map(NotNullVec))
 }
 
 #[test]
