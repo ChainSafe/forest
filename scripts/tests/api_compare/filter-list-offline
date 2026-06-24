@@ -34,7 +34,3 @@
 !Filecoin.EthTraceFilter
 !Filecoin.EthTraceReplayBlockTransactions
 !Filecoin.EthGetBlockByHash
-# https://github.com/filecoin-project/lotus/issues/12214
-!Filecoin.EthGetTransactionByBlockHashAndIndex
-!Filecoin.EthGetTransactionByHash
-!Filecoin.EthGetTransactionByHashLimited

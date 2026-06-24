@@ -61,6 +61,22 @@ where
     }
 }
 
+/// Deserialize `Option<NotNullVec<T>>`, mapping `null` and empty `[]` to `None`.
+///
+/// Generic `HasLotusJson for Option<T>` keeps `Some(NotNullVec([]))` on `[]`;
+/// Lotus sends `null` for empty access lists and we treat both as absent.
+pub fn deserialize_empty_not_null_opt<'de, T, D>(
+    deserializer: D,
+) -> Result<Option<NotNullVec<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Ok(Option::<Vec<T>>::deserialize(deserializer)?
+        .filter(|l| !l.is_empty())
+        .map(NotNullVec))
+}
+
 #[test]
 fn snapshots() {
     assert_one_snapshot(json!([{"/": "baeaaaaa"}]), vec![::cid::Cid::default()]);

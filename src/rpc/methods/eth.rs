@@ -646,7 +646,8 @@ pub struct ApiEthTx {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "crate::lotus_json"
+        serialize_with = "crate::lotus_json::serialize",
+        deserialize_with = "crate::lotus_json::deserialize_empty_not_null_opt"
     )]
     pub access_list: Option<NotNullVec<EthHash>>,
     pub v: EthBigInt,
@@ -4222,11 +4223,13 @@ mod test {
     }
 
     #[rstest]
-    #[case::empty_array(ApiEthTx { access_list: Some(NotNullVec(vec![])), ..Default::default() }, Some(0))]
+    // Non-empty access list → JSON array.
     #[case::populated_array(ApiEthTx { access_list: Some(NotNullVec(vec![EthHash::default()])), ..Default::default() }, Some(1))]
+    // `access_list: None` → field omitted.
     #[case::explicit_none_omitted(ApiEthTx { access_list: None, ..Default::default() }, None)]
+    // Legacy tx → field omitted.
     #[case::legacy_homestead_omitted(EthLegacyHomesteadTxArgs::default().into(), None)]
-    #[case::legacy_eip155_omitted(EthLegacyEip155TxArgs::default().into(), None)]
+    // Typed tx with no entries → `[]`.
     #[case::eip1559_empty_array(EthEip1559TxArgs::default().into(), Some(0))]
     fn access_list_serialization(#[case] tx: ApiEthTx, #[case] expected: Option<usize>) {
         let json = serde_json::to_value(tx.into_lotus_json()).unwrap();
@@ -4243,9 +4246,13 @@ mod test {
     }
 
     #[rstest]
+    // `"accessList": null` → `None`.
     #[case::null_to_none(Some(serde_json::Value::Null), None)]
+    // Omitted/Missing field → `None`.
     #[case::missing_to_none(None, None)]
-    #[case::empty_array_to_some(Some(serde_json::json!([])), Some(NotNullVec(vec![])))]
+    // `"accessList": []` → `None`.
+    #[case::empty_array_to_none(Some(serde_json::json!([])), None)]
+    // Non-empty array → `Some(...)`.
     #[case::populated_array_to_some(
         Some(serde_json::json!([EthHash::default()])),
         Some(NotNullVec(vec![EthHash::default()]))

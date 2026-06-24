@@ -3,8 +3,3 @@
 
 !Filecoin.EthGetBlockByHash
 !Filecoin.EthGetBlockByNumber
-# https://github.com/filecoin-project/lotus/issues/12214
-!Filecoin.EthGetTransactionByBlockNumberAndIndex
-!Filecoin.EthGetTransactionByBlockHashAndIndex
-!Filecoin.EthGetTransactionByHash
-!Filecoin.EthGetTransactionByHashLimited
