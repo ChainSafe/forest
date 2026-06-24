@@ -2026,13 +2026,18 @@ impl RpcMethod<1> for StateListActors {
         (ApiTipsetKey(tsk),): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let mut actors = vec![];
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
-        state_tree.for_each(|addr, _state| {
-            actors.push(addr);
-            Ok(())
-        })?;
+        // `spawn_blocking` as state tree iteration is expensive
+        let actors = tokio::task::spawn_blocking(move || {
+            let mut actors = vec![];
+            state_tree.for_each_cacheless(|addr, _state| {
+                actors.push(addr);
+                anyhow::Ok(())
+            })?;
+            anyhow::Ok(actors)
+        })
+        .await??;
         Ok(actors)
     }
 }

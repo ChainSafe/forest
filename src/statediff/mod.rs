@@ -64,7 +64,7 @@ fn root_to_state_map<BS: Blockstore + ShallowClone>(
 ) -> anyhow::Result<HashMap<Address, ActorState>> {
     let mut actors = HashMap::default();
     let state_tree = StateTree::new_from_root(bs, root)?;
-    state_tree.for_each(|addr: Address, actor: &ActorState| {
+    state_tree.for_each_cacheless(|addr: Address, actor: &ActorState| {
         actors.insert(addr, actor.clone());
         Ok(())
     })?;
@@ -89,7 +89,7 @@ fn try_print_actor_states<BS: Blockstore + ShallowClone>(
     // Compare state with expected
     let state_tree = StateTree::new_from_root(bs, root)?;
 
-    state_tree.for_each(|addr: Address, actor| {
+    state_tree.for_each_cacheless(|addr: Address, actor| {
         if let Some(other) = e_state.remove(&addr) {
             if &other != actor {
                 const COMMA: &str = ",";
