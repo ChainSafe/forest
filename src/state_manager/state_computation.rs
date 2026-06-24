@@ -39,13 +39,12 @@ impl StateManager {
             enable_state_computation,
             "FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS"
         );
-        let policy = if enable_state_computation() {
+
+        if enable_state_computation() {
             StateRecomputePolicy::Allowed
         } else {
             StateRecomputePolicy::Disallowed
-        };
-
-        policy
+        }
     }
 
     /// Load an executed tipset for RPC methods, with state computation unless explicitly enabled.
