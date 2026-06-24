@@ -26,7 +26,7 @@ jobs:
   shellcheck:
     runs-on: ubuntu-slim
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
       - name: Run shellcheck
         run: mise lint:shellcheck

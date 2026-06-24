@@ -12,7 +12,7 @@ jobs:
     runs-on: warp-ubuntu-2404-x64-8x
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Run snapshot parity test
         run: ./scripts/tests/snapshot_parity/setup.sh
         timeout-minutes: 60
