@@ -118,28 +118,32 @@ impl GenesisInfo {
     ///
     /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_vm_circulating_supply`], that's being
     /// calculated differently.
-    pub fn get_state_circulating_supply_with_cache(
-        &self,
-        db: &(impl Blockstore + ShallowClone),
-        ts: &Tipset,
+    pub async fn get_state_circulating_supply_with_cache(
+        self,
+        db: impl Blockstore + ShallowClone + Send + Sync + 'static,
+        ts: Tipset,
     ) -> anyhow::Result<TokenAmount> {
         static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, Result<TokenAmount, String>>> =
             LazyLock::new(|| quick_cache::sync::Cache::new(120)); // 120 for 1h-worth epochs
 
         let height = ts.epoch() - 1;
-        let root = ts.parent_state();
+        let root = *ts.parent_state();
+        let this = self;
 
         CACHE
-            .get_or_insert_with(ts.key(), || {
-                anyhow::Ok(
-                    self.get_state_circulating_supply_raw(height, db, root)
+            .get_or_insert_async(ts.key(), async move {
+                tokio::task::spawn_blocking(move || {
+                    this.get_state_circulating_supply_raw_blocking(height, &db, &root)
                         .map_err(|e| {
                             let mut e = e.to_string();
                             e.truncate(100); // To make error size bounded
                             e
-                        }),
-                )
-            })?
+                        })
+                })
+                .await
+                .context("error joining tokio handle")
+            })
+            .await?
             .map_err(|e| anyhow::anyhow!(e))
     }
 
@@ -148,7 +152,7 @@ impl GenesisInfo {
     ///
     /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_vm_circulating_supply`], that's being
     /// calculated differently.
-    pub fn get_state_circulating_supply_raw(
+    pub fn get_state_circulating_supply_raw_blocking(
         &self,
         height: ChainEpoch,
         db: &(impl Blockstore + ShallowClone),

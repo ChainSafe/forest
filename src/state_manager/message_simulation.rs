@@ -15,7 +15,7 @@ use tracing::instrument;
 
 impl StateManager {
     #[instrument(skip(self))]
-    fn call_raw(
+    fn call_raw_blocking(
         &self,
         state_cid: Option<Cid>,
         msg: &Message,
@@ -139,19 +139,47 @@ impl StateManager {
 
     /// runs the given message and returns its result without any persisted
     /// changes.
-    pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error> {
-        self.call_raw(None, message, tipset)
+    pub async fn call(
+        &self,
+        message: Arc<Message>,
+        tipset: Option<Tipset>,
+    ) -> Result<ApiInvocResult, Error> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || this.call_blocking(&message, tipset)).await?
+    }
+
+    /// Blocking version of [`Self::call`], use with caution.
+    pub fn call_blocking(
+        &self,
+        message: &Message,
+        tipset: Option<Tipset>,
+    ) -> Result<ApiInvocResult, Error> {
+        self.call_raw_blocking(None, message, tipset)
     }
 
     /// Same as [`StateManager::call`] but runs the message on the given state and not
     /// on the parent state of the tipset.
-    pub fn call_on_state(
+    pub async fn call_on_state(
+        &self,
+        state_cid: Cid,
+        message: Arc<Message>,
+        tipset: Option<Tipset>,
+    ) -> Result<ApiInvocResult, Error> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || {
+            this.call_on_state_blocking(state_cid, &message, tipset)
+        })
+        .await?
+    }
+
+    /// Blocking version of [`Self::call_on_state`], use with caution.
+    pub fn call_on_state_blocking(
         &self,
         state_cid: Cid,
         message: &Message,
         tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
-        self.call_raw(Some(state_cid), message, tipset)
+        self.call_raw_blocking(Some(state_cid), message, tipset)
     }
 
     pub async fn apply_on_state_with_gas(

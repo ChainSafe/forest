@@ -2222,13 +2222,13 @@ async fn eth_get_code(
         return Ok(Default::default());
     }
 
-    let message = Message {
+    let message = Arc::new(Message {
         from: FilecoinAddress::SYSTEM_ACTOR,
         to: to_address,
         method_num: METHOD_GET_BYTE_CODE,
         gas_limit: BLOCK_GAS_LIMIT,
         ..Default::default()
-    };
+    });
 
     // Rewind ts to escape the fork guard, but keep state_root fixed to the requested epoch: the
     // result comes from state_root (ts only supplies execution context), so recomputing it for the
@@ -2237,7 +2237,12 @@ async fn eth_get_code(
     let api_invoc_result = loop {
         match ctx
             .state_manager
-            .call_on_state(state_root, &message, Some(ts.shallow_clone()))
+            .call_on_state(
+                state_root,
+                message.shallow_clone(),
+                Some(ts.shallow_clone()),
+            )
+            .await
         {
             Ok(res) => break res,
             Err(crate::state_manager::Error::ExpensiveFork { .. }) => {
@@ -2320,14 +2325,14 @@ async fn get_storage_at(
     }
 
     let params = RawBytes::new(GetStorageAtParams::new(position.0)?.serialize_params()?);
-    let message = Message {
+    let message = Arc::new(Message {
         from: FilecoinAddress::SYSTEM_ACTOR,
         to: to_address,
         method_num: METHOD_GET_STORAGE_AT,
         gas_limit: BLOCK_GAS_LIMIT,
         params,
         ..Default::default()
-    };
+    });
     // Rewind ts to escape the fork guard, but keep state_root fixed to the requested epoch: the
     // result comes from state_root (ts only supplies execution context), so recomputing it for the
     // parent would read an earlier epoch's storage.
@@ -2335,7 +2340,12 @@ async fn get_storage_at(
     let api_invoc_result = loop {
         match ctx
             .state_manager
-            .call_on_state(state_root, &message, Some(ts.shallow_clone()))
+            .call_on_state(
+                state_root,
+                message.shallow_clone(),
+                Some(ts.shallow_clone()),
+            )
+            .await
         {
             Ok(res) => break res,
             Err(crate::state_manager::Error::ExpensiveFork { .. }) => {
