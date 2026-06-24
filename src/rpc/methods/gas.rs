@@ -37,14 +37,14 @@ impl RpcMethod<3> for GasEstimateFeeCap {
         Some("Returns the estimated fee cap for the given parameters.");
 
     type Params = (Message, i64, ApiTipsetKey);
-    type Ok = String;
+    type Ok = TokenAmount;
 
     async fn handle(
         ctx: Ctx,
         (msg, max_queue_blks, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_fee_cap(&ctx, &msg, max_queue_blks, &tsk).map(|n| TokenAmount::to_string(&n))
+        estimate_fee_cap(&ctx, &msg, max_queue_blks, &tsk)
     }
 }
 
@@ -85,16 +85,14 @@ impl RpcMethod<4> for GasEstimateGasPremium {
         Some("Returns the estimated gas premium for the given parameters.");
 
     type Params = (u64, Address, i64, ApiTipsetKey);
-    type Ok = String;
+    type Ok = TokenAmount;
 
     async fn handle(
         ctx: Ctx,
         (nblocksincl, _sender, _gas_limit, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_gas_premium(&ctx, nblocksincl, &tsk)
-            .await
-            .map(|n| TokenAmount::to_string(&n))
+        estimate_gas_premium(&ctx, nblocksincl, &tsk).await
     }
 }
 

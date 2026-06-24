@@ -1869,7 +1869,7 @@ methods:
       name: Filecoin.GasEstimateFeeCap.Result
       required: true
       schema:
-        type: string
+        $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Filecoin.GasEstimateGasLimit
     description: Returns the estimated gas limit for the given parameters.
@@ -1923,7 +1923,7 @@ methods:
       name: Filecoin.GasEstimateGasPremium.Result
       required: true
       schema:
-        type: string
+        $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Filecoin.GasEstimateMessageGas
     description: Returns the estimated gas for the given parameters.

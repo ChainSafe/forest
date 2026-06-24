@@ -12,6 +12,7 @@
 !Filecoin.EthGetTransactionByHashLimited
 !Filecoin.F3
 !Filecoin.GasEstimateGasLimit
+!Filecoin.GasEstimateFeeCap
 !Filecoin.MinerCreateBlock
 !Filecoin.MpoolGetConfig
 !Filecoin.MpoolSelect
