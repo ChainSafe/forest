@@ -1864,7 +1864,7 @@ async fn eth_estimate_gas(
     msg.gas_limit = 0;
 
     match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
-        Err(mut err) => {
+        Err(server_err) => {
             // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
             // it just returns an error. That means we can't get the revert reason.
             //
@@ -1872,18 +1872,19 @@ async fn eth_estimate_gas(
             // guts of EthCall). This will give us an ethereum specific error with revert
             // information.
             msg.set_gas_limit(BLOCK_GAS_LIMIT);
-            if let Err(e) = apply_message(ctx, Some(tipset), msg).await {
-                // if the error is an execution reverted, return it directly
-                if e.downcast_ref::<EthErrors>()
-                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::ExecutionReverted { .. }))
+            let err = match apply_message(ctx, Some(tipset), msg).await {
+                Ok(_) => Error::msg(server_err.to_string()),
+                Err(e)
+                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
+                        matches!(eth_err, EthErrors::ExecutionReverted { .. })
+                    }) =>
                 {
                     return Err(e.into());
                 }
+                Err(e) => e,
+            };
 
-                err = e.into();
-            }
-
-            Err(anyhow::anyhow!("failed to estimate gas: {}", err.message()).into())
+            Err(err.context("failed to estimate gas").into())
         }
         Ok(gassed_msg) => {
             let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
@@ -1899,14 +1900,11 @@ async fn apply_message(
 ) -> Result<ApiInvocResult, Error> {
     if let Some(ts) = &tipset
         && ts.epoch() > 0
-    {
-        let parent = ctx.chain_index().load_required_tipset(ts.parents())?;
-        if ctx
+        && ctx
             .chain_config()
-            .has_expensive_fork_between(parent.epoch(), ts.epoch() + 1)
-        {
-            return Err(crate::state_manager::Error::ExpensiveFork.into());
-        }
+            .has_expensive_fork_between(ts.epoch(), ts.epoch() + 1)
+    {
+        return Err(crate::state_manager::Error::ExpensiveFork { epoch: ts.epoch() }.into());
     }
 
     let (invoc_res, _) = ctx
@@ -2238,19 +2236,24 @@ async fn eth_get_code(
         ..Default::default()
     };
 
-    let api_invoc_result = 'invoc: {
-        for ts in ts.shallow_clone().chain(ctx.db()) {
-            match ctx
-                .state_manager
-                .call_on_state(state_root, &message, Some(ts))
-            {
-                Ok(res) => {
-                    break 'invoc res;
-                }
-                Err(e) => tracing::warn!(%e),
+    // Rewind ts to escape the fork guard, but keep state_root fixed to the requested epoch: the
+    // result comes from state_root (ts only supplies execution context), so recomputing it for the
+    // parent would read an earlier epoch's bytecode.
+    let mut ts = ts.shallow_clone();
+    let api_invoc_result = loop {
+        match ctx
+            .state_manager
+            .call_on_state(state_root, &message, Some(ts.shallow_clone()))
+        {
+            Ok(res) => break res,
+            Err(crate::state_manager::Error::ExpensiveFork { .. }) => {
+                ts = ctx
+                    .chain_index()
+                    .load_required_tipset(ts.parents())
+                    .map_err(|e| anyhow::anyhow!("getting parent tipset: {e}"))?;
             }
+            Err(e) => return Err(e.into()),
         }
-        return Err(anyhow::anyhow!("Call failed").into());
     };
     let Some(msg_rct) = api_invoc_result.msg_rct else {
         return Err(anyhow::anyhow!("no message receipt").into());
@@ -2331,19 +2334,24 @@ async fn get_storage_at(
         params,
         ..Default::default()
     };
-    let api_invoc_result = 'invoc: {
-        for ts in ts.chain(ctx.db()) {
-            match ctx
-                .state_manager
-                .call_on_state(state_root, &message, Some(ts))
-            {
-                Ok(res) => {
-                    break 'invoc res;
-                }
-                Err(e) => tracing::warn!(%e),
+    // Rewind ts to escape the fork guard, but keep state_root fixed to the requested epoch: the
+    // result comes from state_root (ts only supplies execution context), so recomputing it for the
+    // parent would read an earlier epoch's storage.
+    let mut ts = ts;
+    let api_invoc_result = loop {
+        match ctx
+            .state_manager
+            .call_on_state(state_root, &message, Some(ts.shallow_clone()))
+        {
+            Ok(res) => break res,
+            Err(crate::state_manager::Error::ExpensiveFork { .. }) => {
+                ts = ctx
+                    .chain_index()
+                    .load_required_tipset(ts.parents())
+                    .map_err(|e| anyhow::anyhow!("getting parent tipset: {e}"))?;
             }
+            Err(e) => return Err(e.into()),
         }
-        return Err(anyhow::anyhow!("Call failed").into());
     };
     let Some(msg_rct) = api_invoc_result.msg_rct else {
         return Err(anyhow::anyhow!("no message receipt").into());

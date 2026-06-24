@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::future::Future;
 use std::io::Write as _;
 use std::process::Command;
 use std::sync::LazyLock;
@@ -149,7 +150,7 @@ fn is_min_gas_price_error(err: &anyhow::Error) -> bool {
 async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
 where
     F: FnMut() -> Fut,
-    Fut: std::future::Future<Output = anyhow::Result<Option<T>>>,
+    Fut: Future<Output = anyhow::Result<Option<T>>>,
 {
     let started = tokio::time::Instant::now();
     let mut attempt = 0u32;
@@ -187,12 +188,12 @@ pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Resul
     poll_until_changed(address, FIL_ZERO, backend).await
 }
 
-static FUNDED_DELEGATED: OnceCell<String> = OnceCell::const_new();
-
 /// Delegated signer: create once on local, fund locally, mirror to remote
 /// for tests that query or sign.
 pub async fn funded_delegated_addr() -> &'static str {
-    let addr = FUNDED_DELEGATED
+    static FUNDED_DELEGATED: OnceCell<String> = OnceCell::const_new();
+
+    FUNDED_DELEGATED
         .get_or_try_init(|| async {
             let addr = wallet(Backend::Local, &["new", "delegated"]).unwrap();
             let fund_msg = send_from(
@@ -203,8 +204,13 @@ pub async fn funded_delegated_addr() -> &'static str {
             )
             .unwrap();
             eprintln!("delegated funding send to {addr} msg: {fund_msg}");
-            let funded = poll_until_funded(&addr, Backend::Local).await.unwrap();
-            eprintln!("delegated wallet {addr} funded balance: {funded}");
+            for backend in [Backend::Local, Backend::Remote] {
+                let funded = poll_until_funded(&addr, backend).await.unwrap();
+                eprintln!(
+                    "delegated wallet {addr} funded balance: {funded} ({})",
+                    backend.label()
+                );
+            }
 
             let exported = export_to_temp_file(&addr, Backend::Local).unwrap();
             let path = exported
@@ -216,8 +222,8 @@ pub async fn funded_delegated_addr() -> &'static str {
             Ok::<_, anyhow::Error>(addr)
         })
         .await
-        .unwrap();
-    addr.as_str()
+        .unwrap()
+        .as_str()
 }
 
 static HTTP: LazyLock<reqwest::Client> = LazyLock::new(|| {
@@ -379,9 +385,17 @@ pub async fn filecoin_to_eth(address: &str) -> anyhow::Result<String> {
         .with_context(|| format!("expected string ETH address, got {result}"))
 }
 
-pub fn block_on<F: std::future::Future>(future: F) -> F::Output {
-    tokio::task::block_in_place(|| {
-        let rt = tokio::runtime::Handle::current();
+pub fn block_on<F: Future + Send + Sync + 'static>(future: F) -> F::Output
+where
+    F::Output: Send + Sync + 'static,
+{
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         rt.block_on(future)
     })
+    .join()
+    .unwrap()
 }

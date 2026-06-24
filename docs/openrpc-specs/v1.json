@@ -299,6 +299,7 @@
     },
     {
       "name": "Filecoin.ChainExport",
+      "description": "Exports a v1 chain snapshot to a CAR file from the given epoch.",
       "params": [
         {
           "name": "params",
@@ -401,6 +402,7 @@
     },
     {
       "name": "Filecoin.ChainGetGenesis",
+      "description": "Returns the genesis tipset of the chain.",
       "params": [],
       "result": {
         "name": "Filecoin.ChainGetGenesis.Result",
@@ -441,6 +443,7 @@
     },
     {
       "name": "Filecoin.ChainGetMessagesInTipset",
+      "description": "Returns all messages included in the tipset with the given key.",
       "params": [
         {
           "name": "tipsetKey",
@@ -713,6 +716,7 @@
     },
     {
       "name": "Filecoin.ChainSetHead",
+      "description": "Forcibly sets the chain head to the tipset with the given key.",
       "params": [
         {
           "name": "tsk",
@@ -733,6 +737,7 @@
     },
     {
       "name": "Filecoin.ChainStatObj",
+      "description": "Returns the size and link count of the IPLD graph under the given CID, or the difference relative to an optional base CID.",
       "params": [
         {
           "name": "objCid",
@@ -5823,6 +5828,7 @@
     },
     {
       "name": "Forest.ChainExport",
+      "description": "Exports a chain snapshot to a CAR file from the given epoch; only one export may run at a time.",
       "params": [
         {
           "name": "params",
@@ -5843,6 +5849,7 @@
     },
     {
       "name": "Forest.ChainExportCancel",
+      "description": "Cancels the in-progress chain export, returning whether one was running.",
       "params": [],
       "result": {
         "name": "Forest.ChainExportCancel.Result",
@@ -5855,6 +5862,7 @@
     },
     {
       "name": "Forest.ChainExportDiff",
+      "description": "Exports a differential snapshot covering the given epoch range to a CAR file.",
       "params": [
         {
           "name": "params",
@@ -5875,6 +5883,7 @@
     },
     {
       "name": "Forest.ChainExportStatus",
+      "description": "Returns the progress and status of the in-progress chain export.",
       "params": [],
       "result": {
         "name": "Forest.ChainExportStatus.Result",
@@ -5887,6 +5896,7 @@
     },
     {
       "name": "Forest.ChainGetMinBaseFee",
+      "description": "Returns the minimum base fee across the given number of lookback tipsets, in attoFIL.",
       "params": [
         {
           "name": "lookback",
@@ -5909,6 +5919,7 @@
     },
     {
       "name": "Forest.ChainGetTipsetByParentState",
+      "description": "Returns the tipset whose parent state root matches the given CID, or null if none is found.",
       "params": [
         {
           "name": "parentState",
@@ -6071,6 +6082,7 @@
     },
     {
       "name": "Forest.SnapshotGC",
+      "description": "Triggers database garbage collection, optionally blocking until it completes.",
       "params": [
         {
           "name": "blocking",

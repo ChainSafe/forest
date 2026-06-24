@@ -512,20 +512,26 @@ impl ChainConfig {
             .unwrap_or(0)
     }
 
-    /// Returns true if executing between `parent` and `height` (exclusive of `height`) would
-    /// cross an expensive state migration, as registered in
-    /// [`crate::state_migration::get_migrations`].
-    pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
+    /// Returns the lowest expensive state migration epoch in `[parent, height)` if one exists.
+    pub fn expensive_fork_between(
+        &self,
+        parent: ChainEpoch,
+        height: ChainEpoch,
+    ) -> Option<ChainEpoch> {
         if parent >= height {
-            return false;
+            return None;
         }
         crate::state_migration::get_migrations::<crate::db::DbImpl>(&self.network)
             .iter()
-            .any(|(h, _)| {
-                self.height_infos
-                    .get(h)
-                    .is_some_and(|info| info.epoch >= parent && info.epoch < height)
-            })
+            .filter_map(|(h, _)| self.height_infos.get(h).map(|info| info.epoch))
+            .filter(|epoch| *epoch >= parent && *epoch < height)
+            .min()
+    }
+
+    /// Reports whether an expensive migration is triggered in the half-open epoch interval
+    /// `[parent, height)`.
+    pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
+        self.expensive_fork_between(parent, height).is_some()
     }
 
     pub async fn genesis_bytes<DB: SettingsStore>(
@@ -700,6 +706,20 @@ mod tests {
         let shark = cfg.epoch(Height::Shark);
         assert!(cfg.has_expensive_fork_between(shark - 1, shark + 1));
         assert!(!cfg.has_expensive_fork_between(shark - 1, shark));
+    }
+
+    #[test]
+    fn expensive_fork_between_returns_lowest_fork_in_window() {
+        let cfg = ChainConfig::calibnet();
+        let shark = cfg.epoch(Height::Shark);
+        let hygge = cfg.epoch(Height::Hygge);
+        assert_eq!(cfg.expensive_fork_between(shark - 1, shark), None);
+        assert_eq!(cfg.expensive_fork_between(shark, shark + 1), Some(shark));
+        assert_eq!(
+            cfg.expensive_fork_between(shark - 1, hygge + 1),
+            Some(shark)
+        );
+        assert_eq!(cfg.expensive_fork_between(shark + 1, shark + 1), None);
     }
 
     #[test]

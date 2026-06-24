@@ -26,12 +26,20 @@ impl StateManager {
 
         let tipset = if let Some(ts) = tipset {
             if ts.epoch() > 0 {
-                let parent = self
-                    .chain_index()
-                    .load_required_tipset(ts.parents())
-                    .map_err(Error::other)?;
-                if chain_config.has_expensive_fork_between(parent.epoch(), ts.epoch() + 1) {
-                    return Err(Error::ExpensiveFork);
+                // Explicit-state calls already hold every fork below the tipset epoch, so only a
+                // migration at the tipset epoch itself is refused. Parent-state calls (no explicit
+                // state) lag a tipset, so a migration at the parent epoch must also be refused.
+                let (fork_floor, fork_height) = if state_cid.is_some() {
+                    (ts.epoch(), ts.epoch() + 1)
+                } else {
+                    let parent = self
+                        .chain_index()
+                        .load_required_tipset(ts.parents())
+                        .map_err(Error::other)?;
+                    (parent.epoch(), ts.epoch() + 1)
+                };
+                if let Some(epoch) = chain_config.expensive_fork_between(fork_floor, fork_height) {
+                    return Err(Error::ExpensiveFork { epoch });
                 }
             }
             ts

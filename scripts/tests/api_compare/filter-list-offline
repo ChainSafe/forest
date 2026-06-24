@@ -33,7 +33,6 @@
 !Filecoin.ChainSetHead
 !Filecoin.EthTraceFilter
 !Filecoin.EthTraceReplayBlockTransactions
-!Filecoin.EthEstimateGas
 !Filecoin.EthGetBlockByHash
 # https://github.com/filecoin-project/lotus/issues/12214
 !Filecoin.EthGetTransactionByBlockHashAndIndex
