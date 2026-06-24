@@ -3992,7 +3992,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.SyncMarkBad
-    description: Marks the block with the given CID as bad in the bad-block cache.
+    description: Marks the block with the given CID as bad.
     params:
       - name: cid
         required: true
