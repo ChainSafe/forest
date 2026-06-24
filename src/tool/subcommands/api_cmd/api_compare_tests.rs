@@ -2388,7 +2388,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         // return reasonable values within expected bounds rather than exact equality.
         RpcTest::validate(
             GasEstimateMessageGas::request((
-                message,
+                message.clone(),
                 None, // No MessageSendSpec
                 shared_tipset.key().into(),
             ))
@@ -2415,6 +2415,35 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
                 forest_fee_cap.is_within_percent(lotus_fee_cap, 5)
                     && forest_premium.is_within_percent(lotus_premium, 5)
+            },
+        ),
+        // Pin to `shared_tipset` so both nodes compute over the same chain history;
+        // the only remaining difference is each node's ±1% gaussian noise, which the
+        // 5% tolerance absorbs. The heaviest tipset would compare two independently-
+        // synced heads and diff arbitrarily.
+        RpcTest::validate(
+            GasEstimateGasPremium::request((3, addr, 9, shared_tipset.key().into())).unwrap(),
+            |forest_premium, lotus_premium| {
+                // Gas premium should not be negative
+                if forest_premium.is_negative() || lotus_premium.is_negative() {
+                    return false;
+                }
+
+                forest_premium.is_within_percent(&lotus_premium, 5)
+            },
+        ),
+        // The fee cap derives from the noise-perturbed premium, so use the same 5%
+        // tolerance; pinning to `shared_tipset` fixes the parent base fee both nodes
+        // read. Deserializing the result as `TokenAmount` is what rejects a FIL-decimal
+        // serialization regression (such a string fails to parse as an integer).
+        RpcTest::validate(
+            GasEstimateFeeCap::request((message, 20, shared_tipset.key().into())).unwrap(),
+            |forest_fee_cap, lotus_fee_cap| {
+                if forest_fee_cap.is_negative() || lotus_fee_cap.is_negative() {
+                    return false;
+                }
+
+                forest_fee_cap.is_within_percent(&lotus_fee_cap, 5)
             },
         ),
     ]

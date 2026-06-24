@@ -8,6 +8,7 @@ info:
   version: 0.33.7
 methods:
   - name: Filecoin.AuthNew
+    description: Creates a new JWT authentication token with the given permissions.
     params:
       - name: permissions
         required: true
@@ -31,6 +32,7 @@ methods:
         $ref: "#/components/schemas/Base64String"
     paramStructure: by-position
   - name: Filecoin.AuthVerify
+    description: Verifies a JWT authentication token and returns its permissions.
     params:
       - name: headerRaw
         required: true
@@ -47,6 +49,7 @@ methods:
           type: string
     paramStructure: by-position
   - name: Filecoin.BeaconGetEntry
+    description: "Returns the drand beacon entry for the given epoch, blocking until it becomes available."
     params:
       - name: first
         required: true
@@ -448,6 +451,7 @@ methods:
           - type: "null"
     paramStructure: by-position
   - name: Filecoin.Session
+    description: Returns a UUID that uniquely identifies this node for the current session.
     params: []
     result:
       name: Filecoin.Session.Result
@@ -457,6 +461,7 @@ methods:
         format: uuid
     paramStructure: by-position
   - name: Filecoin.Shutdown
+    description: Shuts the node down.
     params: []
     result:
       name: Filecoin.Shutdown.Result
@@ -465,6 +470,7 @@ methods:
         type: "null"
     paramStructure: by-position
   - name: Filecoin.StartTime
+    description: Returns the time at which the node was started.
     params: []
     result:
       name: Filecoin.StartTime.Result
@@ -474,6 +480,7 @@ methods:
         format: date-time
     paramStructure: by-position
   - name: Filecoin.Version
+    description: "Returns the node version, API version, and block delay."
     params: []
     result:
       name: Filecoin.Version.Result
@@ -1841,7 +1848,7 @@ methods:
       name: Filecoin.GasEstimateFeeCap.Result
       required: true
       schema:
-        type: string
+        $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Filecoin.GasEstimateGasLimit
     description: Returns the estimated gas limit for the given parameters.
@@ -1895,7 +1902,7 @@ methods:
       name: Filecoin.GasEstimateGasPremium.Result
       required: true
       schema:
-        type: string
+        $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Filecoin.GasEstimateMessageGas
     description: Returns the estimated gas for the given parameters.
@@ -1925,6 +1932,7 @@ methods:
         $ref: "#/components/schemas/Message"
     paramStructure: by-position
   - name: Filecoin.MarketAddBalance
+    description: Adds funds to the market actor escrow balance for the given address and returns the message CID.
     params:
       - name: wallet
         required: true
@@ -2142,6 +2150,7 @@ methods:
           $ref: "#/components/schemas/SignedMessage"
     paramStructure: by-position
   - name: Filecoin.MsigGetAvailableBalance
+    description: Returns the spendable balance of the given multisig (total balance minus the locked amount) at the given tipset.
     params:
       - name: address
         required: true
@@ -2162,6 +2171,7 @@ methods:
         $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Filecoin.MsigGetPending
+    description: Returns the transactions awaiting approval in the given multisig at the given tipset.
     params:
       - name: address
         required: true
@@ -2186,6 +2196,7 @@ methods:
           $ref: "#/components/schemas/Transaction"
     paramStructure: by-position
   - name: Filecoin.MsigGetVested
+    description: Returns the amount that vested in the given multisig between the start and end tipsets.
     params:
       - name: address
         required: true
@@ -2214,6 +2225,7 @@ methods:
         $ref: "#/components/schemas/BigInt"
     paramStructure: by-position
   - name: Filecoin.MsigGetVestingSchedule
+    description: Returns the vesting schedule of the given multisig at the given tipset.
     params:
       - name: address
         required: true
@@ -2438,6 +2450,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.NodeStatus
+    description: "Returns the node's status, including sync and chain health information."
     params: []
     result:
       name: Filecoin.NodeStatus.Result
@@ -3938,6 +3951,7 @@ methods:
         $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
   - name: Filecoin.SyncCheckBad
+    description: "Returns the reason the given block is marked bad, or an empty string if it is not."
     params:
       - name: cid
         required: true
@@ -3950,6 +3964,7 @@ methods:
         type: string
     paramStructure: by-position
   - name: Filecoin.SyncMarkBad
+    description: Marks the block with the given CID as bad.
     params:
       - name: cid
         required: true

@@ -123,7 +123,7 @@ indicatif = { version = "0.18", features = ["tokio"] }
 integer-encoding = { version = "4.0", features = ["tokio_async"] }
 ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
-itertools = "0.14"
+itertools = "0.15"
 jsonrpsee = { version = "0.26", features = ["server", "ws-client", "http-client", "macros"] }
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 k256 = "0.13"
@@ -228,7 +228,7 @@ tokio-tungstenite = "0.29"
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
 toml = "1"
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["compression-full", "sensitive-headers"] }
+tower-http = { version = "0.7", features = ["compression-full", "sensitive-headers"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

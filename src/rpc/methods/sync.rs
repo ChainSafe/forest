@@ -20,6 +20,8 @@ impl RpcMethod<1> for SyncCheckBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the reason the given block is marked bad, or an empty string if it is not.");
 
     type Params = (Cid,);
     type Ok = String;
@@ -45,6 +47,7 @@ impl RpcMethod<1> for SyncMarkBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: Option<&'static str> = Some("Marks the block with the given CID as bad.");
 
     type Params = (Cid,);
     type Ok = ();
