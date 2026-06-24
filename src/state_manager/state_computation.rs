@@ -45,13 +45,6 @@ impl StateManager {
             StateRecomputePolicy::Disallowed
         };
 
-        // https://github.com/ChainSafe/forest/issues/7118
-        #[cfg(test)]
-        let policy = {
-            _ = policy;
-            StateRecomputePolicy::Allowed
-        };
-
         policy
     }
 
@@ -66,8 +59,7 @@ impl StateManager {
 
     /// Load an executed tipset using an explicitly provided receipt (child) tipset instead of
     /// resolving the child on the current heaviest chain. This is required when serving events
-    /// for tipsets that are no longer canonical — e.g. the divergent segment of a reorg — where
-    /// a canonical-chain lookup would find no child, or a different one.
+    /// for tipsets that are no longer canonical.
     pub async fn load_executed_tipset_with_receipt(
         &self,
         msg_ts: &Tipset,

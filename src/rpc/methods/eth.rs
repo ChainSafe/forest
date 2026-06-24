@@ -1457,11 +1457,8 @@ pub async fn eth_logs_for_block_and_transaction(
     eth_filter_logs_from_events(ctx, &events)
 }
 
-/// Collects the Ethereum logs produced by a single chain head change, for the logs
-/// subscription. The change's tipset is the *receipt* tipset (the applied or reverted tipset
-/// itself); its parent is the message tipset whose events those receipts carry. A reverting
-/// change marks the logs `removed: true`. The receipt tipset is taken from the change rather
-/// than resolved through the canonical chain, because a reverted tipset is no longer on it.
+/// Collects the logs produced by a single chain head change, for the logs
+/// subscription.
 pub(in crate::rpc) async fn eth_logs_for_head_change(
     ctx: &Ctx,
     change: &PathChange<Tipset>,
@@ -3441,8 +3438,7 @@ impl RpcMethod<1> for EthGetLogs {
 
 /// Shared implementation of `eth_getFilterLogs` / `eth_getFilterChanges` for installed event
 /// filters: collects the filter's full result set from the canonical chain, returns only the
-/// events that were not present in the previous poll, and stores the latest set as the new
-/// baseline.
+/// events that were not present in the previous poll.
 async fn poll_event_filter(
     ctx: &Ctx,
     event_filter: &EventFilter,
@@ -3455,10 +3451,6 @@ async fn poll_event_filter(
             SkipEvent::OnUnresolvedAddress,
         )
         .await?;
-    // An event's position identifies it uniquely, so the poll baseline stores positions
-    // instead of whole `CollectedEvent`s and the filter does not pin entry payloads between
-    // polls. A re-orged duplicate lands under a different tipset key and is correctly
-    // reported again.
     let mut seen_positions = SeenEventPositions::default();
     let mut recent_events = Vec::new();
     for event in events {

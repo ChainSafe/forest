@@ -129,9 +129,6 @@ pub enum SkipEvent {
     Never,
 }
 
-/// Whether the events being collected belong to a tipset that was applied to the canonical
-/// chain, or to one that was reverted from it by a reorg. Reverted events surface as
-/// `removed: true` in the Ethereum log APIs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EventRevertStatus {
     Applied,

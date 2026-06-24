@@ -66,7 +66,8 @@ use crate::rpc::RPCState;
 use crate::rpc::eth::pubsub_trait::{EthPubSubApiServer, SubscriptionKind, SubscriptionParams};
 use crate::rpc::eth::types::{ApiHeaders, EthFilterSpec, EthHashList, EthTopicSpec};
 use crate::rpc::eth::{
-    Block as EthBlock, EthLog, TxInfo, eth_logs_for_head_change, eth_tx_hash_from_signed_message,
+    Block as EthBlock, EthHash, EthLog, TxInfo, eth_logs_for_head_change,
+    eth_tx_hash_from_signed_message,
 };
 use crate::utils::broadcast::subscription_stream;
 use futures::{Stream, StreamExt as _};
@@ -155,7 +156,7 @@ fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
 }
 
 /// Drives the shared logs feed for every chain head change, collects the Ethereum logs of the affected tipsets
-async fn run_logs_feed(ctx: Arc<RPCState>, feed: broadcast::Sender<Arc<Vec<EthLog>>>) {
+async fn run_logs_feed(ctx: Arc<RPCState>, feed: LogsFeed) {
     let mut head_changes = subscription_stream(ctx.chain_store().subscribe_head_changes());
     while let Some(changes) = head_changes.next().await {
         // Collecting events is not free; skip the work entirely while no subscription is live.
@@ -164,11 +165,11 @@ async fn run_logs_feed(ctx: Arc<RPCState>, feed: broadcast::Sender<Arc<Vec<EthLo
         }
         for change in changes.into_change_vec() {
             match eth_logs_for_head_change(&ctx, &change).await {
-                Ok(logs) if !logs.is_empty() => {
-                    // An error only means every receiver vanished since the check above.
-                    let _ = feed.send(Arc::new(logs));
+                Ok(logs) => {
+                    if !logs.is_empty() {
+                        let _ = feed.send(Arc::new(logs));
+                    }
                 }
-                Ok(_) => {}
                 Err(e) => {
                     tracing::error!(
                         "Failed to collect logs for head change {}: {e:#}",
@@ -206,27 +207,37 @@ fn spawn_logs(sink: SubscriptionSink, ctx: Arc<RPCState>, filter: Option<EthFilt
     tokio::spawn(pipe_stream_to_sink(stream, sink));
 }
 
-/// Standard Ethereum log filtering (go-ethereum's `filterLogs`) over an already-converted
-/// log: any address in the list may match, with an absent or empty list acting as a
-/// wildcard; topic positions are ANDed across positions and ORed within one, with absent or
-/// null positions acting as wildcards. A log with fewer topics than the filter has positions
-/// never matches. The filter's block range does not apply to subscriptions.
+/// Whether `log` matches the filter `spec`
+///
+/// - `address`: an absent or empty list matches any address; otherwise `logs` address must be
+///   in the list.
+/// - `topics`: each position is a set of accepted hashes.
+///   An empty set (a `null` or empty-list position) is a wildcard that imposes no constraint, even
+///   past the log's topics; a non-empty set requires `log` to have a topic at that index within the
+///   set.
 fn log_matches(spec: &EthFilterSpec, log: &EthLog) -> bool {
-    let address_matches = spec
+    let address_ok = spec
         .address
         .as_ref()
-        .is_none_or(|addresses| addresses.is_empty() || addresses.contains(&log.address));
-    let topics_match = spec.topics.as_ref().is_none_or(|EthTopicSpec(positions)| {
-        positions.len() <= log.topics.len()
-            && positions
-                .iter()
-                .zip(&log.topics)
-                .all(|(position, topic)| match position {
-                    EthHashList::List(hashes) => hashes.is_empty() || hashes.contains(topic),
-                    EthHashList::Single(hash) => hash.as_ref().is_none_or(|h| h == topic),
-                })
+        .is_none_or(|list| list.is_empty() || list.contains(&log.address));
+
+    let topics_ok = spec.topics.as_ref().is_none_or(|EthTopicSpec(positions)| {
+        positions.iter().enumerate().all(|(i, position)| {
+            // A position is a set of accepted hashes; an empty set is a wildcard.
+            let accepted: &[EthHash] = match position {
+                EthHashList::List(hashes) => hashes,
+                EthHashList::Single(Some(hash)) => std::slice::from_ref(hash),
+                EthHashList::Single(None) => &[],
+            };
+            accepted.is_empty()
+                || log
+                    .topics
+                    .get(i)
+                    .is_some_and(|topic| accepted.contains(topic))
+        })
     });
-    address_matches && topics_match
+
+    address_ok && topics_ok
 }
 
 fn spawn_pending_transactions(sink: SubscriptionSink, ctx: Arc<RPCState>) {
@@ -392,13 +403,58 @@ mod tests {
             &log
         ));
 
-        // More filter positions than log topics never match, even with wildcards
-        // (go-ethereum's `filterLogs` semantics).
-        assert!(!log_matches(
+        // A trailing wildcard position imposes no constraint, even past the log's topics —
+        // matching Anvil (reth), Lotus, and Forest's eth_getLogs.
+        assert!(log_matches(
             &with_topics(vec![
                 EthHashList::Single(Some(topic(1))),
                 EthHashList::Single(Some(topic(2))),
                 EthHashList::Single(None),
+            ]),
+            &log
+        ));
+    }
+
+    #[test]
+    fn log_matches_trailing_wildcard_past_topics() {
+        // A log with a single topic, e.g. a no-indexed-arg event: topics = [signature].
+        // These assertions mirror the empirically-confirmed Anvil (reth) behaviour.
+        let log = eth_log(&address_0(), vec![topic(1)]);
+        let with_topics = |positions: Vec<EthHashList>| EthFilterSpec {
+            topics: Some(EthTopicSpec(positions)),
+            ..Default::default()
+        };
+
+        // [sig, null]: trailing wildcard does not require a second topic -> matches.
+        assert!(log_matches(
+            &with_topics(vec![
+                EthHashList::Single(Some(topic(1))),
+                EthHashList::Single(None),
+            ]),
+            &log
+        ));
+        // [sig, []]: an empty list is also a wildcard -> matches.
+        assert!(log_matches(
+            &with_topics(vec![
+                EthHashList::Single(Some(topic(1))),
+                EthHashList::List(vec![]),
+            ]),
+            &log
+        ));
+        // [sig, value]: a constrained second position with no topic to match -> no match.
+        assert!(!log_matches(
+            &with_topics(vec![
+                EthHashList::Single(Some(topic(1))),
+                EthHashList::Single(Some(topic(2))),
+            ]),
+            &log
+        ));
+        // Many trailing wildcards are still ignored.
+        assert!(log_matches(
+            &with_topics(vec![
+                EthHashList::Single(Some(topic(1))),
+                EthHashList::Single(None),
+                EthHashList::List(vec![]),
             ]),
             &log
         ));
