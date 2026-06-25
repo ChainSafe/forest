@@ -81,9 +81,9 @@ const INITIAL_PLEDGE_DEN: u64 = 100;
 pub enum StateCall {}
 
 impl StateCall {
-    pub fn run(
+    pub async fn run(
         state_manager: &StateManager,
-        message: &Message,
+        message: Arc<Message>,
         tsk: Option<TipsetKey>,
     ) -> anyhow::Result<ApiInvocResult> {
         let mut tipset = state_manager
@@ -96,7 +96,10 @@ impl StateCall {
         //
         // See: <https://github.com/filecoin-project/lotus/blob/797feebc63bfbd4fdfb742b674c97bfb7846cccb/node/impl/full/state.go#L147>
         loop {
-            match state_manager.call(message, Some(tipset.shallow_clone())) {
+            match state_manager
+                .call(message.shallow_clone(), Some(tipset.shallow_clone()))
+                .await
+            {
                 Err(crate::state_manager::Error::ExpensiveFork { .. }) => {
                     tipset = state_manager
                         .chain_index()
@@ -126,7 +129,7 @@ impl RpcMethod<2> for StateCall {
         (message, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(Self::run(&ctx.state_manager, &message, tsk)?)
+        Ok(Self::run(&ctx.state_manager, message.into(), tsk).await?)
     }
 }
 
@@ -1925,7 +1928,9 @@ impl RpcMethod<1> for StateCirculatingSupply {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().shallow_clone());
-        let supply = genesis_info.get_state_circulating_supply_with_cache(ctx.db(), &ts)?;
+        let supply = genesis_info
+            .get_state_circulating_supply_with_cache(ctx.db_owned(), ts)
+            .await?;
         Ok(supply)
     }
 }
