@@ -4,7 +4,7 @@
 use tokio::task::AbortHandle;
 
 /// Holds a collection of [`AbortHandle`] and aborts them automatically on drop
-#[derive(Default, derive_more::Deref, derive_more::DerefMut)]
+#[derive(Debug, Default, derive_more::Deref, derive_more::DerefMut)]
 pub struct AbortHandles(Vec<AbortHandle>);
 
 impl Drop for AbortHandles {

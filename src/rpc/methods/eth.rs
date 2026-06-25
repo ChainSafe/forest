@@ -3542,9 +3542,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                 return Ok(eth_filter_result_from_tipsets(&events)?);
             }
             if let Some(mempool_filter) = filter.as_any().downcast_ref::<MempoolFilter>() {
-                let chain_id = ctx.chain_config().eth_chain_id;
-                let hashes = mempool_filter.drain(chain_id);
-                return Ok(EthFilterResult::Hashes(hashes));
+                return Ok(EthFilterResult::Hashes(mempool_filter.drain()));
             }
         }
         Err(anyhow::anyhow!("method not supported").into())

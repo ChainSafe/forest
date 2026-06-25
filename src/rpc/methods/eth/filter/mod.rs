@@ -28,6 +28,8 @@ use crate::blocks::Tipset;
 use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
+use crate::eth::EthChainId;
+use crate::message_pool::MpoolSubscriber;
 use crate::prelude::*;
 use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
@@ -139,14 +141,23 @@ impl EthEventHandler {
     pub fn new() -> Self {
         // Standalone handler with no live mempool: subscribers see an empty
         // stream forever. Used in tests, snapshot tools, and other contexts
-        // where no `MessagePool` is available.
-        Self::from_config(&EventsConfig::default(), MpoolSubscriber::dummy())
+        // where no `MessagePool` is available. The chain id is irrelevant here
+        // because the dummy subscriber never yields a message to hash.
+        Self::from_config(
+            &EventsConfig::default(),
+            crate::networks::mainnet::ETH_CHAIN_ID,
+            MpoolSubscriber::dummy(),
+        )
     }
 
     /// Build a handler from `config`. Each `MempoolFilter` installed via the
-    /// returned handler invokes `mpool_subscriber` to obtain its own
-    /// independent broadcast receiver for pending-tx updates.
-    pub fn from_config(config: &EventsConfig, mpool_subscriber: MpoolSubscriber) -> Self {
+    /// returned handler opens its own independent receiver on `mpool_subscriber`
+    /// and hashes pending txs with `eth_chain_id`.
+    pub fn from_config(
+        config: &EventsConfig,
+        eth_chain_id: EthChainId,
+        mpool_subscriber: MpoolSubscriber,
+    ) -> Self {
         let max_filters: usize = env_or_default("FOREST_MAX_FILTERS", 100);
         let max_filter_results = std::env::var("FOREST_MAX_FILTER_RESULTS")
             .ok()
@@ -174,6 +185,7 @@ impl EthEventHandler {
         let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
         let mempool_filter_manager = Some(MempoolFilterManager::new(
             max_filter_results,
+            eth_chain_id,
             mpool_subscriber,
         ));
 
@@ -1227,8 +1239,10 @@ mod tests {
         assert!(result.is_ok(), "Expected successful block filter creation");
     }
 
-    #[test]
-    fn test_eth_new_pending_transaction_filter() {
+    // `async`: installing a pending-tx filter spawns its background drain task,
+    // which requires a Tokio runtime.
+    #[tokio::test]
+    async fn test_eth_new_pending_transaction_filter() {
         let eth_event_handler = EthEventHandler::new();
         let result = eth_event_handler.eth_new_pending_transaction_filter();
 
@@ -1238,8 +1252,10 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_eth_uninstall_filter() {
+    // `async`: uninstalling exercises a pending-tx filter, whose install spawns
+    // a background task that requires a Tokio runtime.
+    #[tokio::test]
+    async fn test_eth_uninstall_filter() {
         let event_handler = EthEventHandler::new();
         let mut filter_ids = Vec::new();
         let filter_spec = EthFilterSpec {

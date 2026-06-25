@@ -123,6 +123,8 @@ Non-mandatory release for all node operators. It includes a few bug fixes as wel
 
 ### Fixed
 
+- [#7109](https://github.com/ChainSafe/forest/pull/7109): `eth_newPendingTransactionFilter` now returns genuinely-pending mempool transaction hashes instead of executed on-chain events. Each filter collects pending transactions continuously from the mempool (up to `max_filter_results`), so `eth_getFilterChanges` reports the transactions added since the previous poll.
+
 - [#7018](https://github.com/ChainSafe/forest/issues/7018): Fixed `forest-wallet set-default` failing when the keystore has no `default` entry.
 
 - [#6941](https://github.com/ChainSafe/forest/pull/6941): The `eth_subscribe` `logs` subscription now emits one log object per notification instead of one array of logs per tipset.

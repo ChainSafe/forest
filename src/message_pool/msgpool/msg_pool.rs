@@ -15,8 +15,11 @@ use crate::message_pool::{
     config::MpoolConfig,
     errors::Error,
     msgpool::{
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, pending_store::PendingStore,
-        recover_sig, republish::RepublishState,
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE,
+        events::{MpoolSubscriber, MpoolUpdate},
+        pending_store::PendingStore,
+        recover_sig,
+        republish::RepublishState,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -432,6 +435,14 @@ where
     /// removal from the pending pool.
     pub fn subscribe_to_updates(&self) -> broadcast::Receiver<MpoolUpdate> {
         self.pending.subscribe()
+    }
+
+    /// A subscribe-only handle to the [`MpoolUpdate`] bus that mints independent
+    /// receivers on demand. Unlike [`subscribe_to_updates`](Self::subscribe_to_updates),
+    /// the handle can be stored and re-used to open new receivers later (e.g.
+    /// one per installed pending-transaction filter).
+    pub fn subscriber(&self) -> MpoolSubscriber {
+        self.pending.subscriber()
     }
 
     /// Return Vector of signed messages given a block header for self.

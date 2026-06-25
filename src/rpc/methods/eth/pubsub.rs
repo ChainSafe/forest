@@ -60,15 +60,12 @@
 //!
 
 use crate::blocks::Tipset;
-use crate::message_pool::MpoolUpdate;
 use crate::prelude::ShallowClone;
 use crate::rpc::RPCState;
+use crate::rpc::eth::filter::mempool::pending_tx_added_hashes;
 use crate::rpc::eth::pubsub_trait::{EthPubSubApiServer, SubscriptionKind, SubscriptionParams};
 use crate::rpc::eth::types::{ApiHeaders, EthFilterSpec, EthHashList, EthTopicSpec};
-use crate::rpc::eth::{
-    Block as EthBlock, EthHash, EthLog, TxInfo, eth_logs_for_head_change,
-    eth_tx_hash_from_signed_message,
-};
+use crate::rpc::eth::{Block as EthBlock, EthHash, EthLog, TxInfo, eth_logs_for_head_change};
 use crate::utils::broadcast::subscription_stream;
 use futures::{Stream, StreamExt as _};
 use jsonrpsee::core::SubscriptionResult;
@@ -241,20 +238,10 @@ fn log_matches(spec: &EthFilterSpec, log: &EthLog) -> bool {
 }
 
 fn spawn_pending_transactions(sink: SubscriptionSink, ctx: Arc<RPCState>) {
-    let mpool_rx = ctx.mpool.subscribe_to_updates();
-    let eth_chain_id = ctx.chain_config().eth_chain_id;
-    let stream = subscription_stream(mpool_rx)
-        .filter_map(move |update| async move {
-            let MpoolUpdate::Add(msg) = update else {
-                return None;
-            };
-            eth_tx_hash_from_signed_message(&msg, eth_chain_id)
-                .inspect_err(|e| {
-                    tracing::error!("Failed to compute eth tx hash from mpool message: {e:#}")
-                })
-                .ok()
-        })
-        .boxed();
+    let stream = pending_tx_added_hashes(
+        ctx.mpool.subscribe_to_updates(),
+        ctx.chain_config().eth_chain_id,
+    );
     tokio::spawn(pipe_stream_to_sink(stream, sink));
 }
 

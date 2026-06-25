@@ -9,7 +9,9 @@ use tokio::sync::broadcast;
 
 use crate::message::SignedMessage;
 use crate::message_pool::errors::Error;
-use crate::message_pool::msgpool::events::{MPOOL_UPDATE_CHANNEL_CAPACITY, MpoolUpdate};
+use crate::message_pool::msgpool::events::{
+    MPOOL_UPDATE_CHANNEL_CAPACITY, MpoolSubscriber, MpoolUpdate,
+};
 use crate::message_pool::msgpool::msg_pool::TrustPolicy;
 use crate::message_pool::msgpool::msg_set::{MsgSet, MsgSetLimits, StrictnessPolicy};
 use crate::prelude::*;
@@ -128,6 +130,12 @@ impl PendingStore {
     /// independent; dropping it does not affect other subscribers.
     pub fn subscribe(&self) -> broadcast::Receiver<MpoolUpdate> {
         self.inner.events.subscribe()
+    }
+
+    /// A subscribe-only handle to the [`MpoolUpdate`] bus that can mint
+    /// independent receivers on demand without exposing the send half.
+    pub(in crate::message_pool) fn subscriber(&self) -> MpoolSubscriber {
+        MpoolSubscriber::new(self.inner.events.clone())
     }
 }
 

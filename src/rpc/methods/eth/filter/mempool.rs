@@ -1,128 +1,138 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::prelude::*;
 use crate::eth::EthChainId as EthChainIdType;
-use crate::message::SignedMessage;
-use crate::message_pool::MpoolUpdate;
+use crate::message_pool::{MpoolSubscriber, MpoolUpdate};
+use crate::prelude::*;
 use crate::rpc::Arc;
 use crate::rpc::eth::eth_tx_hash_from_signed_message;
 use crate::rpc::eth::types::EthHash;
 use crate::rpc::eth::{FilterID, filter::Filter, filter::FilterManager};
-use crate::shim::fvm_shared_latest::clock::ChainEpoch;
-use ahash::AHashMap as HashMap;
+use crate::utils::broadcast::subscription_stream;
+use crate::utils::task::AbortHandles;
+use ahash::HashMap;
 use anyhow::{Context, Result};
+use futures::{Stream, StreamExt as _};
 use indexmap::IndexSet;
 use parking_lot::{Mutex, RwLock};
 use std::any::Any;
+use std::pin::Pin;
 use tokio::sync::broadcast;
 
-/// Factory that yields a fresh independent `broadcast::Receiver<MpoolUpdate>`
-/// on each call. Wraps the `MessagePool` so the filter layer never sees the
-/// pool's broadcast `Sender` directly — preserves the send-only encapsulation
-/// owned by the message pool module.
-#[derive(Clone)]
-pub struct MpoolSubscriber {
-    inner: Arc<dyn Fn() -> broadcast::Receiver<MpoolUpdate> + Send + Sync>,
+/// Stream of the eth tx hash for every [`MpoolUpdate::Add`] published on the
+/// mempool bus.
+///
+/// Shared by the two pending-transaction surfaces — `eth_subscribe`'s
+/// `newPendingTransactions` (see [`super::super::pubsub`]) and
+/// `eth_newPendingTransactionFilter` — so both derive identical hashes by
+/// construction and treat the feed as purely additive.
+///
+/// [`MpoolUpdate::Remove`] is ignored: a tx leaves the pool only once it is
+/// mined on-chain, and — like Lotus and Forest's own pending-tx subscription —
+/// neither surface retracts an already-reported pending hash. Lagged and closed
+/// receivers are handled by [`subscription_stream`].
+pub(crate) fn pending_tx_added_hashes(
+    rx: broadcast::Receiver<MpoolUpdate>,
+    eth_chain_id: EthChainIdType,
+) -> Pin<Box<dyn Stream<Item = EthHash> + Send>> {
+    subscription_stream(rx)
+        .filter_map(move |update| async move {
+            let MpoolUpdate::Add(msg) = update else {
+                return None;
+            };
+            eth_tx_hash_from_signed_message(&msg, eth_chain_id)
+                .inspect_err(|e| {
+                    tracing::error!("Failed to compute eth tx hash from mpool message: {e:#}")
+                })
+                .ok()
+        })
+        .boxed()
 }
 
-impl MpoolSubscriber {
-    /// Build a subscriber from a factory closure that yields a fresh
-    /// receiver on each call (typically `move || mp.subscribe_to_updates()`).
-    pub fn new<F>(factory: F) -> Self
-    where
-        F: Fn() -> broadcast::Receiver<MpoolUpdate> + Send + Sync + 'static,
-    {
+/// Pending-tx hashes a [`MempoolFilter`] has accumulated since the last poll.
+///
+/// Insertion-ordered and de-duplicated. Bounded at `cap` hashes (`0` = no limit,
+/// the subsystem-wide convention — see [`super::ensure_filter_cap`]); on overflow
+/// the oldest hash is evicted, matching Lotus's mempool filter.
+#[derive(Debug)]
+struct Collected {
+    hashes: IndexSet<EthHash>,
+    cap: usize,
+}
+
+impl Collected {
+    fn new(cap: usize) -> Self {
         Self {
-            inner: Arc::new(factory),
+            hashes: IndexSet::new(),
+            cap,
         }
     }
 
-    /// Subscriber whose receivers never receive any events. Used by
-    /// standalone contexts (tests, snapshot tools, offline server when no
-    /// real mempool is attached).
-    pub fn dummy() -> Self {
-        let (tx, _) = broadcast::channel::<MpoolUpdate>(1);
-        Self::new(move || tx.subscribe())
+    /// Record a newly-seen pending tx hash. Duplicates are ignored; on overflow
+    /// the oldest hash is dropped to stay within `cap`.
+    fn push(&mut self, hash: EthHash) {
+        self.hashes.insert(hash);
+        if self.cap != 0 && self.hashes.len() > self.cap {
+            self.hashes.shift_remove_index(0);
+        }
     }
 
-    fn subscribe(&self) -> broadcast::Receiver<MpoolUpdate> {
-        (self.inner)()
-    }
-}
-
-impl std::fmt::Debug for MpoolSubscriber {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MpoolSubscriber").finish_non_exhaustive()
+    /// Take everything collected since the previous call, leaving the set empty.
+    fn take(&mut self) -> Vec<EthHash> {
+        std::mem::take(&mut self.hashes).into_iter().collect()
     }
 }
 
-/// Filter backing `eth_newPendingTransactionFilter`. Each instance owns its
-/// own `broadcast::Receiver<MpoolUpdate>`.
+/// Filter backing `eth_newPendingTransactionFilter`.
+///
+/// A background task drains the mempool [`MpoolUpdate`] bus continuously into
+/// `collected`, mirroring Lotus's `WaitForMpoolUpdates`/`CollectMessage`. Filling
+/// the buffer *between* polls (rather than reading the bounded broadcast ring at
+/// poll time) is what lets a poll return up to `max_filter_results` hashes
+/// instead of just what happens to still be in the ring.
+/// [`drain`](Self::drain) then takes and clears whatever accumulated since the
+/// previous `eth_getFilterChanges`. The feed is additive — see
+/// [`pending_tx_added_hashes`].
 #[derive(Debug)]
 pub struct MempoolFilter {
-    // Unique id used to identify the filter
-    pub id: FilterID,
-    // Maximum number of results to collect
-    pub max_results: usize,
-    // Receiver for mempool updates
-    rx: Mutex<broadcast::Receiver<MpoolUpdate>>,
+    id: FilterID,
+    collected: Arc<Mutex<Collected>>,
+    /// Aborts the background drain task when the filter is dropped on uninstall.
+    _drain_task: AbortHandles,
 }
 
 impl MempoolFilter {
-    pub fn new(
-        max_results: usize,
+    fn new(
         rx: broadcast::Receiver<MpoolUpdate>,
+        eth_chain_id: EthChainIdType,
+        max_results: usize,
     ) -> Result<Arc<Self>, uuid::Error> {
+        let collected = Arc::new(Mutex::new(Collected::new(max_results)));
+
+        // Drain the bus into `collected` continuously, so polls are bounded by
+        // `max_results` rather than the broadcast ring's capacity.
+        let mut hashes = pending_tx_added_hashes(rx, eth_chain_id);
+        let task = {
+            let collected = collected.clone();
+            tokio::spawn(async move {
+                while let Some(hash) = hashes.next().await {
+                    collected.lock().push(hash);
+                }
+            })
+        };
+        let mut drain_task = AbortHandles::default();
+        drain_task.push(task.abort_handle());
+
         Ok(Arc::new(Self {
             id: FilterID::new()?,
-            max_results,
-            rx: Mutex::new(rx),
+            collected,
+            _drain_task: drain_task,
         }))
     }
 
-    /// Drain queued mempool updates and return the resulting set of pending
-    /// tx hashes, capped at `max_results`.
-    ///
-    /// Semantics within a single drain window:
-    /// - `Add` inserts the tx hash.
-    /// - `Remove` cancels a prior `Add` from the *same* window. A `Remove`
-    ///   for a hash that was already returned by an earlier `drain` call is
-    ///   a no-op on the set — that hash was already reported as pending,
-    ///   so the client has seen it and the cancellation does not need to
-    ///   propagate.
-    ///
-    /// Why process `Remove` at all: a tx can leave the mempool between two
-    /// client polls (mined into a tipset, replaced via RBF, or evicted). If
-    /// we ignored `Remove` we would surface a hash whose tx is no longer
-    /// pending, which is misleading for `eth_newPendingTransactionFilter`
-    /// consumers.
-    pub fn drain(&self, chain_id: EthChainIdType) -> Vec<EthHash> {
-        use broadcast::error::TryRecvError;
-
-        let mut rx = self.rx.lock();
-        let mut pending: IndexSet<EthHash> = IndexSet::new();
-        loop {
-            match rx.try_recv() {
-                Ok(MpoolUpdate::Add(m)) => {
-                    if let Some(h) = hash_or_log(&m, chain_id) {
-                        pending.insert(h);
-                    }
-                }
-                Ok(MpoolUpdate::Remove(m)) => {
-                    if let Some(h) = hash_or_log(&m, chain_id) {
-                        // Cancels a matching Add buffered earlier in the
-                        // same window. No-op if the hash is not in the set.
-                        pending.shift_remove(&h);
-                    }
-                }
-                Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => break,
-                Err(TryRecvError::Lagged(n)) => {
-                    tracing::warn!("mempool filter lagged, dropped {n} events");
-                }
-            }
-        }
-        pending.into_iter().take(self.max_results).collect()
+    /// Take the pending-tx hashes collected since the previous poll.
+    pub fn drain(&self) -> Vec<EthHash> {
+        self.collected.lock().take()
     }
 }
 
@@ -136,40 +146,28 @@ impl Filter for MempoolFilter {
     }
 }
 
-fn hash_or_log(msg: &SignedMessage, chain_id: EthChainIdType) -> Option<EthHash> {
-    match eth_tx_hash_from_signed_message(msg, chain_id) {
-        Ok(h) => Some(h),
-        Err(e) => {
-            tracing::debug!("mempool filter: dropping message, hash error: {e}");
-            None
-        }
-    }
-}
-
-/// Manages installed `MempoolFilter`s. Each `install` calls the configured
-/// [`MpoolSubscriber`] to obtain a fresh independent
-/// `broadcast::Receiver<MpoolUpdate>`. Contexts without a real `MessagePool`
-/// (tests, snapshot tools, offline server) pass a subscriber whose receivers
-/// always yield `Empty`.
+/// Manages installed [`MempoolFilter`]s. Each `install` opens a fresh independent
+/// receiver on the shared [`MpoolSubscriber`] and spawns the filter's background
+/// drain task. Contexts without a real `MessagePool` (tests, snapshot tools, the
+/// offline server) pass a dummy subscriber whose receivers never yield events.
+#[derive(Debug)]
 pub struct MempoolFilterManager {
     filters: RwLock<HashMap<FilterID, Arc<dyn Filter>>>,
     max_filter_results: usize,
+    eth_chain_id: EthChainIdType,
     subscriber: MpoolSubscriber,
 }
 
-impl std::fmt::Debug for MempoolFilterManager {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MempoolFilterManager")
-            .field("max_filter_results", &self.max_filter_results)
-            .finish_non_exhaustive()
-    }
-}
-
 impl MempoolFilterManager {
-    pub fn new(max_filter_results: usize, subscriber: MpoolSubscriber) -> Arc<Self> {
+    pub fn new(
+        max_filter_results: usize,
+        eth_chain_id: EthChainIdType,
+        subscriber: MpoolSubscriber,
+    ) -> Arc<Self> {
         Arc::new(Self {
             filters: RwLock::new(HashMap::new()),
             max_filter_results,
+            eth_chain_id,
             subscriber,
         })
     }
@@ -177,8 +175,12 @@ impl MempoolFilterManager {
 
 impl FilterManager for MempoolFilterManager {
     fn install(&self) -> Result<Arc<dyn Filter>> {
-        let filter = MempoolFilter::new(self.max_filter_results, self.subscriber.subscribe())
-            .context("Failed to create a new mempool filter")?;
+        let filter = MempoolFilter::new(
+            self.subscriber.subscribe(),
+            self.eth_chain_id,
+            self.max_filter_results,
+        )
+        .context("Failed to create a new mempool filter")?;
         self.filters
             .write()
             .insert(filter.id().clone(), filter.clone());
@@ -193,9 +195,11 @@ impl FilterManager for MempoolFilterManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::message::SignedMessage;
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
     use crate::shim::message::Message as ShimMessage;
+    use std::time::Duration;
 
     const TEST_CHAIN_ID: EthChainIdType = 314;
 
@@ -214,87 +218,108 @@ mod tests {
         eth_tx_hash_from_signed_message(&make_smsg(seq), TEST_CHAIN_ID).unwrap()
     }
 
-    /// Build a subscriber backed by `tx` so tests can drive
-    /// `MpoolUpdate` events through the manager.
-    fn subscriber_from(tx: broadcast::Sender<MpoolUpdate>) -> MpoolSubscriber {
-        MpoolSubscriber::new(move || tx.subscribe())
+    /// Poll the filter until it has yielded at least `n` hashes in total,
+    /// accumulating across polls. Avoids racing the background drain task, which
+    /// collects asynchronously after an event is published.
+    async fn collect_at_least(filter: &MempoolFilter, n: usize) -> Vec<EthHash> {
+        let mut all = Vec::new();
+        for _ in 0..200 {
+            all.extend(filter.drain());
+            if all.len() >= n {
+                return all;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        panic!("collected only {} of {n} expected hashes", all.len());
+    }
+
+    // ---- Collected: the per-filter buffer logic (pure, deterministic) ----
+
+    #[test]
+    fn collected_dedups_and_preserves_insertion_order() {
+        let mut c = Collected::new(0);
+        c.push(hash_of(0));
+        c.push(hash_of(1));
+        c.push(hash_of(0)); // duplicate — ignored, keeps original position
+        assert_eq!(c.take(), vec![hash_of(0), hash_of(1)]);
     }
 
     #[test]
-    fn drain_returns_empty_when_no_events() {
-        let (tx, _) = broadcast::channel::<MpoolUpdate>(1);
-        let filter = MempoolFilter::new(10, tx.subscribe()).unwrap();
-        assert!(filter.drain(TEST_CHAIN_ID).is_empty());
+    fn collected_take_clears_the_buffer() {
+        let mut c = Collected::new(0);
+        c.push(hash_of(0));
+        assert_eq!(c.take(), vec![hash_of(0)]);
+        assert!(
+            c.take().is_empty(),
+            "a second take with no new pushes is empty"
+        );
     }
 
     #[test]
-    fn drain_add_remove_cancel_within_window() {
-        let (tx, _) = broadcast::channel::<MpoolUpdate>(16);
-        let filter = MempoolFilter::new(10, tx.subscribe()).unwrap();
+    fn collected_evicts_oldest_at_cap() {
+        let mut c = Collected::new(2);
+        c.push(hash_of(0));
+        c.push(hash_of(1));
+        c.push(hash_of(2)); // overflow — oldest (0) evicted
+        assert_eq!(c.take(), vec![hash_of(1), hash_of(2)]);
+    }
+
+    #[test]
+    fn collected_cap_zero_means_unbounded() {
+        let mut c = Collected::new(0);
+        for seq in 0..10 {
+            c.push(hash_of(seq));
+        }
+        assert_eq!(c.take().len(), 10, "cap == 0 never evicts");
+    }
+
+    // ---- pending_tx_added_hashes: the shared Add-only hash stream ----
+
+    #[tokio::test]
+    async fn added_hashes_maps_adds_and_ignores_removes() {
+        let (tx, rx) = broadcast::channel::<MpoolUpdate>(16);
+        let stream = pending_tx_added_hashes(rx, TEST_CHAIN_ID);
 
         tx.send(MpoolUpdate::Add(make_smsg(0))).unwrap();
-        tx.send(MpoolUpdate::Add(make_smsg(1))).unwrap();
-        tx.send(MpoolUpdate::Remove(make_smsg(0))).unwrap();
+        tx.send(MpoolUpdate::Remove(make_smsg(1))).unwrap(); // ignored
         tx.send(MpoolUpdate::Add(make_smsg(2))).unwrap();
+        drop(tx); // close the channel so the stream terminates
 
-        let hashes = filter.drain(TEST_CHAIN_ID);
-        assert!(!hashes.contains(&hash_of(0)), "Add+Remove should cancel");
-        assert!(hashes.contains(&hash_of(1)));
-        assert!(hashes.contains(&hash_of(2)));
-        assert!(filter.drain(TEST_CHAIN_ID).is_empty(), "second drain empty");
+        let hashes: Vec<EthHash> = stream.collect().await;
+        assert_eq!(hashes, vec![hash_of(0), hash_of(2)]);
     }
 
-    #[test]
-    fn drain_truncates_to_max_results() {
-        let (tx, _) = broadcast::channel::<MpoolUpdate>(64);
-        let filter = MempoolFilter::new(2, tx.subscribe()).unwrap();
-        for seq in 0..5u64 {
-            tx.send(MpoolUpdate::Add(make_smsg(seq))).unwrap();
-        }
-        assert_eq!(filter.drain(TEST_CHAIN_ID).len(), 2);
-    }
+    // ---- MempoolFilter / manager wiring ----
 
-    #[test]
-    fn drain_handles_lag_and_returns_remaining() {
-        let (tx, _) = broadcast::channel::<MpoolUpdate>(4);
-        let filter = MempoolFilter::new(100, tx.subscribe()).unwrap();
-        for seq in 0..10u64 {
-            tx.send(MpoolUpdate::Add(make_smsg(seq))).unwrap();
-        }
-        // Buffer was 4; receiver lagged. Drain returns the remaining buffered
-        // events without panicking.
-        assert!(!filter.drain(TEST_CHAIN_ID).is_empty());
-    }
-
-    #[test]
-    fn manager_subscribes_each_filter_to_independent_receiver() {
-        let (tx, _) = broadcast::channel::<MpoolUpdate>(16);
-        let manager = MempoolFilterManager::new(100, subscriber_from(tx.clone()));
-
-        let f1 = manager.install().expect("install f1");
-        let f2 = manager.install().expect("install f2");
+    #[tokio::test]
+    async fn filter_collects_adds_from_its_receiver() {
+        let (tx, rx) = broadcast::channel::<MpoolUpdate>(16);
+        let filter = MempoolFilter::new(rx, TEST_CHAIN_ID, 100).unwrap();
 
         tx.send(MpoolUpdate::Add(make_smsg(0))).unwrap();
         tx.send(MpoolUpdate::Add(make_smsg(1))).unwrap();
 
-        let f1 = f1.as_any().downcast_ref::<MempoolFilter>().unwrap();
-        let f2 = f2.as_any().downcast_ref::<MempoolFilter>().unwrap();
-
-        // Each receiver sees the full broadcast, independently.
-        let h1 = f1.drain(TEST_CHAIN_ID);
-        let h2 = f2.drain(TEST_CHAIN_ID);
-        assert_eq!(h1.len(), 2);
-        assert_eq!(h2.len(), 2);
-
-        // Draining once empties only that receiver.
-        assert!(f1.drain(TEST_CHAIN_ID).is_empty());
+        let hashes = collect_at_least(&filter, 2).await;
+        assert!(hashes.contains(&hash_of(0)));
+        assert!(hashes.contains(&hash_of(1)));
     }
 
-    #[test]
-    fn manager_with_dummy_subscriber_yields_empty() {
-        let manager = MempoolFilterManager::new(100, MpoolSubscriber::dummy());
-        let f = manager.install().expect("install");
-        let f = f.as_any().downcast_ref::<MempoolFilter>().unwrap();
-        assert!(f.drain(TEST_CHAIN_ID).is_empty());
+    #[tokio::test]
+    async fn manager_installs_and_removes_filters() {
+        let manager = MempoolFilterManager::new(100, TEST_CHAIN_ID, MpoolSubscriber::dummy());
+        let filter = manager.install().expect("install");
+        let id = filter.id().clone();
+        assert!(manager.remove(&id).is_some());
+        assert!(manager.remove(&id).is_none(), "second remove finds nothing");
+    }
+
+    #[tokio::test]
+    async fn dummy_subscriber_yields_no_hashes() {
+        // A standalone handler (no live mempool) installs fine but never collects.
+        let manager = MempoolFilterManager::new(100, TEST_CHAIN_ID, MpoolSubscriber::dummy());
+        let filter = manager.install().expect("install");
+        let filter = filter.as_any().downcast_ref::<MempoolFilter>().unwrap();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(filter.drain().is_empty());
     }
 }
