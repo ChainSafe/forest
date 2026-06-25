@@ -501,3 +501,77 @@ fn ipld_to_cid(ipld: Ipld) -> Option<Cid> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
+    use crate::db::MemoryDB;
+    use crate::utils::db::CborStoreExt as _;
+    use fil_actors_shared::fvm_ipld_amt::Amtv0;
+    use futures::TryStreamExt as _;
+    use fvm_ipld_encoding::RawBytes;
+    use ipld_core::ipld::Ipld;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn return_data_links_are_not_followed_by_the_walk() -> anyhow::Result<()> {
+        let db = Arc::new(MemoryDB::default());
+
+        // A fetchable dag-cbor block, reached only if the walk follows links inside `Return`.
+        let embedded = db.put_cbor_default(&Ipld::String("embedded".into()))?;
+
+        // A link in the receipt (positive control): the walk does reach tag-42 links
+        // structurally embedded in the receipts AMT.
+        let events_root = db.put_cbor_default(&Ipld::String("events-root".into()))?;
+
+        // Build the receipt: `Return` is itself valid dag-cbor encoding a tag-42 link to the
+        // `embedded` block.
+        let receipt = fvm_shared4::receipt::Receipt {
+            exit_code: fvm_shared4::error::ExitCode::OK,
+            return_data: RawBytes::new(serde_ipld_dagcbor::to_vec(&Ipld::Link(embedded))?),
+            gas_used: 0,
+            events_root: Some(events_root),
+        };
+
+        let receipts_root = Amtv0::new_from_iter(&db, std::iter::once(receipt))?;
+
+        // One-block tipset whose `message_receipts` points at the AMT. Epoch 1 (> the stateroot
+        // limit below) so the receipts branch is reached.
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [_genesis]
+            -> head @ [_header = HeaderBuilder::new().with_message_receipts(receipts_root)]
+        };
+
+        let mut stream = stream_chain(&db, std::iter::once(head), 0, CidHashSet::default())
+            .with_message_receipts(true)
+            // The embedded target is present; other roots (e.g. default state roots) are not, and a
+            // missing root must not stall the walk.
+            .fail_on_dead_links(false);
+
+        let mut seen = Vec::new();
+        while let Some(block) = stream.try_next().await? {
+            seen.push(block.cid);
+        }
+
+        // Receipts walking is active and reaches the AMT root...
+        assert!(
+            seen.contains(&receipts_root),
+            "receipts AMT root must be reachable with receipts enabled"
+        );
+        // ...and follows the EventsRoot link inside it.
+        assert!(
+            seen.contains(&events_root),
+            "EventsRoot link inside the receipt must be followed"
+        );
+        // But the link inside the opaque `Return` byte string is never followed.
+        assert!(
+            !seen.contains(&embedded),
+            "link embedded in Return must not be followed by the walk"
+        );
+
+        Ok(())
+    }
+}
