@@ -290,6 +290,8 @@ where
             .with_context(|| format!("actor id not found for address {addr}"))
     }
 
+    /// Use [`Self::for_each_cacheless`] instead unless cache is really needed.
+    /// Note that this method caches all HAMT nodes and can be memory-intensive.
     pub fn for_each<F>(&self, mut f: F) -> anyhow::Result<()>
     where
         F: FnMut(Address, &ActorState) -> anyhow::Result<()>,
@@ -305,6 +307,27 @@ where
                 st.for_each(|address, actor_state| f(address.into(), &actor_state.into()))
             }
             StateTree::V0(_) => bail!("StateTree::for_each not supported on old state trees"),
+        }
+    }
+
+    /// Iterate on all actors
+    pub fn for_each_cacheless<F>(&self, mut f: F) -> anyhow::Result<()>
+    where
+        F: FnMut(Address, &ActorState) -> anyhow::Result<()>,
+    {
+        match self {
+            StateTree::FvmV2(st) => {
+                st.for_each(|address, actor_state| f(address.into(), &actor_state.into()))
+            }
+            StateTree::FvmV3(st) => {
+                st.for_each(|address, actor_state| f(address.into(), &actor_state.into()))
+            }
+            StateTree::FvmV4(st) => {
+                st.for_each_cacheless(|address, actor_state| f(address.into(), &actor_state.into()))
+            }
+            StateTree::V0(_) => {
+                bail!("StateTree::for_each_cacheless not supported on old state trees")
+            }
         }
     }
 

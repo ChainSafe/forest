@@ -163,7 +163,7 @@ impl GenesisInfo {
 
         let state_tree = StateTree::new_from_root(db, root)?;
 
-        state_tree.for_each(|addr: Address, actor: &ActorState| {
+        state_tree.for_each_cacheless(|addr: Address, actor: &ActorState| {
             let actor_balance = TokenAmount::from(actor.balance.clone());
             if !actor_balance.is_zero() {
                 match addr {
