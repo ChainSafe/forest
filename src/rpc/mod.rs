@@ -501,6 +501,7 @@ pub struct RPCState {
     pub bad_blocks: Option<crate::chain_sync::BadBlockCache>,
     pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,
+    pub eth_logs_feed: std::sync::OnceLock<eth::pubsub::LogsFeed>,
     pub sync_network_context: SyncNetworkContext,
     pub tipset_send: flume::Sender<FullTipset>,
     pub start_time: chrono::DateTime<chrono::Utc>,

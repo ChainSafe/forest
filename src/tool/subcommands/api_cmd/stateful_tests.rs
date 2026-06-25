@@ -13,10 +13,12 @@ use crate::shim::{address::Address, message::Message};
 use anyhow::{Context, ensure};
 use cbor4ii::core::Value;
 use cid::Cid;
+use ethereum_types::H256;
 use futures::{SinkExt, StreamExt};
 use serde_json::json;
 use tokio::time::Duration;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
+use tokio_util::sync::CancellationToken;
 
 use std::io::{self, Write};
 use std::pin::Pin;
@@ -575,59 +577,270 @@ struct LogView {
     transaction_hash: EthHash,
 }
 
+/// One opened logs subscription paired with the events it is expected to deliver.
+struct CaseSub {
+    label: &'static str,
+    ws: EthSubStream,
+    sub_id: serde_json::Value,
+    /// Event signatures (each log's `topic[0]`) this filter should deliver for our mint.
+    expected: Vec<EthHash>,
+}
+
+/// Read notifications until one for our mint tx (`our_tx`) arrives; unrelated logs are
+/// skipped. Returns `None` if the `timeout` window elapses (or the socket closes) first.
+async fn next_our_log(
+    ws: &mut EthSubStream,
+    sub_id: &serde_json::Value,
+    our_tx: &EthHash,
+    timeout: Duration,
+) -> anyhow::Result<Option<LogView>> {
+    while let Ok(payload) = next_subscription_payload(ws, sub_id, timeout).await {
+        ensure!(
+            payload.is_object(),
+            "logs must yield a single log object, got: {payload}"
+        );
+        let log: LogView =
+            serde_json::from_value(payload).context("logs payload is not an Eth log")?;
+        if &log.transaction_hash == our_tx {
+            return Ok(Some(log));
+        }
+    }
+    Ok(None)
+}
+
+/// Backstop for a single subscription read. The coordinator's cancellation normally ends a
+/// drain first; this only bounds a read if the mint never executes.
+const LOGS_DELIVERY_TIMEOUT: Duration = Duration::from_secs(100);
+
+/// Drain one case subscription until the coordinator signals `stop` (a settle window after the mint's receipt
+/// lands), then assert the set of event signatures it delivered for our mint equals
+/// `expected`. An empty `expected` asserts the filter delivered nothing.
+async fn verify_case(
+    label: &str,
+    ws: &mut EthSubStream,
+    sub_id: &serde_json::Value,
+    our_tx: &EthHash,
+    expected: &[EthHash],
+    stop: &CancellationToken,
+) -> anyhow::Result<()> {
+    let mut got = Vec::new();
+    loop {
+        tokio::select! {
+            _ = stop.cancelled() => break,
+            log = next_our_log(ws, sub_id, our_tx, LOGS_DELIVERY_TIMEOUT) => {
+                if let Some(log) = log? {
+                    got.push(*log.topics.first().context("log is missing topic[0]")?);
+                }
+            }
+        }
+    }
+    // Reorgs re-deliver the same event (apply -> revert -> re-apply); assert the *set* of
+    // event signatures delivered, not the count.
+    got.sort();
+    got.dedup();
+    let mut want = expected.to_vec();
+    want.sort();
+    ensure!(got == want, "{label}: expected {want:?}, got {got:?}");
+    Ok(())
+}
+
 fn eth_subscribe_logs(tx: TestTransaction) -> RpcTestScenario {
     RpcTestScenario::basic(move |client| {
+        // Once the txn lands, how long to let the log feed push to every subscription before we stop draining.
+        const SETTLE: Duration = Duration::from_secs(10);
+
         let tx = tx.clone();
         async move {
-            let filter = json!({
-                "address": [],
-                "topics": [tx.topic.to_string()],
-            });
-            let (mut ws_stream, subscription_id) =
-                open_eth_subscription(&client, SubscriptionKind::Logs, Some(filter)).await?;
+            // A valid address that is not the contract.
+            const WRONG_ADDRESS: &str = "0x000000000000000000000000000000000000dead";
+            // The suite already passes Mint's signature as `topic`, so reuse it.
+            // Transfer's signature isn't passed in derive it from the event string.
+            let mint_topic = tx.topic;
+            let transfer = EthHash(H256::from(crate::utils::encoding::keccak_256(
+                b"Transfer(address,address,uint256)",
+            )));
+            let contract = EthAddress::from_filecoin_address(&tx.to)?;
 
-            // Emit the event on-chain and remember the exact tx that produced it,
-            // so we can confirm the log we receive is `ours`
+            // The values we filter on come straight from the `mint(address,uint256)`
+            // calldata (`--payload`): a 4-byte selector, then the 32-byte `to` and `amount`
+            // words.
+            let v_to = EthHash(H256::from_slice(
+                tx.payload
+                    .get(4..36)
+                    .context("mint calldata missing `to`")?,
+            ));
+            let v_amount = EthHash(H256::from_slice(
+                tx.payload
+                    .get(36..68)
+                    .context("mint calldata missing `amount`")?,
+            ));
+            let v_zero = EthHash::default(); // address(0)
+
+            // Contract address as a `0x..` string, for embedding in filters.
+            let c = format!("{:#x}", contract.0);
+
+            // Every topic case scopes to the contract address; only `topics` varies.
+            let by_topics =
+                |topics: serde_json::Value| json!({ "address": [c.as_str()], "topics": topics });
+
+            // Expected event sets, named for the assertion site.
+            let both_topics = vec![mint_topic, transfer];
+            let only_mint_topic = vec![mint_topic];
+            let only_transfer_topic = vec![transfer];
+            let none: Vec<EthHash> = vec![];
+
+            // (label, filter, expected events), grouped by the dimension it exercises.
+            let specs: Vec<(&'static str, serde_json::Value, Vec<EthHash>)> = vec![
+                // --- address ---
+                (
+                    "address empty list (wildcard)",
+                    json!({ "address": [], "topics": null }),
+                    both_topics.clone(),
+                ),
+                (
+                    "address [contract, other]",
+                    json!({ "address": [c.as_str(), WRONG_ADDRESS], "topics": null }),
+                    both_topics.clone(),
+                ),
+                (
+                    "address non-matching",
+                    json!({ "address": [WRONG_ADDRESS], "topics": null }),
+                    none.clone(),
+                ),
+                // --- topic[0] = event signature ---
+                (
+                    "topic0 = Mint",
+                    by_topics(json!([mint_topic.to_string()])),
+                    only_mint_topic.clone(),
+                ),
+                (
+                    "topic0 = Transfer",
+                    by_topics(json!([transfer.to_string()])),
+                    only_transfer_topic.clone(),
+                ),
+                (
+                    "topic0 OR [Mint, Transfer]",
+                    by_topics(json!([[mint_topic.to_string(), transfer.to_string()]])),
+                    both_topics.clone(),
+                ),
+                (
+                    "topic0 empty-list wildcard",
+                    by_topics(json!([[]])),
+                    both_topics.clone(),
+                ),
+                (
+                    "topic0 null wildcard",
+                    by_topics(json!([null])),
+                    both_topics.clone(),
+                ),
+                // --- trailing wildcard / positions past the log's topics ---
+                (
+                    "Mint + trailing null",
+                    by_topics(json!([mint_topic.to_string(), null])),
+                    only_mint_topic.clone(),
+                ),
+                (
+                    "Mint + null past topics",
+                    by_topics(json!([mint_topic.to_string(), v_to.to_string(), null])),
+                    only_mint_topic.clone(),
+                ),
+                (
+                    "Mint + value past topics (no match)",
+                    by_topics(json!([
+                        mint_topic.to_string(),
+                        v_to.to_string(),
+                        v_to.to_string()
+                    ])),
+                    none.clone(),
+                ),
+                // --- indexed values: AND across positions, OR within, positional ---
+                (
+                    "topic1 = to (only Mint)",
+                    by_topics(json!([null, v_to.to_string()])),
+                    only_mint_topic.clone(),
+                ),
+                (
+                    "topic1 = 0x0 (only Transfer)",
+                    by_topics(json!([null, v_zero.to_string()])),
+                    only_transfer_topic.clone(),
+                ),
+                (
+                    "topic2 = to (only Transfer)",
+                    by_topics(json!([null, null, v_to.to_string()])),
+                    only_transfer_topic.clone(),
+                ),
+                (
+                    "Transfer AND from=0 AND to",
+                    by_topics(json!([
+                        transfer.to_string(),
+                        v_zero.to_string(),
+                        v_to.to_string()
+                    ])),
+                    only_transfer_topic.clone(),
+                ),
+                (
+                    "Transfer AND topic1=to (mismatch)",
+                    by_topics(json!([transfer.to_string(), v_to.to_string()])),
+                    none.clone(),
+                ),
+                (
+                    "(Mint|Transfer) AND topic1=to",
+                    by_topics(json!([
+                        [mint_topic.to_string(), transfer.to_string()],
+                        v_to.to_string()
+                    ])),
+                    only_mint_topic.clone(),
+                ),
+                // --- data is never matched as a topic ---
+                (
+                    "topic1 = amount (in data, no match)",
+                    by_topics(json!([null, v_amount.to_string()])),
+                    none.clone(),
+                ),
+            ];
+            let mut subs = Vec::with_capacity(specs.len());
+            for (label, filter, expected) in specs {
+                let (ws, sub_id) =
+                    open_eth_subscription(&client, SubscriptionKind::Logs, Some(filter)).await?;
+                subs.push(CaseSub {
+                    label,
+                    ws,
+                    sub_id,
+                    expected,
+                });
+            }
+
+            // Emit the operator's `mint` tx; it produces the Mint + Transfer logs.
             let cid = invoke_contract(&client, &tx).await?;
             let tx_hash = client
                 .call(EthGetTransactionHashByCid::request((cid,))?)
                 .await?
                 .context("no Eth transaction hash for CID")?;
-
-            // Logs are delivered when the tipset holding the event is applied,
-            // which can take a few epochs (~30s each) on calibnet
-            let watch = async {
-                loop {
-                    let payload = next_subscription_payload(
-                        &mut ws_stream,
-                        &subscription_id,
-                        Duration::from_secs(300),
-                    )
-                    .await?;
-                    // A logs notification is a single log object (one per log,
-                    // matching geth/reth/Lotus) — not an array.
-                    anyhow::ensure!(
-                        payload.is_object(),
-                        "logs must yield a single log object, got: {payload}"
-                    );
-                    let log: LogView = serde_json::from_value(payload)
-                        .context("logs payload is not an Eth log")?;
-                    // Identity: the log must carry our event topic and `our` tx hash.
-                    if log.transaction_hash == tx_hash && log.topics.contains(&tx.topic) {
-                        break;
-                    }
+            // Drain every subscription concurrently so none sits idle while we wait.
+            // All subs receive the same logs at once, so the coordinator just waits for the mint to execute,
+            // and then we wait for some `SETTLE` time and then stop as soon as the logs are delivered.
+            let stop = CancellationToken::new();
+            let coordinator = async {
+                let executed = wait_pending_message(&client, cid).await;
+                tokio::time::sleep(SETTLE).await;
+                stop.cancel();
+                executed
+            };
+            let drains =
+                futures::future::join_all(subs.iter_mut().map(|c| {
+                    verify_case(c.label, &mut c.ws, &c.sub_id, &tx_hash, &c.expected, &stop)
+                }));
+            let (executed, case_results) = tokio::join!(coordinator, drains);
+            let outcome = executed.and_then(|()| {
+                for result in case_results {
+                    result?;
                 }
                 anyhow::Ok(())
-            };
-            let outcome = tokio::time::timeout(Duration::from_secs(300), watch)
-                .await
-                .unwrap_or_else(|_| {
-                    Err(anyhow::anyhow!(
-                        "timed out waiting for our logs notification"
-                    ))
-                });
+            });
 
-            let _ = close_eth_subscription(&mut ws_stream, &subscription_id).await;
+            for sub in &mut subs {
+                let _ = close_eth_subscription(&mut sub.ws, &sub.sub_id).await;
+            }
             outcome
         }
     })
@@ -959,7 +1172,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
             EthGetTransactionHashByCid
         ),
         with_methods!(
-            eth_subscribe_logs(tx.clone()).name("eth_subscribe logs works"),
+            eth_subscribe_logs(tx.clone()).name("eth_subscribe logs filter matrix"),
             EthSubscribe,
             EthUnsubscribe,
             EthGetTransactionHashByCid

@@ -173,6 +173,7 @@ async fn ctx(
         bad_blocks: Default::default(),
         sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
+        eth_logs_feed: Default::default(),
         sync_network_context,
         start_time: chrono::Utc::now(),
         shutdown,

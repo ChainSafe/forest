@@ -32,22 +32,48 @@ impl StateManager {
         }
     }
 
+    /// State recomputation policy for RPC methods: recomputation is disabled unless explicitly
+    /// enabled via the environment.
+    fn rpc_state_recompute_policy() -> StateRecomputePolicy {
+        crate::def_is_env_truthy!(
+            enable_state_computation,
+            "FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS"
+        );
+
+        if enable_state_computation() {
+            StateRecomputePolicy::Allowed
+        } else {
+            StateRecomputePolicy::Disallowed
+        }
+    }
+
     /// Load an executed tipset for RPC methods, with state computation unless explicitly enabled.
     pub async fn load_executed_tipset_for_rpc(
         &self,
         ts: &Tipset,
     ) -> anyhow::Result<ExecutedTipset> {
-        crate::def_is_env_truthy!(
-            enable_state_computation,
-            "FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS"
-        );
-        let policy = if enable_state_computation() {
-            StateRecomputePolicy::Allowed
-        } else {
-            StateRecomputePolicy::Disallowed
-        };
+        self.load_executed_tipset_with_cache(ts, Self::rpc_state_recompute_policy())
+            .await
+    }
 
-        self.load_executed_tipset_with_cache(ts, policy).await
+    /// Load an executed tipset using an explicitly provided receipt (child) tipset instead of
+    /// resolving the child on the current heaviest chain. This is required when serving events
+    /// for tipsets that are no longer canonical.
+    pub async fn load_executed_tipset_with_receipt(
+        &self,
+        msg_ts: &Tipset,
+        receipt_ts: &Tipset,
+    ) -> anyhow::Result<ExecutedTipset> {
+        self.cache
+            .get_or_insert_async(msg_ts.key(), async move {
+                self.load_executed_tipset_inner(
+                    msg_ts,
+                    Some(receipt_ts),
+                    Self::rpc_state_recompute_policy(),
+                )
+                .await
+            })
+            .await
     }
 
     /// Load an executed tipset, including state root, message receipts and events with caching.
