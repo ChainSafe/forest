@@ -4,13 +4,11 @@
 use crate::auth::{JWT_IDENTIFIER, verify_token};
 use crate::key_management::KeyStore;
 use crate::prelude::*;
+use crate::rpc::error::implementation_defined_errors::INSUFFICIENT_PERMISSIONS;
 use crate::rpc::{CANCEL_METHOD_NAME, Permission, RpcMethod as _, chain};
 use ahash::HashMap;
 use futures::future::Either;
-use http::{
-    HeaderMap,
-    header::{AUTHORIZATION, HeaderValue},
-};
+use http::header::HeaderValue;
 use jsonrpsee::MethodResponse;
 use jsonrpsee::core::middleware::{Batch, BatchEntry, BatchEntryErr, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
@@ -41,33 +39,33 @@ static METHOD_NAME2REQUIRED_PERMISSION: LazyLock<HashMap<&str, Permission>> = La
     access
 });
 
-fn is_allowed(required_by_method: Permission, claimed_by_user: &[String]) -> bool {
-    let needle = match required_by_method {
+/// The lowercase wire string for a permission, as it appears in a JWT `Allow`
+/// claim list and in Lotus's permission errors.
+fn permission_str(permission: Permission) -> &'static str {
+    match permission {
         Permission::Admin => "admin",
         Permission::Sign => "sign",
         Permission::Write => "write",
         Permission::Read => "read",
-    };
+    }
+}
+
+fn is_allowed(required_by_method: Permission, claimed_by_user: &[String]) -> bool {
+    let needle = permission_str(required_by_method);
     claimed_by_user.iter().any(|haystack| haystack == needle)
 }
 
 #[derive(Clone)]
 pub struct AuthLayer {
-    /// Permission claims resolved once for this connection. `Err` means the
-    /// auth header was malformed or the token failed verification, in which
-    /// case every call on this connection is rejected with that error.
-    claims: Result<Arc<[String]>, ErrorObjectOwned>,
+    /// Permission claims resolved once for this connection (via [`resolve_claims`]
+    /// at the HTTP request / WebSocket upgrade). Token-verification failures are
+    /// rejected with an HTTP `401` before this layer is built, so the claims are
+    /// always present here.
+    claims: Arc<[String]>,
 }
 
 impl AuthLayer {
-    pub fn new(headers: &HeaderMap, keystore: &RwLock<KeyStore>) -> Self {
-        // Resolve the JWT claims once per connection (e.g. at the WebSocket
-        // upgrade) instead of re-verifying the token on every request. This
-        // matches Lotus, which authenticates once when the connection is
-        // established. Note that a long-lived connection therefore keeps the
-        // permissions it was granted at connection time; token expiry is not
-        // re-checked mid-session.
-        let claims = resolve_claims(keystore, headers.get(AUTHORIZATION)).map(Into::into);
+    pub fn new(claims: Arc<[String]>) -> Self {
         Self { claims }
     }
 }
@@ -85,33 +83,25 @@ impl<S> Layer<S> for AuthLayer {
 
 #[derive(Clone)]
 pub struct Auth<S> {
-    /// Permission claims resolved once for this connection. `Err` means the
-    /// auth header was malformed or the token failed verification, in which
-    /// case every call on this connection is rejected with that error.
-    claims: Result<Arc<[String]>, ErrorObjectOwned>,
+    claims: Arc<[String]>,
     service: S,
 }
 
 impl<S> Auth<S> {
+    /// Authorize a single method call against this connection's permission claims.
+    ///
+    /// Returns a JSON-RPC error for an unknown method ([`ErrorCode::MethodNotFound`])
+    /// or one the claims don't permit ([`INSUFFICIENT_PERMISSIONS`]). Token-level
+    /// auth failures never reach here — they are rejected with an HTTP `401` at the
+    /// transport layer before any JSON-RPC dispatch.
     fn authorize(&self, method_name: &str) -> Result<(), ErrorObjectOwned> {
-        let claims = match &self.claims {
-            Ok(claims) => claims,
-            Err(err) => {
-                // no need to spam the provider with this error; bad inputs are client-side issues
-                tracing::debug!(
-                    "Authorization error for method {method_name}: {}",
-                    err.message()
-                );
-                return Err(err.clone());
+        match METHOD_NAME2REQUIRED_PERMISSION.get(&method_name) {
+            None => Err(ErrorObject::from(ErrorCode::MethodNotFound)),
+            Some(&required) if is_allowed(required, &self.claims) => Ok(()),
+            Some(&required) => {
+                tracing::warn!("insufficient permissions to invoke method {method_name}");
+                Err(insufficient_permissions(method_name, required))
             }
-        };
-        match is_method_allowed(claims, method_name) {
-            Ok(true) => Ok(()),
-            Ok(false) => {
-                tracing::warn!("Unauthorized access attempt for method {method_name}");
-                Err(unauthorized("insufficient permissions for method"))
-            }
-            Err(code) => Err(ErrorObject::from(code)),
         }
     }
 }
@@ -170,11 +160,18 @@ where
     }
 }
 
-/// Build an `Unauthorized` JSON-RPC error carrying a helpful, human-readable message. We use the HTTP `401 Unauthorized` status as the error code (rather than a JSON-RPC `-32600 Invalid request`) so that authentication failures are not confused with a malformed JSON-RPC request object. It's also what Lotus does so we match it for compatibility.
-fn unauthorized(detail: &str) -> ErrorObjectOwned {
+/// Build the JSON-RPC error returned when an authenticated caller lacks the
+/// permission a method requires. The message mirrors Lotus
+/// (`missing permission to invoke '<method>' (need '<perm>')`), but the code is
+/// Forest's implementation-defined [`INSUFFICIENT_PERMISSIONS`] rather than an
+/// HTTP status masquerading as a JSON-RPC error code.
+fn insufficient_permissions(method: &str, required: Permission) -> ErrorObjectOwned {
     ErrorObject::owned(
-        i32::from(http::StatusCode::UNAUTHORIZED.as_u16()),
-        format!("Unauthorized: {detail}"),
+        INSUFFICIENT_PERMISSIONS,
+        format!(
+            "missing permission to invoke '{method}' (need '{}')",
+            permission_str(required)
+        ),
         None::<()>,
     )
 }
@@ -185,49 +182,33 @@ fn auth_verify(token: &str, keystore: &RwLock<KeyStore>) -> anyhow::Result<Vec<S
     Ok(verify_token(token, key_info.private_key())?)
 }
 
-/// Verify the auth header's JWT and return the token's permission claims.
+/// Resolve the connection's `Authorization` header into permission claims.
 ///
 /// This performs the (relatively expensive) JWT verification and is intended to
-/// be called once per connection, not once per request.
-fn resolve_claims(
+/// be called once per connection (at the HTTP request / WebSocket upgrade), not
+/// once per request. Returns `Err(reason)` when the header is malformed or the
+/// token fails verification; the caller rejects such connections with a bare
+/// HTTP `401 Unauthorized` before any JSON-RPC dispatch, matching Lotus. The
+/// `reason` is for server-side logging only and is not sent to the client.
+pub(super) fn resolve_claims(
     keystore: &RwLock<KeyStore>,
     auth_header: Option<&HeaderValue>,
-) -> Result<Vec<String>, ErrorObjectOwned> {
-    let claims = match auth_header {
+) -> Result<Arc<[String]>, &'static str> {
+    let claims: Vec<String> = match auth_header {
         Some(header) => {
             let token = header
                 .to_str()
-                .map_err(|_| unauthorized("malformed authorization header"))?
+                .map_err(|_| "malformed authorization header")?
                 .strip_prefix("Bearer ")
-                .ok_or_else(|| unauthorized("malformed authorization header"))?;
+                .ok_or("malformed authorization header")?;
 
-            auth_verify(token, keystore).map_err(|_| unauthorized("invalid authorization token"))?
+            auth_verify(token, keystore).map_err(|_| "invalid authorization token")?
         }
-        // If no token is passed, assume read behavior
+        // If no token is passed, assume read behavior.
         None => vec!["read".to_owned()],
     };
-    debug!("Decoded JWT Claims: {}", claims.join(","));
-    Ok(claims)
-}
-
-/// Check whether the already-resolved `claims` permit calling `method`.
-fn is_method_allowed(claims: &[String], method: &str) -> Result<bool, ErrorCode> {
-    match METHOD_NAME2REQUIRED_PERMISSION.get(&method) {
-        Some(required_by_method) => Ok(is_allowed(*required_by_method, claims)),
-        None => Err(ErrorCode::MethodNotFound),
-    }
-}
-
-/// Combined token resolution and permission check. Now that the connection path
-/// resolves claims once via [`resolve_claims`], this is only used by tests.
-#[cfg(test)]
-fn check_permissions(
-    keystore: &RwLock<KeyStore>,
-    auth_header: Option<&HeaderValue>,
-    method: &str,
-) -> Result<bool, ErrorObjectOwned> {
-    let claims = resolve_claims(keystore, auth_header)?;
-    is_method_allowed(&claims, method).map_err(ErrorObject::from)
+    debug!("Decoded JWT permissions: {}", claims.join(","));
+    Ok(claims.into())
 }
 
 #[cfg(test)]
@@ -237,180 +218,139 @@ mod tests {
     use crate::rpc::wallet;
     use chrono::Duration;
 
-    /// Assert that `err` is a `401 Unauthorized` JSON-RPC error whose message
-    /// mentions `detail`.
-    #[track_caller]
-    fn assert_unauthorized(err: &ErrorObjectOwned, detail: &str) {
-        assert_eq!(
-            err.code(),
-            i32::from(http::StatusCode::UNAUTHORIZED.as_u16())
-        );
-        assert!(
-            err.message().contains(detail),
-            "unexpected message: {}",
-            err.message()
-        );
-    }
-
-    #[test]
-    fn check_permissions_no_header() {
-        let keystore = Arc::new(RwLock::new(
+    fn empty_keystore() -> Arc<RwLock<KeyStore>> {
+        Arc::new(RwLock::new(
             KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
-        ));
-
-        let res = check_permissions(&keystore, None, ChainHead::NAME);
-        assert_eq!(res, Ok(true));
-
-        let res = check_permissions(&keystore, None, "Cthulhu.InvokeElderGods");
-        assert_eq!(res.unwrap_err().code(), ErrorCode::MethodNotFound.code());
-
-        let res = check_permissions(&keystore, None, wallet::WalletNew::NAME);
-        assert_eq!(res, Ok(false));
+        ))
     }
 
-    #[test]
-    fn check_permissions_invalid_header() {
-        let keystore = Arc::new(RwLock::new(
-            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
-        ));
-
-        let auth_header = HeaderValue::from_static("Bearer Azathoth");
-        let err = check_permissions(&keystore, Some(&auth_header), ChainHead::NAME).unwrap_err();
-        assert_unauthorized(&err, "invalid authorization token");
-
-        // No `Bearer ` scheme prefix: malformed, not merely an invalid token.
-        let auth_header = HeaderValue::from_static("Cthulhu");
-        let err = check_permissions(&keystore, Some(&auth_header), ChainHead::NAME).unwrap_err();
-        assert_unauthorized(&err, "malformed authorization header");
-    }
-
-    #[test]
-    fn check_permissions_non_utf8_header() {
-        let keystore = Arc::new(RwLock::new(
-            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
-        ));
-
-        // A header value that is not valid UTF-8 cannot be a JWT.
-        let auth_header = HeaderValue::from_bytes(&[0xff, 0xfe]).unwrap();
-        let err = check_permissions(&keystore, Some(&auth_header), ChainHead::NAME).unwrap_err();
-        assert_unauthorized(&err, "malformed authorization header");
-    }
-
-    #[test]
-    fn check_permissions_valid_header() {
+    /// Build a keystore with a JWT signing key and a matching `Bearer` token
+    /// granting `perms`.
+    fn keystore_with_token(perms: &[&str]) -> (Arc<RwLock<KeyStore>>, String) {
         use crate::auth::*;
-        let keystore = Arc::new(RwLock::new(
-            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
-        ));
-
-        // generate a key and store it in the keystore
-        let key_info = generate_priv_key();
-        keystore
-            .write()
-            .put(JWT_IDENTIFIER, key_info.clone())
-            .unwrap();
-        let token_exp = Duration::hours(1);
-        let token = create_token(
-            ADMIN.iter().map(ToString::to_string).collect(),
-            key_info.private_key(),
-            token_exp,
-        )
-        .unwrap();
-
-        // Should work with the `Bearer` prefix
-        let auth_header = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
-        let res = check_permissions(&keystore, Some(&auth_header), ChainHead::NAME);
-        assert_eq!(res, Ok(true));
-
-        let res = check_permissions(&keystore, Some(&auth_header), wallet::WalletNew::NAME);
-        assert_eq!(res, Ok(true));
-
-        // A header without the `Bearer ` scheme is malformed and rejected, even
-        // if the bare value is itself a valid token.
-        let auth_header = HeaderValue::from_str(&token).unwrap();
-        let err =
-            check_permissions(&keystore, Some(&auth_header), wallet::WalletNew::NAME).unwrap_err();
-        assert_unauthorized(&err, "malformed authorization header");
-
-        // Only a single `Bearer ` prefix is stripped: a doubled prefix leaves a
-        // `Bearer ...` value that is not a valid token, so it is rejected.
-        let auth_header = HeaderValue::from_str(&format!("Bearer Bearer {token}")).unwrap();
-        let err =
-            check_permissions(&keystore, Some(&auth_header), wallet::WalletNew::NAME).unwrap_err();
-        assert_unauthorized(&err, "invalid authorization token");
-    }
-
-    /// `AuthLayer::layer` resolves the connection's token to claims exactly once
-    /// (at connection setup); the resulting [`Auth`] service then authorizes
-    /// calls against those cached claims without re-verifying the token.
-    #[test]
-    fn layer_resolves_claims_once_from_connection_header() {
-        use crate::auth::*;
-        let keystore = Arc::new(RwLock::new(
-            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
-        ));
+        let keystore = empty_keystore();
         let key_info = generate_priv_key();
         keystore
             .write()
             .put(JWT_IDENTIFIER, key_info.clone())
             .unwrap();
         let token = create_token(
-            ADMIN.iter().map(ToString::to_string).collect(),
+            perms.iter().map(ToString::to_string).collect(),
             key_info.private_key(),
             Duration::hours(1),
         )
         .unwrap();
-
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
-        );
-
-        // Building the per-connection service resolves the claims once.
-        let auth = AuthLayer::new(&headers, &keystore).layer(());
-        let claims = auth.claims.clone().expect("admin token should resolve");
-        assert!(claims.iter().any(|c| c == "admin"));
-
-        // The cached claims authorize an admin method without touching the token again.
-        assert!(auth.authorize(wallet::WalletNew::NAME).is_ok());
+        (keystore, token)
     }
 
-    /// Cached claims are reused per request: a read-only connection is allowed
-    /// read methods, rejected for write methods, and gets `MethodNotFound` for
-    /// unknown methods.
-    #[test]
-    fn authorize_enforces_cached_permissions() {
-        let auth = Auth {
-            claims: Ok(vec!["read".to_owned()].into()),
+    fn auth_with(claims: &[&str]) -> Auth<()> {
+        Auth {
+            claims: claims.iter().map(ToString::to_string).collect(),
             service: (),
-        };
+        }
+    }
 
-        assert!(auth.authorize(ChainHead::NAME).is_ok());
+    // --- resolve_claims: token-level outcomes (HTTP 401 is derived from `Err`) ---
 
-        let err = auth.authorize(wallet::WalletNew::NAME).unwrap_err();
+    #[test]
+    fn resolve_claims_no_header_defaults_to_read() {
+        let claims = resolve_claims(&empty_keystore(), None).unwrap();
+        assert_eq!(&*claims, &["read".to_owned()]);
+    }
+
+    #[test]
+    fn resolve_claims_rejects_malformed_header() {
+        let keystore = empty_keystore();
+
+        // Not valid UTF-8, so it cannot be a JWT.
+        let header = HeaderValue::from_bytes(&[0xff, 0xfe]).unwrap();
         assert_eq!(
-            err.code(),
-            i32::from(http::StatusCode::UNAUTHORIZED.as_u16())
+            resolve_claims(&keystore, Some(&header)).unwrap_err(),
+            "malformed authorization header"
         );
 
-        let err = auth.authorize("Cthulhu.InvokeElderGods").unwrap_err();
+        // No `Bearer ` scheme prefix.
+        let header = HeaderValue::from_static("Cthulhu");
+        assert_eq!(
+            resolve_claims(&keystore, Some(&header)).unwrap_err(),
+            "malformed authorization header"
+        );
+    }
+
+    #[test]
+    fn resolve_claims_rejects_invalid_token() {
+        let header = HeaderValue::from_static("Bearer Azathoth");
+        assert_eq!(
+            resolve_claims(&empty_keystore(), Some(&header)).unwrap_err(),
+            "invalid authorization token"
+        );
+    }
+
+    #[test]
+    fn resolve_claims_accepts_valid_token() {
+        let (keystore, token) = keystore_with_token(crate::auth::ADMIN);
+
+        let header = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
+        let claims = resolve_claims(&keystore, Some(&header)).unwrap();
+        assert!(claims.iter().any(|c| c == "admin"));
+
+        // A bare token without the `Bearer ` scheme is malformed, even though the
+        // value itself is a valid token.
+        let header = HeaderValue::from_str(&token).unwrap();
+        assert_eq!(
+            resolve_claims(&keystore, Some(&header)).unwrap_err(),
+            "malformed authorization header"
+        );
+
+        // Only a single `Bearer ` prefix is stripped: a doubled prefix leaves a
+        // `Bearer ...` value that is not a valid token.
+        let header = HeaderValue::from_str(&format!("Bearer Bearer {token}")).unwrap();
+        assert_eq!(
+            resolve_claims(&keystore, Some(&header)).unwrap_err(),
+            "invalid authorization token"
+        );
+    }
+
+    // --- authorize: per-method permission checks against resolved claims ---
+
+    #[test]
+    fn authorize_allows_methods_within_permissions() {
+        assert!(auth_with(&["read"]).authorize(ChainHead::NAME).is_ok());
+    }
+
+    #[test]
+    fn authorize_denies_insufficient_permissions_with_jsonrpc_error() {
+        let err = auth_with(&["read"])
+            .authorize(wallet::WalletNew::NAME)
+            .unwrap_err();
+        // A JSON-RPC application error, NOT an HTTP status smuggled into the code.
+        assert_eq!(err.code(), INSUFFICIENT_PERMISSIONS);
+        assert_eq!(
+            err.message(),
+            format!(
+                "missing permission to invoke '{}' (need 'write')",
+                wallet::WalletNew::NAME
+            )
+        );
+    }
+
+    #[test]
+    fn authorize_unknown_method_is_method_not_found() {
+        let err = auth_with(&["read"])
+            .authorize("Cthulhu.InvokeElderGods")
+            .unwrap_err();
         assert_eq!(err.code(), ErrorCode::MethodNotFound.code());
     }
 
-    /// A connection whose token failed verification caches the error and rejects
-    /// every subsequent call with it, regardless of the method.
+    /// Resolved admin claims, threaded through `AuthLayer::layer`, authorize a
+    /// write method without re-touching the token.
     #[test]
-    fn authorize_with_failed_token_rejects_every_call() {
-        let auth = Auth {
-            claims: Err(unauthorized("invalid authorization token")),
-            service: (),
-        };
+    fn layer_propagates_resolved_claims() {
+        let (keystore, token) = keystore_with_token(crate::auth::ADMIN);
+        let header = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
+        let claims = resolve_claims(&keystore, Some(&header)).unwrap();
 
-        let err = auth.authorize(ChainHead::NAME).unwrap_err();
-        assert_unauthorized(&err, "invalid authorization token");
-
-        let err = auth.authorize(wallet::WalletNew::NAME).unwrap_err();
-        assert_unauthorized(&err, "invalid authorization token");
+        let auth = AuthLayer::new(claims).layer(());
+        assert!(auth.authorize(wallet::WalletNew::NAME).is_ok());
     }
 }

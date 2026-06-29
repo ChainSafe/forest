@@ -432,7 +432,7 @@ mod methods {
     pub mod wallet;
 }
 
-use crate::rpc::auth_layer::AuthLayer;
+use crate::rpc::auth_layer::{AuthLayer, resolve_claims};
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 use crate::rpc::eth::pubsub::EthPubSub;
@@ -553,6 +553,14 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
     keystore: Arc<RwLock<KeyStore>>,
 }
 
+/// A bare HTTP response carrying just `status` and an empty body.
+fn bare_http_response<B: Default>(status: http::StatusCode) -> http::Response<B> {
+    http::Response::builder()
+        .status(status)
+        .body(B::default())
+        .unwrap_or_else(|_| http::Response::new(B::default()))
+}
+
 pub async fn start_rpc(
     state: RPCState,
     rpc_listener: tokio::net::TcpListener,
@@ -635,30 +643,39 @@ pub async fn start_rpc(
                         svc_builder,
                         keystore,
                     } = per_conn.clone();
-                    // NOTE, the rpc middleware must be initialized here to be able to be created once per connection
-                    // with data from the connection such as the headers in this example
-                    let rpc_middleware = RpcServiceBuilder::new()
-                        .layer(SetExtensionLayer { path })
-                        .layer(SegregationLayer)
-                        .layer(FilterLayer::new(filter_list.shallow_clone()))
-                        .layer(validation_layer::JsonValidationLayer)
-                        .layer(AuthLayer::new(req.headers(), &keystore))
-                        .layer(LogLayer::default())
-                        // `ParallelBatchLayer` fans a batch out into per-entry `call`s, so it must be
-                        // outer to `MetricsLayer` for batched methods to be measured. Both must stay
-                        // inner to the batch-transforming layers above.
-                        .layer(ParallelBatchLayer::new(max_response_body_size))
-                        .layer(MetricsLayer::new(metrics_mode));
-                    Either::Left(
-                        Arc::unwrap_or_clone(svc_builder)
-                            .set_rpc_middleware(rpc_middleware)
-                            .build(methods, stop_handle),
-                    )
+                    // Authenticate the connection once, here at the HTTP layer (for a
+                    // WebSocket this is the upgrade request), before any JSON-RPC
+                    // dispatch.
+                    match resolve_claims(&keystore, req.headers().get(http::header::AUTHORIZATION))
+                    {
+                        Ok(claims) => {
+                            // NOTE, the rpc middleware must be initialized here to be able to be created once per connection
+                            // with data from the connection such as the headers in this example
+                            let rpc_middleware = RpcServiceBuilder::new()
+                                .layer(SetExtensionLayer { path })
+                                .layer(SegregationLayer)
+                                .layer(FilterLayer::new(filter_list.shallow_clone()))
+                                .layer(validation_layer::JsonValidationLayer)
+                                .layer(AuthLayer::new(claims))
+                                .layer(LogLayer::default())
+                                // `ParallelBatchLayer` fans a batch out into per-entry `call`s, so it must be
+                                // outer to `MetricsLayer` for batched methods to be measured. Both must stay
+                                // inner to the batch-transforming layers above.
+                                .layer(ParallelBatchLayer::new(max_response_body_size))
+                                .layer(MetricsLayer::new(metrics_mode));
+                            Either::Left(
+                                Arc::unwrap_or_clone(svc_builder)
+                                    .set_rpc_middleware(rpc_middleware)
+                                    .build(methods, stop_handle),
+                            )
+                        }
+                        Err(reason) => {
+                            tracing::debug!("rejecting unauthorized request: {reason}");
+                            Either::Right(Ok(bare_http_response(http::StatusCode::UNAUTHORIZED)))
+                        }
+                    }
                 } else {
-                    Either::Right(Ok(http::Response::builder()
-                        .status(http::StatusCode::NOT_FOUND)
-                        .body(Default::default())
-                        .unwrap_or_else(|_| http::Response::new(Default::default()))))
+                    Either::Right(Ok(bare_http_response(http::StatusCode::NOT_FOUND)))
                 };
                 async move {
                     match svc_or_result {
@@ -894,6 +911,36 @@ mod tests {
         assert_eq!(response, jwt_read_permissions);
 
         drop(client);
+
+        // Raw HTTP: token-level auth failures are rejected at the transport layer
+        // with a bare HTTP 401 (not a JSON-RPC error body), matching Lotus.
+        let http = reqwest::Client::new();
+        let rpc_url = format!("http://{}:{}/rpc/v1", rpc_address.ip(), rpc_address.port());
+        let jsonrpc_body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "Filecoin.Version",
+            "params": [],
+            "id": 0,
+        });
+
+        let bad_token = http
+            .post(&rpc_url)
+            .header(reqwest::header::AUTHORIZATION, "Bearer not-a-real-token")
+            .json(&jsonrpc_body)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(bad_token.status(), reqwest::StatusCode::UNAUTHORIZED);
+
+        // A valid token is not rejected at the HTTP layer.
+        let good_token = http
+            .post(&rpc_url)
+            .header(reqwest::header::AUTHORIZATION, format!("Bearer {jwt_read}"))
+            .json(&jsonrpc_body)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(good_token.status(), reqwest::StatusCode::OK);
 
         println!("sending a few websocket requests");
 
