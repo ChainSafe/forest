@@ -70,15 +70,8 @@ pub struct ChainExportGuard {
 
 impl ChainExportGuard {
     pub fn try_start_export() -> anyhow::Result<Self> {
-        anyhow::ensure!(
-            !CHAIN_EXPORT_STATUS.exporting(),
-            "An active chain export job has started at {}, start epoch: {}, current epoch: {}",
-            CHAIN_EXPORT_STATUS.start_time().unwrap_or_default(),
-            CHAIN_EXPORT_STATUS.initial_epoch(),
-            CHAIN_EXPORT_STATUS.epoch(),
-        );
         let cancellation_token = CancellationToken::new();
-        start_export(cancellation_token.clone());
+        start_export(cancellation_token.clone())?;
         Ok(Self { cancellation_token })
     }
 
@@ -108,16 +101,24 @@ fn update_epoch(new_value: i64) {
     );
 }
 
-fn start_export(cancellation_token: CancellationToken) {
+fn start_export(cancellation_token: CancellationToken) -> anyhow::Result<()> {
     let status = &*CHAIN_EXPORT_STATUS;
+    let export_in_progress = status.exporting.swap(true, atomic::Ordering::Relaxed);
+    anyhow::ensure!(
+        !export_in_progress,
+        "An active chain export job has started at {}, start epoch: {}, current epoch: {}",
+        status.start_time().unwrap_or_default(),
+        status.initial_epoch(),
+        status.epoch(),
+    );
     status.epoch.store(0, atomic::Ordering::Relaxed);
     status.initial_epoch.store(0, atomic::Ordering::Relaxed);
-    status.exporting.store(true, atomic::Ordering::Relaxed);
     status.cancelled.store(false, atomic::Ordering::Relaxed);
     status.start_time.store(Some(Utc::now().into()));
     status
         .cancellation_token
         .store(Some(cancellation_token.into()));
+    Ok(())
 }
 
 fn end_export() {
