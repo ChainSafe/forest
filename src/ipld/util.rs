@@ -229,6 +229,7 @@ pin_project! {
         events: bool,
         tipset_keys:bool,
         track_progress: bool,
+        n_polled: usize,
     }
 }
 
@@ -300,6 +301,7 @@ pub fn stream_chain<
         events: false,
         tipset_keys: false,
         track_progress: false,
+        n_polled: 0,
     }
 }
 
@@ -324,13 +326,22 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
 {
     type Item = anyhow::Result<CarBlock>;
 
-    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
 
         let export_tipset_keys = self.tipset_keys;
         let fail_on_dead_links = self.fail_on_dead_links;
         let stateroot_limit_exclusive = self.stateroot_limit_exclusive;
         let this = self.project();
+
+        // Yield to the runtime every 128 polls to allow cancellation
+        {
+            *this.n_polled += 1;
+            if this.n_polled.is_multiple_of(128) {
+                cx.waker().wake_by_ref();
+                return Poll::Pending;
+            }
+        }
 
         loop {
             while let Some(task) = this.dfs.front_mut() {
