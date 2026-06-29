@@ -910,10 +910,14 @@ mod tests {
             .unwrap();
         assert_eq!(response, jwt_read_permissions);
 
+        // `AuthVerify` verifies a raw JWT; a `Bearer `-prefixed argument must fail.
+        super::methods::auth::AuthVerify::call(&client, (format!("Bearer {jwt_read}"),))
+            .await
+            .unwrap_err();
+
         drop(client);
 
-        // Raw HTTP: token-level auth failures are rejected at the transport layer
-        // with a bare HTTP 401 (not a JSON-RPC error body), matching Lotus.
+        // A bad token is rejected with a bare HTTP 401, before JSON-RPC dispatch.
         let http = reqwest::Client::new();
         let rpc_url = format!("http://{}:{}/rpc/v1", rpc_address.ip(), rpc_address.port());
         let jsonrpc_body = serde_json::json!({
