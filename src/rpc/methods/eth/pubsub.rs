@@ -239,7 +239,7 @@ fn log_matches(spec: &EthFilterSpec, log: &EthLog) -> bool {
 
 fn spawn_pending_transactions(sink: SubscriptionSink, ctx: Arc<RPCState>) {
     let stream = pending_tx_added_hashes(
-        ctx.mpool.subscribe_to_updates(),
+        ctx.mpool.subscriber().subscribe(),
         ctx.chain_config().eth_chain_id,
     );
     tokio::spawn(pipe_stream_to_sink(stream, sink));

@@ -19,20 +19,18 @@ pub enum MpoolUpdate {
 /// Subscribe-only handle to the pending pool's [`MpoolUpdate`] broadcast bus.
 ///
 /// Hands out independent receivers via [`subscribe`](Self::subscribe), each with
-/// its own cursor. The inner `Sender` is private and never leaves the message
-/// pool, so holders can listen but cannot publish events — the send capability
-/// stays with [`PendingStore`](super::pending_store::PendingStore).
+/// its own cursor.
 #[derive(Clone, Debug)]
 pub struct MpoolSubscriber(broadcast::Sender<MpoolUpdate>);
 
 impl MpoolSubscriber {
-    pub(in crate::message_pool) fn new(events: broadcast::Sender<MpoolUpdate>) -> Self {
+    /// Wrap the pending pool's broadcast `Sender`.
+    pub(crate) fn new(events: broadcast::Sender<MpoolUpdate>) -> Self {
         Self(events)
     }
 
-    /// A detached handle with no producer behind it: its receivers never observe
-    /// any event. Used by standalone contexts (tests, snapshot tools, the
-    /// offline server) that have no live mempool attached.
+    /// A detached handle with no producer behind it, its receivers never observe
+    /// any event.
     pub fn dummy() -> Self {
         Self(broadcast::channel(1).0)
     }

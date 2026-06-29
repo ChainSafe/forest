@@ -126,12 +126,6 @@ impl PendingStore {
         self.inner.pending.read().get(addr).cloned()
     }
 
-    /// Subscribe to the [`MpoolUpdate`] stream. Returned receiver is
-    /// independent; dropping it does not affect other subscribers.
-    pub fn subscribe(&self) -> broadcast::Receiver<MpoolUpdate> {
-        self.inner.events.subscribe()
-    }
-
     /// A subscribe-only handle to the [`MpoolUpdate`] bus that can mint
     /// independent receivers on demand without exposing the send half.
     pub(in crate::message_pool) fn subscriber(&self) -> MpoolSubscriber {
@@ -243,7 +237,7 @@ mod tests {
     #[test]
     fn insert_emits_add_and_stores_message() {
         let store = PendingStore::new(TEST_LIMITS);
-        let mut rx = store.subscribe();
+        let mut rx = store.subscriber().subscribe();
         let addr = Address::new_id(1);
 
         store
@@ -267,7 +261,7 @@ mod tests {
     #[test]
     fn rbf_replacement_emits_add_for_the_new_message() {
         let store = PendingStore::new(TEST_LIMITS);
-        let mut rx = store.subscribe();
+        let mut rx = store.subscriber().subscribe();
         let addr = Address::new_id(1);
 
         store
@@ -300,7 +294,7 @@ mod tests {
     #[test]
     fn remove_emits_remove_once_then_is_idempotent() {
         let store = PendingStore::new(TEST_LIMITS);
-        let mut rx = store.subscribe();
+        let mut rx = store.subscriber().subscribe();
         let addr = Address::new_id(1);
 
         store
@@ -328,7 +322,7 @@ mod tests {
     #[test]
     fn remove_of_unknown_sender_is_silent() {
         let store = PendingStore::new(TEST_LIMITS);
-        let mut rx = store.subscribe();
+        let mut rx = store.subscriber().subscribe();
         let addr = Address::new_id(42);
 
         assert!(store.remove(&addr, 0, true).is_none());
@@ -387,7 +381,7 @@ mod tests {
         // same pending map and the same broadcast channel.
         let store = PendingStore::new(TEST_LIMITS);
         let handle = store.shallow_clone();
-        let mut rx = handle.subscribe();
+        let mut rx = handle.subscriber().subscribe();
         let addr = Address::new_id(7);
 
         store
