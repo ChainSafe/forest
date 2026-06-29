@@ -37,7 +37,7 @@
 
 ### Fixed
 
-- [#4645](https://github.com/ChainSafe/forest/issues/4645): A malformed or invalid RPC `Authorization` header now returns a `401 Unauthorized` error with a descriptive message instead of the misleading `-32600 Invalid request`.
+- [#4645](https://github.com/ChainSafe/forest/issues/4645): An invalid RPC `Authorization` header (malformed header or unverifiable JWT) is now rejected with an HTTP `401 Unauthorized` instead of the misleading `-32600 Invalid request` JSON-RPC error. A call that authenticates but lacks the permission its method requires now returns a JSON-RPC error with code `-32003` and a `missing permission to invoke '<method>' (need '<perm>')` message.
 
 - [#7214](https://github.com/ChainSafe/forest/pull/7214): Aligned the `eth` transaction `accessList` field with go-ethereum/reth (typed: `[]`, legacy: omitted, never `null`).
 
