@@ -63,14 +63,14 @@ $FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
 echo "Exporting zstd compressed snapshot in $format format"
 $FOREST_CLI_PATH snapshot export --format "$format" &
 EXPORT_CMD_PID=$!
-# another export job should be disallowed
+echo "Verifying another export job is disallowed"
 if $FOREST_CLI_PATH snapshot export 2>&1 | grep "active chain export job has started"; then
     :
 else 
     echo "another export job should be disallowed"
     exit 1
 fi
-# another export-diff job should be disallowed
+echo "Verifying another export-diff job is disallowed"
 if $FOREST_CLI_PATH snapshot export-diff --from 11000 --to 10100 -d 900 2>&1 | grep "active chain export job has started"; then
     :
 else 
