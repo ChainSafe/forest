@@ -63,6 +63,7 @@ $FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
 echo "Exporting zstd compressed snapshot in $format format"
 $FOREST_CLI_PATH snapshot export --format "$format" &
 EXPORT_CMD_PID=$!
+sleep 5
 echo "Verifying another export job is disallowed"
 if $FOREST_CLI_PATH snapshot export 2>&1 | grep "active chain export job has started"; then
     :

@@ -53,6 +53,7 @@ done
 echo "Exporting diff snapshot @ $snapshot_epoch with forest-cli snapshot export-diff"
 $FOREST_CLI_PATH snapshot export-diff --from "$snapshot_epoch" --to "$((snapshot_epoch - 900))" -d 900 -o diff1 &
 EXPORT_CMD_PID=$!
+sleep 5
 echo "Verifying another export job is disallowed"
 if $FOREST_CLI_PATH snapshot export 2>&1 | grep "active chain export job has started"; then
     :
