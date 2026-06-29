@@ -14,7 +14,26 @@ snapshot=$(find "$db_path/car_db"/*.car.zst | tail -n 1)
 snapshot_epoch=$(forest_query_epoch "$snapshot")
 
 echo "Exporting diff snapshot @ $snapshot_epoch with forest-cli snapshot export-diff"
-$FOREST_CLI_PATH snapshot export-diff --from "$snapshot_epoch" --to "$((snapshot_epoch - 900))" -d 900 -o diff1
+$FOREST_CLI_PATH snapshot export-diff --from "$snapshot_epoch" --to "$((snapshot_epoch - 900))" -d 900 -o diff1 &
+EXPORT_CMD_PID=$!
+# another export job should be disallowed
+if $FOREST_CLI_PATH snapshot export 2>&1 | grep "active chain export job has started"; then
+    :
+else 
+    echo "another export job should be disallowed"
+    exit 1
+fi
+# another export-diff job should be disallowed
+if $FOREST_CLI_PATH snapshot export-diff --from 11000 --to 10100 -d 900 2>&1 | grep "active chain export job has started"; then
+    :
+else 
+    echo "another export-diff job should be disallowed"
+    exit 1
+fi
+# Killing the CLI should not cancel the export
+kill -KILL $EXPORT_CMD_PID
+# Wait on the same export job
+$FOREST_CLI_PATH snapshot export-status --wait
 
 $FOREST_CLI_PATH shutdown --force
 

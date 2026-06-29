@@ -26,7 +26,6 @@ fi
 
 echo "Exporting zstd compressed snapshot in $format format"
 $FOREST_CLI_PATH snapshot export --format "$format" > snapshot_export.log 2>&1 &
-
 echo "Testing that export is in progress"
 for ((i=1; i<=retries; i++)); do
     output=$($FOREST_CLI_PATH snapshot export-status --format json)
@@ -62,7 +61,26 @@ echo "Exporting zstd compressed snapshot at genesis"
 $FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
 
 echo "Exporting zstd compressed snapshot in $format format"
-$FOREST_CLI_PATH snapshot export --format "$format"
+$FOREST_CLI_PATH snapshot export --format "$format" &
+EXPORT_CMD_PID=$!
+# another export job should be disallowed
+if $FOREST_CLI_PATH snapshot export 2>&1 | grep "active chain export job has started"; then
+    :
+else 
+    echo "another export job should be disallowed"
+    exit 1
+fi
+# another export-diff job should be disallowed
+if $FOREST_CLI_PATH snapshot export-diff --from 11000 --to 10100 -d 900 2>&1 | grep "active chain export job has started"; then
+    :
+else 
+    echo "another export-diff job should be disallowed"
+    exit 1
+fi
+# Killing the CLI should not cancel the export
+kill -KILL $EXPORT_CMD_PID
+# Wait on the same export job
+$FOREST_CLI_PATH snapshot export-status --wait
 
 $FOREST_CLI_PATH shutdown --force
 

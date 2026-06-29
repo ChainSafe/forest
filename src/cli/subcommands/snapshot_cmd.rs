@@ -4,21 +4,18 @@
 use crate::chain::FilecoinSnapshotVersion;
 use crate::chain_sync::chain_muxer::DEFAULT_RECENT_STATE_ROOTS;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::db::car::forest::new_forest_car_temp_path_in;
+use crate::db::car::forest::tmp_exporting_forest_car_path;
 use crate::networks::calibnet;
+use crate::prelude::*;
 use crate::rpc::chain::ForestChainExportDiffParams;
 use crate::rpc::types::ApiExportResult;
 use crate::rpc::{self, chain::ForestChainExportParams, prelude::*};
 use crate::shim::policy::policy_constants::CHAIN_FINALITY;
-use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
-use tokio::io::AsyncWriteExt;
+use std::{path::PathBuf, time::Duration};
+use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Format {
@@ -120,7 +117,7 @@ impl SnapshotCommands {
                     ChainHead::call(&client, ()).await?
                 };
 
-                let output_path = match output_path.is_dir() {
+                let output_path = std::path::absolute(match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
                         TrustedVendor::Forest,
                         chain_name,
@@ -132,16 +129,14 @@ impl SnapshotCommands {
                         true,
                     )),
                     false => output_path.clone(),
-                };
-
-                let output_dir = output_path.parent().context("invalid output path")?;
-                let temp_path = new_forest_car_temp_path_in(output_dir)?;
+                })
+                .context("failed to make output path absolute")?;
 
                 let params = ForestChainExportParams {
                     version: format,
                     epoch: tipset.epoch(),
                     recent_roots: depth,
-                    output_path: temp_path.to_path_buf(),
+                    output_path: output_path.clone(),
                     tipset_keys: tipset.key().clone().into(),
                     include_receipts: false,
                     include_events: false,
@@ -158,7 +153,7 @@ impl SnapshotCommands {
                 ).with_message(format!("Exporting v{} snapshot to {} ...", format as u64, output_path.display()));
                 pb.enable_steady_tick(std::time::Duration::from_millis(80));
                 let handle = tokio::spawn({
-                    let path: PathBuf = (&temp_path).into();
+                    let path = tmp_exporting_forest_car_path(&output_path);
                     let pb = pb.clone();
                     let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
                     async move {
@@ -181,21 +176,8 @@ impl SnapshotCommands {
                 pb.finish();
                 _ = handle.await;
 
-                if !dry_run {
-                    match export_result.clone() {
-                        ApiExportResult::Done(hash_opt) => {
-                            // Move the file first; prevents orphaned checksum on persist error.
-                            temp_path.persist(&output_path)?;
-                            if let Some(hash) = hash_opt {
-                                save_checksum(&output_path, hash).await?;
-                            }
-                        }
-                        ApiExportResult::Cancelled => { /* no file to persist on cancel */ }
-                    }
-                }
-
                 match export_result {
-                    ApiExportResult::Done(_) => {
+                    ApiExportResult::Done => {
                         println!("Export completed.");
                     }
                     ApiExportResult::Cancelled => {
@@ -245,13 +227,12 @@ impl SnapshotCommands {
                         if result.cancelled {
                             pb.set_message("Export cancelled");
                             pb.abandon();
-
                             return Ok(());
                         }
                         let position = (result.progress.clamp(0.0, 1.0) * 10000.0).trunc() as u64;
                         pb.set_position(position);
 
-                        if position >= 10000 {
+                        if !result.exporting {
                             break;
                         }
                         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -303,18 +284,16 @@ impl SnapshotCommands {
                 let depth = depth.unwrap_or_else(|| from - to);
                 anyhow::ensure!(depth > 0, "depth must be positive");
 
-                let output_path = match output_path.is_dir() {
+                let output_path = std::path::absolute(match output_path.is_dir() {
                     true => output_path.join(format!(
                         "forest_snapshot_diff_{chain_name}_{from}_{to}+{depth}.car.zst"
                     )),
                     false => output_path.clone(),
-                };
-
-                let output_dir = output_path.parent().context("invalid output path")?;
-                let temp_path = new_forest_car_temp_path_in(output_dir)?;
+                })
+                .context("failed to make output path absolute")?;
 
                 let params = ForestChainExportDiffParams {
-                    output_path: temp_path.to_path_buf(),
+                    output_path: output_path.clone(),
                     from,
                     to,
                     depth,
@@ -327,12 +306,14 @@ impl SnapshotCommands {
                     .expect("indicatif template must be valid"),
                 ).with_message(format!("Exporting {} ...", output_path.display()));
                 pb.enable_steady_tick(std::time::Duration::from_millis(80));
+                let cancellation_token = CancellationToken::new();
                 let handle = tokio::spawn({
-                    let path: PathBuf = (&temp_path).into();
+                    let cancellation_token = cancellation_token.clone();
+                    let path = tmp_exporting_forest_car_path(&output_path);
                     let pb = pb.clone();
                     let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
                     async move {
-                        loop {
+                        while !cancellation_token.is_cancelled() {
                             interval.tick().await;
                             if let Ok(meta) = std::fs::metadata(&path) {
                                 pb.set_position(meta.len());
@@ -343,39 +324,24 @@ impl SnapshotCommands {
 
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
-                client
+                let export_result = client
                     .call(ForestChainExportDiff::request((params,))?.with_timeout(Duration::MAX))
                     .await?;
 
-                handle.abort();
+                cancellation_token.cancel();
                 pb.finish();
                 _ = handle.await;
 
-                temp_path.persist(output_path)?;
-                println!("Export completed.");
+                match export_result {
+                    ApiExportResult::Done => {
+                        println!("Export completed.");
+                    }
+                    ApiExportResult::Cancelled => {
+                        println!("Export cancelled.");
+                    }
+                }
                 Ok(())
             }
         }
     }
-}
-
-/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file
-/// with the same name but with a `.sha256sum` extension.
-async fn save_checksum(source: &Path, encoded_hash: String) -> anyhow::Result<()> {
-    let checksum_file_content = format!(
-        "{encoded_hash} {}\n",
-        source
-            .file_name()
-            .and_then(std::ffi::OsStr::to_str)
-            .context("Failed to retrieve file name while saving checksum")?
-    );
-
-    let checksum_path = PathBuf::from(source).with_extension("sha256sum");
-
-    let mut checksum_file = tokio::fs::File::create(&checksum_path).await?;
-    checksum_file
-        .write_all(checksum_file_content.as_bytes())
-        .await?;
-    checksum_file.flush().await?;
-    Ok(())
 }

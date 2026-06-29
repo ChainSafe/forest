@@ -63,7 +63,7 @@ use integer_encoding::VarIntReader;
 use nunny::Vec as NonEmpty;
 use positioned_io::{Cursor, ReadAt, Size as _, SizeCursor};
 use std::io::{self, Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::task::Poll;
 use std::time::Duration;
@@ -506,6 +506,18 @@ pub fn new_forest_car_temp_path_in(
         .suffix(TEMP_FOREST_CAR_FILE_EXTENSION)
         .tempfile_in(output_dir)?
         .into_temp_path())
+}
+
+pub fn tmp_exporting_forest_car_path(output_path: &Path) -> PathBuf {
+    let mut p = output_path.to_owned();
+    p.add_extension("tmp");
+    p
+}
+
+pub fn forest_car_sha256sum_path(output_path: &Path) -> PathBuf {
+    let mut p = output_path.to_owned();
+    p.add_extension("sha256sum");
+    p
 }
 
 #[cfg(test)]
