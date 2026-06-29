@@ -31,7 +31,8 @@ impl MpoolSubscriber {
 
     /// A detached handle with no producer behind it, its receivers never observe
     /// any event.
-    pub fn dummy() -> Self {
+    #[cfg(test)]
+    pub(crate) fn dummy() -> Self {
         Self(broadcast::channel(1).0)
     }
 

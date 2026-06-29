@@ -138,6 +138,7 @@ pub enum EventRevertStatus {
 }
 
 impl EthEventHandler {
+    #[cfg(test)]
     pub fn new() -> Self {
         Self::from_config(
             &EventsConfig::default(),

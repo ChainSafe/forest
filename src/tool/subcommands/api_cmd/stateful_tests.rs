@@ -310,33 +310,39 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     unreachable!("loop always returns within the branches above")
 }
 
-async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
-    let tipset = client.call(ChainHead::request(())?).await?;
+/// Poll `MpoolPending` until `message_cid` is visible. Returns while the message
+/// is still pending; it does not wait for on-chain inclusion.
+async fn wait_in_mempool(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
     let mut retries = 100;
     loop {
         let pending = client
             .call(MpoolPending::request((ApiTipsetKey(None),))?)
             .await?;
-
         if pending.0.iter().any(|msg| msg.cid() == message_cid) {
-            client
-                .call(
-                    StateWaitMsg::request((message_cid, 1, tipset.epoch(), true))?
-                        .with_timeout(Duration::from_secs(300)),
-                )
-                .await?;
             break Ok(());
         }
         ensure!(retries != 0, "Message not found in mpool");
         retries -= 1;
-
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
 
+/// Wait for `message_cid` to appear in the mempool and then be included on chain.
+async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
+    let tipset = client.call(ChainHead::request(())?).await?;
+    wait_in_mempool(client, message_cid).await?;
+    client
+        .call(
+            StateWaitMsg::request((message_cid, 1, tipset.epoch(), true))?
+                .with_timeout(Duration::from_secs(300)),
+        )
+        .await?;
+    Ok(())
+}
+
 /// Poll `eth_getFilterChanges` until the hashes seen so far contain `want`.
 ///
-/// The filter collects pending txs on a background task, so a poll right after a
+/// The filter collects pending `txs` on a background task, so a poll right after a
 /// tx appears in the mempool may run before the collector has processed it.
 /// Each poll consumes the filter's buffer, so hashes are accumulated across
 /// polls and the full set seen is returned.
@@ -1040,7 +1046,7 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
 
                 // Observe the mempool state before the message is mined. The
                 // filter collects asynchronously, so poll until tx_hash appears.
-                wait_pending_message(&client, cid).await?;
+                wait_in_mempool(&client, cid).await?;
                 let hashes = poll_pending_filter_until(&client, &filter_id, &tx_hash).await?;
 
                 anyhow::ensure!(
@@ -1094,7 +1100,7 @@ fn eth_new_pending_transaction_filter_multi_poll(tx: TestTransaction) -> RpcTest
                     .call(EthGetTransactionHashByCid::request((cid_a,))?)
                     .await?
                     .context("no Eth transaction hash for cid_a")?;
-                wait_pending_message(&client, cid_a).await?;
+                wait_in_mempool(&client, cid_a).await?;
                 poll_pending_filter_until(&client, &filter_id, &hash_a).await?;
 
                 // Second tx — the next polls return it but not the
@@ -1104,7 +1110,7 @@ fn eth_new_pending_transaction_filter_multi_poll(tx: TestTransaction) -> RpcTest
                     .call(EthGetTransactionHashByCid::request((cid_b,))?)
                     .await?
                     .context("no Eth transaction hash for cid_b")?;
-                wait_pending_message(&client, cid_b).await?;
+                wait_in_mempool(&client, cid_b).await?;
                 let hashes_b = poll_pending_filter_until(&client, &filter_id, &hash_b).await?;
                 anyhow::ensure!(
                     !hashes_b.contains(&hash_a),
