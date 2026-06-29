@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#4645](https://github.com/ChainSafe/forest/issues/4645): A malformed or invalid RPC `Authorization` header now returns a `401 Unauthorized` error with a descriptive message instead of the misleading `-32600 Invalid request`.
+
 - [#7214](https://github.com/ChainSafe/forest/pull/7214): Aligned the `eth` transaction `accessList` field with go-ethereum/reth (typed: `[]`, legacy: omitted, never `null`).
 
 - [#7227](https://github.com/ChainSafe/forest/issues/7227): Fixed invalid `Filecoin.GasEstimateGasPremium` and `Filecoin.GasEstimateFeeCap` responses that were returning a fraction instead of an integer.
