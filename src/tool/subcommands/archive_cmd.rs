@@ -598,7 +598,14 @@ where
             diff_limit,
             FileBackedCidHashSet::new_in_temp_dir()?,
         );
-        while stream.try_next().await?.is_some() {}
+        let mut i: usize = 0;
+        while stream.try_next().await?.is_some() {
+            i += 1;
+            if i.is_multiple_of(128) {
+                // To make the task cancellable
+                tokio::task::yield_now().await;
+            }
+        }
         stream.into_seen()
     } else {
         FileBackedCidHashSet::new_in_temp_dir()?
