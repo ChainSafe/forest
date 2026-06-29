@@ -4,17 +4,16 @@
 use crate::blocks::Tipset;
 use crate::cid_collections::{CidHashSet, CidHashSetLike};
 use crate::ipld::Ipld;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
+use arc_swap::ArcSwapOption;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use cid::Cid;
 use futures::Stream;
-use fvm_ipld_blockstore::Blockstore;
-use parking_lot::RwLock;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -22,6 +21,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::{LazyLock, atomic};
 use std::task::{Context, Poll};
+use tokio_util::sync::CancellationToken;
 
 #[derive(Default)]
 pub struct ExportStatus {
@@ -29,7 +29,8 @@ pub struct ExportStatus {
     pub initial_epoch: AtomicI64,
     pub exporting: AtomicBool,
     pub cancelled: AtomicBool,
-    pub start_time: RwLock<Option<DateTime<Utc>>>,
+    pub start_time: ArcSwapOption<DateTime<Utc>>,
+    pub cancellation_token: ArcSwapOption<CancellationToken>,
 }
 
 impl ExportStatus {
@@ -50,11 +51,51 @@ impl ExportStatus {
     }
 
     pub fn start_time(&self) -> Option<DateTime<Utc>> {
-        *self.start_time.read()
+        self.start_time.load().clone().map(Arc::unwrap_or_clone)
+    }
+
+    pub fn cancellation_token(&self) -> Option<CancellationToken> {
+        self.cancellation_token
+            .load()
+            .clone()
+            .map(Arc::unwrap_or_clone)
     }
 }
 
 pub static CHAIN_EXPORT_STATUS: LazyLock<ExportStatus> = LazyLock::new(ExportStatus::default);
+
+pub struct ChainExportGuard {
+    cancellation_token: CancellationToken,
+}
+
+impl ChainExportGuard {
+    pub fn try_start_export() -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            !CHAIN_EXPORT_STATUS.exporting(),
+            "An active chain export job has started at {}, start epoch: {}, current epoch: {}",
+            CHAIN_EXPORT_STATUS.start_time().unwrap_or_default(),
+            CHAIN_EXPORT_STATUS.initial_epoch(),
+            CHAIN_EXPORT_STATUS.epoch(),
+        );
+        let cancellation_token = CancellationToken::new();
+        start_export(cancellation_token.clone());
+        Ok(Self { cancellation_token })
+    }
+
+    pub fn cancel_export(&self) {
+        cancel_export()
+    }
+
+    pub fn cancellation_token(&self) -> &CancellationToken {
+        &self.cancellation_token
+    }
+}
+
+impl Drop for ChainExportGuard {
+    fn drop(&mut self) {
+        end_export()
+    }
+}
 
 fn update_epoch(new_value: i64) {
     let status = &*CHAIN_EXPORT_STATUS;
@@ -67,22 +108,26 @@ fn update_epoch(new_value: i64) {
     );
 }
 
-pub fn start_export() {
+fn start_export(cancellation_token: CancellationToken) {
     let status = &*CHAIN_EXPORT_STATUS;
     status.epoch.store(0, atomic::Ordering::Relaxed);
     status.initial_epoch.store(0, atomic::Ordering::Relaxed);
     status.exporting.store(true, atomic::Ordering::Relaxed);
     status.cancelled.store(false, atomic::Ordering::Relaxed);
-    *status.start_time.write() = Some(Utc::now());
+    status.start_time.store(Some(Utc::now().into()));
+    status
+        .cancellation_token
+        .store(Some(cancellation_token.into()));
 }
 
-pub fn end_export() {
+fn end_export() {
     CHAIN_EXPORT_STATUS
         .exporting
         .store(false, atomic::Ordering::Relaxed);
+    CHAIN_EXPORT_STATUS.cancellation_token.store(None);
 }
 
-pub fn cancel_export() {
+fn cancel_export() {
     let status = &*CHAIN_EXPORT_STATUS;
     status.exporting.store(false, atomic::Ordering::Relaxed);
     status.cancelled.store(true, atomic::Ordering::Relaxed);
