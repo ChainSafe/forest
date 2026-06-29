@@ -39,6 +39,8 @@
 
 - [#4645](https://github.com/ChainSafe/forest/issues/4645): An invalid RPC `Authorization` header (malformed header or unverifiable JWT) is now rejected with an HTTP `401 Unauthorized` instead of the misleading `-32600 Invalid request` JSON-RPC error. A call that authenticates but lacks the permission its method requires now returns a JSON-RPC error with code `-32003` and a `missing permission to invoke '<method>' (need '<perm>')` message.
 
+- [#7256](https://github.com/ChainSafe/forest/pull/7256): `Filecoin.AuthVerify` now verifies its argument as a raw JWT, matching Lotus, instead of stripping a leading `Bearer ` prefix.
+
 - [#7214](https://github.com/ChainSafe/forest/pull/7214): Aligned the `eth` transaction `accessList` field with go-ethereum/reth (typed: `[]`, legacy: omitted, never `null`).
 
 - [#7227](https://github.com/ChainSafe/forest/issues/7227): Fixed invalid `Filecoin.GasEstimateGasPremium` and `Filecoin.GasEstimateFeeCap` responses that were returning a fraction instead of an integer.
