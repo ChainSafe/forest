@@ -480,6 +480,17 @@ jobs:
       - name: Devnet check
         run: ./scripts/devnet/check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+      - name: Add forest binaries to PATH
+        run: |
+          chmod +x "$GITHUB_WORKSPACE"/forest*
+          echo "$GITHUB_WORKSPACE" >> "$GITHUB_PATH"
+      - name: Devnet wallet tests
+        run: |
+          source ./scripts/devnet/wallet_harness.sh
+          devnet_wallet_env_init
+          forest-dev tests devnet mpool
+          forest-dev tests devnet wallet
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2

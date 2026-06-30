@@ -225,6 +225,21 @@ forest-dev tests calibnet mpool
 forest-dev tests calibnet wallet
 '''
 
+[tasks."test:wallet-devnet"]
+description = "Run wallet integration tests against a local docker devnet."
+shell = "bash -c"
+run = '''
+set -euo pipefail
+pushd scripts/devnet
+./setup.sh
+./check.sh
+popd
+source ./scripts/devnet/wallet_harness.sh
+devnet_wallet_env_init
+forest-dev tests devnet mpool
+forest-dev tests devnet wallet
+'''
+
 [tasks."codecov:nextest"]
 description = "Run codecov with nextest"
 run = '''
