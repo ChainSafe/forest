@@ -307,6 +307,8 @@ impl SnapshotCommands {
                 ).with_message(format!("Exporting {} ...", output_path.display()));
                 pb.enable_steady_tick(std::time::Duration::from_millis(80));
                 let cancellation_token = CancellationToken::new();
+                // Make sure token is cancelled on error path
+                let _cancellation_token_drop_guard = cancellation_token.drop_guard_ref();
                 let handle = tokio::spawn({
                     let cancellation_token = cancellation_token.clone();
                     let path = tmp_exporting_forest_car_path(&output_path);
@@ -321,13 +323,12 @@ impl SnapshotCommands {
                         }
                     }
                 });
-
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
                 let export_result = client
                     .call(ForestChainExportDiff::request((params,))?.with_timeout(Duration::MAX))
                     .await?;
-
+                // cancel before `handle.await` to avoid deadlock
                 cancellation_token.cancel();
                 pb.finish();
                 _ = handle.await;
