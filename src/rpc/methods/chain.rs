@@ -12,7 +12,7 @@ use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChang
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
 use crate::ipld::DfsIter;
-use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
+use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
@@ -43,11 +43,7 @@ use sha2::Sha256;
 use std::convert::Infallible;
 use std::fs::File;
 use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
-use tokio::sync::{
-    Mutex,
-    broadcast::{self, Receiver as Subscriber},
-};
-use tokio_util::sync::CancellationToken;
+use tokio::sync::broadcast::{self, Receiver as Subscriber};
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
@@ -65,9 +61,6 @@ const HEAD_CHANNEL_CAPACITY: usize = 10;
 /// probabilistic impact of various values is in
 /// https://github.com/filecoin-project/go-f3/issues/944
 pub const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
-
-static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
-    LazyLock::new(|| Mutex::new(None));
 
 pub enum ChainGetFinalizedTipset {}
 impl RpcMethod<0> for ChainGetFinalizedTipset {
@@ -305,17 +298,7 @@ impl RpcMethod<1> for ForestChainExport {
             dry_run,
         } = params;
 
-        let token = CancellationToken::new();
-        {
-            let mut guard = CHAIN_EXPORT_LOCK.lock().await;
-            if guard.is_some() {
-                return Err(
-                    anyhow::anyhow!("A chain export is still in progress. Cancel it with the export-cancel subcommand if needed.").into(),
-                );
-            }
-            *guard = Some(token.clone());
-        }
-        start_export();
+        let chain_export_guard = ChainExportGuard::try_start_export()?;
 
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let start_ts = ctx.chain_index().load_required_tipset_by_height(
@@ -352,8 +335,8 @@ impl RpcMethod<1> for ForestChainExport {
                     result = chain_export => {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
-                    _ = token.cancelled() => {
-                        cancel_export();
+                    _ = chain_export_guard.cancellation_token().cancelled() => {
+                        chain_export_guard.cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
                     },
@@ -397,18 +380,14 @@ impl RpcMethod<1> for ForestChainExport {
                     result = chain_export => {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
-                    _ = token.cancelled() => {
-                        cancel_export();
+                    _ = chain_export_guard.cancellation_token().cancelled() => {
+                        chain_export_guard.cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
                     },
                 }
             }
         };
-        end_export();
-        // Clean up token
-        let mut guard = CHAIN_EXPORT_LOCK.lock().await;
-        *guard = None;
         match result {
             Ok(export_result) => Ok(export_result),
             Err(e) => Err(anyhow::anyhow!(e).into()),
@@ -479,12 +458,14 @@ impl RpcMethod<0> for ForestChainExportCancel {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        if let Some(token) = CHAIN_EXPORT_LOCK.lock().await.as_ref() {
+        if CHAIN_EXPORT_STATUS.exporting()
+            && let Some(token) = CHAIN_EXPORT_STATUS.cancellation_token()
+        {
             token.cancel();
-            return Ok(true);
+            Ok(true)
+        } else {
+            Ok(false)
         }
-
-        Ok(false)
     }
 }
 
@@ -505,19 +486,14 @@ impl RpcMethod<1> for ForestChainExportDiff {
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let _guard = ChainExportGuard::try_start_export()?;
+
         let ForestChainExportDiffParams {
             from,
             to,
             depth,
             output_path,
         } = params;
-
-        let _locked = CHAIN_EXPORT_LOCK.try_lock();
-        if _locked.is_err() {
-            return Err(
-                anyhow::anyhow!("Another chain export diff job is still in progress").into(),
-            );
-        }
 
         let chain_finality = ctx.chain_config().policy.chain_finality;
         if depth < chain_finality {
