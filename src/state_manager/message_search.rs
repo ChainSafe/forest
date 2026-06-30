@@ -71,12 +71,13 @@ impl StateManager {
             .unwrap_or(Ok(None))
     }
 
-    fn check_search(
+    fn check_search_blocking(
         &self,
         mut current: Tipset,
         message: &ChainMessage,
         lookback_max_epoch: ChainEpoch,
         allow_replaced: bool,
+        cancellation_token: &CancellationToken,
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
         let message_from_address = message.from();
         let message_sequence = message.sequence();
@@ -85,7 +86,7 @@ impl StateManager {
             .map_err(Error::state)?;
         let message_from_id = self.lookup_required_id(&message_from_address, &current)?;
 
-        while current.epoch() >= lookback_max_epoch {
+        while !cancellation_token.is_cancelled() && current.epoch() >= lookback_max_epoch {
             let parent_tipset = self
                 .chain_index()
                 .load_required_tipset(current.parents())
@@ -121,12 +122,13 @@ impl StateManager {
     }
 
     /// Searches backwards through the chain for a message receipt.
-    fn search_back_for_message(
+    fn search_back_for_message_blocking(
         &self,
         current: Tipset,
         message: &ChainMessage,
         look_back_limit: Option<i64>,
         allow_replaced: Option<bool>,
+        cancellation_token: &CancellationToken,
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
         let current_epoch = current.epoch();
         let allow_replaced = allow_replaced.unwrap_or(true);
@@ -143,11 +145,22 @@ impl StateManager {
             _ => 0,
         };
 
-        self.check_search(current, message, lookback_max_epoch, allow_replaced)
+        self.check_search_blocking(
+            current,
+            message,
+            lookback_max_epoch,
+            allow_replaced,
+            cancellation_token,
+        )
     }
 
     /// Returns a message receipt from a given tipset and message CID.
-    pub fn get_receipt(&self, tipset: Tipset, msg: Cid) -> Result<Receipt, Error> {
+    pub fn get_receipt_blocking(
+        &self,
+        tipset: Tipset,
+        msg: Cid,
+        cancellation_token: &CancellationToken,
+    ) -> Result<Receipt, Error> {
         let m = crate::chain::get_chain_message(self.db(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_receipt = self.tipset_executed_message(&tipset, &m, true)?;
@@ -155,7 +168,8 @@ impl StateManager {
             return Ok(receipt);
         }
 
-        let maybe_tuple = self.search_back_for_message(tipset, &m, None, None)?;
+        let maybe_tuple =
+            self.search_back_for_message_blocking(tipset, &m, None, None, cancellation_token)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -228,12 +242,14 @@ impl StateManager {
             let search_back_tx = search_back_tx.clone();
             let search_back_candidate = search_back_candidate.shallow_clone();
             let reverted = reverted.shallow_clone();
+            let cancellation_token = cancellation_token.clone();
             move || {
-                if let Ok(Some((ts, receipt))) = sm.search_back_for_message(
+                if let Ok(Some((ts, receipt))) = sm.search_back_for_message_blocking(
                     current_ts,
                     &message,
                     look_back_limit,
                     allow_replaced,
+                    &cancellation_token,
                 ) && !reverted.read().contains(ts.key())
                 {
                     if sm.heaviest_tipset().epoch() >= ts.epoch() + confidence {
@@ -262,10 +278,7 @@ impl StateManager {
                     match head_changes_rx.recv().await {
                         Ok(head_changes) => {
                             for reverted_ts in head_changes.reverts {
-                                // No need to update reverted set when search back task is done
-                                if search_back_candidate.get().is_none() {
-                                    reverted.write().insert(reverted_ts.key().clone());
-                                }
+                                reverted.write().insert(reverted_ts.key().clone());
 
                                 if candidate
                                     .as_ref()
@@ -275,20 +288,18 @@ impl StateManager {
                                 }
                             }
                             for applied_ts in head_changes.applies {
+                                reverted.write().remove(applied_ts.key());
+
                                 // Return if `search_back_candidate` meets confidence requirement
                                 if let Some((candidate_ts, candidate_receipt)) =
                                     search_back_candidate.get()
                                     && applied_ts.epoch() >= candidate_ts.epoch() + confidence
+                                    && !reverted.read().contains(candidate_ts.key())
                                 {
                                     return Ok((
                                         candidate_ts.shallow_clone(),
                                         candidate_receipt.clone(),
                                     ));
-                                }
-
-                                // No need to update reverted set when search back task is done
-                                if search_back_candidate.get().is_none() {
-                                    reverted.write().remove(applied_ts.key());
                                 }
 
                                 // Return if the candidate meets confidence requirement
@@ -345,6 +356,7 @@ impl StateManager {
         msg_cid: Cid,
         look_back_limit: Option<i64>,
         allow_replaced: Option<bool>,
+        cancellation_token: &CancellationToken,
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
         let from = from.unwrap_or_else(|| self.heaviest_tipset());
         let message = crate::chain::get_chain_message(self.db(), &msg_cid)
@@ -355,7 +367,20 @@ impl StateManager {
         if let Some(r) = maybe_message_receipt {
             Ok(Some((from, r)))
         } else {
-            self.search_back_for_message(current_tipset, &message, look_back_limit, allow_replaced)
+            tokio::task::spawn_blocking({
+                let this = self.shallow_clone();
+                let cancellation_token = cancellation_token.clone();
+                move || {
+                    this.search_back_for_message_blocking(
+                        current_tipset,
+                        &message,
+                        look_back_limit,
+                        allow_replaced,
+                        &cancellation_token,
+                    )
+                }
+            })
+            .await?
         }
     }
 }

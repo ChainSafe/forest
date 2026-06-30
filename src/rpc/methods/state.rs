@@ -74,10 +74,12 @@ use std::ops::Mul;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::task::JoinSet;
+use tokio_util::sync::CancellationToken;
 
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
 const WAIT_FOR_MSG_TIMEOUT: Duration = Duration::from_mins(10);
+const SEARCH_FOR_MSG_TIMEOUT: Duration = Duration::from_mins(10);
 
 pub enum StateCall {}
 
@@ -1217,9 +1219,18 @@ impl RpcMethod<2> for StateGetReceipt {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        ctx.state_manager
-            .get_receipt(tipset, cid)
-            .map_err(From::from)
+        let sm = ctx.state_manager.shallow_clone();
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        Ok(tokio::time::timeout(
+            SEARCH_FOR_MSG_TIMEOUT,
+            tokio::task::spawn_blocking({
+                let cancellation_token = cancellation_token.clone();
+                move || sm.get_receipt_blocking(tipset, cid, &cancellation_token)
+            }),
+        )
+        .await
+        .context("timed out")???)
     }
 }
 
@@ -1330,18 +1341,23 @@ impl RpcMethod<4> for StateSearchMsg {
         (ApiTipsetKey(tsk), message_cid, look_back_limit, allow_replaced): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
         let from = tsk
             .map(|k| ctx.chain_index().load_required_tipset(&k))
             .transpose()?;
-        let Some((tipset, receipt)) = ctx
-            .state_manager
-            .search_for_message(
+        let Some((tipset, receipt)) = tokio::time::timeout(
+            SEARCH_FOR_MSG_TIMEOUT,
+            ctx.state_manager.search_for_message(
                 from,
                 message_cid,
                 Some(look_back_limit),
                 Some(allow_replaced),
-            )
-            .await?
+                &cancellation_token,
+            ),
+        )
+        .await
+        .context("timed out")??
         else {
             return Ok(None);
         };
@@ -1375,10 +1391,20 @@ impl RpcMethod<2> for StateSearchMsgLimited {
         (message_cid, look_back_limit): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let Some((tipset, receipt)) = ctx
-            .state_manager
-            .search_for_message(None, message_cid, Some(look_back_limit), None)
-            .await?
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        let Some((tipset, receipt)) = tokio::time::timeout(
+            SEARCH_FOR_MSG_TIMEOUT,
+            ctx.state_manager.search_for_message(
+                None,
+                message_cid,
+                Some(look_back_limit),
+                None,
+                &cancellation_token,
+            ),
+        )
+        .await
+        .context("timed out")??
         else {
             return Ok(None);
         };
