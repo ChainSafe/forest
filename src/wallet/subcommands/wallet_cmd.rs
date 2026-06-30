@@ -312,7 +312,7 @@ pub enum WalletCommands {
         gas_limit: i64,
         #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
         gas_premium: TokenAmount,
-        /// Wait for the message to be on chain with the given confidence by calling`StateWaitMsg`.
+        /// Wait for the message to be on chain with the given confidence by calling `StateWaitMsg`.
         /// The command waits until the message has been on chain for at least `confidence` epochs.
         #[arg(long)]
         wait_confidence: Option<u32>,
