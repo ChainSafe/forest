@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use futures::stream::FuturesOrdered;
 pub use types::*;
 
 use super::chain::ChainGetTipSetV2;
@@ -58,6 +57,7 @@ use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
+use futures::stream::FuturesOrdered;
 use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 pub use fvm_shared3::sector::StoragePower;
@@ -77,6 +77,7 @@ use tokio::task::JoinSet;
 
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
+const WAIT_FOR_MSG_TIMEOUT: Duration = Duration::from_mins(10);
 
 pub enum StateCall {}
 
@@ -1245,10 +1246,14 @@ impl RpcMethod<2> for StateWaitMsgV0 {
     ) -> Result<Self::Ok, ServerError> {
         let (tipset, receipt) = ctx
             .state_manager
-            .wait_for_message(message_cid, confidence, None, None)
+            .wait_for_message_with_timeout(
+                message_cid,
+                confidence,
+                None,
+                None,
+                WAIT_FOR_MSG_TIMEOUT,
+            )
             .await?;
-        let tipset = tipset.context("wait for msg returned empty tuple")?;
-        let receipt = receipt.context("wait for msg returned empty receipt")?;
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
         Ok(MessageLookup {
             receipt,
@@ -1284,15 +1289,14 @@ impl RpcMethod<4> for StateWaitMsg {
     ) -> Result<Self::Ok, ServerError> {
         let (tipset, receipt) = ctx
             .state_manager
-            .wait_for_message(
+            .wait_for_message_with_timeout(
                 message_cid,
                 confidence,
                 Some(look_back_limit),
                 Some(allow_replaced),
+                WAIT_FOR_MSG_TIMEOUT,
             )
             .await?;
-        let tipset = tipset.context("wait for msg returned empty tuple")?;
-        let receipt = receipt.context("wait for msg returned empty receipt")?;
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
         Ok(MessageLookup {
             receipt,

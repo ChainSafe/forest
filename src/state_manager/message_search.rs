@@ -4,9 +4,12 @@
 use super::*;
 use crate::blocks::TipsetKey;
 use crate::message::MessageRead as _;
-use ahash::HashMap;
-use futures::{FutureExt, channel::oneshot, select};
-use tokio::sync::{RwLock, broadcast::error::RecvError};
+use ahash::HashSet;
+use parking_lot::RwLock;
+use std::sync::OnceLock;
+use std::time::Duration;
+use tokio::sync::broadcast::error::RecvError;
+use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
 impl StateManager {
@@ -161,138 +164,177 @@ impl StateManager {
         Ok(message_receipt)
     }
 
+    pub async fn wait_for_message_with_timeout(
+        &self,
+        msg_cid: Cid,
+        confidence: i64,
+        look_back_limit: Option<ChainEpoch>,
+        allow_replaced: Option<bool>,
+        timeout: Duration,
+    ) -> Result<(Tipset, Receipt), Error> {
+        let cancellation_token = CancellationToken::new();
+        let _cancellation_token_drop_guard = cancellation_token.drop_guard_ref();
+        tokio::time::timeout(
+            timeout,
+            self.wait_for_message(
+                msg_cid,
+                confidence,
+                look_back_limit,
+                allow_replaced,
+                &cancellation_token,
+            ),
+        )
+        .await
+        .map_err(|_| {
+            Error::other(format!(
+                "wait_for_message timed out after {}",
+                humantime::format_duration(timeout)
+            ))
+        })?
+    }
+
     /// `WaitForMessage` blocks until a message appears on chain. It looks
     /// backwards in the chain to see if this has already happened. It
     /// guarantees that the message has been on chain for at least
     /// confidence epochs without being reverted before returning.
+    /// Returns an error when cancelled.
     pub async fn wait_for_message(
         &self,
         msg_cid: Cid,
         confidence: i64,
         look_back_limit: Option<ChainEpoch>,
         allow_replaced: Option<bool>,
-    ) -> Result<(Option<Tipset>, Option<Receipt>), Error> {
-        let mut head_changes_rx = self.cs.subscribe_head_changes();
-        let (sender, mut receiver) = oneshot::channel::<()>();
-        let message = crate::chain::get_chain_message(self.db(), &msg_cid)
-            .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
-        let current_tipset = self.heaviest_tipset();
-        let maybe_message_receipt =
-            self.tipset_executed_message(&current_tipset, &message, true)?;
-        if let Some(r) = maybe_message_receipt {
-            return Ok((Some(current_tipset.shallow_clone()), Some(r)));
+        cancellation_token: &CancellationToken,
+    ) -> Result<(Tipset, Receipt), Error> {
+        let message = Arc::new(
+            crate::chain::get_chain_message(self.db(), &msg_cid)
+                .map_err(|err| Error::Other(format!("failed to load message {err:}")))?,
+        );
+        let current_ts = self.heaviest_tipset();
+        let maybe_message_receipt = self.tipset_executed_message(&current_ts, &message, true)?;
+        if let Some(receipt) = maybe_message_receipt {
+            return Ok((current_ts, receipt));
         }
 
-        let mut candidate_tipset: Option<Tipset> = None;
-        let mut candidate_receipt: Option<Receipt> = None;
-
-        let sm_cloned = self.shallow_clone();
-
-        let message_for_task = message.clone();
-        let height_of_head = current_tipset.epoch();
-        let task = tokio::task::spawn(async move {
-            let back_tuple = sm_cloned.search_back_for_message(
-                current_tipset,
-                &message_for_task,
-                look_back_limit,
-                allow_replaced,
-            )?;
-            sender
-                .send(())
-                .map_err(|e| Error::Other(format!("Could not send to channel {e:?}")))?;
-            Ok::<_, Error>(back_tuple)
+        // For immediate search back response
+        let (search_back_tx, search_back_rx) = flume::bounded(1);
+        let search_back_candidate: Arc<OnceLock<(Tipset, Receipt)>> = Default::default();
+        let reverted: Arc<RwLock<HashSet<TipsetKey>>> = Arc::new(RwLock::new(HashSet::default()));
+        // Search back task
+        tokio::task::spawn_blocking({
+            let sm = self.shallow_clone();
+            let message = message.shallow_clone();
+            // Cloning tx to avoid all senders being dropped to make `search_back_rx.recv_async()` wait
+            let search_back_tx = search_back_tx.clone();
+            let search_back_candidate = search_back_candidate.shallow_clone();
+            let reverted = reverted.shallow_clone();
+            move || {
+                if let Ok(Some((ts, receipt))) = sm.search_back_for_message(
+                    current_ts,
+                    &message,
+                    look_back_limit,
+                    allow_replaced,
+                ) && !reverted.read().contains(ts.key())
+                {
+                    if sm.heaviest_tipset().epoch() >= ts.epoch() + confidence {
+                        _ = search_back_tx.send((ts, receipt)).inspect_err(|e| {
+                            tracing::warn!("failed to send to search_back_tx: {e}");
+                        });
+                    } else {
+                        _ = search_back_candidate.set((ts, receipt)).inspect_err(|_| {
+                            tracing::warn!("failed to send to set search_back_candidate");
+                        });
+                    }
+                }
+            }
         });
 
-        let reverts: Arc<RwLock<HashMap<TipsetKey, bool>>> = Arc::new(RwLock::new(HashMap::new()));
-        let block_revert = reverts.clone();
-        let sm_cloned = self.shallow_clone();
-
         // Wait for message to be included in head change.
-        let mut subscriber_poll = tokio::task::spawn(async move {
-            loop {
-                match head_changes_rx.recv().await {
-                    Ok(head_changes) => {
-                        for tipset in head_changes.reverts {
-                            if candidate_tipset
-                                .as_ref()
-                                .is_some_and(|candidate| candidate.key() == tipset.key())
-                            {
-                                candidate_tipset = None;
-                                candidate_receipt = None;
-                            }
-                        }
-                        for tipset in head_changes.applies {
-                            if candidate_tipset
-                                .as_ref()
-                                .map(|s| tipset.epoch() >= s.epoch() + confidence)
-                                .unwrap_or_default()
-                            {
-                                return Ok((candidate_tipset, candidate_receipt));
-                            }
-                            let poll_receiver = receiver.try_recv();
-                            if let Ok(Some(_)) = poll_receiver {
-                                block_revert
-                                    .write()
-                                    .await
-                                    .insert(tipset.key().to_owned(), true);
-                            }
-
-                            let maybe_receipt =
-                                sm_cloned.tipset_executed_message(&tipset, &message, true)?;
-                            if let Some(receipt) = maybe_receipt {
-                                if confidence == 0 {
-                                    return Ok((Some(tipset), Some(receipt)));
+        let subscriber_poll = tokio::task::spawn({
+            let cancellation_token = cancellation_token.clone();
+            let search_back_candidate = search_back_candidate.shallow_clone();
+            let reverted = reverted.shallow_clone();
+            let sm = self.shallow_clone();
+            async move {
+                let mut head_changes_rx = sm.cs.subscribe_head_changes();
+                let mut candidate: Option<(Tipset, Receipt)> = None;
+                while !cancellation_token.is_cancelled() {
+                    match head_changes_rx.recv().await {
+                        Ok(head_changes) => {
+                            for reverted_ts in head_changes.reverts {
+                                // No need to update reverted set when search back task is done
+                                if search_back_candidate.get().is_none() {
+                                    reverted.write().insert(reverted_ts.key().clone());
                                 }
-                                candidate_tipset = Some(tipset);
-                                candidate_receipt = Some(receipt)
+
+                                if candidate
+                                    .as_ref()
+                                    .is_some_and(|(ts, _)| ts.key() == reverted_ts.key())
+                                {
+                                    candidate = None;
+                                }
+                            }
+                            for applied_ts in head_changes.applies {
+                                // Return if `search_back_candidate` meets confidence requirement
+                                if let Some((candidate_ts, candidate_receipt)) =
+                                    search_back_candidate.get()
+                                    && applied_ts.epoch() >= candidate_ts.epoch() + confidence
+                                {
+                                    return Ok((
+                                        candidate_ts.shallow_clone(),
+                                        candidate_receipt.clone(),
+                                    ));
+                                }
+
+                                // No need to update reverted set when search back task is done
+                                if search_back_candidate.get().is_none() {
+                                    reverted.write().remove(applied_ts.key());
+                                }
+
+                                // Return if the candidate meets confidence requirement
+                                if let Some((candidate_ts, _)) = &candidate
+                                    && applied_ts.epoch() >= candidate_ts.epoch() + confidence
+                                    && let Some(candidate) = candidate
+                                {
+                                    return Ok(candidate);
+                                }
+
+                                let maybe_receipt =
+                                    sm.tipset_executed_message(&applied_ts, &message, true)?;
+                                if let Some(receipt) = maybe_receipt {
+                                    if confidence == 0 {
+                                        // Return if there's no confidence requirement
+                                        return Ok((applied_ts, receipt));
+                                    } else {
+                                        // Otherwise set it as candidate
+                                        candidate = Some((applied_ts, receipt));
+                                    }
+                                }
                             }
                         }
+                        Err(RecvError::Lagged(i)) => {
+                            warn!(
+                                "wait for message head change subscriber lagged, skipped {} events",
+                                i
+                            );
+                        }
+                        Err(RecvError::Closed) => break,
                     }
-                    Err(RecvError::Lagged(i)) => {
-                        warn!(
-                            "wait for message head change subscriber lagged, skipped {} events",
-                            i
-                        );
-                    }
-                    Err(RecvError::Closed) => break,
                 }
+                Err(Error::other("cancelled"))
             }
-            Ok((None, None))
-        })
-        .fuse();
-
-        // Search backwards for message.
-        let mut search_back_poll = tokio::task::spawn(async move {
-            let back_tuple = task.await.map_err(|e| {
-                Error::Other(format!("Could not search backwards for message {e}"))
-            })??;
-            if let Some((back_tipset, back_receipt)) = back_tuple {
-                let should_revert = *reverts
-                    .read()
-                    .await
-                    .get(back_tipset.key())
-                    .unwrap_or(&false);
-                let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
-                if !should_revert && larger_height_of_head {
-                    return Ok::<_, Error>((Some(back_tipset), Some(back_receipt)));
-                }
-                return Ok((None, None));
-            }
-            Ok((None, None))
-        })
-        .fuse();
+        });
 
         // Await on first future to finish.
-        loop {
-            select! {
-                res = subscriber_poll => {
-                    return res?
-                }
-                res = search_back_poll => {
-                    if let Ok((Some(ts), Some(rct))) = res? {
-                        return Ok((Some(ts), Some(rct)));
-                    }
-                }
+        tokio::select! {
+            res = subscriber_poll => {
+                res.context("tokio join error")?
+            }
+            res = search_back_rx.recv_async()  => {
+                Ok(res.context("channel receive error")?)
+            }
+            _ = cancellation_token.cancelled() => {
+                Err(Error::other("cancelled"))
             }
         }
     }
