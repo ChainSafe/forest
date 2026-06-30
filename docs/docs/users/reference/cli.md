@@ -262,11 +262,12 @@ Options:
 ```
 Sign a message
 
-Usage: forest-wallet sign -m <MESSAGE> -a <ADDRESS>
+Usage: forest-wallet sign [OPTIONS] -m <MESSAGE> -a <ADDRESS>
 
 Options:
   -m <MESSAGE>  The hex encoded message to sign
   -a <ADDRESS>  The address to be used to sign the message
+      --raw     Sign the raw message bytes without the FRC-0102 envelope. Use this for interoperating with pre-FRC-0102 tooling, or when the bytes are already an on-chain Filecoin message (which must not be wrapped)
   -h, --help    Print help
 ```
 
@@ -289,12 +290,13 @@ Options:
 ```
 Verify the signature of a message. Returns true if the signature matches the message and address
 
-Usage: forest-wallet verify -a <ADDRESS> -m <MESSAGE> -s <SIGNATURE>
+Usage: forest-wallet verify [OPTIONS] -a <ADDRESS> -m <MESSAGE> -s <SIGNATURE>
 
 Options:
   -a <ADDRESS>    The address used to sign the message
   -m <MESSAGE>    The message to verify
   -s <SIGNATURE>  The signature of the message to verify
+      --raw       Verify against the raw message bytes without applying the FRC-0102 envelope. Use this for signatures produced by pre-FRC-0102 tooling or for on-chain Filecoin messages (which are signed raw, without the envelope)
   -h, --help      Print help
 ```
 
