@@ -338,7 +338,14 @@ impl RpcMethod<1> for ForestChainExport {
 
                     tokio::select! {
                         result = chain_export => {
-                            result.map(|_| ApiExportResult::Done)
+                            if let Some(checksum) = result? {
+                                let path = forest_car_sha256sum_path(&output_path);
+                                std::fs::write(path, format!("{} {}\n",
+                                    checksum.encode_hex::<String>(),
+                                    output_path.file_name().and_then(std::ffi::OsStr::to_str)
+                                        .context("Failed to retrieve file name while saving checksum")?))?;
+                            }
+                            tmp_path.persist(&output_path)?;
                         },
                         _ = chain_export_guard.cancellation_token().cancelled() => {
                             chain_export_guard.cancel_export();
