@@ -115,7 +115,7 @@ pub fn balance(address: &str, backend: Backend) -> anyhow::Result<String> {
 /// fee estimation so gas fields match whatever minimum gas price applies
 /// at the next submission.
 pub fn send_from(from: &str, to: &str, amount: &str, backend: Backend) -> anyhow::Result<String> {
-    let args = ["send", "--from", from, to, amount];
+    let args = ["send", "--from", from, "--wait-confidence", "1", to, amount];
     let mut attempt = 1;
     loop {
         match wallet(backend, &args) {
