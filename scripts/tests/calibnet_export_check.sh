@@ -63,19 +63,23 @@ $FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
 echo "Exporting zstd compressed snapshot in $format format"
 $FOREST_CLI_PATH snapshot export --format "$format" &
 EXPORT_CMD_PID=$!
-sleep 10
+sleep 5
 # another export job should be disallowed
-if $FOREST_CLI_PATH snapshot export 2>&1 | grep "active chain export job has started"; then
+export_error=$($FOREST_CLI_PATH snapshot export 2>&1 || true)
+if echo "$export_error" | grep -q "active chain export job has started"; then
     echo "verified another export job is disallowed"
 else 
     echo "another export job should be disallowed"
+    echo "output was: $export_error"
     exit 1
 fi
 # another export-diff job should be disallowed
-if $FOREST_CLI_PATH snapshot export-diff --from 11000 --to 10100 -d 900 2>&1 | grep "active chain export job has started"; then
+export_diff_error=$($FOREST_CLI_PATH snapshot export-diff --from 11000 --to 10100 -d 900 2>&1 || true)
+if echo "$export_diff_error" | grep -q "active chain export job has started"; then
     echo "verified another export-diff job is disallowed"
 else 
     echo "another export-diff job should be disallowed"
+    echo "output was: $export_diff_error"
     exit 1
 fi
 # Killing the CLI should not cancel the export
