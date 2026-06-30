@@ -244,13 +244,18 @@ impl StateManager {
             let reverted = reverted.shallow_clone();
             let cancellation_token = cancellation_token.clone();
             move || {
-                if let Ok(Some((ts, receipt))) = sm.search_back_for_message_blocking(
-                    current_ts,
-                    &message,
-                    look_back_limit,
-                    allow_replaced,
-                    &cancellation_token,
-                ) && !reverted.read().contains(ts.key())
+                if let Ok(Some((ts, receipt))) = sm
+                    .search_back_for_message_blocking(
+                        current_ts,
+                        &message,
+                        look_back_limit,
+                        allow_replaced,
+                        &cancellation_token,
+                    )
+                    .inspect_err(|e| {
+                        tracing::warn!("failed to search back for message: {e}");
+                    })
+                    && !reverted.read().contains(ts.key())
                 {
                     if sm.heaviest_tipset().epoch() >= ts.epoch() + confidence {
                         _ = search_back_tx.send((ts, receipt)).inspect_err(|e| {
