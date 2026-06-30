@@ -392,12 +392,13 @@ impl RpcMethod<1> for ForestChainExport {
             };
             tokio::select! {
                 result = chain_export => {
+                    let checksum_opt = result?;
                     if !dry_run
                     {
-                        if let Some(checksum) = result? {
+                        tmp_path.persist(&output_path)?;
+                        if let Some(checksum) = checksum_opt {
                             save_checksum(checksum, &output_path)?;
                         }
-                        tmp_path.persist(&output_path)?;
                     }
                     anyhow::Ok(ApiExportResult::Done)
                 },
