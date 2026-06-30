@@ -43,7 +43,11 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::convert::Infallible;
 use std::fs::File;
-use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
+use std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
 use tokio::sync::broadcast::{self, Receiver as Subscriber};
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
@@ -286,6 +290,25 @@ impl RpcMethod<1> for ForestChainExport {
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        fn save_checksum(
+            checksum: digest::Output<Sha256>,
+            snapshot_output_path: &Path,
+        ) -> anyhow::Result<()> {
+            let path = forest_car_sha256sum_path(snapshot_output_path);
+            std::fs::write(
+                path,
+                format!(
+                    "{} {}\n",
+                    checksum.encode_hex::<String>(),
+                    snapshot_output_path
+                        .file_name()
+                        .and_then(std::ffi::OsStr::to_str)
+                        .context("Failed to retrieve file name while saving checksum")?
+                ),
+            )?;
+            Ok(())
+        }
+
         // Spawn a task so it's not cancelled when CLI client is disconnected
         let handle = tokio::spawn(async move {
             let ForestChainExportParams {
@@ -324,39 +347,16 @@ impl RpcMethod<1> for ForestChainExport {
             } else {
                 tokio_util::either::Either::Right(tokio::fs::File::create(&tmp_path).await?)
             };
-            let result = match version {
-                FilecoinSnapshotVersion::V1 => {
-                    let db = ctx.db_owned();
-
-                    let chain_export = crate::chain::export::<Sha256, _>(
-                        &db,
-                        &start_ts,
-                        recent_roots,
-                        writer,
-                        options,
-                    );
-
-                    tokio::select! {
-                        result = chain_export => {
-                            if let Some(checksum) = result? {
-                                let path = forest_car_sha256sum_path(&output_path);
-                                std::fs::write(path, format!("{} {}\n",
-                                    checksum.encode_hex::<String>(),
-                                    output_path.file_name().and_then(std::ffi::OsStr::to_str)
-                                        .context("Failed to retrieve file name while saving checksum")?))?;
-                            }
-                            tmp_path.persist(&output_path)?;
-                        },
-                        _ = chain_export_guard.cancellation_token().cancelled() => {
-                            chain_export_guard.cancel_export();
-                            tracing::warn!("Snapshot export was cancelled");
-                            Ok(ApiExportResult::Cancelled)
-                        },
-                    }
-                }
+            let chain_export = match version {
+                FilecoinSnapshotVersion::V1 => crate::chain::export::<Sha256, _>(
+                    ctx.db(),
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    options,
+                )
+                .boxed(),
                 FilecoinSnapshotVersion::V2 => {
-                    let db = ctx.db_owned();
-
                     let f3_snap_tmp_path = {
                         let mut f3_snap_dir = output_path.clone();
                         let mut builder = tempfile::Builder::new();
@@ -379,37 +379,31 @@ impl RpcMethod<1> for ForestChainExport {
                             }
                         }
                     };
-
-                    let chain_export = crate::chain::export_v2::<Sha256, _, _>(
-                        &db,
+                    crate::chain::export_v2::<Sha256, _, _>(
+                        ctx.db(),
                         f3_snap,
                         &start_ts,
                         recent_roots,
                         writer,
                         options,
-                    );
-
-                    tokio::select! {
-                        result = chain_export => {
-                            if let Some(checksum) = result? {
-                                let path = forest_car_sha256sum_path(&output_path);
-                                std::fs::write(path, format!("{} {}\n",
-                                    checksum.encode_hex::<String>(),
-                                    output_path.file_name().and_then(std::ffi::OsStr::to_str)
-                                        .context("Failed to retrieve file name while saving checksum")?))?;
-                            }
-                            tmp_path.persist(&output_path)?;
-                            Ok(ApiExportResult::Done)
-                        },
-                        _ = chain_export_guard.cancellation_token().cancelled() => {
-                            chain_export_guard.cancel_export();
-                            tracing::warn!("Snapshot export was cancelled");
-                            Ok(ApiExportResult::Cancelled)
-                        },
-                    }
+                    )
+                    .boxed()
                 }
             };
-            anyhow::Ok(result?)
+            tokio::select! {
+                result = chain_export => {
+                    if let Some(checksum) = result? {
+                        save_checksum(checksum, &output_path)?;
+                    }
+                    tmp_path.persist(&output_path)?;
+                    anyhow::Ok(ApiExportResult::Done)
+                },
+                _ = chain_export_guard.cancellation_token().cancelled() => {
+                    chain_export_guard.cancel_export();
+                    tracing::warn!("Snapshot export was cancelled");
+                    anyhow::Ok(ApiExportResult::Cancelled)
+                },
+            }
         });
         Ok(handle.await??)
     }
