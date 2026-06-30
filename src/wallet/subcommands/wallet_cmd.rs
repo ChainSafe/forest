@@ -5,6 +5,7 @@ use std::{
     cell::RefCell,
     path::PathBuf,
     str::{self, FromStr},
+    time::{Duration, Instant},
 };
 
 use crate::cli::humantoken::TokenAmountPretty as _;
@@ -311,6 +312,10 @@ pub enum WalletCommands {
         gas_limit: i64,
         #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
         gas_premium: TokenAmount,
+        /// Wait for the message to be on chain with the given confidence by calling`StateWaitMsg`.
+        /// The command waits until the message has been on chain for at least `confidence` epochs.
+        #[arg(long)]
+        wait_confidence: Option<u32>,
     },
 }
 impl WalletCommands {
@@ -494,6 +499,7 @@ impl WalletCommands {
                 gas_feecap,
                 gas_limit,
                 gas_premium,
+                wait_confidence,
             } => {
                 let from: Address = match from {
                     Some(a) => a.into(),
@@ -558,7 +564,29 @@ impl WalletCommands {
                     MpoolPushMessage::call(&backend.remote, (message, None)).await?
                 };
 
-                println!("{}", signed_msg.cid());
+                let msg_cid = signed_msg.cid();
+                println!("{msg_cid}");
+
+                if let Some(confidence) = wait_confidence {
+                    let start = Instant::now();
+                    let version = Version::call(&backend.remote, ()).await?;
+                    backend
+                        .remote
+                        .call(
+                            StateWaitMsg::request((
+                                msg_cid,
+                                i64::from(confidence),
+                                10,
+                                true,
+                            ))?
+                            .with_timeout(Duration::from_secs(
+                                // Give it 5 epochs buffer
+                                u64::from((confidence + 5) * version.block_delay),
+                            )),
+                        )
+                        .await
+                        .with_context(||format!("timed out waiting for the message {msg_cid} with confidence {confidence}, took {}", humantime::format_duration(start.elapsed())))?;
+                }
 
                 Ok(())
             }
