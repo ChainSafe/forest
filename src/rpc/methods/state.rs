@@ -1199,6 +1199,7 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
 }
 
 /// returns the message receipt for the given message
+/// This method times out in [`SEARCH_FOR_MSG_TIMEOUT`]
 pub enum StateGetReceipt {}
 
 impl RpcMethod<2> for StateGetReceipt {
@@ -1278,6 +1279,7 @@ impl RpcMethod<2> for StateWaitMsgV0 {
 
 /// looks back in the chain for a message. If not found, it blocks until the
 /// message arrives on chain, and gets to the indicated confidence depth.
+/// This method times out in [`WAIT_FOR_MSG_TIMEOUT`]
 pub enum StateWaitMsg {}
 
 impl RpcMethod<4> for StateWaitMsg {
@@ -1321,6 +1323,7 @@ impl RpcMethod<4> for StateWaitMsg {
 
 /// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#StateSearchMsg>
+/// This method times out in [`SEARCH_FOR_MSG_TIMEOUT`]
 pub enum StateSearchMsg {}
 
 impl RpcMethod<4> for StateSearchMsg {
@@ -1373,6 +1376,7 @@ impl RpcMethod<4> for StateSearchMsg {
 }
 
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md#StateSearchMsgLimited>
+/// This method times out in [`SEARCH_FOR_MSG_TIMEOUT`]
 pub enum StateSearchMsgLimited {}
 
 impl RpcMethod<2> for StateSearchMsgLimited {
