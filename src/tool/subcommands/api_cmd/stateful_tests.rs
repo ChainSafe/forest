@@ -820,6 +820,8 @@ fn eth_subscribe_logs(tx: TestTransaction) -> RpcTestScenario {
             // All subs receive the same logs at once, so the coordinator just waits for the mint to execute,
             // and then we wait for some `SETTLE` time and then stop as soon as the logs are delivered.
             let stop = CancellationToken::new();
+            // Make sure token is cancelled on error path
+            let _cancellation_token_drop_guard = stop.drop_guard_ref();
             let coordinator = async {
                 let executed = wait_pending_message(&client, cid).await;
                 tokio::time::sleep(SETTLE).await;
