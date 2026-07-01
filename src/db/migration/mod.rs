@@ -6,6 +6,7 @@ mod migration_map;
 mod v0_22_1;
 mod v0_26_0;
 mod v0_31_0;
+mod v0_33_7;
 mod void_migration;
 
 pub use db_migration::DbMigration;
