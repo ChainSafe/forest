@@ -24,23 +24,21 @@ use crate::{
         message::{METHOD_SEND, Message},
     },
 };
-use crate::{KeyStore, lotus_json::LotusJson};
 use crate::{
-    KeyStoreConfig,
+    KeyStore, KeyStoreConfig,
+    lotus_json::{HasLotusJson as _, LotusJson},
+    rpc::{self, prelude::*},
     shim::{
         address::StrictAddress,
         crypto::{Signature, SignatureType},
         econ::TokenAmount,
     },
 };
-use crate::{
-    lotus_json::HasLotusJson as _,
-    rpc::{self, prelude::*},
-};
 use anyhow::{Context as _, bail};
 use clap::Subcommand;
 use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
+use jsonrpsee::core::ClientError;
 use num::Zero as _;
 use tabled::{builder::Builder, settings::Style};
 
@@ -589,7 +587,17 @@ impl WalletCommands {
                             .with_timeout(timeout),
                         )
                         .await
-                        .with_context(||format!("timed out waiting for the message {msg_cid} with confidence {confidence}, took {}", humantime::format_duration(start.elapsed())))?;
+                        .map_err(|e|
+                        {
+                            match e {
+                                ClientError::RequestTimeout => {
+                                    anyhow::anyhow!("timed out waiting for the message {msg_cid} with confidence {confidence}, took {}", humantime::format_duration(start.elapsed()))
+                                }
+                                e => {
+                                    anyhow::anyhow!("failed to wait for the message {msg_cid} with confidence {confidence}: {e}")
+                                }
+                            }
+                        })?;
                 }
 
                 Ok(())
