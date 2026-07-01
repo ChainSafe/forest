@@ -1083,9 +1083,13 @@ fn resolve_block_number_tipset(
     if height > head.epoch() - 1 {
         bail!("requested a future epoch (beyond \"latest\")");
     }
-    Ok(chain
+    chain
         .chain_index()
-        .load_required_tipset_by_height(height, head, resolve)?)
+        .load_required_tipset_by_height(height, head, resolve)
+        .map_err(|e| match e {
+            crate::chain::store::Error::NullRound(epoch) => EthErrors::null_round(epoch).into(),
+            e => e.into(),
+        })
 }
 
 fn resolve_block_hash_tipset(
@@ -1556,7 +1560,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
         Block::from_filecoin_tipset(&ctx.state_manager, ts, full_tx_info.into())
             .await
@@ -1727,7 +1731,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_number, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_number, ResolveNullTipset::Fail)
             .await?;
         let count = count_messages_in_tipset(ctx.db(), &ts)?;
         Ok(EthUint64(count as _))
@@ -2537,7 +2541,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
         eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
     }
@@ -3648,7 +3652,7 @@ impl RpcMethod<1> for EthTraceBlock {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
         eth_trace_block(&ctx.state_manager, &ts)
             .await
@@ -4107,7 +4111,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
 
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
 
         eth_trace_replay_block_transactions(&ctx, &ts)
