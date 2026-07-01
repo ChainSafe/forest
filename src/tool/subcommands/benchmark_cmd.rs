@@ -200,12 +200,9 @@ async fn benchmark_forest_encoding(
     );
 
     let mut dest = indicatif_sink("encoded");
-
-    let frames = crate::db::car::forest::Encoder::compress_stream(
-        frame_size,
-        compression_level,
-        par_buffer(1024, block_stream.map_err(anyhow::Error::from)),
-    );
+    let (blocks, _drop_guard) = par_buffer(1024, block_stream.map_err(anyhow::Error::from));
+    let frames =
+        crate::db::car::forest::Encoder::compress_stream(frame_size, compression_level, blocks);
     crate::db::car::forest::Encoder::write(&mut dest, roots, frames).await?;
     dest.flush().await?;
     Ok(())
@@ -242,11 +239,9 @@ async fn benchmark_exporting(
         CidHashSet::default(),
     );
 
-    let frames = crate::db::car::forest::Encoder::compress_stream(
-        frame_size,
-        compression_level,
-        par_buffer(1024, blocks.map_err(anyhow::Error::from)),
-    );
+    let (blocks, _drop_guard) = par_buffer(1024, blocks.map_err(anyhow::Error::from));
+    let frames =
+        crate::db::car::forest::Encoder::compress_stream(frame_size, compression_level, blocks);
     crate::db::car::forest::Encoder::write(&mut dest, ts.key().to_cids(), frames).await?;
     dest.flush().await?;
     Ok(())
