@@ -11,6 +11,7 @@ pub(crate) mod trace;
 pub mod types;
 mod utils;
 pub use tipset_resolver::TipsetResolver;
+use tokio_util::sync::CancellationToken;
 
 use self::eth_tx::*;
 use self::filter::hex_str_to_epoch;
@@ -2629,7 +2630,9 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         (tx_hash,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(&ctx, &tx_hash, None).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        get_eth_transaction_by_hash(&ctx, &tx_hash, None, &cancellation_token).await
     }
 }
 
@@ -2652,7 +2655,9 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
         (tx_hash, limit): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(&ctx, &tx_hash, Some(limit)).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        get_eth_transaction_by_hash(&ctx, &tx_hash, Some(limit), &cancellation_token).await
     }
 }
 
@@ -2660,6 +2665,7 @@ async fn get_eth_transaction_by_hash(
     ctx: &Ctx,
     tx_hash: &EthHash,
     limit: Option<ChainEpoch>,
+    cancellation_token: &CancellationToken,
 ) -> Result<Option<ApiEthTx>, ServerError> {
     let message_cid = ctx.chain_store().get_mapping(tx_hash)?.unwrap_or_else(|| {
         tracing::debug!(
@@ -2673,7 +2679,7 @@ async fn get_eth_transaction_by_hash(
     // First, try to get the cid from mined transactions
     if let Ok(Some((tipset, receipt))) = ctx
         .state_manager
-        .search_for_message(None, message_cid, limit, Some(true))
+        .search_for_message(None, message_cid, limit, Some(true), cancellation_token)
         .await
     {
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
@@ -3011,6 +3017,7 @@ async fn get_eth_transaction_receipt(
     ctx: Ctx,
     tx_hash: EthHash,
     limit: Option<ChainEpoch>,
+    cancellation_token: &CancellationToken,
 ) -> Result<Option<EthTxReceipt>, ServerError> {
     let msg_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
         tracing::debug!(
@@ -3023,7 +3030,7 @@ async fn get_eth_transaction_receipt(
 
     let option = ctx
         .state_manager
-        .search_for_message(None, msg_cid, limit, Some(true))
+        .search_for_message(None, msg_cid, limit, Some(true), cancellation_token)
         .await
         .with_context(|| format!("failed to lookup Eth Txn {tx_hash} as {msg_cid}"));
 
@@ -3088,7 +3095,9 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
         (tx_hash,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_receipt(ctx, tx_hash, None).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        get_eth_transaction_receipt(ctx, tx_hash, None, &cancellation_token).await
     }
 }
 
@@ -3110,7 +3119,9 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
         (tx_hash, limit): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_receipt(ctx, tx_hash, Some(limit)).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        get_eth_transaction_receipt(ctx, tx_hash, Some(limit), &cancellation_token).await
     }
 }
 
@@ -3758,7 +3769,16 @@ impl RpcMethod<2> for EthDebugTraceTransaction {
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let opts = opts.unwrap_or_default();
-        debug_trace_transaction(ctx, Self::api_path(ext)?, tx_hash, opts).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        debug_trace_transaction(
+            ctx,
+            Self::api_path(ext)?,
+            tx_hash,
+            opts,
+            &cancellation_token,
+        )
+        .await
     }
 }
 
@@ -3767,6 +3787,7 @@ async fn debug_trace_transaction(
     api_path: ApiPaths,
     tx_hash: String,
     opts: GethDebugTracingOptions,
+    cancellation_token: &CancellationToken,
 ) -> Result<GethTrace, ServerError> {
     let tracer = match &opts.tracer {
         Some(t) => t.clone(),
@@ -3779,7 +3800,7 @@ async fn debug_trace_transaction(
     };
 
     let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
-    let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
+    let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None, cancellation_token)
         .await?
         .ok_or(ServerError::internal_error("transaction not found", None))?;
 
@@ -4036,8 +4057,10 @@ impl RpcMethod<1> for EthTraceTransaction {
         (tx_hash,): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
         let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
-        let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
+        let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None, &cancellation_token)
             .await?
             .ok_or(ServerError::internal_error("transaction not found", None))?;
 
