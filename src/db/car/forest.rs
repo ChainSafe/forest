@@ -525,6 +525,7 @@ mod tests {
     use super::*;
     use nunny::vec as nonempty;
     use quickcheck_macros::quickcheck;
+    use rstest::rstest;
     use tokio_test::block_on;
 
     fn mk_encoded_car(
@@ -641,5 +642,34 @@ mod tests {
         // Even with colliding hashes, the CIDs can still be queried:
         assert_eq!(forest_car.get(&cid_a).unwrap().unwrap(), blocks[0].data);
         assert_eq!(forest_car.get(&cid_b).unwrap().unwrap(), blocks[1].data);
+    }
+
+    #[rstest]
+    #[case(
+        Path::new("/tmp/a.forst.car.zst"),
+        Path::new("/tmp/a.forst.car.zst.tmp")
+    )]
+    #[case(Path::new("tmp/a.forst.car.zst"), Path::new("tmp/a.forst.car.zst.tmp"))]
+    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.tmp"))]
+    #[case(Path::new(""), Path::new(""))]
+    #[case(Path::new("."), Path::new("."))]
+    fn test_tmp_exporting_forest_car_path(#[case] input: &Path, #[case] output: &Path) {
+        assert_eq!(tmp_exporting_forest_car_path(input), output);
+    }
+
+    #[rstest]
+    #[case(
+        Path::new("/tmp/a.forst.car.zst"),
+        Path::new("/tmp/a.forst.car.zst.sha256sum")
+    )]
+    #[case(
+        Path::new("tmp/a.forst.car.zst"),
+        Path::new("tmp/a.forst.car.zst.sha256sum")
+    )]
+    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.sha256sum"))]
+    #[case(Path::new(""), Path::new(""))]
+    #[case(Path::new("."), Path::new("."))]
+    fn test_forest_car_sha256sum_path(#[case] input: &Path, #[case] output: &Path) {
+        assert_eq!(forest_car_sha256sum_path(input), output);
     }
 }
