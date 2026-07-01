@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7269](https://github.com/ChainSafe/forest/pull/7269): Added `--wait-confidence` and `--wait-timeout` to `forest-wallet send` command.
+
 - [#7275](https://github.com/ChainSafe/forest/pull/7275): Added the `--remove-existing-chain` flag to delete the existing chain data on snapshot import.
 
 ### Changed
