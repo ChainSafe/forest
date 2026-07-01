@@ -22,7 +22,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, compute_base_fee, index::ResolveNullTipset};
 use crate::chain_sync::NodeSyncStatus;
 use crate::cid_collections::CidHashSet;
-use crate::db::DbImpl;
+use crate::db::{DbImpl, EthBlockBloomStore};
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
@@ -584,7 +584,7 @@ impl Block {
                 }
 
                 let logs_bloom =
-                    compute_block_logs_bloom(state_manager, &tipset, &executed_messages).await?;
+                    block_logs_bloom(state_manager, &tipset, &executed_messages).await?;
 
                 Ok(Arc::new(Block {
                     hash: block_hash,
@@ -3378,8 +3378,9 @@ async fn compute_block_logs_bloom(
         state_manager,
         tipset,
         executed_messages,
-        None::<&EthFilterSpec>,
+        None::<&ParsedFilter>,
         SkipEvent::OnUnresolvedAddress,
+        EventRevertStatus::Applied,
         &mut events,
     )
     .await?;
@@ -3393,6 +3394,33 @@ async fn compute_block_logs_bloom(
             continue;
         };
         accrue_eth_log(&mut bloom, &address, &topics);
+    }
+    Ok(bloom)
+}
+
+/// Returns the block's logs bloom, reading it from the store when the chain indexer is enabled
+/// and computing (then storing) it on a miss.
+async fn block_logs_bloom(
+    state_manager: &StateManager,
+    tipset: &Tipset,
+    executed_messages: &[ExecutedMessage],
+) -> Result<Bloom> {
+    let config = state_manager.chain_config();
+    let store_bloom = config.enable_indexer && !config.is_devnet();
+
+    let key = tipset.key().cid()?;
+    if store_bloom
+        && let Some(bytes) = state_manager.db().read_bloom(&key)?
+        && let Ok(bloom) = <[u8; BLOOM_SIZE_IN_BYTES]>::try_from(bytes.as_slice())
+    {
+        return Ok(Bloom(ethereum_types::Bloom(bloom)));
+    }
+
+    let bloom = compute_block_logs_bloom(state_manager, tipset, executed_messages).await?;
+    if store_bloom {
+        state_manager
+            .db()
+            .write_bloom(&key, tipset.epoch(), bloom.0.0.as_slice())?;
     }
     Ok(bloom)
 }
