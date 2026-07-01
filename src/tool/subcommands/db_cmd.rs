@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use crate::cli::subcommands::prompt_confirm;
-use crate::cli_shared::{chain_path, read_config};
+use crate::cli_shared::{chain_path, delete_chain_data, read_config};
 use crate::db::BlockstoreWithWriteBuffer;
 use crate::db::db_engine::{db_root, open_db};
 use crate::networks::NetworkChain;
@@ -89,7 +89,7 @@ impl DBCommands {
                     println!("Aborted.");
                     return Ok(());
                 }
-                match fs_extra::dir::remove(&dir) {
+                match delete_chain_data(&config) {
                     Ok(_) => {
                         println!("Deleted {}", dir.display());
                         Ok(())
