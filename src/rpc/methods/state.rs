@@ -74,7 +74,7 @@ use std::ops::Mul;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::task::JoinSet;
-use tokio_util::sync::CancellationToken;
+use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
 
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
@@ -1464,13 +1464,13 @@ impl RpcMethod<2> for StateFetchRoot {
             let roots = nonempty![root_cid];
             let file = tokio::fs::File::create(save_to_file).await?;
 
-            let car_handle = tokio::spawn(async move {
+            let car_handle = AbortOnDropHandle::new(tokio::spawn(async move {
                 car_rx
                     .stream()
                     .map(Ok)
                     .forward(CarWriter::new_carv1(roots, file)?)
                     .await
-            });
+            }));
 
             (Some(car_tx), Some(car_handle))
         } else {
@@ -1658,7 +1658,7 @@ impl RpcMethod<3> for ForestStateCompute {
         {
             let chain_store = ctx.chain_store().shallow_clone();
             let network_context = ctx.sync_network_context.shallow_clone();
-            futures.push_front(tokio::spawn(async move {
+            futures.push_front(AbortOnDropHandle::new(tokio::spawn(async move {
                 if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
                     // Backfill full tipset from the network
                     const MAX_RETRIES: usize = 5;
@@ -1676,7 +1676,7 @@ impl RpcMethod<3> for ForestStateCompute {
                     fts.persist(chain_store.db())?;
                 }
                 anyhow::Ok(ts)
-            }));
+            })));
         }
 
         let mut results = Vec::with_capacity(n_epochs as _);
