@@ -75,26 +75,17 @@ where
     let a = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(b"a"));
     let b = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(b"b"));
     let missing = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(b"missing"));
-    let bloom_a = vec![0x11; 256];
-    let bloom_b = vec![0x22; 256];
+    let bloom_a = [0x11; 256];
+    let bloom_b = [0x22; 256];
 
     db.write_bloom(&a, 100, &bloom_a).unwrap();
     db.write_bloom(&b, 200, &bloom_b).unwrap();
-    assert_eq!(
-        db.read_bloom(&a).unwrap().as_deref(),
-        Some(bloom_a.as_slice())
-    );
-    assert_eq!(
-        db.read_bloom(&b).unwrap().as_deref(),
-        Some(bloom_b.as_slice())
-    );
+    assert_eq!(db.read_bloom(&a).unwrap(), Some(bloom_a));
+    assert_eq!(db.read_bloom(&b).unwrap(), Some(bloom_b));
     assert_eq!(db.read_bloom(&missing).unwrap(), None);
 
     // Only entries at or above the cutoff survive.
     db.delete_blooms_before_height(150).unwrap();
     assert_eq!(db.read_bloom(&a).unwrap(), None);
-    assert_eq!(
-        db.read_bloom(&b).unwrap().as_deref(),
-        Some(bloom_b.as_slice())
-    );
+    assert_eq!(db.read_bloom(&b).unwrap(), Some(bloom_b));
 }

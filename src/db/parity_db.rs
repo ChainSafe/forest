@@ -5,8 +5,8 @@ mod gc;
 pub use gc::*;
 
 use super::{
-    EthBlockBloomStore, EthMappingsStore, PersistentStore, SettingsStore, decode_block_bloom,
-    encode_block_bloom,
+    BLOCK_BLOOM_LEN, EthBlockBloomStore, EthMappingsStore, PersistentStore, SettingsStore,
+    decode_block_bloom, encode_block_bloom,
 };
 use crate::blocks::{Tipset, TipsetKey};
 use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
@@ -252,13 +252,18 @@ impl EthMappingsStore for ParityDb {
 }
 
 impl EthBlockBloomStore for ParityDb {
-    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.read_from_column(key.to_bytes(), DbColumn::EthBlockBloom)?
-            .map(|entry| anyhow::Ok(decode_block_bloom(&entry)?.1.to_vec()))
-            .transpose()
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<[u8; BLOCK_BLOOM_LEN]>> {
+        Ok(self
+            .read_from_column(key.to_bytes(), DbColumn::EthBlockBloom)?
+            .and_then(|entry| decode_block_bloom(&entry).map(|(_, bloom)| *bloom)))
     }
 
-    fn write_bloom(&self, key: &Cid, height: i64, bloom: &[u8]) -> anyhow::Result<()> {
+    fn write_bloom(
+        &self,
+        key: &Cid,
+        height: i64,
+        bloom: &[u8; BLOCK_BLOOM_LEN],
+    ) -> anyhow::Result<()> {
         self.write_to_column(
             key.to_bytes(),
             encode_block_bloom(height, bloom),
@@ -270,14 +275,15 @@ impl EthBlockBloomStore for ParityDb {
         let mut stale = Vec::new();
         let mut iter = self.db.iter(DbColumn::EthBlockBloom as u8)?;
         while let Some((key, entry)) = iter.next()? {
-            if decode_block_bloom(&entry)?.0 < height {
+            // Drop rows below the cutoff and any that fail to decode (corrupt/garbage).
+            if decode_block_bloom(&entry).is_none_or(|(h, _)| h < height) {
                 stale.push(key);
             }
         }
-        Ok(self.db.commit(
+        Ok(self.db.commit_changes(
             stale
                 .into_iter()
-                .map(|key| (DbColumn::EthBlockBloom as u8, key, None::<Vec<u8>>)),
+                .map(|key| (DbColumn::EthBlockBloom as u8, Operation::Dereference(key))),
         )?)
     }
 }

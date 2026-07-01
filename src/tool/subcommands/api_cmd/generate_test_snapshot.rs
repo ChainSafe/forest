@@ -9,8 +9,9 @@ use crate::{
     chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
     daemon::{bundle::load_actor_bundles, db_util::load_all_forest_cars},
     db::{
-        CAR_DB_DIR_NAME, EthBlockBloomStore, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB,
-        SettingsStore, SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
+        BLOCK_BLOOM_LEN, CAR_DB_DIR_NAME, EthBlockBloomStore, EthMappingsStore,
+        HeaviestTipsetKeyProvider, MemoryDB, SettingsStore, SettingsStoreExt, db_engine::open_db,
+        parity_db::ParityDb,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -342,11 +343,16 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
 }
 
 impl<T: EthBlockBloomStore> EthBlockBloomStore for ReadOpsTrackingStore<T> {
-    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<[u8; BLOCK_BLOOM_LEN]>> {
         self.inner.read_bloom(key)
     }
 
-    fn write_bloom(&self, key: &Cid, height: i64, bloom: &[u8]) -> anyhow::Result<()> {
+    fn write_bloom(
+        &self,
+        key: &Cid,
+        height: i64,
+        bloom: &[u8; BLOCK_BLOOM_LEN],
+    ) -> anyhow::Result<()> {
         self.inner.write_bloom(key, height, bloom)
     }
 
