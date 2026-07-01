@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use futures::stream::FuturesOrdered;
 pub use types::*;
 
 use super::chain::ChainGetTipSetV2;
@@ -58,6 +57,7 @@ use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
+use futures::stream::FuturesOrdered;
 use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 pub use fvm_shared3::sector::StoragePower;
@@ -74,9 +74,12 @@ use std::ops::Mul;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::task::JoinSet;
+use tokio_util::sync::CancellationToken;
 
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
+const WAIT_FOR_MSG_TIMEOUT: Duration = Duration::from_mins(10);
+const SEARCH_FOR_MSG_TIMEOUT: Duration = Duration::from_mins(10);
 
 pub enum StateCall {}
 
@@ -1196,6 +1199,7 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
 }
 
 /// returns the message receipt for the given message
+/// This method times out in [`SEARCH_FOR_MSG_TIMEOUT`]
 pub enum StateGetReceipt {}
 
 impl RpcMethod<2> for StateGetReceipt {
@@ -1216,9 +1220,18 @@ impl RpcMethod<2> for StateGetReceipt {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        ctx.state_manager
-            .get_receipt(tipset, cid)
-            .map_err(From::from)
+        let sm = ctx.state_manager.shallow_clone();
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        Ok(tokio::time::timeout(
+            SEARCH_FOR_MSG_TIMEOUT,
+            tokio::task::spawn_blocking({
+                let cancellation_token = cancellation_token.clone();
+                move || sm.get_receipt_blocking(tipset, cid, &cancellation_token)
+            }),
+        )
+        .await
+        .context("timed out")???)
     }
 }
 
@@ -1245,10 +1258,14 @@ impl RpcMethod<2> for StateWaitMsgV0 {
     ) -> Result<Self::Ok, ServerError> {
         let (tipset, receipt) = ctx
             .state_manager
-            .wait_for_message(message_cid, confidence, None, None)
+            .wait_for_message_with_timeout(
+                message_cid,
+                confidence,
+                None,
+                None,
+                WAIT_FOR_MSG_TIMEOUT,
+            )
             .await?;
-        let tipset = tipset.context("wait for msg returned empty tuple")?;
-        let receipt = receipt.context("wait for msg returned empty receipt")?;
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
         Ok(MessageLookup {
             receipt,
@@ -1262,6 +1279,7 @@ impl RpcMethod<2> for StateWaitMsgV0 {
 
 /// looks back in the chain for a message. If not found, it blocks until the
 /// message arrives on chain, and gets to the indicated confidence depth.
+/// This method times out in [`WAIT_FOR_MSG_TIMEOUT`]
 pub enum StateWaitMsg {}
 
 impl RpcMethod<4> for StateWaitMsg {
@@ -1284,15 +1302,14 @@ impl RpcMethod<4> for StateWaitMsg {
     ) -> Result<Self::Ok, ServerError> {
         let (tipset, receipt) = ctx
             .state_manager
-            .wait_for_message(
+            .wait_for_message_with_timeout(
                 message_cid,
                 confidence,
                 Some(look_back_limit),
                 Some(allow_replaced),
+                WAIT_FOR_MSG_TIMEOUT,
             )
             .await?;
-        let tipset = tipset.context("wait for msg returned empty tuple")?;
-        let receipt = receipt.context("wait for msg returned empty receipt")?;
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
         Ok(MessageLookup {
             receipt,
@@ -1306,6 +1323,7 @@ impl RpcMethod<4> for StateWaitMsg {
 
 /// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#StateSearchMsg>
+/// This method times out in [`SEARCH_FOR_MSG_TIMEOUT`]
 pub enum StateSearchMsg {}
 
 impl RpcMethod<4> for StateSearchMsg {
@@ -1326,18 +1344,23 @@ impl RpcMethod<4> for StateSearchMsg {
         (ApiTipsetKey(tsk), message_cid, look_back_limit, allow_replaced): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
         let from = tsk
             .map(|k| ctx.chain_index().load_required_tipset(&k))
             .transpose()?;
-        let Some((tipset, receipt)) = ctx
-            .state_manager
-            .search_for_message(
+        let Some((tipset, receipt)) = tokio::time::timeout(
+            SEARCH_FOR_MSG_TIMEOUT,
+            ctx.state_manager.search_for_message(
                 from,
                 message_cid,
                 Some(look_back_limit),
                 Some(allow_replaced),
-            )
-            .await?
+                &cancellation_token,
+            ),
+        )
+        .await
+        .context("timed out")??
         else {
             return Ok(None);
         };
@@ -1353,6 +1376,7 @@ impl RpcMethod<4> for StateSearchMsg {
 }
 
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md#StateSearchMsgLimited>
+/// This method times out in [`SEARCH_FOR_MSG_TIMEOUT`]
 pub enum StateSearchMsgLimited {}
 
 impl RpcMethod<2> for StateSearchMsgLimited {
@@ -1371,10 +1395,20 @@ impl RpcMethod<2> for StateSearchMsgLimited {
         (message_cid, look_back_limit): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let Some((tipset, receipt)) = ctx
-            .state_manager
-            .search_for_message(None, message_cid, Some(look_back_limit), None)
-            .await?
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        let Some((tipset, receipt)) = tokio::time::timeout(
+            SEARCH_FOR_MSG_TIMEOUT,
+            ctx.state_manager.search_for_message(
+                None,
+                message_cid,
+                Some(look_back_limit),
+                None,
+                &cancellation_token,
+            ),
+        )
+        .await
+        .context("timed out")??
         else {
             return Ok(None);
         };
