@@ -115,17 +115,29 @@ pub fn balance(address: &str, backend: Backend) -> anyhow::Result<String> {
 /// fee estimation so gas fields match whatever minimum gas price applies
 /// at the next submission.
 pub fn send_from(from: &str, to: &str, amount: &str, backend: Backend) -> anyhow::Result<String> {
-    let args = [
-        "send",
-        "--from",
-        from,
-        "--wait-confidence",
-        "0",
-        "--wait-timeout",
-        "1m",
-        to,
-        amount,
-    ];
+    send_from_and_maybe_wait(from, to, amount, backend, true)
+}
+
+pub fn send_from_no_wait(
+    from: &str,
+    to: &str,
+    amount: &str,
+    backend: Backend,
+) -> anyhow::Result<String> {
+    send_from_and_maybe_wait(from, to, amount, backend, false)
+}
+
+fn send_from_and_maybe_wait(
+    from: &str,
+    to: &str,
+    amount: &str,
+    backend: Backend,
+    wait: bool,
+) -> anyhow::Result<String> {
+    let mut args = vec!["send", to, amount, "--from", from];
+    if wait {
+        args.extend(["--wait-confidence", "0", "--wait-timeout", "1m"]);
+    }
     let mut attempt = 1;
     loop {
         match wallet(backend, &args) {
