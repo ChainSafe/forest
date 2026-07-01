@@ -136,7 +136,7 @@ fn send_from_and_maybe_wait(
 ) -> anyhow::Result<String> {
     let mut args = vec!["send", to, amount, "--from", from];
     if wait {
-        args.extend(["--wait-confidence", "0", "--wait-timeout", "1m"]);
+        args.extend(["--wait-confidence", "0", "--wait-timeout", "10m"]);
     }
     let mut attempt = 1;
     loop {
