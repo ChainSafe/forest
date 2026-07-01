@@ -29,6 +29,10 @@
 
 ### Added
 
+- [#7269](https://github.com/ChainSafe/forest/pull/7269): Added `--wait-confidence` and `--wait-timeout` to `forest-wallet send` command.
+
+- [#7275](https://github.com/ChainSafe/forest/pull/7275): Added the `--remove-existing-chain` flag to delete the existing chain data on snapshot import.
+
 ### Changed
 
 - [#6442](https://github.com/ChainSafe/forest/issues/6442): `forest-wallet sign` and `forest-wallet verify` now apply the FRC-0102 signing envelope to the message by default. Pass `--raw` on both sides to reproduce the previous raw-bytes behaviour.

@@ -94,6 +94,9 @@ pub struct CliOpts {
     /// Halt with exit code 0 after successfully importing a snapshot
     #[arg(long)]
     pub halt_after_import: bool,
+    /// Remove the existing chain data on a snapshot-import.
+    #[arg(long)]
+    pub remove_existing_chain: bool,
     /// Skips loading CAR file and uses header to index chain. Assumes a
     /// pre-loaded database
     #[arg(long)]
