@@ -17,6 +17,7 @@ use std::path::PathBuf;
 #[derive(Delegate)]
 #[delegate(SettingsStore)]
 #[delegate(EthMappingsStore)]
+#[delegate(EthBlockBloomStore)]
 #[delegate(HeaviestTipsetKeyProvider)]
 #[delegate(BitswapStoreRead)]
 #[delegate(BitswapStoreReadWrite)]

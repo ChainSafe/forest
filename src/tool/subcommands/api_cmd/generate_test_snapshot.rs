@@ -9,8 +9,8 @@ use crate::{
     chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
     daemon::{bundle::load_actor_bundles, db_util::load_all_forest_cars},
     db::{
-        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
-        SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
+        CAR_DB_DIR_NAME, EthBlockBloomStore, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB,
+        SettingsStore, SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -360,5 +360,19 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
         tsk: &TipsetKey,
     ) -> anyhow::Result<()> {
         self.inner.set_tipset_key_at_epoch_raw(epoch, tsk)
+    }
+}
+
+impl<T: EthBlockBloomStore> EthBlockBloomStore for ReadOpsTrackingStore<T> {
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.inner.read_bloom(key)
+    }
+
+    fn write_bloom(&self, key: &Cid, height: i64, bloom: &[u8]) -> anyhow::Result<()> {
+        self.inner.write_bloom(key, height, bloom)
+    }
+
+    fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()> {
+        self.inner.delete_blooms_before_height(height)
     }
 }

@@ -38,3 +38,9 @@ fn db_tipset_lookup_read_write_delete() {
     let db = TempParityDB::new();
     subtests::tipset_lookup_read_write_delete(&*db);
 }
+
+#[test]
+fn db_block_bloom_prune() {
+    let db = TempParityDB::new();
+    subtests::block_bloom_prune(&*db);
+}

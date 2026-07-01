@@ -4,7 +4,10 @@
 mod gc;
 pub use gc::*;
 
-use super::{EthMappingsStore, PersistentStore, SettingsStore};
+use super::{
+    EthBlockBloomStore, EthMappingsStore, PersistentStore, SettingsStore, decode_block_bloom,
+    encode_block_bloom,
+};
 use crate::blocks::TipsetKey;
 use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -40,6 +43,8 @@ pub enum DbColumn {
     /// Anything stored in this column can be considered permanent, unless manually
     /// deleted.
     PersistentGraph,
+    /// Column for storing per-tipset Ethereum block logs blooms.
+    EthBlockBloom,
 }
 
 impl DbColumn {
@@ -73,6 +78,12 @@ impl DbColumn {
                     DbColumn::EthMappings => parity_db::ColumnOptions {
                         preimage: false,
                         btree_index: false,
+                        compression,
+                        ..Default::default()
+                    },
+                    DbColumn::EthBlockBloom => parity_db::ColumnOptions {
+                        preimage: false,
+                        btree_index: true,
                         compression,
                         ..Default::default()
                     },
@@ -250,6 +261,37 @@ impl EthMappingsStore for ParityDb {
         let key = epoch.to_le_bytes();
         let bytes = fvm_ipld_encoding::to_vec(tsk)?;
         self.write_to_column(key, bytes, DbColumn::EthMappings)
+    }
+}
+
+impl EthBlockBloomStore for ParityDb {
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.read_from_column(key.to_bytes(), DbColumn::EthBlockBloom)?
+            .map(|entry| anyhow::Ok(decode_block_bloom(&entry)?.1.to_vec()))
+            .transpose()
+    }
+
+    fn write_bloom(&self, key: &Cid, height: i64, bloom: &[u8]) -> anyhow::Result<()> {
+        self.write_to_column(
+            key.to_bytes(),
+            encode_block_bloom(height, bloom),
+            DbColumn::EthBlockBloom,
+        )
+    }
+
+    fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()> {
+        let mut stale = Vec::new();
+        let mut iter = self.db.iter(DbColumn::EthBlockBloom as u8)?;
+        while let Some((key, entry)) = iter.next()? {
+            if decode_block_bloom(&entry)?.0 < height {
+                stale.push(key);
+            }
+        }
+        Ok(self.db.commit(
+            stale
+                .into_iter()
+                .map(|key| (DbColumn::EthBlockBloom as u8, key, None::<Vec<u8>>)),
+        )?)
     }
 }
 
@@ -465,6 +507,7 @@ mod test {
                 DbColumn::GraphFull => DbColumn::GraphDagCborBlake2b256,
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
                 DbColumn::EthMappings => panic!("invalid column for IPLD data"),
+                DbColumn::EthBlockBloom => panic!("invalid column for IPLD data"),
                 DbColumn::PersistentGraph => panic!("invalid column for GC enabled IPLD data"),
             };
             let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();

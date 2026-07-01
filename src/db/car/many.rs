@@ -12,8 +12,8 @@ use super::{AnyCar, ZstdFrameCache};
 use crate::blocks::TipsetKey;
 use crate::db::parity_db::GarbageCollectableDb;
 use crate::db::{
-    BlockstoreWriteOpsSubscribable, EthMappingsStore, MemoryDB, PersistentStore, SettingsStore,
-    SettingsStoreExt,
+    BlockstoreWriteOpsSubscribable, EthBlockBloomStore, EthMappingsStore, MemoryDB,
+    PersistentStore, SettingsStore, SettingsStoreExt,
 };
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::prelude::*;
@@ -320,6 +320,20 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
         tsk: &TipsetKey,
     ) -> anyhow::Result<()> {
         EthMappingsStore::set_tipset_key_at_epoch_raw(self.writer(), epoch, tsk)
+    }
+}
+
+impl<WriterT: EthBlockBloomStore> EthBlockBloomStore for ManyCar<WriterT> {
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        EthBlockBloomStore::read_bloom(self.writer(), key)
+    }
+
+    fn write_bloom(&self, key: &Cid, height: i64, bloom: &[u8]) -> anyhow::Result<()> {
+        EthBlockBloomStore::write_bloom(self.writer(), key, height, bloom)
+    }
+
+    fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()> {
+        EthBlockBloomStore::delete_blooms_before_height(self.writer(), height)
     }
 }
 
