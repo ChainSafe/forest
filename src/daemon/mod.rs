@@ -15,6 +15,7 @@ use crate::cli_shared::snapshot;
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
+    delete_chain_data,
 };
 use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
 use crate::db::gc::SnapshotGarbageCollector;
@@ -776,6 +777,10 @@ pub(super) async fn start(
     rpc_stop_handle: jsonrpsee::server::StopHandle,
 ) -> anyhow::Result<()> {
     startup_init(&config)?;
+    if opts.remove_existing_chain {
+        warn!("Deleting existing chain data for {}", config.chain());
+        delete_chain_data(&config)?;
+    }
     start_services(
         start_time,
         &opts,
