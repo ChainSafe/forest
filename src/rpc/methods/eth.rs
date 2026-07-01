@@ -3448,10 +3448,7 @@ async fn block_logs_bloom(
     let store_bloom = config.enable_indexer && !config.is_devnet();
 
     let key = tipset.key().cid()?;
-    if store_bloom
-        && let Some(bytes) = state_manager.db().read_bloom(&key)?
-        && let Ok(bloom) = <[u8; BLOOM_SIZE_IN_BYTES]>::try_from(bytes.as_slice())
-    {
+    if store_bloom && let Some(bloom) = state_manager.db().read_bloom(&key)? {
         return Ok(Bloom(ethereum_types::Bloom(bloom)));
     }
 
@@ -3459,7 +3456,7 @@ async fn block_logs_bloom(
     if store_bloom {
         state_manager
             .db()
-            .write_bloom(&key, tipset.epoch(), bloom.0.0.as_slice())?;
+            .write_bloom(&key, tipset.epoch(), &bloom.0.0)?;
     }
     Ok(bloom)
 }

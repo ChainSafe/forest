@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    EthBlockBloomStore, EthMappingsStore, SettingsStore, SettingsStoreExt, decode_block_bloom,
-    encode_block_bloom,
+    BLOCK_BLOOM_LEN, EthBlockBloomStore, EthMappingsStore, SettingsStore, SettingsStoreExt,
+    decode_block_bloom, encode_block_bloom,
 };
 use crate::blocks::TipsetKey;
 use crate::db::PersistentStore;
@@ -155,15 +155,20 @@ impl EthMappingsStore for MemoryDB {
 }
 
 impl EthBlockBloomStore for MemoryDB {
-    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.eth_block_bloom_db
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<[u8; BLOCK_BLOOM_LEN]>> {
+        Ok(self
+            .eth_block_bloom_db
             .read()
             .get(key)
-            .map(|entry| anyhow::Ok(decode_block_bloom(entry)?.1.to_vec()))
-            .transpose()
+            .and_then(|entry| decode_block_bloom(entry).map(|(_, bloom)| *bloom)))
     }
 
-    fn write_bloom(&self, key: &Cid, height: i64, bloom: &[u8]) -> anyhow::Result<()> {
+    fn write_bloom(
+        &self,
+        key: &Cid,
+        height: i64,
+        bloom: &[u8; BLOCK_BLOOM_LEN],
+    ) -> anyhow::Result<()> {
         self.eth_block_bloom_db
             .write()
             .insert(*key, encode_block_bloom(height, bloom));
@@ -173,7 +178,7 @@ impl EthBlockBloomStore for MemoryDB {
     fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()> {
         self.eth_block_bloom_db
             .write()
-            .retain(|_, entry| decode_block_bloom(entry).is_ok_and(|(h, _)| h >= height));
+            .retain(|_, entry| decode_block_bloom(entry).is_some_and(|(h, _)| h >= height));
         Ok(())
     }
 }
@@ -272,11 +277,11 @@ mod tests {
 
     #[test]
     fn block_bloom_encode_decode() {
-        let bloom = vec![0xab; 256];
+        let bloom = [0xab; 256];
         let entry = encode_block_bloom(42, &bloom);
         let (height, decoded) = decode_block_bloom(&entry).unwrap();
         assert_eq!(height, 42);
-        assert_eq!(decoded, bloom.as_slice());
-        assert!(decode_block_bloom(&[0, 1, 2]).is_err());
+        assert_eq!(decoded, &bloom);
+        assert!(decode_block_bloom(&[0, 1, 2]).is_none());
     }
 }

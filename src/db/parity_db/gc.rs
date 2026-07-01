@@ -170,11 +170,16 @@ impl EthMappingsStore for GarbageCollectableParityDb {
 }
 
 impl EthBlockBloomStore for GarbageCollectableParityDb {
-    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<[u8; BLOCK_BLOOM_LEN]>> {
         EthBlockBloomStore::read_bloom(&*self.db.read(), key)
     }
 
-    fn write_bloom(&self, key: &Cid, height: i64, bloom: &[u8]) -> anyhow::Result<()> {
+    fn write_bloom(
+        &self,
+        key: &Cid,
+        height: i64,
+        bloom: &[u8; BLOCK_BLOOM_LEN],
+    ) -> anyhow::Result<()> {
         EthBlockBloomStore::write_bloom(&*self.db.read(), key, height, bloom)
     }
 
