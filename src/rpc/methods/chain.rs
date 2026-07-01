@@ -49,6 +49,7 @@ use std::{
     sync::LazyLock,
 };
 use tokio::sync::broadcast::{self, Receiver as Subscriber};
+use tokio_util::task::AbortOnDropHandle;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
@@ -310,7 +311,7 @@ impl RpcMethod<1> for ForestChainExport {
         }
 
         // Spawn a task so it's not cancelled when CLI client is disconnected
-        let handle = tokio::spawn(async move {
+        let handle = AbortOnDropHandle::new(tokio::spawn(async move {
             let ForestChainExportParams {
                 version,
                 epoch,
@@ -408,7 +409,7 @@ impl RpcMethod<1> for ForestChainExport {
                     anyhow::Ok(ApiExportResult::Cancelled)
                 },
             }
-        });
+        }));
         Ok(handle.await??)
     }
 }
@@ -505,7 +506,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         // Spawn a task so it's not cancelled when CLI client is disconnected
-        let handle = tokio::spawn(async move {
+        let handle = AbortOnDropHandle::new(tokio::spawn(async move {
             let chain_export_guard = ChainExportGuard::try_start_export()?;
 
             let ForestChainExportDiffParams {
@@ -552,7 +553,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
                     anyhow::Ok(ApiExportResult::Cancelled)
                 },
             }
-        });
+        }));
         Ok(handle.await??)
     }
 }
