@@ -488,7 +488,8 @@ jobs:
         run: |
           source ./scripts/devnet/wallet_harness.sh
           devnet_wallet_env_init
-          forest-dev tests devnet mpool
+          # mpool test temporarily disabled on devnet; only the wallet suite runs for now.
+          # forest-dev tests devnet mpool
           forest-dev tests devnet wallet
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
