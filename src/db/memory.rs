@@ -1,7 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EthMappingsStore, SettingsStore, SettingsStoreExt};
+use super::{
+    EthBlockBloomStore, EthMappingsStore, SettingsStore, SettingsStoreExt, decode_block_bloom,
+    encode_block_bloom,
+};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::db::PersistentStore;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -21,6 +24,7 @@ pub struct MemoryDB {
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
     pub eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
     ts_lookup_db: RwLock<HashMap<ChainEpoch, TipsetKey>>,
+    eth_block_bloom_db: RwLock<HashMap<Cid, Vec<u8>>>,
 }
 
 impl MemoryDB {
@@ -143,6 +147,30 @@ impl EthMappingsStore for MemoryDB {
     }
 }
 
+impl EthBlockBloomStore for MemoryDB {
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.eth_block_bloom_db
+            .read()
+            .get(key)
+            .map(|entry| anyhow::Ok(decode_block_bloom(entry)?.1.to_vec()))
+            .transpose()
+    }
+
+    fn write_bloom(&self, key: &Cid, height: i64, bloom: &[u8]) -> anyhow::Result<()> {
+        self.eth_block_bloom_db
+            .write()
+            .insert(*key, encode_block_bloom(height, bloom));
+        Ok(())
+    }
+
+    fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()> {
+        self.eth_block_bloom_db
+            .write()
+            .retain(|_, entry| decode_block_bloom(entry).is_ok_and(|(h, _)| h >= height));
+        Ok(())
+    }
+}
+
 impl Blockstore for MemoryDB {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Ok(self.blockchain_db.read().get(k).cloned().or(self
@@ -233,5 +261,15 @@ mod tests {
         assert_eq!(car.head_tipset_key(), &nonempty![key1]);
         assert!(car.has(&key1).unwrap());
         assert!(car.has(&key2).unwrap());
+    }
+
+    #[test]
+    fn block_bloom_encode_decode() {
+        let bloom = vec![0xab; 256];
+        let entry = encode_block_bloom(42, &bloom);
+        let (height, decoded) = decode_block_bloom(&entry).unwrap();
+        assert_eq!(height, 42);
+        assert_eq!(decoded, bloom.as_slice());
+        assert!(decode_block_bloom(&[0, 1, 2]).is_err());
     }
 }
