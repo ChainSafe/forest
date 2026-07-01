@@ -80,12 +80,21 @@ where
 
     db.write_bloom(&a, 100, &bloom_a).unwrap();
     db.write_bloom(&b, 200, &bloom_b).unwrap();
-    assert_eq!(db.read_bloom(&a).unwrap().as_deref(), Some(bloom_a.as_slice()));
-    assert_eq!(db.read_bloom(&b).unwrap().as_deref(), Some(bloom_b.as_slice()));
+    assert_eq!(
+        db.read_bloom(&a).unwrap().as_deref(),
+        Some(bloom_a.as_slice())
+    );
+    assert_eq!(
+        db.read_bloom(&b).unwrap().as_deref(),
+        Some(bloom_b.as_slice())
+    );
     assert_eq!(db.read_bloom(&missing).unwrap(), None);
 
     // Only entries at or above the cutoff survive.
     db.delete_blooms_before_height(150).unwrap();
     assert_eq!(db.read_bloom(&a).unwrap(), None);
-    assert_eq!(db.read_bloom(&b).unwrap().as_deref(), Some(bloom_b.as_slice()));
+    assert_eq!(
+        db.read_bloom(&b).unwrap().as_deref(),
+        Some(bloom_b.as_slice())
+    );
 }
