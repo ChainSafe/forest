@@ -25,6 +25,7 @@ use crate::rpc::{ApiPaths, FilterList};
 use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
+use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
 use crate::shim::sector::SectorSize;
 use crate::shim::{
@@ -2244,6 +2245,88 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
     Ok(tests)
 }
 
+/// Returns the highest null-round epoch in the first chain gap at or below `shared_tipset`,
+/// or `None`. Bounded to where state is present, since the chosen round gets executed.
+fn first_null_round_epoch<DB: Blockstore>(
+    store: &DB,
+    shared_tipset: &Tipset,
+) -> Option<ChainEpoch> {
+    let mut child_epoch: Option<ChainEpoch> = None;
+    for ts in shared_tipset.clone().chain(store) {
+        // Stop once we leave the snapshot's state window.
+        if !store.has(ts.parent_state()).unwrap_or(false) {
+            break;
+        }
+        let epoch = ts.epoch();
+        if let Some(child) = child_epoch
+            && child - epoch > 1
+        {
+            // `child - 1` is the highest null round in the gap.
+            return Some(child - 1);
+        }
+        child_epoch = Some(epoch);
+    }
+    None
+}
+
+/// Asserts the strict `*ByNumber`/trace methods return the same null-round error as Lotus.
+/// The rest of the suite only uses real tipsets, so this would otherwise be untested.
+fn eth_null_round_tests<DB: Blockstore + ShallowClone>(
+    store: &DB,
+    shared_tipset: &Tipset,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![];
+    let Some(null_epoch) = first_null_round_epoch(store, shared_tipset) else {
+        tracing::warn!(
+            "no null round found in snapshot range; skipping Eth null-round parity tests"
+        );
+        return Ok(tests);
+    };
+
+    for api_path in [ApiPaths::V1, ApiPaths::V2] {
+        tests.extend([
+            RpcTest::identity(
+                EthGetBlockByNumber::request((EthInt64(null_epoch).into(), false))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthGetBlockByNumber::request((EthInt64(null_epoch).into(), true))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthGetBlockTransactionCountByNumber::request((EthInt64(null_epoch).into(),))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthGetTransactionByBlockNumberAndIndex::request((
+                    EthInt64(null_epoch).into(),
+                    0.into(),
+                ))?
+                .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthTraceBlock::request((BlockNumberOrHash::from_block_number(null_epoch),))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthTraceReplayBlockTransactions::request((
+                    BlockNumberOrHash::from_block_number(null_epoch),
+                    vec!["trace".to_string()],
+                ))?
+                .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        ]);
+    }
+
+    Ok(tests)
+}
+
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let tests = vec![
         RpcTest::identity(StateReadState::request((
@@ -2523,6 +2606,7 @@ fn snapshot_tests(
         .expect("Infallible");
 
     tests.extend(eth_expensive_fork_error_tests(store.clone())?);
+    tests.extend(eth_null_round_tests(&store, &shared_tipset)?);
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, offline, &tipset)?);

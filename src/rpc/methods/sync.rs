@@ -20,8 +20,8 @@ impl RpcMethod<1> for SyncCheckBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the reason the given block is marked bad, or an empty string if it is not.");
+    const DESCRIPTION: &'static str =
+        "Returns the reason the given block is marked bad, or an empty string if it is not.";
 
     type Params = (Cid,);
     type Ok = String;
@@ -47,7 +47,7 @@ impl RpcMethod<1> for SyncMarkBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
-    const DESCRIPTION: Option<&'static str> = Some("Marks the block with the given CID as bad.");
+    const DESCRIPTION: &'static str = "Marks the block with the given CID as bad.";
 
     type Params = (Cid,);
     type Ok = ();
@@ -71,8 +71,8 @@ impl RpcMethod<0> for SyncSnapshotProgress {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the snapshot download progress. Return Null if the tracking isn't started");
+    const DESCRIPTION: &'static str =
+        "Returns the snapshot download progress. Return Null if the tracking isn't started";
 
     type Params = ();
     type Ok = SnapshotProgressState;
@@ -92,7 +92,7 @@ impl RpcMethod<0> for SyncStatus {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the current sync status of the node.");
+    const DESCRIPTION: &'static str = "Returns the current sync status of the node.";
 
     type Params = ();
     type Ok = Arc<SyncStatusReport>;
@@ -113,7 +113,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
     const PARAM_NAMES: [&'static str; 1] = ["block"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> = Some("Submits a newly created block to the network.");
+    const DESCRIPTION: &'static str = "Submits a newly created block to the network.";
 
     type Params = (GossipBlock,);
     type Ok = ();

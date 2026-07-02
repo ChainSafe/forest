@@ -16,9 +16,8 @@ impl RpcMethod<1> for BeaconGetEntry {
     const PARAM_NAMES: [&'static str; 1] = ["first"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Not supported in V1
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the drand beacon entry for the given epoch, blocking until it becomes available.",
-    );
+    const DESCRIPTION: &'static str =
+        "Returns the drand beacon entry for the given epoch, blocking until it becomes available.";
 
     type Params = (ChainEpoch,);
     type Ok = BeaconEntry;
