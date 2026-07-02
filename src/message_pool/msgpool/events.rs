@@ -20,7 +20,7 @@ pub enum MpoolUpdate {
 ///
 /// Hands out independent receivers via [`subscribe`](Self::subscribe), each with
 /// its own cursor.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct MpoolSubscriber(broadcast::Sender<MpoolUpdate>);
 
 impl MpoolSubscriber {

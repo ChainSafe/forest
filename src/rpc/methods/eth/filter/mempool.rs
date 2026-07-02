@@ -9,7 +9,6 @@ use crate::rpc::eth::eth_tx_hash_from_signed_message;
 use crate::rpc::eth::types::EthHash;
 use crate::rpc::eth::{FilterID, filter::Filter, filter::FilterManager};
 use crate::utils::broadcast::subscription_stream;
-use crate::utils::task::AbortHandles;
 use ahash::HashMap;
 use anyhow::{Context, Result};
 use futures::{Stream, StreamExt as _};
@@ -19,6 +18,7 @@ use std::collections::VecDeque;
 use std::pin::Pin;
 use std::sync::OnceLock;
 use tokio::sync::broadcast;
+use tokio_util::task::AbortOnDropHandle;
 
 /// Stream of the eth tx hash for every [`MpoolUpdate::Add`]; `Remove`s are skipped.
 pub(crate) fn pending_tx_added_hashes(
@@ -97,7 +97,7 @@ pub struct MempoolFilterManager {
     max_filter_results: usize,
     subscriber: MpoolSubscriber,
     /// Aborts the fan-out task when the manager is dropped.
-    fanout_task: OnceLock<AbortHandles>,
+    fanout_task: OnceLock<AbortOnDropHandle<()>>,
 }
 
 impl MempoolFilterManager {
@@ -121,14 +121,11 @@ impl MempoolFilterManager {
             let filters = self.filters.shallow_clone();
             let mut hashes =
                 pending_tx_added_hashes(self.subscriber.subscribe(), self.eth_chain_id);
-            let task = tokio::spawn(async move {
+            AbortOnDropHandle::new(tokio::spawn(async move {
                 while let Some(hash) = hashes.next().await {
                     fan_out(&filters.read(), hash);
                 }
-            });
-            let mut handles = AbortHandles::default();
-            handles.push(task.abort_handle());
-            handles
+            }))
         });
     }
 }
