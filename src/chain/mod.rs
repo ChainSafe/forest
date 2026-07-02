@@ -161,7 +161,7 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
 
     // Stream stateroots in range (stateroot_lookup_limit+1)..=tipset.epoch(). Also
     // stream all block headers until genesis.
-    let blocks = par_buffer(
+    let (blocks, _drop_guard) = par_buffer(
         // Queue 1k blocks. This is enough to saturate the compressor and blocks
         // are small enough that keeping 1k in memory isn't a problem. Average
         // block size is between 1kb and 2kb.

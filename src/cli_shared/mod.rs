@@ -26,6 +26,18 @@ pub fn chain_path(config: &Config) -> PathBuf {
     PathBuf::from(&config.client.data_dir).join(config.chain().to_string())
 }
 
+/// Deletes the chain database and F3 data for the configured chain.
+pub fn delete_chain_data(config: &Config) -> anyhow::Result<()> {
+    for dir in [chain_path(config), crate::f3::get_f3_root(config)] {
+        if dir.is_dir() {
+            tracing::info!("Removing {}", dir.display());
+            fs_extra::dir::remove(&dir)
+                .map_err(|e| anyhow::anyhow!("failed to remove {}: {e}", dir.display()))?;
+        }
+    }
+    Ok(())
+}
+
 pub fn read_config(
     config_path_opt: Option<&PathBuf>,
     chain_opt: Option<NetworkChain>,
@@ -78,6 +90,30 @@ pub fn default_token_path() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn delete_chain_data_removes_chain_and_f3_but_keeps_keystore() {
+        let tmp = tempfile::TempDir::new().unwrap();
+
+        let mut config = Config::default();
+        config.client.data_dir = tmp.path().to_path_buf();
+        config.chain = NetworkChain::Calibnet;
+
+        // Lay out a representative data directory: a versioned database, F3
+        // sidecar data, and a wallet keystore.
+        let chain_dir = chain_path(&config);
+        let f3_dir = crate::f3::get_f3_root(&config);
+        let keystore = config.client.data_dir.join(crate::KEYSTORE_NAME);
+        std::fs::create_dir_all(chain_dir.join("0.1.0")).unwrap();
+        std::fs::create_dir_all(&f3_dir).unwrap();
+        std::fs::write(&keystore, b"wallet-keys").unwrap();
+
+        delete_chain_data(&config).unwrap();
+
+        assert!(!chain_dir.exists(), "chain database should be deleted");
+        assert!(!f3_dir.exists(), "F3 data should be deleted");
+        assert!(keystore.exists(), "keystore must be preserved");
+    }
 
     #[test]
     fn read_config_default() {

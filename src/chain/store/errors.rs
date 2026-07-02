@@ -31,6 +31,11 @@ pub enum Error {
     /// Amt error
     #[error("State error: {0}")]
     State(Cow<'static, str>),
+    /// Requested height is a null round (no tipset), reported when resolving with
+    /// [`super::index::ResolveNullTipset::Fail`]. The Eth layer translates this into its own
+    /// Lotus-compatible message, so this internal phrasing is intentionally distinct.
+    #[error("null round at epoch {0}")]
+    NullRound(crate::shim::clock::ChainEpoch),
     /// Other chain error
     #[error("{0}")]
     Other(String),

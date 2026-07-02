@@ -60,7 +60,7 @@ impl RpcMethod<0> for GetRawNetworkName {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the raw (genesis) network name.");
+    const DESCRIPTION: &'static str = "Returns the raw (genesis) network name.";
 
     type Params = ();
     type Ok = Arc<str>;
@@ -86,7 +86,7 @@ impl RpcMethod<1> for GetTipsetByEpoch {
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset at the given epoch.");
+    const DESCRIPTION: &'static str = "Returns the tipset at the given epoch.";
 
     type Params = (ChainEpoch,);
     type Ok = F3TipSet;
@@ -111,8 +111,7 @@ impl RpcMethod<1> for GetTipset {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the tipset with the given F3 tipset key.");
+    const DESCRIPTION: &'static str = "Returns the tipset with the given F3 tipset key.";
 
     type Params = (F3TipSetKey,);
     type Ok = F3TipSet;
@@ -134,8 +133,7 @@ impl RpcMethod<0> for GetHead {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the current chain head as an F3 tipset.");
+    const DESCRIPTION: &'static str = "Returns the current chain head as an F3 tipset.";
 
     type Params = ();
     type Ok = F3TipSet;
@@ -155,8 +153,8 @@ impl RpcMethod<1> for GetParent {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the parent of the tipset with the given F3 tipset key.");
+    const DESCRIPTION: &'static str =
+        "Returns the parent of the tipset with the given F3 tipset key.";
 
     type Params = (F3TipSetKey,);
     type Ok = F3TipSet;
@@ -446,9 +444,8 @@ impl RpcMethod<1> for GetPowerTable {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the power table (the participating miners and their power) at the given tipset.",
-    );
+    const DESCRIPTION: &'static str =
+        "Returns the power table (the participating miners and their power) at the given tipset.";
 
     type Params = (F3TipSetKey,);
     type Ok = Vec<F3PowerEntry>;
@@ -473,8 +470,7 @@ impl RpcMethod<1> for ProtectPeer {
     const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Protects the given peer from connection pruning.");
+    const DESCRIPTION: &'static str = "Protects the given peer from connection pruning.";
 
     type Params = (String,);
     type Ok = bool;
@@ -503,8 +499,8 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the IDs of the miners currently participating in F3 through this node.");
+    const DESCRIPTION: &'static str =
+        "Returns the IDs of the miners currently participating in F3 through this node.";
 
     type Params = ();
     type Ok = Vec<u64>;
@@ -529,9 +525,8 @@ impl RpcMethod<1> for Finalize {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Marks the given tipset as F3-finalized, resetting the chain head to it when appropriate.",
-    );
+    const DESCRIPTION: &'static str =
+        "Marks the given tipset as F3-finalized, resetting the chain head to it when appropriate.";
 
     type Params = (F3TipSetKey,);
     type Ok = ();
@@ -612,8 +607,8 @@ impl RpcMethod<2> for SignMessage {
     const PARAM_NAMES: [&'static str; 2] = ["pubkey", "message"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Signs a message with the private key corresponding to the given BLS public key.");
+    const DESCRIPTION: &'static str =
+        "Signs a message with the private key corresponding to the given BLS public key.";
 
     type Params = (Vec<u8>, Vec<u8>);
     type Ok = Signature;
@@ -648,8 +643,8 @@ impl RpcMethod<1> for F3ExportLatestSnapshot {
     const PARAM_NAMES: [&'static str; 1] = ["path"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Exports the latest F3 snapshot to the specified path and returns its CID");
+    const DESCRIPTION: &'static str =
+        "Exports the latest F3 snapshot to the specified path and returns its CID";
 
     type Params = (String,);
     type Ok = Cid;
@@ -670,8 +665,7 @@ impl RpcMethod<1> for F3GetCertificate {
     const PARAM_NAMES: [&'static str; 1] = ["instance"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the finality certificate for the given F3 instance.");
+    const DESCRIPTION: &'static str = "Returns the finality certificate for the given F3 instance.";
 
     type Params = (u64,);
     type Ok = FinalityCertificate;
@@ -708,7 +702,7 @@ impl RpcMethod<0> for F3GetLatestCertificate {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the latest F3 finality certificate.");
+    const DESCRIPTION: &'static str = "Returns the latest F3 finality certificate.";
 
     type Params = ();
     type Ok = FinalityCertificate;
@@ -728,9 +722,7 @@ impl RpcMethod<1> for F3GetECPowerTable {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the Expected Consensus power table at the given tipset (defaults to the chain head).",
-    );
+    const DESCRIPTION: &'static str = "Returns the Expected Consensus power table at the given tipset (defaults to the chain head).";
 
     type Params = (ApiTipsetKey,);
     type Ok = Vec<F3PowerEntry>;
@@ -751,8 +743,8 @@ impl RpcMethod<1> for F3GetF3PowerTable {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns F3's power table at the given tipset (defaults to the chain head).");
+    const DESCRIPTION: &'static str =
+        "Returns F3's power table at the given tipset (defaults to the chain head).";
 
     type Params = (ApiTipsetKey,);
     type Ok = Vec<F3PowerEntry>;
@@ -779,8 +771,8 @@ impl RpcMethod<1> for F3GetF3PowerTableByInstance {
     const PARAM_NAMES: [&'static str; 1] = ["instance"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Gets the power table (committee) used to validate the specified instance");
+    const DESCRIPTION: &'static str =
+        "Gets the power table (committee) used to validate the specified instance";
 
     type Params = (u64,);
     type Ok = Vec<F3PowerEntry>;
@@ -813,8 +805,7 @@ impl RpcMethod<0> for F3IsRunning {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns whether the F3 subsystem is currently running.");
+    const DESCRIPTION: &'static str = "Returns whether the F3 subsystem is currently running.";
 
     type Params = ();
     type Ok = bool;
@@ -845,8 +836,8 @@ impl RpcMethod<0> for F3GetProgress {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the progress (instance, round, and phase) of the running F3 instance.");
+    const DESCRIPTION: &'static str =
+        "Returns the progress (instance, round, and phase) of the running F3 instance.";
 
     type Params = ();
     type Ok = F3InstanceProgress;
@@ -877,8 +868,8 @@ impl RpcMethod<0> for F3GetManifest {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the current F3 manifest (the network's F3 configuration).");
+    const DESCRIPTION: &'static str =
+        "Returns the current F3 manifest (the network's F3 configuration).";
 
     type Params = ();
     type Ok = F3Manifest;
@@ -899,8 +890,8 @@ impl RpcMethod<0> for F3ListParticipants {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the miners currently participating in F3 through this node.");
+    const DESCRIPTION: &'static str =
+        "Returns the miners currently participating in F3 through this node.";
 
     type Params = ();
     type Ok = Vec<F3Participant>;
@@ -935,9 +926,7 @@ impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "previousLeaseTicket", "instances"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns a new or renewed F3 participation ticket for the given miner, valid for the requested number of instances.",
-    );
+    const DESCRIPTION: &'static str = "Returns a new or renewed F3 participation ticket for the given miner, valid for the requested number of instances.";
 
     type Params = (Address, Vec<u8>, u64);
     type Ok = Vec<u8>;
@@ -974,9 +963,7 @@ impl RpcMethod<1> for F3Participate {
     const PARAM_NAMES: [&'static str; 1] = ["leaseTicket"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Enrolls a miner in F3 consensus using the given participation ticket, granting a temporary signing lease.",
-    );
+    const DESCRIPTION: &'static str = "Enrolls a miner in F3 consensus using the given participation ticket, granting a temporary signing lease.";
 
     type Params = (Vec<u8>,);
     type Ok = F3ParticipationLease;

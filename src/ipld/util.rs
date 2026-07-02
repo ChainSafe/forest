@@ -4,17 +4,16 @@
 use crate::blocks::Tipset;
 use crate::cid_collections::{CidHashSet, CidHashSetLike};
 use crate::ipld::Ipld;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
+use arc_swap::ArcSwapOption;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use cid::Cid;
 use futures::Stream;
-use fvm_ipld_blockstore::Blockstore;
-use parking_lot::RwLock;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -22,6 +21,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::{LazyLock, atomic};
 use std::task::{Context, Poll};
+use tokio_util::sync::CancellationToken;
 
 #[derive(Default)]
 pub struct ExportStatus {
@@ -29,7 +29,8 @@ pub struct ExportStatus {
     pub initial_epoch: AtomicI64,
     pub exporting: AtomicBool,
     pub cancelled: AtomicBool,
-    pub start_time: RwLock<Option<DateTime<Utc>>>,
+    pub start_time: ArcSwapOption<DateTime<Utc>>,
+    pub cancellation_token: ArcSwapOption<CancellationToken>,
 }
 
 impl ExportStatus {
@@ -50,11 +51,44 @@ impl ExportStatus {
     }
 
     pub fn start_time(&self) -> Option<DateTime<Utc>> {
-        *self.start_time.read()
+        self.start_time.load().clone().map(Arc::unwrap_or_clone)
+    }
+
+    pub fn cancellation_token(&self) -> Option<CancellationToken> {
+        self.cancellation_token
+            .load()
+            .clone()
+            .map(Arc::unwrap_or_clone)
     }
 }
 
 pub static CHAIN_EXPORT_STATUS: LazyLock<ExportStatus> = LazyLock::new(ExportStatus::default);
+
+pub struct ChainExportGuard {
+    cancellation_token: CancellationToken,
+}
+
+impl ChainExportGuard {
+    pub fn try_start_export() -> anyhow::Result<Self> {
+        let cancellation_token = CancellationToken::new();
+        start_export(cancellation_token.clone())?;
+        Ok(Self { cancellation_token })
+    }
+
+    pub fn cancel_export(&self) {
+        cancel_export()
+    }
+
+    pub fn cancellation_token(&self) -> &CancellationToken {
+        &self.cancellation_token
+    }
+}
+
+impl Drop for ChainExportGuard {
+    fn drop(&mut self) {
+        end_export()
+    }
+}
 
 fn update_epoch(new_value: i64) {
     let status = &*CHAIN_EXPORT_STATUS;
@@ -67,22 +101,34 @@ fn update_epoch(new_value: i64) {
     );
 }
 
-pub fn start_export() {
+fn start_export(cancellation_token: CancellationToken) -> anyhow::Result<()> {
     let status = &*CHAIN_EXPORT_STATUS;
+    let export_in_progress = status.exporting.swap(true, atomic::Ordering::Relaxed);
+    anyhow::ensure!(
+        !export_in_progress,
+        "An active chain export job has started at {}, start epoch: {}, current epoch: {}",
+        status.start_time().unwrap_or_default(),
+        status.initial_epoch(),
+        status.epoch(),
+    );
     status.epoch.store(0, atomic::Ordering::Relaxed);
     status.initial_epoch.store(0, atomic::Ordering::Relaxed);
-    status.exporting.store(true, atomic::Ordering::Relaxed);
     status.cancelled.store(false, atomic::Ordering::Relaxed);
-    *status.start_time.write() = Some(Utc::now());
+    status.start_time.store(Some(Utc::now().into()));
+    status
+        .cancellation_token
+        .store(Some(cancellation_token.into()));
+    Ok(())
 }
 
-pub fn end_export() {
+fn end_export() {
     CHAIN_EXPORT_STATUS
         .exporting
         .store(false, atomic::Ordering::Relaxed);
+    CHAIN_EXPORT_STATUS.cancellation_token.store(None);
 }
 
-pub fn cancel_export() {
+fn cancel_export() {
     let status = &*CHAIN_EXPORT_STATUS;
     status.exporting.store(false, atomic::Ordering::Relaxed);
     status.cancelled.store(true, atomic::Ordering::Relaxed);
@@ -183,6 +229,7 @@ pin_project! {
         events: bool,
         tipset_keys:bool,
         track_progress: bool,
+        n_polled: usize,
     }
 }
 
@@ -254,6 +301,7 @@ pub fn stream_chain<
         events: false,
         tipset_keys: false,
         track_progress: false,
+        n_polled: 0,
     }
 }
 
@@ -278,13 +326,22 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
 {
     type Item = anyhow::Result<CarBlock>;
 
-    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
 
         let export_tipset_keys = self.tipset_keys;
         let fail_on_dead_links = self.fail_on_dead_links;
         let stateroot_limit_exclusive = self.stateroot_limit_exclusive;
         let this = self.project();
+
+        // Yield to the runtime every 128 polls to allow cancellation
+        {
+            *this.n_polled += 1;
+            if this.n_polled.is_multiple_of(128) {
+                cx.waker().wake_by_ref();
+                return Poll::Pending;
+            }
+        }
 
         loop {
             while let Some(task) = this.dfs.front_mut() {

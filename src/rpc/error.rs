@@ -45,6 +45,9 @@ pub(crate) mod implementation_defined_errors {
     /// EIP-1474 "resource unavailable": explicit call targets a block whose state cannot be
     /// served without running an expensive migration on demand.
     pub(crate) const EXPENSIVE_FORK_CODE: i32 = -32002;
+    /// The token authenticated, but its permissions do not allow the requested method. (Token
+    /// verification failures are rejected earlier with an HTTP `401`, not this code.)
+    pub(crate) const INSUFFICIENT_PERMISSIONS: i32 = -32003;
 }
 
 impl ServerError {

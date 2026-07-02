@@ -55,7 +55,7 @@ async fn mpool_replace_auto_unblocks_pending_async() {
     let addr = FOREST_TEST_PRELOADED_ADDRESS.as_str();
     let nonce = mpool_nonce(addr).unwrap();
 
-    let cid = send_from(addr, addr, FIL_AMT, Backend::Local).unwrap();
+    let cid = send_from_no_wait(addr, addr, FIL_AMT, Backend::Local).unwrap();
     poll_until_pending_nonce(addr, nonce).await.unwrap();
 
     forest_cli(&[

@@ -5,6 +5,7 @@ use std::{
     cell::RefCell,
     path::PathBuf,
     str::{self, FromStr},
+    time::{Duration, Instant},
 };
 
 use crate::cli::humantoken::TokenAmountPretty as _;
@@ -23,23 +24,21 @@ use crate::{
         message::{METHOD_SEND, Message},
     },
 };
-use crate::{KeyStore, lotus_json::LotusJson};
 use crate::{
-    KeyStoreConfig,
+    KeyStore, KeyStoreConfig,
+    lotus_json::{HasLotusJson as _, LotusJson},
+    rpc::{self, prelude::*},
     shim::{
         address::StrictAddress,
         crypto::{Signature, SignatureType},
         econ::TokenAmount,
     },
 };
-use crate::{
-    lotus_json::HasLotusJson as _,
-    rpc::{self, prelude::*},
-};
 use anyhow::{Context as _, bail};
 use clap::Subcommand;
 use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
+use jsonrpsee::core::ClientError;
 use num::Zero as _;
 use tabled::{builder::Builder, settings::Style};
 
@@ -311,6 +310,13 @@ pub enum WalletCommands {
         gas_limit: i64,
         #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
         gas_premium: TokenAmount,
+        /// Wait for the message to be on chain with the given confidence by calling `StateWaitMsg`.
+        /// The command waits until the message has been on chain for at least `confidence` epochs.
+        #[arg(long)]
+        wait_confidence: Option<u32>,
+        /// Timeout duration for `--wait-confidence`, e.g. `30s`, `5m`. If not set, the timeout will be `confidence + 5` epochs.
+        #[arg(long, requires = "wait_confidence", value_parser = humantime::parse_duration)]
+        wait_timeout: Option<Duration>,
     },
 }
 impl WalletCommands {
@@ -494,6 +500,8 @@ impl WalletCommands {
                 gas_feecap,
                 gas_limit,
                 gas_premium,
+                wait_confidence,
+                wait_timeout,
             } => {
                 let from: Address = match from {
                     Some(a) => a.into(),
@@ -558,7 +566,39 @@ impl WalletCommands {
                     MpoolPushMessage::call(&backend.remote, (message, None)).await?
                 };
 
-                println!("{}", signed_msg.cid());
+                let msg_cid = signed_msg.cid();
+                println!("{msg_cid}");
+
+                if let Some(confidence) = wait_confidence {
+                    let start = Instant::now();
+                    let version = Version::call(&backend.remote, ()).await?;
+                    let timeout = wait_timeout.unwrap_or_else(|| {
+                        Duration::from_secs(u64::from((confidence + 5) * version.block_delay))
+                    });
+                    backend
+                        .remote
+                        .call(
+                            StateWaitMsg::request((
+                                msg_cid,
+                                i64::from(confidence),
+                                10,
+                                true,
+                            ))?
+                            .with_timeout(timeout),
+                        )
+                        .await
+                        .map_err(|e|
+                        {
+                            match e {
+                                ClientError::RequestTimeout => {
+                                    anyhow::anyhow!("timed out waiting for the message {msg_cid} with confidence {confidence}, took {}", humantime::format_duration(start.elapsed()))
+                                }
+                                e => {
+                                    anyhow::anyhow!("failed to wait for the message {msg_cid} with confidence {confidence}: {e}")
+                                }
+                            }
+                        })?;
+                }
 
                 Ok(())
             }

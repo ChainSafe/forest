@@ -277,7 +277,7 @@
       "description": "Verifies a JWT authentication token and returns its permissions.",
       "params": [
         {
-          "name": "headerRaw",
+          "name": "token",
           "required": true,
           "schema": {
             "type": "string"

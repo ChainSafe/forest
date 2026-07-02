@@ -11,6 +11,7 @@ pub(crate) mod trace;
 pub mod types;
 mod utils;
 pub use tipset_resolver::TipsetResolver;
+use tokio_util::sync::CancellationToken;
 
 use self::eth_tx::*;
 use self::filter::hex_str_to_epoch;
@@ -818,8 +819,7 @@ impl RpcMethod<0> for Web3ClientVersion {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the client version string of the running node.");
+    const DESCRIPTION: &'static str = "Returns the client version string of the running node.";
 
     type Params = ();
     type Ok = Arc<str>;
@@ -849,9 +849,7 @@ impl RpcMethod<0> for EthAccounts {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the list of addresses owned by the client; always empty since Forest does not manage private keys.",
-    );
+    const DESCRIPTION: &'static str = "Returns the list of addresses owned by the client; always empty since Forest does not manage private keys.";
 
     type Params = ();
     type Ok = NotNullVec<String>;
@@ -890,8 +888,8 @@ impl RpcMethod<0> for EthBaseFee {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the calculated base fee of the upcoming tipset in attoFIL");
+    const DESCRIPTION: &'static str =
+        "Returns the calculated base fee of the upcoming tipset in attoFIL";
 
     type Params = ();
     type Ok = EthBigInt;
@@ -913,9 +911,8 @@ impl RpcMethod<1> for BaseFeeByHeight {
     const PARAM_NAMES: [&'static str; 1] = ["height"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the calculated upcoming base fee of the tipset at the given height in attoFIL",
-    );
+    const DESCRIPTION: &'static str =
+        "Returns the calculated upcoming base fee of the tipset at the given height in attoFIL";
 
     type Params = (ChainEpoch,);
     type Ok = EthBigInt;
@@ -942,9 +939,7 @@ impl RpcMethod<0> for EthBlockNumber {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the height of the latest executed tipset, which is the parent of the current head.",
-    );
+    const DESCRIPTION: &'static str = "Returns the height of the latest executed tipset, which is the parent of the current head.";
 
     type Params = ();
     type Ok = EthUint64;
@@ -981,8 +976,7 @@ impl RpcMethod<0> for EthChainId {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the EIP-155 chain ID of the current network.");
+    const DESCRIPTION: &'static str = "Returns the EIP-155 chain ID of the current network.";
 
     type Params = ();
     type Ok = Arc<str>;
@@ -1007,7 +1001,7 @@ impl RpcMethod<0> for EthGasPrice {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the current gas price in attoFIL");
+    const DESCRIPTION: &'static str = "Returns the current gas price in attoFIL";
 
     type Params = ();
     type Ok = GasPriceResult;
@@ -1037,8 +1031,8 @@ impl RpcMethod<2> for EthGetBalance {
     const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the balance of an Ethereum address at the specified block state");
+    const DESCRIPTION: &'static str =
+        "Returns the balance of an Ethereum address at the specified block state";
 
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthBigInt;
@@ -1082,9 +1076,13 @@ fn resolve_block_number_tipset(
     if height > head.epoch() - 1 {
         bail!("requested a future epoch (beyond \"latest\")");
     }
-    Ok(chain
+    chain
         .chain_index()
-        .load_required_tipset_by_height(height, head, resolve)?)
+        .load_required_tipset_by_height(height, head, resolve)
+        .map_err(|e| match e {
+            crate::chain::store::Error::NullRound(epoch) => EthErrors::null_round(epoch).into(),
+            e => e.into(),
+        })
 }
 
 fn resolve_block_hash_tipset(
@@ -1514,8 +1512,8 @@ impl RpcMethod<2> for EthGetBlockByHash {
     const PARAM_NAMES: [&'static str; 2] = ["blockHash", "fullTxInfo"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Retrieves a block by its hash, optionally including full transaction objects.");
+    const DESCRIPTION: &'static str =
+        "Retrieves a block by its hash, optionally including full transaction objects.";
 
     type Params = (EthHash, bool);
     type Ok = Arc<Block>;
@@ -1542,8 +1540,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Retrieves a block by its number or a special tag.");
+    const DESCRIPTION: &'static str = "Retrieves a block by its number or a special tag.";
 
     type Params = (BlockNumberOrPredefined, bool);
     type Ok = Arc<Block>;
@@ -1555,7 +1552,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
         Block::from_filecoin_tipset(&ctx.state_manager, ts, full_tx_info.into())
             .await
@@ -1623,9 +1620,8 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves all transaction receipts for a block by its number, hash or a special tag.",
-    );
+    const DESCRIPTION: &'static str =
+        "Retrieves all transaction receipts for a block by its number, hash or a special tag.";
 
     type Params = (BlockNumberOrHash,);
     type Ok = NotNullVec<EthTxReceipt>;
@@ -1653,9 +1649,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "limit"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves all transaction receipts for a block identified by its number, hash or a special tag along with an optional limit on the chain epoch for state resolution.",
-    );
+    const DESCRIPTION: &'static str = "Retrieves all transaction receipts for a block identified by its number, hash or a special tag along with an optional limit on the chain epoch for state resolution.";
 
     type Params = (BlockNumberOrHash, ChainEpoch);
     type Ok = NotNullVec<EthTxReceipt>;
@@ -1683,8 +1677,8 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const PARAM_NAMES: [&'static str; 1] = ["blockHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the number of messages in the tipset identified by the given block hash.");
+    const DESCRIPTION: &'static str =
+        "Returns the number of messages in the tipset identified by the given block hash.";
 
     type Params = (EthHash,);
     type Ok = EthUint64;
@@ -1712,9 +1706,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const PARAM_NAMES: [&'static str; 1] = ["blockNumber"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the number of transactions in a block identified by its block number or a special tag.",
-    );
+    const DESCRIPTION: &'static str = "Returns the number of transactions in a block identified by its block number or a special tag.";
 
     type Params = (BlockNumberOrPredefined,);
     type Ok = EthUint64;
@@ -1726,7 +1718,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_number, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_number, ResolveNullTipset::Fail)
             .await?;
         let count = count_messages_in_tipset(ctx.db(), &ts)?;
         Ok(EthUint64(count as _))
@@ -1740,9 +1732,7 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the CID of the Filecoin message corresponding to the given Ethereum transaction hash.",
-    );
+    const DESCRIPTION: &'static str = "Returns the CID of the Filecoin message corresponding to the given Ethereum transaction hash.";
 
     type Params = (EthHash,);
     type Ok = Option<Cid>;
@@ -1804,8 +1794,8 @@ impl RpcMethod<0> for EthSyncing {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the node's sync status, or `false` if the node is not currently syncing.");
+    const DESCRIPTION: &'static str =
+        "Returns the node's sync status, or `false` if the node is not currently syncing.";
 
     type Params = ();
     type Ok = EthSyncingResult;
@@ -1852,8 +1842,8 @@ impl RpcMethod<2> for EthEstimateGas {
     const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Estimates the amount of gas required to execute the given transaction.");
+    const DESCRIPTION: &'static str =
+        "Estimates the amount of gas required to execute the given transaction.";
 
     type Params = (EthCallMessage, Option<BlockNumberOrHash>);
     type Ok = EthUint64;
@@ -2060,9 +2050,7 @@ impl RpcMethod<3> for EthFeeHistory {
     const PARAM_NAMES: [&'static str; 3] = ["blockCount", "newestBlockNumber", "rewardPercentiles"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns historical gas information for a range of blocks, including base fee per gas, gas used ratio, and priority fee percentiles.",
-    );
+    const DESCRIPTION: &'static str = "Returns historical gas information for a range of blocks, including base fee per gas, gas used ratio, and priority fee percentiles.";
 
     type Params = (EthUint64, BlockNumberOrPredefined, Option<Vec<f64>>);
     type Ok = EthFeeHistoryResult;
@@ -2209,9 +2197,7 @@ impl RpcMethod<2> for EthGetCode {
     const PARAM_NAMES: [&'static str; 2] = ["ethAddress", "blockNumberOrHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves the contract code at a specific address and block state, identified by its number, hash, or a special tag.",
-    );
+    const DESCRIPTION: &'static str = "Retrieves the contract code at a specific address and block state, identified by its number, hash, or a special tag.";
 
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthBytes;
@@ -2310,10 +2296,9 @@ impl RpcMethod<3> for EthGetStorageAt {
     const PARAM_NAMES: [&'static str; 3] = ["ethAddress", "position", "blockNumberOrHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
+    const DESCRIPTION: &'static str =
         "Retrieves the storage value at a specific position for a contract
-        at a given block state, identified by its number, hash, or a special tag.",
-    );
+        at a given block state, identified by its number, hash, or a special tag.";
 
     type Params = (EthAddress, EthBytes, BlockNumberOrHash);
     type Ok = EthBytes;
@@ -2413,9 +2398,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
     const PARAM_NAMES: [&'static str; 2] = ["sender", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the number of transactions sent from an address (its nonce) at the specified block state.",
-    );
+    const DESCRIPTION: &'static str = "Returns the number of transactions sent from an address (its nonce) at the specified block state.";
 
     type Params = (EthAddress, BlockNumberOrHash);
     type Ok = EthUint64;
@@ -2472,9 +2455,7 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns an estimate of the priority fee per gas (tip) needed for timely inclusion, in attoFIL.",
-    );
+    const DESCRIPTION: &'static str = "Returns an estimate of the priority fee per gas (tip) needed for timely inclusion, in attoFIL.";
 
     type Params = ();
     type Ok = EthBigInt;
@@ -2498,9 +2479,8 @@ impl RpcMethod<0> for EthProtocolVersion {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the current Filecoin network version, reported as the Ethereum protocol version.",
-    );
+    const DESCRIPTION: &'static str =
+        "Returns the current Filecoin network version, reported as the Ethereum protocol version.";
 
     type Params = ();
     type Ok = EthUint64;
@@ -2523,8 +2503,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "txIndex"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Retrieves a transaction by its block number and index.");
+    const DESCRIPTION: &'static str = "Retrieves a transaction by its block number and index.";
 
     type Params = (BlockNumberOrPredefined, EthUint64);
     type Ok = Option<ApiEthTx>;
@@ -2536,7 +2515,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
         eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
     }
@@ -2573,8 +2552,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     const PARAM_NAMES: [&'static str; 2] = ["blockHash", "txIndex"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Retrieves a transaction by its block hash and index.");
+    const DESCRIPTION: &'static str = "Retrieves a transaction by its block hash and index.";
 
     type Params = (EthHash, EthUint64);
     type Ok = Option<ApiEthTx>;
@@ -2619,7 +2597,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Retrieves a transaction by its hash.");
+    const DESCRIPTION: &'static str = "Retrieves a transaction by its hash.";
 
     type Params = (EthHash,);
     type Ok = Option<ApiEthTx>;
@@ -2629,7 +2607,9 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         (tx_hash,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(&ctx, &tx_hash, None).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        get_eth_transaction_by_hash(&ctx, &tx_hash, None, &cancellation_token).await
     }
 }
 
@@ -2640,9 +2620,8 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "limit"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves a transaction by its hash, limiting state resolution to the given chain epoch.",
-    );
+    const DESCRIPTION: &'static str =
+        "Retrieves a transaction by its hash, limiting state resolution to the given chain epoch.";
 
     type Params = (EthHash, ChainEpoch);
     type Ok = Option<ApiEthTx>;
@@ -2652,7 +2631,9 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
         (tx_hash, limit): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(&ctx, &tx_hash, Some(limit)).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        get_eth_transaction_by_hash(&ctx, &tx_hash, Some(limit), &cancellation_token).await
     }
 }
 
@@ -2660,6 +2641,7 @@ async fn get_eth_transaction_by_hash(
     ctx: &Ctx,
     tx_hash: &EthHash,
     limit: Option<ChainEpoch>,
+    cancellation_token: &CancellationToken,
 ) -> Result<Option<ApiEthTx>, ServerError> {
     let message_cid = ctx.chain_store().get_mapping(tx_hash)?.unwrap_or_else(|| {
         tracing::debug!(
@@ -2673,7 +2655,7 @@ async fn get_eth_transaction_by_hash(
     // First, try to get the cid from mined transactions
     if let Ok(Some((tipset, receipt))) = ctx
         .state_manager
-        .search_for_message(None, message_cid, limit, Some(true))
+        .search_for_message(None, message_cid, limit, Some(true), cancellation_token)
         .await
     {
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
@@ -2737,8 +2719,8 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the Ethereum transaction hash for the given Filecoin message CID.");
+    const DESCRIPTION: &'static str =
+        "Returns the Ethereum transaction hash for the given Filecoin message CID.";
 
     type Params = (Cid,);
     type Ok = Option<EthHash>;
@@ -2760,9 +2742,7 @@ impl RpcMethod<2> for EthCall {
     const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Executes a read-only message call against the given block state without creating an on-chain transaction, returning the call output.",
-    );
+    const DESCRIPTION: &'static str = "Executes a read-only message call against the given block state without creating an on-chain transaction, returning the call output.";
     type Params = (EthCallMessage, BlockNumberOrHash);
     type Ok = EthBytes;
     async fn handle(
@@ -2803,9 +2783,8 @@ impl RpcMethod<1> for EthNewFilter {
     const PARAM_NAMES: [&'static str; 1] = ["filterSpec"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Installs a persistent filter for matching event logs based on the given filter spec.",
-    );
+    const DESCRIPTION: &'static str =
+        "Installs a persistent filter for matching event logs based on the given filter spec.";
 
     type Params = (EthFilterSpec,);
     type Ok = FilterID;
@@ -2828,8 +2807,8 @@ impl RpcMethod<0> for EthNewPendingTransactionFilter {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Installs a persistent filter that tracks new messages arriving in the message pool.");
+    const DESCRIPTION: &'static str =
+        "Installs a persistent filter that tracks new messages arriving in the message pool.";
 
     type Params = ();
     type Ok = FilterID;
@@ -2851,8 +2830,8 @@ impl RpcMethod<0> for EthNewBlockFilter {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Installs a persistent filter that tracks the arrival of new blocks.");
+    const DESCRIPTION: &'static str =
+        "Installs a persistent filter that tracks the arrival of new blocks.";
 
     type Params = ();
     type Ok = FilterID;
@@ -2875,7 +2854,7 @@ impl RpcMethod<1> for EthUninstallFilter {
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Uninstalls the filter with the given ID.");
+    const DESCRIPTION: &'static str = "Uninstalls the filter with the given ID.";
 
     type Params = (FilterID,);
     type Ok = bool;
@@ -2898,8 +2877,8 @@ impl RpcMethod<0> for EthUnsubscribe {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Cancels an existing websocket subscription identified by its subscription ID.");
+    const DESCRIPTION: &'static str =
+        "Cancels an existing websocket subscription identified by its subscription ID.";
     const SUBSCRIPTION: bool = true;
 
     type Params = ();
@@ -2926,9 +2905,7 @@ impl RpcMethod<0> for EthSubscribe {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Creates a websocket subscription that streams events (new heads, pending transactions, or logs) to the client.",
-    );
+    const DESCRIPTION: &'static str = "Creates a websocket subscription that streams events (new heads, pending transactions, or logs) to the client.";
     const SUBSCRIPTION: bool = true;
 
     type Params = ();
@@ -2954,8 +2931,7 @@ impl RpcMethod<1> for EthAddressToFilecoinAddress {
     const PARAM_NAMES: [&'static str; 1] = ["ethAddress"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Converts an EthAddress into an f410 Filecoin Address");
+    const DESCRIPTION: &'static str = "Converts an EthAddress into an f410 Filecoin Address";
     type Params = (EthAddress,);
     type Ok = FilecoinAddress;
     async fn handle(
@@ -2974,8 +2950,7 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
     const PARAM_NAMES: [&'static str; 2] = ["filecoinAddress", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Converts any Filecoin address to an EthAddress");
+    const DESCRIPTION: &'static str = "Converts any Filecoin address to an EthAddress";
     type Params = (FilecoinAddress, Option<BlockNumberOrPredefined>);
     type Ok = EthAddress;
     async fn handle(
@@ -3003,6 +2978,7 @@ async fn get_eth_transaction_receipt(
     ctx: Ctx,
     tx_hash: EthHash,
     limit: Option<ChainEpoch>,
+    cancellation_token: &CancellationToken,
 ) -> Result<Option<EthTxReceipt>, ServerError> {
     let msg_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
         tracing::debug!(
@@ -3015,7 +2991,7 @@ async fn get_eth_transaction_receipt(
 
     let option = ctx
         .state_manager
-        .search_for_message(None, msg_cid, limit, Some(true))
+        .search_for_message(None, msg_cid, limit, Some(true), cancellation_token)
         .await
         .with_context(|| format!("failed to lookup Eth Txn {tx_hash} as {msg_cid}"));
 
@@ -3071,8 +3047,8 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the receipt of a transaction identified by its hash.");
+    const DESCRIPTION: &'static str =
+        "Returns the receipt of a transaction identified by its hash.";
     type Params = (EthHash,);
     type Ok = Option<EthTxReceipt>;
     async fn handle(
@@ -3080,7 +3056,9 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
         (tx_hash,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_receipt(ctx, tx_hash, None).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        get_eth_transaction_receipt(ctx, tx_hash, None, &cancellation_token).await
     }
 }
 
@@ -3092,9 +3070,7 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "limit"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the receipt of a transaction identified by its hash, limiting state resolution to the given chain epoch.",
-    );
+    const DESCRIPTION: &'static str = "Returns the receipt of a transaction identified by its hash, limiting state resolution to the given chain epoch.";
     type Params = (EthHash, ChainEpoch);
     type Ok = Option<EthTxReceipt>;
     async fn handle(
@@ -3102,7 +3078,9 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
         (tx_hash, limit): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_receipt(ctx, tx_hash, Some(limit)).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        get_eth_transaction_receipt(ctx, tx_hash, Some(limit), &cancellation_token).await
     }
 }
 
@@ -3113,9 +3091,8 @@ impl RpcMethod<1> for EthSendRawTransaction {
     const PARAM_NAMES: [&'static str; 1] = ["rawTx"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Submits a signed raw transaction to the message pool and returns its transaction hash.",
-    );
+    const DESCRIPTION: &'static str =
+        "Submits a signed raw transaction to the message pool and returns its transaction hash.";
 
     type Params = (EthBytes,);
     type Ok = EthHash;
@@ -3139,9 +3116,7 @@ impl RpcMethod<1> for EthSendRawTransactionUntrusted {
     const PARAM_NAMES: [&'static str; 1] = ["rawTx"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Submits a signed raw transaction from an untrusted source to the message pool and returns its transaction hash.",
-    );
+    const DESCRIPTION: &'static str = "Submits a signed raw transaction from an untrusted source to the message pool and returns its transaction hash.";
 
     type Params = (EthBytes,);
     type Ok = EthHash;
@@ -3376,8 +3351,7 @@ impl RpcMethod<1> for EthGetLogs {
     const PARAM_NAMES: [&'static str; 1] = ["ethFilter"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns event logs matching the given filter specification.");
+    const DESCRIPTION: &'static str = "Returns event logs matching the given filter specification.";
     type Params = (EthFilterSpec,);
     type Ok = EthFilterResult;
     async fn handle(
@@ -3462,9 +3436,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns event logs matching the filter with the given ID that have not been collected since the last poll.",
-    );
+    const DESCRIPTION: &'static str = "Returns event logs matching the filter with the given ID that have not been collected since the last poll.";
     type Params = (FilterID,);
     type Ok = EthFilterResult;
     async fn handle(
@@ -3492,8 +3464,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns event logs which occurred since the last poll");
+    const DESCRIPTION: &'static str = "Returns event logs which occurred since the last poll";
 
     type Params = (FilterID,);
     type Ok = EthFilterResult;
@@ -3557,7 +3528,7 @@ impl RpcMethod<1> for EthTraceBlock {
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns traces created at given block.");
+    const DESCRIPTION: &'static str = "Returns traces created at given block.";
 
     type Params = (BlockNumberOrHash,);
     type Ok = NotNullVec<EthBlockTrace>;
@@ -3568,7 +3539,7 @@ impl RpcMethod<1> for EthTraceBlock {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
         eth_trace_block(&ctx.state_manager, &ts)
             .await
@@ -3677,8 +3648,8 @@ impl RpcMethod<2> for EthDebugTraceTransaction {
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "opts"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V1 | V2 });
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Replays a transaction and returns execution traces in Geth-compatible format.");
+    const DESCRIPTION: &'static str =
+        "Replays a transaction and returns execution traces in Geth-compatible format.";
 
     type Params = (String, Option<GethDebugTracingOptions>);
     type Ok = GethTrace;
@@ -3689,7 +3660,16 @@ impl RpcMethod<2> for EthDebugTraceTransaction {
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let opts = opts.unwrap_or_default();
-        debug_trace_transaction(ctx, Self::api_path(ext)?, tx_hash, opts).await
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
+        debug_trace_transaction(
+            ctx,
+            Self::api_path(ext)?,
+            tx_hash,
+            opts,
+            &cancellation_token,
+        )
+        .await
     }
 }
 
@@ -3698,6 +3678,7 @@ async fn debug_trace_transaction(
     api_path: ApiPaths,
     tx_hash: String,
     opts: GethDebugTracingOptions,
+    cancellation_token: &CancellationToken,
 ) -> Result<GethTrace, ServerError> {
     let tracer = match &opts.tracer {
         Some(t) => t.clone(),
@@ -3710,7 +3691,7 @@ async fn debug_trace_transaction(
     };
 
     let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
-    let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
+    let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None, cancellation_token)
         .await?
         .ok_or(ServerError::internal_error("transaction not found", None))?;
 
@@ -3830,8 +3811,8 @@ impl RpcMethod<3> for EthTraceCall {
     const PARAM_NAMES: [&'static str; 3] = ["tx", "traceTypes", "blockParam"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V1 | V2 });
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns parity style trace results for the given transaction.");
+    const DESCRIPTION: &'static str =
+        "Returns parity style trace results for the given transaction.";
 
     type Params = (
         EthCallMessage,
@@ -3957,8 +3938,7 @@ impl RpcMethod<1> for EthTraceTransaction {
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the traces for a specific transaction.");
+    const DESCRIPTION: &'static str = "Returns the traces for a specific transaction.";
 
     type Params = (String,);
     type Ok = NotNullVec<EthBlockTrace>;
@@ -3967,8 +3947,10 @@ impl RpcMethod<1> for EthTraceTransaction {
         (tx_hash,): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let cancellation_token = CancellationToken::new();
+        let _drop_guard = cancellation_token.drop_guard_ref();
         let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
-        let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
+        let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None, &cancellation_token)
             .await?
             .ok_or(ServerError::internal_error("transaction not found", None))?;
 
@@ -3994,9 +3976,8 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "traceTypes"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Replays all transactions in a block returning the requested traces for each transaction.",
-    );
+    const DESCRIPTION: &'static str =
+        "Replays all transactions in a block returning the requested traces for each transaction.";
 
     type Params = (BlockNumberOrHash, Vec<String>);
     type Ok = NotNullVec<EthReplayBlockTransactionTrace>;
@@ -4015,7 +3996,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
 
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
 
         eth_trace_replay_block_transactions(&ctx, &ts)
@@ -4070,8 +4051,8 @@ impl RpcMethod<1> for EthTraceFilter {
     const PARAM_NAMES: [&'static str; 1] = ["filter"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the traces for transactions matching the filter criteria.");
+    const DESCRIPTION: &'static str =
+        "Returns the traces for transactions matching the filter criteria.";
     type Params = (EthTraceFilterCriteria,);
     type Ok = NotNullVec<EthBlockTrace>;
 

@@ -47,6 +47,8 @@ impl ShallowClone for ChainIndex {
 pub enum ResolveNullTipset {
     TakeNewer,
     TakeOlder,
+    /// Return [`Error::NullRound`] instead of resolving to a neighboring tipset.
+    Fail,
 }
 
 impl ChainIndex {
@@ -141,11 +143,11 @@ impl ChainIndex {
     ///               │                  │
     ///               └──────────────────┘
     /// ```
-    /// If the requested epoch points to a null tipset, there are two options:
-    /// Pick the nearest older tipset or pick the nearest younger tipset.
+    /// If the requested epoch points to a null tipset, there are three options:
+    /// pick the nearest older tipset, pick the nearest younger tipset, or fail.
     /// Requesting epoch 2 with [`ResolveNullTipset::TakeNewer`] will return
-    /// epoch 3. Requesting with [`ResolveNullTipset::TakeOlder`] will return
-    /// epoch 1.
+    /// epoch 3, with [`ResolveNullTipset::TakeOlder`] will return epoch 1, and
+    /// with [`ResolveNullTipset::Fail`] will return [`Error::NullRound`].
     pub fn tipset_by_height(
         &self,
         to: ChainEpoch,
@@ -222,6 +224,7 @@ impl ChainIndex {
                 match resolve {
                     ResolveNullTipset::TakeOlder => return Ok(Some(parent)),
                     ResolveNullTipset::TakeNewer => return Ok(Some(child)),
+                    ResolveNullTipset::Fail => return Err(Error::NullRound(to)),
                 }
             }
         }
