@@ -34,3 +34,9 @@ fn mem_write_read_obj() {
     let db = MemoryDB::default();
     subtests::write_read_obj(&db);
 }
+
+#[test]
+fn mem_block_bloom_prune() {
+    let db = MemoryDB::default();
+    subtests::block_bloom_prune(&db);
+}

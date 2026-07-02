@@ -32,3 +32,9 @@ fn db_write_read_obj() {
     let db = TempParityDB::new();
     subtests::write_read_obj(&*db);
 }
+
+#[test]
+fn db_block_bloom_prune() {
+    let db = TempParityDB::new();
+    subtests::block_bloom_prune(&*db);
+}
