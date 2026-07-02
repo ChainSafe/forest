@@ -17,7 +17,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize * 3); // 3-d
 
 type TipsetCache = SizeTrackingCache<TipsetKey, Tipset>;
 
-type IsTipsetFinalizedFn = Arc<dyn Fn(&Tipset) -> bool + Send + Sync>;
+type IsEpochFinalizedFn = Arc<dyn Fn(ChainEpoch) -> bool + Send + Sync>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
@@ -26,8 +26,8 @@ pub struct ChainIndex {
     ts_cache: TipsetCache,
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     db: DbImpl,
-    /// check whether a tipset is finalized
-    is_tipset_finalized: Option<IsTipsetFinalizedFn>,
+    /// check whether an epoch is finalized
+    is_epoch_finalized: Option<IsEpochFinalizedFn>,
 }
 
 impl ShallowClone for ChainIndex {
@@ -35,7 +35,7 @@ impl ShallowClone for ChainIndex {
         Self {
             ts_cache: self.ts_cache.shallow_clone(),
             db: self.db.shallow_clone(),
-            is_tipset_finalized: self.is_tipset_finalized.clone(),
+            is_epoch_finalized: self.is_epoch_finalized.clone(),
         }
     }
 }
@@ -58,12 +58,12 @@ impl ChainIndex {
         Self {
             ts_cache,
             db,
-            is_tipset_finalized: None,
+            is_epoch_finalized: None,
         }
     }
 
-    pub fn with_is_tipset_finalized(mut self, f: IsTipsetFinalizedFn) -> Self {
-        self.is_tipset_finalized = Some(f);
+    pub fn with_is_epoch_finalized(mut self, f: IsEpochFinalizedFn) -> Self {
+        self.is_epoch_finalized = Some(f);
         self
     }
 
@@ -173,9 +173,19 @@ impl ChainIndex {
         }
 
         let from_epoch = from.epoch();
+        let is_epoch_finalized = |epoch: ChainEpoch| {
+            if let Some(is_epoch_finalized) = &self.is_epoch_finalized {
+                is_epoch_finalized(epoch)
+            } else {
+                epoch <= from_epoch - CHAIN_FINALITY
+            }
+        };
 
         let mut checkpoint_from_epoch = to;
-        while !lookup_table_disabled() && checkpoint_from_epoch < from_epoch {
+        while !lookup_table_disabled()
+            && checkpoint_from_epoch < from_epoch
+            && is_epoch_finalized(checkpoint_from_epoch)
+        {
             if let Ok(Some(checkpoint_from_key)) =
                 self.db.tipset_key_by_epoch(checkpoint_from_epoch)
                 && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)
@@ -195,18 +205,10 @@ impl ChainIndex {
             return Ok(Some(from));
         }
 
-        let from_epoch = from.epoch();
-        let is_finalized = |ts: &Tipset| {
-            if let Some(is_finalized_fn) = &self.is_tipset_finalized {
-                is_finalized_fn(ts)
-            } else {
-                ts.epoch() <= from_epoch - CHAIN_FINALITY
-            }
-        };
         for (child, parent) in from.chain(&self.db).tuple_windows() {
             // update cache only when child is finalized.
             if is_checkpoint(child.epoch())
-                && is_finalized(&child)
+                && is_epoch_finalized(child.epoch())
                 && let Err(e) = self.db.set_tipset_key_at_epoch(&child)
             {
                 tracing::warn!(

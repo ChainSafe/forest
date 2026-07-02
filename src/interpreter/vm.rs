@@ -353,6 +353,14 @@ impl VM {
                     return Ok(());
                 }
                 let (ret, duration) = self.apply_message(message)?;
+                if !ret.msg_receipt().exit_code().is_success() {
+                    tracing::warn!(
+                        "applied message {cid}, receipt exit code: {}, gas used: {}, event root: {}",
+                        ret.msg_receipt().exit_code(),
+                        ret.msg_receipt().gas_used(),
+                        ret.msg_receipt().events_root().unwrap_or_default()
+                    );
+                }
 
                 if let Some(cb) = &mut callback {
                     cb(MessageCallbackCtx {

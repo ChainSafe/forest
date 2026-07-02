@@ -85,22 +85,26 @@ impl ComputeCommand {
                 chain_store.heaviest_tipset(),
                 ResolveNullTipset::TakeOlder,
             )?;
-            let ts_next = chain_store.load_child_tipset(&ts)?.with_context(|| {
-                format!(
-                    "no child tipset for epoch {} (may be chain head)",
-                    ts.epoch()
-                )
-            })?;
+            let ts_next = chain_store.load_child_tipset(&ts)?;
             db.resume_tracking();
+
             SettingsStoreExt::write_obj(
                 &db.tracker,
                 crate::db::setting_keys::HEAD_KEY,
-                ts_next.key(),
+                if let Some(ts_next) = &ts_next {
+                    ts_next.key()
+                } else {
+                    ts.key()
+                },
             )?;
             // Only track the desired tipsets
             (
                 chain_index.load_required_tipset(ts.key())?,
-                chain_index.load_required_tipset(ts_next.key())?,
+                if let Some(ts_next) = &ts_next {
+                    Some(chain_index.load_required_tipset(ts_next.key())?)
+                } else {
+                    None
+                },
             )
         };
         let epoch = ts.epoch();
@@ -122,16 +126,22 @@ impl ComputeCommand {
         if let Some(export_db_to) = export_db_to {
             std::fs::write(export_db_to, db_snapshot)?;
         }
-        let expected_state_root = *ts_next.parent_state();
-        let expected_receipt_root = *ts_next.parent_message_receipts();
-        anyhow::ensure!(
-            state_root == expected_state_root,
-            "state root mismatch, state_root: {state_root}, expected_state_root: {expected_state_root}"
-        );
-        anyhow::ensure!(
-            receipt_root == expected_receipt_root,
-            "receipt root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
-        );
+        if let Some(ts_next) = &ts_next {
+            let expected_state_root = *ts_next.parent_state();
+            let expected_receipt_root = *ts_next.parent_message_receipts();
+            anyhow::ensure!(
+                state_root == expected_state_root,
+                "state root mismatch, state_root: {state_root}, expected_state_root: {expected_state_root}"
+            );
+            anyhow::ensure!(
+                receipt_root == expected_receipt_root,
+                "receipt root mismatch, receipt_root: {receipt_root}, expected_receipt_root: {expected_receipt_root}"
+            );
+        } else {
+            tracing::info!(
+                "No child tipset found for epoch {epoch}, skipping state root and receipt root validation."
+            );
+        }
         Ok(())
     }
 }

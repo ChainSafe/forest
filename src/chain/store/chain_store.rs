@@ -130,17 +130,15 @@ impl ChainStore {
         let ec_calculator_finalized_epoch = Arc::new(AtomicI64::new(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(&chain_index, &chain_config, &head),
         ));
-        let chain_index = chain_index.with_is_tipset_finalized(Arc::new({
-            let f3_finalized_tipset = f3_finalized_tipset.shallow_clone();
+        tracing::info!(
+            "ec_calculator_finalized_epoch: {}",
+            ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire)
+        );
+        let chain_index = chain_index.with_is_epoch_finalized(Arc::new({
             let ec_calculator_finalized_epoch = ec_calculator_finalized_epoch.shallow_clone();
-            move |ts| {
-                let finalized = f3_finalized_tipset
-                    .load()
-                    .as_ref()
-                    .map(|ts| ts.epoch())
-                    .unwrap_or_default()
-                    .max(ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire));
-                ts.epoch() <= finalized
+            move |epoch| {
+                let finalized = ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire);
+                epoch <= finalized
             }
         }));
         Ok(Self {
