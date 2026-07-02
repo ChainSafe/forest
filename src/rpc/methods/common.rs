@@ -19,8 +19,8 @@ impl RpcMethod<0> for Session {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns a UUID that uniquely identifies this node for the current session.");
+    const DESCRIPTION: &'static str =
+        "Returns a UUID that uniquely identifies this node for the current session.";
 
     type Params = ();
     type Ok = Uuid;
@@ -36,8 +36,7 @@ impl RpcMethod<0> for Version {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the node version, API version, and block delay.");
+    const DESCRIPTION: &'static str = "Returns the node version, API version, and block delay.";
 
     type Params = ();
     type Ok = PublicVersion;
@@ -64,7 +63,7 @@ impl RpcMethod<0> for Shutdown {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
-    const DESCRIPTION: Option<&'static str> = Some("Shuts the node down.");
+    const DESCRIPTION: &'static str = "Shuts the node down.";
 
     type Params = ();
     type Ok = ();
@@ -85,8 +84,7 @@ impl RpcMethod<0> for StartTime {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the time at which the node was started.");
+    const DESCRIPTION: &'static str = "Returns the time at which the node was started.";
 
     type Params = ();
     type Ok = chrono::DateTime<chrono::Utc>;

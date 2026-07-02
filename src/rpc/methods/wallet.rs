@@ -19,7 +19,7 @@ impl RpcMethod<1> for WalletBalance {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the balance of a wallet.");
+    const DESCRIPTION: &'static str = "Returns the balance of a wallet.";
 
     type Params = (Address,);
     type Ok = TokenAmount;
@@ -45,8 +45,8 @@ impl RpcMethod<0> for WalletDefaultAddress {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the default wallet address, or null if no default is set.");
+    const DESCRIPTION: &'static str =
+        "Returns the default wallet address, or null if no default is set.";
 
     type Params = ();
     type Ok = Option<Address>;
@@ -67,9 +67,8 @@ impl RpcMethod<1> for WalletExport {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Exports the key information, including the private key, for the given wallet address.",
-    );
+    const DESCRIPTION: &'static str =
+        "Exports the key information, including the private key, for the given wallet address.";
 
     type Params = (Address,);
     type Ok = KeyInfo;
@@ -91,8 +90,7 @@ impl RpcMethod<1> for WalletHas {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Indicates whether the given address exists in the wallet.");
+    const DESCRIPTION: &'static str = "Indicates whether the given address exists in the wallet.";
 
     type Params = (Address,);
     type Ok = bool;
@@ -113,8 +111,7 @@ impl RpcMethod<1> for WalletImport {
     const PARAM_NAMES: [&'static str; 1] = ["key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Imports a key into the wallet and returns its address.");
+    const DESCRIPTION: &'static str = "Imports a key into the wallet and returns its address.";
 
     type Params = (KeyInfo,);
     type Ok = Address;
@@ -137,8 +134,7 @@ impl RpcMethod<0> for WalletList {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns a list of all addresses in the wallet.");
+    const DESCRIPTION: &'static str = "Returns a list of all addresses in the wallet.";
 
     type Params = ();
     type Ok = Vec<Address>;
@@ -159,9 +155,7 @@ impl RpcMethod<1> for WalletNew {
     const PARAM_NAMES: [&'static str; 1] = ["signatureType"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Generates a new key of the given signature type, adds it to the wallet, and returns its address.",
-    );
+    const DESCRIPTION: &'static str = "Generates a new key of the given signature type, adds it to the wallet, and returns its address.";
 
     type Params = (SignatureType,);
     type Ok = Address;
@@ -190,8 +184,7 @@ impl RpcMethod<1> for WalletSetDefault {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Sets the given address as the default wallet address.");
+    const DESCRIPTION: &'static str = "Sets the given address as the default wallet address.";
 
     type Params = (Address,);
     type Ok = ();
@@ -214,8 +207,7 @@ impl RpcMethod<2> for WalletSign {
     const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Signs the given bytes using the specified address.");
+    const DESCRIPTION: &'static str = "Signs the given bytes using the specified address.";
 
     type Params = (Address, Vec<u8>);
     type Ok = Signature;
@@ -248,8 +240,7 @@ impl RpcMethod<2> for WalletSignMessage {
     const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Signs the given message using the specified address.");
+    const DESCRIPTION: &'static str = "Signs the given message using the specified address.";
 
     type Params = (Address, Message);
     type Ok = SignedMessage;
@@ -278,8 +269,8 @@ impl RpcMethod<1> for WalletValidateAddress {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Validates the given string as a Filecoin address and returns the parsed address.");
+    const DESCRIPTION: &'static str =
+        "Validates the given string as a Filecoin address and returns the parsed address.";
 
     type Params = (String,);
     type Ok = Address;
@@ -299,8 +290,8 @@ impl RpcMethod<3> for WalletVerify {
     const PARAM_NAMES: [&'static str; 3] = ["address", "message", "signature"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns whether the given signature is valid for the message and address.");
+    const DESCRIPTION: &'static str =
+        "Returns whether the given signature is valid for the message and address.";
 
     type Params = (Address, Vec<u8>, Signature);
     type Ok = bool;
@@ -320,8 +311,7 @@ impl RpcMethod<1> for WalletDelete {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Removes the key for the given address from the wallet.");
+    const DESCRIPTION: &'static str = "Removes the key for the given address from the wallet.";
 
     type Params = (Address,);
     type Ok = ();
