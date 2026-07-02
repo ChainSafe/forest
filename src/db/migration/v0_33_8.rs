@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Migration logic for databases with the v0.33.6 schema to v0.33.7.
+//! Migration logic for databases with the v0.33.7 schema to v0.33.8.
 //! An `EthBlockBloom` column has been added to store per-tipset Ethereum block logs blooms.
 
 use super::migration_map::MigrationOperation;
@@ -12,13 +12,13 @@ use semver::Version;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
-pub(super) struct Migration0_33_6_0_33_7 {
+pub(super) struct Migration0_33_7_0_33_8 {
     from: Version,
     to: Version,
 }
 
-/// Migrates the database from version 0.33.6 to 0.33.7
-impl MigrationOperation for Migration0_33_6_0_33_7 {
+/// Migrates the database from version 0.33.7 to 0.33.8
+impl MigrationOperation for Migration0_33_7_0_33_8 {
     fn new(from: Version, to: Version) -> Self
     where
         Self: Sized,
@@ -45,21 +45,32 @@ impl MigrationOperation for Migration0_33_6_0_33_7 {
         );
         std::fs::rename(&old_db, &temp_db).context("failed to rename database directory")?;
 
-        // Create a placeholder so the delete step succeeds
-        std::fs::create_dir_all(&old_db).context("failed to create placeholder directory")?;
-
         info!("Adding EthBlockBloom column to database");
-        let mut opts = paritydb_0_33_6::to_options(temp_db.clone());
-        parity_db::Db::add_column(&mut opts, paritydb_0_33_6::eth_block_bloom_column_options())
-            .context("failed to add EthBlockBloom column")?;
+        let mut opts = paritydb_0_33_7::to_options(temp_db.clone());
+        if let Err(e) =
+            parity_db::Db::add_column(&mut opts, paritydb_0_33_7::eth_block_bloom_column_options())
+        {
+            // Restore the original database so a failed migration never strands the only copy in temp.
+            if let Err(restore) = std::fs::rename(&temp_db, &old_db) {
+                tracing::error!(
+                    "failed to restore database to {}; data is preserved at {}: {restore}",
+                    old_db.display(),
+                    temp_db.display()
+                );
+            }
+            return Err(e).context("failed to add EthBlockBloom column");
+        }
+
+        // Create a placeholder so the delete step in `migrate` succeeds.
+        std::fs::create_dir_all(&old_db).context("failed to create placeholder directory")?;
 
         info!("Migration completed successfully");
         Ok(temp_db)
     }
 }
 
-/// Database settings from Forest `v0.33.6`
-mod paritydb_0_33_6 {
+/// Database settings from Forest `v0.33.7`
+mod paritydb_0_33_7 {
     use parity_db::{ColumnOptions, CompressionType, Options};
     use std::path::PathBuf;
     use strum::{Display, EnumIter, IntoEnumIterator};
@@ -106,7 +117,7 @@ mod paritydb_0_33_6 {
         }
     }
 
-    /// Options for the `EthBlockBloom` column introduced in v0.33.7.
+    /// Options for the `EthBlockBloom` column introduced in v0.33.8.
     pub(super) fn eth_block_bloom_column_options() -> ColumnOptions {
         ColumnOptions {
             preimage: false,

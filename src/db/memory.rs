@@ -159,7 +159,7 @@ impl EthBlockBloomStore for MemoryDB {
     fn write_bloom(
         &self,
         key: &Cid,
-        height: i64,
+        height: ChainEpoch,
         bloom: &[u8; BLOCK_BLOOM_LEN],
     ) -> anyhow::Result<()> {
         self.eth_block_bloom_db
@@ -168,7 +168,7 @@ impl EthBlockBloomStore for MemoryDB {
         Ok(())
     }
 
-    fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()> {
+    fn delete_blooms_before_height(&self, height: ChainEpoch) -> anyhow::Result<()> {
         self.eth_block_bloom_db
             .write()
             .retain(|_, entry| decode_block_bloom(entry).is_some_and(|(h, _)| h >= height));

@@ -13,6 +13,7 @@ use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::prelude::*;
 use crate::rpc::eth::types::EthHash;
+use crate::shim::clock::ChainEpoch;
 use crate::utils::{broadcast::has_subscribers, multihash::prelude::*};
 use bytes::Bytes;
 use fvm_ipld_encoding::DAG_CBOR;
@@ -261,7 +262,7 @@ impl EthBlockBloomStore for ParityDb {
     fn write_bloom(
         &self,
         key: &Cid,
-        height: i64,
+        height: ChainEpoch,
         bloom: &[u8; BLOCK_BLOOM_LEN],
     ) -> anyhow::Result<()> {
         self.write_to_column(
@@ -271,7 +272,7 @@ impl EthBlockBloomStore for ParityDb {
         )
     }
 
-    fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()> {
+    fn delete_blooms_before_height(&self, height: ChainEpoch) -> anyhow::Result<()> {
         let mut stale = Vec::new();
         let mut iter = self.db.iter(DbColumn::EthBlockBloom as u8)?;
         while let Some((key, entry)) = iter.next()? {

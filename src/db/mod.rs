@@ -23,6 +23,7 @@ pub use memory::MemoryDB;
 
 use crate::blocks::{Tipset, TipsetKey};
 use crate::rpc::eth::types::EthHash;
+use crate::shim::clock::ChainEpoch;
 use ambassador::delegatable_trait;
 use anyhow::Context as _;
 use cid::Cid;
@@ -153,16 +154,16 @@ pub trait EthBlockBloomStore {
     fn write_bloom(
         &self,
         key: &Cid,
-        height: i64,
+        height: ChainEpoch,
         bloom: &[u8; BLOCK_BLOOM_LEN],
     ) -> anyhow::Result<()>;
 
     /// Deletes every stored bloom whose height is below `height`.
-    fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()>;
+    fn delete_blooms_before_height(&self, height: ChainEpoch) -> anyhow::Result<()>;
 }
 
 /// Encodes a block bloom entry as its little-endian height followed by the bloom bytes.
-pub(crate) fn encode_block_bloom(height: i64, bloom: &[u8; BLOCK_BLOOM_LEN]) -> Vec<u8> {
+pub(crate) fn encode_block_bloom(height: ChainEpoch, bloom: &[u8; BLOCK_BLOOM_LEN]) -> Vec<u8> {
     let mut entry = Vec::with_capacity(size_of::<i64>() + BLOCK_BLOOM_LEN);
     entry.extend_from_slice(&height.to_le_bytes());
     entry.extend_from_slice(bloom);
@@ -170,7 +171,7 @@ pub(crate) fn encode_block_bloom(height: i64, bloom: &[u8; BLOCK_BLOOM_LEN]) -> 
 }
 
 /// Splits a block bloom entry into its (height and `BLOCK_BLOOM_LEN`) and raw bloom bytes.
-pub(crate) fn decode_block_bloom(entry: &[u8]) -> Option<(i64, &[u8; BLOCK_BLOOM_LEN])> {
+pub(crate) fn decode_block_bloom(entry: &[u8]) -> Option<(ChainEpoch, &[u8; BLOCK_BLOOM_LEN])> {
     if entry.len() != size_of::<i64>() + BLOCK_BLOOM_LEN {
         return None;
     }
