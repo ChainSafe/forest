@@ -7,8 +7,7 @@
 //! Each test assumes the same environment as the wallet suite.
 
 use super::helpers::*;
-use libtest_mimic::{Arguments, Failed, Trial};
-use std::time::Duration;
+use libtest_mimic::{Arguments, Trial};
 
 /// Mpool integration tests
 #[derive(Debug, clap::Args)]
@@ -17,7 +16,7 @@ pub struct MpoolTestCommand {}
 impl MpoolTestCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let args = Arguments {
-            test_threads: Some(8),
+            test_threads: Some(1),
             ..Default::default()
         };
         libtest_mimic::run(&args, tests()).exit();
@@ -25,33 +24,45 @@ impl MpoolTestCommand {
 }
 
 fn tests() -> Vec<Trial> {
-    vec![Trial::test(
-        "mpool_replace_auto_unblocks_pending",
-        mpool_replace_auto_unblocks_pending,
-    )]
+    vec![
+        Trial::test("mpool_nonce_fix_auto_unblocks_pending", || {
+            block_on(mpool_nonce_fix_auto_unblocks_pending());
+            Ok(())
+        }),
+        Trial::test("mpool_replace_auto_unblocks_pending", || {
+            block_on(mpool_replace_auto_unblocks_pending());
+            Ok(())
+        }),
+    ]
 }
 
-fn mpool_replace_auto_unblocks_pending() -> Result<(), Failed> {
-    // Retry for 3 times in case race condition happens.
-    // Chance of having race condition in nonce is low as messages are broadcasted in the network pretty fast
-    for i in (0..3).rev() {
-        if i <= 0 {
-            block_on(mpool_replace_auto_unblocks_pending_async());
-            break;
-        } else if std::panic::catch_unwind(|| block_on(mpool_replace_auto_unblocks_pending_async()))
-            .is_err()
-        {
-            // Retry after 5s on error
-            std::thread::sleep(Duration::from_secs(5));
-        } else {
-            // Succeeded
-            break;
-        }
-    }
-    Ok(())
+async fn mpool_nonce_fix_auto_unblocks_pending() {
+    let addr = FOREST_TEST_PRELOADED_ADDRESS.as_str();
+    let nonce = mpool_nonce(addr).unwrap();
+    // Skip one nonce so `--auto` has a gap to fill.
+    let next_nonce = nonce + 1;
+    forest_cli(&[
+        "mpool",
+        "nonce-fix",
+        "--addr",
+        addr,
+        "--start",
+        &next_nonce.to_string(),
+        "--end",
+        &(next_nonce + 1).to_string(),
+    ])
+    .unwrap();
+    poll_until_pending_nonce(addr, next_nonce).await.unwrap();
+
+    forest_cli(&["mpool", "nonce-fix", "--addr", addr, "--auto"]).unwrap();
+
+    assert!(
+        poll_until_pending_nonce(addr, nonce).await.is_ok(),
+        "nonce-fix --auto should fill nonce gap at {nonce} for {addr}."
+    );
 }
 
-async fn mpool_replace_auto_unblocks_pending_async() {
+async fn mpool_replace_auto_unblocks_pending() {
     let addr = FOREST_TEST_PRELOADED_ADDRESS.as_str();
     let nonce = mpool_nonce(addr).unwrap();
 
