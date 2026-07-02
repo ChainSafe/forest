@@ -6,8 +6,9 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::{db::EthMappingsStore as _, networks::{ChainConfig, Height}};
+use crate::networks::{ChainConfig, Height};
 use crate::prelude::*;
+use crate::rpc::chain::PathChange;
 use crate::rpc::{
     chain::ChainGetTipSetFinalityStatus,
     eth::{eth_tx_from_signed_eth_message, types::EthHash},
@@ -18,10 +19,9 @@ use crate::state_manager::ExecutedTipset;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
-    db::{DbImpl, HeaviestTipsetKeyProvider},
+    db::{DbImpl, EthMappingsStore as _, EthMappingsStoreExt as _, HeaviestTipsetKeyProvider},
     message::{ChainMessage, SignedMessage},
 };
-use crate::{db::EthMappingsStoreExt, rpc::chain::PathChange};
 use crate::{fil_cns, utils::cache::SizeTrackingCache};
 use crate::{
     interpreter::{BlockMessages, VMTrace},
@@ -182,7 +182,12 @@ impl ChainStore {
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
         head.key().save(self.db())?;
         self.db().set_heaviest_tipset_key(head.key())?;
-        self.db().set_tipset_key_at_epoch(&head)?;
+        if let Err(e) = self.db().set_tipset_key_at_epoch(&head) {
+            warn!(
+                "failed to update tipset lookup table at epoch {}: {e:#}",
+                head.epoch()
+            );
+        }
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
         self.ec_calculator_finalized_epoch.store(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(
