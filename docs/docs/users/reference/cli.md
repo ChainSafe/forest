@@ -58,6 +58,8 @@ OPTIONS:
           Snapshot import mode. Available modes are `auto`, `copy`, `move`, `symlink` and `hardlink` [default: auto]
       --halt-after-import
           Halt with exit code 0 after successfully importing a snapshot
+      --remove-existing-chain
+          Remove the existing chain data on a snapshot-import
       --skip-load <SKIP_LOAD>
           Skips loading CAR file and uses header to index chain. Assumes a pre-loaded database [possible values: true, false]
       --req-window <REQ_WINDOW>
@@ -326,11 +328,20 @@ Arguments:
   <AMOUNT>
 
 Options:
-      --from <FROM>                optionally specify the account to send funds from (otherwise the default one will be used)
-      --gas-feecap <GAS_FEECAP>    [default: 0.0]
-      --gas-limit <GAS_LIMIT>      In milliGas [default: 0]
-      --gas-premium <GAS_PREMIUM>  [default: 0.0]
-  -h, --help                       Print help
+      --from <FROM>
+          optionally specify the account to send funds from (otherwise the default one will be used)
+      --gas-feecap <GAS_FEECAP>
+          [default: 0.0]
+      --gas-limit <GAS_LIMIT>
+          In milliGas [default: 0]
+      --gas-premium <GAS_PREMIUM>
+          [default: 0.0]
+      --wait-confidence <WAIT_CONFIDENCE>
+          Wait for the message to be on chain with the given confidence by calling `StateWaitMsg`. The command waits until the message has been on chain for at least `confidence` epochs
+      --wait-timeout <WAIT_TIMEOUT>
+          Timeout duration for `--wait-confidence`, e.g. `30s`, `5m`. If not set, the timeout will be `confidence + 5` epochs
+  -h, --help
+          Print help
 ```
 
 ## `forest-cli`
