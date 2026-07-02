@@ -27,7 +27,7 @@ pub const FIL_AMT: &str = "500 atto FIL";
 /// Sentinel `forest-wallet balance --exact-balance` returns for an unfunded address.
 pub const FIL_ZERO: &str = "0 FIL";
 /// Amount to seed a freshly-created delegated wallet.
-pub const DELEGATE_FUND_AMT: &str = "3 micro FIL";
+pub const DELEGATE_FUND_AMT: &str = "30 micro FIL";
 
 /// Maximum time to wait for a polled condition before failing the test.
 pub const POLL_TIMEOUT: Duration = Duration::from_secs(600);

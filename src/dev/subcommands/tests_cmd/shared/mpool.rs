@@ -1,20 +1,20 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Calibnet mpool CLI integration tests (shared preloaded address).
+//! Mpool CLI integration tests (shared preloaded address).
 //!
-//! Run via [`calibnet_wallet_mpool`] before [`calibnet_wallet`]; see `mise test:wallet`.
-//! Each test assumes the same environment as [`calibnet_wallet`].
+//! Run the mpool suite before the wallet suite; see `mise test:wallet`.
+//! Each test assumes the same environment as the wallet suite.
 
 use super::helpers::*;
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::time::Duration;
 
-/// Calibnet mpool integration tests
+/// Mpool integration tests
 #[derive(Debug, clap::Args)]
-pub struct CalibnetMpoolTestCommand {}
+pub struct MpoolTestCommand {}
 
-impl CalibnetMpoolTestCommand {
+impl MpoolTestCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let args = Arguments {
             test_threads: Some(8),

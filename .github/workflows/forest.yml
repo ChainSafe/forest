@@ -225,7 +225,14 @@ jobs:
       - name: Migration Regression Tests
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+  calibnet-wallet-check-no-ops:
+    name: Wallet tests
+    runs-on: ubuntu-slim
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'Wallet') }}
+    steps:
+      - run: echo "No-op job to trigger the required wallet tests."
   calibnet-wallet-check:
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'Wallet') }}
     needs:
       - build-ubuntu
     name: Wallet tests
@@ -585,7 +592,6 @@ jobs:
       - calibnet-stateless-mode-check
       - calibnet-stateless-rpc-check
       - state-migrations-check
-      - calibnet-wallet-check
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check

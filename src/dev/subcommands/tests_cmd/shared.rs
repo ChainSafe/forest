@@ -5,14 +5,14 @@ mod helpers;
 mod mpool;
 mod wallet;
 
-/// Calibnet integration tests
+/// Shared integration tests (used by both calibnet and devnet)
 #[derive(Debug, clap::Subcommand)]
-pub enum CalibnetTestsCommand {
-    Wallet(wallet::CalibnetWalletTestCommand),
-    Mpool(mpool::CalibnetMpoolTestCommand),
+pub enum TestCommand {
+    Wallet(wallet::WalletTestCommand),
+    Mpool(mpool::MpoolTestCommand),
 }
 
-impl CalibnetTestsCommand {
+impl TestCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Wallet(cmd) => cmd.run().await,
