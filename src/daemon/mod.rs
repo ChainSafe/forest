@@ -572,7 +572,11 @@ fn maybe_start_rpc_service(
             .map(|path| crate::rpc::FilterList::new_from_file(path).map(Arc::new))
             .transpose()?;
         info!("JSON-RPC endpoint will listen at {rpc_address}");
-        let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
+        let eth_event_handler = Arc::new(EthEventHandler::from_config(
+            &config.events,
+            ctx.chain_config().eth_chain_id,
+            mpool.subscriber(),
+        ));
         if is_env_truthy("FOREST_JWT_DISABLE_EXP_VALIDATION") {
             warn!(
                 "JWT expiration validation is disabled; this significantly weakens security and should only be used in tightly controlled environments"

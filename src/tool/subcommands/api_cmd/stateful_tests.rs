@@ -310,26 +310,65 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     unreachable!("loop always returns within the branches above")
 }
 
-async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
-    let tipset = client.call(ChainHead::request(())?).await?;
+/// Poll `MpoolPending` until `message_cid` is visible. Returns while the message
+/// is still pending; it does not wait for on-chain inclusion.
+async fn wait_in_mempool(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
     let mut retries = 100;
     loop {
         let pending = client
             .call(MpoolPending::request((ApiTipsetKey(None),))?)
             .await?;
-
         if pending.0.iter().any(|msg| msg.cid() == message_cid) {
-            client
-                .call(
-                    StateWaitMsg::request((message_cid, 1, tipset.epoch(), true))?
-                        .with_timeout(Duration::from_secs(300)),
-                )
-                .await?;
             break Ok(());
         }
         ensure!(retries != 0, "Message not found in mpool");
         retries -= 1;
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
 
+/// Wait for `message_cid` to appear in the mempool and then be included on chain.
+async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
+    let tipset = client.call(ChainHead::request(())?).await?;
+    wait_in_mempool(client, message_cid).await?;
+    client
+        .call(
+            StateWaitMsg::request((message_cid, 1, tipset.epoch(), true))?
+                .with_timeout(Duration::from_secs(300)),
+        )
+        .await?;
+    Ok(())
+}
+
+/// Poll `eth_getFilterChanges` until the hashes seen so far contain `want`.
+///
+/// The filter collects pending `txs` on a background task, so a poll right after a
+/// tx appears in the mempool may run before the collector has processed it.
+/// Each poll consumes the filter's buffer, so hashes are accumulated across
+/// polls and the full set seen is returned.
+async fn poll_pending_filter_until(
+    client: &rpc::Client,
+    filter_id: &FilterID,
+    want: &EthHash,
+) -> anyhow::Result<Vec<EthHash>> {
+    let mut seen: Vec<EthHash> = Vec::new();
+    let mut retries = 100;
+    loop {
+        let result = client
+            .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+            .await?;
+        let EthFilterResult::Hashes(hashes) = result else {
+            anyhow::bail!("expected hashes, got {result:?}");
+        };
+        seen.extend(hashes);
+        if seen.contains(want) {
+            break Ok(seen);
+        }
+        ensure!(
+            retries != 0,
+            "filter did not return {want:?} in time; saw {seen:?}"
+        );
+        retries -= 1;
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
@@ -1002,39 +1041,88 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
 
             let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
                 let cid = invoke_contract(&client, &tx).await?;
-
-                // Get the Eth transaction hash for our CID directly, rather than
-                // reverse-mapping every hash from the filter results back to CIDs
-                // (which is fragile — the mapping can return None for recent txns).
                 let tx_hash = client
                     .call(EthGetTransactionHashByCid::request((cid,))?)
                     .await?
                     .context("no Eth transaction hash for CID")?;
 
-                wait_pending_message(&client, cid).await?;
+                // Observe the mempool state before the message is mined. The
+                // filter collects asynchronously, so poll until tx_hash appears.
+                wait_in_mempool(&client, cid).await?;
+                let hashes = poll_pending_filter_until(&client, &filter_id, &tx_hash).await?;
 
-                let filter_result = client
-                    .call(EthGetFilterChanges::request((filter_id.clone(),))?)
-                    .await?;
-
-                if let EthFilterResult::Hashes(hashes) = filter_result {
-                    anyhow::ensure!(
-                        prev_hashes != hashes,
-                        "prev_hashes={prev_hashes:?} hashes={hashes:?}"
-                    );
-
-                    anyhow::ensure!(
-                        hashes.contains(&tx_hash),
-                        "transaction hash missing from filter results: tx_hash={tx_hash:?} cid={cid:?} hashes={hashes:?}"
-                    );
-
-                    Ok(())
-                } else {
-                    Err(anyhow::anyhow!("expecting hashes"))
-                }
+                anyhow::ensure!(
+                    prev_hashes != hashes,
+                    "prev_hashes={prev_hashes:?} hashes={hashes:?}"
+                );
+                anyhow::ensure!(
+                    hashes.contains(&tx_hash),
+                    "transaction hash missing from filter results: tx_hash={tx_hash:?} cid={cid:?} hashes={hashes:?}"
+                );
+                Ok(())
             } else {
                 Err(anyhow::anyhow!("expecting transactions"))
             };
+
+            let removed = client
+                .call(EthUninstallFilter::request((filter_id,))?)
+                .await?;
+            anyhow::ensure!(removed);
+
+            result
+        }
+    })
+}
+
+/// Verify that successive `eth_getFilterChanges` polls return only the
+/// pending transactions added since the previous poll.
+///
+/// 1. Install a pending-tx filter.
+/// 2. Drain any baseline state with an initial poll.
+/// 3. Submit tx A, wait for it in the mempool, poll — assert hash A present.
+/// 4. Submit tx B, wait for it in the mempool, poll — assert hash B present
+///    and hash A absent (it was already consumed by the previous poll).
+fn eth_new_pending_transaction_filter_multi_poll(tx: TestTransaction) -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| {
+        let tx = tx.clone();
+        async move {
+            let filter_id = client
+                .call(EthNewPendingTransactionFilter::request(())?)
+                .await?;
+
+            let result = async {
+                // Baseline: clear any pre-existing pending state.
+                let _ = client
+                    .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+                    .await?;
+
+                // First tx — poll until it shows up (collection is async).
+                let cid_a = invoke_contract(&client, &tx).await?;
+                let hash_a = client
+                    .call(EthGetTransactionHashByCid::request((cid_a,))?)
+                    .await?
+                    .context("no Eth transaction hash for cid_a")?;
+                wait_in_mempool(&client, cid_a).await?;
+                poll_pending_filter_until(&client, &filter_id, &hash_a).await?;
+
+                // Second tx — the next polls return it but not the
+                // already-consumed tx_a.
+                let cid_b = invoke_contract(&client, &tx).await?;
+                let hash_b = client
+                    .call(EthGetTransactionHashByCid::request((cid_b,))?)
+                    .await?
+                    .context("no Eth transaction hash for cid_b")?;
+                wait_in_mempool(&client, cid_b).await?;
+                let hashes_b = poll_pending_filter_until(&client, &filter_id, &hash_b).await?;
+                anyhow::ensure!(
+                    !hashes_b.contains(&hash_a),
+                    "second poll should not return previously-consumed tx_a: \
+                     hash_a={hash_a:?} hashes={hashes_b:?}"
+                );
+
+                anyhow::Ok(())
+            }
+            .await;
 
             let removed = client
                 .call(EthUninstallFilter::request((filter_id,))?)
@@ -1150,6 +1238,14 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         with_methods!(
             eth_new_pending_transaction_filter(tx.clone())
                 .name("eth_newPendingTransactionFilter works"),
+            EthNewPendingTransactionFilter,
+            EthGetFilterChanges,
+            EthGetTransactionHashByCid,
+            EthUninstallFilter
+        ),
+        with_methods!(
+            eth_new_pending_transaction_filter_multi_poll(tx.clone())
+                .name("eth_getFilterChanges returns only new pending txs per poll"),
             EthNewPendingTransactionFilter,
             EthGetFilterChanges,
             EthGetTransactionHashByCid,
