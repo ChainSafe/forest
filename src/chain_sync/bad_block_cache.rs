@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::num::NonZeroUsize;
+use std::time::Instant;
 
 use nonzero_ext::nonzero;
 
@@ -17,7 +18,7 @@ const DEFAULT_CID_CACHE_CAPACITY: NonZeroUsize = nonzero!(1usize << 15);
 /// work.
 #[derive(Debug, derive_more::Deref)]
 pub struct BadBlockCache {
-    cache: SizeTrackingCache<CidWrapper, ()>,
+    cache: SizeTrackingCache<CidWrapper, Instant>,
 }
 
 impl Default for BadBlockCache {
@@ -42,7 +43,8 @@ impl BadBlockCache {
     }
 
     pub fn push(&self, c: Cid) {
-        self.cache.insert(c.into(), ());
+        let now = Instant::now();
+        self.cache.insert(c.into(), now);
         tracing::warn!("Marked bad block: {c}");
     }
 }

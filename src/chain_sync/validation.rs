@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, FullTipset, GossipBlock, Tipset, TxMeta};
 use crate::chain::ChainStore;
@@ -18,6 +18,8 @@ use thiserror::Error;
 use crate::chain_sync::bad_block_cache::{BadBlockCache, SeenBlockCache};
 
 const MAX_HEIGHT_DRIFT: ChainEpoch = 5;
+
+const BAD_BLOCK_CACHE_EXPIRE: Duration = Duration::from_mins(5);
 
 /// Compute the maximum allowed epoch given the current time (seconds since
 /// UNIX epoch). Returns `None` if inputs are nonsensical (clock before
@@ -100,7 +102,8 @@ impl TipsetValidator<'_> {
         for block in self.0.blocks() {
             Self::validate_msg_root(chainstore.db(), block)?;
             if let Some(bad_block_cache) = bad_block_cache
-                && bad_block_cache.get(block.cid()).is_some()
+                && let Some(timestamp) = bad_block_cache.get(block.cid())
+                && timestamp.elapsed() < BAD_BLOCK_CACHE_EXPIRE
             {
                 return Err(TipsetValidationError::InvalidBlock(*block.cid()));
             }
