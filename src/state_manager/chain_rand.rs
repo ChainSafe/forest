@@ -56,10 +56,18 @@ impl ChainRand {
         } else {
             ResolveNullTipset::TakeNewer
         };
-        let rand_ts =
-            self.chain_index
-                .load_required_tipset_by_height(search_height, ts, resolve)?;
-
+        let rand_ts = self.chain_index.load_required_tipset_by_height(
+            search_height,
+            ts.shallow_clone(),
+            resolve,
+        )?;
+        tracing::info!(
+            "rand_ts: lookback:{lookback}, {}({}) -> {}({})",
+            ts.epoch(),
+            ts.key(),
+            rand_ts.epoch(),
+            rand_ts.key()
+        );
         Ok(digest(
             rand_ts
                 .min_ticket()

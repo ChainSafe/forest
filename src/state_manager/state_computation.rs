@@ -243,13 +243,13 @@ impl StateManager {
             tipset.len(),
             tipset.key(),
         );
-        Ok(apply_block_messages_blocking(
+        let r = apply_block_messages_blocking(
             self.chain_store().genesis_block_header().timestamp,
             self.chain_index().shallow_clone(),
             self.chain_config().shallow_clone(),
             self.beacon_schedule().shallow_clone(),
             &self.engine,
-            tipset,
+            tipset.shallow_clone(),
             callback,
             enable_tracing,
         )
@@ -259,7 +259,15 @@ impl StateManager {
             } else {
                 e.context(format!("Failed to compute tipset state@{epoch}"))
             }
-        })?)
+        })?;
+        info!(
+            "Evaluated tipset: EPOCH={epoch}, blocks={}, tsk={}, state_root={}, receipt_root={}",
+            tipset.len(),
+            tipset.key(),
+            r.state_root,
+            r.receipt_root
+        );
+        Ok(r)
     }
 
     #[instrument(skip_all)]
