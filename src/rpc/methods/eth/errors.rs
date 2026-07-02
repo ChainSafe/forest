@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::error::RpcErrorData;
+use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -13,6 +14,8 @@ pub const EXECUTION_REVERTED_CODE: i32 = 3;
 /// This error indicates that the block range provided in the RPC exceeds the configured maximum
 /// It was introduced in EIP-1474
 pub const LIMIT_EXCEEDED_CODE: i32 = -32005;
+/// Matches Lotus's `ENullRound` (`jsonrpc.FirstUserCode + 10` = `12`).
+pub const NULL_ROUND_CODE: i32 = 12;
 
 #[derive(Clone, Debug, Error, Serialize)]
 pub enum EthErrors {
@@ -26,6 +29,8 @@ pub enum EthErrors {
     },
     #[error("events for the requested block are not yet available")]
     EventsNotYetAvailable,
+    #[error("requested epoch was a null round ({epoch})")]
+    NullRound { epoch: ChainEpoch },
 }
 
 impl EthErrors {
@@ -52,6 +57,11 @@ impl EthErrors {
             message: format!("block range exceeds maximum of {max_block_range} (got {given})"),
         }
     }
+
+    /// Message matches Lotus's `ErrNullRound` verbatim.
+    pub fn null_round(epoch: ChainEpoch) -> Self {
+        Self::NullRound { epoch }
+    }
 }
 
 impl RpcErrorData for EthErrors {
@@ -60,6 +70,7 @@ impl RpcErrorData for EthErrors {
             EthErrors::ExecutionReverted { .. } => Some(EXECUTION_REVERTED_CODE),
             EthErrors::BlockRangeExceeded { .. } => Some(LIMIT_EXCEEDED_CODE),
             EthErrors::EventsNotYetAvailable => None,
+            EthErrors::NullRound { .. } => Some(NULL_ROUND_CODE),
         }
     }
 
@@ -68,6 +79,7 @@ impl RpcErrorData for EthErrors {
             EthErrors::ExecutionReverted { message, .. } => Some(message.clone()),
             EthErrors::BlockRangeExceeded { message, .. } => Some(message.clone()),
             EthErrors::EventsNotYetAvailable => Some(self.to_string()),
+            EthErrors::NullRound { .. } => Some(self.to_string()),
         }
     }
 
@@ -78,6 +90,8 @@ impl RpcErrorData for EthErrors {
             }
             EthErrors::BlockRangeExceeded { .. } => None,
             EthErrors::EventsNotYetAvailable => None,
+            // Lotus sends the epoch as a bare JSON number.
+            EthErrors::NullRound { epoch } => Some(serde_json::Value::from(*epoch)),
         }
     }
 }
@@ -109,6 +123,35 @@ mod tests {
         assert_eq!(
             server_err.message(),
             "block range exceeds maximum of 2880 (got 5000)"
+        );
+    }
+
+    #[test]
+    fn test_null_round_converts_to_server_error_matching_lotus() {
+        let err = EthErrors::null_round(3847253);
+        let server_err: ServerError = err.into();
+
+        // Must match Lotus's `ErrNullRound` exactly: code 12, message, numeric data.
+        assert_eq!(server_err.code(), NULL_ROUND_CODE);
+        assert_eq!(
+            server_err.message(),
+            "requested epoch was a null round (3847253)"
+        );
+        assert_eq!(
+            server_err.data().map(|d| d.to_string()),
+            Some("3847253".to_string())
+        );
+    }
+
+    #[test]
+    fn test_null_round_via_anyhow_preserves_code() {
+        let anyhow_err: anyhow::Error = EthErrors::null_round(42).into();
+        let server_err: ServerError = anyhow_err.into();
+
+        assert_eq!(server_err.code(), NULL_ROUND_CODE);
+        assert_eq!(
+            server_err.message(),
+            "requested epoch was a null round (42)"
         );
     }
 
