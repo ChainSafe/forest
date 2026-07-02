@@ -24,8 +24,7 @@ impl RpcMethod<0> for NetAddrsListen {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns a list of listening addresses and the peer ID.");
+    const DESCRIPTION: &'static str = "Returns a list of listening addresses and the peer ID.";
 
     type Params = ();
     type Ok = AddrInfo;
@@ -53,7 +52,7 @@ impl RpcMethod<0> for NetPeers {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns a list of currently connected peers.");
+    const DESCRIPTION: &'static str = "Returns a list of currently connected peers.";
 
     type Params = ();
     type Ok = Vec<AddrInfo>;
@@ -86,8 +85,8 @@ impl RpcMethod<1> for NetFindPeer {
     const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the known addresses of the peer with the given peer ID.");
+    const DESCRIPTION: &'static str =
+        "Returns the known addresses of the peer with the given peer ID.";
 
     type Params = (String,);
     type Ok = AddrInfo;
@@ -119,8 +118,8 @@ impl RpcMethod<0> for NetListening {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_listening");
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns whether the node is listening for network connections (always `true`).");
+    const DESCRIPTION: &'static str =
+        "Returns whether the node is listening for network connections (always `true`).";
 
     type Params = ();
     type Ok = bool;
@@ -140,8 +139,8 @@ impl RpcMethod<0> for NetInfo {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns peer and connection statistics for the node's libp2p network.");
+    const DESCRIPTION: &'static str =
+        "Returns peer and connection statistics for the node's libp2p network.";
 
     type Params = ();
     type Ok = NetInfoResult;
@@ -167,7 +166,7 @@ impl RpcMethod<1> for NetConnect {
     const PARAM_NAMES: [&'static str; 1] = ["peerAddressInfo"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> = Some("Connects to a specified peer.");
+    const DESCRIPTION: &'static str = "Connects to a specified peer.";
 
     type Params = (AddrInfo,);
     type Ok = ();
@@ -202,7 +201,7 @@ impl RpcMethod<1> for NetDisconnect {
     const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> = Some("Disconnects from the specified peer.");
+    const DESCRIPTION: &'static str = "Disconnects from the specified peer.";
 
     type Params = (String,);
     type Ok = ();
@@ -232,7 +231,7 @@ impl RpcMethod<1> for NetAgentVersion {
     const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the agent version string.");
+    const DESCRIPTION: &'static str = "Returns the agent version string.";
 
     type Params = (String,);
     type Ok = String;
@@ -259,8 +258,8 @@ impl RpcMethod<0> for NetAutoNatStatus {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the node's AutoNAT reachability status and observed public addresses.");
+    const DESCRIPTION: &'static str =
+        "Returns the node's AutoNAT reachability status and observed public addresses.";
 
     type Params = ();
     type Ok = NatStatusResult;
@@ -287,8 +286,8 @@ impl RpcMethod<0> for NetVersion {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_version");
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the current network ID (the EIP-155 chain ID) as a decimal string.");
+    const DESCRIPTION: &'static str =
+        "Returns the current network ID (the EIP-155 chain ID) as a decimal string.";
 
     type Params = ();
     type Ok = Arc<str>;
@@ -312,9 +311,7 @@ impl RpcMethod<1> for NetProtectAdd {
     const PARAM_NAMES: [&'static str; 1] = ["peerIdList"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Protects a peer from having its connection(s) pruned in the event the libp2p host reaches its maximum number of peers.",
-    );
+    const DESCRIPTION: &'static str = "Protects a peer from having its connection(s) pruned in the event the libp2p host reaches its maximum number of peers.";
 
     type Params = (Vec<String>,);
     type Ok = ();
@@ -350,7 +347,7 @@ impl RpcMethod<0> for NetProtectList {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the current list of protected peers.");
+    const DESCRIPTION: &'static str = "Returns the current list of protected peers.";
 
     type Params = ();
     type Ok = Vec<String>;
@@ -376,7 +373,7 @@ impl RpcMethod<1> for NetProtectRemove {
     const PARAM_NAMES: [&'static str; 1] = ["peerIdList"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
-    const DESCRIPTION: Option<&'static str> = Some("Remove a peer from the protected list.");
+    const DESCRIPTION: &'static str = "Remove a peer from the protected list.";
 
     type Params = (Vec<String>,);
     type Ok = ();
@@ -409,7 +406,7 @@ impl RpcMethod<3> for NetChainExchange {
     const PARAM_NAMES: [&'static str; 3] = ["startTipsetKey", "len", "options"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Admin;
-    const DESCRIPTION: Option<&'static str> = Some("Internal API for debugging chain exchange.");
+    const DESCRIPTION: &'static str = "Internal API for debugging chain exchange.";
 
     type Params = (ApiTipsetKey, u64, u64);
     type Ok = String;

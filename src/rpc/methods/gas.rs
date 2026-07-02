@@ -33,8 +33,7 @@ impl RpcMethod<3> for GasEstimateFeeCap {
     const PARAM_NAMES: [&'static str; 3] = ["message", "maxQueueBlocks", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the estimated fee cap for the given parameters.");
+    const DESCRIPTION: &'static str = "Returns the estimated fee cap for the given parameters.";
 
     type Params = (Message, i64, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -81,8 +80,7 @@ impl RpcMethod<4> for GasEstimateGasPremium {
     ];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the estimated gas premium for the given parameters.");
+    const DESCRIPTION: &'static str = "Returns the estimated gas premium for the given parameters.";
 
     type Params = (u64, Address, i64, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -193,8 +191,7 @@ impl RpcMethod<2> for GasEstimateGasLimit {
     const PARAM_NAMES: [&'static str; 2] = ["message", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the estimated gas limit for the given parameters.");
+    const DESCRIPTION: &'static str = "Returns the estimated gas limit for the given parameters.";
 
     type Params = (Message, ApiTipsetKey);
     type Ok = i64;
@@ -287,8 +284,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
     const PARAM_NAMES: [&'static str; 3] = ["message", "messageSendSpec", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the estimated gas for the given parameters.");
+    const DESCRIPTION: &'static str = "Returns the estimated gas for the given parameters.";
 
     type Params = (Message, Option<MessageSendSpec>, ApiTipsetKey);
     type Ok = Message;

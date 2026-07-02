@@ -120,9 +120,7 @@ impl RpcMethod<2> for StateCall {
     const PARAM_NAMES: [&'static str; 2] = ["message", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Runs the given message and returns its result without persisting changes. The message is applied to the tipset's parent state.",
-    );
+    const DESCRIPTION: &'static str = "Runs the given message and returns its result without persisting changes. The message is applied to the tipset's parent state.";
 
     type Params = (Message, ApiTipsetKey);
     type Ok = ApiInvocResult;
@@ -142,9 +140,8 @@ impl RpcMethod<2> for StateReplay {
     const PARAM_NAMES: [&'static str; 2] = ["tipsetKey", "messageCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Replays a given message, assuming it was included in a block in the specified tipset.",
-    );
+    const DESCRIPTION: &'static str =
+        "Replays a given message, assuming it was included in a block in the specified tipset.";
 
     type Params = (ApiTipsetKey, Cid);
     type Ok = ApiInvocResult;
@@ -167,8 +164,7 @@ impl RpcMethod<0> for StateNetworkName {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the name of the network the node is synced to.");
+    const DESCRIPTION: &'static str = "Returns the name of the network the node is synced to.";
 
     type Params = ();
     type Ok = String;
@@ -192,8 +188,7 @@ impl RpcMethod<1> for StateNetworkVersion {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the network version at the given tipset.");
+    const DESCRIPTION: &'static str = "Returns the network version at the given tipset.";
 
     type Params = (ApiTipsetKey,);
     type Ok = NetworkVersion;
@@ -217,8 +212,8 @@ impl RpcMethod<2> for StateAccountKey {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the public key address for the given ID address (secp and bls accounts).");
+    const DESCRIPTION: &'static str =
+        "Returns the public key address for the given ID address (secp and bls accounts).";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Address;
@@ -245,8 +240,7 @@ impl RpcMethod<2> for StateLookupID {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Retrieves the ID address of the given address.");
+    const DESCRIPTION: &'static str = "Retrieves the ID address of the given address.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Address;
@@ -269,8 +263,7 @@ impl RpcMethod<1> for StateVerifiedRegistryRootKey {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the address of the Verified Registry's root key.");
+    const DESCRIPTION: &'static str = "Returns the address of the Verified Registry's root key.";
 
     type Params = (ApiTipsetKey,);
     type Ok = Address;
@@ -295,7 +288,7 @@ impl RpcMethod<2> for StateVerifierStatus {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the data cap for the given address.");
+    const DESCRIPTION: &'static str = "Returns the data cap for the given address.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Option<StoragePower>;
@@ -319,8 +312,7 @@ impl RpcMethod<2> for StateGetActor {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the nonce and balance for the specified actor.");
+    const DESCRIPTION: &'static str = "Returns the nonce and balance for the specified actor.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Option<ActorState>;
@@ -343,8 +335,7 @@ impl RpcMethod<2> for StateGetActorV2 {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetSelector"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the nonce and balance for the specified actor.");
+    const DESCRIPTION: &'static str = "Returns the nonce and balance for the specified actor.";
 
     type Params = (Address, TipsetSelector);
     type Ok = Option<ActorState>;
@@ -366,8 +357,8 @@ impl RpcMethod<2> for StateGetID {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetSelector"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Retrieves the ID address for the specified address at the selected tipset.");
+    const DESCRIPTION: &'static str =
+        "Retrieves the ID address for the specified address at the selected tipset.";
 
     type Params = (Address, TipsetSelector);
     type Ok = Address;
@@ -403,8 +394,8 @@ impl RpcMethod<2> for StateLookupRobustAddress {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the public key address for non-account addresses (e.g., multisig, miners).");
+    const DESCRIPTION: &'static str =
+        "Returns the public key address for non-account addresses (e.g., multisig, miners).";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Address;
@@ -573,9 +564,8 @@ impl RpcMethod<2> for StateMarketBalance {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the Escrow and Locked balances of the specified address in the Storage Market.",
-    );
+    const DESCRIPTION: &'static str =
+        "Returns the Escrow and Locked balances of the specified address in the Storage Market.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = MarketBalance;
@@ -599,8 +589,7 @@ impl RpcMethod<1> for StateMarketDeals {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns information about every deal in the Storage Market.");
+    const DESCRIPTION: &'static str = "Returns information about every deal in the Storage Market.";
 
     type Params = (ApiTipsetKey,);
     type Ok = HashMap<String, ApiMarketDeal>;
@@ -647,8 +636,7 @@ impl RpcMethod<2> for StateMinerInfo {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns information about the specified miner.");
+    const DESCRIPTION: &'static str = "Returns information about the specified miner.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = MinerInfo;
@@ -670,8 +658,8 @@ impl RpcMethod<2> for StateMinerActiveSectors {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns information about sectors actively proven by a given miner.");
+    const DESCRIPTION: &'static str =
+        "Returns information about sectors actively proven by a given miner.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Vec<SectorOnChainInfo>;
@@ -708,9 +696,7 @@ impl RpcMethod<2> for StateMinerAllocated {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns a bitfield containing all sector numbers marked as allocated to the provided miner ID.",
-    );
+    const DESCRIPTION: &'static str = "Returns a bitfield containing all sector numbers marked as allocated to the provided miner ID.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = BitField;
@@ -736,8 +722,7 @@ impl RpcMethod<3> for StateMinerPartitions {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "deadlineIndex", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns all partitions in the specified deadline.");
+    const DESCRIPTION: &'static str = "Returns all partitions in the specified deadline.";
 
     type Params = (Address, u64, ApiTipsetKey);
     type Ok = Vec<MinerPartitions>;
@@ -775,9 +760,7 @@ impl RpcMethod<3> for StateMinerSectors {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectors", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns information about the given miner's sectors. If no filter is provided, all sectors are included.",
-    );
+    const DESCRIPTION: &'static str = "Returns information about the given miner's sectors. If no filter is provided, all sectors are included.";
 
     type Params = (Address, Option<BitField>, ApiTipsetKey);
     type Ok = Vec<SectorOnChainInfo>;
@@ -803,8 +786,8 @@ impl RpcMethod<2> for StateMinerSectorCount {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the number of sectors in a miner's sector and proving sets.");
+    const DESCRIPTION: &'static str =
+        "Returns the number of sectors in a miner's sector and proving sets.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = MinerSectors;
@@ -843,8 +826,7 @@ impl RpcMethod<3> for StateMinerSectorAllocated {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Checks if a sector number is marked as allocated.");
+    const DESCRIPTION: &'static str = "Checks if a sector number is marked as allocated.";
 
     type Params = (Address, SectorNumber, ApiTipsetKey);
     type Ok = bool;
@@ -872,7 +854,7 @@ impl RpcMethod<2> for StateMinerPower {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the power of the specified miner.");
+    const DESCRIPTION: &'static str = "Returns the power of the specified miner.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = MinerPower;
@@ -896,8 +878,7 @@ impl RpcMethod<2> for StateMinerDeadlines {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns all proving deadlines for the given miner.");
+    const DESCRIPTION: &'static str = "Returns all proving deadlines for the given miner.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Vec<ApiDeadline>;
@@ -932,9 +913,8 @@ impl RpcMethod<2> for StateMinerProvingDeadline {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Calculates the deadline and related details for a given epoch during a proving period.",
-    );
+    const DESCRIPTION: &'static str =
+        "Calculates the deadline and related details for a given epoch during a proving period.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = ApiDeadlineInfo;
@@ -965,8 +945,8 @@ impl RpcMethod<2> for StateMinerFaults {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns a bitfield of the faulty sectors for the given miner.");
+    const DESCRIPTION: &'static str =
+        "Returns a bitfield of the faulty sectors for the given miner.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = BitField;
@@ -990,8 +970,8 @@ impl RpcMethod<2> for StateMinerRecoveries {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns a bitfield of recovering sectors for the given miner.");
+    const DESCRIPTION: &'static str =
+        "Returns a bitfield of recovering sectors for the given miner.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = BitField;
@@ -1015,8 +995,8 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the portion of a miner's balance available for withdrawal or spending.");
+    const DESCRIPTION: &'static str =
+        "Returns the portion of a miner's balance available for withdrawal or spending.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -1090,8 +1070,8 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the initial pledge collateral for the specified miner's sector.");
+    const DESCRIPTION: &'static str =
+        "Returns the initial pledge collateral for the specified miner's sector.";
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -1152,8 +1132,8 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the sector precommit deposit for the specified miner.");
+    const DESCRIPTION: &'static str =
+        "Returns the sector precommit deposit for the specified miner.";
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -1207,9 +1187,7 @@ impl RpcMethod<2> for StateGetReceipt {
     const PARAM_NAMES: [&'static str; 2] = ["cid", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // deprecated in V1
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the receipt for the message with the given CID at the specified tipset (deprecated in V1).",
-    );
+    const DESCRIPTION: &'static str = "Returns the receipt for the message with the given CID at the specified tipset (deprecated in V1).";
 
     type Params = (Cid, ApiTipsetKey);
     type Ok = Receipt;
@@ -1244,9 +1222,7 @@ impl RpcMethod<2> for StateWaitMsgV0 {
     const PARAM_NAMES: [&'static str; 2] = ["messageCid", "confidence"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Searches the chain for the given message and, if not found, blocks until it appears on-chain and reaches the required confidence depth.",
-    );
+    const DESCRIPTION: &'static str = "Searches the chain for the given message and, if not found, blocks until it appears on-chain and reaches the required confidence depth.";
 
     type Params = (Cid, i64);
     type Ok = MessageLookup;
@@ -1288,9 +1264,7 @@ impl RpcMethod<4> for StateWaitMsg {
         ["messageCid", "confidence", "lookbackLimit", "allowReplaced"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V1); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "StateWaitMsg searches up to limit epochs for a message in the chain. If not found, it blocks until the message appears on-chain and reaches the required confidence depth.",
-    );
+    const DESCRIPTION: &'static str = "StateWaitMsg searches up to limit epochs for a message in the chain. If not found, it blocks until the message appears on-chain and reaches the required confidence depth.";
 
     type Params = (Cid, i64, ChainEpoch, bool);
     type Ok = MessageLookup;
@@ -1332,9 +1306,7 @@ impl RpcMethod<4> for StateSearchMsg {
         ["tipsetKey", "messageCid", "lookBackLimit", "allowReplaced"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the receipt and tipset the specified message was included in, or null if the message was not found.",
-    );
+    const DESCRIPTION: &'static str = "Returns the receipt and tipset the specified message was included in, or null if the message was not found.";
 
     type Params = (ApiTipsetKey, Cid, i64, bool);
     type Ok = Option<MessageLookup>;
@@ -1384,9 +1356,7 @@ impl RpcMethod<2> for StateSearchMsgLimited {
     const PARAM_NAMES: [&'static str; 2] = ["messageCid", "lookBackLimit"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Not supported in V1
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed, or null if it was not found.",
-    );
+    const DESCRIPTION: &'static str = "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed, or null if it was not found.";
     type Params = (Cid, i64);
     type Ok = Option<MessageLookup>;
 
@@ -1444,9 +1414,7 @@ impl RpcMethod<2> for StateFetchRoot {
     const PARAM_NAMES: [&'static str; 2] = ["rootCid", "saveToFile"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Traverses the IPLD graph under the given root CID, fetching any missing nodes over the network, and optionally writes them to a CAR file.",
-    );
+    const DESCRIPTION: &'static str = "Traverses the IPLD graph under the given root CID, fetching any missing nodes over the network, and optionally writes them to a CAR file.";
 
     type Params = (Cid, Option<PathBuf>);
     type Ok = String;
@@ -1619,9 +1587,7 @@ impl RpcMethod<3> for ForestStateCompute {
     const PARAM_NAMES: [&'static str; 3] = ["epoch", "nEpochs", "forceRecompute"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Forest-specific RPC method that recomputes tipset state over an epoch range. It reuses cached executed tipsets only when the cached state root is loadable; otherwise it recomputes. Unlike Filecoin.StateCompute, it does not apply caller-supplied messages or return execution traces.",
-    );
+    const DESCRIPTION: &'static str = "Forest-specific RPC method that recomputes tipset state over an epoch range. It reuses cached executed tipsets only when the cached state root is loadable; otherwise it recomputes. Unlike Filecoin.StateCompute, it does not apply caller-supplied messages or return execution traces.";
 
     type Params = (ChainEpoch, Option<NonZeroUsize>, Option<bool>);
     type Ok = Vec<ForestComputeStateOutput>;
@@ -1721,8 +1687,7 @@ impl RpcMethod<3> for StateCompute {
     const PARAM_NAMES: [&'static str; 3] = ["height", "messages", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Applies the given messages on the given tipset");
+    const DESCRIPTION: &'static str = "Applies the given messages on the given tipset";
 
     type Params = (ChainEpoch, Vec<Message>, ApiTipsetKey);
     type Ok = ComputeStateOutput;
@@ -1776,7 +1741,7 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
     const PARAM_NAMES: [&'static str; 4] = ["personalization", "randEpoch", "entropy", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Samples the chain for randomness.");
+    const DESCRIPTION: &'static str = "Samples the chain for randomness.";
 
     type Params = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
     type Ok = Vec<u8>;
@@ -1806,7 +1771,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
     const PARAM_NAMES: [&'static str; 2] = ["randEpoch", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Samples the chain for randomness.");
+    const DESCRIPTION: &'static str = "Samples the chain for randomness.";
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Vec<u8>;
@@ -1831,9 +1796,7 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     const PARAM_NAMES: [&'static str; 4] = ["personalization", "randEpoch", "entropy", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the beacon entry for the specified Filecoin epoch. If unavailable, the call blocks until it becomes available.",
-    );
+    const DESCRIPTION: &'static str = "Returns the beacon entry for the specified Filecoin epoch. If unavailable, the call blocks until it becomes available.";
 
     type Params = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
     type Ok = Vec<u8>;
@@ -1863,7 +1826,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
     const PARAM_NAMES: [&'static str; 2] = ["randEpoch", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Samples the beacon for randomness.");
+    const DESCRIPTION: &'static str = "Samples the beacon for randomness.";
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Vec<u8>;
@@ -1888,7 +1851,7 @@ impl RpcMethod<2> for StateReadState {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the state of the specified actor.");
+    const DESCRIPTION: &'static str = "Returns the state of the specified actor.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = ApiActorState;
@@ -1918,7 +1881,7 @@ impl RpcMethod<4> for StateDecodeParams {
     const PARAM_NAMES: [&'static str; 4] = ["address", "method", "params", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Decode the provided method params.");
+    const DESCRIPTION: &'static str = "Decode the provided method params.";
 
     type Params = (Address, MethodNum, Vec<u8>, ApiTipsetKey);
     type Ok = serde_json::Value;
@@ -1949,8 +1912,8 @@ impl RpcMethod<1> for StateCirculatingSupply {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the exact circulating supply of Filecoin at the given tipset.");
+    const DESCRIPTION: &'static str =
+        "Returns the exact circulating supply of Filecoin at the given tipset.";
 
     type Params = (ApiTipsetKey,);
     type Ok = TokenAmount;
@@ -1976,9 +1939,7 @@ impl RpcMethod<2> for StateVerifiedClientStatus {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the data cap for the given address. Returns null if no entry exists in the data cap table.",
-    );
+    const DESCRIPTION: &'static str = "Returns the data cap for the given address. Returns null if no entry exists in the data cap table.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Option<BigInt>;
@@ -2001,8 +1962,8 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns an approximation of Filecoin's circulating supply at the given tipset.");
+    const DESCRIPTION: &'static str =
+        "Returns an approximation of Filecoin's circulating supply at the given tipset.";
 
     type Params = (ApiTipsetKey,);
     type Ok = CirculatingSupply;
@@ -2029,8 +1990,8 @@ impl RpcMethod<1> for StateListMiners {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the addresses of every miner with claimed power in the Power Actor.");
+    const DESCRIPTION: &'static str =
+        "Returns the addresses of every miner with claimed power in the Power Actor.";
 
     type Params = (ApiTipsetKey,);
     type Ok = Vec<Address>;
@@ -2054,8 +2015,7 @@ impl RpcMethod<1> for StateListActors {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the addresses of every actor in the state.");
+    const DESCRIPTION: &'static str = "Returns the addresses of every actor in the state.";
 
     type Params = (ApiTipsetKey,);
     type Ok = Vec<Address>;
@@ -2088,7 +2048,7 @@ impl RpcMethod<2> for StateMarketStorageDeal {
     const PARAM_NAMES: [&'static str; 2] = ["dealId", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns information about the specified deal.");
+    const DESCRIPTION: &'static str = "Returns information about the specified deal.";
 
     type Params = (DealID, ApiTipsetKey);
     type Ok = ApiMarketDeal;
@@ -2118,8 +2078,8 @@ impl RpcMethod<1> for StateMarketParticipants {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the Escrow and Locked balances of all participants in the Storage Market.");
+    const DESCRIPTION: &'static str =
+        "Returns the Escrow and Locked balances of all participants in the Storage Market.";
 
     type Params = (ApiTipsetKey,);
     type Ok = HashMap<String, MarketBalance>;
@@ -2156,9 +2116,7 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
     const PARAM_NAMES: [&'static str; 3] = ["size", "verified", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the minimum and maximum collateral a storage provider can issue, based on deal size and verified status.",
-    );
+    const DESCRIPTION: &'static str = "Returns the minimum and maximum collateral a storage provider can issue, based on deal size and verified status.";
 
     type Params = (u64, bool, ApiTipsetKey);
     type Ok = DealCollateralBounds;
@@ -2217,8 +2175,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the beacon entries for the specified epoch.");
+    const DESCRIPTION: &'static str = "Returns the beacon entries for the specified epoch.";
 
     type Params = (ChainEpoch,);
     type Ok = BeaconEntry;
@@ -2257,9 +2214,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the on-chain pre-commit information for the given miner's sector, erroring if the sector is not precommitted.",
-    );
+    const DESCRIPTION: &'static str = "Returns the on-chain pre-commit information for the given miner's sector, erroring if the sector is not precommitted.";
 
     type Params = (Address, u64, ApiTipsetKey);
     type Ok = SectorPreCommitOnChainInfo;
@@ -2286,9 +2241,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V1); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the PreCommit information for the specified miner's sector. Returns null if not precommitted.",
-    );
+    const DESCRIPTION: &'static str = "Returns the PreCommit information for the specified miner's sector. Returns null if not precommitted.";
 
     type Params = (Address, u64, ApiTipsetKey);
     type Ok = Option<SectorPreCommitOnChainInfo>;
@@ -2627,9 +2580,7 @@ impl RpcMethod<3> for StateSectorGetInfo {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns on-chain information for the specified miner's sector. Returns null if not found. Use StateSectorExpiration for accurate expiration epochs.",
-    );
+    const DESCRIPTION: &'static str = "Returns on-chain information for the specified miner's sector. Returns null if not found. Use StateSectorExpiration for accurate expiration epochs.";
 
     type Params = (Address, u64, ApiTipsetKey);
     type Ok = Option<SectorOnChainInfo>;
@@ -2671,8 +2622,8 @@ impl RpcMethod<3> for StateSectorExpiration {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the epoch at which the specified sector will expire.");
+    const DESCRIPTION: &'static str =
+        "Returns the epoch at which the specified sector will expire.";
 
     type Params = (Address, u64, ApiTipsetKey);
     type Ok = SectorExpiration;
@@ -2732,8 +2683,7 @@ impl RpcMethod<3> for StateSectorPartition {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Finds the deadline/partition for the specified sector.");
+    const DESCRIPTION: &'static str = "Finds the deadline/partition for the specified sector.";
 
     type Params = (Address, u64, ApiTipsetKey);
     type Ok = SectorLocation;
@@ -2764,8 +2714,8 @@ impl RpcMethod<3> for StateListMessages {
     const PARAM_NAMES: [&'static str; 3] = ["messageFilter", "tipsetKey", "maxHeight"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns all messages with a matching to or from address up to the given height.");
+    const DESCRIPTION: &'static str =
+        "Returns all messages with a matching to or from address up to the given height.";
 
     type Params = (MessageFilter, ApiTipsetKey, i64);
     type Ok = Vec<Cid>;
@@ -2826,8 +2776,7 @@ impl RpcMethod<3> for StateGetClaim {
     const PARAM_NAMES: [&'static str; 3] = ["address", "claimId", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the claim for a given address and claim ID.");
+    const DESCRIPTION: &'static str = "Returns the claim for a given address and claim ID.";
 
     type Params = (Address, ClaimID, ApiTipsetKey);
     type Ok = Option<Claim>;
@@ -2849,7 +2798,7 @@ impl RpcMethod<2> for StateGetClaims {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns all claims for a given provider.");
+    const DESCRIPTION: &'static str = "Returns all claims for a given provider.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = HashMap<ClaimID, Claim>;
@@ -2885,8 +2834,8 @@ impl RpcMethod<1> for StateGetAllClaims {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns all claims available in the verified registry actor.");
+    const DESCRIPTION: &'static str =
+        "Returns all claims available in the verified registry actor.";
 
     type Params = (ApiTipsetKey,);
     type Ok = HashMap<ClaimID, Claim>;
@@ -2908,8 +2857,8 @@ impl RpcMethod<3> for StateGetAllocation {
     const PARAM_NAMES: [&'static str; 3] = ["address", "allocationId", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the allocation for a given address and allocation ID.");
+    const DESCRIPTION: &'static str =
+        "Returns the allocation for a given address and allocation ID.";
 
     type Params = (Address, AllocationID, ApiTipsetKey);
     type Ok = Option<Allocation>;
@@ -2933,7 +2882,7 @@ impl RpcMethod<2> for StateGetAllocations {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns all allocations for a given client.");
+    const DESCRIPTION: &'static str = "Returns all allocations for a given client.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = HashMap<AllocationID, Allocation>;
@@ -3128,8 +3077,8 @@ impl RpcMethod<1> for crate::rpc::prelude::StateGetAllAllocations {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns all allocations available in the verified registry actor.");
+    const DESCRIPTION: &'static str =
+        "Returns all allocations available in the verified registry actor.";
 
     type Params = (ApiTipsetKey,);
     type Ok = HashMap<AllocationID, Allocation>;
@@ -3151,8 +3100,7 @@ impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
     const PARAM_NAMES: [&'static str; 2] = ["dealId", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the allocation ID for the specified pending deal.");
+    const DESCRIPTION: &'static str = "Returns the allocation ID for the specified pending deal.";
 
     type Params = (DealID, ApiTipsetKey);
     type Ok = AllocationID;
@@ -3187,9 +3135,7 @@ impl RpcMethod<2> for StateGetAllocationForPendingDeal {
     const PARAM_NAMES: [&'static str; 2] = ["dealId", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the allocation for the specified pending deal. Returns null if no pending allocation is found.",
-    );
+    const DESCRIPTION: &'static str = "Returns the allocation for the specified pending deal. Returns null if no pending allocation is found.";
 
     type Params = (DealID, ApiTipsetKey);
     type Ok = Option<Allocation>;
@@ -3218,7 +3164,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns current network parameters.");
+    const DESCRIPTION: &'static str = "Returns current network parameters.";
 
     type Params = ();
     type Ok = NetworkParams;
@@ -3375,9 +3321,7 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
     ];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset.",
-    );
+    const DESCRIPTION: &'static str = "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset.";
 
     type Params = (ChainEpoch, SectorSize, u64, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -3507,8 +3451,8 @@ impl RpcMethod<0> for StateActorInfo {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the builtin actor information for the current network.");
+    const DESCRIPTION: &'static str =
+        "Returns the builtin actor information for the current network.";
 
     type Params = ();
     type Ok = StateActorCodeCidsOutput;
