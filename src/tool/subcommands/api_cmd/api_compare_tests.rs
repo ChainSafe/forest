@@ -2871,6 +2871,7 @@ pub(super) async fn run_tests(
                     success,
                     &test_result,
                     &test.request.params,
+                    test.request.api_path,
                 );
 
                 // Dump test data if configured
