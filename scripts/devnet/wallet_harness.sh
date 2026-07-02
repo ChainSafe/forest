@@ -13,8 +13,6 @@ export FOREST_WALLET_PATH="${FOREST_WALLET_PATH:-forest-wallet}"
 export DEVNET_TEST_FUND_AMT="${DEVNET_TEST_FUND_AMT:-100 FIL}"
 
 function devnet_wallet_env_init {
-  set -euo pipefail
-
   local token
   token=$(docker exec forest cat "${FOREST_DATA_DIR}/token.jwt")
   export FULLNODE_API_INFO="${token}:/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http"
@@ -46,13 +44,13 @@ function devnet_wallet_env_init {
   # Wait for the funding transfer to mine.
   local attempt balance
   for attempt in $(seq 1 120); do
-    balance="$(${FOREST_WALLET_PATH} --remote-wallet balance "${test_addr}" --exact-balance)"
-    if [[ "${balance}" != "0 FIL" ]]; then
+    balance="$(${FOREST_WALLET_PATH} --remote-wallet balance "${test_addr}" --exact-balance)" || balance=""
+    if [[ -n "${balance}" && "${balance}" != "0 FIL" ]]; then
       break
     fi
     sleep 5
   done
-  if [[ "${balance}" == "0 FIL" ]]; then
+  if [[ -z "${balance}" || "${balance}" == "0 FIL" ]]; then
     echo "ERROR: dedicated test wallet ${test_addr} was not funded in time" >&2
     return 1
   fi
