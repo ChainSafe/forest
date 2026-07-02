@@ -6,7 +6,7 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::networks::{ChainConfig, Height};
+use crate::{db::EthMappingsStore as _, networks::{ChainConfig, Height}};
 use crate::prelude::*;
 use crate::rpc::{
     chain::ChainGetTipSetFinalityStatus,
@@ -130,17 +130,11 @@ impl ChainStore {
         let ec_calculator_finalized_epoch = Arc::new(AtomicI64::new(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(&chain_index, &chain_config, &head),
         ));
-        let chain_index = chain_index.with_is_tipset_finalized(Arc::new({
-            let f3_finalized_tipset = f3_finalized_tipset.shallow_clone();
+        let chain_index = chain_index.with_is_epoch_finalized(Arc::new({
             let ec_calculator_finalized_epoch = ec_calculator_finalized_epoch.shallow_clone();
-            move |ts| {
-                let finalized = f3_finalized_tipset
-                    .load()
-                    .as_ref()
-                    .map(|ts| ts.epoch())
-                    .unwrap_or_default()
-                    .max(ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire));
-                ts.epoch() <= finalized
+            move |epoch| {
+                let finalized = ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire);
+                epoch <= finalized
             }
         }));
         Ok(Self {
@@ -188,6 +182,7 @@ impl ChainStore {
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
         head.key().save(self.db())?;
         self.db().set_heaviest_tipset_key(head.key())?;
+        self.db().set_tipset_key_at_epoch(&head)?;
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
         self.ec_calculator_finalized_epoch.store(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(
