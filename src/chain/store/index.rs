@@ -47,7 +47,7 @@ impl ShallowClone for ChainIndex {
 pub enum ResolveNullTipset {
     TakeNewer,
     TakeOlder,
-    /// Return [`Error::NullRound`] instead of resolving to a neighbouring tipset.
+    /// Return [`Error::NullRound`] instead of resolving to a neighboring tipset.
     Fail,
 }
 
