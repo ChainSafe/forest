@@ -3,13 +3,14 @@
 
 use super::ReportMode;
 use crate::prelude::*;
-use crate::rpc::{self, FilterList, Permission};
+use crate::rpc::{self, ApiPaths, FilterList, Permission};
 use crate::tool::subcommands::api_cmd::api_compare_tests::TestSummary;
 use ahash::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, DurationMilliSeconds, DurationSeconds, serde_as};
 use similar::{ChangeTag, TextDiff};
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::time::{Duration, Instant};
 use tabled::{builder::Builder, settings::Style};
@@ -123,6 +124,10 @@ struct MethodReport {
     /// Current testing status
     status: MethodTestStatus,
 
+    /// API versions (`v0`/`v1`/`v2`) this method was exercised under
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    tested_api_versions: BTreeSet<ApiPaths>,
+
     // Performance metrics (always included)
     #[serde(skip_serializing_if = "Option::is_none")]
     performance: Option<PerformanceMetrics>,
@@ -177,6 +182,7 @@ impl ReportBuilder {
                     } else {
                         MethodTestStatus::NotTested
                     },
+                    tested_api_versions: BTreeSet::new(),
                     performance: None,
                     success_test_params: vec![],
                     failed_test_params: vec![],
@@ -200,8 +206,11 @@ impl ReportBuilder {
         success: bool,
         test_result: &super::api_compare_tests::TestResult,
         test_params: &serde_json::Value,
+        api_path: ApiPaths,
     ) {
         if let Some(report) = self.method_reports.get_mut(method_name) {
+            report.tested_api_versions.insert(api_path);
+
             // Update test status
             match &mut report.status {
                 MethodTestStatus::NotTested | MethodTestStatus::Filtered => {
@@ -294,7 +303,7 @@ impl ReportBuilder {
         }
 
         let mut builder = Builder::default();
-        builder.push_record(["RPC Method", "Forest", "Lotus", "Status"]);
+        builder.push_record(["RPC Method", "Forest", "Lotus", "API Versions", "Status"]);
 
         let mut methods: Vec<&MethodReport> = self.method_reports.values().collect();
         methods.sort_by(|a, b| a.name.cmp(&b.name));
@@ -339,6 +348,7 @@ impl ReportBuilder {
                         method_name.as_str(),
                         &format!("{success_count}/{total_count}"),
                         &format!("{success_count}/{total_count}"),
+                        &format_api_versions(&report.tested_api_versions),
                         &status,
                     ]);
                 }
@@ -412,6 +422,24 @@ impl ReportBuilder {
     }
 }
 
+/// Human-readable label for an API version, e.g. `v0`/`v1`/`v2`.
+fn api_path_label(api_path: ApiPaths) -> &'static str {
+    match api_path {
+        ApiPaths::V0 => "v0",
+        ApiPaths::V1 => "v1",
+        ApiPaths::V2 => "v2",
+    }
+}
+
+/// Format a set of tested API versions into a comma-separated string, e.g. `v0, v1`.
+fn format_api_versions(versions: &BTreeSet<ApiPaths>) -> String {
+    versions
+        .iter()
+        .map(|api_path| api_path_label(*api_path))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// Generate a diff between forest and lotus responses
 pub fn generate_diff(forest_json: &serde_json::Value, lotus_json: &serde_json::Value) -> String {
     let forest_pretty = serde_json::to_string_pretty(forest_json).unwrap_or_default();
@@ -458,6 +486,17 @@ mod tests {
         let durations: Vec<Duration> = vec![];
         let metrics = PerformanceMetrics::from_durations(&durations);
         assert!(metrics.is_none());
+    }
+
+    #[test]
+    fn test_format_api_versions() {
+        assert_eq!(format_api_versions(&BTreeSet::new()), "");
+        assert_eq!(format_api_versions(&BTreeSet::from([ApiPaths::V1])), "v1");
+        // Ordering is deterministic regardless of insertion order.
+        assert_eq!(
+            format_api_versions(&BTreeSet::from([ApiPaths::V2, ApiPaths::V0, ApiPaths::V1])),
+            "v0, v1, v2"
+        );
     }
 
     #[test]
