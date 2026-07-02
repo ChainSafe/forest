@@ -100,13 +100,12 @@ impl StateManager {
                 .get_actor(&message_from_id, *parent_tipset.parent_state())
                 .map_err(|e| Error::State(e.to_string()))?;
 
-            if parent_actor_state.is_none()
+            if (parent_actor_state.is_none()
                 || (current_actor_state.sequence > message_sequence
-                    && parent_actor_state.as_ref().unwrap().sequence <= message_sequence)
+                    && parent_actor_state.as_ref().unwrap().sequence <= message_sequence))
+                && let Some(receipt) =
+                    self.tipset_executed_message(&current, message, allow_replaced)?
             {
-                let receipt = self
-                    .tipset_executed_message(&current, message, allow_replaced)?
-                    .context("Failed to get receipt with tipset_executed_message")?;
                 return Ok(Some((current, receipt)));
             }
 
