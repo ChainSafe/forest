@@ -28,6 +28,8 @@ use crate::blocks::Tipset;
 use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
+use crate::eth::EthChainId;
+use crate::message_pool::MpoolSubscriber;
 use crate::prelude::*;
 use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
@@ -136,12 +138,20 @@ pub enum EventRevertStatus {
 }
 
 impl EthEventHandler {
+    #[cfg(test)]
     pub fn new() -> Self {
-        let config = EventsConfig::default();
-        Self::from_config(&config)
+        Self::from_config(
+            &EventsConfig::default(),
+            crate::networks::mainnet::ETH_CHAIN_ID,
+            MpoolSubscriber::dummy(),
+        )
     }
 
-    pub fn from_config(config: &EventsConfig) -> Self {
+    pub fn from_config(
+        config: &EventsConfig,
+        eth_chain_id: EthChainId,
+        mpool_subscriber: MpoolSubscriber,
+    ) -> Self {
         let max_filters: usize = env_or_default("FOREST_MAX_FILTERS", 100);
         let max_filter_results = std::env::var("FOREST_MAX_FILTER_RESULTS")
             .ok()
@@ -167,7 +177,11 @@ impl EthEventHandler {
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
         let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
-        let mempool_filter_manager = Some(MempoolFilterManager::new(max_filter_results));
+        let mempool_filter_manager = Some(MempoolFilterManager::new(
+            max_filter_results,
+            eth_chain_id,
+            mpool_subscriber,
+        ));
 
         Self {
             filter_store,
@@ -1220,8 +1234,8 @@ mod tests {
         assert!(result.is_ok(), "Expected successful block filter creation");
     }
 
-    #[test]
-    fn test_eth_new_pending_transaction_filter() {
+    #[tokio::test]
+    async fn test_eth_new_pending_transaction_filter() {
         let eth_event_handler = EthEventHandler::new();
         let result = eth_event_handler.eth_new_pending_transaction_filter();
 
@@ -1231,8 +1245,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_eth_uninstall_filter() {
+    #[tokio::test]
+    async fn test_eth_uninstall_filter() {
         let event_handler = EthEventHandler::new();
         let mut filter_ids = Vec::new();
         let filter_spec = EthFilterSpec {

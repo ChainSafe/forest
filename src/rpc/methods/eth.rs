@@ -2702,15 +2702,7 @@ impl EthGetTransactionHashByCid {
         if let Ok(smsgs) = smsgs_result
             && let Some(smsg) = smsgs.first()
         {
-            let hash = if smsg.is_delegated() {
-                let (_, tx) = eth_tx_from_signed_eth_message(smsg, eth_chain_id)?;
-                tx.eth_hash()?.into()
-            } else if smsg.is_secp256k1() {
-                smsg.cid().into()
-            } else {
-                smsg.message().cid().into()
-            };
-            return Ok(Some(hash));
+            return Ok(Some(eth_tx_hash_from_signed_message(smsg, eth_chain_id)?));
         }
 
         let msg_result = crate::chain::get_chain_message(db, &cid);
@@ -3272,29 +3264,6 @@ fn eth_filter_logs_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<Vec
         .collect()
 }
 
-fn eth_filter_logs_from_messages(
-    ctx: &Ctx,
-    events: &[CollectedEvent],
-) -> anyhow::Result<Vec<EthHash>> {
-    events
-        .iter()
-        .filter_map(|event| {
-            match eth_tx_hash_from_message_cid(
-                ctx.db(),
-                &event.msg_cid,
-                ctx.state_manager.chain_config().eth_chain_id,
-            ) {
-                Ok(Some(hash)) => Some(Ok(hash)),
-                Ok(None) => {
-                    tracing::warn!("Ignoring event");
-                    None
-                }
-                Err(err) => Some(Err(err)),
-            }
-        })
-        .collect()
-}
-
 fn eth_filter_logs_from_events(
     ctx: &Ctx,
     events: &[CollectedEvent],
@@ -3434,15 +3403,6 @@ fn eth_filter_result_from_events(
 fn eth_filter_result_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<EthFilterResult> {
     Ok(EthFilterResult::Hashes(eth_filter_logs_from_tipsets(
         events,
-    )?))
-}
-
-fn eth_filter_result_from_messages(
-    ctx: &Ctx,
-    events: &[CollectedEvent],
-) -> anyhow::Result<EthFilterResult> {
-    Ok(EthFilterResult::Hashes(eth_filter_logs_from_messages(
-        ctx, events,
     )?))
 }
 
@@ -3616,36 +3576,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                 return Ok(eth_filter_result_from_tipsets(&events)?);
             }
             if let Some(mempool_filter) = filter.as_any().downcast_ref::<MempoolFilter>() {
-                let events = ctx
-                    .eth_event_handler
-                    .get_events_for_parsed_filter(
-                        &ctx,
-                        &Arc::new(ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
-                            // heaviest tipset doesn't have events because its messages haven't been executed yet
-                            RangeInclusive::new(
-                                mempool_filter
-                                    .collected
-                                    .unwrap_or(ctx.chain_store().heaviest_tipset().epoch() - 1),
-                                // Use -1 to indicate that the range extends until the latest available tipset.
-                                -1,
-                            ),
-                        ))),
-                        SkipEvent::OnUnresolvedAddress,
-                    )
-                    .await?;
-                let new_collected = events
-                    .iter()
-                    .max_by_key(|event| event.height)
-                    .map(|e| e.height);
-                if let Some(height) = new_collected {
-                    let filter = Arc::new(MempoolFilter {
-                        id: mempool_filter.id.clone(),
-                        max_results: mempool_filter.max_results,
-                        collected: Some(height),
-                    });
-                    store.update(filter);
-                }
-                return Ok(eth_filter_result_from_messages(&ctx, &events)?);
+                return Ok(EthFilterResult::Hashes(mempool_filter.drain()));
             }
         }
         Err(anyhow::anyhow!("method not supported").into())
