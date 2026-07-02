@@ -14,9 +14,7 @@ pub mod selection;
 pub mod test_provider;
 pub(in crate::message_pool) mod utils;
 
-// TODO: This will be used in https://github.com/ChainSafe/forest/pull/6941
-#[allow(unused_imports)]
-pub use events::MpoolUpdate;
+pub use events::{MpoolSubscriber, MpoolUpdate};
 
 pub(in crate::message_pool) use utils::recover_sig;
 
