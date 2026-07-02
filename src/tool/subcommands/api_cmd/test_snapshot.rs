@@ -166,13 +166,18 @@ async fn ctx(
         SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
     let nonce_tracker = NonceTracker::new();
+    let eth_event_handler = Arc::new(EthEventHandler::from_config(
+        &crate::cli_shared::cli::EventsConfig::default(),
+        state_manager.chain_config().eth_chain_id,
+        message_pool.subscriber(),
+    ));
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: message_pool,
         bad_blocks: Default::default(),
         sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
-        eth_event_handler: Arc::new(EthEventHandler::new()),
+        eth_event_handler,
         eth_logs_feed: Default::default(),
         sync_network_context,
         start_time: chrono::Utc::now(),
