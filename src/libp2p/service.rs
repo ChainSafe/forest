@@ -793,6 +793,7 @@ async fn handle_chain_exchange_event(
         ChainExchangeResponse,
     )>,
 ) {
+    const CHAIN_EXCHANGE_RESPONSE_TIMEOUT: Duration = Duration::from_mins(5);
     match ce_event {
         request_response::Event::Message { peer, message, .. } => match message {
             request_response::Message::Request {
@@ -827,17 +828,23 @@ async fn handle_chain_exchange_event(
                 .await;
 
                 let db = db.shallow_clone();
-                tokio::task::spawn(async move {
-                    let _per_peer_permit = per_peer_permit;
-                    let _global_permit = global_permit;
-                    if let Err(e) = cx_response_tx.send((
-                        request_id,
-                        channel,
-                        make_chain_exchange_response(&db, &request),
-                    )) {
-                        debug!("Failed to send ChainExchangeResponse: {e:?}");
-                    }
-                });
+                tokio::task::spawn(tokio::time::timeout(
+                    CHAIN_EXCHANGE_RESPONSE_TIMEOUT,
+                    async move {
+                        let _per_peer_permit = per_peer_permit;
+                        let _global_permit = global_permit;
+                        if let Err(e) = cx_response_tx
+                            .send_async((
+                                request_id,
+                                channel,
+                                make_chain_exchange_response(&db, &request),
+                            ))
+                            .await
+                        {
+                            debug!("Failed to send ChainExchangeResponse: {e:?}");
+                        }
+                    },
+                ));
             }
             request_response::Message::Response {
                 request_id,
