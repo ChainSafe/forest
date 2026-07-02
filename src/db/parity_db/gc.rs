@@ -177,13 +177,13 @@ impl EthBlockBloomStore for GarbageCollectableParityDb {
     fn write_bloom(
         &self,
         key: &Cid,
-        height: i64,
+        height: ChainEpoch,
         bloom: &[u8; BLOCK_BLOOM_LEN],
     ) -> anyhow::Result<()> {
         EthBlockBloomStore::write_bloom(&*self.db.read(), key, height, bloom)
     }
 
-    fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()> {
+    fn delete_blooms_before_height(&self, height: ChainEpoch) -> anyhow::Result<()> {
         EthBlockBloomStore::delete_blooms_before_height(&*self.db.read(), height)
     }
 }

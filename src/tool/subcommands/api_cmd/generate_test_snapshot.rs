@@ -19,7 +19,7 @@ use crate::{
     message_pool::{MessagePool, MpoolLocker, NonceTracker},
     networks::ChainConfig,
     prelude::*,
-    shim::address::CurrentNetwork,
+    shim::{address::CurrentNetwork, clock::ChainEpoch},
     state_manager::StateManager,
 };
 use api_compare_tests::TestDump;
@@ -372,13 +372,13 @@ impl<T: EthBlockBloomStore> EthBlockBloomStore for ReadOpsTrackingStore<T> {
     fn write_bloom(
         &self,
         key: &Cid,
-        height: i64,
+        height: ChainEpoch,
         bloom: &[u8; BLOCK_BLOOM_LEN],
     ) -> anyhow::Result<()> {
         self.inner.write_bloom(key, height, bloom)
     }
 
-    fn delete_blooms_before_height(&self, height: i64) -> anyhow::Result<()> {
+    fn delete_blooms_before_height(&self, height: ChainEpoch) -> anyhow::Result<()> {
         self.inner.delete_blooms_before_height(height)
     }
 }
