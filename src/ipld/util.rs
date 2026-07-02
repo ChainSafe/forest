@@ -86,6 +86,8 @@ impl ChainExportGuard {
 
 impl Drop for ChainExportGuard {
     fn drop(&mut self) {
+        // In case some tasks are waiting on this token
+        self.cancellation_token.cancel();
         end_export()
     }
 }

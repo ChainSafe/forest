@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#7252](https://github.com/ChainSafe/forest/pull/7252): `forest-cli snapshot export` now generates checksum file at {filepath}.sha256sum. The default file extension is changed from `.forest.car.sha256sum` to `.forest.car.zst.sha256sum`.
+
 ### Added
 
 - [#7269](https://github.com/ChainSafe/forest/pull/7269): Added `--wait-confidence` and `--wait-timeout` to `forest-wallet send` command.

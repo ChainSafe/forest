@@ -83,6 +83,7 @@ mod prelude {
     pub use ahash::{HashMapExt as _, HashSetExt as _};
     pub use anyhow::Context as _;
     pub use cid::Cid;
+    pub use futures::FutureExt as _;
     pub use itertools::Itertools as _;
     pub use std::{ops::Deref as _, sync::Arc};
 }
