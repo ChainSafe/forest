@@ -104,10 +104,11 @@ impl StateManager {
                 || (current_actor_state.sequence > message_sequence
                     && parent_actor_state.as_ref().unwrap().sequence <= message_sequence)
             {
-                let receipt = self
-                    .tipset_executed_message(&current, message, allow_replaced)?
-                    .context("Failed to get receipt with tipset_executed_message")?;
-                return Ok(Some((current, receipt)));
+                if let Some(receipt) =
+                    self.tipset_executed_message(&current, message, allow_replaced)?
+                {
+                    return Ok(Some((current, receipt)));
+                }
             }
 
             if let Some(parent_actor_state) = parent_actor_state {

@@ -28,11 +28,10 @@ fn tests() -> Vec<Trial> {
             block_on(export_import_roundtrip(Backend::Remote));
             Ok(())
         }),
-        // TODO: temporarily disabled on devnet; re-enable once investigated.
-        // Trial::test("market_add_balance_message_on_chain", || {
-        //     block_on(market_add_balance_message_on_chain());
-        //     Ok(())
-        // }),
+        Trial::test("market_add_balance_message_on_chain", || {
+            block_on(market_add_balance_message_on_chain());
+            Ok(())
+        }),
         Trial::test("send_to_filecoin_address_local", || {
             block_on(send_to_filecoin_address(Backend::Local));
             Ok(())
@@ -92,8 +91,6 @@ async fn export_import_roundtrip(backend: Backend) {
     );
 }
 
-// Temporarily unused: the test trial in `tests()` is disabled for now.
-#[allow(dead_code)]
 async fn market_add_balance_message_on_chain() {
     const ATTO_FIL: &str = "23";
     let result = rpc_call(

@@ -312,8 +312,6 @@ pub async fn rpc_call(method: &str, params: Value) -> anyhow::Result<Value> {
 
 /// Extract a CID string from either a Lotus `{ "/": "bafy..." }` map or a
 /// plain string.
-// Only used by `market_add_balance_message_on_chain`, which is temporarily disabled.
-#[allow(dead_code)]
 pub fn cid_from_lotus_json_result(result: &Value) -> anyhow::Result<String> {
     if let Some(s) = result.as_str() {
         return Ok(s.to_string());
