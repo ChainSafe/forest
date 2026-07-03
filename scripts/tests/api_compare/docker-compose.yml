@@ -44,6 +44,7 @@ services:
       - FOREST_CHAIN_INDEXER_ENABLED=1
       # Legacy null-round receipts for parity with the pre-lotus#13694 Lotus image; remove once it has the fix.
       - FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND=1
+      - FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS=1
     entrypoint: ["/bin/bash", "-c"]
     user: 0:0
     command:
