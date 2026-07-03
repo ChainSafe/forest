@@ -285,7 +285,8 @@ mod tests {
 
     #[test]
     fn rpc_regression_tests_print_uncovered() {
-        let pattern = lazy_regex::regex!(r#"^(?P<name>filecoin_.+)_\d+\.rpcsnap\.json\.zst$"#);
+        let pattern =
+            lazy_regex::regex!(r#"^(?P<name>(filecoin|eth)_.+)_\d+\.rpcsnap\.json\.zst$"#);
         let covered = HashSet::from_iter(
             include_str!("test_snapshots.txt")
                 .trim()
@@ -300,14 +301,17 @@ mod tests {
                         .as_str()
                         .replace("_", ".")
                         .to_lowercase()
+                        .replace("eth.", "eth_")
                 }),
         );
+        println!("covered: {covered:?}");
         let ignored = HashSet::from_iter(
             include_str!("test_snapshots_ignored.txt")
                 .trim()
                 .split("\n")
                 .map(str::to_lowercase),
         );
+        println!("ignored: {ignored:?}");
 
         let mut uncovered = vec![];
 
@@ -315,7 +319,15 @@ mod tests {
             ($ty:ty) => {
                 let name = <$ty>::NAME.to_lowercase();
                 if !covered.contains(&name) && !ignored.contains(&name) {
-                    uncovered.push(<$ty>::NAME);
+                    let is_covered = if let Some(alias) = <$ty>::NAME_ALIAS {
+                        let alias = alias.to_lowercase();
+                        covered.contains(&alias) || ignored.contains(&alias)
+                    } else {
+                        false
+                    };
+                    if !is_covered {
+                        uncovered.push(<$ty>::NAME);
+                    }
                 }
             };
         }
