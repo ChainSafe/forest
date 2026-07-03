@@ -505,6 +505,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
         crate::tool::subcommands::archive_cmd::do_export(
             ctx.chain_index().db(),
             start_ts,
+            Some(ctx.chain_store().genesis_tipset()),
             output_path,
             None,
             depth,
@@ -1785,7 +1786,8 @@ mod tests {
                     .with_read_only(AnyCar::new(genesis_car).unwrap())
                     .unwrap(),
             );
-            let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
+            let genesis_block_header: CachingBlockHeader =
+                db.get_cbor(&genesis_cid).unwrap().unwrap();
             ChainStore::new(db, Arc::new(ChainConfig::calibnet()), genesis_block_header).unwrap()
         }
         pub fn calibnet() -> Self {

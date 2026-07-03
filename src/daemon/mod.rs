@@ -6,7 +6,7 @@ mod context;
 pub mod db_util;
 pub mod main;
 
-use crate::blocks::{Tipset, TipsetKey};
+use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::ChainFollower;
@@ -338,7 +338,7 @@ fn create_chain_follower(
     Ok(ChainFollower::new(
         ctx.state_manager.shallow_clone(),
         network,
-        Tipset::from(ctx.state_manager.chain_store().genesis_block_header()),
+        ctx.state_manager.chain_store().genesis_tipset(),
         p2p_service.network_receiver(),
         opts.stateless,
         mpool,

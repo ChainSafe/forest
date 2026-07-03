@@ -6,6 +6,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::ipld::{stream_chain, stream_graph};
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
@@ -16,10 +17,8 @@ use crate::{
         ChainEpochDelta,
         index::{ChainIndex, ResolveNullTipset},
     },
-    db::{Blockstore, Either, parity_db::ParityDb, parity_db_config::ParityDbConfig},
+    db::{Either, parity_db::ParityDb, parity_db_config::ParityDbConfig},
 };
-use anyhow::Context as _;
-use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
@@ -220,7 +219,10 @@ async fn benchmark_exporting(
 ) -> anyhow::Result<()> {
     let store = Arc::new(open_store(input)?);
     let heaviest = store.heaviest_tipset()?;
-    let idx = ChainIndex::new(store.clone());
+    let idx = ChainIndex::new(
+        store.shallow_clone(),
+        heaviest.genesis(store.shallow_clone()).await?,
+    );
     let ts = idx
         .load_required_tipset_by_height(
             epoch.unwrap_or(heaviest.epoch()),
