@@ -7,9 +7,10 @@ use std::{
     str::FromStr,
 };
 
+use crate::prelude::*;
 use crate::{cli_shared::snapshot::parse::ParsedFilename, utils::net::download_file_with_retry};
 use crate::{networks::NetworkChain, utils::net::DownloadFileOption};
-use anyhow::{Context as _, bail};
+use anyhow::bail;
 use chrono::NaiveDate;
 use url::Url;
 
@@ -40,7 +41,7 @@ pub fn filename(
     vendor: impl Display,
     chain: impl Display,
     date: NaiveDate,
-    height: i64,
+    height: ChainEpoch,
     forest_format: bool,
 ) -> String {
     let vendor = vendor.to_string();
@@ -180,19 +181,20 @@ mod parse {
     };
 
     use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
+    use crate::prelude::*;
 
     #[derive(PartialEq, Debug, Clone, Hash)]
     pub(super) enum ParsedFilename<'a> {
         Short {
             date: NaiveDate,
             time: NaiveTime,
-            height: i64,
+            height: ChainEpoch,
         },
         Full {
             vendor: &'a str,
             chain: &'a str,
             date: NaiveDate,
-            height: i64,
+            height: ChainEpoch,
             forest_format: bool,
         },
     }
@@ -390,7 +392,7 @@ mod parse {
             /// # Panics
             /// - If `ymd`/`hms` aren't valid
             fn short(
-                height: i64,
+                height: ChainEpoch,
                 year: i32,
                 month: u32,
                 day: u32,
@@ -415,7 +417,7 @@ mod parse {
                 year: i32,
                 month: u32,
                 day: u32,
-                height: i64,
+                height: ChainEpoch,
                 forest_format: bool,
             ) -> Self {
                 Self::Full {

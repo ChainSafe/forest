@@ -338,7 +338,7 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
         self.inner.delete(keys)
     }
 
-    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+    fn tipset_key_by_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<Option<TipsetKey>> {
         let result = self.inner.tipset_key_by_epoch(epoch)?;
         if self.tracking()
             && let Some(tsk) = &result
@@ -348,7 +348,11 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
         Ok(result)
     }
 
-    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()> {
+    fn set_tipset_key_at_epoch_raw(
+        &self,
+        epoch: ChainEpoch,
+        tsk: &TipsetKey,
+    ) -> anyhow::Result<()> {
         self.inner.set_tipset_key_at_epoch_raw(epoch, tsk)
     }
 }

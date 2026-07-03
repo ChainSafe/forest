@@ -71,7 +71,7 @@ pub enum ApiCommands {
         /// Validate snapshot at given EPOCH, use a negative value -N to validate
         /// the last N EPOCH(s) starting at HEAD.
         #[arg(long, default_value_t = -50)]
-        height: i64,
+        height: ChainEpoch,
         /// Backfill index for the given EPOCH(s)
         #[arg(long, default_value_t = 0)]
         index_backfill_epochs: usize,

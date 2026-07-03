@@ -277,7 +277,7 @@ pub struct ChainConfig {
     pub f3_enabled: bool,
     // F3Consensus set whether F3 should checkpoint tipsets finalized by F3. This flag has no effect if F3 is not enabled.
     pub f3_consensus: bool,
-    pub f3_bootstrap_epoch: i64,
+    pub f3_bootstrap_epoch: ChainEpoch,
     pub f3_initial_power_table: Option<Cid>,
     pub enable_indexer: bool,
     pub default_max_fee: TokenAmount,
@@ -574,7 +574,7 @@ impl ChainConfig {
         }
     }
 
-    pub fn initial_fil_reserved_at_height(&self, height: i64) -> &TokenAmount {
+    pub fn initial_fil_reserved_at_height(&self, height: ChainEpoch) -> &TokenAmount {
         let network_version = self.network_version(height);
         self.initial_fil_reserved(network_version)
     }

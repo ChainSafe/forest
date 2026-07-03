@@ -131,7 +131,7 @@ pub async fn start_offline_server(
     chain: Option<NetworkChain>,
     rpc_port: u16,
     auto_download_snapshot: bool,
-    height: i64,
+    height: ChainEpoch,
     index_backfill_epochs: usize,
     genesis: Option<PathBuf>,
     save_jwt_token: Option<PathBuf>,

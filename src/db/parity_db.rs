@@ -224,7 +224,7 @@ impl EthMappingsStore for ParityDb {
         }))?)
     }
 
-    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+    fn tipset_key_by_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<Option<TipsetKey>> {
         let key = epoch.to_le_bytes();
         if let Some(bytes) = self.read_from_column(key, DbColumn::EthMappings)? {
             Ok(Some(fvm_ipld_encoding::from_slice(&bytes)?))
@@ -233,7 +233,11 @@ impl EthMappingsStore for ParityDb {
         }
     }
 
-    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()> {
+    fn set_tipset_key_at_epoch_raw(
+        &self,
+        epoch: ChainEpoch,
+        tsk: &TipsetKey,
+    ) -> anyhow::Result<()> {
         let key = epoch.to_le_bytes();
         let bytes = fvm_ipld_encoding::to_vec(tsk)?;
         self.write_to_column(key, bytes, DbColumn::EthMappings)

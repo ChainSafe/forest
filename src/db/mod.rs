@@ -22,10 +22,9 @@ pub use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
 pub use memory::MemoryDB;
 
 use crate::blocks::{Tipset, TipsetKey};
+use crate::prelude::*;
 use crate::rpc::eth::types::EthHash;
 use ambassador::delegatable_trait;
-use anyhow::Context as _;
-use cid::Cid;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -114,10 +113,11 @@ pub trait EthMappingsStore {
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()>;
 
     /// Reads the tipset key for a given epoch(height) from the store.
-    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>>;
+    fn tipset_key_by_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<Option<TipsetKey>>;
 
     /// Writes the tipset key for a given epoch(height) to the store.
-    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()>;
+    fn set_tipset_key_at_epoch_raw(&self, epoch: ChainEpoch, tsk: &TipsetKey)
+    -> anyhow::Result<()>;
 
     /// Writes the tipset key for a given epoch(height) to the store.
     fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {

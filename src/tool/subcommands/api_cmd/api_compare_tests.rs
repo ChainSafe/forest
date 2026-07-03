@@ -71,8 +71,8 @@ use tokio::task::JoinSet;
 use tracing::debug;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
-const SAFE_EPOCH_DELAY_FOR_TESTING: i64 = 20; // `SAFE_HEIGHT_DISTANCE`(200) is too large for testing
-const MESSAGE_LOOKBACK_LIMIT: i64 = 2000;
+const SAFE_EPOCH_DELAY_FOR_TESTING: ChainEpoch = 20; // `SAFE_HEIGHT_DISTANCE`(200) is too large for testing
+const MESSAGE_LOOKBACK_LIMIT: ChainEpoch = 2000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ServerMode {
@@ -1578,7 +1578,7 @@ fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
     Ok(tests)
 }
 
-fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
+fn eth_call_api_err_tests(epoch: ChainEpoch) -> Vec<RpcTest> {
     let contract_codes = [
         include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex"),
         include_str!("contracts/assert_err/assert_err.hex"),

@@ -306,11 +306,15 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
         EthMappingsStore::delete(self.writer(), keys)
     }
 
-    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+    fn tipset_key_by_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<Option<TipsetKey>> {
         EthMappingsStore::tipset_key_by_epoch(self.writer(), epoch)
     }
 
-    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()> {
+    fn set_tipset_key_at_epoch_raw(
+        &self,
+        epoch: ChainEpoch,
+        tsk: &TipsetKey,
+    ) -> anyhow::Result<()> {
         EthMappingsStore::set_tipset_key_at_epoch_raw(self.writer(), epoch, tsk)
     }
 }

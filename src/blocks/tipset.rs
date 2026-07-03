@@ -3,7 +3,7 @@
 
 use std::{
     fmt,
-    sync::{Arc, LazyLock, OnceLock},
+    sync::{LazyLock, OnceLock},
 };
 
 use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
@@ -12,7 +12,6 @@ use crate::{
     cid_collections::SmallCidNonEmptyVec,
     networks::{calibnet, mainnet},
     prelude::*,
-    shim::clock::ChainEpoch,
     utils::{
         cid::CidCborExt,
         db::{CborStoreExt, car_stream::CarBlock},
@@ -651,13 +650,12 @@ mod lotus_json {
     //! [Tipset] isn't just plain old data - it has an invariant (all block headers are valid)
     //! So there is custom de-serialization here
 
+    use super::*;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
     use nunny::Vec as NonEmpty;
     use schemars::JsonSchema;
     use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
-
-    use super::TipsetKey;
 
     #[derive(Debug, PartialEq, Clone, JsonSchema)]
     #[schemars(rename = "Tipset")]
@@ -673,7 +671,7 @@ mod lotus_json {
         #[serde(with = "crate::lotus_json")]
         #[schemars(with = "LotusJson<NonEmpty<CachingBlockHeader>>")]
         blocks: NonEmpty<CachingBlockHeader>,
-        height: i64,
+        height: ChainEpoch,
     }
 
     impl<'de> Deserialize<'de> for TipsetLotusJson {

@@ -131,11 +131,15 @@ impl EthMappingsStore for MemoryDB {
         Ok(())
     }
 
-    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+    fn tipset_key_by_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<Option<TipsetKey>> {
         Ok(self.ts_lookup_db.read().get(&epoch).cloned())
     }
 
-    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()> {
+    fn set_tipset_key_at_epoch_raw(
+        &self,
+        epoch: ChainEpoch,
+        tsk: &TipsetKey,
+    ) -> anyhow::Result<()> {
         self.ts_lookup_db.write().insert(epoch, tsk.clone());
         Ok(())
     }
