@@ -505,7 +505,8 @@ fn chain_tests(server_mode: ServerMode) -> Vec<RpcTest> {
             }
         },
         RpcTest::basic(ChainGetFinalizedTipset::request(()).unwrap()),
-        RpcTest::identity(ChainGetTipSetByHeight::request((0, Default::default())).unwrap()),
+        RpcTest::identity(ChainGetTipSetByHeight::request((0, Default::default())).unwrap())
+            .ignore("Lotus times out"),
     ]
 }
 
@@ -1398,6 +1399,24 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
 fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     for use_alias in [false, true] {
+        tests.extend([
+            RpcTest::identity(EthGetBlockTransactionCountByNumber::request_with_alias(
+                (EthInt64(0).into(),),
+                use_alias,
+            )?)
+            .ignore("Lotus times out"),
+            RpcTest::identity(EthGetBlockByNumber::request_with_alias(
+                (EthInt64(0).into(), true),
+                use_alias,
+            )?)
+            .ignore("Lotus times out"),
+            RpcTest::identity(EthGetBlockByNumber::request_with_alias(
+                (EthInt64(0).into(), false),
+                use_alias,
+            )?)
+            .ignore("Lotus times out"),
+        ]);
+
         tests.push(RpcTest::identity(EthAccounts::request_with_alias(
             (),
             use_alias,
@@ -1712,10 +1731,6 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 .with_api_path(api_path),
             ),
             RpcTest::identity(
-                EthGetBlockTransactionCountByNumber::request((EthInt64(0).into(),))?
-                    .with_api_path(api_path),
-            ),
-            RpcTest::identity(
                 EthGetBlockTransactionCountByNumber::request((Predefined::Latest.into(),))?
                     .with_api_path(api_path),
             ),
@@ -1734,12 +1749,6 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
             RpcTest::identity(
                 EthGetBlockByNumber::request((EthInt64(shared_tipset.epoch()).into(), true))?
                     .with_api_path(api_path),
-            ),
-            RpcTest::identity(
-                EthGetBlockByNumber::request((EthInt64(0).into(), true))?.with_api_path(api_path),
-            ),
-            RpcTest::identity(
-                EthGetBlockByNumber::request((EthInt64(0).into(), false))?.with_api_path(api_path),
             ),
             RpcTest::identity(
                 EthGetBlockByNumber::request((Predefined::Earliest.into(), true))?

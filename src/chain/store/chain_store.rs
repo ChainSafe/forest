@@ -116,6 +116,7 @@ impl ChainStore {
     ) -> anyhow::Result<Self> {
         let db = db.into();
         let genesis = genesis.into();
+        anyhow::ensure!(genesis.epoch() == 0, "genesis tipset must be at epoch 0");
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let head = if let Some(head_tsk) = db
             .heaviest_tipset_key()

@@ -56,6 +56,7 @@ pub enum ResolveNullTipset {
 
 impl ChainIndex {
     pub fn new(db: impl Into<DbImpl>, genesis: Tipset) -> Self {
+        assert!(genesis.epoch() == 0, "genesis tipset must be at epoch 0");
         let db = db.into();
         let ts_cache = SizeTrackingCache::new_with_metrics("tipset", DEFAULT_TIPSET_CACHE_SIZE);
         Self {
