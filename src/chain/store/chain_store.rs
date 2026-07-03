@@ -182,7 +182,9 @@ impl ChainStore {
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
         head.key().save(self.db())?;
         self.db().set_heaviest_tipset_key(head.key())?;
-        if let Err(e) = self.db().set_tipset_key_at_epoch(&head) {
+        if ChainIndex::is_tipset_lookup_checkpoint(head.epoch())
+            && let Err(e) = self.db().set_tipset_key_at_epoch(&head)
+        {
             warn!(
                 "failed to update tipset lookup table at epoch {}: {e:#}",
                 head.epoch()

@@ -14,6 +14,9 @@ use nonzero_ext::nonzero;
 use num::Integer;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize * 3); // 3-day-worth epochs, maximum ~50MiB
+// use `20` as checkpoint interval to match Lotus:
+// <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/store/index.go#L52>
+const TIPSET_LOOKUP_CHECKPOINT_INTERVAL: ChainEpoch = 20;
 
 type TipsetCache = SizeTrackingCache<TipsetKey, Tipset>;
 
@@ -158,16 +161,6 @@ impl ChainIndex {
 
         crate::def_is_env_truthy!(lookup_table_disabled, "FOREST_TIPSET_LOOKUP_TABLE_DISABLED");
 
-        // use `20` as checkpoint interval to match Lotus:
-        // <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/store/index.go#L52>
-        const CHECKPOINT_INTERVAL: ChainEpoch = 20;
-        fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
-            epoch - epoch.mod_floor(&CHECKPOINT_INTERVAL) + CHECKPOINT_INTERVAL
-        }
-        fn is_checkpoint(epoch: ChainEpoch) -> bool {
-            epoch.mod_floor(&CHECKPOINT_INTERVAL) == 0
-        }
-
         if to == 0 {
             return Ok(Some(Tipset::from(from.genesis(&self.db)?)));
         }
@@ -194,7 +187,7 @@ impl ChainIndex {
                 from = checkpoint_from;
                 break;
             }
-            checkpoint_from_epoch = next_checkpoint(checkpoint_from_epoch);
+            checkpoint_from_epoch = Self::next_tipset_lookup_checkpoint(checkpoint_from_epoch);
         }
 
         if to > from.epoch() {
@@ -208,7 +201,7 @@ impl ChainIndex {
 
         for (child, parent) in from.chain(&self.db).tuple_windows() {
             // update cache only when child is finalized.
-            if is_checkpoint(child.epoch())
+            if Self::is_tipset_lookup_checkpoint(child.epoch())
                 && is_epoch_finalized(child.epoch())
                 && let Err(e) = self.db.set_tipset_key_at_epoch(&child)
             {
@@ -277,6 +270,15 @@ impl ChainIndex {
         Err(Error::Other(
             "Found no beacon entries in the 20 latest tipsets".to_owned(),
         ))
+    }
+
+    fn next_tipset_lookup_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
+        epoch - epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL)
+            + TIPSET_LOOKUP_CHECKPOINT_INTERVAL
+    }
+
+    pub fn is_tipset_lookup_checkpoint(epoch: ChainEpoch) -> bool {
+        epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL) == 0
     }
 }
 
