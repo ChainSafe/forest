@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::MinerActorStateLoad as _;
+use crate::prelude::*;
 use crate::shim::actors::miner;
 use crate::shim::{
     actors::{is_account_actor, is_ethaccount_actor, is_placeholder_actor},
@@ -13,7 +14,6 @@ use crate::shim::{
 };
 use crate::state_manager::{StateManager, errors::*};
 use crate::utils::encoding::prover_id_from_u64;
-use cid::Cid;
 use fil_actors_shared::filecoin_proofs_api::post;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::bytes_32;
@@ -186,6 +186,7 @@ pub mod state_compute {
         genesis::read_genesis_header,
         interpreter::VMTrace,
         networks::{ChainConfig, NetworkChain},
+        prelude::*,
         state_manager::{ExecutedTipset, StateManager},
         utils::net::{DownloadFileOption, download_file_with_cache},
     };
@@ -193,7 +194,7 @@ pub mod state_compute {
     use sonic_rs::JsonValueTrait;
     use std::{
         path::{Path, PathBuf},
-        sync::{Arc, LazyLock},
+        sync::LazyLock,
         time::{Duration, Instant},
     };
     use tokio::io::AsyncReadExt;
@@ -204,7 +205,7 @@ pub mod state_compute {
     #[allow(dead_code)]
     pub async fn get_state_compute_snapshot(
         chain: &NetworkChain,
-        epoch: i64,
+        epoch: ChainEpoch,
     ) -> anyhow::Result<PathBuf> {
         get_state_snapshot(chain, "state_compute", epoch).await
     }
@@ -212,7 +213,7 @@ pub mod state_compute {
     #[allow(dead_code)]
     async fn get_state_validate_snapshot(
         chain: &NetworkChain,
-        epoch: i64,
+        epoch: ChainEpoch,
     ) -> anyhow::Result<PathBuf> {
         get_state_snapshot(chain, "state_validate", epoch).await
     }
@@ -221,7 +222,7 @@ pub mod state_compute {
     pub async fn get_state_snapshot(
         chain: &NetworkChain,
         bucket: &str,
-        epoch: i64,
+        epoch: ChainEpoch,
     ) -> anyhow::Result<PathBuf> {
         let file = format!("{bucket}/{chain}_{epoch}.forest.car.zst");
         get_state_snapshot_file(&file).await
@@ -368,7 +369,7 @@ pub mod state_compute {
         include!(concat!(env!("OUT_DIR"), "/__state_compute_tests_gen.rs"));
 
         #[allow(dead_code)]
-        async fn state_compute_test_run(chain: NetworkChain, epoch: i64) {
+        async fn state_compute_test_run(chain: NetworkChain, epoch: ChainEpoch) {
             let snapshot = get_state_compute_snapshot(&chain, epoch).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();

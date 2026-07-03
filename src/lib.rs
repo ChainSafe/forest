@@ -78,6 +78,7 @@ mod wallet;
 mod prelude {
     pub use crate::{
         db::Blockstore,
+        shim::clock::ChainEpoch,
         utils::{ShallowClone, get_size::CidWrapper},
     };
     pub use ahash::{HashMapExt as _, HashSetExt as _};

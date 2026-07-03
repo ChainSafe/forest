@@ -197,7 +197,7 @@ impl EthEventHandler {
     pub fn eth_new_filter(
         &self,
         filter_spec: &EthFilterSpec,
-        chain_height: i64,
+        chain_height: ChainEpoch,
     ) -> Result<FilterID, Error> {
         if let Some(event_filter_manager) = &self.event_filter_manager {
             let pf = filter_spec
@@ -552,8 +552,8 @@ impl EthEventHandler {
 impl EthFilterSpec {
     fn parse_eth_filter_spec(
         &self,
-        chain_height: i64,
-        max_filter_height_range: i64,
+        chain_height: ChainEpoch,
+        max_filter_height_range: ChainEpoch,
     ) -> Result<ParsedFilter, Error> {
         let tipsets = if let Some(block_hash) = &self.block_hash {
             if self.from_block.is_some() || self.to_block.is_some() {

@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::prelude::*;
 use crate::shim::{
     address::Address, econ::TokenAmount, piece::PaddedPieceSize, runtime::Policy,
     sector::StoragePower,
@@ -64,7 +65,7 @@ impl State {
         this_epoch_reward: fvm_shared4::econ::TokenAmount,
         this_epoch_reward_smoothed: fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate,
         this_epoch_baseline_power: StoragePower,
-        epoch: i64,
+        epoch: ChainEpoch,
         total_storage_power_reward: fvm_shared4::econ::TokenAmount,
         simple_total: fvm_shared4::econ::TokenAmount,
         baseline_total: fvm_shared4::econ::TokenAmount,

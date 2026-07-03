@@ -140,7 +140,7 @@ pub struct MessageLookup {
     #[schemars(with = "LotusJson<TipsetKey>")]
     #[serde(rename = "TipSet", with = "crate::lotus_json")]
     pub tipset: TipsetKey,
-    pub height: i64,
+    pub height: ChainEpoch,
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,
@@ -570,8 +570,8 @@ pub struct ApiExportStatus {
     pub progress: f64,
     pub exporting: bool,
     pub cancelled: bool,
-    pub start_epoch: i64,
-    pub current_epoch: i64,
+    pub start_epoch: ChainEpoch,
+    pub current_epoch: ChainEpoch,
     pub start_time: Option<chrono::DateTime<Utc>>,
 }
 

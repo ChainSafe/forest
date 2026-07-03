@@ -1168,7 +1168,7 @@ mod tests {
             [genesis_header = dummy_node(&db, 0)]
         };
 
-        let cs = ChainStore::new(db, Default::default(), genesis_header.clone().into()).unwrap();
+        let cs = ChainStore::new(db, Default::default(), genesis_header).unwrap();
 
         cs.set_heaviest_tipset(cs.genesis_tipset()).unwrap();
 

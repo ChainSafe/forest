@@ -4,6 +4,7 @@
 pub mod ext;
 
 use crate::list_miners_for_state;
+use crate::prelude::*;
 use crate::shim::{
     actors::{FilterEstimate, convert::*},
     address::Address,
@@ -11,7 +12,6 @@ use crate::shim::{
     runtime::Policy,
     sector::StoragePower,
 };
-use fvm_ipld_blockstore::Blockstore;
 use serde::{Deserialize, Serialize};
 use spire_enum::prelude::delegated_enum;
 
@@ -56,10 +56,10 @@ impl State {
         miner_count: i64,
         miner_above_min_power_count: i64,
         cron_event_queue: cid::Cid,
-        first_cron_epoch: i64,
+        first_cron_epoch: ChainEpoch,
         claims: cid::Cid,
         proof_validation_batch: Option<cid::Cid>,
-        ramp_start_epoch: i64,
+        ramp_start_epoch: ChainEpoch,
         ramp_duration_epochs: u64,
     ) -> Self {
         State::V18(fil_actor_power_state::v18::State {
