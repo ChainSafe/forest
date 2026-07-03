@@ -388,3 +388,69 @@ impl StateManager {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::blocks::{CachingBlockHeader, Chain4U, HeaderBuilder, TxMeta, chain4u};
+    use crate::db::MemoryDB;
+    use crate::shim::message::Message;
+    use crate::shim::state_tree::StateTreeVersion;
+    use crate::utils::db::CborStoreExt as _;
+    use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+
+    #[test]
+    fn check_search_miss_is_not_an_error() {
+        let db = Arc::new(MemoryDB::default());
+        let sender = Address::new_id(1000);
+
+        let empty_root = StateTree::new(&db, StateTreeVersion::V5)
+            .unwrap()
+            .flush()
+            .unwrap();
+        let mut head_tree = StateTree::new(&db, StateTreeVersion::V5).unwrap();
+        head_tree
+            .set_actor(
+                &sender,
+                ActorState::new(Cid::default(), Cid::default(), TokenAmount::default(), 0, None),
+            )
+            .unwrap();
+        let head_root = head_tree.flush().unwrap();
+
+        let empty_amt = Amt::<Cid, _>::new(&db).flush().unwrap();
+        let empty_meta = db
+            .put_cbor_default(&TxMeta {
+                bls_message_root: empty_amt,
+                secp_message_root: empty_amt,
+            })
+            .unwrap();
+
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_state_root(empty_root).with_timestamp(1).with_messages(empty_meta)]
+            -> [head = HeaderBuilder::new().with_state_root(head_root)]
+        };
+
+        let cs = ChainStore::new(
+            db.clone(),
+            Arc::new(ChainConfig::default()),
+            CachingBlockHeader::new(genesis.clone()),
+        )
+        .unwrap();
+        let sm = StateManager::new(cs).unwrap();
+        let head_ts =
+            Tipset::load_required(&db, &TipsetKey::from(nunny::vec![head.cid()])).unwrap();
+
+        let msg: ChainMessage = Message {
+            from: sender,
+            sequence: 0,
+            ..Default::default()
+        }
+        .into();
+        let res = sm.check_search_blocking(head_ts, &msg, 0, true, &CancellationToken::new());
+
+        // The miss must be Ok(None), not an error.
+        assert!(matches!(res, Ok(None)), "expected Ok(None), got {res:?}");
+    }
+}
