@@ -211,9 +211,7 @@ impl StateManager {
     where
         T: Iterator<Item = Tipset> + Send,
     {
-        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
         validate_tipsets_blocking(
-            genesis_timestamp,
             self.chain_index(),
             self.chain_config(),
             self.beacon_schedule(),
@@ -250,8 +248,6 @@ impl StateManager {
     ) -> anyhow::Result<(CidWrapper, Vec<Arc<ApiInvocResult>>)> {
         let mut invoc_trace = vec![];
 
-        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
-
         let callback = |ctx: MessageCallbackCtx<'_>| {
             match ctx.at {
                 CalledAt::Applied | CalledAt::Reward => {
@@ -272,7 +268,6 @@ impl StateManager {
         };
 
         let ExecutedTipset { state_root, .. } = apply_block_messages_blocking(
-            genesis_timestamp,
             self.chain_index().shallow_clone(),
             self.chain_config().shallow_clone(),
             self.beacon_schedule().shallow_clone(),

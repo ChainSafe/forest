@@ -158,8 +158,8 @@ pub async fn start_offline_server(
 
     let inferred_chain = {
         let head = db.heaviest_tipset()?;
-        let genesis = head.genesis(&db)?;
-        NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid())
+        let genesis = head.genesis(db.shallow_clone()).await?;
+        NetworkChain::from_genesis_or_devnet_placeholder(genesis.min_ticket_block().cid())
     };
     let chain = if let Some(chain) = chain {
         anyhow::ensure!(

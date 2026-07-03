@@ -445,7 +445,7 @@ mod tests {
         let heaviest = many.heaviest_tipset().unwrap();
         assert_eq!(
             heaviest.min_ticket_block(),
-            &heaviest.genesis(&many).unwrap()
+            heaviest.genesis_blocking(&many).unwrap().min_ticket_block()
         );
     }
 }
