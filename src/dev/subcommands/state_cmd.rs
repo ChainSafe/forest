@@ -80,12 +80,14 @@ impl ComputeCommand {
         let (ts, ts_next) = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_index.load_required_tipset_by_height(
-                epoch,
-                chain_store.heaviest_tipset(),
-                ResolveNullTipset::TakeOlder,
-            )?;
-            let ts_next = chain_store.load_child_tipset(&ts)?.with_context(|| {
+            let ts = chain_index
+                .load_required_tipset_by_height(
+                    epoch,
+                    chain_store.heaviest_tipset(),
+                    ResolveNullTipset::TakeOlder,
+                )
+                .await?;
+            let ts_next = chain_store.load_child_tipset(&ts).await?.with_context(|| {
                 format!(
                     "no child tipset for epoch {} (may be chain head)",
                     ts.epoch()
@@ -210,11 +212,13 @@ impl ValidateCommand {
         let ts = {
             // We don't want to track all entries that are visited by `tipset_by_height`
             db.pause_tracking();
-            let ts = chain_index.load_required_tipset_by_height(
-                epoch,
-                chain_store.heaviest_tipset(),
-                ResolveNullTipset::TakeOlder,
-            )?;
+            let ts = chain_index
+                .load_required_tipset_by_height(
+                    epoch,
+                    chain_store.heaviest_tipset(),
+                    ResolveNullTipset::TakeOlder,
+                )
+                .await?;
             db.resume_tracking();
             SettingsStoreExt::write_obj(&db.tracker, crate::db::setting_keys::HEAD_KEY, ts.key())?;
             // Only track the desired tipset

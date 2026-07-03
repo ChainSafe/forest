@@ -922,11 +922,14 @@ impl RpcMethod<1> for BaseFeeByHeight {
         (height,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_index().load_required_tipset_by_height(
-            height,
-            ctx.chain_store().heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let ts = ctx
+            .chain_index()
+            .load_required_tipset_by_height(
+                height,
+                ctx.chain_store().heaviest_tipset(),
+                ResolveNullTipset::TakeOlder,
+            )
+            .await?;
         let base_fee = EthBaseFee::get_base_fee(&ctx, &ts)?;
         Ok(base_fee.atto().into())
     }
@@ -1066,7 +1069,7 @@ fn get_tipset_from_hash(chain_store: &ChainStore, block_hash: &EthHash) -> anyho
     Ok(chain_store.chain_index().load_required_tipset(&tsk)?)
 }
 
-fn resolve_block_number_tipset(
+async fn resolve_block_number_tipset(
     chain: &ChainStore,
     block_number: EthInt64,
     resolve: ResolveNullTipset,
@@ -1079,13 +1082,14 @@ fn resolve_block_number_tipset(
     chain
         .chain_index()
         .load_required_tipset_by_height(height, head, resolve)
+        .await
         .map_err(|e| match e {
             crate::chain::store::Error::NullRound(epoch) => EthErrors::null_round(epoch).into(),
             e => e.into(),
         })
 }
 
-fn resolve_block_hash_tipset(
+async fn resolve_block_hash_tipset(
     chain: &ChainStore,
     block_hash: &EthHash,
     require_canonical: bool,
@@ -1095,11 +1099,10 @@ fn resolve_block_hash_tipset(
     // verify that the tipset is in the canonical chain
     if require_canonical {
         // walk up the current chain (our head) until we reach ts.epoch()
-        let walk_ts = chain.chain_index().load_required_tipset_by_height(
-            ts.epoch(),
-            chain.heaviest_tipset(),
-            resolve,
-        )?;
+        let walk_ts = chain
+            .chain_index()
+            .load_required_tipset_by_height(ts.epoch(), chain.heaviest_tipset(), resolve)
+            .await?;
         // verify that it equals the expected tipset
         if walk_ts != ts {
             bail!("tipset is not canonical");

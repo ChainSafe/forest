@@ -120,7 +120,7 @@ impl Provider for ChainStore {
             _ => {
                 let lookback_ts = if ts.epoch() > self.chain_config().policy.chain_finality {
                     self.chain_index()
-                        .load_required_tipset_by_height(
+                        .load_required_tipset_by_height_blocking(
                             ts.epoch() - self.chain_config().policy.chain_finality,
                             ts.clone(),
                             ResolveNullTipset::TakeOlder,

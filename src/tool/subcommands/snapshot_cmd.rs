@@ -268,7 +268,7 @@ impl SnapshotCommands {
                 snapshot,
                 epoch,
                 json,
-            } => print_computed_state(snapshot, epoch, json),
+            } => print_computed_state(snapshot, epoch, json).await,
         }
     }
 }
@@ -466,7 +466,11 @@ fn validation_spinner(prefix: &'static str) -> indicatif::ProgressBar {
     pb
 }
 
-fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> anyhow::Result<()> {
+async fn print_computed_state(
+    snapshot: PathBuf,
+    epoch: ChainEpoch,
+    json: bool,
+) -> anyhow::Result<()> {
     // Initialize Blockstore
     let store: Arc<ManyCar> = Arc::new(AnyCar::try_from(snapshot.as_path())?.try_into()?);
 
@@ -485,6 +489,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
         .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .await
         .with_context(|| format!("couldn't get a tipset at height {epoch}"))?;
 
     let mut message_calls = vec![];

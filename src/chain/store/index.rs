@@ -244,13 +244,27 @@ impl ChainIndex {
     }
 
     /// Same as [`Self::tipset_by_height`], but errors if that would return `None`.
-    pub fn load_required_tipset_by_height(
+    /// This call can be expensive and blocking, use [`Self::load_required_tipset_by_height`]
+    /// in async contexts to avoid exhausting Tokio worker threads.
+    pub fn load_required_tipset_by_height_blocking(
         &self,
         to: ChainEpoch,
         from: Tipset,
         resolve: ResolveNullTipset,
     ) -> Result<Tipset, Error> {
         self.tipset_by_height(to, from, resolve)?
+            .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
+    }
+
+    /// Same as [`Self::tipset_by_height_async`], but errors if that would return `None`.
+    pub async fn load_required_tipset_by_height(
+        &self,
+        to: ChainEpoch,
+        from: Tipset,
+        resolve: ResolveNullTipset,
+    ) -> Result<Tipset, Error> {
+        self.tipset_by_height_async(to, from, resolve)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
     }
 

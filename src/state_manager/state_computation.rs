@@ -22,7 +22,7 @@ impl StateManager {
         if let Some(state) = self.cache.get_map(ts.key(), |et| et.into()) {
             Ok(state)
         } else {
-            match self.chain_store().load_child_tipset(ts)? {
+            match self.chain_store().load_child_tipset(ts).await? {
                 Some(receipt_ts) => Ok(TipsetState {
                     state_root: *receipt_ts.parent_state(),
                     receipt_root: *receipt_ts.parent_message_receipts(),
@@ -99,7 +99,7 @@ impl StateManager {
         }
         self.cache
             .get_or_insert_async(ts.key(), async move {
-                let receipt_ts = self.chain_store().load_child_tipset(ts)?;
+                let receipt_ts = self.chain_store().load_child_tipset(ts).await?;
                 self.load_executed_tipset_inner(ts, receipt_ts.as_ref(), policy)
                     .await
             })

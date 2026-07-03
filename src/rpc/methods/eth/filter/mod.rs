@@ -526,11 +526,14 @@ impl EthEventHandler {
                 } else {
                     *range.end()
                 };
-                let max_tipset = ctx.chain_index().load_required_tipset_by_height(
-                    max_height,
-                    ctx.chain_store().heaviest_tipset(),
-                    ResolveNullTipset::TakeOlder,
-                )?;
+                let max_tipset = ctx
+                    .chain_index()
+                    .load_required_tipset_by_height(
+                        max_height,
+                        ctx.chain_store().heaviest_tipset(),
+                        ResolveNullTipset::TakeOlder,
+                    )
+                    .await?;
                 let tipsets = max_tipset
                     .chain(ctx.db())
                     .take_while(|ts| ts.epoch() >= *range.start());

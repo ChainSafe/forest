@@ -189,7 +189,7 @@ impl StateManager {
     pub fn validate_range_blocking(&self, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
         let heaviest = self.heaviest_tipset();
         let heaviest_epoch = heaviest.epoch();
-        let end = self.chain_index().load_required_tipset_by_height(
+        let end = self.chain_index().load_required_tipset_by_height_blocking(
             *epochs.end(),
             heaviest,
             ResolveNullTipset::TakeOlder,
