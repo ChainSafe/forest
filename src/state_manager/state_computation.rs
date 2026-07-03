@@ -244,7 +244,6 @@ impl StateManager {
             tipset.key(),
         );
         Ok(apply_block_messages_blocking(
-            self.chain_store().genesis_block_header().timestamp,
             self.chain_index().shallow_clone(),
             self.chain_config().shallow_clone(),
             self.beacon_schedule().shallow_clone(),
@@ -292,7 +291,6 @@ impl StateManager {
             height,
             messages,
             tipset,
-            self.chain_store().genesis_block_header().timestamp,
             self.chain_index().shallow_clone(),
             self.chain_config().shallow_clone(),
             self.beacon_schedule().shallow_clone(),
@@ -304,7 +302,6 @@ impl StateManager {
 }
 
 pub fn validate_tipsets_blocking<T>(
-    genesis_timestamp: u64,
     chain_index: &ChainIndex,
     chain_config: &Arc<ChainConfig>,
     beacon: &Arc<BeaconSchedule>,
@@ -325,7 +322,6 @@ where
             receipt_root: actual_receipt,
             ..
         } = apply_block_messages_blocking(
-            genesis_timestamp,
             chain_index.shallow_clone(),
             chain_config.shallow_clone(),
             beacon.shallow_clone(),
@@ -545,7 +541,6 @@ impl<'a> TipsetExecutor<'a> {
 /// The `ChainStore` caches recent tipsets to make these scans faster.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_block_messages_blocking(
-    genesis_timestamp: u64,
     chain_index: ChainIndex,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
@@ -562,6 +557,7 @@ pub fn apply_block_messages_blocking(
     // 5. write the state-tree to the DB and return the CID
 
     // step 1: special case for genesis block
+    let genesis_timestamp = chain_index.genesis().min_ticket_block().timestamp;
     if tipset.epoch() == 0 {
         // NB: This is here because the process that executes blocks requires that the
         // block miner reference a valid miner in the state tree. Unless we create some
@@ -655,7 +651,6 @@ pub(in crate::state_manager) fn compute_state_blocking(
     _height: ChainEpoch,
     messages: Vec<Message>,
     tipset: Tipset,
-    genesis_timestamp: u64,
     chain_index: ChainIndex,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
@@ -668,7 +663,6 @@ pub(in crate::state_manager) fn compute_state_blocking(
     }
 
     let output = apply_block_messages_blocking(
-        genesis_timestamp,
         chain_index,
         chain_config,
         beacon,

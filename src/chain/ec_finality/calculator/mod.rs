@@ -18,7 +18,7 @@ mod skellam;
 #[cfg(test)]
 mod tests;
 
-use anyhow::Context as _;
+use crate::prelude::*;
 use std::sync::LazyLock;
 
 // `BISECT_LOW` and `BISECT_HIGH` define the search range for the bisect algorithm
@@ -46,11 +46,11 @@ pub static DEFAULT_GUARANTEE: LazyLock<f64> =
 #[allow(dead_code)]
 pub fn calc_validator_prob(
     chain: &[i64],
-    finality: i64,
+    finality: ChainEpoch,
     blocks_per_epoch: f64,
     byzantine_fraction: f64,
-    current_epoch: i64,
-    target_epoch: i64,
+    current_epoch: ChainEpoch,
+    target_epoch: ChainEpoch,
 ) -> anyhow::Result<f64> {
     if current_epoch <= target_epoch || target_epoch < 0 || current_epoch >= chain.len() as i64 {
         return Ok(1.0);
