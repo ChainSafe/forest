@@ -4,7 +4,7 @@
 use super::*;
 use crate::{
     KeyStore, KeyStoreConfig,
-    blocks::{Tipset, TipsetKey},
+    blocks::TipsetKey,
     chain::ChainStore,
     chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
     daemon::{bundle::load_actor_bundles, db_util::load_all_forest_cars},
@@ -97,7 +97,7 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
     for (k, v) in reader.iter() {
         index
             .eth_mappings
-            .get_or_insert_with(ahash::HashMap::default)
+            .get_or_insert_with(Default::default)
             .insert(k.to_string(), Payload(v.clone()));
     }
     if index == Index::default() {
@@ -339,10 +339,16 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
     }
 
     fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
-        self.inner.tipset_key_by_epoch(epoch)
+        let result = self.inner.tipset_key_by_epoch(epoch)?;
+        if self.tracking()
+            && let Some(tsk) = &result
+        {
+            EthMappingsStore::set_tipset_key_at_epoch_raw(&self.tracker, epoch, tsk)?;
+        }
+        Ok(result)
     }
 
-    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
-        self.inner.set_tipset_key_at_epoch(ts)
+    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()> {
+        self.inner.set_tipset_key_at_epoch_raw(epoch, tsk)
     }
 }

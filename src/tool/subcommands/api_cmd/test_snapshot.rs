@@ -3,6 +3,7 @@
 
 use crate::{
     KeyStore, KeyStoreConfig,
+    blocks::TipsetKey,
     chain::ChainStore,
     chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
     db::{
@@ -19,15 +20,18 @@ use crate::{
         ApiPaths, RPCState, RpcMethod, RpcMethodExt as _,
         eth::{filter::EthEventHandler, types::EthHash},
     },
-    shim::address::{CurrentNetwork, Network},
+    shim::{
+        address::{CurrentNetwork, Network},
+        clock::ChainEpoch,
+    },
     state_manager::StateManager,
 };
-use anyhow::Context as _;
+use ahash::HashMap;
 use arc_swap::ArcSwap;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::{path::Path, str::FromStr, sync::Arc};
+use std::{path::Path, str::FromStr};
 use tokio::{sync::mpsc, task::JoinSet};
 
 #[derive(Default, Hash, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +51,8 @@ pub struct RpcTestSnapshot {
     pub response: Result<serde_json::Value, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<Index>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tipset_by_epoch: Option<HashMap<ChainEpoch, TipsetKey>>,
     #[serde(with = "crate::lotus_json::base64_standard")]
     pub db: Vec<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -78,6 +84,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         name: method_name,
         params,
         index,
+        tipset_by_epoch,
         db: db_bytes,
         response: expected_response,
         api_path,
@@ -91,6 +98,12 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
             .with_read_only(AnyCar::new(db_bytes)?)
             .context("failed to create db from snapshot")?,
     );
+    // backfill tipset by epoch lookup table
+    if let Some(tipset_by_epoch) = tipset_by_epoch
+        && !tipset_by_epoch.is_empty()
+    {
+        *db.writer().ts_lookup_db.write() = tipset_by_epoch;
+    }
     // backfill db with index data
     backfill_eth_mappings(db.writer(), index)
         .context("failed to backfill eth mappings from index")?;

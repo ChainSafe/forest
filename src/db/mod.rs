@@ -117,7 +117,12 @@ pub trait EthMappingsStore {
     fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>>;
 
     /// Writes the tipset key for a given epoch(height) to the store.
-    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()>;
+    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()>;
+
+    /// Writes the tipset key for a given epoch(height) to the store.
+    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
+        EthMappingsStore::set_tipset_key_at_epoch_raw(self, ts.epoch(), ts.key())
+    }
 }
 
 pub trait EthMappingsStoreExt {

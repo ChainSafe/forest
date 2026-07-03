@@ -5,7 +5,7 @@ mod gc;
 pub use gc::*;
 
 use super::{EthMappingsStore, PersistentStore, SettingsStore};
-use crate::blocks::{Tipset, TipsetKey};
+use crate::blocks::TipsetKey;
 use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::prelude::*;
@@ -233,9 +233,9 @@ impl EthMappingsStore for ParityDb {
         }
     }
 
-    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
-        let key = ts.epoch().to_le_bytes();
-        let bytes = fvm_ipld_encoding::to_vec(ts.key())?;
+    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()> {
+        let key = epoch.to_le_bytes();
+        let bytes = fvm_ipld_encoding::to_vec(tsk)?;
         self.write_to_column(key, bytes, DbColumn::EthMappings)
     }
 }

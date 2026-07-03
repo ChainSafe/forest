@@ -156,8 +156,8 @@ impl EthMappingsStore for GarbageCollectableParityDb {
         EthMappingsStore::tipset_key_by_epoch(&*self.db.read(), epoch)
     }
 
-    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
-        EthMappingsStore::set_tipset_key_at_epoch(&*self.db.read(), ts)
+    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()> {
+        EthMappingsStore::set_tipset_key_at_epoch_raw(&*self.db.read(), epoch, tsk)
     }
 }
 

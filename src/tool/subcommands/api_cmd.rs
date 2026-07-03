@@ -374,6 +374,16 @@ impl ApiCommands {
                                         Some(NodeType::Lotus) => test_dump.lotus_response,
                                     },
                                     index,
+                                    tipset_by_epoch: if tracking_db
+                                        .tracker
+                                        .ts_lookup_db
+                                        .read()
+                                        .is_empty()
+                                    {
+                                        None
+                                    } else {
+                                        Some(tracking_db.tracker.ts_lookup_db.read().clone())
+                                    },
                                     db,
                                     api_path: Some(test_dump.path),
                                 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{EthMappingsStore, SettingsStore, SettingsStoreExt};
-use crate::blocks::{Tipset, TipsetKey};
+use crate::blocks::TipsetKey;
 use crate::db::PersistentStore;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::prelude::*;
@@ -20,7 +20,7 @@ pub struct MemoryDB {
     blockchain_persistent_db: RwLock<HashMap<Cid, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
     pub eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
-    ts_lookup_db: RwLock<HashMap<ChainEpoch, TipsetKey>>,
+    pub ts_lookup_db: RwLock<HashMap<ChainEpoch, TipsetKey>>,
 }
 
 impl MemoryDB {
@@ -135,10 +135,8 @@ impl EthMappingsStore for MemoryDB {
         Ok(self.ts_lookup_db.read().get(&epoch).cloned())
     }
 
-    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
-        self.ts_lookup_db
-            .write()
-            .insert(ts.epoch(), ts.key().clone());
+    fn set_tipset_key_at_epoch_raw(&self, epoch: i64, tsk: &TipsetKey) -> anyhow::Result<()> {
+        self.ts_lookup_db.write().insert(epoch, tsk.clone());
         Ok(())
     }
 }
