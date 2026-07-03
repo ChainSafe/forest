@@ -8,7 +8,7 @@ pub mod main;
 
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::ChainStore;
-use crate::chain::index::ResolveNullTipset;
+use crate::chain::index::ChainIndex;
 use crate::chain_sync::ChainFollower;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::snapshot;
@@ -18,6 +18,7 @@ use crate::cli_shared::{
     delete_chain_data,
 };
 use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
+use crate::db::EthMappingsStore;
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
@@ -836,26 +837,41 @@ pub(super) async fn start_services(
 }
 
 fn warmup_in_background(ctx: &AppContext) {
-    // Populate `tipset_by_height` cache
+    // Re-populate `tipset_by_height` cache
     let cs = ctx.chain_store().shallow_clone();
     tokio::task::spawn_blocking(move || {
         let start = Instant::now();
-        match cs.chain_index().tipset_by_height(
-            // 0 would short-circuit the cache
-            1,
-            cs.heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        ) {
-            Ok(_) => {
-                tracing::info!(
-                    "Successfully populated tipset_by_height cache, took {}",
-                    humantime::format_duration(start.elapsed())
+        let head = cs.heaviest_tipset();
+        let mut n_corrected = 0;
+        for ts in head
+            .chain(cs.db())
+            .filter(|ts| ChainIndex::is_tipset_lookup_checkpoint(ts.epoch()))
+        {
+            match cs.db().tipset_key_by_epoch(ts.epoch()) {
+                Ok(Some(tsk)) if &tsk == ts.key() => {
+                    continue; // already exists, skip
+                }
+                Ok(Some(tsk)) => {
+                    tracing::warn!(
+                        "Correcting tipset_by_height cache for epoch {}: expected {}, found {tsk}",
+                        ts.epoch(),
+                        ts.key()
+                    );
+                    n_corrected += 1;
+                }
+                _ => {}
+            }
+            if let Err(e) = cs.db().set_tipset_key_at_epoch(&ts) {
+                tracing::warn!(
+                    "Failed to update tipset_by_height lookup for epoch {}: {e}",
+                    ts.epoch()
                 );
             }
-            Err(e) => {
-                tracing::warn!("Failed to populate tipset_by_height cache: {e}");
-            }
         }
+        tracing::info!(
+            "Successfully re-populated tipset_by_height cache, took {}, corrected {n_corrected} entries",
+            humantime::format_duration(start.elapsed()),
+        );
     });
 }
 
