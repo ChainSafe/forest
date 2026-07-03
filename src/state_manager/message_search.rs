@@ -412,7 +412,13 @@ mod tests {
         head_tree
             .set_actor(
                 &sender,
-                ActorState::new(Cid::default(), Cid::default(), TokenAmount::default(), 0, None),
+                ActorState::new(
+                    Cid::default(),
+                    Cid::default(),
+                    TokenAmount::default(),
+                    0,
+                    None,
+                ),
             )
             .unwrap();
         let head_root = head_tree.flush().unwrap();
