@@ -496,8 +496,8 @@ jobs:
           set -euo pipefail
           source ./scripts/devnet/wallet_harness.sh
           devnet_wallet_env_init
-          forest-dev tests devnet mpool
-          forest-dev tests devnet wallet
+          forest-dev tests mpool
+          forest-dev tests wallet
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()

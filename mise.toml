@@ -221,8 +221,8 @@ run = '''
 set -euo pipefail
 source ./scripts/tests/harness.sh
 forest_wallet_init "${usage_preloaded_key?}"
-forest-dev tests calibnet mpool
-forest-dev tests calibnet wallet
+forest-dev tests mpool
+forest-dev tests wallet
 '''
 
 [tasks."test:wallet-devnet"]
@@ -236,8 +236,8 @@ pushd scripts/devnet
 popd
 source ./scripts/devnet/wallet_harness.sh
 devnet_wallet_env_init
-forest-dev tests devnet mpool
-forest-dev tests devnet wallet
+forest-dev tests mpool
+forest-dev tests wallet
 '''
 
 [tasks."codecov:nextest"]
