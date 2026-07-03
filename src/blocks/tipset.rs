@@ -3,7 +3,7 @@
 
 use std::{
     fmt,
-    sync::{Arc, LazyLock, OnceLock},
+    sync::{LazyLock, OnceLock},
 };
 
 use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
@@ -12,7 +12,6 @@ use crate::{
     cid_collections::SmallCidNonEmptyVec,
     networks::{calibnet, mainnet},
     prelude::*,
-    shim::clock::ChainEpoch,
     utils::{
         cid::CidCborExt,
         db::{CborStoreExt, car_stream::CarBlock},
@@ -192,6 +191,12 @@ impl get_size2::GetSize for Tipset {
         let heap_size = nunny_vec_heap_size_helper(&self.headers, &mut tracker).0
             + self.key.get_heap_size_with_tracker(&mut tracker).0;
         (heap_size, tracker)
+    }
+}
+
+impl From<&RawBlockHeader> for Tipset {
+    fn from(value: &RawBlockHeader) -> Self {
+        value.clone().into()
     }
 }
 
@@ -421,8 +426,19 @@ impl Tipset {
         })
     }
 
-    /// Fetch the genesis block header for a given tipset.
-    pub fn genesis(&self, store: &impl Blockstore) -> anyhow::Result<CachingBlockHeader> {
+    /// Fetch the genesis tipset for a given tipset.
+    pub async fn genesis(
+        &self,
+        store: impl Blockstore + Send + Sync + 'static,
+    ) -> anyhow::Result<Tipset> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || this.genesis_blocking(&store)).await?
+    }
+
+    /// Fetch the genesis tipset for a given tipset.
+    /// This call can be expensive and blocking, use [`Self::genesis`]
+    /// in async contexts to avoid exhausting Tokio worker threads.
+    pub fn genesis_blocking(&self, store: &impl Blockstore) -> anyhow::Result<Tipset> {
         // Scanning through millions of epochs to find the genesis is quite
         // slow. Let's use a list of known blocks to short-circuit the search.
         // The blocks are hash-chained together and known blocks are guaranteed
@@ -438,7 +454,7 @@ impl Tipset {
             serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
         });
 
-        for tipset in self.clone().chain(store) {
+        for tipset in self.shallow_clone().chain(store) {
             // Search for known calibnet and mainnet blocks
             for (genesis_cid, known_blocks) in [
                 (*calibnet::GENESIS_CID, &headers.calibnet),
@@ -447,15 +463,16 @@ impl Tipset {
                 if let Some(known_block_cid) = known_blocks.get(&tipset.epoch())
                     && known_block_cid == &tipset.min_ticket_block().cid().to_string()
                 {
-                    return store
+                    let genesis_block: CachingBlockHeader = store
                         .get_cbor(&genesis_cid)?
-                        .context("Genesis block missing from database");
+                        .context("Genesis block missing from database")?;
+                    return Ok(genesis_block.into());
                 }
             }
 
             // If no known blocks are found, we'll eventually hit the genesis tipset.
             if tipset.epoch() == 0 {
-                return Ok(tipset.min_ticket_block().clone());
+                return Ok(tipset);
             }
         }
         anyhow::bail!("Genesis block not found")
@@ -633,13 +650,12 @@ mod lotus_json {
     //! [Tipset] isn't just plain old data - it has an invariant (all block headers are valid)
     //! So there is custom de-serialization here
 
+    use super::*;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
     use nunny::Vec as NonEmpty;
     use schemars::JsonSchema;
     use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
-
-    use super::TipsetKey;
 
     #[derive(Debug, PartialEq, Clone, JsonSchema)]
     #[schemars(rename = "Tipset")]
@@ -655,7 +671,7 @@ mod lotus_json {
         #[serde(with = "crate::lotus_json")]
         #[schemars(with = "LotusJson<NonEmpty<CachingBlockHeader>>")]
         blocks: NonEmpty<CachingBlockHeader>,
-        height: i64,
+        height: ChainEpoch,
     }
 
     impl<'de> Deserialize<'de> for TipsetLotusJson {

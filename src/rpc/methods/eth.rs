@@ -1613,6 +1613,22 @@ async fn get_block_receipts(
     Ok(eth_receipts)
 }
 
+// Reject null-round `eth_getBlockReceipts*` by default (matches lotus#13694); set this flag for
+// the legacy previous-tipset behavior. See https://github.com/ChainSafe/forest/issues/7270.
+crate::def_is_env_truthy!(
+    legacy_null_round_block_receipts,
+    "FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND"
+);
+
+/// `Fail` (default) or legacy `TakeOlder` for `eth_getBlockReceipts*` on a null round.
+fn block_receipts_null_round() -> ResolveNullTipset {
+    if legacy_null_round_block_receipts() {
+        ResolveNullTipset::TakeOlder
+    } else {
+        ResolveNullTipset::Fail
+    }
+}
+
 pub enum EthGetBlockReceipts {}
 impl RpcMethod<1> for EthGetBlockReceipts {
     const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
@@ -1633,7 +1649,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, block_receipts_null_round())
             .await?;
         get_block_receipts(&ctx, ts, None)
             .await
@@ -1661,7 +1677,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::TakeOlder)
+            .tipset_by_block_number_or_hash(block_param, block_receipts_null_round())
             .await?;
         get_block_receipts(&ctx, ts, Some(limit))
             .await

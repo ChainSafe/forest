@@ -182,6 +182,7 @@ impl InfoCommand {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::blocks::RawBlockHeader;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::shim::clock::EPOCH_DURATION_SECONDS;
@@ -189,8 +190,6 @@ mod tests {
     use chrono::DateTime;
     use quickcheck_macros::quickcheck;
     use std::{str::FromStr, time::Duration};
-
-    use super::{NodeStatusInfo, SyncStatus};
 
     fn mock_tipset_at(seconds_since_unix_epoch: u64) -> Tipset {
         CachingBlockHeader::new(RawBlockHeader {
@@ -205,7 +204,7 @@ mod tests {
         NodeStatusInfo {
             lag: 0,
             health: 90.,
-            epoch: i64::MAX,
+            epoch: ChainEpoch::MAX,
             base_fee: TokenAmount::from_whole(1),
             sync_status: SyncStatus::Ok,
             start_time: DateTime::<chrono::Utc>::MIN_UTC,

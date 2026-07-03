@@ -29,6 +29,8 @@ pub struct ChainIndex {
     ts_cache: TipsetCache,
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     db: DbImpl,
+    /// Genesis tipset
+    genesis: Tipset,
     /// check whether an epoch is finalized
     is_epoch_finalized: Option<IsEpochFinalizedFn>,
 }
@@ -38,6 +40,7 @@ impl ShallowClone for ChainIndex {
         Self {
             ts_cache: self.ts_cache.shallow_clone(),
             db: self.db.shallow_clone(),
+            genesis: self.genesis.shallow_clone(),
             is_epoch_finalized: self.is_epoch_finalized.clone(),
         }
     }
@@ -55,12 +58,14 @@ pub enum ResolveNullTipset {
 }
 
 impl ChainIndex {
-    pub fn new(db: impl Into<DbImpl>) -> Self {
+    pub fn new(db: impl Into<DbImpl>, genesis: Tipset) -> Self {
+        assert!(genesis.epoch() == 0, "genesis tipset must be at epoch 0");
         let db = db.into();
         let ts_cache = SizeTrackingCache::new_with_metrics("tipset", DEFAULT_TIPSET_CACHE_SIZE);
         Self {
             ts_cache,
             db,
+            genesis,
             is_epoch_finalized: None,
         }
     }
@@ -76,6 +81,10 @@ impl ChainIndex {
 
     pub fn db_owned(&self) -> DbImpl {
         self.db().shallow_clone()
+    }
+
+    pub fn genesis(&self) -> &Tipset {
+        &self.genesis
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
@@ -162,7 +171,7 @@ impl ChainIndex {
         crate::def_is_env_truthy!(lookup_table_disabled, "FOREST_TIPSET_LOOKUP_TABLE_DISABLED");
 
         if to == 0 {
-            return Ok(Some(Tipset::from(from.genesis(&self.db)?)));
+            return Ok(Some(self.genesis.shallow_clone()));
         }
 
         let from_epoch = from.epoch();
@@ -332,7 +341,7 @@ mod tests {
         persist_tipset(&epoch3, &db);
         persist_tipset(&epoch4, &db);
 
-        let index = ChainIndex::new(db);
+        let index = ChainIndex::new(db, genesis);
         // epoch 2 is null. ResolveNullTipset decided whether to return epoch 1 or epoch 3
         assert_eq!(
             index
@@ -370,7 +379,7 @@ mod tests {
         persist_tipset(&epoch2b, &db);
         persist_tipset(&epoch3b, &db);
 
-        let index = ChainIndex::new(db);
+        let index = ChainIndex::new(db, genesis);
         // The chain as forked, epoch 2 and 3 are ambiguous
         assert_eq!(
             index
@@ -399,7 +408,7 @@ mod tests {
         persist_tipset(&genesis, &db);
         persist_tipset(&epoch3, &db);
 
-        let index = ChainIndex::new(db);
+        let index = ChainIndex::new(db, genesis);
         assert!(
             index
                 .tipset_by_height(2, epoch3, ResolveNullTipset::TakeOlder)

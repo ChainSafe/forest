@@ -78,7 +78,8 @@ pub struct ChainStore {
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DbImpl>,
 
-    genesis_block_header: Arc<CachingBlockHeader>,
+    /// Genesis tipset.
+    genesis: Tipset,
 
     /// validated blocks
     pub(crate) validated_blocks: SizeTrackingCache<CidWrapper, ()>,
@@ -99,7 +100,7 @@ impl ShallowClone for ChainStore {
             ec_calculator_finalized_epoch: self.ec_calculator_finalized_epoch.shallow_clone(),
             chain_index: self.chain_index.shallow_clone(),
             tipset_tracker: self.tipset_tracker.shallow_clone(),
-            genesis_block_header: self.genesis_block_header.shallow_clone(),
+            genesis: self.genesis.shallow_clone(),
             validated_blocks: self.validated_blocks.shallow_clone(),
             chain_config: self.chain_config.shallow_clone(),
             messages_in_tipset_cache: self.messages_in_tipset_cache.shallow_clone(),
@@ -111,9 +112,11 @@ impl ChainStore {
     pub fn new(
         db: impl Into<DbImpl>,
         chain_config: Arc<ChainConfig>,
-        genesis_block_header: CachingBlockHeader,
+        genesis: impl Into<Tipset>,
     ) -> anyhow::Result<Self> {
         let db = db.into();
+        let genesis = genesis.into();
+        anyhow::ensure!(genesis.epoch() == 0, "genesis tipset must be at epoch 0");
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let head = if let Some(head_tsk) = db
             .heaviest_tipset_key()
@@ -122,11 +125,11 @@ impl ChainStore {
             Tipset::load_required(&db, &head_tsk)
                 .with_context(|| format!("failed to load head tipset with key {head_tsk}"))?
         } else {
-            Tipset::from(&genesis_block_header)
+            genesis.shallow_clone()
         };
         let heaviest_tipset = Arc::new(ArcSwap::from_pointee(head.shallow_clone()));
         let f3_finalized_tipset: Arc<ArcSwapOption<Tipset>> = Default::default();
-        let chain_index = ChainIndex::new(db.shallow_clone());
+        let chain_index = ChainIndex::new(db.shallow_clone(), genesis.shallow_clone());
         let ec_calculator_finalized_epoch = Arc::new(AtomicI64::new(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(&chain_index, &chain_config, &head),
         ));
@@ -144,7 +147,7 @@ impl ChainStore {
             heaviest_tipset,
             f3_finalized_tipset,
             ec_calculator_finalized_epoch,
-            genesis_block_header: genesis_block_header.into(),
+            genesis,
             validated_blocks: SizeTrackingCache::new_with_metrics(
                 "validated_blocks",
                 VALIDATED_BLOCKS_CACHE_SIZE,
@@ -261,18 +264,19 @@ impl ChainStore {
         self.tipset_tracker.expand(header)
     }
 
+    /// Returns the genesis block header.
     pub fn genesis_block_header(&self) -> &CachingBlockHeader {
-        &self.genesis_block_header
+        self.genesis.min_ticket_block()
+    }
+
+    /// Returns the genesis tipset.
+    pub fn genesis_tipset(&self) -> Tipset {
+        self.genesis.shallow_clone()
     }
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Tipset {
         self.heaviest_tipset.load().as_ref().shallow_clone()
-    }
-
-    /// Returns the genesis tipset.
-    pub fn genesis_tipset(&self) -> Tipset {
-        Tipset::from(self.genesis_block_header())
     }
 
     /// Subscribes head changes.
@@ -409,13 +413,10 @@ impl ChainStore {
 
         // More null blocks than lookback
         if lbr >= heaviest_tipset.epoch() {
-            // This situation is extremely rare so it's fine to compute the
-            // state-root without caching.
-            let genesis_timestamp = heaviest_tipset.genesis(chain_index.db())?.timestamp;
+            let genesis_timestamp = chain_index.genesis().min_ticket_block().timestamp;
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let ExecutedTipset { state_root, .. } =
                 crate::state_manager::apply_block_messages_blocking(
-                    genesis_timestamp,
                     chain_index.shallow_clone(),
                     chain_config.shallow_clone(),
                     beacon,
@@ -728,14 +729,16 @@ mod tests {
         let gen_block = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             state_root: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
-            epoch: 1,
+            epoch: 0,
             weight: 2u32.into(),
             messages: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
             message_receipts: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
             ..Default::default()
         });
-        let cs = ChainStore::new(db, chain_config, gen_block.clone()).unwrap();
+        let gen_ts = Tipset::from(&gen_block);
+        let cs = ChainStore::new(db, chain_config, gen_ts.shallow_clone()).unwrap();
 
+        assert_eq!(cs.genesis_tipset(), gen_ts);
         assert_eq!(cs.genesis_block_header(), &gen_block);
     }
 

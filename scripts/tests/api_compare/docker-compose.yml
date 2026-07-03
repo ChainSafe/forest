@@ -42,6 +42,8 @@ services:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
       - FOREST_CHAIN_INDEXER_ENABLED=1
+      # Legacy null-round receipts for parity with the pre-lotus#13694 Lotus image; remove once it has the fix.
+      - FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND=1
     entrypoint: ["/bin/bash", "-c"]
     user: 0:0
     command:
@@ -125,6 +127,8 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http
+      # See `forest`: legacy null-round receipts for pre-lotus#13694 parity.
+      - FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND=1
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
