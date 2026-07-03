@@ -4223,8 +4223,14 @@ mod test {
     // Normal tx → `"to"` is the recipient address.
     #[case::normal(Some(EthAddress::default()))]
     fn to_is_always_serialized(#[case] to: Option<EthAddress>) {
-        let json = serde_json::to_value(ApiEthTx { to, ..Default::default() }.into_lotus_json())
-            .unwrap();
+        let json = serde_json::to_value(
+            ApiEthTx {
+                to,
+                ..Default::default()
+            }
+            .into_lotus_json(),
+        )
+        .unwrap();
         assert!(
             json.as_object().unwrap().contains_key("to"),
             "`to` key must always be present"
