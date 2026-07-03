@@ -48,7 +48,8 @@ pub async fn run_test_with_dump(
     ext.insert(test_dump.path);
     macro_rules! run_test {
         ($ty:ty) => {
-            if test_dump.request.method_name.as_ref() == <$ty>::NAME
+            if (test_dump.request.method_name.as_ref() == <$ty>::NAME
+                || Some(test_dump.request.method_name.as_ref()) == <$ty>::NAME_ALIAS)
                 && <$ty>::API_PATHS.contains(test_dump.path)
             {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;

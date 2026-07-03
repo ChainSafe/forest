@@ -107,7 +107,10 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     ext.insert(api_path);
     macro_rules! run_test {
         ($ty:ty) => {
-            if method_name.as_str() == <$ty>::NAME && <$ty>::API_PATHS.contains(api_path) {
+            if (method_name.as_str() == <$ty>::NAME
+                || Some(method_name.as_ref()) == <$ty>::NAME_ALIAS)
+                && <$ty>::API_PATHS.contains(api_path)
+            {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)
                     .context("failed to parse params")?;
                 let result = <$ty>::handle(ctx.clone(), params, &ext)
