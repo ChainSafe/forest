@@ -3,7 +3,6 @@
 
 use crate::{
     KeyStore, KeyStoreConfig,
-    blocks::TipsetKey,
     chain::ChainStore,
     chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
     db::{
@@ -52,7 +51,7 @@ pub struct RpcTestSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<Index>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tipset_by_epoch: Option<HashMap<ChainEpoch, TipsetKey>>,
+    pub tipset_by_epoch: Option<HashMap<ChainEpoch, nunny::Vec<String>>>,
     #[serde(with = "crate::lotus_json::base64_standard")]
     pub db: Vec<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -102,7 +101,17 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     if let Some(tipset_by_epoch) = tipset_by_epoch
         && !tipset_by_epoch.is_empty()
     {
-        *db.writer().ts_lookup_db.write() = tipset_by_epoch;
+        *db.writer().ts_lookup_db.write() = tipset_by_epoch
+            .into_iter()
+            .map(|(k, v)| {
+                anyhow::Ok((
+                    k,
+                    nunny::Vec::new(v.into_iter().map(|s| Cid::from_str(&s)).try_collect()?)
+                        .map_err(|_| anyhow::anyhow!("infallible NonEmpty conversion"))?
+                        .into(),
+                ))
+            })
+            .try_collect()?;
     }
     // backfill db with index data
     backfill_eth_mappings(db.writer(), index)

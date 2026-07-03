@@ -14,22 +14,20 @@ use crate::db::db_engine::db_root;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
 use crate::networks::NetworkChain;
+use crate::prelude::*;
 use crate::rpc::{self, ApiPaths, eth::types::*, prelude::*};
 use crate::shim::address::Address;
 use crate::tool::offline_server::start_offline_server;
 use crate::tool::subcommands::api_cmd::stateful_tests::TestTransaction;
 use crate::tool::subcommands::api_cmd::test_snapshot::{Index, Payload};
 use crate::utils::UrlFromMultiAddr;
-use anyhow::{Context as _, bail};
-use cid::Cid;
+use anyhow::bail;
 use clap::{Subcommand, ValueEnum};
-use fvm_ipld_blockstore::Blockstore;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     io,
     path::{Path, PathBuf},
-    sync::Arc,
     time::Instant,
 };
 use test_snapshot::RpcTestSnapshot;
@@ -382,7 +380,28 @@ impl ApiCommands {
                                     {
                                         None
                                     } else {
-                                        Some(tracking_db.tracker.ts_lookup_db.read().clone())
+                                        Some(
+                                            tracking_db
+                                                .tracker
+                                                .ts_lookup_db
+                                                .read()
+                                                .iter()
+                                                .map(|(&k, v)| {
+                                                    nunny::Vec::new(
+                                                        v.to_cids()
+                                                            .into_iter()
+                                                            .map(|cid| cid.to_string())
+                                                            .collect_vec(),
+                                                    )
+                                                    .map_err(|_| {
+                                                        anyhow::anyhow!(
+                                                            "infallible NonEmpty conversion"
+                                                        )
+                                                    })
+                                                    .map(|v| (k, v))
+                                                })
+                                                .try_collect()?,
+                                        )
                                     },
                                     db,
                                     api_path: Some(test_dump.path),
