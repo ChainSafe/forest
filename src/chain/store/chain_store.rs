@@ -185,14 +185,31 @@ impl ChainStore {
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
         head.key().save(self.db())?;
         self.db().set_heaviest_tipset_key(head.key())?;
-        if ChainIndex::is_tipset_lookup_checkpoint(head.epoch())
-            && let Err(e) = self.db().set_tipset_key_at_epoch(&head)
+
+        // Updating tipset lookup table
         {
-            warn!(
-                "failed to update tipset lookup table at epoch {}: {e:#}",
-                head.epoch()
-            );
+            if ChainIndex::is_tipset_lookup_checkpoint(head.epoch())
+                && let Err(e) = self.db().set_tipset_key_at_epoch(&head)
+            {
+                warn!(
+                    "failed to update tipset lookup table at epoch {}: {e:#?}",
+                    head.epoch()
+                );
+            }
+            // Fix stale lookups at null rounds which could be caused by chain reorg.
+            // This is a no-op in most of the cases so it's OK to always run.
+            // (caching parent of head is intended as it's heavily used in Eth APIs as `latest`, while head is `pending`)
+            if let Ok(Some(parent)) = self.chain_index.load_tipset(head.parents())
+                && let Err(e) = ChainIndex::cleanup_stale_tipset_lookup_at_null_rounds(
+                    self.db(),
+                    &head,
+                    &parent,
+                )
+            {
+                warn!("failed to cleanup stale null round lookups: {e:#?}");
+            }
         }
+
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
         self.ec_calculator_finalized_epoch.store(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(

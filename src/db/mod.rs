@@ -115,6 +115,9 @@ pub trait EthMappingsStore {
     /// Reads the tipset key for a given epoch(height) from the store.
     fn tipset_key_by_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<Option<TipsetKey>>;
 
+    /// Deletes the tipset key at a given epoch(height) from the store.
+    fn delete_tipset_key_at_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<()>;
+
     /// Writes the tipset key for a given epoch(height) to the store.
     fn set_tipset_key_at_epoch_raw(&self, epoch: ChainEpoch, tsk: &TipsetKey)
     -> anyhow::Result<()>;

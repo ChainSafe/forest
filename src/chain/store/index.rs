@@ -6,12 +6,13 @@ use std::num::NonZeroUsize;
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
-use crate::db::{DbImpl, EthMappingsStore as _};
+use crate::db::{DbImpl, EthMappingsStore};
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::cache::SizeTrackingCache;
 use nonzero_ext::nonzero;
 use num::Integer;
+use tracing::info;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize * 3); // 3-day-worth epochs, maximum ~50MiB
 // use `20` as checkpoint interval to match Lotus:
@@ -288,6 +289,40 @@ impl ChainIndex {
 
     pub fn is_tipset_lookup_checkpoint(epoch: ChainEpoch) -> bool {
         epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL) == 0
+    }
+
+    /// Cleans up stale checkpoints at null rounds between the given tipset and its parent in case there's chain reorg.
+    /// Returns the number of lookup entries being deleted.
+    pub fn cleanup_stale_tipset_lookup_at_null_rounds(
+        db: &impl EthMappingsStore,
+        ts: &Tipset,
+        parent: &Tipset,
+    ) -> anyhow::Result<usize> {
+        anyhow::ensure!(
+            ts.parents() == parent.key(),
+            "tipset keys do not match, `ts.parents()` should match `parent.key()`"
+        );
+        // Cleanup null lookup checkpoints on chain reorg
+        let null_checkpoint_epochs = ((parent.epoch() + 1)..ts.epoch())
+            .filter(|&epoch| Self::is_tipset_lookup_checkpoint(epoch))
+            .collect_vec();
+        let mut n_deleted = 0;
+        for epoch in null_checkpoint_epochs {
+            if db
+                .tipset_key_by_epoch(epoch)
+                .with_context(|| {
+                    format!("db error: failed to dlookup tipset key at epoch {epoch}")
+                })?
+                .is_some()
+            {
+                db.delete_tipset_key_at_epoch(epoch).with_context(|| {
+                    format!("db error: failed to delete tipset lookup at null epoch {epoch}")
+                })?;
+                info!("deleted tipset lookup at null epoch {epoch}");
+                n_deleted += 1;
+            }
+        }
+        Ok(n_deleted)
     }
 }
 

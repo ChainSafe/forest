@@ -348,6 +348,10 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
         Ok(result)
     }
 
+    fn delete_tipset_key_at_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<()> {
+        EthMappingsStore::delete_tipset_key_at_epoch(&self.tracker, epoch)
+    }
+
     fn set_tipset_key_at_epoch_raw(
         &self,
         epoch: ChainEpoch,

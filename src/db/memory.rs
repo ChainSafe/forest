@@ -135,6 +135,11 @@ impl EthMappingsStore for MemoryDB {
         Ok(self.ts_lookup_db.read().get(&epoch).cloned())
     }
 
+    fn delete_tipset_key_at_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<()> {
+        self.ts_lookup_db.write().remove(&epoch);
+        Ok(())
+    }
+
     fn set_tipset_key_at_epoch_raw(
         &self,
         epoch: ChainEpoch,
