@@ -2266,7 +2266,7 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
 }
 
 /// Returns the highest null-round epoch in the first chain gap at or below `shared_tipset`,
-/// or `None`. Bounded to where state is present, since the chosen round gets executed.
+/// or `None`. Bounded to where state is present.
 fn first_null_round_epoch<DB: Blockstore>(
     store: &DB,
     shared_tipset: &Tipset,
