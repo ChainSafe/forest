@@ -60,21 +60,27 @@ impl StateManager {
                 let id = address.id()?;
                 self.id_to_deterministic_address_cache
                     .get_or_insert_async(&id, async {
-                        // First try to resolve the actor in the parent state, so we don't have to compute anything.
-                        let resolved = if let Ok(state) =
-                            StateTree::new_from_root(self.db(), ts.parent_state())
-                            && let Ok(address) = state
-                                .resolve_to_deterministic_address(self.chain_store().db(), address)
-                        {
-                            address
-                        } else {
-                            // If that fails, compute the tip-set and try again.
-                            let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
-                            let state = StateTree::new_from_root(self.db(), &state_root)?;
-                            state.resolve_to_deterministic_address(
-                                self.chain_store().db(),
-                                address,
-                            )?
+                        let resolve_at = |state_root: &Cid| -> Option<Address> {
+                            StateTree::new_from_root(self.db(), state_root)
+                                .ok()?
+                                .resolve_to_deterministic_address(self.db(), address)
+                                .ok()
+                        };
+
+                        // The id -> f4 mapping is fixed at creation. Prefer the
+                        // requested tip-set's state; fall back to the heaviest, which is
+                        // always available when historical state has been pruned.
+                        let resolved = match resolve_at(ts.parent_state()).or_else(|| {
+                            resolve_at(self.chain_store().heaviest_tipset().parent_state())
+                        }) {
+                            Some(address) => address,
+                            // Last resort: compute the requested tip-set.
+                            None => {
+                                let TipsetState { state_root, .. } =
+                                    self.load_tipset_state(ts).await?;
+                                StateTree::new_from_root(self.db(), &state_root)?
+                                    .resolve_to_deterministic_address(self.db(), address)?
+                            }
                         };
                         Ok(resolved)
                     })
