@@ -634,7 +634,9 @@ pub struct ApiEthTx {
     pub block_number: EthInt64,
     pub transaction_index: EthUint64,
     pub from: EthAddress,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
+    // No `skip_serializing_if` (unlike the other `Option` fields): contract-creation txs must
+    // emit `"to": null` rather than drop the key.
+    #[serde(default)]
     pub to: Option<EthAddress>,
     pub value: EthBigInt,
     pub r#type: EthUint64,
@@ -4213,6 +4215,27 @@ mod test {
             ),
             None => assert!(!json.as_object().unwrap().contains_key("accessList")),
         }
+    }
+
+    #[rstest]
+    // Contract creation → `"to": null` present, not omitted.
+    #[case::contract_creation(None)]
+    // Normal tx → `"to"` is the recipient address.
+    #[case::normal(Some(EthAddress::default()))]
+    fn to_is_always_serialized(#[case] to: Option<EthAddress>) {
+        let json = serde_json::to_value(
+            ApiEthTx {
+                to,
+                ..Default::default()
+            }
+            .into_lotus_json(),
+        )
+        .unwrap();
+        assert!(
+            json.as_object().unwrap().contains_key("to"),
+            "`to` key must always be present"
+        );
+        assert_eq!(json["to"], serde_json::to_value(to).unwrap());
     }
 
     #[rstest]
