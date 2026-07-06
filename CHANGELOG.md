@@ -51,6 +51,8 @@
 
 - [#7214](https://github.com/ChainSafe/forest/pull/7214): Aligned the `eth` transaction `accessList` field with go-ethereum/reth (typed: `[]`, legacy: omitted, never `null`).
 
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth` transactions now serialize `"to": null` for contract-creation transactions instead of omitting the field, matching go-ethereum/reth/Lotus and the execution-apis transaction schema.
+
 - [#7227](https://github.com/ChainSafe/forest/issues/7227): Fixed invalid `Filecoin.GasEstimateGasPremium` and `Filecoin.GasEstimateFeeCap` responses that were returning a fraction instead of an integer.
 
 - [#7096](https://github.com/ChainSafe/forest/issues/7096): `eth_subscribe` `logs` now re-emits the logs of reorg-reverted tipsets with `removed: true`, ahead of the logs of the replacing tipsets.
