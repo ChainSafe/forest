@@ -9,15 +9,12 @@ use crate::shim::econ::TokenAmount;
 use crate::state_migration::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
 };
-use crate::{
-    shim::address::Address, state_migration::common::MigrationCache, utils::db::CborStoreExt,
-};
+use crate::{state_migration::common::MigrationCache, utils::db::CborStoreExt};
 use cid::multibase::Base;
 use fil_actor_miner_state::{
     v11::Deadline as DeadlineOld, v11::Deadlines as DeadlinesOld, v11::State as MinerStateOld,
     v12::Deadline as DeadlineNew, v12::Deadlines as DeadlinesNew, v12::State as MinerStateNew,
 };
-use fil_actors_shared::fvm_ipld_amt;
 use fil_actors_shared::v11::{Array as ArrayOld, runtime::Policy as PolicyOld};
 use fil_actors_shared::v12::{Array as ArrayNew, runtime::Policy as PolicyNew};
 
@@ -66,15 +63,10 @@ impl<BS: Blockstore> ActorMigration<BS> for MinerMigrator {
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let in_state: MinerStateOld = store.get_cbor_required(&input.head)?;
 
-        let new_sectors = self.migrate_sectors_with_cache(
-            store,
-            &input.cache,
-            &input.address,
-            &in_state.sectors,
-        )?;
+        let new_sectors =
+            self.migrate_sectors_with_cache(store, &input.cache, &in_state.sectors)?;
 
-        let new_deadlines =
-            self.migrate_deadlines(store, &input.cache, &input.address, &in_state.deadlines)?;
+        let new_deadlines = self.migrate_deadlines(store, &input.cache, &in_state.deadlines)?;
 
         let out_state = MinerStateNew {
             info: in_state.info,
@@ -107,64 +99,20 @@ impl MinerMigrator {
         &self,
         store: &BS,
         cache: &MigrationCache,
-        address: &Address,
         in_root: &Cid,
     ) -> anyhow::Result<Cid> {
+        // Note: an earlier version diffed against the miner's previously-migrated
+        // sectors AMT to avoid re-migrating shared sectors. That optimization was
+        // not safe under the concurrent migration (it could produce a flushed AMT
+        // referencing a node that was never written), so we always migrate from
+        // scratch. The `sectors_amt_key` cache still dedups identical sector AMTs.
         cache
             .get_or_insert_with(&sectors_amt_key(in_root)?, || -> anyhow::Result<Cid> {
-                let prev_in = cache.get(&miner_prev_sectors_in_key(address));
-                let prev_out = cache.get(&miner_prev_sectors_out_key(address));
-
-                let out_root = if let Some(prev_in) = prev_in
-                    && let Some(prev_out) = prev_out
-                {
-                    self.migrate_sectors_with_diff(store, in_root, &prev_in, &prev_out)?
-                } else {
-                    let in_array = ArrayOld::load(in_root, store)?;
-                    let mut out_array = self.migrate_sectors_from_scratch(store, &in_array)?;
-                    out_array.flush()?
-                };
-
-                cache.push(miner_prev_sectors_in_key(address), in_root.to_owned());
-                cache.push(miner_prev_sectors_out_key(address), out_root.to_owned());
-                Ok(out_root)
+                let in_array = ArrayOld::load(in_root, store)?;
+                let mut out_array = self.migrate_sectors_from_scratch(store, &in_array)?;
+                Ok(out_array.flush()?)
             })
             .map(|cid| cid.to_owned())
-    }
-
-    fn migrate_sectors_with_diff<BS: Blockstore>(
-        &self,
-        store: &BS,
-        in_root: &Cid,
-        prev_in: &Cid,
-        prev_out: &Cid,
-    ) -> anyhow::Result<Cid> {
-        let prev_in_sectors =
-            ArrayOld::<fil_actor_miner_state::v11::SectorOnChainInfo, BS>::load(prev_in, store)?;
-        let in_sectors =
-            ArrayOld::<fil_actor_miner_state::v11::SectorOnChainInfo, BS>::load(in_root, store)?;
-
-        let diffs = fvm_ipld_amt::diff(&prev_in_sectors, &in_sectors)?;
-
-        let mut prev_out_sectors =
-            ArrayNew::<fil_actor_miner_state::v12::SectorOnChainInfo, BS>::load(prev_out, store)?;
-
-        for diff in diffs {
-            use fvm_ipld_amt::ChangeType;
-            match &diff.change_type() {
-                ChangeType::Remove => {
-                    prev_out_sectors.delete(diff.key)?;
-                }
-                ChangeType::Modify | ChangeType::Add => {
-                    let info = in_sectors
-                        .get(diff.key)?
-                        .context("Failed to get info from in_sectors")?;
-                    prev_out_sectors.set(diff.key, TypeMigrator::migrate_type(info, store)?)?;
-                }
-            };
-        }
-
-        Ok(prev_out_sectors.flush()?)
     }
 
     fn migrate_sectors_from_scratch<'bs, BS: Blockstore>(
@@ -192,7 +140,6 @@ impl MinerMigrator {
         &self,
         store: &BS,
         cache: &MigrationCache,
-        address: &Address,
         deadlines: &Cid,
     ) -> anyhow::Result<Cid> {
         if deadlines == &self.empty_deadlines_v11 {
@@ -218,27 +165,13 @@ impl MinerMigrator {
                 let out_sectors_snapshot_cid = cache.get_or_insert_with(
                     &out_sectors_snapshot_cid_cache_key,
                     || -> anyhow::Result<Cid> {
-                        let prev_in_root = cache.get(&miner_prev_sectors_in_key(address));
-                        let prev_out_root = cache.get(&miner_prev_sectors_out_key(address));
+                        let in_sector_snapshot =
+                            ArrayOld::load(&in_deadline.sectors_snapshot, store)?;
 
-                        if let Some(prev_in_root) = prev_in_root
-                            && let Some(prev_out_root) = prev_out_root
-                        {
-                            self.migrate_sectors_with_diff(
-                                store,
-                                &in_deadline.sectors_snapshot,
-                                &prev_in_root,
-                                &prev_out_root,
-                            )
-                        } else {
-                            let in_sector_snapshot =
-                                ArrayOld::load(&in_deadline.sectors_snapshot, store)?;
+                        let mut out_snapshot =
+                            self.migrate_sectors_from_scratch(store, &in_sector_snapshot)?;
 
-                            let mut out_snapshot =
-                                self.migrate_sectors_from_scratch(store, &in_sector_snapshot)?;
-
-                            Ok(out_snapshot.flush()?)
-                        }
+                        Ok(out_snapshot.flush()?)
                     },
                 )?;
 
@@ -274,14 +207,6 @@ fn sectors_amt_key(sectors: &Cid) -> anyhow::Result<String> {
     Ok(format!("sectorsAmt-{key}"))
 }
 
-fn miner_prev_sectors_in_key(address: &Address) -> String {
-    format!("prevSectorsIn-{address}")
-}
-
-fn miner_prev_sectors_out_key(address: &Address) -> String {
-    format!("prevSectorsOut-{address}")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,6 +214,7 @@ mod tests {
     use crate::networks::{ChainConfig, Height};
     use crate::shim::actors::*;
     use crate::shim::{
+        address::Address,
         econ::TokenAmount,
         machine::{BuiltinActor, BuiltinActorManifest},
         state_tree::{ActorState, StateTree, StateTreeVersion},
