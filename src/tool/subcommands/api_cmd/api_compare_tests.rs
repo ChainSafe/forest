@@ -2266,14 +2266,11 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
 }
 
 /// Returns the highest null-round epoch in the first chain gap at or below `shared_tipset`,
-/// or `None`. Bounded to where state is present, since the chosen round gets executed.
+/// or `None`. Bounded to where state is present.
 fn first_null_round_epoch<DB: Blockstore>(
     store: &DB,
     shared_tipset: &Tipset,
 ) -> Option<ChainEpoch> {
-    // Keep the chosen null round at least `SAFE_EPOCH_DELAY_FOR_TESTING` below `shared_tipset`, so
-    // the tipset the legacy `eth_getBlockReceipts*` fallback resolves it to has materialized state.
-    let safe_ceiling = shared_tipset.epoch() - SAFE_EPOCH_DELAY_FOR_TESTING;
     let mut child_epoch: Option<ChainEpoch> = None;
     for ts in shared_tipset.clone().chain(store) {
         // Stop once we leave the snapshot's state window.
@@ -2283,11 +2280,9 @@ fn first_null_round_epoch<DB: Blockstore>(
         let epoch = ts.epoch();
         if let Some(child) = child_epoch
             && child - epoch > 1
-            // The gap must contain a null round at or below the safe ceiling.
-            && epoch + 1 <= safe_ceiling
         {
-            // Highest null round in the gap that is still safely below head.
-            return Some((child - 1).min(safe_ceiling));
+            // `child - 1` is the highest null round in the gap.
+            return Some(child - 1);
         }
         child_epoch = Some(epoch);
     }
