@@ -43,6 +43,8 @@
 
 ### Fixed
 
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth_getTransactionByBlockNumberAndIndex` and `eth_getTransactionByBlockHashAndIndex` now resolve the transaction's `to` address against the tipset's post-execution state (matching `eth_getBlockByNumber`/`eth_getTransactionByHash`), instead of the pre-execution state which returned a `0xff…ffffffffffffffff` masked-ID sentinel for recipients created within the tipset.
+
 - [#7276](https://github.com/ChainSafe/forest/issues/7276): `eth_getBlockByNumber`, `eth_getBlockTransactionCountByNumber`, `eth_getTransactionByBlockNumberAndIndex`, `eth_traceBlock`, and `eth_traceReplayBlockTransactions` now return an `ErrNullRound` error (JSON-RPC code `12`) when the requested block number is a null round, matching Lotus, instead of silently returning the previous tipset. Thanks to the `chain.data.riba.plus` dataset, which surfaced this discrepancy; see [#7270](https://github.com/ChainSafe/forest/issues/7270) for the broader effort to reconcile remaining Eth RPC discrepancies against it.
 
 - [#4645](https://github.com/ChainSafe/forest/issues/4645): An invalid RPC `Authorization` header (malformed header or unverifiable JWT) is now rejected with an HTTP `401 Unauthorized` instead of the misleading `-32600 Invalid request` JSON-RPC error. A call that authenticates but lacks the permission its method requires now returns a JSON-RPC error with code `-32003` and a `missing permission to invoke '<method>' (need '<perm>')` message.
