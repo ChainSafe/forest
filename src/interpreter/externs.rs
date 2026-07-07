@@ -261,7 +261,7 @@ impl ForestExterns {
     fn get_tipset_cid_impl(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
         let ts = self
             .chain_index
-            .load_required_tipset_by_height(
+            .load_required_tipset_by_height_blocking(
                 epoch,
                 self.heaviest_tipset.clone(),
                 ResolveNullTipset::TakeOlder,

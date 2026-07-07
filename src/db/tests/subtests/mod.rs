@@ -1,7 +1,11 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::db::{SettingsStore, SettingsStoreExt};
+use crate::{
+    blocks::TipsetKey,
+    db::{EthMappingsStore, SettingsStore, SettingsStoreExt as _},
+    prelude::*,
+};
 
 pub fn write_bin<DB>(db: &DB)
 where
@@ -63,4 +67,30 @@ where
     assert!(!db.exists(key).unwrap());
     assert!(db.read_obj::<i32>(key).unwrap().is_none());
     assert!(db.require_obj::<i32>(key).is_err());
+}
+
+pub fn tipset_lookup_read_write_delete<DB>(db: &DB)
+where
+    DB: EthMappingsStore,
+{
+    let tsk = TipsetKey::from(nunny::vec![Cid::default()]);
+    let epoch = 0;
+
+    // read from empty db should fail
+    assert_eq!(db.tipset_key_by_epoch(epoch).unwrap(), None);
+
+    // write should succeed
+    db.set_tipset_key_at_epoch_raw(epoch, &tsk).unwrap();
+
+    // read after write should succeed
+    assert_eq!(db.tipset_key_by_epoch(epoch).unwrap().as_ref(), Some(&tsk));
+
+    // delete should succed
+    db.delete_tipset_key_at_epoch(epoch).unwrap();
+
+    // read after delete from empty db should fail
+    assert_eq!(db.tipset_key_by_epoch(epoch).unwrap(), None);
+
+    // delete again should succed
+    db.delete_tipset_key_at_epoch(epoch).unwrap();
 }

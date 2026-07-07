@@ -32,3 +32,9 @@ fn db_write_read_obj() {
     let db = TempParityDB::new();
     subtests::write_read_obj(&*db);
 }
+
+#[test]
+fn db_tipset_lookup_read_write_delete() {
+    let db = TempParityDB::new();
+    subtests::tipset_lookup_read_write_delete(&*db);
+}

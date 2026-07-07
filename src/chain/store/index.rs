@@ -6,18 +6,22 @@ use std::num::NonZeroUsize;
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
-use crate::db::{DbImpl, EthMappingsStore as _};
+use crate::db::{DbImpl, EthMappingsStore};
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::cache::SizeTrackingCache;
 use nonzero_ext::nonzero;
 use num::Integer;
+use tracing::info;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize * 3); // 3-day-worth epochs, maximum ~50MiB
+// use `20` as checkpoint interval to match Lotus:
+// <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/store/index.go#L52>
+const TIPSET_LOOKUP_CHECKPOINT_INTERVAL: ChainEpoch = 20;
 
 type TipsetCache = SizeTrackingCache<TipsetKey, Tipset>;
 
-type IsTipsetFinalizedFn = Arc<dyn Fn(&Tipset) -> bool + Send + Sync>;
+type IsEpochFinalizedFn = Arc<dyn Fn(ChainEpoch) -> bool + Send + Sync>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
@@ -28,8 +32,8 @@ pub struct ChainIndex {
     db: DbImpl,
     /// Genesis tipset
     genesis: Tipset,
-    /// check whether a tipset is finalized
-    is_tipset_finalized: Option<IsTipsetFinalizedFn>,
+    /// check whether an epoch is finalized
+    is_epoch_finalized: Option<IsEpochFinalizedFn>,
 }
 
 impl ShallowClone for ChainIndex {
@@ -38,7 +42,7 @@ impl ShallowClone for ChainIndex {
             ts_cache: self.ts_cache.shallow_clone(),
             db: self.db.shallow_clone(),
             genesis: self.genesis.shallow_clone(),
-            is_tipset_finalized: self.is_tipset_finalized.clone(),
+            is_epoch_finalized: self.is_epoch_finalized.clone(),
         }
     }
 }
@@ -63,12 +67,12 @@ impl ChainIndex {
             ts_cache,
             db,
             genesis,
-            is_tipset_finalized: None,
+            is_epoch_finalized: None,
         }
     }
 
-    pub fn with_is_tipset_finalized(mut self, f: IsTipsetFinalizedFn) -> Self {
-        self.is_tipset_finalized = Some(f);
+    pub fn with_is_epoch_finalized(mut self, f: IsEpochFinalizedFn) -> Self {
+        self.is_epoch_finalized = Some(f);
         self
     }
 
@@ -167,24 +171,25 @@ impl ChainIndex {
 
         crate::def_is_env_truthy!(lookup_table_disabled, "FOREST_TIPSET_LOOKUP_TABLE_DISABLED");
 
-        // use `20` as checkpoint interval to match Lotus:
-        // <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/store/index.go#L52>
-        const CHECKPOINT_INTERVAL: ChainEpoch = 20;
-        fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
-            epoch - epoch.mod_floor(&CHECKPOINT_INTERVAL) + CHECKPOINT_INTERVAL
-        }
-        fn is_checkpoint(epoch: ChainEpoch) -> bool {
-            epoch.mod_floor(&CHECKPOINT_INTERVAL) == 0
-        }
-
         if to == 0 {
             return Ok(Some(self.genesis.shallow_clone()));
         }
 
         let from_epoch = from.epoch();
+        let is_epoch_finalized = |epoch: ChainEpoch| {
+            if let Some(is_epoch_finalized) = &self.is_epoch_finalized {
+                is_epoch_finalized(epoch)
+            } else {
+                epoch <= from_epoch - CHAIN_FINALITY
+            }
+        };
 
         let mut checkpoint_from_epoch = to;
-        while !lookup_table_disabled() && checkpoint_from_epoch < from_epoch {
+        while !lookup_table_disabled()
+            && checkpoint_from_epoch < from_epoch
+            // unfinalized checkpoints are subject to change
+            && is_epoch_finalized(checkpoint_from_epoch)
+        {
             if let Ok(Some(checkpoint_from_key)) =
                 self.db.tipset_key_by_epoch(checkpoint_from_epoch)
                 && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)
@@ -192,7 +197,7 @@ impl ChainIndex {
                 from = checkpoint_from;
                 break;
             }
-            checkpoint_from_epoch = next_checkpoint(checkpoint_from_epoch);
+            checkpoint_from_epoch = Self::next_tipset_lookup_checkpoint(checkpoint_from_epoch);
         }
 
         if to > from.epoch() {
@@ -204,18 +209,10 @@ impl ChainIndex {
             return Ok(Some(from));
         }
 
-        let from_epoch = from.epoch();
-        let is_finalized = |ts: &Tipset| {
-            if let Some(is_finalized_fn) = &self.is_tipset_finalized {
-                is_finalized_fn(ts)
-            } else {
-                ts.epoch() <= from_epoch - CHAIN_FINALITY
-            }
-        };
         for (child, parent) in from.chain(&self.db).tuple_windows() {
             // update cache only when child is finalized.
-            if is_checkpoint(child.epoch())
-                && is_finalized(&child)
+            if Self::is_tipset_lookup_checkpoint(child.epoch())
+                && is_epoch_finalized(child.epoch())
                 && let Err(e) = self.db.set_tipset_key_at_epoch(&child)
             {
                 tracing::warn!(
@@ -240,6 +237,7 @@ impl ChainIndex {
         Ok(None)
     }
 
+    /// Non-blocking version of [`Self::tipset_by_height`]
     pub async fn tipset_by_height_async(
         &self,
         to: ChainEpoch,
@@ -247,19 +245,31 @@ impl ChainIndex {
         resolve: ResolveNullTipset,
     ) -> Result<Option<Tipset>, Error> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || this.tipset_by_height(to, from, resolve))
-            .await
-            .map_err(|e| Error::Other(e.to_string()))?
+        tokio::task::spawn_blocking(move || this.tipset_by_height(to, from, resolve)).await?
     }
 
     /// Same as [`Self::tipset_by_height`], but errors if that would return `None`.
-    pub fn load_required_tipset_by_height(
+    /// This call can be expensive and blocking, use [`Self::load_required_tipset_by_height`]
+    /// in async contexts to avoid exhausting Tokio worker threads.
+    pub fn load_required_tipset_by_height_blocking(
         &self,
         to: ChainEpoch,
         from: Tipset,
         resolve: ResolveNullTipset,
     ) -> Result<Tipset, Error> {
         self.tipset_by_height(to, from, resolve)?
+            .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
+    }
+
+    /// Same as [`Self::tipset_by_height_async`], but errors if that would return `None`.
+    pub async fn load_required_tipset_by_height(
+        &self,
+        to: ChainEpoch,
+        from: Tipset,
+        resolve: ResolveNullTipset,
+    ) -> Result<Tipset, Error> {
+        self.tipset_by_height_async(to, from, resolve)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
     }
 
@@ -283,6 +293,49 @@ impl ChainIndex {
         Err(Error::Other(
             "Found no beacon entries in the 20 latest tipsets".to_owned(),
         ))
+    }
+
+    fn next_tipset_lookup_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
+        epoch - epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL)
+            + TIPSET_LOOKUP_CHECKPOINT_INTERVAL
+    }
+
+    pub fn is_tipset_lookup_checkpoint(epoch: ChainEpoch) -> bool {
+        epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL) == 0
+    }
+
+    /// Cleans up stale checkpoints at null rounds between the given tipset and its parent in case there's chain reorg.
+    /// Returns the number of lookup entries being deleted.
+    pub fn cleanup_stale_tipset_lookup_at_null_rounds(
+        db: &impl EthMappingsStore,
+        ts: &Tipset,
+        parent: &Tipset,
+    ) -> anyhow::Result<usize> {
+        anyhow::ensure!(
+            ts.parents() == parent.key(),
+            "tipset keys do not match, `ts.parents()` should match `parent.key()`"
+        );
+        // Cleanup null lookup checkpoints on chain reorg
+        let null_checkpoint_epochs = ((parent.epoch() + 1)..ts.epoch())
+            .filter(|&epoch| Self::is_tipset_lookup_checkpoint(epoch))
+            .collect_vec();
+        let mut n_deleted = 0;
+        for epoch in null_checkpoint_epochs {
+            if db
+                .tipset_key_by_epoch(epoch)
+                .with_context(|| {
+                    format!("db error: failed to dlookup tipset key at epoch {epoch}")
+                })?
+                .is_some()
+            {
+                db.delete_tipset_key_at_epoch(epoch).with_context(|| {
+                    format!("db error: failed to delete tipset lookup at null epoch {epoch}")
+                })?;
+                info!("deleted tipset lookup at null epoch {epoch}");
+                n_deleted += 1;
+            }
+        }
+        Ok(n_deleted)
     }
 }
 
