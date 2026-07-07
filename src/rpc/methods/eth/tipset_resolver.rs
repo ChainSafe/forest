@@ -99,7 +99,7 @@ impl<'a> TipsetResolver<'a> {
             } else {
                 match tag {
                     Predefined::Safe => self.get_ec_safe_tipset().await,
-                    Predefined::Finalized => self.get_ec_finalized_tipset(),
+                    Predefined::Finalized => self.get_ec_finalized_tipset().await,
                     tag => anyhow::bail!("unknown block tag: {tag}"),
                 }
             }
@@ -166,13 +166,14 @@ impl<'a> TipsetResolver<'a> {
     }
 
     /// Returns the tipset considered finalized by the expected-consensus finality calculator(`FRC-0089`).
-    pub fn get_ec_finalized_tipset(&self) -> anyhow::Result<Tipset> {
+    pub async fn get_ec_finalized_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
         let (_, ec_finalized_tipset) =
             ChainGetTipSetFinalityStatus::get_ec_finality_threshold_depth_and_tipset_with_cache(
                 self.ctx,
                 head.clone(),
-            )?;
+            )
+            .await?;
         ec_finalized_tipset.context("failed to resolve EC finalized tipset")
     }
 }

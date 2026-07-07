@@ -240,6 +240,7 @@ impl ChainIndex {
         Ok(None)
     }
 
+    /// Non-blocking version of [`Self::tipset_by_height`]
     pub async fn tipset_by_height_async(
         &self,
         to: ChainEpoch,
@@ -247,9 +248,7 @@ impl ChainIndex {
         resolve: ResolveNullTipset,
     ) -> Result<Option<Tipset>, Error> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || this.tipset_by_height(to, from, resolve))
-            .await
-            .map_err(|e| Error::Other(e.to_string()))?
+        tokio::task::spawn_blocking(move || this.tipset_by_height(to, from, resolve)).await?
     }
 
     /// Same as [`Self::tipset_by_height`], but errors if that would return `None`.

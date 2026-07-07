@@ -38,7 +38,21 @@ impl ShallowClone for ChainRand {
 impl ChainRand {
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
     /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
-    pub fn get_chain_randomness(
+    pub async fn get_chain_randomness(
+        &self,
+        round: ChainEpoch,
+        lookback: bool,
+    ) -> anyhow::Result<[u8; 32]> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || this.get_chain_randomness_blocking(round, lookback))
+            .await?
+    }
+
+    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
+    /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
+    /// This call can be expensive and blocking, use [`Self::get_chain_randomness`]
+    /// in async contexts to avoid exhausting Tokio worker threads.
+    pub fn get_chain_randomness_blocking(
         &self,
         round: ChainEpoch,
         lookback: bool,
@@ -71,7 +85,7 @@ impl ChainRand {
 
     /// network version 13 onward
     pub fn get_chain_randomness_v2(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness(round, false)
+        self.get_chain_randomness_blocking(round, false)
     }
 
     /// network version 13; without look-back

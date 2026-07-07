@@ -973,7 +973,8 @@ impl ChainGetTipSetV2 {
     }
 
     pub async fn get_latest_finalized_tipset(ctx: &Ctx) -> anyhow::Result<Tipset> {
-        ChainGetTipSetFinalityStatus::get_finality_status(ctx)?
+        ChainGetTipSetFinalityStatus::get_finality_status(ctx)
+            .await?
             .finalized_tip_set
             .context("failed to resolve finalized tipset")
     }
@@ -1030,10 +1031,11 @@ pub enum ChainGetTipSetFinalityStatus {}
 
 const EC_CALCULATOR_FINALITY_CACHE_SIZE: usize = 4;
 impl ChainGetTipSetFinalityStatus {
-    pub fn get_finality_status(ctx: &Ctx) -> anyhow::Result<ChainFinalityStatus> {
+    pub async fn get_finality_status(ctx: &Ctx) -> anyhow::Result<ChainFinalityStatus> {
         let head = ctx.chain_store().heaviest_tipset();
         let (ec_finality_threshold_depth, ec_finalized_tip_set) =
-            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone())?;
+            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone())
+                .await?;
         let f3_finalized_tip_set = ctx.chain_store().f3_finalized_tipset();
         let finalized_tip_set = match (&ec_finalized_tip_set, &f3_finalized_tip_set) {
             (Some(ec), Some(f3)) => {
@@ -1056,15 +1058,18 @@ impl ChainGetTipSetFinalityStatus {
         })
     }
 
-    pub fn get_ec_finality_threshold_depth_and_tipset_with_cache(
+    pub async fn get_ec_finality_threshold_depth_and_tipset_with_cache(
         ctx: &Ctx,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
         static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, (i64, Option<Tipset>)>> =
             LazyLock::new(|| quick_cache::sync::Cache::new(EC_CALCULATOR_FINALITY_CACHE_SIZE));
-        CACHE.get_or_insert_with(head.shallow_clone().key(), move || {
-            Self::get_ec_finality_threshold_depth_and_tipset(ctx, head)
-        })
+        CACHE
+            .get_or_insert_async(
+                head.shallow_clone().key(),
+                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head),
+            )
+            .await
     }
 
     pub fn get_ec_finality_epoch(
@@ -1164,7 +1169,7 @@ impl ChainGetTipSetFinalityStatus {
         }
     }
 
-    fn get_ec_finality_threshold_depth_and_tipset(
+    async fn get_ec_finality_threshold_depth_and_tipset(
         ctx: &Ctx,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
@@ -1175,11 +1180,10 @@ impl ChainGetTipSetFinalityStatus {
         );
         let ec_finality_epoch =
             Self::get_ec_finality_epoch_by_depth(ctx.chain_config(), &head, depth);
-        let finalized = ctx.chain_index().tipset_by_height(
-            ec_finality_epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let finalized = ctx
+            .chain_index()
+            .tipset_by_height_async(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)
+            .await?;
         Ok((depth, finalized))
     }
 }
@@ -1200,7 +1204,7 @@ impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(Self::get_finality_status(&ctx)?)
+        Ok(Self::get_finality_status(&ctx).await?)
     }
 }
 
