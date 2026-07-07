@@ -128,6 +128,7 @@ pub enum Permission {
     PartialOrd,
     clap::ValueEnum,
     EnumString,
+    strum::Display,
     Deserialize,
     Serialize,
 )]

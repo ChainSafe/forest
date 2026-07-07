@@ -634,7 +634,9 @@ pub struct ApiEthTx {
     pub block_number: EthInt64,
     pub transaction_index: EthUint64,
     pub from: EthAddress,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
+    // No `skip_serializing_if` (unlike the other `Option` fields): contract-creation txs must
+    // emit `"to": null` rather than drop the key.
+    #[serde(default)]
     pub to: Option<EthAddress>,
     pub value: EthBigInt,
     pub r#type: EthUint64,
@@ -922,11 +924,14 @@ impl RpcMethod<1> for BaseFeeByHeight {
         (height,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_index().load_required_tipset_by_height(
-            height,
-            ctx.chain_store().heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let ts = ctx
+            .chain_index()
+            .load_required_tipset_by_height(
+                height,
+                ctx.chain_store().heaviest_tipset(),
+                ResolveNullTipset::TakeOlder,
+            )
+            .await?;
         let base_fee = EthBaseFee::get_base_fee(&ctx, &ts)?;
         Ok(base_fee.atto().into())
     }
@@ -1066,7 +1071,7 @@ fn get_tipset_from_hash(chain_store: &ChainStore, block_hash: &EthHash) -> anyho
     Ok(chain_store.chain_index().load_required_tipset(&tsk)?)
 }
 
-fn resolve_block_number_tipset(
+async fn resolve_block_number_tipset(
     chain: &ChainStore,
     block_number: EthInt64,
     resolve: ResolveNullTipset,
@@ -1079,13 +1084,14 @@ fn resolve_block_number_tipset(
     chain
         .chain_index()
         .load_required_tipset_by_height(height, head, resolve)
+        .await
         .map_err(|e| match e {
             crate::chain::store::Error::NullRound(epoch) => EthErrors::null_round(epoch).into(),
             e => e.into(),
         })
 }
 
-fn resolve_block_hash_tipset(
+async fn resolve_block_hash_tipset(
     chain: &ChainStore,
     block_hash: &EthHash,
     require_canonical: bool,
@@ -1095,11 +1101,10 @@ fn resolve_block_hash_tipset(
     // verify that the tipset is in the canonical chain
     if require_canonical {
         // walk up the current chain (our head) until we reach ts.epoch()
-        let walk_ts = chain.chain_index().load_required_tipset_by_height(
-            ts.epoch(),
-            chain.heaviest_tipset(),
-            resolve,
-        )?;
+        let walk_ts = chain
+            .chain_index()
+            .load_required_tipset_by_height(ts.epoch(), chain.heaviest_tipset(), resolve)
+            .await?;
         // verify that it equals the expected tipset
         if walk_ts != ts {
             bail!("tipset is not canonical");
@@ -4213,6 +4218,27 @@ mod test {
             ),
             None => assert!(!json.as_object().unwrap().contains_key("accessList")),
         }
+    }
+
+    #[rstest]
+    // Contract creation → `"to": null` present, not omitted.
+    #[case::contract_creation(None)]
+    // Normal tx → `"to"` is the recipient address.
+    #[case::normal(Some(EthAddress::default()))]
+    fn to_is_always_serialized(#[case] to: Option<EthAddress>) {
+        let json = serde_json::to_value(
+            ApiEthTx {
+                to,
+                ..Default::default()
+            }
+            .into_lotus_json(),
+        )
+        .unwrap();
+        assert!(
+            json.as_object().unwrap().contains_key("to"),
+            "`to` key must always be present"
+        );
+        assert_eq!(json["to"], serde_json::to_value(to).unwrap());
     }
 
     #[rstest]

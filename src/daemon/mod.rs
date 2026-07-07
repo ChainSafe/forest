@@ -52,6 +52,7 @@ use tokio::{
     sync::mpsc,
     task::JoinSet,
 };
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
 pub static GLOBAL_SNAPSHOT_GC: OnceLock<Arc<SnapshotGarbageCollector>> = OnceLock::new();
@@ -370,6 +371,8 @@ fn maybe_prefill_rpc_caches(
         let state_manager = chain_follower.state_manager.shallow_clone();
         let mut validated_tipset_rx = chain_follower.subscribe_validated_tipset();
         services.spawn(async move {
+            let cancellation_token = CancellationToken::new();
+            let _cancellation_token_drop_guard = cancellation_token.drop_guard_ref();
             loop {
                 match validated_tipset_rx.recv().await {
                     Ok(_) if !sync_status.load().is_synced() => {
@@ -378,7 +381,15 @@ fn maybe_prefill_rpc_caches(
                     }
                     Ok(tsk) => {
                         let state_manager = state_manager.shallow_clone();
-                        tokio::spawn(prefill_rpc_caches_for_tipset(state_manager, tsk));
+                        let cancellation_token = cancellation_token.clone();
+                        tokio::spawn(async move {
+                            cancellation_token
+                                .run_until_cancelled(prefill_rpc_caches_for_tipset(
+                                    state_manager,
+                                    tsk,
+                                ))
+                                .await
+                        });
                     }
                     Err(RecvError::Lagged(n)) => {
                         warn!("validated tipset broadcast lagged: skipped {n} tipsets")
@@ -814,7 +825,7 @@ pub(super) async fn start_services(
     }
     if !opts.stateless
         && !opts.skip_load_actors
-        && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset()
+        && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset().await
     {
         tracing::warn!("error in maybe_rewind_heaviest_tipset: {e:#}");
     }

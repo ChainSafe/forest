@@ -296,11 +296,10 @@ impl RpcMethod<1> for ForestChainExport {
         let chain_export_guard = ChainExportGuard::try_start_export()?;
 
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let start_ts = ctx.chain_index().load_required_tipset_by_height(
-            epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let start_ts = ctx
+            .chain_index()
+            .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
+            .await?;
 
         let options = ExportOptions {
             skip_checksum,
@@ -498,11 +497,10 @@ impl RpcMethod<1> for ForestChainExportDiff {
         }
 
         let head = ctx.chain_store().heaviest_tipset();
-        let start_ts = ctx.chain_index().load_required_tipset_by_height(
-            from,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let start_ts = ctx
+            .chain_index()
+            .load_required_tipset_by_height(from, head, ResolveNullTipset::TakeOlder)
+            .await?;
 
         crate::tool::subcommands::archive_cmd::do_export(
             ctx.chain_index().db(),
@@ -798,11 +796,10 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
         let ts = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        let tss = ctx.chain_index().load_required_tipset_by_height(
-            height,
-            ts,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let tss = ctx
+            .chain_index()
+            .load_required_tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)
+            .await?;
         Ok(tss)
     }
 }
@@ -828,11 +825,10 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
         let ts = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        let tss = ctx.chain_index().load_required_tipset_by_height(
-            height,
-            ts,
-            ResolveNullTipset::TakeNewer,
-        )?;
+        let tss = ctx
+            .chain_index()
+            .load_required_tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)
+            .await?;
         Ok(tss)
     }
 }
@@ -969,16 +965,16 @@ impl ChainGetTipSetV2 {
         if finalized.epoch() >= safe_height {
             Ok(finalized)
         } else {
-            Ok(ctx.chain_index().load_required_tipset_by_height(
-                safe_height,
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?)
+            Ok(ctx
+                .chain_index()
+                .load_required_tipset_by_height(safe_height, head, ResolveNullTipset::TakeOlder)
+                .await?)
         }
     }
 
     pub async fn get_latest_finalized_tipset(ctx: &Ctx) -> anyhow::Result<Tipset> {
-        ChainGetTipSetFinalityStatus::get_finality_status(ctx)?
+        ChainGetTipSetFinalityStatus::get_finality_status(ctx)
+            .await?
             .finalized_tip_set
             .context("failed to resolve finalized tipset")
     }
@@ -993,11 +989,14 @@ impl ChainGetTipSetV2 {
         // Get tipset by height.
         if let Some(height) = &selector.height {
             let anchor = Self::get_tipset_by_anchor(ctx, height.anchor.as_ref()).await?;
-            let ts = ctx.chain_index().load_required_tipset_by_height(
-                height.at,
-                anchor,
-                height.resolve_null_tipset_policy(),
-            )?;
+            let ts = ctx
+                .chain_index()
+                .load_required_tipset_by_height(
+                    height.at,
+                    anchor,
+                    height.resolve_null_tipset_policy(),
+                )
+                .await?;
             return Ok(ts);
         }
         // Get tipset by tag, either latest or finalized.
@@ -1032,10 +1031,11 @@ pub enum ChainGetTipSetFinalityStatus {}
 
 const EC_CALCULATOR_FINALITY_CACHE_SIZE: usize = 4;
 impl ChainGetTipSetFinalityStatus {
-    pub fn get_finality_status(ctx: &Ctx) -> anyhow::Result<ChainFinalityStatus> {
+    pub async fn get_finality_status(ctx: &Ctx) -> anyhow::Result<ChainFinalityStatus> {
         let head = ctx.chain_store().heaviest_tipset();
         let (ec_finality_threshold_depth, ec_finalized_tip_set) =
-            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone())?;
+            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone())
+                .await?;
         let f3_finalized_tip_set = ctx.chain_store().f3_finalized_tipset();
         let finalized_tip_set = match (&ec_finalized_tip_set, &f3_finalized_tip_set) {
             (Some(ec), Some(f3)) => {
@@ -1058,15 +1058,18 @@ impl ChainGetTipSetFinalityStatus {
         })
     }
 
-    pub fn get_ec_finality_threshold_depth_and_tipset_with_cache(
+    pub async fn get_ec_finality_threshold_depth_and_tipset_with_cache(
         ctx: &Ctx,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
         static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, (i64, Option<Tipset>)>> =
             LazyLock::new(|| quick_cache::sync::Cache::new(EC_CALCULATOR_FINALITY_CACHE_SIZE));
-        CACHE.get_or_insert_with(head.shallow_clone().key(), move || {
-            Self::get_ec_finality_threshold_depth_and_tipset(ctx, head)
-        })
+        CACHE
+            .get_or_insert_async(
+                head.shallow_clone().key(),
+                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head),
+            )
+            .await
     }
 
     pub fn get_ec_finality_epoch(
@@ -1166,7 +1169,7 @@ impl ChainGetTipSetFinalityStatus {
         }
     }
 
-    fn get_ec_finality_threshold_depth_and_tipset(
+    async fn get_ec_finality_threshold_depth_and_tipset(
         ctx: &Ctx,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
@@ -1177,11 +1180,10 @@ impl ChainGetTipSetFinalityStatus {
         );
         let ec_finality_epoch =
             Self::get_ec_finality_epoch_by_depth(ctx.chain_config(), &head, depth);
-        let finalized = ctx.chain_index().tipset_by_height(
-            ec_finality_epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let finalized = ctx
+            .chain_index()
+            .tipset_by_height_async(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)
+            .await?;
         Ok((depth, finalized))
     }
 }
@@ -1202,7 +1204,7 @@ impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(Self::get_finality_status(&ctx)?)
+        Ok(Self::get_finality_status(&ctx).await?)
     }
 }
 
@@ -1341,14 +1343,26 @@ pub(crate) fn chain_notify(
     tokio::spawn(async move {
         // Skip first message
         let _ = head_changes_rx.recv().await;
-        while let Ok(changes) = head_changes_rx.recv().await {
-            let api_changes = changes
-                .into_change_vec()
-                .into_iter()
-                .map(From::from)
-                .collect();
-            if sender.send(api_changes).is_err() {
-                break;
+        loop {
+            match head_changes_rx.recv().await {
+                Ok(changes) => {
+                    let api_changes = changes
+                        .into_change_vec()
+                        .into_iter()
+                        .map(From::from)
+                        .collect();
+                    if sender.send(api_changes).is_err() {
+                        tracing::info!("chain notify subscribers are all closed");
+                        break;
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    tracing::info!("head changes channel closed");
+                    break;
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    tracing::warn!("head changes channel lagged by {n} messages");
+                }
             }
         }
     });
