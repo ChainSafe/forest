@@ -3003,7 +3003,7 @@ async fn get_eth_transaction_receipt_with_cache(
 ) -> Result<Option<EthTxReceipt>, ServerError> {
     const CACHE_SIZE: NonZeroUsize = nonzero!(1024usize); // ~1.25MiB on mainnet
     static CACHE: LazyLock<SizeTrackingCache<EthHash, EthTxReceipt>> =
-        LazyLock::new(|| SizeTrackingCache::new_with_metrics("eth_transaction", CACHE_SIZE));
+        LazyLock::new(|| SizeTrackingCache::new_with_metrics("eth_transaction_receipt", CACHE_SIZE));
 
     enum TmpError {
         NotFound,
