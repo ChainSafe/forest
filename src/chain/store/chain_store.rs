@@ -38,7 +38,6 @@ use std::{
     sync::atomic::{self, AtomicI64},
 };
 use tokio::sync::broadcast;
-use tracing::{debug, error, trace, warn};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -191,7 +190,7 @@ impl ChainStore {
             if ChainIndex::is_tipset_lookup_checkpoint(head.epoch())
                 && let Err(e) = self.db().set_tipset_key_at_epoch(&head)
             {
-                warn!(
+                error!(
                     "failed to update tipset lookup table at epoch {}: {e:#?}",
                     head.epoch()
                 );
@@ -206,7 +205,7 @@ impl ChainStore {
                     &parent,
                 )
             {
-                warn!("failed to cleanup stale null round lookups: {e:#?}");
+                error!("failed to cleanup stale null round lookups: {e:#?}");
             }
         }
 
@@ -513,10 +512,10 @@ impl ChainStore {
 
         // write back
         for (k, v, timestamp) in filtered.into_iter() {
-            tracing::trace!("Insert mapping {} => {}", k, v);
+            trace!("Insert mapping {} => {}", k, v);
             self.put_mapping(k, v, timestamp)?;
         }
-        tracing::trace!("Wrote {} entries in Ethereum mapping", num_entries);
+        trace!("Wrote {} entries in Ethereum mapping", num_entries);
         Ok(())
     }
 
