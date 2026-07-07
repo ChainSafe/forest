@@ -237,7 +237,12 @@ impl SnapshotCommands {
                         }
                         tokio::time::sleep(Duration::from_millis(500)).await;
                     }
-                    pb.finish_with_message("Export completed");
+
+                    pb.finish_with_message(if result.succeeded {
+                        "Export completed"
+                    } else {
+                        "Export failed"
+                    });
 
                     return Ok(());
                 }

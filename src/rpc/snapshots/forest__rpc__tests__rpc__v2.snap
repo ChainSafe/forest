@@ -1751,10 +1751,13 @@ components:
             - string
             - "null"
           format: date-time
+        succeeded:
+          type: boolean
       required:
         - progress
         - exporting
         - cancelled
+        - succeeded
         - start_epoch
         - current_epoch
     Base64String:

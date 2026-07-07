@@ -29,6 +29,7 @@ pub struct ExportStatus {
     pub initial_epoch: AtomicI64,
     pub exporting: AtomicBool,
     pub cancelled: AtomicBool,
+    pub succeeded: AtomicBool,
     pub start_time: ArcSwapOption<DateTime<Utc>>,
     pub cancellation_token: ArcSwapOption<CancellationToken>,
 }
@@ -48,6 +49,10 @@ impl ExportStatus {
 
     pub fn cancelled(&self) -> bool {
         self.cancelled.load(atomic::Ordering::Relaxed)
+    }
+
+    pub fn succeeded(&self) -> bool {
+        self.succeeded.load(atomic::Ordering::Relaxed)
     }
 
     pub fn start_time(&self) -> Option<DateTime<Utc>> {
@@ -77,6 +82,10 @@ impl ChainExportGuard {
 
     pub fn cancel_export(&self) {
         cancel_export()
+    }
+
+    pub fn mark_as_succeeded(&self) {
+        export_succeeded()
     }
 
     pub fn cancellation_token(&self) -> &CancellationToken {
@@ -123,6 +132,12 @@ fn start_export(cancellation_token: CancellationToken) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn export_succeeded() {
+    CHAIN_EXPORT_STATUS
+        .succeeded
+        .store(true, atomic::Ordering::Relaxed);
+}
+
 fn end_export() {
     CHAIN_EXPORT_STATUS
         .exporting
@@ -132,7 +147,6 @@ fn end_export() {
 
 fn cancel_export() {
     let status = &*CHAIN_EXPORT_STATUS;
-    status.exporting.store(false, atomic::Ordering::Relaxed);
     status.cancelled.store(true, atomic::Ordering::Relaxed);
 }
 

@@ -396,6 +396,7 @@ impl RpcMethod<1> for ForestChainExport {
                             save_checksum(checksum, &output_path)?;
                         }
                     }
+                    chain_export_guard.mark_as_succeeded();
                     anyhow::Ok(ApiExportResult::Done)
                 },
                 _ = chain_export_guard.cancellation_token().cancelled() => {
@@ -446,6 +447,7 @@ impl RpcMethod<0> for ForestChainExportStatus {
             progress,
             exporting: status.exporting(),
             cancelled: status.cancelled(),
+            succeeded: status.succeeded(),
             start_time: status.start_time(),
             current_epoch: epoch,
             start_epoch: initial_epoch,
@@ -542,6 +544,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
                 result = chain_export => {
                     result?;
                     tmp_path.persist(&output_path)?;
+                    chain_export_guard.mark_as_succeeded();
                     anyhow::Ok(ApiExportResult::Done)
                 },
                 _ = chain_export_guard.cancellation_token().cancelled() => {
