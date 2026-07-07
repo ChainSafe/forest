@@ -87,6 +87,13 @@ impl StateManager {
         let message_from_id = self.lookup_required_id(&message_from_address, &current)?;
 
         while !cancellation_token.is_cancelled() && current.epoch() >= lookback_max_epoch {
+            // Sender nonces only decrease going backwards, so once the nonce at
+            // `current` is 0 or already below the target, the message cannot be
+            // here or in any earlier tipset. Bail out instead of walking backwards.
+            if current_actor_state.sequence == 0 || current_actor_state.sequence < message_sequence
+            {
+                return Ok(None);
+            }
             let parent_tipset = self
                 .chain_index()
                 .load_required_tipset(current.parents())
@@ -398,9 +405,14 @@ mod tests {
     use crate::shim::state_tree::StateTreeVersion;
     use crate::utils::db::CborStoreExt as _;
     use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+    use rstest::rstest;
 
-    #[test]
-    fn check_search_miss_is_not_an_error() {
+    #[rstest]
+    // sender nonce == 0: guard returns Ok(None) instead of erroring on a miss.
+    #[case(0, 0)]
+    // sender nonce below target: guard returns Ok(None) without walking to genesis.
+    #[case(5, 10)]
+    fn check_search_returns_none_on_miss(#[case] sender_nonce: u64, #[case] message_sequence: u64) {
         let db = Arc::new(MemoryDB::default());
         let sender = Address::new_id(1000);
 
@@ -416,7 +428,7 @@ mod tests {
                     Cid::default(),
                     Cid::default(),
                     TokenAmount::default(),
-                    0,
+                    sender_nonce,
                     None,
                 ),
             )
@@ -450,13 +462,12 @@ mod tests {
 
         let msg: ChainMessage = Message {
             from: sender,
-            sequence: 0,
+            sequence: message_sequence,
             ..Default::default()
         }
         .into();
         let res = sm.check_search_blocking(head_ts, &msg, 0, true, &CancellationToken::new());
 
-        // The miss must be Ok(None), not an error.
         assert!(matches!(res, Ok(None)), "expected Ok(None), got {res:?}");
     }
 }
