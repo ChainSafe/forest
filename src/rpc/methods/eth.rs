@@ -3024,28 +3024,20 @@ async fn get_eth_transaction_receipt_with_cache(
         })
         .await
     {
-        Ok(r) if let Some(limit) = limit => {
-            // Use `>` instead of `>=` here to match the calculation in `message_search.rs`
-            // ```
-            // let lookback_max_epoch = match look_back_limit {
-            //     // No search: limit = 0 means search 0 epochs
-            //     Some(0) => return Ok(None),
-            //     // Limited search: calculate the inclusive lower bound, clamped to genesis
-            //     // Example: limit=5 at epoch=1000 → min_epoch=996, searches [996,1000] = 5 epochs
-            //     // Example: limit=2000 at epoch=1000 → min_epoch=0, searches [0,1000] = 1001 epochs (all available)
-            //     Some(limit) if limit > 0 => (current_epoch - limit + 1).max(0),
-            //     // Search all the way to genesis (epoch 0)
-            //     _ => 0,
-            // };
-            // ```
-            if r.block_number.0 + limit > ctx.chain_store().heaviest_tipset().epoch() {
+        Ok(r) => {
+            let Some(max_lookback_epoch_inclusive) = StateManager::max_lookback_epoch_inclusive(
+                ctx.chain_store().heaviest_tipset().epoch(),
+                limit,
+            ) else {
+                return Ok(None);
+            };
+            if r.block_number.0 >= max_lookback_epoch_inclusive {
                 Ok(Some(r))
             } else {
                 // Cache hit but beyond the lookback limit
                 Ok(None)
             }
         }
-        Ok(r) => Ok(Some(r)), // `limit` is `None`
         Err(TmpError::NotFound) => Ok(None),
         Err(TmpError::Error(e)) => Err(e),
     }
