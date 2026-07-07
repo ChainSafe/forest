@@ -235,12 +235,12 @@ impl StateManager {
     /// A valid head has
     ///     - state tree in the blockstore
     ///     - actor bundle version in the state tree that matches chain configuration
-    pub fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()> {
-        while self.maybe_rewind_heaviest_tipset_once()? {}
+    pub async fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()> {
+        while self.maybe_rewind_heaviest_tipset_once().await? {}
         Ok(())
     }
 
-    fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool> {
+    async fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool> {
         let head = self.heaviest_tipset();
         if let Some(info) = self
             .chain_config()
@@ -253,11 +253,14 @@ impl StateManager {
             let bundle_metadata = state.get_actor_bundle_metadata()?;
             if expected_bundle_metadata != bundle_metadata {
                 let current_epoch = head.epoch();
-                let target_head = self.chain_index().load_required_tipset_by_height(
-                    (expected_height_info.epoch - 1).max(0),
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
+                let target_head = self
+                    .chain_index()
+                    .load_required_tipset_by_height(
+                        (expected_height_info.epoch - 1).max(0),
+                        head,
+                        ResolveNullTipset::TakeOlder,
+                    )
+                    .await?;
                 let target_epoch = target_head.epoch();
                 let bundle_version = &bundle_metadata.version;
                 let expected_bundle_version = &expected_bundle_metadata.version;

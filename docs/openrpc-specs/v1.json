@@ -7879,7 +7879,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "transactionIndex": {
             "$ref": "#/components/schemas/EthUint64"

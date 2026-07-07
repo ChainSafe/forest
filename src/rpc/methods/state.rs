@@ -1600,21 +1600,26 @@ impl RpcMethod<3> for ForestStateCompute {
         let force_recompute = force_recompute.unwrap_or_default();
         let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
         let to_epoch = from_epoch + n_epochs - 1;
-        let to_ts = ctx.chain_index().load_required_tipset_by_height(
-            to_epoch,
-            ctx.chain_store().heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let to_ts = ctx
+            .chain_index()
+            .load_required_tipset_by_height(
+                to_epoch,
+                ctx.chain_store().heaviest_tipset(),
+                ResolveNullTipset::TakeOlder,
+            )
+            .await?;
         let from_ts = if from_epoch >= to_ts.epoch() {
             // When `from_epoch` is a null epoch or `n_epochs` is 1,
             // `to_ts.epoch()` could be less than or equal to `from_epoch`
             to_ts.shallow_clone()
         } else {
-            ctx.chain_index().load_required_tipset_by_height(
-                from_epoch,
-                to_ts.shallow_clone(),
-                ResolveNullTipset::TakeOlder,
-            )?
+            ctx.chain_index()
+                .load_required_tipset_by_height(
+                    from_epoch,
+                    to_ts.shallow_clone(),
+                    ResolveNullTipset::TakeOlder,
+                )
+                .await?
         };
 
         let mut futures = FuturesOrdered::new();
@@ -1753,7 +1758,7 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let chain_rand = ctx.state_manager.chain_rand(tipset);
-        let digest = chain_rand.get_chain_randomness(rand_epoch, false)?;
+        let digest = chain_rand.get_chain_randomness(rand_epoch, false).await?;
         let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
             &digest,
             personalization,
@@ -1783,7 +1788,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let chain_rand = ctx.state_manager.chain_rand(tipset);
-        let digest = chain_rand.get_chain_randomness(rand_epoch, false)?;
+        let digest = chain_rand.get_chain_randomness(rand_epoch, false).await?;
         Ok(digest.to_vec())
     }
 }
@@ -1808,7 +1813,7 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let chain_rand = ctx.state_manager.chain_rand(tipset);
-        let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
+        let digest = chain_rand.get_beacon_randomness_v3(rand_epoch).await?;
         let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
             &digest,
             personalization,
@@ -1838,7 +1843,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let chain_rand = ctx.state_manager.chain_rand(tipset);
-        let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
+        let digest = chain_rand.get_beacon_randomness_v3(rand_epoch).await?;
         Ok(digest.to_vec())
     }
 }
