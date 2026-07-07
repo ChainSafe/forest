@@ -4817,6 +4817,7 @@ components:
           anyOf:
             - $ref: "#/components/schemas/EthAddress"
             - type: "null"
+          default: ~
         transactionIndex:
           $ref: "#/components/schemas/EthUint64"
         type:

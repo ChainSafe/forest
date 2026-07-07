@@ -1090,7 +1090,7 @@ mod test_selection {
 
         // Subscribe AFTER the insert so we only observe events emitted by the
         // selection call below.
-        let mut rx = mpool.pending.subscribe();
+        let mut rx = mpool.pending.subscriber().subscribe();
 
         // Select against the non-current tipset.
         let _ = mpool.select_messages(&ts2, 1.0).unwrap();

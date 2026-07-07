@@ -71,8 +71,8 @@ use tokio::task::JoinSet;
 use tracing::debug;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
-const SAFE_EPOCH_DELAY_FOR_TESTING: i64 = 20; // `SAFE_HEIGHT_DISTANCE`(200) is too large for testing
-const MESSAGE_LOOKBACK_LIMIT: i64 = 2000;
+const SAFE_EPOCH_DELAY_FOR_TESTING: ChainEpoch = 20; // `SAFE_HEIGHT_DISTANCE`(200) is too large for testing
+const MESSAGE_LOOKBACK_LIMIT: ChainEpoch = 2000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ServerMode {
@@ -505,6 +505,8 @@ fn chain_tests(server_mode: ServerMode) -> Vec<RpcTest> {
             }
         },
         RpcTest::basic(ChainGetFinalizedTipset::request(()).unwrap()),
+        RpcTest::identity(ChainGetTipSetByHeight::request((0, Default::default())).unwrap())
+            .ignore("Lotus times out"),
     ]
 }
 
@@ -1397,6 +1399,24 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
 fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     for use_alias in [false, true] {
+        tests.extend([
+            RpcTest::identity(EthGetBlockTransactionCountByNumber::request_with_alias(
+                (EthInt64(0).into(),),
+                use_alias,
+            )?)
+            .ignore("Lotus times out"),
+            RpcTest::identity(EthGetBlockByNumber::request_with_alias(
+                (EthInt64(0).into(), true),
+                use_alias,
+            )?)
+            .ignore("Lotus times out"),
+            RpcTest::identity(EthGetBlockByNumber::request_with_alias(
+                (EthInt64(0).into(), false),
+                use_alias,
+            )?)
+            .ignore("Lotus times out"),
+        ]);
+
         tests.push(RpcTest::identity(EthAccounts::request_with_alias(
             (),
             use_alias,
@@ -1558,7 +1578,7 @@ fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
     Ok(tests)
 }
 
-fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
+fn eth_call_api_err_tests(epoch: ChainEpoch) -> Vec<RpcTest> {
     let contract_codes = [
         include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex"),
         include_str!("contracts/assert_err/assert_err.hex"),
@@ -2246,7 +2266,7 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
 }
 
 /// Returns the highest null-round epoch in the first chain gap at or below `shared_tipset`,
-/// or `None`. Bounded to where state is present, since the chosen round gets executed.
+/// or `None`. Bounded to where state is present.
 fn first_null_round_epoch<DB: Blockstore>(
     store: &DB,
     shared_tipset: &Tipset,
@@ -2317,6 +2337,20 @@ fn eth_null_round_tests<DB: Blockstore + ShallowClone>(
                 EthTraceReplayBlockTransactions::request((
                     BlockNumberOrHash::from_block_number(null_epoch),
                     vec!["trace".to_string()],
+                ))?
+                .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            // `eth_getBlockReceipts*` reject null rounds by default (lotus#13694).
+            RpcTest::identity(
+                EthGetBlockReceipts::request((BlockNumberOrHash::from_block_number(null_epoch),))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthGetBlockReceiptsLimited::request((
+                    BlockNumberOrHash::from_block_number(null_epoch),
+                    2880,
                 ))?
                 .with_api_path(api_path),
             )
@@ -2871,6 +2905,7 @@ pub(super) async fn run_tests(
                     success,
                     &test_result,
                     &test.request.params,
+                    test.request.api_path,
                 );
 
                 // Dump test data if configured

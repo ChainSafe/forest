@@ -4,7 +4,7 @@
 use super::*;
 use crate::{
     KeyStore, KeyStoreConfig,
-    blocks::{Tipset, TipsetKey},
+    blocks::TipsetKey,
     chain::ChainStore,
     chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
     daemon::{bundle::load_actor_bundles, db_util::load_all_forest_cars},
@@ -48,7 +48,8 @@ pub async fn run_test_with_dump(
     ext.insert(test_dump.path);
     macro_rules! run_test {
         ($ty:ty) => {
-            if test_dump.request.method_name.as_ref() == <$ty>::NAME
+            if (test_dump.request.method_name.as_ref() == <$ty>::NAME
+                || Some(test_dump.request.method_name.as_ref()) == <$ty>::NAME_ALIAS)
                 && <$ty>::API_PATHS.contains(test_dump.path)
             {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
@@ -96,7 +97,7 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
     for (k, v) in reader.iter() {
         index
             .eth_mappings
-            .get_or_insert_with(ahash::HashMap::default)
+            .get_or_insert_with(Default::default)
             .insert(k.to_string(), Payload(v.clone()));
     }
     if index == Index::default() {
@@ -137,13 +138,18 @@ async fn ctx(
         SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
     let nonce_tracker = NonceTracker::new();
+    let eth_event_handler = Arc::new(EthEventHandler::from_config(
+        &crate::cli_shared::cli::EventsConfig::default(),
+        state_manager.chain_config().eth_chain_id,
+        message_pool.subscriber(),
+    ));
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: message_pool,
         bad_blocks: Default::default(),
         sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
-        eth_event_handler: Arc::new(EthEventHandler::new()),
+        eth_event_handler,
         eth_logs_feed: Default::default(),
         sync_network_context,
         start_time: chrono::Utc::now(),
@@ -332,11 +338,21 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
         self.inner.delete(keys)
     }
 
-    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
-        self.inner.tipset_key_by_epoch(epoch)
+    fn tipset_key_by_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<Option<TipsetKey>> {
+        let result = self.inner.tipset_key_by_epoch(epoch)?;
+        if self.tracking()
+            && let Some(tsk) = &result
+        {
+            EthMappingsStore::set_tipset_key_at_epoch_raw(&self.tracker, epoch, tsk)?;
+        }
+        Ok(result)
     }
 
-    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
-        self.inner.set_tipset_key_at_epoch(ts)
+    fn set_tipset_key_at_epoch_raw(
+        &self,
+        epoch: ChainEpoch,
+        tsk: &TipsetKey,
+    ) -> anyhow::Result<()> {
+        self.inner.set_tipset_key_at_epoch_raw(epoch, tsk)
     }
 }

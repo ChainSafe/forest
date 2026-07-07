@@ -19,15 +19,18 @@ use crate::{
         ApiPaths, RPCState, RpcMethod, RpcMethodExt as _,
         eth::{filter::EthEventHandler, types::EthHash},
     },
-    shim::address::{CurrentNetwork, Network},
+    shim::{
+        address::{CurrentNetwork, Network},
+        clock::ChainEpoch,
+    },
     state_manager::StateManager,
 };
-use anyhow::Context as _;
+use ahash::HashMap;
 use arc_swap::ArcSwap;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::{path::Path, str::FromStr, sync::Arc};
+use std::{path::Path, str::FromStr};
 use tokio::{sync::mpsc, task::JoinSet};
 
 #[derive(Default, Hash, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +50,8 @@ pub struct RpcTestSnapshot {
     pub response: Result<serde_json::Value, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<Index>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tipset_by_epoch: Option<HashMap<ChainEpoch, nunny::Vec<String>>>,
     #[serde(with = "crate::lotus_json::base64_standard")]
     pub db: Vec<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -78,6 +83,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         name: method_name,
         params,
         index,
+        tipset_by_epoch,
         db: db_bytes,
         response: expected_response,
         api_path,
@@ -91,6 +97,22 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
             .with_read_only(AnyCar::new(db_bytes)?)
             .context("failed to create db from snapshot")?,
     );
+    // backfill tipset by epoch lookup table
+    if let Some(tipset_by_epoch) = tipset_by_epoch
+        && !tipset_by_epoch.is_empty()
+    {
+        *db.writer().ts_lookup_db.write() = tipset_by_epoch
+            .into_iter()
+            .map(|(k, v)| {
+                anyhow::Ok((
+                    k,
+                    nunny::Vec::new(v.into_iter().map(|s| Cid::from_str(&s)).try_collect()?)
+                        .map_err(|_| anyhow::anyhow!("infallible NonEmpty conversion"))?
+                        .into(),
+                ))
+            })
+            .try_collect()?;
+    }
     // backfill db with index data
     backfill_eth_mappings(db.writer(), index)
         .context("failed to backfill eth mappings from index")?;
@@ -107,7 +129,10 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     ext.insert(api_path);
     macro_rules! run_test {
         ($ty:ty) => {
-            if method_name.as_str() == <$ty>::NAME && <$ty>::API_PATHS.contains(api_path) {
+            if (method_name.as_str() == <$ty>::NAME
+                || Some(method_name.as_ref()) == <$ty>::NAME_ALIAS)
+                && <$ty>::API_PATHS.contains(api_path)
+            {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)
                     .context("failed to parse params")?;
                 let result = <$ty>::handle(ctx.clone(), params, &ext)
@@ -166,13 +191,18 @@ async fn ctx(
         SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
     let nonce_tracker = NonceTracker::new();
+    let eth_event_handler = Arc::new(EthEventHandler::from_config(
+        &crate::cli_shared::cli::EventsConfig::default(),
+        state_manager.chain_config().eth_chain_id,
+        message_pool.subscriber(),
+    ));
     let rpc_state = Arc::new(RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: message_pool,
         bad_blocks: Default::default(),
         sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
-        eth_event_handler: Arc::new(EthEventHandler::new()),
+        eth_event_handler,
         eth_logs_feed: Default::default(),
         sync_network_context,
         start_time: chrono::Utc::now(),
@@ -255,7 +285,8 @@ mod tests {
 
     #[test]
     fn rpc_regression_tests_print_uncovered() {
-        let pattern = lazy_regex::regex!(r#"^(?P<name>filecoin_.+)_\d+\.rpcsnap\.json\.zst$"#);
+        let pattern =
+            lazy_regex::regex!(r#"^(?P<name>(filecoin|eth)_.+)_\d+\.rpcsnap\.json\.zst$"#);
         let covered = HashSet::from_iter(
             include_str!("test_snapshots.txt")
                 .trim()
@@ -270,14 +301,17 @@ mod tests {
                         .as_str()
                         .replace("_", ".")
                         .to_lowercase()
+                        .replace("eth.", "eth_")
                 }),
         );
+        println!("covered: {covered:?}");
         let ignored = HashSet::from_iter(
             include_str!("test_snapshots_ignored.txt")
                 .trim()
                 .split("\n")
                 .map(str::to_lowercase),
         );
+        println!("ignored: {ignored:?}");
 
         let mut uncovered = vec![];
 
@@ -285,7 +319,15 @@ mod tests {
             ($ty:ty) => {
                 let name = <$ty>::NAME.to_lowercase();
                 if !covered.contains(&name) && !ignored.contains(&name) {
-                    uncovered.push(<$ty>::NAME);
+                    let is_covered = if let Some(alias) = <$ty>::NAME_ALIAS {
+                        let alias = alias.to_lowercase();
+                        covered.contains(&alias) || ignored.contains(&alias)
+                    } else {
+                        false
+                    };
+                    if !is_covered {
+                        uncovered.push(<$ty>::NAME);
+                    }
                 }
             };
         }

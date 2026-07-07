@@ -39,6 +39,8 @@
 
 - [#6442](https://github.com/ChainSafe/forest/issues/6442): `forest-wallet sign` and `forest-wallet verify` now apply the FRC-0102 signing envelope to the message by default. Pass `--raw` on both sides to reproduce the previous raw-bytes behaviour.
 
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth_getBlockReceipts` and `eth_getBlockReceiptsLimited` now return an `ErrNullRound` error (JSON-RPC code `12`) for a null-round block number instead of resolving to the previous tipset, matching upstream Lotus (lotus#13694). Set `FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND=1` to restore the previous behavior for parity with Lotus releases predating that fix.
+
 ### Removed
 
 ### Fixed
@@ -50,6 +52,8 @@
 - [#7256](https://github.com/ChainSafe/forest/pull/7256): `Filecoin.AuthVerify` now verifies its argument as a raw JWT, matching Lotus, instead of stripping a leading `Bearer ` prefix.
 
 - [#7214](https://github.com/ChainSafe/forest/pull/7214): Aligned the `eth` transaction `accessList` field with go-ethereum/reth (typed: `[]`, legacy: omitted, never `null`).
+
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth` transactions now serialize `"to": null` for contract-creation transactions instead of omitting the field, matching go-ethereum/reth/Lotus and the execution-apis transaction schema.
 
 - [#7227](https://github.com/ChainSafe/forest/issues/7227): Fixed invalid `Filecoin.GasEstimateGasPremium` and `Filecoin.GasEstimateFeeCap` responses that were returning a fraction instead of an integer.
 
@@ -134,6 +138,8 @@ Non-mandatory release for all node operators. It includes a few bug fixes as wel
 ### Removed
 
 ### Fixed
+
+- [#7109](https://github.com/ChainSafe/forest/pull/7109): `eth_newPendingTransactionFilter` now returns actually pending mempool transaction hashes instead of executed on-chain events.
 
 - [#7018](https://github.com/ChainSafe/forest/issues/7018): Fixed `forest-wallet set-default` failing when the keystore has no `default` entry.
 

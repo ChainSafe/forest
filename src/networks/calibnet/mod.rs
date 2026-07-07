@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::Cid;
 use indexmap::IndexMap;
 use libp2p::Multiaddr;
 use std::str::FromStr;
@@ -10,6 +9,7 @@ use std::sync::LazyLock;
 use crate::{
     eth::EthChainId,
     make_height,
+    prelude::*,
     shim::{clock::EPOCHS_IN_DAY, version::NetworkVersion},
 };
 
@@ -38,17 +38,17 @@ pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 pub static DEFAULT_BOOTSTRAP: LazyLock<Vec<Multiaddr>> =
     LazyLock::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet")));
 
-const LIGHTNING_EPOCH: i64 = 489_094;
+const LIGHTNING_EPOCH: ChainEpoch = 489_094;
 
 // The rollover period is the duration between nv19 and nv20 which both old
 // proofs (v1) and the new proofs (v1_1) proofs will be accepted by the
 // network.
-const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
+const LIGHTNING_ROLLOVER_PERIOD: ChainEpoch = 3120;
 
 // https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
 pub const ETH_CHAIN_ID: EthChainId = 314159;
 
-pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
+pub const BREEZE_GAS_TAMPING_DURATION: ChainEpoch = 120;
 
 /// Height epochs.
 pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {

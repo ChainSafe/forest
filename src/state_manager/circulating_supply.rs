@@ -250,7 +250,7 @@ struct GenesisInfoVesting {
 }
 
 impl GenesisInfoVesting {
-    fn new(liftoff_height: i64) -> Self {
+    fn new(liftoff_height: ChainEpoch) -> Self {
         Self {
             genesis: setup_genesis_vesting_schedule(),
             ignition: setup_ignition_vesting_schedule(liftoff_height),

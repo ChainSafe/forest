@@ -15,14 +15,14 @@ use go_ffi::*;
 
 pub mod snapshot;
 
-use cid::Cid;
+use crate::prelude::*;
 
 use crate::{networks::ChainConfig, utils::misc::env::is_env_set_and_truthy};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct F3Options {
-    pub chain_finality: i64,
-    pub bootstrap_epoch: i64,
+    pub chain_finality: ChainEpoch,
+    pub bootstrap_epoch: ChainEpoch,
     pub initial_power_table: Option<Cid>,
 }
 
@@ -98,8 +98,8 @@ pub fn run_f3_sidecar_if_enabled(
     jwt: String,
     f3_rpc_endpoint: String,
     initial_power_table: String,
-    bootstrap_epoch: i64,
-    finality: i64,
+    bootstrap_epoch: ChainEpoch,
+    finality: ChainEpoch,
     f3_root: String,
 ) {
     if is_sidecar_ffi_enabled(chain_config) {

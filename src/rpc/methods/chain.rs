@@ -529,6 +529,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
             let chain_export = crate::tool::subcommands::archive_cmd::do_export(
                 ctx.chain_index().db(),
                 start_ts,
+                Some(ctx.chain_store().genesis_tipset()),
                 tmp_path.to_path_buf(),
                 None,
                 depth,
@@ -1374,14 +1375,26 @@ pub(crate) fn chain_notify(
     tokio::spawn(async move {
         // Skip first message
         let _ = head_changes_rx.recv().await;
-        while let Ok(changes) = head_changes_rx.recv().await {
-            let api_changes = changes
-                .into_change_vec()
-                .into_iter()
-                .map(From::from)
-                .collect();
-            if sender.send(api_changes).is_err() {
-                break;
+        loop {
+            match head_changes_rx.recv().await {
+                Ok(changes) => {
+                    let api_changes = changes
+                        .into_change_vec()
+                        .into_iter()
+                        .map(From::from)
+                        .collect();
+                    if sender.send(api_changes).is_err() {
+                        tracing::info!("chain notify subscribers are all closed");
+                        break;
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    tracing::info!("head changes channel closed");
+                    break;
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    tracing::warn!("head changes channel lagged by {n} messages");
+                }
             }
         }
     });
@@ -1821,7 +1834,8 @@ mod tests {
                     .with_read_only(AnyCar::new(genesis_car).unwrap())
                     .unwrap(),
             );
-            let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
+            let genesis_block_header: CachingBlockHeader =
+                db.get_cbor(&genesis_cid).unwrap().unwrap();
             ChainStore::new(db, Arc::new(ChainConfig::calibnet()), genesis_block_header).unwrap()
         }
         pub fn calibnet() -> Self {
