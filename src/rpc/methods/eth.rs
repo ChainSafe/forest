@@ -757,7 +757,7 @@ impl HasLotusJson for EthSyncingResult {
     }
 }
 
-#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTxReceipt {
     transaction_hash: EthHash,
@@ -788,7 +788,7 @@ impl EthTxReceipt {
 }
 
 /// Represents the results of an event filter execution.
-#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "camelCase")]
 pub struct EthLog {
     /// The address of the actor that produced the event log.
@@ -2995,6 +2995,62 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
     }
 }
 
+async fn get_eth_transaction_receipt_with_cache(
+    ctx: Ctx,
+    tx_hash: EthHash,
+    limit: Option<ChainEpoch>,
+    cancellation_token: &CancellationToken,
+) -> Result<Option<EthTxReceipt>, ServerError> {
+    const CACHE_SIZE: NonZeroUsize = nonzero!(1024usize); // ~1.25MiB on mainnet
+    static CACHE: LazyLock<SizeTrackingCache<EthHash, EthTxReceipt>> =
+        LazyLock::new(|| SizeTrackingCache::new_with_metrics("eth_transaction", CACHE_SIZE));
+
+    enum TmpError {
+        NotFound,
+        Error(ServerError),
+    }
+
+    // Do not update cache when not found by returning an error
+    match CACHE
+        .get_or_insert_async(&tx_hash, {
+            let ctx = ctx.shallow_clone();
+            async move {
+                let receipt = get_eth_transaction_receipt(ctx, tx_hash, limit, cancellation_token)
+                    .await
+                    .map_err(TmpError::Error)?
+                    .ok_or(TmpError::NotFound)?;
+                Ok(receipt)
+            }
+        })
+        .await
+    {
+        Ok(r) if let Some(limit) = limit => {
+            // Use `>` instead of `>=` here to match the calculation in `message_search.rs`
+            // ```
+            // let lookback_max_epoch = match look_back_limit {
+            //     // No search: limit = 0 means search 0 epochs
+            //     Some(0) => return Ok(None),
+            //     // Limited search: calculate the inclusive lower bound, clamped to genesis
+            //     // Example: limit=5 at epoch=1000 → min_epoch=996, searches [996,1000] = 5 epochs
+            //     // Example: limit=2000 at epoch=1000 → min_epoch=0, searches [0,1000] = 1001 epochs (all available)
+            //     Some(limit) if limit > 0 => (current_epoch - limit + 1).max(0),
+            //     // Search all the way to genesis (epoch 0)
+            //     _ => 0,
+            // };
+            // ```
+            if r.block_number.0 + limit > ctx.chain_store().heaviest_tipset().epoch() {
+                Ok(Some(r))
+            } else {
+                // Cache hit but beyond the lookback limit
+                Ok(None)
+            }
+        }
+        Ok(r) => Ok(Some(r)), // `limit` is `None`
+        Err(TmpError::NotFound) => Ok(None),
+        Err(TmpError::Error(e)) => Err(e),
+    }
+}
+
 async fn get_eth_transaction_receipt(
     ctx: Ctx,
     tx_hash: EthHash,
@@ -3079,7 +3135,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     ) -> Result<Self::Ok, ServerError> {
         let cancellation_token = CancellationToken::new();
         let _drop_guard = cancellation_token.drop_guard_ref();
-        get_eth_transaction_receipt(ctx, tx_hash, None, &cancellation_token).await
+        get_eth_transaction_receipt_with_cache(ctx, tx_hash, None, &cancellation_token).await
     }
 }
 
@@ -3101,7 +3157,7 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     ) -> Result<Self::Ok, ServerError> {
         let cancellation_token = CancellationToken::new();
         let _drop_guard = cancellation_token.drop_guard_ref();
-        get_eth_transaction_receipt(ctx, tx_hash, Some(limit), &cancellation_token).await
+        get_eth_transaction_receipt_with_cache(ctx, tx_hash, Some(limit), &cancellation_token).await
     }
 }
 
