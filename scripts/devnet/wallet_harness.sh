@@ -17,14 +17,11 @@ function devnet_wallet_env_init {
   token=$(docker exec forest cat "${FOREST_DATA_DIR}/token.jwt")
   export FULLNODE_API_INFO="${token}:/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http"
 
-  local tmp="${TMPDIR:-/tmp}"
+  local tmp
+  tmp="$(mktemp --directory)"
 
-  # Derive the genesis address via a throwaway keystore (`XDG_DATA_HOME`) so it
-  # never lands in the real keystores.
-  local genesis_key_path="${tmp}/devnet_genesis_wallet.key"
-  docker cp "forest:${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.key" "${genesis_key_path}"
   local genesis_addr
-  genesis_addr="$(XDG_DATA_HOME="$(mktemp -d)" ${FOREST_WALLET_PATH} import "${genesis_key_path}")"
+  genesis_addr="$(docker exec lotus lotus wallet default)"
 
   # Fresh sender the miner never touches; mirror to the remote keystore so both
   # `Backend::Local` and `Backend::Remote` variants work.
