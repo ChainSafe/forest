@@ -15,7 +15,7 @@ use tracing::instrument;
 
 impl StateManager {
     #[instrument(skip(self))]
-    fn call_raw(
+    fn call_raw_blocking(
         &self,
         state_cid: Option<Cid>,
         msg: &Message,
@@ -26,12 +26,20 @@ impl StateManager {
 
         let tipset = if let Some(ts) = tipset {
             if ts.epoch() > 0 {
-                let parent = self
-                    .chain_index()
-                    .load_required_tipset(ts.parents())
-                    .map_err(Error::other)?;
-                if chain_config.has_expensive_fork_between(parent.epoch(), ts.epoch() + 1) {
-                    return Err(Error::ExpensiveFork);
+                // Explicit-state calls already hold every fork below the tipset epoch, so only a
+                // migration at the tipset epoch itself is refused. Parent-state calls (no explicit
+                // state) lag a tipset, so a migration at the parent epoch must also be refused.
+                let (fork_floor, fork_height) = if state_cid.is_some() {
+                    (ts.epoch(), ts.epoch() + 1)
+                } else {
+                    let parent = self
+                        .chain_index()
+                        .load_required_tipset(ts.parents())
+                        .map_err(Error::other)?;
+                    (parent.epoch(), ts.epoch() + 1)
+                };
+                if let Some(epoch) = chain_config.expensive_fork_between(fork_floor, fork_height) {
+                    return Err(Error::ExpensiveFork { epoch });
                 }
             }
             ts
@@ -131,19 +139,47 @@ impl StateManager {
 
     /// runs the given message and returns its result without any persisted
     /// changes.
-    pub fn call(&self, message: &Message, tipset: Option<Tipset>) -> Result<ApiInvocResult, Error> {
-        self.call_raw(None, message, tipset)
+    pub async fn call(
+        &self,
+        message: Arc<Message>,
+        tipset: Option<Tipset>,
+    ) -> Result<ApiInvocResult, Error> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || this.call_blocking(&message, tipset)).await?
+    }
+
+    /// Blocking version of [`Self::call`], use with caution.
+    pub fn call_blocking(
+        &self,
+        message: &Message,
+        tipset: Option<Tipset>,
+    ) -> Result<ApiInvocResult, Error> {
+        self.call_raw_blocking(None, message, tipset)
     }
 
     /// Same as [`StateManager::call`] but runs the message on the given state and not
     /// on the parent state of the tipset.
-    pub fn call_on_state(
+    pub async fn call_on_state(
+        &self,
+        state_cid: Cid,
+        message: Arc<Message>,
+        tipset: Option<Tipset>,
+    ) -> Result<ApiInvocResult, Error> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || {
+            this.call_on_state_blocking(state_cid, &message, tipset)
+        })
+        .await?
+    }
+
+    /// Blocking version of [`Self::call_on_state`], use with caution.
+    pub fn call_on_state_blocking(
         &self,
         state_cid: Cid,
         message: &Message,
         tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
-        self.call_raw(Some(state_cid), message, tipset)
+        self.call_raw_blocking(Some(state_cid), message, tipset)
     }
 
     pub async fn apply_on_state_with_gas(
@@ -155,10 +191,10 @@ impl StateManager {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
         let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
-        let mut chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
+        let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
 
         let (_invoc_res, apply_ret, duration, state_root) = self
-            .call_with_gas(&mut chain_msg, &[], Some(ts), vm_flush)
+            .call_with_gas(chain_msg, Default::default(), Some(ts), vm_flush)
             .await?;
 
         Ok((
@@ -180,8 +216,8 @@ impl StateManager {
     /// messages and returns the values computed in the VM.
     pub async fn call_with_gas(
         &self,
-        message: &mut ChainMessage,
-        prior_messages: &[ChainMessage],
+        mut message: ChainMessage,
+        prior_messages: Arc<Vec<ChainMessage>>,
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
     ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
@@ -196,51 +232,56 @@ impl StateManager {
         // "next" tipset
         let epoch = ts.epoch() + 1;
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
-        // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
-        // FVM, but that introduces some constraints, and possible deadlocks.
-        let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> anyhow::Result<_> {
-            let mut vm = VM::new(
-                ExecutionContext {
-                    heaviest_tipset: ts.clone(),
-                    state_tree_root: state_root,
-                    epoch,
-                    rand: Box::new(chain_rand),
-                    base_fee: ts.block_headers().first().parent_base_fee.clone(),
-                    circ_supply: genesis_info.get_vm_circulating_supply(
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || {
+            // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
+            // FVM, but that introduces some constraints, and possible deadlocks.
+            let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> anyhow::Result<_> {
+                let mut vm = VM::new(
+                    ExecutionContext {
+                        heaviest_tipset: ts.clone(),
+                        state_tree_root: state_root,
                         epoch,
-                        self.chain_index().db(),
-                        &state_root,
-                    )?,
-                    chain_config: self.chain_config().shallow_clone(),
-                    chain_index: self.chain_index().shallow_clone(),
-                    timestamp: ts.min_timestamp(),
-                },
-                &self.engine,
-                VMTrace::NotTraced,
-            )?;
+                        rand: Box::new(chain_rand),
+                        base_fee: ts.block_headers().first().parent_base_fee.clone(),
+                        circ_supply: genesis_info.get_vm_circulating_supply(
+                            epoch,
+                            this.chain_index().db(),
+                            &state_root,
+                        )?,
+                        chain_config: this.chain_config().shallow_clone(),
+                        chain_index: this.chain_index().shallow_clone(),
+                        timestamp: ts.min_timestamp(),
+                    },
+                    &this.engine,
+                    VMTrace::NotTraced,
+                )?;
 
-            for msg in prior_messages {
-                vm.apply_message(msg)?;
-            }
-            let from_actor = vm
-                .get_actor(&message.from())
-                .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
-                .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
+                for msg in prior_messages.iter() {
+                    vm.apply_message(msg)?;
+                }
 
-            message.set_sequence(from_actor.sequence);
-            let (ret, duration) = vm.apply_message(message)?;
-            let state_root = match vm_flush {
-                VMFlush::Flush => Some(vm.flush()?),
-                VMFlush::Skip => None,
-            };
-            Ok((ret, duration, state_root))
-        })?;
+                let from_actor = vm
+                    .get_actor(&message.from())
+                    .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
+                    .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
 
-        Ok((
-            InvocResult::new(message.message().clone(), &ret),
-            ret,
-            duration,
-            state_cid,
-        ))
+                message.set_sequence(from_actor.sequence);
+                let (ret, duration) = vm.apply_message(&message)?;
+                let state_root = match vm_flush {
+                    VMFlush::Flush => Some(vm.flush()?),
+                    VMFlush::Skip => None,
+                };
+                Ok((ret, duration, state_root))
+            })?;
+
+            Ok((
+                InvocResult::new(message.message().clone(), &ret),
+                ret,
+                duration,
+                state_cid,
+            ))
+        })
+        .await?
     }
 }

@@ -67,6 +67,16 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
     rmsgs.entry(m.from()).or_default().insert(m.sequence(), m);
 }
 
+pub(in crate::message_pool) fn remove_from_selected_msgs(
+    from: &Address,
+    sequence: u64,
+    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+) {
+    if let Some(set) = rmsgs.get_mut(from) {
+        set.remove(&sequence);
+    }
+}
+
 /// Computes the minimum gas premium required to replace an existing message
 /// using [`REPLACE_BY_FEE_RATIO_MIN`].
 ///

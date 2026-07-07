@@ -18,7 +18,6 @@ pub mod proofs_api;
 pub mod rand;
 pub mod reqwest_resume;
 mod shallow_clone;
-pub mod task;
 pub use shallow_clone::ShallowClone;
 pub mod sqlite;
 pub mod stats;

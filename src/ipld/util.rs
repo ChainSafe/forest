@@ -4,17 +4,16 @@
 use crate::blocks::Tipset;
 use crate::cid_collections::{CidHashSet, CidHashSetLike};
 use crate::ipld::Ipld;
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
+use arc_swap::ArcSwapOption;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use cid::Cid;
 use futures::Stream;
-use fvm_ipld_blockstore::Blockstore;
-use parking_lot::RwLock;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -22,6 +21,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicI64};
 use std::sync::{LazyLock, atomic};
 use std::task::{Context, Poll};
+use tokio_util::sync::CancellationToken;
 
 #[derive(Default)]
 pub struct ExportStatus {
@@ -29,7 +29,8 @@ pub struct ExportStatus {
     pub initial_epoch: AtomicI64,
     pub exporting: AtomicBool,
     pub cancelled: AtomicBool,
-    pub start_time: RwLock<Option<DateTime<Utc>>>,
+    pub start_time: ArcSwapOption<DateTime<Utc>>,
+    pub cancellation_token: ArcSwapOption<CancellationToken>,
 }
 
 impl ExportStatus {
@@ -50,11 +51,44 @@ impl ExportStatus {
     }
 
     pub fn start_time(&self) -> Option<DateTime<Utc>> {
-        *self.start_time.read()
+        self.start_time.load().clone().map(Arc::unwrap_or_clone)
+    }
+
+    pub fn cancellation_token(&self) -> Option<CancellationToken> {
+        self.cancellation_token
+            .load()
+            .clone()
+            .map(Arc::unwrap_or_clone)
     }
 }
 
 pub static CHAIN_EXPORT_STATUS: LazyLock<ExportStatus> = LazyLock::new(ExportStatus::default);
+
+pub struct ChainExportGuard {
+    cancellation_token: CancellationToken,
+}
+
+impl ChainExportGuard {
+    pub fn try_start_export() -> anyhow::Result<Self> {
+        let cancellation_token = CancellationToken::new();
+        start_export(cancellation_token.clone())?;
+        Ok(Self { cancellation_token })
+    }
+
+    pub fn cancel_export(&self) {
+        cancel_export()
+    }
+
+    pub fn cancellation_token(&self) -> &CancellationToken {
+        &self.cancellation_token
+    }
+}
+
+impl Drop for ChainExportGuard {
+    fn drop(&mut self) {
+        end_export()
+    }
+}
 
 fn update_epoch(new_value: i64) {
     let status = &*CHAIN_EXPORT_STATUS;
@@ -67,22 +101,34 @@ fn update_epoch(new_value: i64) {
     );
 }
 
-pub fn start_export() {
+fn start_export(cancellation_token: CancellationToken) -> anyhow::Result<()> {
     let status = &*CHAIN_EXPORT_STATUS;
+    let export_in_progress = status.exporting.swap(true, atomic::Ordering::Relaxed);
+    anyhow::ensure!(
+        !export_in_progress,
+        "An active chain export job has started at {}, start epoch: {}, current epoch: {}",
+        status.start_time().unwrap_or_default(),
+        status.initial_epoch(),
+        status.epoch(),
+    );
     status.epoch.store(0, atomic::Ordering::Relaxed);
     status.initial_epoch.store(0, atomic::Ordering::Relaxed);
-    status.exporting.store(true, atomic::Ordering::Relaxed);
     status.cancelled.store(false, atomic::Ordering::Relaxed);
-    *status.start_time.write() = Some(Utc::now());
+    status.start_time.store(Some(Utc::now().into()));
+    status
+        .cancellation_token
+        .store(Some(cancellation_token.into()));
+    Ok(())
 }
 
-pub fn end_export() {
+fn end_export() {
     CHAIN_EXPORT_STATUS
         .exporting
         .store(false, atomic::Ordering::Relaxed);
+    CHAIN_EXPORT_STATUS.cancellation_token.store(None);
 }
 
-pub fn cancel_export() {
+fn cancel_export() {
     let status = &*CHAIN_EXPORT_STATUS;
     status.exporting.store(false, atomic::Ordering::Relaxed);
     status.cancelled.store(true, atomic::Ordering::Relaxed);
@@ -183,6 +229,7 @@ pin_project! {
         events: bool,
         tipset_keys:bool,
         track_progress: bool,
+        n_polled: usize,
     }
 }
 
@@ -254,6 +301,7 @@ pub fn stream_chain<
         events: false,
         tipset_keys: false,
         track_progress: false,
+        n_polled: 0,
     }
 }
 
@@ -278,13 +326,22 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
 {
     type Item = anyhow::Result<CarBlock>;
 
-    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
 
         let export_tipset_keys = self.tipset_keys;
         let fail_on_dead_links = self.fail_on_dead_links;
         let stateroot_limit_exclusive = self.stateroot_limit_exclusive;
         let this = self.project();
+
+        // Yield to the runtime every 128 polls to allow cancellation
+        {
+            *this.n_polled += 1;
+            if this.n_polled.is_multiple_of(128) {
+                cx.waker().wake_by_ref();
+                return Poll::Pending;
+            }
+        }
 
         loop {
             while let Some(task) = this.dfs.front_mut() {
@@ -499,5 +556,79 @@ fn ipld_to_cid(ipld: Ipld) -> Option<Cid> {
         Some(cid)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
+    use crate::db::MemoryDB;
+    use crate::utils::db::CborStoreExt as _;
+    use fil_actors_shared::fvm_ipld_amt::Amtv0;
+    use futures::TryStreamExt as _;
+    use fvm_ipld_encoding::RawBytes;
+    use ipld_core::ipld::Ipld;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn return_data_links_are_not_followed_by_the_walk() -> anyhow::Result<()> {
+        let db = Arc::new(MemoryDB::default());
+
+        // A fetchable dag-cbor block, reached only if the walk follows links inside `Return`.
+        let embedded = db.put_cbor_default(&Ipld::String("embedded".into()))?;
+
+        // A link in the receipt (positive control): the walk does reach tag-42 links
+        // structurally embedded in the receipts AMT.
+        let events_root = db.put_cbor_default(&Ipld::String("events-root".into()))?;
+
+        // Build the receipt: `Return` is itself valid dag-cbor encoding a tag-42 link to the
+        // `embedded` block.
+        let receipt = fvm_shared4::receipt::Receipt {
+            exit_code: fvm_shared4::error::ExitCode::OK,
+            return_data: RawBytes::new(serde_ipld_dagcbor::to_vec(&Ipld::Link(embedded))?),
+            gas_used: 0,
+            events_root: Some(events_root),
+        };
+
+        let receipts_root = Amtv0::new_from_iter(&db, std::iter::once(receipt))?;
+
+        // One-block tipset whose `message_receipts` points at the AMT. Epoch 1 (> the stateroot
+        // limit below) so the receipts branch is reached.
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [_genesis]
+            -> head @ [_header = HeaderBuilder::new().with_message_receipts(receipts_root)]
+        };
+
+        let mut stream = stream_chain(&db, std::iter::once(head), 0, CidHashSet::default())
+            .with_message_receipts(true)
+            // The embedded target is present; other roots (e.g. default state roots) are not, and a
+            // missing root must not stall the walk.
+            .fail_on_dead_links(false);
+
+        let mut seen = Vec::new();
+        while let Some(block) = stream.try_next().await? {
+            seen.push(block.cid);
+        }
+
+        // Receipts walking is active and reaches the AMT root...
+        assert!(
+            seen.contains(&receipts_root),
+            "receipts AMT root must be reachable with receipts enabled"
+        );
+        // ...and follows the EventsRoot link inside it.
+        assert!(
+            seen.contains(&events_root),
+            "EventsRoot link inside the receipt must be followed"
+        );
+        // But the link inside the opaque `Return` byte string is never followed.
+        assert!(
+            !seen.contains(&embedded),
+            "link embedded in Return must not be followed by the walk"
+        );
+
+        Ok(())
     }
 }

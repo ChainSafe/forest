@@ -47,7 +47,7 @@ use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::executor::{Receipt, StampedEvent};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
-use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages};
+use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages_blocking};
 use crate::tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
 use crate::utils::multihash::MultihashCode;
@@ -267,6 +267,7 @@ impl ArchiveCommands {
                 do_export(
                     &store,
                     heaviest_tipset,
+                    None,
                     output_path,
                     epoch,
                     depth,
@@ -465,8 +466,8 @@ impl ArchiveInfo {
             let may_skip =
                 lowest_stateroot_epoch != tipset.epoch() && lowest_message_epoch != tipset.epoch();
             if may_skip {
-                let genesis_block = tipset.genesis(&store)?;
-                update_network_name(genesis_block.cid());
+                let genesis_block = tipset.genesis_blocking(&store)?;
+                update_network_name(genesis_block.min_ticket_block().cid());
                 break;
             }
         }
@@ -498,9 +499,9 @@ fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
     let store = ManyCar::try_from(snapshot_files).context("couldn't read input CAR file")?;
     let root = store.heaviest_tipset()?;
 
-    let genesis = root.genesis(&store)?;
-    let chain_name =
-        NetworkChain::from_genesis(genesis.cid()).context("Unrecognizable genesis block")?;
+    let genesis = root.genesis_blocking(&store)?;
+    let chain_name = NetworkChain::from_genesis(genesis.min_ticket_block().cid())
+        .context("Unrecognizable genesis block")?;
 
     println!("{chain_name}:");
     for (epoch, cid) in list_checkpoints(&store, root) {
@@ -552,6 +553,7 @@ fn build_output_path(
 pub async fn do_export<DB>(
     store: &DB,
     root: Tipset,
+    genesis: Option<Tipset>,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
@@ -563,9 +565,15 @@ where
     DB: Blockstore + ShallowClone + Into<DbImpl> + Unpin + Send + Sync + 'static,
 {
     let ts = root;
-
-    let genesis = ts.genesis(store)?;
-    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
+    let genesis = if let Some(genesis) = genesis {
+        genesis
+    } else {
+        // This is slow
+        tracing::info!("Looking up genesis tipset...");
+        ts.genesis(store.shallow_clone()).await?
+    };
+    let network =
+        NetworkChain::from_genesis_or_devnet_placeholder(genesis.min_ticket_block().cid());
 
     let epoch = epoch_option.unwrap_or(ts.epoch());
 
@@ -579,15 +587,17 @@ where
 
     info!("looking up a tipset by epoch: {}", epoch);
 
-    let index = ChainIndex::new(store.shallow_clone());
+    let index = ChainIndex::new(store.shallow_clone(), genesis.shallow_clone());
 
     let ts = index
         .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .await
         .context("unable to get a tipset at given height")?;
 
     let seen = if let Some(diff) = diff {
         let diff_ts: Tipset = index
             .load_required_tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
+            .await
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
@@ -604,7 +614,12 @@ where
         FileBackedCidHashSet::new_in_temp_dir()?
     };
 
-    let output_path = build_output_path(network.to_string(), genesis.timestamp, epoch, output_path);
+    let output_path = build_output_path(
+        network.to_string(),
+        genesis.min_ticket_block().timestamp,
+        epoch,
+        output_path,
+    );
 
     if !force && output_path.exists() {
         let have_permission = Confirm::with_theme(&ColorfulTheme::default())
@@ -830,31 +845,35 @@ async fn show_tipset_diff(
         )
     }
 
-    let genesis = heaviest_tipset.genesis(&store)?;
-    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
+    let genesis = heaviest_tipset.genesis(store.shallow_clone()).await?;
+    let network =
+        NetworkChain::from_genesis_or_devnet_placeholder(genesis.min_ticket_block().cid());
     load_actor_bundles(&store, &network).await?;
 
-    let timestamp = genesis.timestamp;
-    let chain_index = ChainIndex::new(Arc::clone(&store));
+    let genesis_timestamp = genesis.min_ticket_block().timestamp;
+    let chain_index = ChainIndex::new(store.shallow_clone(), genesis);
     let chain_config = ChainConfig::from_chain(&network);
     if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
-    let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
-    let tipset = chain_index.load_required_tipset_by_height(
-        epoch,
-        heaviest_tipset.clone(),
-        ResolveNullTipset::TakeOlder,
-    )?;
+    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
+    let tipset = chain_index
+        .load_required_tipset_by_height(
+            epoch,
+            heaviest_tipset.clone(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
 
-    let child_tipset = chain_index.load_required_tipset_by_height(
-        epoch + 1,
-        heaviest_tipset.clone(),
-        ResolveNullTipset::TakeNewer,
-    )?;
+    let child_tipset = chain_index
+        .load_required_tipset_by_height(
+            epoch + 1,
+            heaviest_tipset.clone(),
+            ResolveNullTipset::TakeNewer,
+        )
+        .await?;
 
-    let ExecutedTipset { state_root, .. } = apply_block_messages(
-        timestamp,
+    let ExecutedTipset { state_root, .. } = apply_block_messages_blocking(
         chain_index,
         Arc::new(chain_config),
         beacon,
@@ -1046,6 +1065,7 @@ where
     do_export(
         &store,
         root,
+        None,
         output_path.clone(),
         Some(epoch),
         depth,
@@ -1082,6 +1102,7 @@ where
     do_export(
         &store,
         root,
+        None,
         output_path.clone(),
         Some(epoch),
         depth,
@@ -1117,7 +1138,11 @@ async fn sync_bucket(
         None,
     )?;
 
-    let genesis_timestamp = heaviest_tipset.genesis(&store)?.timestamp;
+    let genesis_timestamp = heaviest_tipset
+        .genesis(store.shallow_clone())
+        .await?
+        .min_ticket_block()
+        .timestamp;
 
     let range = info.epoch_range();
 
@@ -1199,7 +1224,10 @@ mod tests {
     fn genesis_timestamp(genesis_car: &'static [u8]) -> u64 {
         let db = crate::db::car::PlainCar::try_from(genesis_car).unwrap();
         let ts = db.heaviest_tipset().unwrap();
-        ts.genesis(&db).unwrap().timestamp
+        ts.genesis_blocking(&db)
+            .unwrap()
+            .min_ticket_block()
+            .timestamp
     }
 
     #[test]
@@ -1229,6 +1257,7 @@ mod tests {
         do_export(
             &store,
             heaviest_tipset,
+            None,
             output_path.path().into(),
             Some(0),
             1,

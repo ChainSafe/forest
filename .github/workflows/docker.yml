@@ -59,7 +59,7 @@ jobs:
         with:
           make-default: false
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -100,7 +100,7 @@ jobs:
         with:
           make-default: false
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.10
@@ -138,7 +138,7 @@ jobs:
         run: docker image ls
 
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - uses: actions/download-artifact@v8
         with:

@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -58,6 +58,8 @@ OPTIONS:
           Snapshot import mode. Available modes are `auto`, `copy`, `move`, `symlink` and `hardlink` [default: auto]
       --halt-after-import
           Halt with exit code 0 after successfully importing a snapshot
+      --remove-existing-chain
+          Remove the existing chain data on a snapshot-import
       --skip-load <SKIP_LOAD>
           Skips loading CAR file and uses header to index chain. Assumes a pre-loaded database [possible values: true, false]
       --req-window <REQ_WINDOW>
@@ -103,7 +105,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -127,11 +129,24 @@ SUBCOMMANDS:
   help              Print this message or the help of the given subcommand(s)
 
 OPTIONS:
-      --token <TOKEN>  Admin token to interact with the node
-      --remote-wallet  Use remote wallet associated with the Filecoin node. Warning! You should ensure that your connection is encrypted and secure, as the communication between the wallet and the node is **not** encrypted
-      --encrypt        Encrypt local wallet
-  -h, --help           Print help
-  -V, --version        Print version
+      --token <TOKEN>
+          Admin token to interact with the node
+
+      --remote-wallet
+          Use remote wallet associated with the Filecoin node. Warning! You should ensure that your connection is encrypted and secure, as the communication between the wallet and the node is **not** encrypted
+
+      --encrypt <ENCRYPT>
+          Use encrypted keystore.
+
+          Note: When an encrypted keystore exists, it is used by default if `--encrypt` is omitted.
+
+          [possible values: true, false]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
 ```
 
 ### `forest-wallet new`
@@ -249,11 +264,12 @@ Options:
 ```
 Sign a message
 
-Usage: forest-wallet sign -m <MESSAGE> -a <ADDRESS>
+Usage: forest-wallet sign [OPTIONS] -m <MESSAGE> -a <ADDRESS>
 
 Options:
   -m <MESSAGE>  The hex encoded message to sign
   -a <ADDRESS>  The address to be used to sign the message
+      --raw     Sign the raw message bytes without the FRC-0102 envelope. Use this for interoperating with pre-FRC-0102 tooling, or when the bytes are already an on-chain Filecoin message (which must not be wrapped)
   -h, --help    Print help
 ```
 
@@ -276,12 +292,13 @@ Options:
 ```
 Verify the signature of a message. Returns true if the signature matches the message and address
 
-Usage: forest-wallet verify -a <ADDRESS> -m <MESSAGE> -s <SIGNATURE>
+Usage: forest-wallet verify [OPTIONS] -a <ADDRESS> -m <MESSAGE> -s <SIGNATURE>
 
 Options:
   -a <ADDRESS>    The address used to sign the message
   -m <MESSAGE>    The message to verify
   -s <SIGNATURE>  The signature of the message to verify
+      --raw       Verify against the raw message bytes without applying the FRC-0102 envelope. Use this for signatures produced by pre-FRC-0102 tooling or for on-chain Filecoin messages (which are signed raw, without the envelope)
   -h, --help      Print help
 ```
 
@@ -311,17 +328,26 @@ Arguments:
   <AMOUNT>
 
 Options:
-      --from <FROM>                optionally specify the account to send funds from (otherwise the default one will be used)
-      --gas-feecap <GAS_FEECAP>    [default: 0.0]
-      --gas-limit <GAS_LIMIT>      In milliGas [default: 0]
-      --gas-premium <GAS_PREMIUM>  [default: 0.0]
-  -h, --help                       Print help
+      --from <FROM>
+          optionally specify the account to send funds from (otherwise the default one will be used)
+      --gas-feecap <GAS_FEECAP>
+          [default: 0.0]
+      --gas-limit <GAS_LIMIT>
+          In milliGas [default: 0]
+      --gas-premium <GAS_PREMIUM>
+          [default: 0.0]
+      --wait-confidence <WAIT_CONFIDENCE>
+          Wait for the message to be on chain with the given confidence by calling `StateWaitMsg`. The command waits until the message has been on chain for at least `confidence` epochs
+      --wait-timeout <WAIT_TIMEOUT>
+          Timeout duration for `--wait-confidence`, e.g. `30s`, `5m`. If not set, the timeout will be `confidence + 5` epochs
+  -h, --help
+          Print help
 ```
 
 ## `forest-cli`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1025,7 +1051,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2118,7 +2144,7 @@ Options:
 ## `forest-dev`
 
 ```
-forest-filecoin 0.33.6
+forest-filecoin 0.33.7
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2132,6 +2158,7 @@ SUBCOMMANDS:
   archive-missing       Find missing archival snapshots on the Forest Archive for a given epoch range
   export-tipset-lookup  Exports epoch to tipset key mapping AMT as a `ForestCAR` file for a given epoch range. The exported AMT can be used to quickly look up the tipset key for a given epoch without traversing the chain, which is useful for tools that need to access historical tipsets frequently
   export-state-tree     Exports N consecutive parent state trees(together with messages, message receipts and events) of the tipset at the given epoch
+  tests                 Integration tests
   help                  Print this message or the help of the given subcommand(s)
 
 OPTIONS:

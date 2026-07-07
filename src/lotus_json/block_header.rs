@@ -9,7 +9,7 @@ use crate::{
     shim::address::Address,
     shim::{crypto::Signature, econ::TokenAmount},
 };
-use ::cid::Cid;
+use crate::prelude::*;
 use num::BigInt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -49,7 +49,7 @@ pub struct BlockHeaderLotusJson {
     #[schemars(with = "LotusJson<BigInt>")]
     #[serde(with = "crate::lotus_json")]
     parent_weight: BigInt,
-    height: i64,
+    height: ChainEpoch,
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     parent_state_root: Cid,

@@ -12,7 +12,7 @@ use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChang
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
 use crate::ipld::DfsIter;
-use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
+use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
@@ -43,11 +43,7 @@ use sha2::Sha256;
 use std::convert::Infallible;
 use std::fs::File;
 use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
-use tokio::sync::{
-    Mutex,
-    broadcast::{self, Receiver as Subscriber},
-};
-use tokio_util::sync::CancellationToken;
+use tokio::sync::broadcast::{self, Receiver as Subscriber};
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
@@ -66,18 +62,13 @@ const HEAD_CHANNEL_CAPACITY: usize = 10;
 /// https://github.com/filecoin-project/go-f3/issues/944
 pub const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
 
-static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
-    LazyLock::new(|| Mutex::new(None));
-
 pub enum ChainGetFinalizedTipset {}
 impl RpcMethod<0> for ChainGetFinalizedTipset {
     const NAME: &'static str = "Filecoin.ChainGetFinalizedTipSet";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V1);
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Returns the latest F3 finalized tipset, or falls back to EC finality if F3 is not operational on the node or if the F3 finalized tipset is further back than EC finalized tipset.",
-    );
+    const DESCRIPTION: &'static str = "Returns the latest F3 finalized tipset, or falls back to EC finality if F3 is not operational on the node or if the F3 finalized tipset is further back than EC finalized tipset.";
 
     type Params = ();
     type Ok = Tipset;
@@ -97,6 +88,8 @@ impl RpcMethod<2> for ChainValidateIndex {
     const PARAM_NAMES: [&'static str; 2] = ["epoch", "backfill"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: &'static str =
+        "Validates the chain index at the given epoch, optionally backfill when missing";
 
     type Params = (ChainEpoch, bool);
     type Ok = ChainIndexValidation;
@@ -120,7 +113,7 @@ impl RpcMethod<1> for ChainGetMessage {
     const PARAM_NAMES: [&'static str; 1] = ["messageCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the message with the specified CID.");
+    const DESCRIPTION: &'static str = "Returns the message with the specified CID.";
 
     type Params = (Cid,);
     type Ok = Message;
@@ -151,8 +144,7 @@ impl RpcMethod<1> for ChainGetEvents {
     const PARAM_NAMES: [&'static str; 1] = ["rootCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the events under the given event AMT root CID.");
+    const DESCRIPTION: &'static str = "Returns the events under the given event AMT root CID.";
 
     type Params = (Cid,);
     type Ok = Vec<Event>;
@@ -172,8 +164,8 @@ impl RpcMethod<1> for ChainGetParentMessages {
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the messages included in the blocks of the parent tipset.");
+    const DESCRIPTION: &'static str =
+        "Returns the messages included in the blocks of the parent tipset.";
 
     type Params = (Cid,);
     type Ok = Vec<ApiMessage>;
@@ -204,8 +196,8 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the message receipts included in the blocks of the parent tipset.");
+    const DESCRIPTION: &'static str =
+        "Returns the message receipts included in the blocks of the parent tipset.";
 
     type Params = (Cid,);
     type Ok = Vec<ApiReceipt>;
@@ -252,6 +244,8 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns all messages included in the tipset with the given key.";
 
     type Params = (ApiTipsetKey,);
     type Ok = Vec<ApiMessage>;
@@ -274,6 +268,8 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     const PARAM_NAMES: [&'static str; 1] = ["blocking"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: &'static str =
+        "Triggers database garbage collection, optionally blocking until it completes.";
 
     type Params = (bool,);
     type Ok = ();
@@ -299,6 +295,7 @@ impl RpcMethod<1> for ForestChainExport {
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str = "Exports a chain snapshot to a CAR file from the given epoch; only one export may run at a time.";
 
     type Params = (ForestChainExportParams,);
     type Ok = ApiExportResult;
@@ -321,24 +318,13 @@ impl RpcMethod<1> for ForestChainExport {
             dry_run,
         } = params;
 
-        let token = CancellationToken::new();
-        {
-            let mut guard = CHAIN_EXPORT_LOCK.lock().await;
-            if guard.is_some() {
-                return Err(
-                    anyhow::anyhow!("A chain export is still in progress. Cancel it with the export-cancel subcommand if needed.").into(),
-                );
-            }
-            *guard = Some(token.clone());
-        }
-        start_export();
+        let chain_export_guard = ChainExportGuard::try_start_export()?;
 
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let start_ts = ctx.chain_index().load_required_tipset_by_height(
-            epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let start_ts = ctx
+            .chain_index()
+            .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
+            .await?;
 
         let options = ExportOptions {
             skip_checksum,
@@ -368,8 +354,8 @@ impl RpcMethod<1> for ForestChainExport {
                     result = chain_export => {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
-                    _ = token.cancelled() => {
-                        cancel_export();
+                    _ = chain_export_guard.cancellation_token().cancelled() => {
+                        chain_export_guard.cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
                     },
@@ -413,18 +399,14 @@ impl RpcMethod<1> for ForestChainExport {
                     result = chain_export => {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
-                    _ = token.cancelled() => {
-                        cancel_export();
+                    _ = chain_export_guard.cancellation_token().cancelled() => {
+                        chain_export_guard.cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
                     },
                 }
             }
         };
-        end_export();
-        // Clean up token
-        let mut guard = CHAIN_EXPORT_LOCK.lock().await;
-        *guard = None;
         match result {
             Ok(export_result) => Ok(export_result),
             Err(e) => Err(anyhow::anyhow!(e).into()),
@@ -438,6 +420,8 @@ impl RpcMethod<0> for ForestChainExportStatus {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the progress and status of the in-progress chain export.";
 
     type Params = ();
     type Ok = ApiExportStatus;
@@ -482,6 +466,8 @@ impl RpcMethod<0> for ForestChainExportCancel {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Cancels the in-progress chain export, returning whether one was running.";
 
     type Params = ();
     type Ok = bool;
@@ -491,12 +477,14 @@ impl RpcMethod<0> for ForestChainExportCancel {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        if let Some(token) = CHAIN_EXPORT_LOCK.lock().await.as_ref() {
+        if CHAIN_EXPORT_STATUS.exporting()
+            && let Some(token) = CHAIN_EXPORT_STATUS.cancellation_token()
+        {
             token.cancel();
-            return Ok(true);
+            Ok(true)
+        } else {
+            Ok(false)
         }
-
-        Ok(false)
     }
 }
 
@@ -506,6 +494,8 @@ impl RpcMethod<1> for ForestChainExportDiff {
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Exports a differential snapshot covering the given epoch range to a CAR file.";
 
     type Params = (ForestChainExportDiffParams,);
     type Ok = ();
@@ -515,19 +505,14 @@ impl RpcMethod<1> for ForestChainExportDiff {
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let _guard = ChainExportGuard::try_start_export()?;
+
         let ForestChainExportDiffParams {
             from,
             to,
             depth,
             output_path,
         } = params;
-
-        let _locked = CHAIN_EXPORT_LOCK.try_lock();
-        if _locked.is_err() {
-            return Err(
-                anyhow::anyhow!("Another chain export diff job is still in progress").into(),
-            );
-        }
 
         let chain_finality = ctx.chain_config().policy.chain_finality;
         if depth < chain_finality {
@@ -537,15 +522,15 @@ impl RpcMethod<1> for ForestChainExportDiff {
         }
 
         let head = ctx.chain_store().heaviest_tipset();
-        let start_ts = ctx.chain_index().load_required_tipset_by_height(
-            from,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let start_ts = ctx
+            .chain_index()
+            .load_required_tipset_by_height(from, head, ResolveNullTipset::TakeOlder)
+            .await?;
 
         crate::tool::subcommands::archive_cmd::do_export(
             ctx.chain_index().db(),
             start_ts,
+            Some(ctx.chain_store().genesis_tipset()),
             output_path,
             None,
             depth,
@@ -565,6 +550,8 @@ impl RpcMethod<1> for ChainExport {
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Exports a v1 chain snapshot to a CAR file from the given epoch.";
 
     type Params = (ChainExportParams,);
     type Ok = ApiExportResult;
@@ -607,9 +594,7 @@ impl RpcMethod<1> for ChainReadObj {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Reads IPLD nodes referenced by the specified CID from the chain blockstore and returns raw bytes.",
-    );
+    const DESCRIPTION: &'static str = "Reads IPLD nodes referenced by the specified CID from the chain blockstore and returns raw bytes.";
 
     type Params = (Cid,);
     type Ok = Vec<u8>;
@@ -633,8 +618,7 @@ impl RpcMethod<1> for ChainHasObj {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Checks if a given CID exists in the chain blockstore.");
+    const DESCRIPTION: &'static str = "Checks if a given CID exists in the chain blockstore.";
 
     type Params = (Cid,);
     type Ok = bool;
@@ -653,9 +637,10 @@ impl RpcMethod<1> for ChainHasObj {
 pub enum ChainStatObj {}
 impl RpcMethod<2> for ChainStatObj {
     const NAME: &'static str = "Filecoin.ChainStatObj";
-    const PARAM_NAMES: [&'static str; 2] = ["obj_cid", "base_cid"];
+    const PARAM_NAMES: [&'static str; 2] = ["objCid", "baseCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str = "Returns the size and link count of the IPLD graph under the given CID, or the difference relative to an optional base CID.";
 
     type Params = (Cid, Option<Cid>);
     type Ok = ObjStat;
@@ -708,8 +693,7 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns all messages from the specified block.");
+    const DESCRIPTION: &'static str = "Returns all messages from the specified block.";
 
     type Params = (Cid,);
     type Ok = BlockMessages;
@@ -740,8 +724,7 @@ impl RpcMethod<2> for ChainGetPath {
     const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the path between the two specified tipsets.");
+    const DESCRIPTION: &'static str = "Returns the path between the two specified tipsets.";
 
     type Params = (TipsetKey, TipsetKey);
     type Ok = Vec<PathChange>;
@@ -825,7 +808,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     const PARAM_NAMES: [&'static str; 2] = ["height", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset at the specified height.");
+    const DESCRIPTION: &'static str = "Returns the tipset at the specified height.";
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
@@ -838,11 +821,10 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
         let ts = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        let tss = ctx.chain_index().load_required_tipset_by_height(
-            height,
-            ts,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let tss = ctx
+            .chain_index()
+            .load_required_tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)
+            .await?;
         Ok(tss)
     }
 }
@@ -853,11 +835,9 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     const PARAM_NAMES: [&'static str; 2] = ["height", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Looks back and returns the tipset at the specified epoch.
+    const DESCRIPTION: &'static str = "Looks back and returns the tipset at the specified epoch.
     If there are no blocks at the given epoch,
-    returns the first non-nil tipset at a later epoch.",
-    );
+    returns the first non-nil tipset at a later epoch.";
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
@@ -870,11 +850,10 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
         let ts = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;
-        let tss = ctx.chain_index().load_required_tipset_by_height(
-            height,
-            ts,
-            ResolveNullTipset::TakeNewer,
-        )?;
+        let tss = ctx
+            .chain_index()
+            .load_required_tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)
+            .await?;
         Ok(tss)
     }
 }
@@ -885,6 +864,7 @@ impl RpcMethod<0> for ChainGetGenesis {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str = "Returns the genesis tipset of the chain.";
 
     type Params = ();
     type Ok = Option<Tipset>;
@@ -905,7 +885,7 @@ impl RpcMethod<0> for ChainHead {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the chain head (heaviest tipset).");
+    const DESCRIPTION: &'static str = "Returns the chain head (heaviest tipset).";
 
     type Params = ();
     type Ok = Tipset;
@@ -926,7 +906,7 @@ impl RpcMethod<1> for ChainGetBlock {
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the block with the specified CID.");
+    const DESCRIPTION: &'static str = "Returns the block with the specified CID.";
 
     type Params = (Cid,);
     type Ok = CachingBlockHeader;
@@ -948,7 +928,7 @@ impl RpcMethod<1> for ChainGetTipSet {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V0 | V1 });
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
+    const DESCRIPTION: &'static str = "Returns the tipset with the specified CID.";
 
     type Params = (ApiTipsetKey,);
     type Ok = Tipset;
@@ -1010,16 +990,16 @@ impl ChainGetTipSetV2 {
         if finalized.epoch() >= safe_height {
             Ok(finalized)
         } else {
-            Ok(ctx.chain_index().load_required_tipset_by_height(
-                safe_height,
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?)
+            Ok(ctx
+                .chain_index()
+                .load_required_tipset_by_height(safe_height, head, ResolveNullTipset::TakeOlder)
+                .await?)
         }
     }
 
     pub async fn get_latest_finalized_tipset(ctx: &Ctx) -> anyhow::Result<Tipset> {
-        ChainGetTipSetFinalityStatus::get_finality_status(ctx)?
+        ChainGetTipSetFinalityStatus::get_finality_status(ctx)
+            .await?
             .finalized_tip_set
             .context("failed to resolve finalized tipset")
     }
@@ -1034,11 +1014,14 @@ impl ChainGetTipSetV2 {
         // Get tipset by height.
         if let Some(height) = &selector.height {
             let anchor = Self::get_tipset_by_anchor(ctx, height.anchor.as_ref()).await?;
-            let ts = ctx.chain_index().load_required_tipset_by_height(
-                height.at,
-                anchor,
-                height.resolve_null_tipset_policy(),
-            )?;
+            let ts = ctx
+                .chain_index()
+                .load_required_tipset_by_height(
+                    height.at,
+                    anchor,
+                    height.resolve_null_tipset_policy(),
+                )
+                .await?;
             return Ok(ts);
         }
         // Get tipset by tag, either latest or finalized.
@@ -1055,7 +1038,7 @@ impl RpcMethod<1> for ChainGetTipSetV2 {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetSelector"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
+    const DESCRIPTION: &'static str = "Returns the tipset with the specified CID.";
 
     type Params = (TipsetSelector,);
     type Ok = Tipset;
@@ -1073,10 +1056,11 @@ pub enum ChainGetTipSetFinalityStatus {}
 
 const EC_CALCULATOR_FINALITY_CACHE_SIZE: usize = 4;
 impl ChainGetTipSetFinalityStatus {
-    pub fn get_finality_status(ctx: &Ctx) -> anyhow::Result<ChainFinalityStatus> {
+    pub async fn get_finality_status(ctx: &Ctx) -> anyhow::Result<ChainFinalityStatus> {
         let head = ctx.chain_store().heaviest_tipset();
         let (ec_finality_threshold_depth, ec_finalized_tip_set) =
-            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone())?;
+            Self::get_ec_finality_threshold_depth_and_tipset_with_cache(ctx, head.shallow_clone())
+                .await?;
         let f3_finalized_tip_set = ctx.chain_store().f3_finalized_tipset();
         let finalized_tip_set = match (&ec_finalized_tip_set, &f3_finalized_tip_set) {
             (Some(ec), Some(f3)) => {
@@ -1099,15 +1083,18 @@ impl ChainGetTipSetFinalityStatus {
         })
     }
 
-    pub fn get_ec_finality_threshold_depth_and_tipset_with_cache(
+    pub async fn get_ec_finality_threshold_depth_and_tipset_with_cache(
         ctx: &Ctx,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
         static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, (i64, Option<Tipset>)>> =
             LazyLock::new(|| quick_cache::sync::Cache::new(EC_CALCULATOR_FINALITY_CACHE_SIZE));
-        CACHE.get_or_insert_with(head.shallow_clone().key(), move || {
-            Self::get_ec_finality_threshold_depth_and_tipset(ctx, head)
-        })
+        CACHE
+            .get_or_insert_async(
+                head.shallow_clone().key(),
+                Self::get_ec_finality_threshold_depth_and_tipset(ctx, head),
+            )
+            .await
     }
 
     pub fn get_ec_finality_epoch(
@@ -1207,7 +1194,7 @@ impl ChainGetTipSetFinalityStatus {
         }
     }
 
-    fn get_ec_finality_threshold_depth_and_tipset(
+    async fn get_ec_finality_threshold_depth_and_tipset(
         ctx: &Ctx,
         head: Tipset,
     ) -> anyhow::Result<(i64, Option<Tipset>)> {
@@ -1218,11 +1205,10 @@ impl ChainGetTipSetFinalityStatus {
         );
         let ec_finality_epoch =
             Self::get_ec_finality_epoch_by_depth(ctx.chain_config(), &head, depth);
-        let finalized = ctx.chain_index().tipset_by_height(
-            ec_finality_epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let finalized = ctx
+            .chain_index()
+            .tipset_by_height_async(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)
+            .await?;
         Ok((depth, finalized))
     }
 }
@@ -1232,8 +1218,8 @@ impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns a breakdown of how the node is currently determining finality.");
+    const DESCRIPTION: &'static str =
+        "Returns a breakdown of how the node is currently determining finality.";
 
     type Params = ();
     type Ok = ChainFinalityStatus;
@@ -1243,7 +1229,7 @@ impl RpcMethod<0> for ChainGetTipSetFinalityStatus {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(Self::get_finality_status(&ctx)?)
+        Ok(Self::get_finality_status(&ctx).await?)
     }
 }
 
@@ -1253,6 +1239,8 @@ impl RpcMethod<1> for ChainSetHead {
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: &'static str =
+        "Forcibly sets the chain head to the tipset with the given key.";
 
     type Params = (TipsetKey,);
     type Ok = ();
@@ -1286,6 +1274,8 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
     const PARAM_NAMES: [&'static str; 1] = ["lookback"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the minimum base fee across the given number of lookback tipsets, in attoFIL.";
 
     type Params = (u32,);
     type Ok = String;
@@ -1316,7 +1306,7 @@ impl RpcMethod<1> for ChainTipSetWeight {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the weight of the specified tipset.");
+    const DESCRIPTION: &'static str = "Returns the weight of the specified tipset.";
 
     type Params = (ApiTipsetKey,);
     type Ok = BigInt;
@@ -1340,6 +1330,7 @@ impl RpcMethod<1> for ChainGetTipsetByParentState {
     const PARAM_NAMES: [&'static str; 1] = ["parentState"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str = "Returns the tipset whose parent state root matches the given CID, or null if none is found.";
 
     type Params = (Cid,);
     type Ok = Option<Tipset>;
@@ -1377,14 +1368,26 @@ pub(crate) fn chain_notify(
     tokio::spawn(async move {
         // Skip first message
         let _ = head_changes_rx.recv().await;
-        while let Ok(changes) = head_changes_rx.recv().await {
-            let api_changes = changes
-                .into_change_vec()
-                .into_iter()
-                .map(From::from)
-                .collect();
-            if sender.send(api_changes).is_err() {
-                break;
+        loop {
+            match head_changes_rx.recv().await {
+                Ok(changes) => {
+                    let api_changes = changes
+                        .into_change_vec()
+                        .into_iter()
+                        .map(From::from)
+                        .collect();
+                    if sender.send(api_changes).is_err() {
+                        tracing::info!("chain notify subscribers are all closed");
+                        break;
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    tracing::info!("head changes channel closed");
+                    break;
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    tracing::warn!("head changes channel lagged by {n} messages");
+                }
             }
         }
     });
@@ -1570,6 +1573,14 @@ impl<T: Clone> Clone for PathChange<T> {
         match self {
             Self::Revert(i) => Self::Revert(i.clone()),
             Self::Apply(i) => Self::Apply(i.clone()),
+        }
+    }
+}
+
+impl<T> PathChange<T> {
+    pub fn tipset(&self) -> &T {
+        match self {
+            Self::Revert(ts) | Self::Apply(ts) => ts,
         }
     }
 }
@@ -1816,7 +1827,8 @@ mod tests {
                     .with_read_only(AnyCar::new(genesis_car).unwrap())
                     .unwrap(),
             );
-            let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
+            let genesis_block_header: CachingBlockHeader =
+                db.get_cbor(&genesis_cid).unwrap().unwrap();
             ChainStore::new(db, Arc::new(ChainConfig::calibnet()), genesis_block_header).unwrap()
         }
         pub fn calibnet() -> Self {

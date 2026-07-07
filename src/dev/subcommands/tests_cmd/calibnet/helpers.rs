@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::future::Future;
 use std::io::Write as _;
 use std::process::Command;
 use std::sync::LazyLock;
@@ -114,14 +115,36 @@ pub fn balance(address: &str, backend: Backend) -> anyhow::Result<String> {
 /// fee estimation so gas fields match whatever minimum gas price applies
 /// at the next submission.
 pub fn send_from(from: &str, to: &str, amount: &str, backend: Backend) -> anyhow::Result<String> {
-    let args = ["send", "--from", from, to, amount];
+    send_from_and_maybe_wait(from, to, amount, backend, true)
+}
+
+pub fn send_from_no_wait(
+    from: &str,
+    to: &str,
+    amount: &str,
+    backend: Backend,
+) -> anyhow::Result<String> {
+    send_from_and_maybe_wait(from, to, amount, backend, false)
+}
+
+fn send_from_and_maybe_wait(
+    from: &str,
+    to: &str,
+    amount: &str,
+    backend: Backend,
+    wait: bool,
+) -> anyhow::Result<String> {
+    let mut args = vec!["send", to, amount, "--from", from];
+    if wait {
+        args.extend(["--wait-confidence", "0", "--wait-timeout", "1m"]);
+    }
     let mut attempt = 1;
     loop {
         match wallet(backend, &args) {
             Ok(out) => return Ok(out),
-            Err(e) if attempt < SEND_RETRIES && is_min_gas_price_error(&e) => {
+            Err(_) if attempt < SEND_RETRIES => {
                 eprintln!(
-                    "send {from} -> {to} hit min-gas-price floor on attempt {attempt}/{SEND_RETRIES}, retrying"
+                    "send {from} -> {to} failed on attempt {attempt}/{SEND_RETRIES}, retrying"
                 );
                 std::thread::sleep(SEND_RETRY_DELAY);
                 attempt += 1;
@@ -137,19 +160,12 @@ const SEND_RETRIES: usize = 3;
 /// is enough for the daemon's gas-price snapshot to refresh.
 const SEND_RETRY_DELAY: Duration = Duration::from_secs(15);
 
-fn is_min_gas_price_error(err: &anyhow::Error) -> bool {
-    err.chain().any(|e| {
-        e.to_string()
-            .contains("gas price is lower than min gas price")
-    })
-}
-
 /// Poll until `try_check` returns `Some` or [`POLL_TIMEOUT`] elapses, sleeping
 /// [`POLL_WAIT_TIME`] between attempts.
 async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
 where
     F: FnMut() -> Fut,
-    Fut: std::future::Future<Output = anyhow::Result<Option<T>>>,
+    Fut: Future<Output = anyhow::Result<Option<T>>>,
 {
     let started = tokio::time::Instant::now();
     let mut attempt = 0u32;
@@ -187,12 +203,12 @@ pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Resul
     poll_until_changed(address, FIL_ZERO, backend).await
 }
 
-static FUNDED_DELEGATED: OnceCell<String> = OnceCell::const_new();
-
 /// Delegated signer: create once on local, fund locally, mirror to remote
 /// for tests that query or sign.
 pub async fn funded_delegated_addr() -> &'static str {
-    let addr = FUNDED_DELEGATED
+    static FUNDED_DELEGATED: OnceCell<String> = OnceCell::const_new();
+
+    FUNDED_DELEGATED
         .get_or_try_init(|| async {
             let addr = wallet(Backend::Local, &["new", "delegated"]).unwrap();
             let fund_msg = send_from(
@@ -203,8 +219,13 @@ pub async fn funded_delegated_addr() -> &'static str {
             )
             .unwrap();
             eprintln!("delegated funding send to {addr} msg: {fund_msg}");
-            let funded = poll_until_funded(&addr, Backend::Local).await.unwrap();
-            eprintln!("delegated wallet {addr} funded balance: {funded}");
+            for backend in [Backend::Local, Backend::Remote] {
+                let funded = poll_until_funded(&addr, backend).await.unwrap();
+                eprintln!(
+                    "delegated wallet {addr} funded balance: {funded} ({})",
+                    backend.label()
+                );
+            }
 
             let exported = export_to_temp_file(&addr, Backend::Local).unwrap();
             let path = exported
@@ -216,8 +237,8 @@ pub async fn funded_delegated_addr() -> &'static str {
             Ok::<_, anyhow::Error>(addr)
         })
         .await
-        .unwrap();
-    addr.as_str()
+        .unwrap()
+        .as_str()
 }
 
 static HTTP: LazyLock<reqwest::Client> = LazyLock::new(|| {
@@ -377,4 +398,19 @@ pub async fn filecoin_to_eth(address: &str) -> anyhow::Result<String> {
         .as_str()
         .map(str::to_owned)
         .with_context(|| format!("expected string ETH address, got {result}"))
+}
+
+pub fn block_on<F: Future + Send + Sync + 'static>(future: F) -> F::Output
+where
+    F::Output: Send + Sync + 'static,
+{
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(future)
+    })
+    .join()
+    .unwrap()
 }

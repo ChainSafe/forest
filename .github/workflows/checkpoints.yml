@@ -12,7 +12,7 @@ jobs:
   update-checkpoints:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Update checkpoints
         run: |
           docker run --rm -v "$PWD":/app -w /app --entrypoint forest-dev ghcr.io/chainsafe/forest:edge update-checkpoints

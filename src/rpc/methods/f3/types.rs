@@ -309,7 +309,7 @@ pub struct PartialMessageManagerConfig {
 pub struct F3Manifest {
     pub protocol_version: u64,
     pub initial_instance: u64,
-    pub bootstrap_epoch: i64,
+    pub bootstrap_epoch: ChainEpoch,
     pub network_name: String, // Note: NetworkChain::Calibnet.to_string() != "calibrationnet"
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json")]

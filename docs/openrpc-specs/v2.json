@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.33.6"
+    "version": "0.33.7"
   },
   "methods": [
     {
@@ -41,15 +41,13 @@
     },
     {
       "name": "Filecoin.EthAccounts",
+      "description": "Returns the list of addresses owned by the client; always empty since Forest does not manage private keys.",
       "params": [],
       "result": {
         "name": "Filecoin.EthAccounts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "type": "string"
           }
@@ -93,6 +91,7 @@
     },
     {
       "name": "Filecoin.EthBlockNumber",
+      "description": "Returns the height of the latest executed tipset, which is the parent of the current head.",
       "params": [],
       "result": {
         "name": "Filecoin.EthBlockNumber.Result",
@@ -105,6 +104,7 @@
     },
     {
       "name": "Filecoin.EthCall",
+      "description": "Executes a read-only message call against the given block state without creating an on-chain transaction, returning the call output.",
       "params": [
         {
           "name": "tx",
@@ -132,6 +132,7 @@
     },
     {
       "name": "Filecoin.EthChainId",
+      "description": "Returns the EIP-155 chain ID of the current network.",
       "params": [],
       "result": {
         "name": "Filecoin.EthChainId.Result",
@@ -144,6 +145,7 @@
     },
     {
       "name": "Filecoin.EthEstimateGas",
+      "description": "Estimates the amount of gas required to execute the given transaction.",
       "params": [
         {
           "name": "tx",
@@ -178,6 +180,7 @@
     },
     {
       "name": "Filecoin.EthFeeHistory",
+      "description": "Returns historical gas information for a range of blocks, including base fee per gas, gas used ratio, and priority fee percentiles.",
       "params": [
         {
           "name": "blockCount",
@@ -260,6 +263,7 @@
     },
     {
       "name": "Filecoin.EthGetBlockByHash",
+      "description": "Retrieves a block by its hash, optionally including full transaction objects.",
       "params": [
         {
           "name": "blockHash",
@@ -327,12 +331,9 @@
       ],
       "result": {
         "name": "Filecoin.EthGetBlockReceipts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -362,12 +363,9 @@
       ],
       "result": {
         "name": "Filecoin.EthGetBlockReceiptsLimited.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -377,6 +375,7 @@
     },
     {
       "name": "Filecoin.EthGetBlockTransactionCountByHash",
+      "description": "Returns the number of messages in the tipset identified by the given block hash.",
       "params": [
         {
           "name": "blockHash",
@@ -467,6 +466,7 @@
     },
     {
       "name": "Filecoin.EthGetFilterLogs",
+      "description": "Returns event logs matching the filter with the given ID that have not been collected since the last poll.",
       "params": [
         {
           "name": "filterId",
@@ -487,6 +487,7 @@
     },
     {
       "name": "Filecoin.EthGetLogs",
+      "description": "Returns event logs matching the given filter specification.",
       "params": [
         {
           "name": "ethFilter",
@@ -507,6 +508,7 @@
     },
     {
       "name": "Filecoin.EthGetMessageCidByTransactionHash",
+      "description": "Returns the CID of the Filecoin message corresponding to the given Ethereum transaction hash.",
       "params": [
         {
           "name": "txHash",
@@ -569,6 +571,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionByBlockHashAndIndex",
+      "description": "Retrieves a transaction by its block hash and index.",
       "params": [
         {
           "name": "blockHash",
@@ -638,6 +641,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionByHash",
+      "description": "Retrieves a transaction by its hash.",
       "params": [
         {
           "name": "txHash",
@@ -665,6 +669,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionByHashLimited",
+      "description": "Retrieves a transaction by its hash, limiting state resolution to the given chain epoch.",
       "params": [
         {
           "name": "txHash",
@@ -700,6 +705,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionCount",
+      "description": "Returns the number of transactions sent from an address (its nonce) at the specified block state.",
       "params": [
         {
           "name": "sender",
@@ -727,6 +733,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionHashByCid",
+      "description": "Returns the Ethereum transaction hash for the given Filecoin message CID.",
       "params": [
         {
           "name": "cid",
@@ -754,6 +761,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionReceipt",
+      "description": "Returns the receipt of a transaction identified by its hash.",
       "params": [
         {
           "name": "txHash",
@@ -781,6 +789,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionReceiptLimited",
+      "description": "Returns the receipt of a transaction identified by its hash, limiting state resolution to the given chain epoch.",
       "params": [
         {
           "name": "txHash",
@@ -816,6 +825,7 @@
     },
     {
       "name": "Filecoin.EthMaxPriorityFeePerGas",
+      "description": "Returns an estimate of the priority fee per gas (tip) needed for timely inclusion, in attoFIL.",
       "params": [],
       "result": {
         "name": "Filecoin.EthMaxPriorityFeePerGas.Result",
@@ -828,6 +838,7 @@
     },
     {
       "name": "Filecoin.EthNewBlockFilter",
+      "description": "Installs a persistent filter that tracks the arrival of new blocks.",
       "params": [],
       "result": {
         "name": "Filecoin.EthNewBlockFilter.Result",
@@ -840,6 +851,7 @@
     },
     {
       "name": "Filecoin.EthNewFilter",
+      "description": "Installs a persistent filter for matching event logs based on the given filter spec.",
       "params": [
         {
           "name": "filterSpec",
@@ -860,6 +872,7 @@
     },
     {
       "name": "Filecoin.EthNewPendingTransactionFilter",
+      "description": "Installs a persistent filter that tracks new messages arriving in the message pool.",
       "params": [],
       "result": {
         "name": "Filecoin.EthNewPendingTransactionFilter.Result",
@@ -872,6 +885,7 @@
     },
     {
       "name": "Filecoin.EthProtocolVersion",
+      "description": "Returns the current Filecoin network version, reported as the Ethereum protocol version.",
       "params": [],
       "result": {
         "name": "Filecoin.EthProtocolVersion.Result",
@@ -884,6 +898,7 @@
     },
     {
       "name": "Filecoin.EthSendRawTransaction",
+      "description": "Submits a signed raw transaction to the message pool and returns its transaction hash.",
       "params": [
         {
           "name": "rawTx",
@@ -904,6 +919,7 @@
     },
     {
       "name": "Filecoin.EthSendRawTransactionUntrusted",
+      "description": "Submits a signed raw transaction from an untrusted source to the message pool and returns its transaction hash.",
       "params": [
         {
           "name": "rawTx",
@@ -924,6 +940,7 @@
     },
     {
       "name": "Filecoin.EthSubscribe",
+      "description": "Creates a websocket subscription that streams events (new heads, pending transactions, or logs) to the client.",
       "params": [],
       "result": {
         "name": "Filecoin.EthSubscribe.Result",
@@ -936,6 +953,7 @@
     },
     {
       "name": "Filecoin.EthSyncing",
+      "description": "Returns the node's sync status, or `false` if the node is not currently syncing.",
       "params": [],
       "result": {
         "name": "Filecoin.EthSyncing.Result",
@@ -960,12 +978,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceBlock.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -987,12 +1002,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceFilter.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1027,12 +1039,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceReplayBlockTransactions.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
           }
@@ -1054,12 +1063,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceTransaction.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1069,6 +1075,7 @@
     },
     {
       "name": "Filecoin.EthUninstallFilter",
+      "description": "Uninstalls the filter with the given ID.",
       "params": [
         {
           "name": "filterId",
@@ -1089,6 +1096,7 @@
     },
     {
       "name": "Filecoin.EthUnsubscribe",
+      "description": "Cancels an existing websocket subscription identified by its subscription ID.",
       "params": [],
       "result": {
         "name": "Filecoin.EthUnsubscribe.Result",
@@ -1136,6 +1144,7 @@
     },
     {
       "name": "Filecoin.NetListening",
+      "description": "Returns whether the node is listening for network connections (always `true`).",
       "params": [],
       "result": {
         "name": "Filecoin.NetListening.Result",
@@ -1148,6 +1157,7 @@
     },
     {
       "name": "Filecoin.NetVersion",
+      "description": "Returns the current network ID (the EIP-155 chain ID) as a decimal string.",
       "params": [],
       "result": {
         "name": "Filecoin.NetVersion.Result",
@@ -1223,6 +1233,7 @@
     },
     {
       "name": "Filecoin.Web3ClientVersion",
+      "description": "Returns the client version string of the running node.",
       "params": [],
       "result": {
         "name": "Filecoin.Web3ClientVersion.Result",
@@ -1257,6 +1268,7 @@
     },
     {
       "name": "Forest.ChainExport",
+      "description": "Exports a chain snapshot to a CAR file from the given epoch; only one export may run at a time.",
       "params": [
         {
           "name": "params",
@@ -1277,6 +1289,7 @@
     },
     {
       "name": "Forest.ChainExportCancel",
+      "description": "Cancels the in-progress chain export, returning whether one was running.",
       "params": [],
       "result": {
         "name": "Forest.ChainExportCancel.Result",
@@ -1289,6 +1302,7 @@
     },
     {
       "name": "Forest.ChainExportDiff",
+      "description": "Exports a differential snapshot covering the given epoch range to a CAR file.",
       "params": [
         {
           "name": "params",
@@ -1309,6 +1323,7 @@
     },
     {
       "name": "Forest.ChainExportStatus",
+      "description": "Returns the progress and status of the in-progress chain export.",
       "params": [],
       "result": {
         "name": "Forest.ChainExportStatus.Result",
@@ -1478,15 +1493,13 @@
     },
     {
       "name": "eth_accounts",
+      "description": "Returns the list of addresses owned by the client; always empty since Forest does not manage private keys.",
       "params": [],
       "result": {
         "name": "eth_accounts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "type": "string"
           }
@@ -1509,6 +1522,7 @@
     },
     {
       "name": "eth_blockNumber",
+      "description": "Returns the height of the latest executed tipset, which is the parent of the current head.",
       "params": [],
       "result": {
         "name": "eth_blockNumber.Result",
@@ -1521,6 +1535,7 @@
     },
     {
       "name": "eth_call",
+      "description": "Executes a read-only message call against the given block state without creating an on-chain transaction, returning the call output.",
       "params": [
         {
           "name": "tx",
@@ -1548,6 +1563,7 @@
     },
     {
       "name": "eth_chainId",
+      "description": "Returns the EIP-155 chain ID of the current network.",
       "params": [],
       "result": {
         "name": "eth_chainId.Result",
@@ -1560,6 +1576,7 @@
     },
     {
       "name": "eth_estimateGas",
+      "description": "Estimates the amount of gas required to execute the given transaction.",
       "params": [
         {
           "name": "tx",
@@ -1594,6 +1611,7 @@
     },
     {
       "name": "eth_feeHistory",
+      "description": "Returns historical gas information for a range of blocks, including base fee per gas, gas used ratio, and priority fee percentiles.",
       "params": [
         {
           "name": "blockCount",
@@ -1676,6 +1694,7 @@
     },
     {
       "name": "eth_getBlockByHash",
+      "description": "Retrieves a block by its hash, optionally including full transaction objects.",
       "params": [
         {
           "name": "blockHash",
@@ -1743,12 +1762,9 @@
       ],
       "result": {
         "name": "eth_getBlockReceipts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -1778,12 +1794,9 @@
       ],
       "result": {
         "name": "eth_getBlockReceiptsLimited.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -1793,6 +1806,7 @@
     },
     {
       "name": "eth_getBlockTransactionCountByHash",
+      "description": "Returns the number of messages in the tipset identified by the given block hash.",
       "params": [
         {
           "name": "blockHash",
@@ -1883,6 +1897,7 @@
     },
     {
       "name": "eth_getFilterLogs",
+      "description": "Returns event logs matching the filter with the given ID that have not been collected since the last poll.",
       "params": [
         {
           "name": "filterId",
@@ -1903,6 +1918,7 @@
     },
     {
       "name": "eth_getLogs",
+      "description": "Returns event logs matching the given filter specification.",
       "params": [
         {
           "name": "ethFilter",
@@ -1923,6 +1939,7 @@
     },
     {
       "name": "eth_getMessageCidByTransactionHash",
+      "description": "Returns the CID of the Filecoin message corresponding to the given Ethereum transaction hash.",
       "params": [
         {
           "name": "txHash",
@@ -1985,6 +2002,7 @@
     },
     {
       "name": "eth_getTransactionByBlockHashAndIndex",
+      "description": "Retrieves a transaction by its block hash and index.",
       "params": [
         {
           "name": "blockHash",
@@ -2054,6 +2072,7 @@
     },
     {
       "name": "eth_getTransactionByHash",
+      "description": "Retrieves a transaction by its hash.",
       "params": [
         {
           "name": "txHash",
@@ -2081,6 +2100,7 @@
     },
     {
       "name": "eth_getTransactionByHashLimited",
+      "description": "Retrieves a transaction by its hash, limiting state resolution to the given chain epoch.",
       "params": [
         {
           "name": "txHash",
@@ -2116,6 +2136,7 @@
     },
     {
       "name": "eth_getTransactionCount",
+      "description": "Returns the number of transactions sent from an address (its nonce) at the specified block state.",
       "params": [
         {
           "name": "sender",
@@ -2143,6 +2164,7 @@
     },
     {
       "name": "eth_getTransactionHashByCid",
+      "description": "Returns the Ethereum transaction hash for the given Filecoin message CID.",
       "params": [
         {
           "name": "cid",
@@ -2170,6 +2192,7 @@
     },
     {
       "name": "eth_getTransactionReceipt",
+      "description": "Returns the receipt of a transaction identified by its hash.",
       "params": [
         {
           "name": "txHash",
@@ -2197,6 +2220,7 @@
     },
     {
       "name": "eth_getTransactionReceiptLimited",
+      "description": "Returns the receipt of a transaction identified by its hash, limiting state resolution to the given chain epoch.",
       "params": [
         {
           "name": "txHash",
@@ -2232,6 +2256,7 @@
     },
     {
       "name": "eth_maxPriorityFeePerGas",
+      "description": "Returns an estimate of the priority fee per gas (tip) needed for timely inclusion, in attoFIL.",
       "params": [],
       "result": {
         "name": "eth_maxPriorityFeePerGas.Result",
@@ -2244,6 +2269,7 @@
     },
     {
       "name": "eth_newBlockFilter",
+      "description": "Installs a persistent filter that tracks the arrival of new blocks.",
       "params": [],
       "result": {
         "name": "eth_newBlockFilter.Result",
@@ -2256,6 +2282,7 @@
     },
     {
       "name": "eth_newFilter",
+      "description": "Installs a persistent filter for matching event logs based on the given filter spec.",
       "params": [
         {
           "name": "filterSpec",
@@ -2276,6 +2303,7 @@
     },
     {
       "name": "eth_newPendingTransactionFilter",
+      "description": "Installs a persistent filter that tracks new messages arriving in the message pool.",
       "params": [],
       "result": {
         "name": "eth_newPendingTransactionFilter.Result",
@@ -2288,6 +2316,7 @@
     },
     {
       "name": "eth_protocolVersion",
+      "description": "Returns the current Filecoin network version, reported as the Ethereum protocol version.",
       "params": [],
       "result": {
         "name": "eth_protocolVersion.Result",
@@ -2300,6 +2329,7 @@
     },
     {
       "name": "eth_sendRawTransaction",
+      "description": "Submits a signed raw transaction to the message pool and returns its transaction hash.",
       "params": [
         {
           "name": "rawTx",
@@ -2320,6 +2350,7 @@
     },
     {
       "name": "eth_sendRawTransactionUntrusted",
+      "description": "Submits a signed raw transaction from an untrusted source to the message pool and returns its transaction hash.",
       "params": [
         {
           "name": "rawTx",
@@ -2340,6 +2371,7 @@
     },
     {
       "name": "eth_subscribe",
+      "description": "Creates a websocket subscription that streams events (new heads, pending transactions, or logs) to the client.",
       "params": [],
       "result": {
         "name": "eth_subscribe.Result",
@@ -2352,6 +2384,7 @@
     },
     {
       "name": "eth_syncing",
+      "description": "Returns the node's sync status, or `false` if the node is not currently syncing.",
       "params": [],
       "result": {
         "name": "eth_syncing.Result",
@@ -2364,6 +2397,7 @@
     },
     {
       "name": "eth_uninstallFilter",
+      "description": "Uninstalls the filter with the given ID.",
       "params": [
         {
           "name": "filterId",
@@ -2384,6 +2418,7 @@
     },
     {
       "name": "eth_unsubscribe",
+      "description": "Cancels an existing websocket subscription identified by its subscription ID.",
       "params": [],
       "result": {
         "name": "eth_unsubscribe.Result",
@@ -2396,6 +2431,7 @@
     },
     {
       "name": "net_listening",
+      "description": "Returns whether the node is listening for network connections (always `true`).",
       "params": [],
       "result": {
         "name": "net_listening.Result",
@@ -2408,6 +2444,7 @@
     },
     {
       "name": "net_version",
+      "description": "Returns the current network ID (the EIP-155 chain ID) as a decimal string.",
       "params": [],
       "result": {
         "name": "net_version.Result",
@@ -2432,12 +2469,9 @@
       ],
       "result": {
         "name": "trace_block.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -2501,12 +2535,9 @@
       ],
       "result": {
         "name": "trace_filter.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -2541,12 +2572,9 @@
       ],
       "result": {
         "name": "trace_replayBlockTransactions.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
           }
@@ -2568,12 +2596,9 @@
       ],
       "result": {
         "name": "trace_transaction.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -2583,6 +2608,7 @@
     },
     {
       "name": "web3_clientVersion",
+      "description": "Returns the client version string of the running node.",
       "params": [],
       "result": {
         "name": "web3_clientVersion.Result",
@@ -2701,10 +2727,7 @@
         "type": "object",
         "properties": {
           "accessList": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/EthHash"
             }
@@ -2777,7 +2800,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "transactionIndex": {
             "$ref": "#/components/schemas/EthUint64"

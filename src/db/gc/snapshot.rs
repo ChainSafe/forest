@@ -49,12 +49,11 @@ use crate::db::{
     parity_db::GarbageCollectableDb,
 };
 use crate::interpreter::VMTrace;
+use crate::ipld::ChainExportGuard;
 use crate::prelude::*;
 use crate::shim::clock::EPOCHS_IN_DAY;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::HashMap;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount as _;
 use parking_lot::RwLock;
 use sha2::Sha256;
@@ -162,7 +161,7 @@ impl SnapshotGarbageCollector {
                 && let Some(car_db_head_epoch) =
                     self.db().heaviest_car_tipset().ok().map(|ts| ts.epoch())
             {
-                let sync_status = &*self.sync_status().read();
+                let sync_status = (*self.sync_status().load()).shallow_clone();
                 let network_head_epoch = sync_status.network_head_epoch;
                 let head_epoch = sync_status.current_head_epoch;
                 if head_epoch > 0 // sync_status has been initialized
@@ -200,7 +199,6 @@ impl SnapshotGarbageCollector {
             tracing::warn!("snap gc has already been running");
             return;
         }
-
         match self.export_snapshot().await {
             Ok(_) => {
                 if let Err(e) = self.cleanup_after_snapshot_export().await {
@@ -219,6 +217,7 @@ impl SnapshotGarbageCollector {
     }
 
     async fn export_snapshot(&self) -> anyhow::Result<()> {
+        let _guard = ChainExportGuard::try_start_export()?;
         let db = self.db();
         tracing::info!(
             "exporting lite snapshot with {} recent state roots",

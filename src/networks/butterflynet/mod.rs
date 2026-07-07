@@ -1,8 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::HashMap;
 use cid::Cid;
+use indexmap::IndexMap;
 use libp2p::Multiaddr;
 use std::str::FromStr;
 use std::sync::LazyLock;
@@ -74,8 +74,8 @@ pub const ETH_CHAIN_ID: EthChainId = 3141592;
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|| {
-    HashMap::from_iter([
+pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {
+    IndexMap::from_iter([
         make_height!(Breeze, -50),
         make_height!(Smoke, -2),
         make_height!(Ignition, -3),

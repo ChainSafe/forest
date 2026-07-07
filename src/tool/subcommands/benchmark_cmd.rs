@@ -6,6 +6,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::ipld::{stream_chain, stream_graph};
+use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
@@ -16,10 +17,8 @@ use crate::{
         ChainEpochDelta,
         index::{ChainIndex, ResolveNullTipset},
     },
-    db::{Blockstore, Either, parity_db::ParityDb, parity_db_config::ParityDbConfig},
+    db::{Either, parity_db::ParityDb, parity_db_config::ParityDbConfig},
 };
-use anyhow::Context as _;
-use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
@@ -200,12 +199,9 @@ async fn benchmark_forest_encoding(
     );
 
     let mut dest = indicatif_sink("encoded");
-
-    let frames = crate::db::car::forest::Encoder::compress_stream(
-        frame_size,
-        compression_level,
-        par_buffer(1024, block_stream.map_err(anyhow::Error::from)),
-    );
+    let (blocks, _drop_guard) = par_buffer(1024, block_stream.map_err(anyhow::Error::from));
+    let frames =
+        crate::db::car::forest::Encoder::compress_stream(frame_size, compression_level, blocks);
     crate::db::car::forest::Encoder::write(&mut dest, roots, frames).await?;
     dest.flush().await?;
     Ok(())
@@ -223,12 +219,17 @@ async fn benchmark_exporting(
 ) -> anyhow::Result<()> {
     let store = Arc::new(open_store(input)?);
     let heaviest = store.heaviest_tipset()?;
-    let idx = ChainIndex::new(store.clone());
-    let ts = idx.load_required_tipset_by_height(
-        epoch.unwrap_or(heaviest.epoch()),
-        heaviest,
-        ResolveNullTipset::TakeOlder,
-    )?;
+    let idx = ChainIndex::new(
+        store.shallow_clone(),
+        heaviest.genesis(store.shallow_clone()).await?,
+    );
+    let ts = idx
+        .load_required_tipset_by_height(
+            epoch.unwrap_or(heaviest.epoch()),
+            heaviest,
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
     // We don't do any sanity checking for 'depth'. The output is discarded so
     // there's no need.
     let stateroot_lookup_limit = ts.epoch() - depth;
@@ -242,11 +243,9 @@ async fn benchmark_exporting(
         CidHashSet::default(),
     );
 
-    let frames = crate::db::car::forest::Encoder::compress_stream(
-        frame_size,
-        compression_level,
-        par_buffer(1024, blocks.map_err(anyhow::Error::from)),
-    );
+    let (blocks, _drop_guard) = par_buffer(1024, blocks.map_err(anyhow::Error::from));
+    let frames =
+        crate::db::car::forest::Encoder::compress_stream(frame_size, compression_level, blocks);
     crate::db::car::forest::Encoder::write(&mut dest, ts.key().to_cids(), frames).await?;
     dest.flush().await?;
     Ok(())

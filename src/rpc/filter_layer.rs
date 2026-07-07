@@ -20,10 +20,8 @@ pub(super) struct FilterLayer {
 }
 
 impl FilterLayer {
-    pub fn new(filter_list: FilterList) -> Self {
-        Self {
-            filter_list: Arc::new(filter_list),
-        }
+    pub fn new(filter_list: Arc<FilterList>) -> Self {
+        Self { filter_list }
     }
 }
 

@@ -98,6 +98,7 @@ impl From<EthEip1559TxArgs> for ApiEthTx {
             v: v.into(),
             r: r.into(),
             s: s.into(),
+            access_list: Some(NotNullVec(vec![])),
             ..Default::default()
         }
     }

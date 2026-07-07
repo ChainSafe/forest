@@ -262,11 +262,11 @@ impl SqliteIndexer {
             "cannot validate index at epoch {epoch}, can only validate at an epoch less than chain head epoch {}",
             head.epoch()
         );
-        let ts = self.cs.chain_index().load_required_tipset_by_height(
-            epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let ts = self
+            .cs
+            .chain_index()
+            .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
+            .await?;
         let is_index_empty: bool = sqlx::query(self.stmts.is_index_empty)
             .fetch_one(&self.db)
             .await?
@@ -368,7 +368,7 @@ impl SqliteIndexer {
     }
 
     async fn backfill_missing_tipset(&self, ts: &Tipset) -> anyhow::Result<ChainIndexValidation> {
-        let execution_ts = self.get_next_tipset(ts)?;
+        let execution_ts = self.get_next_tipset(ts).await?;
         let mut tx = self.db.begin().await?;
         self.index_tipset_and_parent_events_with_tx(&mut tx, &execution_ts)
             .await?;
@@ -389,12 +389,16 @@ impl SqliteIndexer {
         })
     }
 
-    fn get_next_tipset(&self, ts: &Tipset) -> anyhow::Result<Tipset> {
-        let child = self.cs.chain_index().load_required_tipset_by_height(
-            ts.epoch() + 1,
-            self.cs.heaviest_tipset(),
-            ResolveNullTipset::TakeNewer,
-        )?;
+    async fn get_next_tipset(&self, ts: &Tipset) -> anyhow::Result<Tipset> {
+        let child = self
+            .cs
+            .chain_index()
+            .load_required_tipset_by_height(
+                ts.epoch() + 1,
+                self.cs.heaviest_tipset(),
+                ResolveNullTipset::TakeNewer,
+            )
+            .await?;
         anyhow::ensure!(
             child.parents() == ts.key(),
             "chain forked at height {}; please retry your request; err: chain forked",
@@ -418,7 +422,7 @@ impl SqliteIndexer {
     ) -> anyhow::Result<()> {
         let tsk_cid = ts.key().cid()?;
         let tsk_cid_bytes = tsk_cid.to_bytes();
-        let execution_ts = self.get_next_tipset(ts)?;
+        let execution_ts = self.get_next_tipset(ts).await?;
 
         // given that `ts` is on the canonical chain and `execution_ts` is the next tipset in the chain
         // `ts` can not have reverted events

@@ -17,6 +17,8 @@ impl RpcMethod<0> for NodeStatus {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the node's status, including sync and chain health information.";
 
     type Params = ();
     type Ok = NodeStatusResult;

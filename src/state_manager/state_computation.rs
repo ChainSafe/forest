@@ -22,7 +22,7 @@ impl StateManager {
         if let Some(state) = self.cache.get_map(ts.key(), |et| et.into()) {
             Ok(state)
         } else {
-            match self.chain_store().load_child_tipset(ts)? {
+            match self.chain_store().load_child_tipset(ts).await? {
                 Some(receipt_ts) => Ok(TipsetState {
                     state_root: *receipt_ts.parent_state(),
                     receipt_root: *receipt_ts.parent_message_receipts(),
@@ -32,29 +32,48 @@ impl StateManager {
         }
     }
 
+    /// State recomputation policy for RPC methods: recomputation is disabled unless explicitly
+    /// enabled via the environment.
+    fn rpc_state_recompute_policy() -> StateRecomputePolicy {
+        crate::def_is_env_truthy!(
+            enable_state_computation,
+            "FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS"
+        );
+
+        if enable_state_computation() {
+            StateRecomputePolicy::Allowed
+        } else {
+            StateRecomputePolicy::Disallowed
+        }
+    }
+
     /// Load an executed tipset for RPC methods, with state computation unless explicitly enabled.
     pub async fn load_executed_tipset_for_rpc(
         &self,
         ts: &Tipset,
     ) -> anyhow::Result<ExecutedTipset> {
-        crate::def_is_env_truthy!(
-            enable_state_computation,
-            "FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS"
-        );
-        let policy = if enable_state_computation() {
-            StateRecomputePolicy::Allowed
-        } else {
-            StateRecomputePolicy::Disallowed
-        };
+        self.load_executed_tipset_with_cache(ts, Self::rpc_state_recompute_policy())
+            .await
+    }
 
-        // https://github.com/ChainSafe/forest/issues/7118
-        #[cfg(test)]
-        let policy = {
-            _ = policy;
-            StateRecomputePolicy::Allowed
-        };
-
-        self.load_executed_tipset_with_cache(ts, policy).await
+    /// Load an executed tipset using an explicitly provided receipt (child) tipset instead of
+    /// resolving the child on the current heaviest chain. This is required when serving events
+    /// for tipsets that are no longer canonical.
+    pub async fn load_executed_tipset_with_receipt(
+        &self,
+        msg_ts: &Tipset,
+        receipt_ts: &Tipset,
+    ) -> anyhow::Result<ExecutedTipset> {
+        self.cache
+            .get_or_insert_async(msg_ts.key(), async move {
+                self.load_executed_tipset_inner(
+                    msg_ts,
+                    Some(receipt_ts),
+                    Self::rpc_state_recompute_policy(),
+                )
+                .await
+            })
+            .await
     }
 
     /// Load an executed tipset, including state root, message receipts and events with caching.
@@ -80,7 +99,7 @@ impl StateManager {
         }
         self.cache
             .get_or_insert_async(ts.key(), async move {
-                let receipt_ts = self.chain_store().load_child_tipset(ts)?;
+                let receipt_ts = self.chain_store().load_child_tipset(ts).await?;
                 self.load_executed_tipset_inner(ts, receipt_ts.as_ref(), policy)
                     .await
             })
@@ -224,8 +243,7 @@ impl StateManager {
             tipset.len(),
             tipset.key(),
         );
-        Ok(apply_block_messages(
-            self.chain_store().genesis_block_header().timestamp,
+        Ok(apply_block_messages_blocking(
             self.chain_index().shallow_clone(),
             self.chain_config().shallow_clone(),
             self.beacon_schedule().shallow_clone(),
@@ -269,11 +287,10 @@ impl StateManager {
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
     ) -> Result<ExecutedTipset, Error> {
-        Ok(compute_state(
+        Ok(compute_state_blocking(
             height,
             messages,
             tipset,
-            self.chain_store().genesis_block_header().timestamp,
             self.chain_index().shallow_clone(),
             self.chain_config().shallow_clone(),
             self.beacon_schedule().shallow_clone(),
@@ -284,8 +301,7 @@ impl StateManager {
     }
 }
 
-pub fn validate_tipsets<T>(
-    genesis_timestamp: u64,
+pub fn validate_tipsets_blocking<T>(
     chain_index: &ChainIndex,
     chain_config: &Arc<ChainConfig>,
     beacon: &Arc<BeaconSchedule>,
@@ -305,8 +321,7 @@ where
             state_root: actual_state,
             receipt_root: actual_receipt,
             ..
-        } = apply_block_messages(
-            genesis_timestamp,
+        } = apply_block_messages_blocking(
             chain_index.shallow_clone(),
             chain_config.shallow_clone(),
             beacon.shallow_clone(),
@@ -402,7 +417,7 @@ impl<'a> TipsetExecutor<'a> {
 
     /// Produces the state root ready for message execution by running
     /// null-epoch `crons` and any pending state migrations.
-    pub(in crate::state_manager) fn prepare_parent_state<F>(
+    pub(in crate::state_manager) fn prepare_parent_state_blocking<F>(
         &self,
         genesis_timestamp: u64,
         null_epoch_trace: VMTrace,
@@ -525,8 +540,7 @@ impl<'a> TipsetExecutor<'a> {
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
 /// The `ChainStore` caches recent tipsets to make these scans faster.
 #[allow(clippy::too_many_arguments)]
-pub fn apply_block_messages(
-    genesis_timestamp: u64,
+pub fn apply_block_messages_blocking(
     chain_index: ChainIndex,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
@@ -543,6 +557,7 @@ pub fn apply_block_messages(
     // 5. write the state-tree to the DB and return the CID
 
     // step 1: special case for genesis block
+    let genesis_timestamp = chain_index.genesis().min_ticket_block().timestamp;
     if tipset.epoch() == 0 {
         // NB: This is here because the process that executes blocks requires that the
         // block miner reference a valid miner in the state tree. Unless we create some
@@ -567,7 +582,7 @@ pub fn apply_block_messages(
     // step 2: running cron for any null-tipsets
     // step 3: run migrations
     let (parent_state, epoch, block_messages) =
-        exec.prepare_parent_state(genesis_timestamp, enable_tracing, &mut callback)?;
+        exec.prepare_parent_state_blocking(genesis_timestamp, enable_tracing, &mut callback)?;
 
     // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
     // FVM, but that introduces some constraints, and possible deadlocks.
@@ -632,11 +647,10 @@ pub fn apply_block_messages(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(in crate::state_manager) fn compute_state(
+pub(in crate::state_manager) fn compute_state_blocking(
     _height: ChainEpoch,
     messages: Vec<Message>,
     tipset: Tipset,
-    genesis_timestamp: u64,
     chain_index: ChainIndex,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
@@ -648,8 +662,7 @@ pub(in crate::state_manager) fn compute_state(
         anyhow::bail!("Applying messages is not yet implemented.");
     }
 
-    let output = apply_block_messages(
-        genesis_timestamp,
+    let output = apply_block_messages_blocking(
         chain_index,
         chain_config,
         beacon,

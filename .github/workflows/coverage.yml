@@ -46,7 +46,7 @@ jobs:
       codeChange: ${{ steps.filter.outputs.codeChange }}
       workflowChange: ${{ steps.filter.outputs.workflowChange }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -84,16 +84,16 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         id: cache-proof-params
         with:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
           key: proof-params-keys
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         id: cache-actor-bundle
         with:
           path: ${{ env.FOREST_ACTOR_BUNDLE_PATH }}

@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::LazyLock;
+
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
 use crate::prelude::*;
@@ -111,11 +114,45 @@ impl GenesisInfo {
     }
 
     /// Calculate total FIL circulating supply based on state, traversing the state tree and
+    /// checking Actor types. This can be a lengthy operation so cache it's used.
+    ///
+    /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_vm_circulating_supply`], that's being
+    /// calculated differently.
+    pub async fn get_state_circulating_supply_with_cache(
+        self,
+        db: impl Blockstore + ShallowClone + Send + Sync + 'static,
+        ts: Tipset,
+    ) -> anyhow::Result<TokenAmount> {
+        static CACHE: LazyLock<quick_cache::sync::Cache<TipsetKey, Result<TokenAmount, String>>> =
+            LazyLock::new(|| quick_cache::sync::Cache::new(120)); // 120 for 1h-worth epochs
+
+        let height = ts.epoch() - 1;
+        let root = *ts.parent_state();
+        let this = self;
+
+        CACHE
+            .get_or_insert_async(ts.key(), async move {
+                tokio::task::spawn_blocking(move || {
+                    this.get_state_circulating_supply_raw_blocking(height, &db, &root)
+                        .map_err(|e| {
+                            let mut e = e.to_string();
+                            e.truncate(e.floor_char_boundary(100)); // To make error size bounded
+                            e
+                        })
+                })
+                .await
+                .context("error joining tokio handle")
+            })
+            .await?
+            .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    /// Calculate total FIL circulating supply based on state, traversing the state tree and
     /// checking Actor types. This can be a lengthy operation.
     ///
     /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_vm_circulating_supply`], that's being
     /// calculated differently.
-    pub fn get_state_circulating_supply(
+    pub fn get_state_circulating_supply_raw_blocking(
         &self,
         height: ChainEpoch,
         db: &(impl Blockstore + ShallowClone),
@@ -126,7 +163,7 @@ impl GenesisInfo {
 
         let state_tree = StateTree::new_from_root(db, root)?;
 
-        state_tree.for_each(|addr: Address, actor: &ActorState| {
+        state_tree.for_each_cacheless(|addr: Address, actor: &ActorState| {
             let actor_balance = TokenAmount::from(actor.balance.clone());
             if !actor_balance.is_zero() {
                 match addr {
@@ -140,7 +177,8 @@ impl GenesisInfo {
                     | Address::BURNT_FUNDS_ACTOR
                     | Address::SAFT_ACTOR
                     | Address::RESERVE_ACTOR
-                    | Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR => {
+                    | Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
+                    | Address::DATACAP_TOKEN_ACTOR => {
                         un_circ += actor_balance;
                     }
                     Address::MARKET_ACTOR => {
@@ -181,7 +219,7 @@ impl GenesisInfo {
                         circ += avail_balance.max(TokenAmount::zero());
                         un_circ += actor_balance.min(locked_balance);
                     }
-                    _ => bail!("unexpected actor: {:?}", actor),
+                    _ => bail!("unexpected actor at epoch {height}: {actor:?}"),
                 }
             } else {
                 // Do nothing for zero-balance actors
@@ -212,7 +250,7 @@ struct GenesisInfoVesting {
 }
 
 impl GenesisInfoVesting {
-    fn new(liftoff_height: i64) -> Self {
+    fn new(liftoff_height: ChainEpoch) -> Self {
         Self {
             genesis: setup_genesis_vesting_schedule(),
             ignition: setup_ignition_vesting_schedule(liftoff_height),

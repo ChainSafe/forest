@@ -15,7 +15,7 @@ on:
       - main
     # This needs to be declared explicitly so that the RPC checks job is actually
     # run when PR is labeled.
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
     paths-ignore:
       - "docs/**"
       - ".github/workflows/docs-*.yml"
@@ -56,7 +56,7 @@ jobs:
           fi
           echo "SCCACHE_S3_KEY_PREFIX=macos" >> "$GITHUB_ENV"
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -87,7 +87,7 @@ jobs:
         with:
           make-default: false
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -117,11 +117,11 @@ jobs:
     name: Forest CLI checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -138,15 +138,16 @@ jobs:
     name: Calibnet check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
+      - run: ./scripts/optimize_disk_space_gh_worker.sh
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
@@ -167,12 +168,12 @@ jobs:
     name: Calibnet stateless mode check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -188,12 +189,12 @@ jobs:
     name: Calibnet stateless RPC check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -209,11 +210,11 @@ jobs:
     name: State migrations
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -225,19 +226,16 @@ jobs:
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-wallet-check:
-    concurrency:
-      group: calibnet-wallet-tests
-      cancel-in-progress: false
     needs:
       - build-ubuntu
     name: Wallet tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -279,11 +277,11 @@ jobs:
     name: V1 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -301,11 +299,11 @@ jobs:
     name: V2 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -323,11 +321,11 @@ jobs:
     name: Diff snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -344,11 +342,11 @@ jobs:
     name: Calibnet no discovery checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -364,11 +362,11 @@ jobs:
     name: Calibnet kademlia checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -384,12 +382,12 @@ jobs:
     name: Calibnet eth mapping check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -409,12 +407,12 @@ jobs:
     name: Calibnet api test-stateful check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -435,11 +433,11 @@ jobs:
       - build-ubuntu
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -458,7 +456,7 @@ jobs:
     env: # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         id: cache
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -472,7 +470,7 @@ jobs:
             -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
             "$SHELL_IMAGE" \
             sh -c "cp /cache/* /proofs"
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -503,7 +501,7 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -522,7 +520,7 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
@@ -549,7 +547,7 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"

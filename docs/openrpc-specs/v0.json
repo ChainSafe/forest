@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.33.6"
+    "version": "0.33.7"
   },
   "methods": [
     {
@@ -28,9 +28,10 @@
     },
     {
       "name": "F3.Finalize",
+      "description": "Marks the given tipset as F3-finalized, resetting the chain head to it when appropriate.",
       "params": [
         {
-          "name": "tipset_key",
+          "name": "tipsetKey",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/F3TipSetKey"
@@ -48,6 +49,7 @@
     },
     {
       "name": "F3.GetHead",
+      "description": "Returns the current chain head as an F3 tipset.",
       "params": [],
       "result": {
         "name": "F3.GetHead.Result",
@@ -60,9 +62,10 @@
     },
     {
       "name": "F3.GetParent",
+      "description": "Returns the parent of the tipset with the given F3 tipset key.",
       "params": [
         {
-          "name": "tipset_key",
+          "name": "tipsetKey",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/F3TipSetKey"
@@ -80,6 +83,7 @@
     },
     {
       "name": "F3.GetParticipatingMinerIDs",
+      "description": "Returns the IDs of the miners currently participating in F3 through this node.",
       "params": [],
       "result": {
         "name": "F3.GetParticipatingMinerIDs.Result",
@@ -100,9 +104,10 @@
     },
     {
       "name": "F3.GetPowerTable",
+      "description": "Returns the power table (the participating miners and their power) at the given tipset.",
       "params": [
         {
-          "name": "tipset_key",
+          "name": "tipsetKey",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/F3TipSetKey"
@@ -126,6 +131,7 @@
     },
     {
       "name": "F3.GetRawNetworkName",
+      "description": "Returns the raw (genesis) network name.",
       "params": [],
       "result": {
         "name": "F3.GetRawNetworkName.Result",
@@ -138,9 +144,10 @@
     },
     {
       "name": "F3.GetTipset",
+      "description": "Returns the tipset with the given F3 tipset key.",
       "params": [
         {
-          "name": "tipset_key",
+          "name": "tipsetKey",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/F3TipSetKey"
@@ -158,6 +165,7 @@
     },
     {
       "name": "F3.GetTipsetByEpoch",
+      "description": "Returns the tipset at the given epoch.",
       "params": [
         {
           "name": "epoch",
@@ -179,9 +187,10 @@
     },
     {
       "name": "F3.ProtectPeer",
+      "description": "Protects the given peer from connection pruning.",
       "params": [
         {
-          "name": "peer_id",
+          "name": "peerId",
           "required": true,
           "schema": {
             "type": "string"
@@ -199,6 +208,7 @@
     },
     {
       "name": "F3.SignMessage",
+      "description": "Signs a message with the private key corresponding to the given BLS public key.",
       "params": [
         {
           "name": "pubkey",
@@ -226,6 +236,7 @@
     },
     {
       "name": "Filecoin.AuthNew",
+      "description": "Creates a new JWT authentication token with the given permissions.",
       "params": [
         {
           "name": "permissions",
@@ -241,7 +252,7 @@
           }
         },
         {
-          "name": "expiration_secs",
+          "name": "expirationSecs",
           "required": true,
           "schema": {
             "type": [
@@ -263,9 +274,10 @@
     },
     {
       "name": "Filecoin.AuthVerify",
+      "description": "Verifies a JWT authentication token and returns its permissions.",
       "params": [
         {
-          "name": "header_raw",
+          "name": "token",
           "required": true,
           "schema": {
             "type": "string"
@@ -289,6 +301,7 @@
     },
     {
       "name": "Filecoin.BeaconGetEntry",
+      "description": "Returns the drand beacon entry for the given epoch, blocking until it becomes available.",
       "params": [
         {
           "name": "first",
@@ -310,6 +323,7 @@
     },
     {
       "name": "Filecoin.ChainExport",
+      "description": "Exports a v1 chain snapshot to a CAR file from the given epoch.",
       "params": [
         {
           "name": "params",
@@ -399,6 +413,7 @@
     },
     {
       "name": "Filecoin.ChainGetGenesis",
+      "description": "Returns the genesis tipset of the chain.",
       "params": [],
       "result": {
         "name": "Filecoin.ChainGetGenesis.Result",
@@ -439,6 +454,7 @@
     },
     {
       "name": "Filecoin.ChainGetMessagesInTipset",
+      "description": "Returns all messages included in the tipset with the given key.",
       "params": [
         {
           "name": "tipsetKey",
@@ -711,6 +727,7 @@
     },
     {
       "name": "Filecoin.ChainSetHead",
+      "description": "Forcibly sets the chain head to the tipset with the given key.",
       "params": [
         {
           "name": "tsk",
@@ -731,16 +748,17 @@
     },
     {
       "name": "Filecoin.ChainStatObj",
+      "description": "Returns the size and link count of the IPLD graph under the given CID, or the difference relative to an optional base CID.",
       "params": [
         {
-          "name": "obj_cid",
+          "name": "objCid",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/Cid"
           }
         },
         {
-          "name": "base_cid",
+          "name": "baseCid",
           "required": true,
           "schema": {
             "anyOf": [
@@ -792,15 +810,13 @@
     },
     {
       "name": "Filecoin.EthAccounts",
+      "description": "Returns the list of addresses owned by the client; always empty since Forest does not manage private keys.",
       "params": [],
       "result": {
         "name": "Filecoin.EthAccounts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "type": "string"
           }
@@ -844,6 +860,7 @@
     },
     {
       "name": "Filecoin.EthBlockNumber",
+      "description": "Returns the height of the latest executed tipset, which is the parent of the current head.",
       "params": [],
       "result": {
         "name": "Filecoin.EthBlockNumber.Result",
@@ -856,6 +873,7 @@
     },
     {
       "name": "Filecoin.EthCall",
+      "description": "Executes a read-only message call against the given block state without creating an on-chain transaction, returning the call output.",
       "params": [
         {
           "name": "tx",
@@ -883,6 +901,7 @@
     },
     {
       "name": "Filecoin.EthChainId",
+      "description": "Returns the EIP-155 chain ID of the current network.",
       "params": [],
       "result": {
         "name": "Filecoin.EthChainId.Result",
@@ -895,6 +914,7 @@
     },
     {
       "name": "Filecoin.EthEstimateGas",
+      "description": "Estimates the amount of gas required to execute the given transaction.",
       "params": [
         {
           "name": "tx",
@@ -929,6 +949,7 @@
     },
     {
       "name": "Filecoin.EthFeeHistory",
+      "description": "Returns historical gas information for a range of blocks, including base fee per gas, gas used ratio, and priority fee percentiles.",
       "params": [
         {
           "name": "blockCount",
@@ -1011,6 +1032,7 @@
     },
     {
       "name": "Filecoin.EthGetBlockByHash",
+      "description": "Retrieves a block by its hash, optionally including full transaction objects.",
       "params": [
         {
           "name": "blockHash",
@@ -1078,12 +1100,9 @@
       ],
       "result": {
         "name": "Filecoin.EthGetBlockReceipts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -1113,12 +1132,9 @@
       ],
       "result": {
         "name": "Filecoin.EthGetBlockReceiptsLimited.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -1128,6 +1144,7 @@
     },
     {
       "name": "Filecoin.EthGetBlockTransactionCountByHash",
+      "description": "Returns the number of messages in the tipset identified by the given block hash.",
       "params": [
         {
           "name": "blockHash",
@@ -1218,6 +1235,7 @@
     },
     {
       "name": "Filecoin.EthGetFilterLogs",
+      "description": "Returns event logs matching the filter with the given ID that have not been collected since the last poll.",
       "params": [
         {
           "name": "filterId",
@@ -1238,6 +1256,7 @@
     },
     {
       "name": "Filecoin.EthGetLogs",
+      "description": "Returns event logs matching the given filter specification.",
       "params": [
         {
           "name": "ethFilter",
@@ -1258,6 +1277,7 @@
     },
     {
       "name": "Filecoin.EthGetMessageCidByTransactionHash",
+      "description": "Returns the CID of the Filecoin message corresponding to the given Ethereum transaction hash.",
       "params": [
         {
           "name": "txHash",
@@ -1320,6 +1340,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionByBlockHashAndIndex",
+      "description": "Retrieves a transaction by its block hash and index.",
       "params": [
         {
           "name": "blockHash",
@@ -1389,6 +1410,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionByHash",
+      "description": "Retrieves a transaction by its hash.",
       "params": [
         {
           "name": "txHash",
@@ -1416,6 +1438,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionByHashLimited",
+      "description": "Retrieves a transaction by its hash, limiting state resolution to the given chain epoch.",
       "params": [
         {
           "name": "txHash",
@@ -1451,6 +1474,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionCount",
+      "description": "Returns the number of transactions sent from an address (its nonce) at the specified block state.",
       "params": [
         {
           "name": "sender",
@@ -1478,6 +1502,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionHashByCid",
+      "description": "Returns the Ethereum transaction hash for the given Filecoin message CID.",
       "params": [
         {
           "name": "cid",
@@ -1505,6 +1530,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionReceipt",
+      "description": "Returns the receipt of a transaction identified by its hash.",
       "params": [
         {
           "name": "txHash",
@@ -1532,6 +1558,7 @@
     },
     {
       "name": "Filecoin.EthGetTransactionReceiptLimited",
+      "description": "Returns the receipt of a transaction identified by its hash, limiting state resolution to the given chain epoch.",
       "params": [
         {
           "name": "txHash",
@@ -1567,6 +1594,7 @@
     },
     {
       "name": "Filecoin.EthMaxPriorityFeePerGas",
+      "description": "Returns an estimate of the priority fee per gas (tip) needed for timely inclusion, in attoFIL.",
       "params": [],
       "result": {
         "name": "Filecoin.EthMaxPriorityFeePerGas.Result",
@@ -1579,6 +1607,7 @@
     },
     {
       "name": "Filecoin.EthNewBlockFilter",
+      "description": "Installs a persistent filter that tracks the arrival of new blocks.",
       "params": [],
       "result": {
         "name": "Filecoin.EthNewBlockFilter.Result",
@@ -1591,6 +1620,7 @@
     },
     {
       "name": "Filecoin.EthNewFilter",
+      "description": "Installs a persistent filter for matching event logs based on the given filter spec.",
       "params": [
         {
           "name": "filterSpec",
@@ -1611,6 +1641,7 @@
     },
     {
       "name": "Filecoin.EthNewPendingTransactionFilter",
+      "description": "Installs a persistent filter that tracks new messages arriving in the message pool.",
       "params": [],
       "result": {
         "name": "Filecoin.EthNewPendingTransactionFilter.Result",
@@ -1623,6 +1654,7 @@
     },
     {
       "name": "Filecoin.EthProtocolVersion",
+      "description": "Returns the current Filecoin network version, reported as the Ethereum protocol version.",
       "params": [],
       "result": {
         "name": "Filecoin.EthProtocolVersion.Result",
@@ -1635,6 +1667,7 @@
     },
     {
       "name": "Filecoin.EthSendRawTransaction",
+      "description": "Submits a signed raw transaction to the message pool and returns its transaction hash.",
       "params": [
         {
           "name": "rawTx",
@@ -1655,6 +1688,7 @@
     },
     {
       "name": "Filecoin.EthSendRawTransactionUntrusted",
+      "description": "Submits a signed raw transaction from an untrusted source to the message pool and returns its transaction hash.",
       "params": [
         {
           "name": "rawTx",
@@ -1675,6 +1709,7 @@
     },
     {
       "name": "Filecoin.EthSubscribe",
+      "description": "Creates a websocket subscription that streams events (new heads, pending transactions, or logs) to the client.",
       "params": [],
       "result": {
         "name": "Filecoin.EthSubscribe.Result",
@@ -1687,6 +1722,7 @@
     },
     {
       "name": "Filecoin.EthSyncing",
+      "description": "Returns the node's sync status, or `false` if the node is not currently syncing.",
       "params": [],
       "result": {
         "name": "Filecoin.EthSyncing.Result",
@@ -1711,12 +1747,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceBlock.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1738,12 +1771,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceFilter.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1778,12 +1808,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceReplayBlockTransactions.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
           }
@@ -1805,12 +1832,9 @@
       ],
       "result": {
         "name": "Filecoin.EthTraceTransaction.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -1820,6 +1844,7 @@
     },
     {
       "name": "Filecoin.EthUninstallFilter",
+      "description": "Uninstalls the filter with the given ID.",
       "params": [
         {
           "name": "filterId",
@@ -1840,6 +1865,7 @@
     },
     {
       "name": "Filecoin.EthUnsubscribe",
+      "description": "Cancels an existing websocket subscription identified by its subscription ID.",
       "params": [],
       "result": {
         "name": "Filecoin.EthUnsubscribe.Result",
@@ -1852,6 +1878,7 @@
     },
     {
       "name": "Filecoin.F3GetCertificate",
+      "description": "Returns the finality certificate for the given F3 instance.",
       "params": [
         {
           "name": "instance",
@@ -1874,9 +1901,10 @@
     },
     {
       "name": "Filecoin.F3GetECPowerTable",
+      "description": "Returns the Expected Consensus power table at the given tipset (defaults to the chain head).",
       "params": [
         {
-          "name": "tipset_key",
+          "name": "tipsetKey",
           "required": true,
           "schema": {
             "type": [
@@ -1906,9 +1934,10 @@
     },
     {
       "name": "Filecoin.F3GetF3PowerTable",
+      "description": "Returns F3's power table at the given tipset (defaults to the chain head).",
       "params": [
         {
-          "name": "tipset_key",
+          "name": "tipsetKey",
           "required": true,
           "schema": {
             "type": [
@@ -1967,6 +1996,7 @@
     },
     {
       "name": "Filecoin.F3GetLatestCertificate",
+      "description": "Returns the latest F3 finality certificate.",
       "params": [],
       "result": {
         "name": "Filecoin.F3GetLatestCertificate.Result",
@@ -1979,6 +2009,7 @@
     },
     {
       "name": "Filecoin.F3GetManifest",
+      "description": "Returns the current F3 manifest (the network's F3 configuration).",
       "params": [],
       "result": {
         "name": "Filecoin.F3GetManifest.Result",
@@ -1991,16 +2022,17 @@
     },
     {
       "name": "Filecoin.F3GetOrRenewParticipationTicket",
+      "description": "Returns a new or renewed F3 participation ticket for the given miner, valid for the requested number of instances.",
       "params": [
         {
-          "name": "miner_address",
+          "name": "minerAddress",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/Address"
           }
         },
         {
-          "name": "previous_lease_ticket",
+          "name": "previousLeaseTicket",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/Base64String"
@@ -2027,6 +2059,7 @@
     },
     {
       "name": "Filecoin.F3GetProgress",
+      "description": "Returns the progress (instance, round, and phase) of the running F3 instance.",
       "params": [],
       "result": {
         "name": "Filecoin.F3GetProgress.Result",
@@ -2039,6 +2072,7 @@
     },
     {
       "name": "Filecoin.F3IsRunning",
+      "description": "Returns whether the F3 subsystem is currently running.",
       "params": [],
       "result": {
         "name": "Filecoin.F3IsRunning.Result",
@@ -2051,6 +2085,7 @@
     },
     {
       "name": "Filecoin.F3ListParticipants",
+      "description": "Returns the miners currently participating in F3 through this node.",
       "params": [],
       "result": {
         "name": "Filecoin.F3ListParticipants.Result",
@@ -2069,9 +2104,10 @@
     },
     {
       "name": "Filecoin.F3Participate",
+      "description": "Enrolls a miner in F3 consensus using the given participation ticket, granting a temporary signing lease.",
       "params": [
         {
-          "name": "lease_ticket",
+          "name": "leaseTicket",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/Base64String"
@@ -2159,7 +2195,7 @@
         "name": "Filecoin.GasEstimateFeeCap.Result",
         "required": true,
         "schema": {
-          "type": "string"
+          "$ref": "#/components/schemas/TokenAmount"
         }
       },
       "paramStructure": "by-position"
@@ -2245,7 +2281,7 @@
         "name": "Filecoin.GasEstimateGasPremium.Result",
         "required": true,
         "schema": {
-          "type": "string"
+          "$ref": "#/components/schemas/TokenAmount"
         }
       },
       "paramStructure": "by-position"
@@ -2334,6 +2370,7 @@
     },
     {
       "name": "Filecoin.MarketAddBalance",
+      "description": "Adds funds to the market actor escrow balance for the given address and returns the message CID.",
       "params": [
         {
           "name": "wallet",
@@ -2688,6 +2725,7 @@
     },
     {
       "name": "Filecoin.MsigGetAvailableBalance",
+      "description": "Returns the spendable balance of the given multisig (total balance minus the locked amount) at the given tipset.",
       "params": [
         {
           "name": "address",
@@ -2697,7 +2735,7 @@
           }
         },
         {
-          "name": "tipset_key",
+          "name": "tipsetKey",
           "required": true,
           "schema": {
             "type": [
@@ -2721,6 +2759,7 @@
     },
     {
       "name": "Filecoin.MsigGetPending",
+      "description": "Returns the transactions awaiting approval in the given multisig at the given tipset.",
       "params": [
         {
           "name": "address",
@@ -2730,7 +2769,7 @@
           }
         },
         {
-          "name": "tipset_key",
+          "name": "tipsetKey",
           "required": true,
           "schema": {
             "type": [
@@ -2760,6 +2799,7 @@
     },
     {
       "name": "Filecoin.MsigGetVested",
+      "description": "Returns the amount that vested in the given multisig between the start and end tipsets.",
       "params": [
         {
           "name": "address",
@@ -2769,7 +2809,7 @@
           }
         },
         {
-          "name": "start_tsk",
+          "name": "startTipsetKey",
           "required": true,
           "schema": {
             "type": [
@@ -2782,7 +2822,7 @@
           }
         },
         {
-          "name": "end_tsk",
+          "name": "endTipsetKey",
           "required": true,
           "schema": {
             "type": [
@@ -2806,6 +2846,7 @@
     },
     {
       "name": "Filecoin.MsigGetVestingSchedule",
+      "description": "Returns the vesting schedule of the given multisig at the given tipset.",
       "params": [
         {
           "name": "address",
@@ -2873,6 +2914,7 @@
     },
     {
       "name": "Filecoin.NetAutoNatStatus",
+      "description": "Returns the node's AutoNAT reachability status and observed public addresses.",
       "params": [],
       "result": {
         "name": "Filecoin.NetAutoNatStatus.Result",
@@ -2927,9 +2969,10 @@
     },
     {
       "name": "Filecoin.NetFindPeer",
+      "description": "Returns the known addresses of the peer with the given peer ID.",
       "params": [
         {
-          "name": "peer_id",
+          "name": "peerId",
           "required": true,
           "schema": {
             "type": "string"
@@ -2947,6 +2990,7 @@
     },
     {
       "name": "Filecoin.NetListening",
+      "description": "Returns whether the node is listening for network connections (always `true`).",
       "params": [],
       "result": {
         "name": "Filecoin.NetListening.Result",
@@ -3051,6 +3095,7 @@
     },
     {
       "name": "Filecoin.NetVersion",
+      "description": "Returns the current network ID (the EIP-155 chain ID) as a decimal string.",
       "params": [],
       "result": {
         "name": "Filecoin.NetVersion.Result",
@@ -3063,6 +3108,7 @@
     },
     {
       "name": "Filecoin.NodeStatus",
+      "description": "Returns the node's status, including sync and chain health information.",
       "params": [],
       "result": {
         "name": "Filecoin.NodeStatus.Result",
@@ -3075,6 +3121,7 @@
     },
     {
       "name": "Filecoin.Session",
+      "description": "Returns a UUID that uniquely identifies this node for the current session.",
       "params": [],
       "result": {
         "name": "Filecoin.Session.Result",
@@ -3088,6 +3135,7 @@
     },
     {
       "name": "Filecoin.Shutdown",
+      "description": "Shuts the node down.",
       "params": [],
       "result": {
         "name": "Filecoin.Shutdown.Result",
@@ -3100,6 +3148,7 @@
     },
     {
       "name": "Filecoin.StartTime",
+      "description": "Returns the time at which the node was started.",
       "params": [],
       "result": {
         "name": "Filecoin.StartTime.Result",
@@ -3920,6 +3969,7 @@
     },
     {
       "name": "Filecoin.StateGetReceipt",
+      "description": "Returns the receipt for the message with the given CID at the specified tipset (deprecated in V1).",
       "params": [
         {
           "name": "cid",
@@ -3929,7 +3979,7 @@
           }
         },
         {
-          "name": "tipset_key",
+          "name": "tipsetKey",
           "required": true,
           "schema": {
             "type": [
@@ -4522,6 +4572,7 @@
     },
     {
       "name": "Filecoin.StateMinerInitialPledgeForSector",
+      "description": "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset.",
       "params": [
         {
           "name": "sector_duration",
@@ -4895,6 +4946,7 @@
     },
     {
       "name": "Filecoin.StateNetworkName",
+      "description": "Returns the name of the network the node is synced to.",
       "params": [],
       "result": {
         "name": "Filecoin.StateNetworkName.Result",
@@ -5061,14 +5113,14 @@
       "description": "Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed, or null if it was not found.",
       "params": [
         {
-          "name": "message_cid",
+          "name": "messageCid",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/Cid"
           }
         },
         {
-          "name": "look_back_limit",
+          "name": "lookBackLimit",
           "required": true,
           "schema": {
             "type": "integer",
@@ -5230,6 +5282,7 @@
     },
     {
       "name": "Filecoin.StateSectorPreCommitInfo",
+      "description": "Returns the on-chain pre-commit information for the given miner's sector, erroring if the sector is not precommitted.",
       "params": [
         {
           "name": "minerAddress",
@@ -5408,6 +5461,7 @@
     },
     {
       "name": "Filecoin.StateWaitMsg",
+      "description": "Searches the chain for the given message and, if not found, blocks until it appears on-chain and reaches the required confidence depth.",
       "params": [
         {
           "name": "messageCid",
@@ -5436,6 +5490,7 @@
     },
     {
       "name": "Filecoin.SyncCheckBad",
+      "description": "Returns the reason the given block is marked bad, or an empty string if it is not.",
       "params": [
         {
           "name": "cid",
@@ -5456,6 +5511,7 @@
     },
     {
       "name": "Filecoin.SyncMarkBad",
+      "description": "Marks the block with the given CID as bad.",
       "params": [
         {
           "name": "cid",
@@ -5497,6 +5553,7 @@
     },
     {
       "name": "Filecoin.Version",
+      "description": "Returns the node version, API version, and block delay.",
       "params": [],
       "result": {
         "name": "Filecoin.Version.Result",
@@ -5530,6 +5587,7 @@
     },
     {
       "name": "Filecoin.WalletDefaultAddress",
+      "description": "Returns the default wallet address, or null if no default is set.",
       "params": [],
       "result": {
         "name": "Filecoin.WalletDefaultAddress.Result",
@@ -5549,6 +5607,7 @@
     },
     {
       "name": "Filecoin.WalletDelete",
+      "description": "Removes the key for the given address from the wallet.",
       "params": [
         {
           "name": "address",
@@ -5569,6 +5628,7 @@
     },
     {
       "name": "Filecoin.WalletExport",
+      "description": "Exports the key information, including the private key, for the given wallet address.",
       "params": [
         {
           "name": "address",
@@ -5610,6 +5670,7 @@
     },
     {
       "name": "Filecoin.WalletImport",
+      "description": "Imports a key into the wallet and returns its address.",
       "params": [
         {
           "name": "key",
@@ -5649,9 +5710,10 @@
     },
     {
       "name": "Filecoin.WalletNew",
+      "description": "Generates a new key of the given signature type, adds it to the wallet, and returns its address.",
       "params": [
         {
-          "name": "signature_type",
+          "name": "signatureType",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/SignatureTypeLotusJson"
@@ -5669,6 +5731,7 @@
     },
     {
       "name": "Filecoin.WalletSetDefault",
+      "description": "Sets the given address as the default wallet address.",
       "params": [
         {
           "name": "address",
@@ -5745,6 +5808,7 @@
     },
     {
       "name": "Filecoin.WalletValidateAddress",
+      "description": "Validates the given string as a Filecoin address and returns the parsed address.",
       "params": [
         {
           "name": "address",
@@ -5765,6 +5829,7 @@
     },
     {
       "name": "Filecoin.WalletVerify",
+      "description": "Returns whether the given signature is valid for the message and address.",
       "params": [
         {
           "name": "address",
@@ -5799,6 +5864,7 @@
     },
     {
       "name": "Filecoin.Web3ClientVersion",
+      "description": "Returns the client version string of the running node.",
       "params": [],
       "result": {
         "name": "Filecoin.Web3ClientVersion.Result",
@@ -5833,6 +5899,7 @@
     },
     {
       "name": "Forest.ChainExport",
+      "description": "Exports a chain snapshot to a CAR file from the given epoch; only one export may run at a time.",
       "params": [
         {
           "name": "params",
@@ -5853,6 +5920,7 @@
     },
     {
       "name": "Forest.ChainExportCancel",
+      "description": "Cancels the in-progress chain export, returning whether one was running.",
       "params": [],
       "result": {
         "name": "Forest.ChainExportCancel.Result",
@@ -5865,6 +5933,7 @@
     },
     {
       "name": "Forest.ChainExportDiff",
+      "description": "Exports a differential snapshot covering the given epoch range to a CAR file.",
       "params": [
         {
           "name": "params",
@@ -5885,6 +5954,7 @@
     },
     {
       "name": "Forest.ChainExportStatus",
+      "description": "Returns the progress and status of the in-progress chain export.",
       "params": [],
       "result": {
         "name": "Forest.ChainExportStatus.Result",
@@ -5897,6 +5967,7 @@
     },
     {
       "name": "Forest.ChainGetMinBaseFee",
+      "description": "Returns the minimum base fee across the given number of lookback tipsets, in attoFIL.",
       "params": [
         {
           "name": "lookback",
@@ -5919,6 +5990,7 @@
     },
     {
       "name": "Forest.ChainGetTipsetByParentState",
+      "description": "Returns the tipset whose parent state root matches the given CID, or null if none is found.",
       "params": [
         {
           "name": "parentState",
@@ -5991,6 +6063,7 @@
     },
     {
       "name": "Forest.NetInfo",
+      "description": "Returns peer and connection statistics for the node's libp2p network.",
       "params": [],
       "result": {
         "name": "Forest.NetInfo.Result",
@@ -6003,6 +6076,7 @@
     },
     {
       "name": "Forest.SnapshotGC",
+      "description": "Triggers database garbage collection, optionally blocking until it completes.",
       "params": [
         {
           "name": "blocking",
@@ -6047,7 +6121,7 @@
           }
         },
         {
-          "name": "n_epochs",
+          "name": "nEpochs",
           "required": true,
           "schema": {
             "type": [
@@ -6059,7 +6133,7 @@
           }
         },
         {
-          "name": "force_recompute",
+          "name": "forceRecompute",
           "required": false,
           "schema": {
             "type": [
@@ -6086,16 +6160,17 @@
     },
     {
       "name": "Forest.StateFetchRoot",
+      "description": "Traverses the IPLD graph under the given root CID, fetching any missing nodes over the network, and optionally writes them to a CAR file.",
       "params": [
         {
-          "name": "root_cid",
+          "name": "rootCid",
           "required": true,
           "schema": {
             "$ref": "#/components/schemas/Cid"
           }
         },
         {
-          "name": "save_to_file",
+          "name": "saveToFile",
           "required": true,
           "schema": {
             "type": [
@@ -6142,15 +6217,13 @@
     },
     {
       "name": "eth_accounts",
+      "description": "Returns the list of addresses owned by the client; always empty since Forest does not manage private keys.",
       "params": [],
       "result": {
         "name": "eth_accounts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "type": "string"
           }
@@ -6173,6 +6246,7 @@
     },
     {
       "name": "eth_blockNumber",
+      "description": "Returns the height of the latest executed tipset, which is the parent of the current head.",
       "params": [],
       "result": {
         "name": "eth_blockNumber.Result",
@@ -6185,6 +6259,7 @@
     },
     {
       "name": "eth_call",
+      "description": "Executes a read-only message call against the given block state without creating an on-chain transaction, returning the call output.",
       "params": [
         {
           "name": "tx",
@@ -6212,6 +6287,7 @@
     },
     {
       "name": "eth_chainId",
+      "description": "Returns the EIP-155 chain ID of the current network.",
       "params": [],
       "result": {
         "name": "eth_chainId.Result",
@@ -6224,6 +6300,7 @@
     },
     {
       "name": "eth_estimateGas",
+      "description": "Estimates the amount of gas required to execute the given transaction.",
       "params": [
         {
           "name": "tx",
@@ -6258,6 +6335,7 @@
     },
     {
       "name": "eth_feeHistory",
+      "description": "Returns historical gas information for a range of blocks, including base fee per gas, gas used ratio, and priority fee percentiles.",
       "params": [
         {
           "name": "blockCount",
@@ -6340,6 +6418,7 @@
     },
     {
       "name": "eth_getBlockByHash",
+      "description": "Retrieves a block by its hash, optionally including full transaction objects.",
       "params": [
         {
           "name": "blockHash",
@@ -6407,12 +6486,9 @@
       ],
       "result": {
         "name": "eth_getBlockReceipts.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -6442,12 +6518,9 @@
       ],
       "result": {
         "name": "eth_getBlockReceiptsLimited.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthTxReceipt"
           }
@@ -6457,6 +6530,7 @@
     },
     {
       "name": "eth_getBlockTransactionCountByHash",
+      "description": "Returns the number of messages in the tipset identified by the given block hash.",
       "params": [
         {
           "name": "blockHash",
@@ -6547,6 +6621,7 @@
     },
     {
       "name": "eth_getFilterLogs",
+      "description": "Returns event logs matching the filter with the given ID that have not been collected since the last poll.",
       "params": [
         {
           "name": "filterId",
@@ -6567,6 +6642,7 @@
     },
     {
       "name": "eth_getLogs",
+      "description": "Returns event logs matching the given filter specification.",
       "params": [
         {
           "name": "ethFilter",
@@ -6587,6 +6663,7 @@
     },
     {
       "name": "eth_getMessageCidByTransactionHash",
+      "description": "Returns the CID of the Filecoin message corresponding to the given Ethereum transaction hash.",
       "params": [
         {
           "name": "txHash",
@@ -6649,6 +6726,7 @@
     },
     {
       "name": "eth_getTransactionByBlockHashAndIndex",
+      "description": "Retrieves a transaction by its block hash and index.",
       "params": [
         {
           "name": "blockHash",
@@ -6718,6 +6796,7 @@
     },
     {
       "name": "eth_getTransactionByHash",
+      "description": "Retrieves a transaction by its hash.",
       "params": [
         {
           "name": "txHash",
@@ -6745,6 +6824,7 @@
     },
     {
       "name": "eth_getTransactionByHashLimited",
+      "description": "Retrieves a transaction by its hash, limiting state resolution to the given chain epoch.",
       "params": [
         {
           "name": "txHash",
@@ -6780,6 +6860,7 @@
     },
     {
       "name": "eth_getTransactionCount",
+      "description": "Returns the number of transactions sent from an address (its nonce) at the specified block state.",
       "params": [
         {
           "name": "sender",
@@ -6807,6 +6888,7 @@
     },
     {
       "name": "eth_getTransactionHashByCid",
+      "description": "Returns the Ethereum transaction hash for the given Filecoin message CID.",
       "params": [
         {
           "name": "cid",
@@ -6834,6 +6916,7 @@
     },
     {
       "name": "eth_getTransactionReceipt",
+      "description": "Returns the receipt of a transaction identified by its hash.",
       "params": [
         {
           "name": "txHash",
@@ -6861,6 +6944,7 @@
     },
     {
       "name": "eth_getTransactionReceiptLimited",
+      "description": "Returns the receipt of a transaction identified by its hash, limiting state resolution to the given chain epoch.",
       "params": [
         {
           "name": "txHash",
@@ -6896,6 +6980,7 @@
     },
     {
       "name": "eth_maxPriorityFeePerGas",
+      "description": "Returns an estimate of the priority fee per gas (tip) needed for timely inclusion, in attoFIL.",
       "params": [],
       "result": {
         "name": "eth_maxPriorityFeePerGas.Result",
@@ -6908,6 +6993,7 @@
     },
     {
       "name": "eth_newBlockFilter",
+      "description": "Installs a persistent filter that tracks the arrival of new blocks.",
       "params": [],
       "result": {
         "name": "eth_newBlockFilter.Result",
@@ -6920,6 +7006,7 @@
     },
     {
       "name": "eth_newFilter",
+      "description": "Installs a persistent filter for matching event logs based on the given filter spec.",
       "params": [
         {
           "name": "filterSpec",
@@ -6940,6 +7027,7 @@
     },
     {
       "name": "eth_newPendingTransactionFilter",
+      "description": "Installs a persistent filter that tracks new messages arriving in the message pool.",
       "params": [],
       "result": {
         "name": "eth_newPendingTransactionFilter.Result",
@@ -6952,6 +7040,7 @@
     },
     {
       "name": "eth_protocolVersion",
+      "description": "Returns the current Filecoin network version, reported as the Ethereum protocol version.",
       "params": [],
       "result": {
         "name": "eth_protocolVersion.Result",
@@ -6964,6 +7053,7 @@
     },
     {
       "name": "eth_sendRawTransaction",
+      "description": "Submits a signed raw transaction to the message pool and returns its transaction hash.",
       "params": [
         {
           "name": "rawTx",
@@ -6984,6 +7074,7 @@
     },
     {
       "name": "eth_sendRawTransactionUntrusted",
+      "description": "Submits a signed raw transaction from an untrusted source to the message pool and returns its transaction hash.",
       "params": [
         {
           "name": "rawTx",
@@ -7004,6 +7095,7 @@
     },
     {
       "name": "eth_subscribe",
+      "description": "Creates a websocket subscription that streams events (new heads, pending transactions, or logs) to the client.",
       "params": [],
       "result": {
         "name": "eth_subscribe.Result",
@@ -7016,6 +7108,7 @@
     },
     {
       "name": "eth_syncing",
+      "description": "Returns the node's sync status, or `false` if the node is not currently syncing.",
       "params": [],
       "result": {
         "name": "eth_syncing.Result",
@@ -7028,6 +7121,7 @@
     },
     {
       "name": "eth_uninstallFilter",
+      "description": "Uninstalls the filter with the given ID.",
       "params": [
         {
           "name": "filterId",
@@ -7048,6 +7142,7 @@
     },
     {
       "name": "eth_unsubscribe",
+      "description": "Cancels an existing websocket subscription identified by its subscription ID.",
       "params": [],
       "result": {
         "name": "eth_unsubscribe.Result",
@@ -7060,6 +7155,7 @@
     },
     {
       "name": "net_listening",
+      "description": "Returns whether the node is listening for network connections (always `true`).",
       "params": [],
       "result": {
         "name": "net_listening.Result",
@@ -7072,6 +7168,7 @@
     },
     {
       "name": "net_version",
+      "description": "Returns the current network ID (the EIP-155 chain ID) as a decimal string.",
       "params": [],
       "result": {
         "name": "net_version.Result",
@@ -7096,12 +7193,9 @@
       ],
       "result": {
         "name": "trace_block.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -7123,12 +7217,9 @@
       ],
       "result": {
         "name": "trace_filter.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -7163,12 +7254,9 @@
       ],
       "result": {
         "name": "trace_replayBlockTransactions.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthReplayBlockTransactionTrace"
           }
@@ -7190,12 +7278,9 @@
       ],
       "result": {
         "name": "trace_transaction.Result",
-        "required": false,
+        "required": true,
         "schema": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/components/schemas/EthBlockTrace"
           }
@@ -7205,6 +7290,7 @@
     },
     {
       "name": "web3_clientVersion",
+      "description": "Returns the client version string of the running node.",
       "params": [],
       "result": {
         "name": "web3_clientVersion.Result",
@@ -7581,10 +7667,7 @@
         "type": "object",
         "properties": {
           "accessList": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/EthHash"
             }
@@ -7657,7 +7740,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "transactionIndex": {
             "$ref": "#/components/schemas/EthUint64"
@@ -10257,6 +10341,10 @@
           "UpgradeWatermelonHeight": {
             "type": "integer",
             "format": "int64"
+          },
+          "UpgradeXxHeight": {
+            "type": "integer",
+            "format": "int64"
           }
         },
         "required": [
@@ -10292,7 +10380,8 @@
           "UpgradeTeepHeight",
           "UpgradeTockHeight",
           "UpgradeGoldenWeekHeight",
-          "UpgradeFireHorseHeight"
+          "UpgradeFireHorseHeight",
+          "UpgradeXxHeight"
         ]
       },
       "GasTrace": {

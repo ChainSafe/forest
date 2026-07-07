@@ -13,22 +13,20 @@ use crate::db::{DbImpl, MemoryDB, PersistentStore};
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::ipld::stream_chain;
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
+use crate::prelude::*;
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
-use crate::state_manager::{ExecutedTipset, apply_block_messages};
+use crate::state_manager::{ExecutedTipset, apply_block_messages_blocking};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::ensure_proof_params_downloaded;
-use anyhow::{Context as _, bail};
-use cid::Cid;
+use anyhow::bail;
 use clap::Subcommand;
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::TryStreamExt;
-use fvm_ipld_blockstore::Blockstore;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
@@ -268,7 +266,7 @@ impl SnapshotCommands {
                 snapshot,
                 epoch,
                 json,
-            } => print_computed_state(snapshot, epoch, json),
+            } => print_computed_state(snapshot, epoch, json).await,
         }
     }
 }
@@ -378,8 +376,8 @@ fn query_network(ts: &Tipset, db: &impl Blockstore) -> anyhow::Result<NetworkCha
         }
     }
 
-    if let Ok(genesis_block) = ts.genesis(db) {
-        return match_genesis_block(*genesis_block.cid());
+    if let Ok(genesis_ts) = ts.genesis_blocking(db) {
+        return match_genesis_block(*genesis_ts.min_ticket_block().cid());
     }
 
     pb.finish_with_message("❌ No valid genesis block!");
@@ -404,7 +402,7 @@ where
     Arc<DB>: Into<DbImpl>,
 {
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
-    let genesis = ts.genesis(db)?;
+    let genesis = ts.genesis(db.shallow_clone()).await?;
 
     let pb = validation_spinner("Running tipset transactions:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage(
@@ -419,7 +417,7 @@ where
 
     // Set proof parameter data dir before downloading proofs.
     crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
-        &Config::default().client.data_dir,
+        &crate::cli_shared::default_data_dir(),
     );
 
     // independent downloads - fetch in parallel
@@ -428,7 +426,7 @@ where
         ensure_proof_params_downloaded(),
     )?;
 
-    let chain_index = ChainIndex::new(db.clone());
+    let chain_index = ChainIndex::new(db.shallow_clone(), genesis.shallow_clone());
 
     // Prepare tipsets for validation
     let tipsets = ts
@@ -438,12 +436,11 @@ where
             pb.set_message(format!("epoch queue: {}", tipset.epoch() - last_epoch));
         });
 
-    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
+    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.min_ticket_block().timestamp));
 
     // ProgressBar::wrap_iter believes the progress has been abandoned once the
     // iterator is consumed.
-    crate::state_manager::validate_tipsets(
-        genesis.timestamp,
+    crate::state_manager::validate_tipsets_blocking(
         &chain_index,
         &chain_config,
         &beacon,
@@ -466,31 +463,36 @@ fn validation_spinner(prefix: &'static str) -> indicatif::ProgressBar {
     pb
 }
 
-fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> anyhow::Result<()> {
+async fn print_computed_state(
+    snapshot: PathBuf,
+    epoch: ChainEpoch,
+    json: bool,
+) -> anyhow::Result<()> {
     // Initialize Blockstore
     let store: Arc<ManyCar> = Arc::new(AnyCar::try_from(snapshot.as_path())?.try_into()?);
 
     // Prepare call to apply_block_messages
     let ts = store.heaviest_tipset()?;
 
-    let genesis = ts.genesis(&store)?;
-    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
+    let genesis = ts.genesis_blocking(&store)?;
+    let network =
+        NetworkChain::from_genesis_or_devnet_placeholder(genesis.min_ticket_block().cid());
 
-    let timestamp = genesis.timestamp;
-    let chain_index = ChainIndex::new(Arc::clone(&store));
+    let genesis_timestamp = genesis.min_ticket_block().timestamp;
+    let chain_index = ChainIndex::new(store.shallow_clone(), genesis);
     let chain_config = ChainConfig::from_chain(&network);
     if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
-    let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
+    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
     let tipset = chain_index
         .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .await
         .with_context(|| format!("couldn't get a tipset at height {epoch}"))?;
 
     let mut message_calls = vec![];
 
-    let ExecutedTipset { state_root, .. } = apply_block_messages(
-        timestamp,
+    let ExecutedTipset { state_root, .. } = apply_block_messages_blocking(
         chain_index,
         Arc::new(chain_config),
         beacon,

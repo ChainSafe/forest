@@ -35,3 +35,4 @@
 !Filecoin.ChainSetHead
 !Filecoin.EthTraceFilter
 !Filecoin.EthTraceReplayBlockTransactions
+!Filecoin.EthGetBlockByHash

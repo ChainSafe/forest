@@ -42,6 +42,12 @@ pub(crate) mod implementation_defined_errors {
     /// node. Note that it's not the same as not found, as we are explicitly not supporting it,
     /// e.g., because it's deprecated or Lotus is doing the same.
     pub(crate) const UNSUPPORTED_METHOD: i32 = -32001;
+    /// EIP-1474 "resource unavailable": explicit call targets a block whose state cannot be
+    /// served without running an expensive migration on demand.
+    pub(crate) const EXPENSIVE_FORK_CODE: i32 = -32002;
+    /// The token authenticated, but its permissions do not allow the requested method. (Token
+    /// verification failures are rejected earlier with an HTTP `401`, not this code.)
+    pub(crate) const INSUFFICIENT_PERMISSIONS: i32 = -32003;
 }
 
 impl ServerError {
@@ -97,6 +103,15 @@ impl From<anyhow::Error> for ServerError {
         // Try to downcast to known RpcErrorData implementations
         if let Some(eth_error) = error.downcast_ref::<EthErrors>() {
             return eth_error.clone().into();
+        }
+        if let Some(sm_error @ crate::state_manager::Error::ExpensiveFork { epoch }) =
+            error.downcast_ref::<crate::state_manager::Error>()
+        {
+            return Self::new(
+                implementation_defined_errors::EXPENSIVE_FORK_CODE,
+                sm_error.to_string(),
+                Some(serde_json::Value::from(*epoch)),
+            );
         }
 
         // Default fallback, not using `format!("{e:#}")` here to match Lotus error

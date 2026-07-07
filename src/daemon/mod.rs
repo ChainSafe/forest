@@ -6,7 +6,7 @@ mod context;
 pub mod db_util;
 pub mod main;
 
-use crate::blocks::{Tipset, TipsetKey};
+use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::ChainFollower;
@@ -15,6 +15,7 @@ use crate::cli_shared::snapshot;
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
+    delete_chain_data,
 };
 use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
 use crate::db::gc::SnapshotGarbageCollector;
@@ -51,6 +52,7 @@ use tokio::{
     sync::mpsc,
     task::JoinSet,
 };
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
 pub static GLOBAL_SNAPSHOT_GC: OnceLock<Arc<SnapshotGarbageCollector>> = OnceLock::new();
@@ -115,6 +117,7 @@ fn startup_init(config: &Config) -> anyhow::Result<()> {
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
     );
+    info!("Using data directory: {}", config.client.data_dir.display());
     Ok(())
 }
 
@@ -188,8 +191,10 @@ async fn maybe_import_snapshot(
         // `validate_range` is CPU-bound (drives rayon-parallel VM execution) and
         // can run for minutes. Safer to spawn it on a blocking thread.
         let state_manager = ctx.state_manager.shallow_clone();
-        tokio::task::spawn_blocking(move || state_manager.validate_range(validation_range))
-            .await??;
+        tokio::task::spawn_blocking(move || {
+            state_manager.validate_range_blocking(validation_range)
+        })
+        .await??;
     }
     Ok(())
 }
@@ -339,7 +344,7 @@ fn create_chain_follower(
     Ok(ChainFollower::new(
         ctx.state_manager.shallow_clone(),
         network,
-        Tipset::from(ctx.state_manager.chain_store().genesis_block_header()),
+        ctx.state_manager.chain_store().genesis_tipset(),
         p2p_service.network_receiver(),
         opts.stateless,
         mpool,
@@ -371,15 +376,25 @@ fn maybe_prefill_rpc_caches(
         let state_manager = chain_follower.state_manager.shallow_clone();
         let mut validated_tipset_rx = chain_follower.subscribe_validated_tipset();
         services.spawn(async move {
+            let cancellation_token = CancellationToken::new();
+            let _cancellation_token_drop_guard = cancellation_token.drop_guard_ref();
             loop {
                 match validated_tipset_rx.recv().await {
-                    Ok(_) if !sync_status.read().is_synced() => {
+                    Ok(_) if !sync_status.load().is_synced() => {
                         // Skip if the node is catching up to avoid unnecessary work, as the head may be changing rapidly.
                         continue;
                     }
                     Ok(tsk) => {
                         let state_manager = state_manager.shallow_clone();
-                        tokio::spawn(prefill_rpc_caches_for_tipset(state_manager, tsk));
+                        let cancellation_token = cancellation_token.clone();
+                        tokio::spawn(async move {
+                            cancellation_token
+                                .run_until_cancelled(prefill_rpc_caches_for_tipset(
+                                    state_manager,
+                                    tsk,
+                                ))
+                                .await
+                        });
                     }
                     Err(RecvError::Lagged(n)) => {
                         warn!("validated tipset broadcast lagged: skipped {n} tipsets")
@@ -398,6 +413,7 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                 // First, compute state for the ts as it's disallowed for RPC methods by default
                 if let Err(e) = state_manager.load_executed_tipset(&ts).await {
                     warn!("failed to load executed tipset for cache warmup: {e:#}");
+                    return; // Skip when state computation fails
                 }
             }
             for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash] {
@@ -569,10 +585,14 @@ fn maybe_start_rpc_service(
             .client
             .rpc_filter_list
             .as_ref()
-            .map(|path| crate::rpc::FilterList::new_from_file(path))
+            .map(|path| crate::rpc::FilterList::new_from_file(path).map(Arc::new))
             .transpose()?;
         info!("JSON-RPC endpoint will listen at {rpc_address}");
-        let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
+        let eth_event_handler = Arc::new(EthEventHandler::from_config(
+            &config.events,
+            ctx.chain_config().eth_chain_id,
+            mpool.subscriber(),
+        ));
         if is_env_truthy("FOREST_JWT_DISABLE_EXP_VALIDATION") {
             warn!(
                 "JWT expiration validation is disabled; this significantly weakens security and should only be used in tightly controlled environments"
@@ -605,6 +625,7 @@ fn maybe_start_rpc_service(
                         bad_blocks,
                         sync_status,
                         eth_event_handler,
+                        eth_logs_feed: Default::default(),
                         sync_network_context,
                         start_time,
                         shutdown,
@@ -804,6 +825,10 @@ pub(super) async fn start(
     rpc_stop_handle: jsonrpsee::server::StopHandle,
 ) -> anyhow::Result<()> {
     startup_init(&config)?;
+    if opts.remove_existing_chain {
+        warn!("Deleting existing chain data for {}", config.chain());
+        delete_chain_data(&config)?;
+    }
     start_services(
         start_time,
         &opts,
@@ -833,7 +858,7 @@ pub(super) async fn start_services(
     }
     if !opts.stateless
         && !opts.skip_load_actors
-        && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset()
+        && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset().await
     {
         tracing::warn!("error in maybe_rewind_heaviest_tipset: {e:#}");
     }

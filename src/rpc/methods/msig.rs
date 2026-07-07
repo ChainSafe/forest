@@ -15,9 +15,10 @@ pub enum MsigGetAvailableBalance {}
 
 impl RpcMethod<2> for MsigGetAvailableBalance {
     const NAME: &'static str = "Filecoin.MsigGetAvailableBalance";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str = "Returns the spendable balance of the given multisig (total balance minus the locked amount) at the given tipset.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -44,9 +45,11 @@ pub enum MsigGetPending {}
 
 impl RpcMethod<2> for MsigGetPending {
     const NAME: &'static str = "Filecoin.MsigGetPending";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the transactions awaiting approval in the given multisig at the given tipset.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Vec<Transaction>;
@@ -79,9 +82,11 @@ impl RpcMethod<2> for MsigGetPending {
 pub enum MsigGetVested {}
 impl RpcMethod<3> for MsigGetVested {
     const NAME: &'static str = "Filecoin.MsigGetVested";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "start_tsk", "end_tsk"];
+    const PARAM_NAMES: [&'static str; 3] = ["address", "startTipsetKey", "endTipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the amount that vested in the given multisig between the start and end tipsets.";
 
     type Params = (Address, ApiTipsetKey, ApiTipsetKey);
     type Ok = BigInt;
@@ -122,6 +127,8 @@ impl RpcMethod<2> for MsigGetVestingSchedule {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tsk"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the vesting schedule of the given multisig at the given tipset.";
 
     type Params = (Address, ApiTipsetKey);
     type Ok = MsigVesting;

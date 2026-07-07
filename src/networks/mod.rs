@@ -4,10 +4,7 @@
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use ahash::HashMap;
-use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools;
+use indexmap::IndexMap;
 use libp2p::Multiaddr;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -17,6 +14,7 @@ use tracing::warn;
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
 use crate::eth::EthChainId;
+use crate::prelude::*;
 use crate::shim::{
     clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY},
     econ::TokenAmount,
@@ -266,7 +264,8 @@ pub struct ChainConfig {
     pub block_delay_secs: u32,
     pub propagation_delay_secs: u32,
     pub genesis_network: NetworkVersion,
-    pub height_infos: HashMap<Height, HeightInfo>,
+    #[cfg_attr(test, arbitrary(gen(|_g| devnet::HEIGHT_INFOS.clone())))]
+    pub height_infos: IndexMap<Height, HeightInfo>,
     #[cfg_attr(test, arbitrary(gen(|_g| Policy::default())))]
     pub policy: Policy,
     pub eth_chain_id: EthChainId,
@@ -278,7 +277,7 @@ pub struct ChainConfig {
     pub f3_enabled: bool,
     // F3Consensus set whether F3 should checkpoint tipsets finalized by F3. This flag has no effect if F3 is not enabled.
     pub f3_consensus: bool,
-    pub f3_bootstrap_epoch: i64,
+    pub f3_bootstrap_epoch: ChainEpoch,
     pub f3_initial_power_table: Option<Cid>,
     pub enable_indexer: bool,
     pub default_max_fee: TokenAmount,
@@ -330,7 +329,11 @@ impl ChainConfig {
             ),
             propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 10),
             genesis_network: GENESIS_NETWORK_VERSION,
-            height_infos: HEIGHT_INFOS.clone(),
+            height_infos: HEIGHT_INFOS
+                .clone()
+                .into_iter()
+                .sorted_by_key(|(_, v)| v.epoch)
+                .collect(),
             policy: make_calibnet_policy!(v13).into(),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
@@ -363,7 +366,11 @@ impl ChainConfig {
             block_delay_secs: env_or_default(ENV_FOREST_BLOCK_DELAY_SECS, 4),
             propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 1),
             genesis_network: *GENESIS_NETWORK_VERSION,
-            height_infos: HEIGHT_INFOS.clone(),
+            height_infos: HEIGHT_INFOS
+                .clone()
+                .into_iter()
+                .sorted_by_key(|(_, v)| v.epoch)
+                .collect(),
             policy: make_devnet_policy!(v13).into(),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
@@ -392,7 +399,11 @@ impl ChainConfig {
             ),
             propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 6),
             genesis_network: GENESIS_NETWORK_VERSION,
-            height_infos: HEIGHT_INFOS.clone(),
+            height_infos: HEIGHT_INFOS
+                .clone()
+                .into_iter()
+                .sorted_by_key(|(_, v)| v.epoch)
+                .collect(),
             policy: make_butterfly_policy!(v13).into(),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
@@ -427,7 +438,6 @@ impl ChainConfig {
     fn network_height(&self, epoch: ChainEpoch) -> Option<Height> {
         self.height_infos
             .iter()
-            .sorted_by_key(|(_, info)| info.epoch)
             .rev()
             .find(|(_, info)| epoch > info.epoch)
             .map(|(height, _)| *height)
@@ -441,7 +451,6 @@ impl ChainConfig {
         if let Some((height, info, manifest_cid)) = self
             .height_infos
             .iter()
-            .sorted_by_key(|(_, info)| info.epoch)
             .rev()
             .filter_map(|(height, info)| info.bundle.map(|bundle| (*height, info, bundle)))
             .find(|(_, info, _)| epoch > info.epoch)
@@ -500,7 +509,6 @@ impl ChainConfig {
     pub fn epoch(&self, height: Height) -> ChainEpoch {
         self.height_infos
             .iter()
-            .sorted_by_key(|(_, info)| info.epoch)
             .rev()
             .find_map(|(infos_height, info)| {
                 if *infos_height == height {
@@ -512,20 +520,26 @@ impl ChainConfig {
             .unwrap_or(0)
     }
 
-    /// Returns true if executing between `parent` and `height` (exclusive of `height`) would
-    /// cross an expensive state migration, as registered in
-    /// [`crate::state_migration::get_migrations`].
-    pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
+    /// Returns the lowest expensive state migration epoch in `[parent, height)` if one exists.
+    pub fn expensive_fork_between(
+        &self,
+        parent: ChainEpoch,
+        height: ChainEpoch,
+    ) -> Option<ChainEpoch> {
         if parent >= height {
-            return false;
+            return None;
         }
         crate::state_migration::get_migrations::<crate::db::DbImpl>(&self.network)
             .iter()
-            .any(|(h, _)| {
-                self.height_infos
-                    .get(h)
-                    .is_some_and(|info| info.epoch >= parent && info.epoch < height)
-            })
+            .filter_map(|(h, _)| self.height_infos.get(h).map(|info| info.epoch))
+            .filter(|epoch| *epoch >= parent && *epoch < height)
+            .min()
+    }
+
+    /// Reports whether an expensive migration is triggered in the half-open epoch interval
+    /// `[parent, height)`.
+    pub fn has_expensive_fork_between(&self, parent: ChainEpoch, height: ChainEpoch) -> bool {
+        self.expensive_fork_between(parent, height).is_some()
     }
 
     pub async fn genesis_bytes<DB: SettingsStore>(
@@ -560,7 +574,7 @@ impl ChainConfig {
         }
     }
 
-    pub fn initial_fil_reserved_at_height(&self, height: i64) -> &TokenAmount {
+    pub fn initial_fil_reserved_at_height(&self, height: ChainEpoch) -> &TokenAmount {
         let network_version = self.network_version(height);
         self.initial_fil_reserved(network_version)
     }
@@ -646,8 +660,9 @@ pub fn calculate_expected_epoch(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
-    fn heights_are_present(height_infos: &HashMap<Height, HeightInfo>) {
+    fn heights_are_present(height_infos: &IndexMap<Height, HeightInfo>) {
         /// These are required heights that need to be defined for all networks, for, e.g., conformance
         /// with `Filecoin.StateGetNetworkParams` RPC method.
         const REQUIRED_HEIGHTS: [Height; 31] = [
@@ -700,6 +715,20 @@ mod tests {
         let shark = cfg.epoch(Height::Shark);
         assert!(cfg.has_expensive_fork_between(shark - 1, shark + 1));
         assert!(!cfg.has_expensive_fork_between(shark - 1, shark));
+    }
+
+    #[test]
+    fn expensive_fork_between_returns_lowest_fork_in_window() {
+        let cfg = ChainConfig::calibnet();
+        let shark = cfg.epoch(Height::Shark);
+        let hygge = cfg.epoch(Height::Hygge);
+        assert_eq!(cfg.expensive_fork_between(shark - 1, shark), None);
+        assert_eq!(cfg.expensive_fork_between(shark, shark + 1), Some(shark));
+        assert_eq!(
+            cfg.expensive_fork_between(shark - 1, hygge + 1),
+            Some(shark)
+        );
+        assert_eq!(cfg.expensive_fork_between(shark + 1, shark + 1), None);
     }
 
     #[test]
@@ -823,5 +852,18 @@ mod tests {
         assert_eq!(info.height, Height::Teep);
         assert!(cfg.network_height_with_actor_bundle(1).is_none());
         assert!(cfg.network_height_with_actor_bundle(0).is_none());
+    }
+
+    #[rstest]
+    #[case(ChainConfig::mainnet())]
+    #[case(ChainConfig::calibnet())]
+    #[case(ChainConfig::butterflynet())]
+    #[case(ChainConfig::devnet())]
+    fn ensure_height_info_sorted(#[case] cfg: ChainConfig) {
+        assert!(
+            cfg.height_infos.is_sorted_by_key(|_, v| v.epoch),
+            "height_infos should be sorted in {} config",
+            cfg.network
+        )
     }
 }

@@ -33,18 +33,17 @@ impl RpcMethod<3> for GasEstimateFeeCap {
     const PARAM_NAMES: [&'static str; 3] = ["message", "maxQueueBlocks", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the estimated fee cap for the given parameters.");
+    const DESCRIPTION: &'static str = "Returns the estimated fee cap for the given parameters.";
 
     type Params = (Message, i64, ApiTipsetKey);
-    type Ok = String;
+    type Ok = TokenAmount;
 
     async fn handle(
         ctx: Ctx,
         (msg, max_queue_blks, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_fee_cap(&ctx, &msg, max_queue_blks, &tsk).map(|n| TokenAmount::to_string(&n))
+        estimate_fee_cap(&ctx, &msg, max_queue_blks, &tsk)
     }
 }
 
@@ -81,20 +80,17 @@ impl RpcMethod<4> for GasEstimateGasPremium {
     ];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the estimated gas premium for the given parameters.");
+    const DESCRIPTION: &'static str = "Returns the estimated gas premium for the given parameters.";
 
     type Params = (u64, Address, i64, ApiTipsetKey);
-    type Ok = String;
+    type Ok = TokenAmount;
 
     async fn handle(
         ctx: Ctx,
         (nblocksincl, _sender, _gas_limit, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_gas_premium(&ctx, nblocksincl, &tsk)
-            .await
-            .map(|n| TokenAmount::to_string(&n))
+        estimate_gas_premium(&ctx, nblocksincl, &tsk).await
     }
 }
 
@@ -195,8 +191,7 @@ impl RpcMethod<2> for GasEstimateGasLimit {
     const PARAM_NAMES: [&'static str; 2] = ["message", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the estimated gas limit for the given parameters.");
+    const DESCRIPTION: &'static str = "Returns the estimated gas limit for the given parameters.";
 
     type Params = (Message, ApiTipsetKey);
     type Ok = i64;
@@ -215,7 +210,7 @@ impl GasEstimateGasLimit {
         data: &Ctx,
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
-    ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Tipset)> {
+    ) -> anyhow::Result<(InvocResult, ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
         msg.set_gas_premium(TokenAmount::from_atto(0));
@@ -227,15 +222,16 @@ impl GasEstimateGasLimit {
             .await?;
 
         let pending = data.mpool.pending_for(&from_a);
-        let prior_messages: Vec<ChainMessage> = pending
+        let prior_messages: Arc<Vec<ChainMessage>> = pending
             .map(|s| s.into_iter().map(Into::into).collect_vec())
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into();
 
         let ts = data.mpool.current_tipset();
         // Pretend that the message is signed. This has an influence on the gas
         // cost. We obviously can't generate a valid signature. Instead, we just
         // fill the signature with zeros. The validity is not checked.
-        let mut chain_msg = match from_a.protocol() {
+        let chain_msg = match from_a.protocol() {
             Protocol::Secp256k1 => {
                 SignedMessage::new_unchecked(msg, Signature::new_secp256k1(vec![0; SECP_SIG_LEN]))
                     .into()
@@ -253,8 +249,8 @@ impl GasEstimateGasLimit {
         let (invoc_res, apply_ret, _, _) = data
             .state_manager
             .call_with_gas(
-                &mut chain_msg,
-                &prior_messages,
+                chain_msg,
+                prior_messages.shallow_clone(),
                 Some(ts.shallow_clone()),
                 VMFlush::Skip,
             )
@@ -288,8 +284,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
     const PARAM_NAMES: [&'static str; 3] = ["message", "messageSendSpec", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the estimated gas for the given parameters.");
+    const DESCRIPTION: &'static str = "Returns the estimated gas for the given parameters.";
 
     type Params = (Message, Option<MessageSendSpec>, ApiTipsetKey);
     type Ok = Message;

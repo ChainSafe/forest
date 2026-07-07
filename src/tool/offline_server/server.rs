@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::JWT_IDENTIFIER;
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
 use crate::chain_sync::SyncStatusReport;
@@ -21,7 +22,8 @@ use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
 use crate::utils::net::{DownloadFileOption, download_to};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
-use crate::{Config, JWT_IDENTIFIER};
+
+use arc_swap::ArcSwap;
 use jsonrpsee::server::stop_channel;
 use parking_lot::RwLock;
 use std::{
@@ -96,6 +98,11 @@ pub async fn offline_rpc_state(
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
     let nonce_tracker = NonceTracker::new();
+    let eth_event_handler = Arc::new(EthEventHandler::from_config(
+        &events_config,
+        state_manager.chain_config().eth_chain_id,
+        message_pool.subscriber(),
+    ));
     Ok((
         RPCState {
             state_manager,
@@ -103,8 +110,9 @@ pub async fn offline_rpc_state(
             mpool: message_pool,
             chain_indexer: Default::default(),
             bad_blocks: Default::default(),
-            sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
-            eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
+            sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
+            eth_event_handler,
+            eth_logs_feed: Default::default(),
             sync_network_context,
             start_time: chrono::Utc::now(),
             shutdown,
@@ -124,7 +132,7 @@ pub async fn start_offline_server(
     chain: Option<NetworkChain>,
     rpc_port: u16,
     auto_download_snapshot: bool,
-    height: i64,
+    height: ChainEpoch,
     index_backfill_epochs: usize,
     genesis: Option<PathBuf>,
     save_jwt_token: Option<PathBuf>,
@@ -133,7 +141,7 @@ pub async fn start_offline_server(
 
     // Set proof parameter data dir and make sure the proofs are available. Otherwise,
     // validation might fail due to missing proof parameters.
-    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
+    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&crate::cli_shared::default_data_dir());
     ensure_proof_params_downloaded().await?;
 
     let db = {
@@ -151,8 +159,8 @@ pub async fn start_offline_server(
 
     let inferred_chain = {
         let head = db.heaviest_tipset()?;
-        let genesis = head.genesis(&db)?;
-        NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid())
+        let genesis = head.genesis(db.shallow_clone()).await?;
+        NetworkChain::from_genesis_or_devnet_placeholder(genesis.min_ticket_block().cid())
     };
     let chain = if let Some(chain) = chain {
         anyhow::ensure!(
@@ -192,7 +200,7 @@ pub async fn start_offline_server(
         head_ts.epoch() + height + 1
     };
     if validate_until_epoch <= head_ts.epoch() {
-        state_manager.validate_tipsets(
+        state_manager.validate_tipsets_blocking(
             head_ts
                 .chain(rpc_state.db())
                 .take_while(|ts| ts.epoch() >= validate_until_epoch),

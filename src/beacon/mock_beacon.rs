@@ -3,6 +3,7 @@
 
 use super::DrandNetwork;
 use crate::beacon::{Beacon, BeaconEntry};
+use crate::prelude::*;
 use crate::shim::version::NetworkVersion;
 use crate::utils::encoding::blake2b_256;
 use byteorder::{BigEndian, ByteOrder};
@@ -45,7 +46,11 @@ impl Beacon for MockBeacon {
         Ok(Self::entry_for_index(round))
     }
 
-    fn max_beacon_round_for_epoch(&self, _network_version: NetworkVersion, fil_epoch: i64) -> u64 {
+    fn max_beacon_round_for_epoch(
+        &self,
+        _network_version: NetworkVersion,
+        fil_epoch: ChainEpoch,
+    ) -> u64 {
         fil_epoch as u64
     }
 }

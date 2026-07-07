@@ -40,20 +40,23 @@ impl<'a> TipsetResolver<'a> {
             BlockNumberOrHash::PredefinedBlock(tag) => self.resolve_predefined_tipset(tag).await,
             BlockNumberOrHash::BlockNumber(block_number)
             | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
-                resolve_block_number_tipset(self.ctx.chain_store(), block_number, resolve)
+                resolve_block_number_tipset(self.ctx.chain_store(), block_number, resolve).await
             }
             BlockNumberOrHash::BlockHash(block_hash) => {
-                resolve_block_hash_tipset(self.ctx.chain_store(), &block_hash, false, resolve)
+                resolve_block_hash_tipset(self.ctx.chain_store(), &block_hash, false, resolve).await
             }
             BlockNumberOrHash::BlockHashObject(BlockHash {
                 block_hash,
                 require_canonical,
-            }) => resolve_block_hash_tipset(
-                self.ctx.chain_store(),
-                &block_hash,
-                require_canonical,
-                resolve,
-            ),
+            }) => {
+                resolve_block_hash_tipset(
+                    self.ctx.chain_store(),
+                    &block_hash,
+                    require_canonical,
+                    resolve,
+                )
+                .await
+            }
         }
     }
 
@@ -95,8 +98,8 @@ impl<'a> TipsetResolver<'a> {
                 Ok(ts)
             } else {
                 match tag {
-                    Predefined::Safe => self.get_ec_safe_tipset(),
-                    Predefined::Finalized => self.get_ec_finalized_tipset(),
+                    Predefined::Safe => self.get_ec_safe_tipset().await,
+                    Predefined::Finalized => self.get_ec_finalized_tipset().await,
                     tag => anyhow::bail!("unknown block tag: {tag}"),
                 }
             }
@@ -152,24 +155,25 @@ impl<'a> TipsetResolver<'a> {
     /// Returns the tipset considered "safe" relative to the current heaviest tipset.
     ///
     /// The safe tipset is the tipset at height `max(head.epoch() - SAFE_HEIGHT_DISTANCE, 0)`.
-    pub fn get_ec_safe_tipset(&self) -> anyhow::Result<Tipset> {
+    pub async fn get_ec_safe_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
         let safe_height = (head.epoch() - SAFE_HEIGHT_DISTANCE).max(0);
-        Ok(self.ctx.chain_index().load_required_tipset_by_height(
-            safe_height,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?)
+        Ok(self
+            .ctx
+            .chain_index()
+            .load_required_tipset_by_height(safe_height, head, ResolveNullTipset::TakeOlder)
+            .await?)
     }
 
     /// Returns the tipset considered finalized by the expected-consensus finality calculator(`FRC-0089`).
-    pub fn get_ec_finalized_tipset(&self) -> anyhow::Result<Tipset> {
+    pub async fn get_ec_finalized_tipset(&self) -> anyhow::Result<Tipset> {
         let head = self.ctx.chain_store().heaviest_tipset();
         let (_, ec_finalized_tipset) =
             ChainGetTipSetFinalityStatus::get_ec_finality_threshold_depth_and_tipset_with_cache(
                 self.ctx,
                 head.clone(),
-            )?;
+            )
+            .await?;
         ec_finalized_tipset.context("failed to resolve EC finalized tipset")
     }
 }

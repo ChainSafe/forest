@@ -29,17 +29,63 @@
 
 ### Added
 
-- [#7168](https://github.com/ChainSafe/forest/pull/7168): Added the `FOREST_RPC_METRICS_DISABLED` environment variable to disable JSON-RPC per-method metrics while leaving other metrics intact.
+- [#7269](https://github.com/ChainSafe/forest/pull/7269): Added `--wait-confidence` and `--wait-timeout` to `forest-wallet send` command.
+
+- [#7275](https://github.com/ChainSafe/forest/pull/7275): Added the `--remove-existing-chain` flag to delete the existing chain data on snapshot import.
 
 ### Changed
 
-- [#7164](https://github.com/ChainSafe/forest/issues/7164): JSON-RPC authentication is now performed once per connection (e.g. at the WebSocket upgrade) instead of on every request, matching Lotus. Note that token expiry is no longer re-checked for the lifetime of an established connection.
+- [#6442](https://github.com/ChainSafe/forest/issues/6442): `forest-wallet sign` and `forest-wallet verify` now apply the FRC-0102 signing envelope to the message by default. Pass `--raw` on both sides to reproduce the previous raw-bytes behaviour.
+
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth_getBlockReceipts` and `eth_getBlockReceiptsLimited` now return an `ErrNullRound` error (JSON-RPC code `12`) for a null-round block number instead of resolving to the previous tipset, matching upstream Lotus (lotus#13694). Set `FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND=1` to restore the previous behavior for parity with Lotus releases predating that fix.
 
 ### Removed
 
 ### Fixed
 
+- [#7276](https://github.com/ChainSafe/forest/issues/7276): `eth_getBlockByNumber`, `eth_getBlockTransactionCountByNumber`, `eth_getTransactionByBlockNumberAndIndex`, `eth_traceBlock`, and `eth_traceReplayBlockTransactions` now return an `ErrNullRound` error (JSON-RPC code `12`) when the requested block number is a null round, matching Lotus, instead of silently returning the previous tipset. Thanks to the `chain.data.riba.plus` dataset, which surfaced this discrepancy; see [#7270](https://github.com/ChainSafe/forest/issues/7270) for the broader effort to reconcile remaining Eth RPC discrepancies against it.
+
+- [#4645](https://github.com/ChainSafe/forest/issues/4645): An invalid RPC `Authorization` header (malformed header or unverifiable JWT) is now rejected with an HTTP `401 Unauthorized` instead of the misleading `-32600 Invalid request` JSON-RPC error. A call that authenticates but lacks the permission its method requires now returns a JSON-RPC error with code `-32003` and a `missing permission to invoke '<method>' (need '<perm>')` message.
+
+- [#7256](https://github.com/ChainSafe/forest/pull/7256): `Filecoin.AuthVerify` now verifies its argument as a raw JWT, matching Lotus, instead of stripping a leading `Bearer ` prefix.
+
+- [#7214](https://github.com/ChainSafe/forest/pull/7214): Aligned the `eth` transaction `accessList` field with go-ethereum/reth (typed: `[]`, legacy: omitted, never `null`).
+
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth` transactions now serialize `"to": null` for contract-creation transactions instead of omitting the field, matching go-ethereum/reth/Lotus and the execution-apis transaction schema.
+
+- [#7227](https://github.com/ChainSafe/forest/issues/7227): Fixed invalid `Filecoin.GasEstimateGasPremium` and `Filecoin.GasEstimateFeeCap` responses that were returning a fraction instead of an integer.
+
+- [#7096](https://github.com/ChainSafe/forest/issues/7096): `eth_subscribe` `logs` now re-emits the logs of reorg-reverted tipsets with `removed: true`, ahead of the logs of the replacing tipsets.
+
+## Forest v0.33.7 "Shimmergloom"
+
+### Added
+
+- [#6008](https://github.com/ChainSafe/forest/issues/6008): Added the `FOREST_PATH` environment variable to override the Forest data directory (taking precedence over the configuration file and the default), mirroring Lotus' `LOTUS_PATH`. It is honored by all `forest*` binaries, so `forest-cli`/`forest-tool` read the JWT admin token from the same directory. The resolved data directory is now logged on daemon startup.
+
+- [#7168](https://github.com/ChainSafe/forest/pull/7168): Added the `FOREST_RPC_METRICS_DISABLED` environment variable to disable JSON-RPC per-method metrics while leaving other metrics intact.
+
+- [#7195](https://github.com/ChainSafe/forest/pull/7195): Added the `rpc_in_flight_requests` metric reporting the number of JSON-RPC requests currently being processed.
+
+### Changed
+
+- [#7164](https://github.com/ChainSafe/forest/issues/7164): JSON-RPC authentication is now performed once per connection (e.g. at the WebSocket upgrade) instead of on every request, matching Lotus. Note that token expiry is no longer re-checked for the lifetime of an established connection.
+
+### Fixed
+
+- [#7128](https://github.com/ChainSafe/forest/pull/7128): `eth_call` and `eth_estimateGas` are no longer refused at the epoch immediately after an expensive network-upgrade migration; only the upgrade epoch itself is refused. Expensive-fork refusals now return JSON-RPC code `-32002` with the fork epoch in `data`. Ports ([filecoin-project/lotus#13644](https://github.com/filecoin-project/lotus/pull/13644)).
+
+- [#7194](https://github.com/ChainSafe/forest/pull/7194): Added `UpgradeXxHeight` placeholder for the NV29 network upgrade.
+
+- [#7211](https://github.com/ChainSafe/forest/pull/7211): Fixed `forest-wallet` to allow using the unencrypted keystore with `--encrypt false` when an encrypted keystore also exists.
+
 - [#7129](https://github.com/ChainSafe/forest/pull/7129): Fixed a few inaccurate cache size metrics.
+
+- [#6974](https://github.com/ChainSafe/forest/issues/6974): Fixed the message pool reporting a still-pending nonce as the next nonce after an applied message was removed.
+
+- [#6975](https://github.com/ChainSafe/forest/issues/6975): Fixed `Filecoin.MpoolSelect` to not remove the messages from the live pool, only simulate the head change.
+
+- [#7217](https://github.com/ChainSafe/forest/pull/7217): Fixed a bug that `Filecoin.StateCirculatingSupply` returns error on mainnet.
 
 ## Forest v0.33.6 "Ebb"
 
@@ -90,6 +136,8 @@ Non-mandatory release for all node operators. It includes a few bug fixes as wel
 ### Removed
 
 ### Fixed
+
+- [#7109](https://github.com/ChainSafe/forest/pull/7109): `eth_newPendingTransactionFilter` now returns actually pending mempool transaction hashes instead of executed on-chain events.
 
 - [#7018](https://github.com/ChainSafe/forest/issues/7018): Fixed `forest-wallet set-default` failing when the keystore has no `default` entry.
 

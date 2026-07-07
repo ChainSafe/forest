@@ -20,6 +20,8 @@ impl RpcMethod<1> for SyncCheckBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the reason the given block is marked bad, or an empty string if it is not.";
 
     type Params = (Cid,);
     type Ok = String;
@@ -45,6 +47,7 @@ impl RpcMethod<1> for SyncMarkBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: &'static str = "Marks the block with the given CID as bad.";
 
     type Params = (Cid,);
     type Ok = ();
@@ -68,8 +71,8 @@ impl RpcMethod<0> for SyncSnapshotProgress {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> =
-        Some("Returns the snapshot download progress. Return Null if the tracking isn't started");
+    const DESCRIPTION: &'static str =
+        "Returns the snapshot download progress. Return Null if the tracking isn't started";
 
     type Params = ();
     type Ok = SnapshotProgressState;
@@ -89,17 +92,17 @@ impl RpcMethod<0> for SyncStatus {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the current sync status of the node.");
+    const DESCRIPTION: &'static str = "Returns the current sync status of the node.";
 
     type Params = ();
-    type Ok = SyncStatusReport;
+    type Ok = Arc<SyncStatusReport>;
 
     async fn handle(
         ctx: Ctx,
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let sync_status = ctx.sync_status.as_ref().read().clone();
+        let sync_status = ctx.sync_status.load().shallow_clone();
         Ok(sync_status)
     }
 }
@@ -110,7 +113,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
     const PARAM_NAMES: [&'static str; 1] = ["block"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> = Some("Submits a newly created block to the network.");
+    const DESCRIPTION: &'static str = "Submits a newly created block to the network.";
 
     type Params = (GossipBlock,);
     type Ok = ();
@@ -122,7 +125,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
         (block_msg,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        if !matches!(ctx.sync_status.read().status, NodeSyncStatus::Synced) {
+        if !matches!(ctx.sync_status.load().status, NodeSyncStatus::Synced) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
         }
         let genesis_network_name = ctx.chain_config().network.genesis_name();
@@ -233,8 +236,9 @@ mod tests {
             mpool,
             chain_indexer: Default::default(),
             bad_blocks: Some(Default::default()),
-            sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
+            sync_status: Default::default(),
             eth_event_handler: Arc::new(EthEventHandler::new()),
+            eth_logs_feed: Default::default(),
             sync_network_context,
             start_time,
             shutdown: mpsc::channel(1).0, // dummy for tests
@@ -280,16 +284,23 @@ mod tests {
         let sync_status = SyncStatus::handle(ctx.clone(), (), &Default::default())
             .await
             .unwrap();
-        assert_eq!(sync_status, st_copy.as_ref().read().clone());
+        assert_eq!(sync_status, st_copy.load().clone());
 
         // update cloned state
-        st_copy.write().status = NodeSyncStatus::Syncing;
-        st_copy.write().current_head_epoch = 4;
+        st_copy.store(
+            st_copy
+                .load()
+                .as_ref()
+                .clone()
+                .with_status(NodeSyncStatus::Syncing)
+                .with_current_head_epoch(4)
+                .into(),
+        );
 
         let sync_status = SyncStatus::handle(ctx.clone(), (), &Default::default())
             .await
             .unwrap();
 
-        assert_eq!(sync_status, st_copy.as_ref().read().clone());
+        assert_eq!(sync_status, st_copy.load().clone());
     }
 }

@@ -306,12 +306,16 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
         EthMappingsStore::delete(self.writer(), keys)
     }
 
-    fn tipset_key_by_epoch(&self, epoch: i64) -> anyhow::Result<Option<TipsetKey>> {
+    fn tipset_key_by_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<Option<TipsetKey>> {
         EthMappingsStore::tipset_key_by_epoch(self.writer(), epoch)
     }
 
-    fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
-        EthMappingsStore::set_tipset_key_at_epoch(self.writer(), ts)
+    fn set_tipset_key_at_epoch_raw(
+        &self,
+        epoch: ChainEpoch,
+        tsk: &TipsetKey,
+    ) -> anyhow::Result<()> {
+        EthMappingsStore::set_tipset_key_at_epoch_raw(self.writer(), epoch, tsk)
     }
 }
 
@@ -445,7 +449,7 @@ mod tests {
         let heaviest = many.heaviest_tipset().unwrap();
         assert_eq!(
             heaviest.min_ticket_block(),
-            &heaviest.genesis(&many).unwrap()
+            heaviest.genesis_blocking(&many).unwrap().min_ticket_block()
         );
     }
 }

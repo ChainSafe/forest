@@ -18,6 +18,7 @@ impl RpcMethod<3> for MarketAddBalance {
     const PARAM_NAMES: [&'static str; 3] = ["wallet", "address", "amount"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
+    const DESCRIPTION: &'static str = "Adds funds to the market actor escrow balance for the given address and returns the message CID.";
 
     type Params = (Address, Address, BigInt);
     type Ok = Cid;

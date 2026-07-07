@@ -92,11 +92,12 @@ impl StateManager {
         let base = entries.last().unwrap_or(&prev_beacon);
 
         let (lb_tipset, lb_state_root) = ChainStore::get_lookback_tipset_for_round(
-            self.chain_index(),
-            self.chain_config(),
-            &tipset,
+            self.chain_index().shallow_clone(),
+            self.chain_config().shallow_clone(),
+            tipset.shallow_clone(),
             epoch,
-        )?;
+        )
+        .await?;
 
         // If the miner actor doesn't exist in the current tipset, it is a
         // user-error and we must return an error message. If the miner exists

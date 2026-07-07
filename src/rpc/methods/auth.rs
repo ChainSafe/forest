@@ -32,9 +32,11 @@ impl RpcMethod<2> for AuthNew {
     const NAME: &'static str = "Filecoin.AuthNew";
     const N_REQUIRED_PARAMS: usize = 1;
     // Note: Lotus does not support the optional `expiration_secs` parameter
-    const PARAM_NAMES: [&'static str; 2] = ["permissions", "expiration_secs"];
+    const PARAM_NAMES: [&'static str; 2] = ["permissions", "expirationSecs"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: &'static str =
+        "Creates a new JWT authentication token with the given permissions.";
     type Params = (Vec<String>, Option<i64>);
     type Ok = Vec<u8>;
     async fn handle(
@@ -57,20 +59,21 @@ impl RpcMethod<2> for AuthNew {
 pub enum AuthVerify {}
 impl RpcMethod<1> for AuthVerify {
     const NAME: &'static str = "Filecoin.AuthVerify";
-    const PARAM_NAMES: [&'static str; 1] = ["header_raw"];
+    const PARAM_NAMES: [&'static str; 1] = ["token"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Verifies a JWT authentication token and returns its permissions.";
     type Params = (String,);
     type Ok = Vec<String>;
     async fn handle(
         ctx: Ctx,
-        (header_raw,): Self::Params,
+        (token,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ks = ctx.keystore.read();
-        let token = header_raw.trim_start_matches("Bearer ");
         let ki = ks.get(JWT_IDENTIFIER)?;
-        let perms = verify_token(token, ki.private_key())?;
+        let perms = verify_token(&token, ki.private_key())?;
         Ok(perms)
     }
 }

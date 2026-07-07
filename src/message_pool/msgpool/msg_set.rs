@@ -154,8 +154,8 @@ impl MsgSet {
     /// Remove the message at `sequence` and adjust `next_sequence`.
     ///
     /// - **Applied** (included on-chain): advance `next_sequence` to
-    ///   `sequence + 1` if needed. For messages not in our pool, also run
-    ///   the gap-filling loop to advance past consecutive known messages.
+    ///   `sequence + 1`, then run the gap-filling loop to advance past any
+    ///   consecutive pending messages.
     /// - **Pruned** (evicted): rewind `next_sequence` to `sequence` if the
     ///   removal creates a gap.
     ///
@@ -175,10 +175,13 @@ impl MsgSet {
 
         // adjust next sequence
         if applied {
-            // we removed a (known) message because it was applied in a tipset
-            // we can't possibly have filled a gap in this case
+            // we removed a (known) message because it was applied in a tipset and we need to
+            // advance past it and any consecutive pending successors
             if sequence >= self.next_sequence {
                 self.next_sequence = sequence + 1;
+                while self.msgs.contains_key(&self.next_sequence) {
+                    self.next_sequence += 1;
+                }
             }
         } else if sequence < self.next_sequence {
             // we removed a message because it was pruned
@@ -503,6 +506,35 @@ mod tests {
         assert_eq!(
             mset.next_sequence, 6,
             "applied rm of unknown seq >= next_sequence advances to seq+1"
+        );
+    }
+
+    #[test]
+    fn rm_applied_known_advances_past_pending_successors() {
+        let limits = MsgSetLimits::new(1000, 1000);
+        // next_sequence starts at 5, so nonces 6 and 7 are added as gapped,
+        // leaving next_sequence behind at 5.
+        let mut mset = MsgSet::new(5);
+
+        for seq in [6, 7] {
+            mset.add(
+                make_smsg(Address::default(), seq, 100),
+                StrictnessPolicy::Relaxed,
+                TrustPolicy::Trusted,
+                limits,
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            mset.next_sequence, 5,
+            "gapped adds leave next_sequence at 5"
+        );
+
+        // Nonce 6 (known) is applied while 7 is still pending.
+        mset.rm(6, true);
+        assert_eq!(
+            mset.next_sequence, 8,
+            "must advance past the still-pending nonce 7, not stop at 7"
         );
     }
 

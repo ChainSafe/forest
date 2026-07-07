@@ -19,6 +19,7 @@ use crate::{
 };
 use chain4u::header::{FILECOIN_GENESIS_BLOCK, FILECOIN_GENESIS_CID, GENESIS_BLOCK_PARENTS};
 use fvm_ipld_encoding::CborStore;
+use itertools::AllEqualValueError;
 use num_bigint::BigInt;
 use petgraph::Direction;
 use std::{
@@ -262,8 +263,10 @@ impl Chain4UInner {
         let epoch_from_parents = parent_tipset.as_ref().map(|it| it.epoch() + 1);
         let epoch_from_siblings = match siblings.iter().map(|it| it.epoch).all_equal_value() {
             Ok(epoch) => Some(epoch),
-            Err(None) => None,
-            Err(Some((left, right))) => panic!("mismatched sibling epochs: {left} and {right}"),
+            Err(AllEqualValueError(None)) => None,
+            Err(AllEqualValueError(Some([left, right]))) => {
+                panic!("mismatched sibling epochs: {left} and {right}")
+            }
         };
 
         let epoch = epoch_from_user

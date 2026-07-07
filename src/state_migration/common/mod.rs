@@ -30,10 +30,6 @@ impl MigrationCache {
         Self(SizeTrackingCache::new_with_metrics("migration", size))
     }
 
-    pub fn get(&self, key: &str) -> Option<Cid> {
-        self.deref().get(key).map(From::from)
-    }
-
     pub fn get_or_insert_with<F>(&self, key: &str, f: F) -> anyhow::Result<Cid>
     where
         F: FnOnce() -> anyhow::Result<Cid>,
@@ -44,10 +40,6 @@ impl MigrationCache {
                 Ok(cid.into())
             })
             .map(From::from)
-    }
-
-    pub fn push(&self, key: String, value: Cid) {
-        self.deref().insert(key, value.into());
     }
 }
 
@@ -136,22 +128,20 @@ mod tests {
     fn test_migration_cache() {
         let cache = MigrationCache::new(nonzero!(10usize));
         let cid = Cid::from_cbor_blake2b256(&42).unwrap();
-        cache.push("Cthulhu".to_owned(), cid);
-        assert_eq!(cache.get("Cthulhu"), Some(cid));
-        assert_eq!(cache.get("Ao"), None);
-
-        let cid = Cid::from_cbor_blake2b256(&666).unwrap();
-        assert_eq!(cache.get("Azathoth"), None);
 
         let value = cache.get_or_insert_with("Azathoth", || Ok(cid)).unwrap();
         assert_eq!(value, cid);
-        assert_eq!(cache.get("Azathoth"), Some(cid));
-
-        // Tests that there is no deadlock when inserting a value while reading the cache.
+        // A second call returns the cached value without recomputing.
         let value = cache
-            .get_or_insert_with("Dagon", || Ok(cache.get("Azathoth").unwrap()))
+            .get_or_insert_with("Azathoth", || panic!("value should be cached"))
             .unwrap();
         assert_eq!(value, cid);
-        assert_eq!(cache.get("Dagon"), Some(cid));
+
+        // Tests that there is no deadlock when inserting a value while reading
+        // (a different key from) the cache.
+        let value = cache
+            .get_or_insert_with("Dagon", || cache.get_or_insert_with("Azathoth", || Ok(cid)))
+            .unwrap();
+        assert_eq!(value, cid);
     }
 }

@@ -93,9 +93,7 @@ impl RpcMethod<1> for MinerCreateBlock {
     const PARAM_NAMES: [&'static str; 1] = ["blockTemplate"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Fills and signs a block template on behalf of the given miner, returning a suitable block header.",
-    );
+    const DESCRIPTION: &'static str = "Fills and signs a block template on behalf of the given miner, returning a suitable block header.";
 
     type Params = (BlockTemplate,);
     type Ok = BlockMessage;
@@ -111,11 +109,12 @@ impl RpcMethod<1> for MinerCreateBlock {
             .load_required_tipset(&block_template.parents)?;
 
         let lookback_state = ChainStore::get_lookback_tipset_for_round(
-            ctx.chain_index(),
-            ctx.chain_config(),
-            &parent_tipset,
+            ctx.chain_index().shallow_clone(),
+            ctx.chain_config().shallow_clone(),
+            parent_tipset.shallow_clone(),
             block_template.epoch,
         )
+        .await
         .map(|(_, s)| Arc::new(s))?;
 
         let worker = ctx
@@ -197,9 +196,9 @@ impl RpcMethod<1> for MinerCreateBlock {
             secpk_messages: secpk_msgs_root,
         })?;
 
-        let bls_aggregate = aggregate_from_bls_signatures(bls_sigs)?;
+        let bls_aggregate = aggregate_from_bls_signatures(bls_sigs).await?;
 
-        let mut block_header = RawBlockHeader {
+        let block_header = Arc::new(RawBlockHeader {
             miner_address: block_template.miner,
             ticket: block_template.ticket.into(),
             election_proof: block_template.eproof.into(),
@@ -216,9 +215,18 @@ impl RpcMethod<1> for MinerCreateBlock {
             signature: None,
             fork_signal: Default::default(),
             parent_base_fee,
-        };
+        });
 
-        block_header.signature = sign_block_header(&block_header, &worker, &ctx.keystore)?.into();
+        let signature = sign_block_header(
+            block_header.shallow_clone(),
+            worker,
+            ctx.keystore.shallow_clone(),
+        )
+        .await?
+        .into();
+
+        let mut block_header = Arc::unwrap_or_clone(block_header);
+        block_header.signature = signature;
 
         Ok(BlockMessage {
             header: CachingBlockHeader::from(block_header),
@@ -228,7 +236,19 @@ impl RpcMethod<1> for MinerCreateBlock {
     }
 }
 
-fn sign_block_header(
+async fn sign_block_header(
+    block_header: Arc<RawBlockHeader>,
+    worker: Address,
+    keystore: Arc<RwLock<KeyStore>>,
+) -> Result<Signature> {
+    tokio::task::spawn_blocking(move || {
+        sign_block_header_blocking(&block_header, &worker, &keystore)
+    })
+    .await?
+}
+
+// Use [`sign_block_header`] instead, CPU-intensive crypto should be wrapped with `spawn_blocking`
+fn sign_block_header_blocking(
     block_header: &RawBlockHeader,
     worker: &Address,
     keystore: &RwLock<KeyStore>,
@@ -249,7 +269,12 @@ fn sign_block_header(
     Ok(sig)
 }
 
-fn aggregate_from_bls_signatures(bls_sigs: Vec<Signature>) -> anyhow::Result<Signature> {
+async fn aggregate_from_bls_signatures(bls_sigs: Vec<Signature>) -> anyhow::Result<Signature> {
+    tokio::task::spawn_blocking(move || aggregate_from_bls_signatures_blocking(bls_sigs)).await?
+}
+
+// Use [`aggregate_from_bls_signatures`] instead, CPU-intensive crypto should be wrapped with `spawn_blocking`
+fn aggregate_from_bls_signatures_blocking(bls_sigs: Vec<Signature>) -> anyhow::Result<Signature> {
     let signatures: Vec<_> = bls_sigs
         .iter()
         .map(|sig| anyhow::Ok(bls_signatures::Signature::from_bytes(sig.bytes())?))
@@ -276,9 +301,7 @@ impl RpcMethod<3> for MinerGetBaseInfo {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "epoch", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves the Miner Actor at the given address and tipset, returning basic information such as power and mining eligibility.",
-    );
+    const DESCRIPTION: &'static str = "Retrieves the Miner Actor at the given address and tipset, returning basic information such as power and mining eligibility.";
 
     type Params = (Address, i64, ApiTipsetKey);
     type Ok = Option<MiningBaseInfo>;

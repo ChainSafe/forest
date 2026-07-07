@@ -70,7 +70,7 @@ pub trait RpcMethod<const ARITY: usize> {
     /// Becomes [`openrpc_types::Method::summary`].
     const SUMMARY: Option<&'static str> = None;
     /// Becomes [`openrpc_types::Method::description`].
-    const DESCRIPTION: Option<&'static str> = None;
+    const DESCRIPTION: &'static str;
     /// Types of each argument. [`Option`]-al arguments MUST follow mandatory ones.
     type Params: Params<ARITY>;
     /// Return value of this method.
@@ -128,6 +128,7 @@ pub enum Permission {
     PartialOrd,
     clap::ValueEnum,
     EnumString,
+    strum::Display,
     Deserialize,
     Serialize,
 )]
@@ -239,7 +240,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 ..Default::default()
             })),
             summary: Self::SUMMARY.map(Into::into),
-            description: Self::DESCRIPTION.map(Into::into),
+            description: Some(Self::DESCRIPTION.into()),
             ..Default::default()
         }
     }

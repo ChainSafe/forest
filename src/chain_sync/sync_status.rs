@@ -5,15 +5,15 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::networks::calculate_expected_epoch;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
+use arc_swap::ArcSwap;
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::log;
 
 // Node considered synced if the head is within this threshold.
-const SYNCED_EPOCH_THRESHOLD: u64 = 10;
+const SYNCED_EPOCH_THRESHOLD: u64 = 2;
 
 /// Represents the overall synchronization status of the Forest node.
 #[derive(
@@ -101,7 +101,7 @@ pub struct ForkSyncInfo {
     pub(crate) last_updated: Option<DateTime<Utc>>,
 }
 
-pub type SyncStatus = Arc<RwLock<SyncStatusReport>>;
+pub type SyncStatus = Arc<ArcSwap<SyncStatusReport>>;
 
 /// Contains information about the current status of the node's synchronization process.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, JsonSchema)]
@@ -199,5 +199,17 @@ impl SyncStatusReport {
             .iter()
             .map(|fork_info| fork_info.target_sync_epoch_start)
             .min()
+    }
+
+    #[cfg(test)]
+    pub fn with_status(mut self, status: NodeSyncStatus) -> Self {
+        self.status = status;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_current_head_epoch(mut self, current_head_epoch: ChainEpoch) -> Self {
+        self.current_head_epoch = current_head_epoch;
+        self
     }
 }

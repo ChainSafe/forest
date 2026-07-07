@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.33.6"
+version = "0.33.7"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -35,6 +35,7 @@ ahash = { workspace = true }
 ambassador = "0.5"
 anes = "0.2"
 anyhow = { workspace = true }
+arc-swap = "1"
 argon2 = "0.5"
 async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
@@ -122,7 +123,7 @@ indicatif = { version = "0.18", features = ["tokio"] }
 integer-encoding = { version = "4.0", features = ["tokio_async"] }
 ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
-itertools = "0.14"
+itertools = "0.15"
 jsonrpsee = { version = "0.26", features = ["server", "ws-client", "http-client", "macros"] }
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 k256 = "0.13"
@@ -225,10 +226,10 @@ thiserror = "2"
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-tungstenite = "0.29"
-tokio-util = { version = "0.7", features = ["compat", "io-util"] }
+tokio-util = { version = "0.7", features = ["compat", "io-util", "rt"] }
 toml = "1"
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["compression-full", "sensitive-headers"] }
+tower-http = { version = "0.7", features = ["compression-full", "sensitive-headers"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
@@ -241,6 +242,7 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
+libtest-mimic = "0.8"
 tikv-jemallocator = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
 
@@ -350,7 +352,6 @@ cargo-test = [] # group of tests that is recommended to run with `cargo test` in
 doctest-private = [] # see lib.rs::doctest_private
 benchmark-private = ["dep:criterion"] # see lib.rs::benchmark_private
 interop-tests-private = [] # see lib.rs::interop_tests_private
-calibnet-integration = [] # see tests/calibnet_*.rs (wallet, mpool_tools, etc.)
 jemalloc-profiling = [
   "jemalloc",
   "tikv-jemallocator?/profiling",
@@ -381,16 +382,6 @@ required-features = ["benchmark-private"]
 name = "tipset-validation"
 harness = false
 required-features = ["benchmark-private"]
-
-[[test]]
-name = "mpool_tools"
-path = "tests/calibnet_mpool_tools.rs"
-required-features = ["calibnet-integration"]
-
-[[test]]
-name = "wallet"
-path = "tests/calibnet_wallet.rs"
-required-features = ["calibnet-integration"]
 
 [package.metadata.docs.rs]
 # See https://docs.rs/about/metadata

@@ -10,6 +10,7 @@ use crate::message_pool::msg_pool::{
     MAX_ACTOR_PENDING_MESSAGES, MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES,
 };
 use crate::networks::Height;
+use crate::prelude::*;
 use crate::shim::{
     address::{Address, Protocol::*},
     econ::TokenAmount,
@@ -18,8 +19,6 @@ use crate::shim::{
 };
 use crate::utils::db::CborStoreExt;
 use auto_impl::auto_impl;
-use cid::Cid;
-use std::sync::Arc;
 use tokio::sync::broadcast;
 
 /// Provider Trait. This trait will be used by the message pool to interact with
@@ -120,7 +119,7 @@ impl Provider for ChainStore {
             _ => {
                 let lookback_ts = if ts.epoch() > self.chain_config().policy.chain_finality {
                     self.chain_index()
-                        .load_required_tipset_by_height(
+                        .load_required_tipset_by_height_blocking(
                             ts.epoch() - self.chain_config().policy.chain_finality,
                             ts.clone(),
                             ResolveNullTipset::TakeOlder,
@@ -142,5 +141,33 @@ impl Provider for ChainStore {
 
     fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error> {
         ChainStore::messages_for_tipset(self, ts).map_err(Into::into)
+    }
+}
+
+#[allow(dead_code)]
+pub trait ProviderExt {
+    /// Non-blocking version of [`Provider::resolve_to_deterministic_address_at_finality`]
+    async fn resolve_to_deterministic_address_at_finality_async(
+        &self,
+        addr: Address,
+        ts: Tipset,
+    ) -> Result<Address, Error>;
+}
+
+impl<T> ProviderExt for T
+where
+    T: Provider + ShallowClone + Send + Sync + 'static,
+{
+    async fn resolve_to_deterministic_address_at_finality_async(
+        &self,
+        addr: Address,
+        ts: Tipset,
+    ) -> Result<Address, Error> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || {
+            this.resolve_to_deterministic_address_at_finality(&addr, &ts)
+        })
+        .await
+        .context("tokio join error")?
     }
 }

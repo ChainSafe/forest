@@ -9,6 +9,7 @@ use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::prelude::*;
+use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
@@ -24,6 +25,7 @@ use crate::rpc::{ApiPaths, FilterList};
 use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
+use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
 use crate::shim::sector::SectorSize;
 use crate::shim::{
@@ -39,7 +41,6 @@ use crate::tool::subcommands::api_cmd::NetworkChain;
 use crate::tool::subcommands::api_cmd::report::ReportBuilder;
 use crate::tool::subcommands::api_cmd::state_decode_params_tests::create_all_state_decode_params_tests;
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
-use crate::{Config, rpc};
 use ahash::HashMap;
 use bls_signatures::Serialize as _;
 use chrono::Utc;
@@ -70,8 +71,8 @@ use tokio::task::JoinSet;
 use tracing::debug;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
-const SAFE_EPOCH_DELAY_FOR_TESTING: i64 = 20; // `SAFE_HEIGHT_DISTANCE`(200) is too large for testing
-const MESSAGE_LOOKBACK_LIMIT: i64 = 2000;
+const SAFE_EPOCH_DELAY_FOR_TESTING: ChainEpoch = 20; // `SAFE_HEIGHT_DISTANCE`(200) is too large for testing
+const MESSAGE_LOOKBACK_LIMIT: ChainEpoch = 2000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ServerMode {
@@ -504,6 +505,8 @@ fn chain_tests(server_mode: ServerMode) -> Vec<RpcTest> {
             }
         },
         RpcTest::basic(ChainGetFinalizedTipset::request(()).unwrap()),
+        RpcTest::identity(ChainGetTipSetByHeight::request((0, Default::default())).unwrap())
+            .ignore("Lotus times out"),
     ]
 }
 
@@ -1397,6 +1400,24 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
 fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     for use_alias in [false, true] {
+        tests.extend([
+            RpcTest::identity(EthGetBlockTransactionCountByNumber::request_with_alias(
+                (EthInt64(0).into(),),
+                use_alias,
+            )?)
+            .ignore("Lotus times out"),
+            RpcTest::identity(EthGetBlockByNumber::request_with_alias(
+                (EthInt64(0).into(), true),
+                use_alias,
+            )?)
+            .ignore("Lotus times out"),
+            RpcTest::identity(EthGetBlockByNumber::request_with_alias(
+                (EthInt64(0).into(), false),
+                use_alias,
+            )?)
+            .ignore("Lotus times out"),
+        ]);
+
         tests.push(RpcTest::identity(EthAccounts::request_with_alias(
             (),
             use_alias,
@@ -1416,7 +1437,7 @@ fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
         // There is randomness in the result of this API, but at least check that the results are non-zero.
         tests.push(RpcTest::validate(
             EthGasPrice::request_with_alias((), use_alias)?,
-            |forest, lotus| forest.0.is_positive() && lotus.0.is_positive(),
+            |forest, lotus| !forest.is_zero() && !lotus.is_zero(),
         ));
         tests.push(RpcTest::basic(EthSyncing::request_with_alias(
             (),
@@ -1558,7 +1579,7 @@ fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
     Ok(tests)
 }
 
-fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
+fn eth_call_api_err_tests(epoch: ChainEpoch) -> Vec<RpcTest> {
     let contract_codes = [
         include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex"),
         include_str!("contracts/assert_err/assert_err.hex"),
@@ -1674,10 +1695,11 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(api_path),
             ),
             RpcTest::basic(
-                EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(api_path),
+                EthGetBlockReceipts::request((Predefined::Safe.into(),))?.with_api_path(api_path),
             ),
             RpcTest::basic(
-                EthGetBlockReceipts::request((Predefined::Latest.into(),))?.with_api_path(api_path),
+                EthGetBlockReceipts::request((Predefined::Finalized.into(),))?
+                    .with_api_path(api_path),
             ),
             RpcTest::identity(
                 EthGetBlockReceipts::request((BlockNumberOrHash::from_block_hash_object(
@@ -2244,6 +2266,102 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
     Ok(tests)
 }
 
+/// Returns the highest null-round epoch in the first chain gap at or below `shared_tipset`,
+/// or `None`. Bounded to where state is present.
+fn first_null_round_epoch<DB: Blockstore>(
+    store: &DB,
+    shared_tipset: &Tipset,
+) -> Option<ChainEpoch> {
+    let mut child_epoch: Option<ChainEpoch> = None;
+    for ts in shared_tipset.clone().chain(store) {
+        // Stop once we leave the snapshot's state window.
+        if !store.has(ts.parent_state()).unwrap_or(false) {
+            break;
+        }
+        let epoch = ts.epoch();
+        if let Some(child) = child_epoch
+            && child - epoch > 1
+        {
+            // `child - 1` is the highest null round in the gap.
+            return Some(child - 1);
+        }
+        child_epoch = Some(epoch);
+    }
+    None
+}
+
+/// Asserts the strict `*ByNumber`/trace methods return the same null-round error as Lotus.
+/// The rest of the suite only uses real tipsets, so this would otherwise be untested.
+fn eth_null_round_tests<DB: Blockstore + ShallowClone>(
+    store: &DB,
+    shared_tipset: &Tipset,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![];
+    let Some(null_epoch) = first_null_round_epoch(store, shared_tipset) else {
+        tracing::warn!(
+            "no null round found in snapshot range; skipping Eth null-round parity tests"
+        );
+        return Ok(tests);
+    };
+
+    for api_path in [ApiPaths::V1, ApiPaths::V2] {
+        tests.extend([
+            RpcTest::identity(
+                EthGetBlockByNumber::request((EthInt64(null_epoch).into(), false))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthGetBlockByNumber::request((EthInt64(null_epoch).into(), true))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthGetBlockTransactionCountByNumber::request((EthInt64(null_epoch).into(),))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthGetTransactionByBlockNumberAndIndex::request((
+                    EthInt64(null_epoch).into(),
+                    0.into(),
+                ))?
+                .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthTraceBlock::request((BlockNumberOrHash::from_block_number(null_epoch),))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthTraceReplayBlockTransactions::request((
+                    BlockNumberOrHash::from_block_number(null_epoch),
+                    vec!["trace".to_string()],
+                ))?
+                .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            // `eth_getBlockReceipts*` reject null rounds by default (lotus#13694).
+            RpcTest::identity(
+                EthGetBlockReceipts::request((BlockNumberOrHash::from_block_number(null_epoch),))?
+                    .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(
+                EthGetBlockReceiptsLimited::request((
+                    BlockNumberOrHash::from_block_number(null_epoch),
+                    2880,
+                ))?
+                .with_api_path(api_path),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        ]);
+    }
+
+    Ok(tests)
+}
+
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let tests = vec![
         RpcTest::identity(StateReadState::request((
@@ -2388,7 +2506,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         // return reasonable values within expected bounds rather than exact equality.
         RpcTest::validate(
             GasEstimateMessageGas::request((
-                message,
+                message.clone(),
                 None, // No MessageSendSpec
                 shared_tipset.key().into(),
             ))
@@ -2415,6 +2533,35 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
                 forest_fee_cap.is_within_percent(lotus_fee_cap, 5)
                     && forest_premium.is_within_percent(lotus_premium, 5)
+            },
+        ),
+        // Pin to `shared_tipset` so both nodes compute over the same chain history;
+        // the only remaining difference is each node's ±1% gaussian noise, which the
+        // 5% tolerance absorbs. The heaviest tipset would compare two independently-
+        // synced heads and diff arbitrarily.
+        RpcTest::validate(
+            GasEstimateGasPremium::request((3, addr, 9, shared_tipset.key().into())).unwrap(),
+            |forest_premium, lotus_premium| {
+                // Gas premium should not be negative
+                if forest_premium.is_negative() || lotus_premium.is_negative() {
+                    return false;
+                }
+
+                forest_premium.is_within_percent(&lotus_premium, 5)
+            },
+        ),
+        // The fee cap derives from the noise-perturbed premium, so use the same 5%
+        // tolerance; pinning to `shared_tipset` fixes the parent base fee both nodes
+        // read. Deserializing the result as `TokenAmount` is what rejects a FIL-decimal
+        // serialization regression (such a string fails to parse as an integer).
+        RpcTest::validate(
+            GasEstimateFeeCap::request((message, 20, shared_tipset.key().into())).unwrap(),
+            |forest_fee_cap, lotus_fee_cap| {
+                if forest_fee_cap.is_negative() || lotus_fee_cap.is_negative() {
+                    return false;
+                }
+
+                forest_fee_cap.is_within_percent(&lotus_fee_cap, 5)
             },
         ),
     ]
@@ -2494,6 +2641,7 @@ fn snapshot_tests(
         .expect("Infallible");
 
     tests.extend(eth_expensive_fork_error_tests(store.clone())?);
+    tests.extend(eth_null_round_tests(&store, &shared_tipset)?);
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, offline, &tipset)?);
@@ -2633,9 +2781,9 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
 
     // Set proof parameter data dir and make sure the proofs are available. Otherwise,
     // validation might fail due to missing proof parameters.
-    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
+    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&crate::cli_shared::default_data_dir());
     ensure_proof_params_downloaded().await?;
-    state_manager.validate_tipsets(
+    state_manager.validate_tipsets_blocking(
         head_ts
             .chain(&db)
             .take(SAFE_EPOCH_DELAY_FOR_TESTING as usize + n_ts_to_validate),
@@ -2758,6 +2906,7 @@ pub(super) async fn run_tests(
                     success,
                     &test_result,
                     &test.request.params,
+                    test.request.api_path,
                 );
 
                 // Dump test data if configured

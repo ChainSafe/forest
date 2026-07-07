@@ -25,7 +25,7 @@ alias = 'i'
 
 [tasks.install-lint-tools]
 description = "Installs linting tools for CI"
-run = "cargo binstall --no-confirm taplo-cli cargo-spellcheck@0.15.7 cargo-deny"
+run = "cargo binstall --no-confirm --locked taplo-cli cargo-spellcheck@0.15.7 cargo-deny"
 
 [tasks."lint:deny"]
 description = "Run cargo-deny to check for license and security issues."
@@ -221,8 +221,8 @@ run = '''
 set -euo pipefail
 source ./scripts/tests/harness.sh
 forest_wallet_init "${usage_preloaded_key?}"
-cargo test --profile quick-test --features calibnet-integration --test mpool_tools -- --nocapture
-cargo test --profile quick-test --features calibnet-integration --test wallet -- --nocapture
+forest-dev tests calibnet mpool
+forest-dev tests calibnet wallet
 '''
 
 [tasks."codecov:nextest"]

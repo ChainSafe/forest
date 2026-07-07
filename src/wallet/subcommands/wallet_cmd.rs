@@ -5,6 +5,7 @@ use std::{
     cell::RefCell,
     path::PathBuf,
     str::{self, FromStr},
+    time::{Duration, Instant},
 };
 
 use crate::cli::humantoken::TokenAmountPretty as _;
@@ -23,24 +24,21 @@ use crate::{
         message::{METHOD_SEND, Message},
     },
 };
-use crate::{KeyStore, lotus_json::LotusJson};
 use crate::{
-    KeyStoreConfig,
+    KeyStore, KeyStoreConfig,
+    lotus_json::{HasLotusJson as _, LotusJson},
+    rpc::{self, prelude::*},
     shim::{
         address::StrictAddress,
         crypto::{Signature, SignatureType},
         econ::TokenAmount,
     },
 };
-use crate::{
-    lotus_json::HasLotusJson as _,
-    rpc::{self, prelude::*},
-};
 use anyhow::{Context as _, bail};
-use base64::{Engine, prelude::BASE64_STANDARD};
 use clap::Subcommand;
 use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
+use jsonrpsee::core::ClientError;
 use num::Zero as _;
 use tabled::{builder::Builder, settings::Style};
 
@@ -61,18 +59,15 @@ impl WalletBackend {
         }
     }
 
-    fn new_local(client: rpc::Client, want_encryption: bool) -> anyhow::Result<Self> {
+    fn new_local(client: rpc::Client, want_encryption: Option<bool>) -> anyhow::Result<Self> {
         let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
             bail!("Failed to find wallet directory");
         };
-
         let wallet_dir = dir.data_dir().to_path_buf();
-
         let is_encrypted = wallet_dir.join(ENCRYPTED_KEYSTORE_NAME).exists();
-
-        // Always use the encrypted keystore if it exists. It it does not exist,
-        // only use encryption when explicitly asked for it.
-        let keystore = if is_encrypted || want_encryption {
+        // Default to an encrypted keystore if it exist.
+        let use_encryption = want_encryption.unwrap_or(is_encrypted);
+        let keystore = if use_encryption {
             input_password_to_load_encrypted_keystore(wallet_dir)?
         } else {
             KeyStore::new(KeyStoreConfig::Persistent(wallet_dir.to_path_buf()))?
@@ -167,17 +162,17 @@ impl WalletBackend {
         }
     }
 
-    async fn wallet_sign(&self, address: Address, message: String) -> anyhow::Result<Signature> {
+    async fn wallet_sign(&self, address: Address, message: Vec<u8>) -> anyhow::Result<Signature> {
         if let Some(keystore) = &self.local {
             let key = crate::key_management::try_find_key(&address, keystore)?;
 
             Ok(crate::key_management::sign(
                 *key.key_info.key_type(),
                 key.key_info.private_key(),
-                &BASE64_STANDARD.decode(message)?,
+                &message,
             )?)
         } else {
-            Ok(WalletSign::call(&self.remote, (address, message.into_bytes())).await?)
+            Ok(WalletSign::call(&self.remote, (address, message)).await?)
         }
     }
 
@@ -260,6 +255,11 @@ pub enum WalletCommands {
         /// The address to be used to sign the message
         #[arg(short)]
         address: StrictAddress,
+        /// Sign the raw message bytes without the FRC-0102 envelope. Use this
+        /// for interoperating with pre-FRC-0102 tooling, or when the bytes are
+        /// already an on-chain Filecoin message (which must not be wrapped).
+        #[arg(long)]
+        raw: bool,
     },
     /// Validates whether a given string can be decoded as a well-formed address
     ValidateAddress {
@@ -278,6 +278,12 @@ pub enum WalletCommands {
         /// The signature of the message to verify
         #[arg(short)]
         signature: String,
+        /// Verify against the raw message bytes without applying the
+        /// FRC-0102 envelope. Use this for signatures produced by
+        /// pre-FRC-0102 tooling or for on-chain Filecoin messages (which are
+        /// signed raw, without the envelope).
+        #[arg(long)]
+        raw: bool,
     },
     /// Deletes the wallet associated with the given address.
     Delete {
@@ -304,6 +310,13 @@ pub enum WalletCommands {
         gas_limit: i64,
         #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
         gas_premium: TokenAmount,
+        /// Wait for the message to be on chain with the given confidence by calling `StateWaitMsg`.
+        /// The command waits until the message has been on chain for at least `confidence` epochs.
+        #[arg(long)]
+        wait_confidence: Option<u32>,
+        /// Timeout duration for `--wait-confidence`, e.g. `30s`, `5m`. If not set, the timeout will be `confidence + 5` epochs.
+        #[arg(long, requires = "wait_confidence", value_parser = humantime::parse_duration)]
+        wait_timeout: Option<Duration>,
     },
 }
 impl WalletCommands {
@@ -311,7 +324,7 @@ impl WalletCommands {
         self,
         client: rpc::Client,
         remote_wallet: bool,
-        encrypt: bool,
+        encrypt: Option<bool>,
     ) -> anyhow::Result<()> {
         let mut backend = if remote_wallet {
             WalletBackend::new_remote(client)
@@ -444,9 +457,13 @@ impl WalletCommands {
                 Ok(())
             }
             Self::SetDefault { key } => backend.wallet_set_default(key.into()).await,
-            Self::Sign { address, message } => {
+            Self::Sign {
+                address,
+                message,
+                raw,
+            } => {
                 let message = hex::decode(message).context("Message has to be a hex string")?;
-                let message = BASE64_STANDARD.encode(message);
+                let message = if raw { message } else { wrap_frc0102(&message) };
 
                 let signature = backend.wallet_sign(address.into(), message).await?;
                 println!("{}", hex::encode(signature.to_bytes()));
@@ -461,10 +478,12 @@ impl WalletCommands {
                 message,
                 address,
                 signature,
+                raw,
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
+                let msg = if raw { msg } else { wrap_frc0102(&msg) };
 
                 let signature = Signature::from_bytes(sig_bytes)?;
                 let is_valid = backend
@@ -481,6 +500,8 @@ impl WalletCommands {
                 gas_feecap,
                 gas_limit,
                 gas_premium,
+                wait_confidence,
+                wait_timeout,
             } => {
                 let from: Address = match from {
                     Some(a) => a.into(),
@@ -545,7 +566,39 @@ impl WalletCommands {
                     MpoolPushMessage::call(&backend.remote, (message, None)).await?
                 };
 
-                println!("{}", signed_msg.cid());
+                let msg_cid = signed_msg.cid();
+                println!("{msg_cid}");
+
+                if let Some(confidence) = wait_confidence {
+                    let start = Instant::now();
+                    let version = Version::call(&backend.remote, ()).await?;
+                    let timeout = wait_timeout.unwrap_or_else(|| {
+                        Duration::from_secs(u64::from((confidence + 5) * version.block_delay))
+                    });
+                    backend
+                        .remote
+                        .call(
+                            StateWaitMsg::request((
+                                msg_cid,
+                                i64::from(confidence),
+                                10,
+                                true,
+                            ))?
+                            .with_timeout(timeout),
+                        )
+                        .await
+                        .map_err(|e|
+                        {
+                            match e {
+                                ClientError::RequestTimeout => {
+                                    anyhow::anyhow!("timed out waiting for the message {msg_cid} with confidence {confidence}, took {}", humantime::format_duration(start.elapsed()))
+                                }
+                                e => {
+                                    anyhow::anyhow!("failed to wait for the message {msg_cid} with confidence {confidence}: {e}")
+                                }
+                            }
+                        })?;
+                }
 
                 Ok(())
             }
@@ -613,6 +666,15 @@ fn resolve_target_address(target_address: &str) -> anyhow::Result<(Address, bool
     }
 }
 
+const FRC_0102_FILECOIN_PREFIX: &[u8] = b"\x19Filecoin Signed Message:\n";
+
+/// Wraps `msg` with the FRC-0102 envelope: `0x19 || "Filecoin Signed Message:\n" || ascii(len(msg)) || msg`
+// See <https://github.com/filecoin-project/FIPs/blob/bdd5283279fd115c87c9bbf71d2e40c9d075f5aa/FRCs/frc-0102.md>.
+fn wrap_frc0102(msg: &[u8]) -> Vec<u8> {
+    let len = msg.len().to_string();
+    [FRC_0102_FILECOIN_PREFIX, len.as_bytes(), msg].concat()
+}
+
 fn resolve_method_num(from: &Address, to: &Address, is_0x_recipient: bool) -> u64 {
     if !is_eth_address(from) && !is_0x_recipient {
         return METHOD_SEND;
@@ -632,8 +694,9 @@ mod tests {
     use crate::rpc::eth::types::EthAddress;
     use crate::shim::address::{Address, CurrentNetwork, Network};
     use crate::shim::message::METHOD_SEND;
+    use rstest::rstest;
 
-    use super::{resolve_method_num, resolve_target_address};
+    use super::{SignatureType, resolve_method_num, resolve_target_address, wrap_frc0102};
 
     #[test]
     fn test_resolve_target_address_id() {
@@ -750,5 +813,63 @@ mod tests {
             .unwrap();
         let method = resolve_method_num(&from, &to, true);
         assert_eq!(method, EVMMethod::InvokeContract as u64);
+    }
+
+    #[rstest]
+    #[case::empty(&[])]
+    #[case::short(b"hello")]
+    #[case::longer(b"this is a longer test message")]
+    // Non-UTF-8 bytes must pass through unchanged.
+    #[case::binary(&[0x00, 0xFF, 0x10, 0x80])]
+    // The spec does not require any escaping; embedded newlines pass through.
+    #[case::newline(b"line1\nline2")]
+    fn test_wrap_frc0102(#[case] msg: &[u8]) {
+        // The envelope is always `0x19 || "Filecoin Signed Message:\n" || ascii(len) || msg`.
+        let mut expected = b"\x19Filecoin Signed Message:\n".to_vec();
+        expected.extend_from_slice(msg.len().to_string().as_bytes());
+        expected.extend_from_slice(msg);
+        assert_eq!(wrap_frc0102(msg), expected);
+    }
+
+    #[rstest]
+    // Length is encoded as decimal ASCII; check 1-, 2-, 3- and 4-digit boundaries.
+    #[case(0)]
+    #[case(9)]
+    #[case(10)]
+    #[case(99)]
+    #[case(100)]
+    #[case(999)]
+    #[case(1000)]
+    fn test_wrap_frc0102_length_boundaries(#[case] len: usize) {
+        let msg = vec![0xABu8; len];
+        let wrapped = wrap_frc0102(&msg);
+        let digits = len.to_string();
+        assert_eq!(&wrapped[..26], b"\x19Filecoin Signed Message:\n");
+        assert_eq!(&wrapped[26..26 + digits.len()], digits.as_bytes());
+        assert_eq!(&wrapped[26 + digits.len()..], msg.as_slice());
+    }
+
+    #[test]
+    fn test_frc0102_roundtrip_sign_verify_secp256k1() {
+        use crate::key_management::generate_key;
+        let key = generate_key(SignatureType::Secp256k1).unwrap();
+        let raw_msg = b"hello world";
+        let wrapped = wrap_frc0102(raw_msg);
+
+        // Sign the wrapped bytes (what `forest-wallet sign` does by default).
+        let signature = crate::key_management::sign(
+            *key.key_info.key_type(),
+            key.key_info.private_key(),
+            &wrapped,
+        )
+        .unwrap();
+
+        // `verify` on the wrapped bytes must succeed.
+        signature.verify(&wrapped, &key.address).unwrap();
+
+        assert!(
+            signature.verify(raw_msg, &key.address).is_err(),
+            "raw-bytes verify should fail when the signature was produced over the FRC-0102 envelope"
+        );
     }
 }

@@ -27,8 +27,9 @@ use super::get_tipset_from_hash;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
+use crate::eth::EthChainId;
+use crate::message_pool::MpoolSubscriber;
 use crate::prelude::*;
-use crate::rpc::eth::EVM_WORD_LENGTH;
 use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
@@ -43,7 +44,6 @@ use crate::shim::executor::{Entry, StampedEvent};
 use crate::state_manager::StateManager;
 use crate::state_manager::{ExecutedMessage, ExecutedTipset};
 use crate::utils::misc::env::env_or_default;
-use crate::utils::task::AbortHandles;
 use ahash::HashMap;
 use anyhow::{Error, anyhow, bail, ensure};
 use futures::{TryStreamExt as _, stream::FuturesOrdered};
@@ -52,6 +52,7 @@ use serde::*;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 use store::*;
+use tokio_util::task::AbortOnDropHandle;
 
 /// A trait for filtering events based on predefined conditions.
 ///
@@ -129,13 +130,27 @@ pub enum SkipEvent {
     Never,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EventRevertStatus {
+    Applied,
+    Reverted,
+}
+
 impl EthEventHandler {
+    #[cfg(test)]
     pub fn new() -> Self {
-        let config = EventsConfig::default();
-        Self::from_config(&config)
+        Self::from_config(
+            &EventsConfig::default(),
+            crate::networks::mainnet::ETH_CHAIN_ID,
+            MpoolSubscriber::dummy(),
+        )
     }
 
-    pub fn from_config(config: &EventsConfig) -> Self {
+    pub fn from_config(
+        config: &EventsConfig,
+        eth_chain_id: EthChainId,
+        mpool_subscriber: MpoolSubscriber,
+    ) -> Self {
         let max_filters: usize = env_or_default("FOREST_MAX_FILTERS", 100);
         let max_filter_results = std::env::var("FOREST_MAX_FILTER_RESULTS")
             .ok()
@@ -161,7 +176,11 @@ impl EthEventHandler {
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
         let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
-        let mempool_filter_manager = Some(MempoolFilterManager::new(max_filter_results));
+        let mempool_filter_manager = Some(MempoolFilterManager::new(
+            max_filter_results,
+            eth_chain_id,
+            mpool_subscriber,
+        ));
 
         Self {
             filter_store,
@@ -177,7 +196,7 @@ impl EthEventHandler {
     pub fn eth_new_filter(
         &self,
         filter_spec: &EthFilterSpec,
-        chain_height: i64,
+        chain_height: ChainEpoch,
     ) -> Result<FilterID, Error> {
         if let Some(event_filter_manager) = &self.event_filter_manager {
             let pf = filter_spec
@@ -297,11 +316,10 @@ impl EthEventHandler {
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
         let mut tasks = FuturesOrdered::new();
-        let mut abort_handles = AbortHandles::default();
         for tipset in tipsets {
             let state_manager = ctx.state_manager.shallow_clone();
             let spec = spec.as_ref().map(|v| v.shallow_clone());
-            let task = tokio::spawn(async move {
+            let task = AbortOnDropHandle::new(tokio::spawn(async move {
                 let mut events = vec![];
                 Self::collect_events(
                     &state_manager,
@@ -312,8 +330,7 @@ impl EthEventHandler {
                 )
                 .await?;
                 anyhow::Ok(events)
-            });
-            abort_handles.push(task.abort_handle());
+            }));
             tasks.push_back(task);
         }
         let max_filter_results = ctx.eth_event_handler.max_filter_results;
@@ -340,12 +357,33 @@ impl EthEventHandler {
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
-        let msg_cid_filter = spec.and_then(|s| s.msg_cid_filter()).copied();
-        let height = tipset.epoch();
-        let tipset_key = tipset.key();
         let ExecutedTipset {
             executed_messages, ..
         } = state_manager.load_executed_tipset_for_rpc(tipset).await?;
+        Self::collect_events_from_messages(
+            state_manager,
+            tipset,
+            &executed_messages,
+            spec,
+            skip_event,
+            EventRevertStatus::Applied,
+            collected_events,
+        )
+        .await
+    }
+
+    pub async fn collect_events_from_messages(
+        state_manager: &StateManager,
+        tipset: &Tipset,
+        executed_messages: &[ExecutedMessage],
+        spec: Option<&impl Matcher>,
+        skip_event: SkipEvent,
+        revert_status: EventRevertStatus,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let msg_cid_filter = spec.and_then(|s| s.msg_cid_filter()).copied();
+        let height = tipset.epoch();
+        let tipset_key = tipset.key();
         let mut resolved_id_addrs = HashMap::default();
         let mut event_count = 0;
         for (
@@ -416,7 +454,7 @@ impl EthEventHandler {
                             entries,
                             emitter_addr: resolved,
                             event_idx,
-                            reverted: false,
+                            reverted: matches!(revert_status, EventRevertStatus::Reverted),
                             height,
                             tipset_key: tipset_key.clone(),
                             msg_idx: msg_idx as u64,
@@ -487,11 +525,14 @@ impl EthEventHandler {
                 } else {
                     *range.end()
                 };
-                let max_tipset = ctx.chain_index().load_required_tipset_by_height(
-                    max_height,
-                    ctx.chain_store().heaviest_tipset(),
-                    ResolveNullTipset::TakeOlder,
-                )?;
+                let max_tipset = ctx
+                    .chain_index()
+                    .load_required_tipset_by_height(
+                        max_height,
+                        ctx.chain_store().heaviest_tipset(),
+                        ResolveNullTipset::TakeOlder,
+                    )
+                    .await?;
                 let tipsets = max_tipset
                     .chain(ctx.db())
                     .take_while(|ts| ts.epoch() >= *range.start());
@@ -513,8 +554,8 @@ impl EthEventHandler {
 impl EthFilterSpec {
     fn parse_eth_filter_spec(
         &self,
-        chain_height: i64,
-        max_filter_height_range: i64,
+        chain_height: ChainEpoch,
+        max_filter_height_range: ChainEpoch,
     ) -> Result<ParsedFilter, Error> {
         let tipsets = if let Some(block_hash) = &self.block_hash {
             if self.from_block.is_some() || self.to_block.is_some() {
@@ -561,50 +602,6 @@ impl EthFilterSpec {
             keys,
             msg_cid: None,
         })
-    }
-}
-
-impl Matcher for EthFilterSpec {
-    fn matches(
-        &self,
-        emitter_addr: &crate::shim::address::Address,
-        entries: &[Entry],
-    ) -> anyhow::Result<bool> {
-        fn get_word(value: &[u8]) -> Option<&[u8; EVM_WORD_LENGTH]> {
-            value.get(..EVM_WORD_LENGTH)?.try_into().ok()
-        }
-
-        let eth_emitter_addr = EthAddress::from_filecoin_address(emitter_addr)?;
-
-        let match_addr = match self.address {
-            Some(ref address_list) => {
-                if address_list.is_empty() {
-                    true
-                } else {
-                    address_list.iter().any(|other| other == &eth_emitter_addr)
-                }
-            }
-            None => true,
-        };
-
-        let match_topics = if let Some(spec) = self.topics.as_ref() {
-            entries.iter().enumerate().all(|(i, entry)| {
-                if let Some(slice) = get_word(entry.value()) {
-                    let hash: EthHash = (*slice).into();
-                    match spec.0.get(i) {
-                        Some(EthHashList::List(vec)) => vec.contains(&hash),
-                        Some(EthHashList::Single(Some(h))) => h == &hash,
-                        _ => true, /* wildcard */
-                    }
-                } else {
-                    // Drop events with mis-sized topics
-                    false
-                }
-            })
-        } else {
-            true
-        };
-        Ok(match_addr && match_topics)
     }
 }
 
@@ -883,19 +880,6 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_address_list() {
-        let empty_list_spec = EthFilterSpec {
-            address: Some(vec![].into()), // Empty list, not None
-            ..Default::default()
-        };
-
-        let addr = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
-
-        // Updated to match Lotus behavior: empty list = wildcard (matches all)
-        assert!(empty_list_spec.matches(&addr, &[]).unwrap());
-    }
-
-    #[test]
     fn test_parse_eth_filter_spec_with_none_address() {
         let eth_filter_spec = EthFilterSpec {
             from_block: Some("latest".into()),
@@ -935,51 +919,6 @@ mod tests {
     }
 
     #[test]
-    fn test_lotus_compatible_address_behavior() {
-        // Test the Lotus-compatible behavior: empty list = wildcard
-        let addr = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
-
-        // Case 1: None (omitted) = wildcard
-        let none_spec = EthFilterSpec {
-            address: None,
-            ..Default::default()
-        };
-        assert!(
-            none_spec.matches(&addr, &[]).unwrap(),
-            "None should match all addresses"
-        );
-
-        // Case 2: Empty list = wildcard (Lotus behavior)
-        let empty_spec = EthFilterSpec {
-            address: Some(vec![].into()),
-            ..Default::default()
-        };
-        assert!(
-            empty_spec.matches(&addr, &[]).unwrap(),
-            "Empty list should match all addresses (Lotus compatible)"
-        );
-
-        // Case 3: Specific address = only that address
-        let eth_addr = EthAddress::from_filecoin_address(&addr).unwrap();
-        let specific_spec = EthFilterSpec {
-            address: Some(vec![eth_addr].into()),
-            ..Default::default()
-        };
-        assert!(
-            specific_spec.matches(&addr, &[]).unwrap(),
-            "Specific address should match itself"
-        );
-
-        // Case 4: Different address = no match
-        let different_addr =
-            Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
-        assert!(
-            !specific_spec.matches(&different_addr, &[]).unwrap(),
-            "Specific address should not match different address"
-        );
-    }
-
-    #[test]
     fn test_eth_filter_spec_default_has_none_values() {
         let default_spec = EthFilterSpec::default();
 
@@ -1004,14 +943,6 @@ mod tests {
             default_spec.block_hash.is_none(),
             "Default EthFilterSpec should have None block_hash"
         );
-
-        // Verify that the default spec matches any address (wildcard behavior)
-        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
-        let addr1 = Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
-
-        // Test with no entries
-        assert!(default_spec.matches(&addr0, &[]).unwrap());
-        assert!(default_spec.matches(&addr1, &[]).unwrap());
     }
 
     #[test]
@@ -1302,8 +1233,8 @@ mod tests {
         assert!(result.is_ok(), "Expected successful block filter creation");
     }
 
-    #[test]
-    fn test_eth_new_pending_transaction_filter() {
+    #[tokio::test]
+    async fn test_eth_new_pending_transaction_filter() {
         let eth_event_handler = EthEventHandler::new();
         let result = eth_event_handler.eth_new_pending_transaction_filter();
 
@@ -1313,8 +1244,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_eth_uninstall_filter() {
+    #[tokio::test]
+    async fn test_eth_uninstall_filter() {
         let event_handler = EthEventHandler::new();
         let mut filter_ids = Vec::new();
         let filter_spec = EthFilterSpec {
@@ -1342,198 +1273,6 @@ mod tests {
                 &filter_id
             );
         }
-    }
-
-    #[test]
-    fn test_do_match_address() {
-        let empty_spec = EthFilterSpec::default();
-
-        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
-        let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
-
-        let addr1 = Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
-        let eth_addr1 = EthAddress::from_str("0x26937d59db4463254c930d5f31353f14aa89a0f7").unwrap();
-
-        let entries0 = vec![
-            Entry::new(
-                Flags::FLAG_INDEXED_ALL,
-                "t1".into(),
-                IPLD_RAW,
-                vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ],
-            ),
-            Entry::new(
-                Flags::FLAG_INDEXED_ALL,
-                "t2".into(),
-                IPLD_RAW,
-                vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ],
-            ),
-            Entry::new(
-                Flags::FLAG_INDEXED_ALL,
-                "d".into(),
-                IPLD_RAW,
-                vec![
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23,
-                    254, 169, 229, 74, 6, 24, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 13, 232, 134, 151, 206, 121, 139, 231, 226, 192,
-                ],
-            ),
-        ];
-
-        // Matching an empty spec
-        assert!(empty_spec.matches(&addr0, &[]).unwrap());
-
-        assert!(empty_spec.matches(&addr0, &entries0).unwrap());
-
-        // Matching the given address 0
-        let spec0 = EthFilterSpec {
-            address: Some(vec![eth_addr0].into()),
-            ..Default::default()
-        };
-
-        assert!(spec0.matches(&addr0, &[]).unwrap());
-
-        assert!(!spec0.matches(&addr1, &[]).unwrap());
-
-        // Matching the given address 0 or 1
-        let spec1 = EthFilterSpec {
-            address: Some(vec![eth_addr0, eth_addr1].into()),
-            ..Default::default()
-        };
-
-        assert!(spec1.matches(&addr0, &[]).unwrap());
-
-        assert!(spec1.matches(&addr1, &[]).unwrap());
-    }
-
-    #[test]
-    fn test_do_match_topic() {
-        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
-
-        let entries0 = vec![
-            Entry::new(
-                Flags::FLAG_INDEXED_ALL,
-                "t1".into(),
-                IPLD_RAW,
-                vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ],
-            ),
-            Entry::new(
-                Flags::FLAG_INDEXED_ALL,
-                "t2".into(),
-                IPLD_RAW,
-                vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ],
-            ),
-            Entry::new(
-                Flags::FLAG_INDEXED_ALL,
-                "d".into(),
-                IPLD_RAW,
-                vec![
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23,
-                    254, 169, 229, 74, 6, 24, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 13, 232, 134, 151, 206, 121, 139, 231, 226, 192,
-                ],
-            ),
-        ];
-
-        let topic0 =
-            EthHash::from_str("0xe24720f45cb74f2d55f1deebb6098f50f10b511dab8a7d47c4819a08dcd0b895")
-                .unwrap();
-
-        let topic1 =
-            EthHash::from_str("0x7404e3d104ea7841c3d9e6fd20adfe99b4ad586bc08d8f3bd3afef894cf184de")
-                .unwrap();
-
-        let topic2 =
-            EthHash::from_str("0x000000000000000000000000d0fb381fc644cdd5d694d35e1afb445527b9244b")
-                .unwrap();
-
-        let topic3 =
-            EthHash::from_str("0x00000000000000000000000092c3b379c217fdf8603884770e83fded7b7410f8")
-                .unwrap();
-
-        let spec1 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::Single(None)])),
-            ..Default::default()
-        };
-
-        assert!(spec1.matches(&addr0, &entries0).unwrap());
-
-        let spec2 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![
-                EthHashList::Single(None),
-                EthHashList::Single(None),
-            ])),
-            ..Default::default()
-        };
-
-        assert!(spec2.matches(&addr0, &entries0).unwrap());
-
-        let spec2 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(topic0))])),
-            ..Default::default()
-        };
-
-        assert!(spec2.matches(&addr0, &entries0).unwrap());
-
-        let spec3 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic0])])),
-            ..Default::default()
-        };
-
-        assert!(spec3.matches(&addr0, &entries0).unwrap());
-
-        let spec4 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic1, topic0])])),
-            ..Default::default()
-        };
-
-        assert!(spec4.matches(&addr0, &entries0).unwrap());
-
-        let spec5 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(topic1))])),
-            ..Default::default()
-        };
-
-        assert!(!spec5.matches(&addr0, &entries0).unwrap());
-
-        let spec6 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic2, topic3])])),
-            ..Default::default()
-        };
-
-        assert!(!spec6.matches(&addr0, &entries0).unwrap());
-
-        let spec7 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![
-                EthHashList::Single(Some(topic1)),
-                EthHashList::Single(Some(topic1)),
-            ])),
-            ..Default::default()
-        };
-
-        assert!(!spec7.matches(&addr0, &entries0).unwrap());
-
-        let spec8 = EthFilterSpec {
-            topics: Some(EthTopicSpec(vec![
-                EthHashList::Single(Some(topic0)),
-                EthHashList::Single(Some(topic1)),
-                EthHashList::Single(Some(topic3)),
-            ])),
-            ..Default::default()
-        };
-
-        assert!(!spec8.matches(&addr0, &entries0).unwrap());
     }
 
     #[test]
@@ -1743,12 +1482,6 @@ mod tests {
     }
 
     #[test]
-    fn test_eth_filter_spec_msg_cid_filter_default_none() {
-        let spec = EthFilterSpec::default();
-        assert!(spec.msg_cid_filter().is_none());
-    }
-
-    #[test]
     fn test_parsed_filter_msg_cid_filter_returns_field() {
         let pf_none = ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(0..=0));
         assert!(pf_none.msg_cid_filter().is_none());
@@ -1792,5 +1525,74 @@ mod tests {
         assert!(err.to_string().contains("maximum 10"));
 
         assert!(ensure_filter_cap(100, 3, 101).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_collect_events_from_messages_sets_revert_status() {
+        use crate::blocks::{CachingBlockHeader, RawBlockHeader};
+        use crate::chain::ChainStore;
+        use crate::db::MemoryDB;
+        use crate::message::ChainMessage;
+        use crate::networks::ChainConfig;
+        use crate::shim::executor::Receipt;
+        use crate::shim::message::Message;
+
+        let db = Arc::new(MemoryDB::default());
+        let genesis_header = CachingBlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            // A zero genesis timestamp is rejected by the beacon schedule.
+            timestamp: 7777,
+            ..Default::default()
+        });
+        let chain_store =
+            ChainStore::new(db, Arc::new(ChainConfig::default()), genesis_header).unwrap();
+        let tipset = chain_store.heaviest_tipset();
+        let state_manager = StateManager::new(chain_store).unwrap();
+
+        let event = StampedEvent::V4(fvm_shared4::event::StampedEvent::new(
+            1234,
+            fvm_shared4::event::ActorEvent {
+                entries: vec![fvm_shared4::event::Entry {
+                    flags: Flags::FLAG_INDEXED_ALL,
+                    key: "t1".into(),
+                    codec: IPLD_RAW,
+                    value: vec![0xab; 32],
+                }],
+            },
+        ));
+        let executed_messages = vec![ExecutedMessage {
+            message: ChainMessage::Unsigned(Message::default().into()),
+            receipt: Receipt::V4(fvm_shared4::receipt::Receipt {
+                exit_code: fvm_shared4::error::ExitCode::OK,
+                return_data: Default::default(),
+                gas_used: 0,
+                events_root: None,
+            }),
+            events: Some(vec![event]),
+        }];
+
+        for (revert_status, expected_reverted) in [
+            (EventRevertStatus::Applied, false),
+            (EventRevertStatus::Reverted, true),
+        ] {
+            let mut events = vec![];
+            EthEventHandler::collect_events_from_messages(
+                &state_manager,
+                &tipset,
+                &executed_messages,
+                None::<&ParsedFilter>,
+                // The test genesis has no state tree, so the emitter cannot be resolved;
+                // fall back to its ID address instead of skipping the event.
+                SkipEvent::Never,
+                revert_status,
+                &mut events,
+            )
+            .await
+            .unwrap();
+            assert_eq!(events.len(), 1);
+            let event = events.first().unwrap();
+            assert_eq!(event.reverted, expected_reverted);
+            assert_eq!(event.emitter_addr, Address::new_id(1234));
+        }
     }
 }

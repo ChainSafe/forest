@@ -15,13 +15,11 @@ use crate::message_pool::msg_chain::MsgChainNode;
 use crate::message_pool::{
     Error,
     msg_chain::{Chains, NodeKey, create_message_chains},
-    msg_pool::resolve_to_key,
-    msgpool::{MIN_GAS, pending_store::PendingStore},
+    msgpool::MIN_GAS,
 };
 use crate::prelude::*;
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::{address::Address, econ::TokenAmount};
-use crate::state_manager::IdToAddressCache;
 use crate::utils::cache::SizeTrackingCache;
 use ahash::HashMap;
 use anyhow::{bail, ensure};
@@ -651,8 +649,6 @@ where
         run_head_change(
             self.api.as_ref(),
             &self.caches.bls_sig,
-            &self.pending,
-            &self.caches.key,
             cur_ts.clone(),
             ts.clone(),
             &mut result,
@@ -797,15 +793,12 @@ fn merge_and_trim(
     selected_msgs
 }
 
-/// Like `head_change`, except it doesn't change the state of the `MessagePool`.
-/// It simulates a head change call.
+/// Like `head_change`, except it simulates a head change call and doesn't change the state of the `MessagePool`.
 // This logic should probably be implemented in the ChainStore. It handles
 // reorgs.
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     bls_sig_cache: &SizeTrackingCache<CidWrapper, Signature>,
-    pending_store: &PendingStore,
-    key_cache: &IdToAddressCache,
     from: Tipset,
     to: Tipset,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
@@ -852,54 +845,12 @@ where
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                remove_applied_from_pool(
-                    api,
-                    key_cache,
-                    pending_store,
-                    &ts,
-                    &msg.from(),
-                    msg.sequence(),
-                    rmsgs,
-                )?;
+                utils::remove_from_selected_msgs(&msg.from(), msg.sequence(), rmsgs);
             }
             for msg in msgs {
-                remove_applied_from_pool(
-                    api,
-                    key_cache,
-                    pending_store,
-                    &ts,
-                    &msg.from,
-                    msg.sequence,
-                    rmsgs,
-                )?;
+                utils::remove_from_selected_msgs(&msg.from, msg.sequence, rmsgs);
             }
         }
-    }
-    Ok(())
-}
-
-/// Free-fn mirror of [`MessagePool::remove_applied_from_pool`] for the
-/// simulator path, which has only the individual fields to hand and not a
-/// `&MessagePool`. Bodies are intentionally identical; consolidation can
-/// happen once the simulator routes through `&MessagePool` directly.
-#[allow(clippy::too_many_arguments)]
-fn remove_applied_from_pool<T: Provider>(
-    api: &T,
-    key_cache: &IdToAddressCache,
-    pending_store: &PendingStore,
-    ts: &Tipset,
-    from: &Address,
-    sequence: u64,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-) -> Result<(), Error> {
-    if rmsgs
-        .get_mut(from)
-        .and_then(|temp| temp.remove(&sequence))
-        .is_none()
-        && let Ok(resolved) = resolve_to_key(api, key_cache, from, ts)
-            .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
-    {
-        let _ = pending_store.remove(&resolved, sequence, true);
     }
     Ok(())
 }
@@ -1078,6 +1029,94 @@ mod test_selection {
             assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
+    }
+
+    #[tokio::test]
+    async fn select_messages_on_non_current_tipset_should_not_update_mpool_state() {
+        use crate::message_pool::msgpool::msg_pool::TrustPolicy;
+        use crate::message_pool::msgpool::msg_set::StrictnessPolicy;
+        use crate::shim::message::Message as ShimMessage;
+        use tokio::sync::broadcast::error::TryRecvError;
+
+        let mut joinset = JoinSet::new();
+        let mpool = make_test_mpool(&mut joinset);
+
+        let id_addr = Address::new_id(1000);
+        let key_addr = Address::new_bls(&[3u8; 48]).unwrap();
+        mpool.api.set_key_address_mapping(&id_addr, &key_addr);
+        mpool
+            .api
+            .set_state_balance_raw(&key_addr, TokenAmount::from_whole(1));
+        mpool.api.set_state_sequence(&key_addr, 0);
+
+        // Establish a current head registered with the provider so the
+        // simulated head change can walk parents back to it.
+        let b1 = mpool.api.next_block();
+        mpool.api.set_block_messages(&b1, vec![]);
+        let head = Tipset::from(&b1);
+        mpool
+            .apply_head_change(Vec::new(), vec![head.clone()])
+            .await
+            .unwrap();
+
+        let pending_msg = SignedMessage::mock_bls_signed_message(ShimMessage {
+            from: id_addr,
+            sequence: 0,
+            gas_limit: TEST_GAS_LIMIT as u64,
+            gas_fee_cap: TokenAmount::from_atto(200),
+            gas_premium: TokenAmount::from_atto(100),
+            ..ShimMessage::default()
+        });
+        mpool
+            .add_to_pool_unchecked(
+                &head,
+                pending_msg.clone(),
+                TrustPolicy::Trusted,
+                StrictnessPolicy::Relaxed,
+            )
+            .unwrap();
+
+        let before = mpool.pending.snapshot();
+        assert!(
+            before.contains_key(&key_addr),
+            "precondition: message is pending under the resolved key address"
+        );
+
+        // A *non-current* child tipset whose block applies that very message,
+        // carrying the `f0` `from` as on-chain messages do.
+        let b2 = mpool.api.next_block();
+        let ts2 = Tipset::from(&b2);
+        mpool.api.set_block_messages(&b2, vec![pending_msg.clone()]);
+
+        // Subscribe AFTER the insert so we only observe events emitted by the
+        // selection call below.
+        let mut rx = mpool.pending.subscriber().subscribe();
+
+        // Select against the non-current tipset.
+        let _ = mpool.select_messages(&ts2, 1.0).unwrap();
+
+        let after = mpool.pending.snapshot();
+        assert!(
+            after.contains_key(&key_addr),
+            "selecting for a non-current tipset must not remove live pending messages"
+        );
+        assert_eq!(
+            before.len(),
+            after.len(),
+            "the live pending pool size must be unchanged by selection"
+        );
+        assert_eq!(
+            after
+                .get(&key_addr)
+                .and_then(|mset| mset.msgs.get(&0))
+                .map(|m| m.cid()),
+            Some(pending_msg.cid()),
+            "the exact pending message must survive at its nonce"
+        );
+        assert!(
+            matches!(rx.try_recv(), Err(TryRecvError::Empty)),
+            "a read-only selection simulation must not emit any MpoolUpdate events"
+        );
     }
 
     #[tokio::test]

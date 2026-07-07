@@ -29,16 +29,22 @@ for ((i=0; i<=NUM_TIPSETS; i++)); do
     --data "$(jq -n --arg epoch "$EPOCH_HEX" '{jsonrpc: "2.0", id: 1, method: "Filecoin.EthGetBlockByNumber", params: [$epoch, false]}')")
 
 
-  HASH=$(echo "$JSON" | jq -r '.result.hash')
-  ETH_BLOCK_HASHES+=("$HASH")
-
-  if [[ $(echo "$JSON" | jq -e '.result.transactions') != "null" ]]; then
-    TRANSACTIONS=$(echo "$JSON" | jq -r '.result.transactions[]')
-    for tx in $TRANSACTIONS; do
-        ETH_TX_HASHES+=("$tx")
-    done
+  # A null-round epoch has no block of its own: `EthGetBlockByNumber` returns an
+  # `ErrNullRound` error (matching Lotus), so there is no hash to collect. Skip it.
+  HASH=$(echo "$JSON" | jq -r '.result.hash // empty')
+  if [[ -z "$HASH" ]]; then
+    echo "No block at epoch $EPOCH_HEX (null round), skipping"
   else
-    echo "No transactions found for block hash: $EPOCH_HEX"
+    ETH_BLOCK_HASHES+=("$HASH")
+
+    if [[ $(echo "$JSON" | jq -e '.result.transactions') != "null" ]]; then
+      TRANSACTIONS=$(echo "$JSON" | jq -r '.result.transactions[]')
+      for tx in $TRANSACTIONS; do
+          ETH_TX_HASHES+=("$tx")
+      done
+    else
+      echo "No transactions found for block hash: $EPOCH_HEX"
+    fi
   fi
 
   EPOCH=$((EPOCH - 1))

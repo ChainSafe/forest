@@ -26,6 +26,8 @@ pub struct ChainIndex {
     ts_cache: TipsetCache,
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     db: DbImpl,
+    /// Genesis tipset
+    genesis: Tipset,
     /// check whether a tipset is finalized
     is_tipset_finalized: Option<IsTipsetFinalizedFn>,
 }
@@ -35,6 +37,7 @@ impl ShallowClone for ChainIndex {
         Self {
             ts_cache: self.ts_cache.shallow_clone(),
             db: self.db.shallow_clone(),
+            genesis: self.genesis.shallow_clone(),
             is_tipset_finalized: self.is_tipset_finalized.clone(),
         }
     }
@@ -47,15 +50,19 @@ impl ShallowClone for ChainIndex {
 pub enum ResolveNullTipset {
     TakeNewer,
     TakeOlder,
+    /// Return [`Error::NullRound`] instead of resolving to a neighboring tipset.
+    Fail,
 }
 
 impl ChainIndex {
-    pub fn new(db: impl Into<DbImpl>) -> Self {
+    pub fn new(db: impl Into<DbImpl>, genesis: Tipset) -> Self {
+        assert!(genesis.epoch() == 0, "genesis tipset must be at epoch 0");
         let db = db.into();
         let ts_cache = SizeTrackingCache::new_with_metrics("tipset", DEFAULT_TIPSET_CACHE_SIZE);
         Self {
             ts_cache,
             db,
+            genesis,
             is_tipset_finalized: None,
         }
     }
@@ -71,6 +78,10 @@ impl ChainIndex {
 
     pub fn db_owned(&self) -> DbImpl {
         self.db().shallow_clone()
+    }
+
+    pub fn genesis(&self) -> &Tipset {
+        &self.genesis
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
@@ -141,11 +152,11 @@ impl ChainIndex {
     ///               │                  │
     ///               └──────────────────┘
     /// ```
-    /// If the requested epoch points to a null tipset, there are two options:
-    /// Pick the nearest older tipset or pick the nearest younger tipset.
+    /// If the requested epoch points to a null tipset, there are three options:
+    /// pick the nearest older tipset, pick the nearest younger tipset, or fail.
     /// Requesting epoch 2 with [`ResolveNullTipset::TakeNewer`] will return
-    /// epoch 3. Requesting with [`ResolveNullTipset::TakeOlder`] will return
-    /// epoch 1.
+    /// epoch 3, with [`ResolveNullTipset::TakeOlder`] will return epoch 1, and
+    /// with [`ResolveNullTipset::Fail`] will return [`Error::NullRound`].
     pub fn tipset_by_height(
         &self,
         to: ChainEpoch,
@@ -167,7 +178,7 @@ impl ChainIndex {
         }
 
         if to == 0 {
-            return Ok(Some(Tipset::from(from.genesis(&self.db)?)));
+            return Ok(Some(self.genesis.shallow_clone()));
         }
 
         let from_epoch = from.epoch();
@@ -222,12 +233,14 @@ impl ChainIndex {
                 match resolve {
                     ResolveNullTipset::TakeOlder => return Ok(Some(parent)),
                     ResolveNullTipset::TakeNewer => return Ok(Some(child)),
+                    ResolveNullTipset::Fail => return Err(Error::NullRound(to)),
                 }
             }
         }
         Ok(None)
     }
 
+    /// Non-blocking version of [`Self::tipset_by_height`]
     pub async fn tipset_by_height_async(
         &self,
         to: ChainEpoch,
@@ -235,19 +248,31 @@ impl ChainIndex {
         resolve: ResolveNullTipset,
     ) -> Result<Option<Tipset>, Error> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || this.tipset_by_height(to, from, resolve))
-            .await
-            .map_err(|e| Error::Other(e.to_string()))?
+        tokio::task::spawn_blocking(move || this.tipset_by_height(to, from, resolve)).await?
     }
 
     /// Same as [`Self::tipset_by_height`], but errors if that would return `None`.
-    pub fn load_required_tipset_by_height(
+    /// This call can be expensive and blocking, use [`Self::load_required_tipset_by_height`]
+    /// in async contexts to avoid exhausting Tokio worker threads.
+    pub fn load_required_tipset_by_height_blocking(
         &self,
         to: ChainEpoch,
         from: Tipset,
         resolve: ResolveNullTipset,
     ) -> Result<Tipset, Error> {
         self.tipset_by_height(to, from, resolve)?
+            .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
+    }
+
+    /// Same as [`Self::tipset_by_height_async`], but errors if that would return `None`.
+    pub async fn load_required_tipset_by_height(
+        &self,
+        to: ChainEpoch,
+        from: Tipset,
+        resolve: ResolveNullTipset,
+    ) -> Result<Tipset, Error> {
+        self.tipset_by_height_async(to, from, resolve)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
     }
 
@@ -324,7 +349,7 @@ mod tests {
         persist_tipset(&epoch3, &db);
         persist_tipset(&epoch4, &db);
 
-        let index = ChainIndex::new(db);
+        let index = ChainIndex::new(db, genesis);
         // epoch 2 is null. ResolveNullTipset decided whether to return epoch 1 or epoch 3
         assert_eq!(
             index
@@ -362,7 +387,7 @@ mod tests {
         persist_tipset(&epoch2b, &db);
         persist_tipset(&epoch3b, &db);
 
-        let index = ChainIndex::new(db);
+        let index = ChainIndex::new(db, genesis);
         // The chain as forked, epoch 2 and 3 are ambiguous
         assert_eq!(
             index
@@ -391,7 +416,7 @@ mod tests {
         persist_tipset(&genesis, &db);
         persist_tipset(&epoch3, &db);
 
-        let index = ChainIndex::new(db);
+        let index = ChainIndex::new(db, genesis);
         assert!(
             index
                 .tipset_by_height(2, epoch3, ResolveNullTipset::TakeOlder)

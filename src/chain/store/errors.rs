@@ -8,6 +8,7 @@ use cid::Error as CidErr;
 use fil_actors_shared::fvm_ipld_amt::Error as AmtErr;
 use fvm_ipld_encoding::Error as EncErr;
 use thiserror::Error;
+use tokio::task::JoinError;
 
 /// Chain error
 #[derive(Debug, Error)]
@@ -30,6 +31,11 @@ pub enum Error {
     /// Amt error
     #[error("State error: {0}")]
     State(Cow<'static, str>),
+    /// Requested height is a null round (no tipset), reported when resolving with
+    /// [`super::index::ResolveNullTipset::Fail`]. The Eth layer translates this into its own
+    /// Lotus-compatible message, so this internal phrasing is intentionally distinct.
+    #[error("null round at epoch {0}")]
+    NullRound(crate::shim::clock::ChainEpoch),
     /// Other chain error
     #[error("{0}")]
     Other(String),
@@ -68,6 +74,12 @@ impl From<std::io::Error> for Error {
 impl<T> From<flume::SendError<T>> for Error {
     fn from(e: flume::SendError<T>) -> Self {
         Error::Other(e.to_string())
+    }
+}
+
+impl From<JoinError> for Error {
+    fn from(e: JoinError) -> Self {
+        Error::Other(format!("failed joining on tokio task: {e}"))
     }
 }
 

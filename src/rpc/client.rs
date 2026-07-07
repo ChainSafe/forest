@@ -27,6 +27,18 @@ use url::Url;
 
 use super::{ApiPaths, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE, Request};
 
+/// `User-Agent` advertised by the RPC client, e.g. `forest/0.33.7+git.e69baf3e4`.
+///
+/// Built once and cloned per client. Some public RPC providers (e.g. Filfox,
+/// fronted by Cloudflare) reject requests without a `User-Agent` with a `403`.
+static USER_AGENT: LazyLock<HeaderValue> = LazyLock::new(|| {
+    HeaderValue::from_str(&format!(
+        "forest/{}",
+        crate::utils::version::FOREST_VERSION_STRING.as_str()
+    ))
+    .expect("Forest version string is a valid header value")
+});
+
 /// A JSON-RPC client that can dispatch either a [`crate::rpc::Request`] to a single URL.
 pub struct Client {
     /// SHOULD end in a slash, due to our use of [`Url::join`].
@@ -58,8 +70,9 @@ impl Client {
         }
         // Set default token if not provided
         if token.is_none() && base_url.password().is_none() {
-            let client_config = crate::cli_shared::cli::Client::default();
-            let default_token_path = client_config.default_rpc_token_path();
+            // Honor the `FOREST_PATH` data directory override so the token saved
+            // by a daemon started with `FOREST_PATH` set is found here as well.
+            let default_token_path = crate::cli_shared::default_token_path();
             if default_token_path.is_file() {
                 if let Ok(token) = std::fs::read_to_string(&default_token_path) {
                     if base_url.set_password(Some(token.trim())).is_ok() {
@@ -192,20 +205,12 @@ impl Debug for UrlClient {
 impl UrlClient {
     pub async fn new(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
         const ONE_DAY: Duration = Duration::from_secs(24 * 3600); // we handle timeouts ourselves.
-        let headers = match token.into() {
-            Some(token) => HeaderMap::from_iter([(
-                header::AUTHORIZATION,
-                match HeaderValue::try_from(format!("Bearer {token}")) {
-                    Ok(token) => token,
-                    Err(e) => {
-                        return Err(ClientError::Custom(format!(
-                            "Invalid authorization token: {e}",
-                        )));
-                    }
-                },
-            )]),
-            None => HeaderMap::new(),
-        };
+        let mut headers = HeaderMap::from_iter([(header::USER_AGENT, USER_AGENT.clone())]);
+        if let Some(token) = token.into() {
+            let value = HeaderValue::try_from(format!("Bearer {token}"))
+                .map_err(|e| ClientError::Custom(format!("Invalid authorization token: {e}")))?;
+            headers.insert(header::AUTHORIZATION, value);
+        }
         let inner = match url.scheme() {
             "ws" | "wss" => UrlClientInner::Ws(
                 jsonrpsee::ws_client::WsClientBuilder::new()
@@ -323,5 +328,30 @@ impl jsonrpsee::core::client::SubscriptionClientT for UrlClient {
             UrlClientInner::Ws(it) => Either::Left(it.subscribe_to_method(method)),
             UrlClientInner::Https(it) => Either::Right(it.subscribe_to_method(method)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli_shared::FOREST_DATA_DIR_ENV;
+
+    // The RPC client should pick up the admin token from the data directory
+    // pointed to by `FOREST_PATH`, mirroring where a daemon started with the
+    // same variable saves it.
+    #[test]
+    #[serial_test::serial]
+    fn default_token_is_loaded_from_forest_path_data_dir() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        std::fs::write(tmp_dir.path().join("token"), "secret-token").unwrap();
+
+        unsafe {
+            env::remove_var("FULLNODE_API_INFO");
+            env::set_var(FOREST_DATA_DIR_ENV, tmp_dir.path());
+        }
+        let client = Client::default_or_from_env(None).unwrap();
+        unsafe { env::remove_var(FOREST_DATA_DIR_ENV) };
+
+        assert_eq!(client.token.as_deref(), Some("secret-token"));
     }
 }

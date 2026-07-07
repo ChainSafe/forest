@@ -1,8 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::HashMap;
 use cid::Cid;
+use indexmap::IndexMap;
 use std::sync::LazyLock;
 
 use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
@@ -32,8 +32,8 @@ pub static GENESIS_NETWORK_VERSION: LazyLock<NetworkVersion> = LazyLock::new(|| 
 /// Height epochs.
 /// Environment variable names follow
 /// <https://github.com/filecoin-project/lotus/blob/8f73f157933435f5020d7b8f23bee9e4ab71cb1c/build/params_2k.go#L108>
-pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|| {
-    HashMap::from_iter([
+pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {
+    IndexMap::from_iter([
         make_height!(
             Breeze,
             get_upgrade_height_from_env("FOREST_BREEZE_HEIGHT").unwrap_or(-50)

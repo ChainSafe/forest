@@ -13,7 +13,7 @@ jobs:
   update-cli-docs:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Run update script
         run: |
           cd docs/docs/users/reference
@@ -42,7 +42,7 @@ jobs:
   update-rpc-docs:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Generate OpenRPC specifications
         run: |
           cd docs/scripts

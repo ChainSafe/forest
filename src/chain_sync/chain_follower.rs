@@ -34,12 +34,14 @@ use crate::{
     shim::clock::ChainEpoch,
     state_manager::StateManager,
 };
+use arc_swap::ArcSwap;
 use chrono::Utc;
 use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
-use parking_lot::{Mutex, RwLock};
-use std::time::Instant;
+use parking_lot::Mutex;
+use std::time::{Duration, Instant};
 use tokio::{sync::Notify, task::JoinSet};
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, trace, warn};
 
 pub struct ChainFollower {
@@ -136,7 +138,7 @@ impl ChainFollower {
         Self {
             tasks,
             state_machine,
-            sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
+            sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
             state_manager,
             network,
             genesis,
@@ -210,6 +212,8 @@ async fn chain_follower(
     let seen_block_cache = SeenBlockCache::default();
 
     let mut set = JoinSet::new();
+    let cancellation_token = CancellationToken::new();
+    let _cancellation_token_drop_guard = cancellation_token.drop_guard_ref();
 
     // Increment metrics, update peer information, and forward tipsets to the state machine.
     set.spawn({
@@ -221,6 +225,7 @@ async fn chain_follower(
         let genesis = genesis.shallow_clone();
         let bad_block_cache = bad_block_cache.shallow_clone();
         let seen_block_cache = seen_block_cache.shallow_clone();
+        let cancellation_token = cancellation_token.clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
                 inc_gossipsub_event_metrics(&event);
@@ -230,6 +235,7 @@ async fn chain_follower(
                     &network,
                     state_manager.chain_store().shallow_clone(),
                     &genesis,
+                    cancellation_token.clone(),
                 );
 
                 let Ok(tipset) = (match event {
@@ -311,23 +317,29 @@ async fn chain_follower(
         let state_changed = state_changed.shallow_clone();
         let tasks = tasks.shallow_clone();
         let bad_block_cache = bad_block_cache.shallow_clone();
+        let cancellation_token = cancellation_token.clone();
         async move {
+            const FORK_CLEANUP_INTERVAL: Duration = Duration::from_mins(1);
+            let mut last_fork_cleanup = Instant::now();
             loop {
                 state_changed.notified().await;
 
                 let mut tasks_set = tasks.lock();
+                if last_fork_cleanup + FORK_CLEANUP_INTERVAL < Instant::now() {
+                    state_machine.lock().cleanup_dangling_forks();
+                    last_fork_cleanup = Instant::now();
+                }
                 let (task_vec, current_active_forks) = state_machine.lock().tasks();
 
                 // Update the sync states
                 {
-                    let old_status_report = sync_status.read().clone();
+                    let old_status_report = sync_status.load().shallow_clone();
                     let new_status_report = old_status_report.update(
                         &state_manager,
                         current_active_forks,
                         stateless_mode,
                     );
-
-                    sync_status.write().clone_from(&new_status_report);
+                    sync_status.store(new_status_report.into());
                 }
 
                 for task in task_vec {
@@ -341,21 +353,26 @@ async fn chain_follower(
                             bad_block_cache.shallow_clone(),
                         );
                         tokio::spawn({
-                            let tasks = tasks.clone();
-                            let state_machine = state_machine.clone();
-                            let state_changed = state_changed.clone();
+                            let tasks = tasks.shallow_clone();
+                            let state_machine = state_machine.shallow_clone();
+                            let state_changed = state_changed.shallow_clone();
+                            let cancellation_token = cancellation_token.clone();
                             async move {
-                                if let Some(event) = action.await {
-                                    state_machine.lock().update(event);
-                                    state_changed.notify_one();
-                                }
-                                tasks.lock().remove(&task);
+                                cancellation_token
+                                    .run_until_cancelled(async move {
+                                        if let Some(event) = action.await {
+                                            state_machine.lock().update(event);
+                                            state_changed.notify_one();
+                                        }
+                                        let mut tasks = tasks.lock();
+                                        tasks.remove(&task);
+                                        tasks.shrink_to_fit();
+                                    })
+                                    .await
                             }
                         });
                     }
                 }
-
-                tasks_set.shrink_to_fit();
             }
         }
     });
@@ -448,17 +465,24 @@ fn update_peer_info(
     network: &SyncNetworkContext,
     chain_store: ChainStore,
     genesis: &Tipset,
+    cancellation_token: CancellationToken,
 ) {
     match event {
         NetworkEvent::PeerConnected(peer_id) => {
+            let peer_id = *peer_id;
             let genesis_cid = *genesis.block_headers().first().cid();
+            let network = network.shallow_clone();
             // Spawn and immediately move on to the next event
-            tokio::task::spawn(handle_peer_connected_event(
-                network.shallow_clone(),
-                chain_store,
-                *peer_id,
-                genesis_cid,
-            ));
+            tokio::task::spawn(async move {
+                cancellation_token
+                    .run_until_cancelled(handle_peer_connected_event(
+                        network,
+                        chain_store,
+                        peer_id,
+                        genesis_cid,
+                    ))
+                    .await
+            });
         }
         NetworkEvent::PeerDisconnected(peer_id) => {
             handle_peer_disconnected_event(network, *peer_id);
@@ -897,6 +921,25 @@ impl SyncStateMachine {
         }
         (tasks, active_sync_info)
     }
+
+    pub fn cleanup_dangling_forks(&mut self) {
+        let finalized_epoch = self.cs.ec_calculator_finalized_epoch();
+        for chain in self.chains() {
+            // Cleanup dangling fork when its target epoch is finalized
+            if let Some(target) = chain.last()
+                && target.epoch() < finalized_epoch
+            {
+                chain.iter().for_each(|ts| {
+                    self.tipsets.remove(ts.key());
+                });
+                tracing::info!(
+                    "Cleaned up dangling fork from epoch {} to {}",
+                    chain.first().map(|ts| ts.epoch()).unwrap_or_default(),
+                    chain.last().map(|ts| ts.epoch()).unwrap_or_default(),
+                );
+            }
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -975,7 +1018,8 @@ impl SyncTask {
                 {
                     Ok(parents) => Some(SyncEvent::NewFullTipsets(parents)),
                     Err(e) => {
-                        tracing::warn!(%key, %epoch, "failed to fetch tipset: {e:#}");
+                        // It's not a massive error; could be a transient network issue or a fork.
+                        tracing::debug!(%key, %epoch, "failed to fetch tipset: {e:#}");
                         None
                     }
                 }
@@ -1142,7 +1186,7 @@ mod tests {
             [genesis_header = dummy_node(&db, 0)]
         };
 
-        let cs = ChainStore::new(db, Default::default(), genesis_header.clone().into()).unwrap();
+        let cs = ChainStore::new(db, Default::default(), genesis_header).unwrap();
 
         cs.set_heaviest_tipset(cs.genesis_tipset()).unwrap();
 

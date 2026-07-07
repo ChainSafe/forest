@@ -15,8 +15,8 @@ use crate::message_pool::{
     config::MpoolConfig,
     errors::Error,
     msgpool::{
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolUpdate, pending_store::PendingStore,
-        recover_sig, republish::RepublishState,
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolSubscriber,
+        pending_store::PendingStore, recover_sig, republish::RepublishState,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -43,11 +43,7 @@ use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
 use std::num::NonZeroUsize;
 use std::time::Duration;
-use tokio::{
-    sync::broadcast::{self, error::RecvError},
-    task::JoinSet,
-    time::interval,
-};
+use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
 use tracing::warn;
 
 /// Maximum size of a serialized message in bytes. Anti-DoS measure to keep
@@ -114,7 +110,7 @@ impl ShallowClone for Caches {
 /// transactions.
 pub struct MessagePool<T> {
     /// Pending messages, keyed by resolved-key address, together with the
-    /// broadcast channel for [`MpoolUpdate`] events. See [`PendingStore`].
+    /// broadcast channel for [`MpoolUpdate`](super::events::MpoolUpdate) events. See [`PendingStore`].
     pub(in crate::message_pool) pending: PendingStore,
     pub(in crate::message_pool) caches: Caches,
     /// Resolved-key senders of locally submitted messages.
@@ -428,10 +424,10 @@ where
         )
     }
 
-    /// Subscribe to [`MpoolUpdate`] events for every insertion into and
-    /// removal from the pending pool.
-    pub fn subscribe_to_updates(&self) -> broadcast::Receiver<MpoolUpdate> {
-        self.pending.subscribe()
+    /// A subscribe-only handle to the [`MpoolUpdate`](super::events::MpoolUpdate) bus, the single entry
+    /// point for observing insertions into and removals from the pending pool.
+    pub fn subscriber(&self) -> MpoolSubscriber {
+        self.pending.subscriber()
     }
 
     /// Return Vector of signed messages given a block header for self.
@@ -610,8 +606,9 @@ fn validate_with_state(
     let publish = check_base_fee_floor(msg, cur_ts, local)?;
 
     let balance = TokenAmount::from(&sender_actor.balance);
-    if balance < msg.required_funds() {
-        return Err(Error::NotEnoughFunds);
+    let required = msg.required_funds();
+    if balance < required {
+        return Err(Error::NotEnoughFunds { balance, required });
     }
 
     Ok(publish)

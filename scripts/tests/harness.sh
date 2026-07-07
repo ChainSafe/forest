@@ -5,7 +5,11 @@
 
 export FOREST_CHAIN_INDEXER_ENABLED="1"
 
-export FOREST_PATH="forest"
+# Path to the `forest` daemon binary. Note this is intentionally NOT named
+# `FOREST_PATH`: that environment variable is honored by Forest itself to
+# override the data directory, so exporting it here would clobber the data dir
+# of every daemon launched by these tests.
+export FOREST_DAEMON_PATH="forest"
 export FOREST_CLI_PATH="forest-cli"
 export FOREST_WALLET_PATH="forest-wallet"
 export FOREST_TOOL_PATH="forest-tool"
@@ -18,12 +22,12 @@ export LOG_DIRECTORY
 
 function forest_import_non_calibnet_snapshot {
   echo "Importing a non calibnet snapshot"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --import-snapshot ./test-snapshots/chain4.car
+  $FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --halt-after-import --import-snapshot ./test-snapshots/chain4.car
 }
 
 function forest_download_and_import_snapshot {
   echo "Downloading and importing snapshot"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
+  $FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
 }
 
 function get_epoch_from_car_db {
@@ -71,7 +75,7 @@ function forest_query_format {
 
 function forest_run_node_detached {
   echo "Running forest"
-  /usr/bin/time -v $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" &
+  /usr/bin/time -v $FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" &
 }
 
 function forest_run_node_stateless_detached {
@@ -86,7 +90,7 @@ function forest_run_node_stateless_detached {
 		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0", "/ip4/127.0.0.1/udp/0/quic-v1"]
 	EOF
 
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --stateless &
+  $FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --stateless &
 }
 
 function forest_wait_api {
