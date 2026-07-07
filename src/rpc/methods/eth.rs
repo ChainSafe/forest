@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod bloom;
 pub(crate) mod errors;
 mod eth_tx;
 pub mod filter;
@@ -10,6 +11,10 @@ pub mod tipset_resolver;
 pub(crate) mod trace;
 pub mod types;
 mod utils;
+
+pub use bloom::Bloom;
+pub(crate) use bloom::store_block_logs_bloom;
+use bloom::{EMPTY_BLOOM, FULL_BLOOM, accrue_eth_log, block_logs_bloom};
 pub use tipset_resolver::TipsetResolver;
 use tokio_util::sync::CancellationToken;
 
@@ -22,7 +27,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, compute_base_fee, index::ResolveNullTipset};
 use crate::chain_sync::NodeSyncStatus;
 use crate::cid_collections::CidHashSet;
-use crate::db::{DbImpl, EthBlockBloomStore};
+use crate::db::DbImpl;
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
@@ -86,19 +91,6 @@ static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
     LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-/// Ethereum Bloom filter size in bits.
-/// Bloom filter is used in Ethereum to minimize the number of block queries.
-const BLOOM_SIZE: usize = 2048;
-
-/// Ethereum Bloom filter size in bytes.
-const BLOOM_SIZE_IN_BYTES: usize = BLOOM_SIZE / 8;
-
-/// Ethereum Bloom filter with all bits set to 1.
-const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
-
-/// Ethereum Bloom filter with all bits set to 0.
-const EMPTY_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0x0; BLOOM_SIZE_IN_BYTES];
 
 /// Ethereum address size in bytes.
 const ADDRESS_LENGTH: usize = 20;
@@ -197,21 +189,6 @@ pub struct Nonce(
     pub ethereum_types::H64,
 );
 lotus_json_with_self!(Nonce);
-
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema, GetSize)]
-pub struct Bloom(
-    #[schemars(with = "String")]
-    #[serde(with = "crate::lotus_json::hexify_bytes")]
-    #[get_size(ignore)]
-    pub ethereum_types::Bloom,
-);
-lotus_json_with_self!(Bloom);
-
-impl Bloom {
-    pub fn accrue(&mut self, input: &[u8]) {
-        self.0.accrue(ethereum_types::BloomInput::Raw(input));
-    }
-}
 
 #[derive(
     Eq,
@@ -584,7 +561,7 @@ impl Block {
                 }
 
                 let logs_bloom =
-                    block_logs_bloom(state_manager, &tipset, &executed_messages).await?;
+                    block_logs_bloom(state_manager, &tipset, &state_root, &executed_messages)?;
 
                 Ok(Arc::new(Block {
                     hash: block_hash,
@@ -3400,67 +3377,6 @@ fn eth_filter_logs_from_events(
 }
 
 /// Accrues a single Ethereum log's address and topics into `bloom` using the standard `M3:2048` scheme.
-fn accrue_eth_log(bloom: &mut Bloom, address: &EthAddress, topics: &[EthHash]) {
-    for topic in topics {
-        bloom.accrue(topic.0.as_bytes());
-    }
-    bloom.accrue(address.0.as_bytes());
-}
-
-async fn compute_block_logs_bloom(
-    state_manager: &StateManager,
-    tipset: &Tipset,
-    executed_messages: &[ExecutedMessage],
-) -> Result<Bloom> {
-    let mut events = vec![];
-    EthEventHandler::collect_events_from_messages(
-        state_manager,
-        tipset,
-        executed_messages,
-        None::<&ParsedFilter>,
-        SkipEvent::OnUnresolvedAddress,
-        EventRevertStatus::Applied,
-        &mut events,
-    )
-    .await?;
-
-    let mut bloom = Bloom::default();
-    for event in &events {
-        let Some((_data, topics)) = eth_log_from_event(&event.entries) else {
-            continue;
-        };
-        let Ok(address) = EthAddress::from_filecoin_address(&event.emitter_addr) else {
-            continue;
-        };
-        accrue_eth_log(&mut bloom, &address, &topics);
-    }
-    Ok(bloom)
-}
-
-/// Returns the block's logs bloom, reading it from the store when the chain indexer is enabled
-/// and computing (then storing) it on a miss.
-async fn block_logs_bloom(
-    state_manager: &StateManager,
-    tipset: &Tipset,
-    executed_messages: &[ExecutedMessage],
-) -> Result<Bloom> {
-    let config = state_manager.chain_config();
-    let store_bloom = config.enable_indexer && !config.is_devnet();
-
-    let key = tipset.key().cid()?;
-    if store_bloom && let Some(bloom) = state_manager.db().read_bloom(&key)? {
-        return Ok(Bloom(ethereum_types::Bloom(bloom)));
-    }
-
-    let bloom = compute_block_logs_bloom(state_manager, tipset, executed_messages).await?;
-    if store_bloom {
-        state_manager
-            .db()
-            .write_bloom(&key, tipset.epoch(), &bloom.0.0)?;
-    }
-    Ok(bloom)
-}
-
 fn eth_filter_result_from_events(
     ctx: &Ctx,
     events: &[CollectedEvent],
@@ -4828,46 +4744,6 @@ mod test {
             },
         ];
         assert!(eth_log_from_event(&entries).is_none());
-    }
-
-    #[test]
-    fn test_accrue_eth_log_and_block_bloom_decomposition() {
-        let empty = Bloom::default();
-        let full = Bloom(ethereum_types::Bloom(FULL_BLOOM));
-
-        // No logs yields the all-zeros bloom — the "definitely no events here" case
-        // indexers rely on.
-        assert_eq!(empty.0.0, EMPTY_BLOOM);
-
-        let addr_a = EthAddress(ethereum_types::H160::from_slice(&[0x11; ADDRESS_LENGTH]));
-        let topic_a = EthHash(ethereum_types::H256::from_slice(&[0x22; EVM_WORD_LENGTH]));
-        let addr_b = EthAddress(ethereum_types::H160::from_slice(&[0x33; ADDRESS_LENGTH]));
-        let topic_b = EthHash(ethereum_types::H256::from_slice(&[0x44; EVM_WORD_LENGTH]));
-
-        // A real log sets some bits, but not all of them.
-        let mut bloom_a = empty.clone();
-        accrue_eth_log(&mut bloom_a, &addr_a, std::slice::from_ref(&topic_a));
-        assert_ne!(bloom_a, empty);
-        assert_ne!(bloom_a, full);
-
-        let mut bloom_b = empty.clone();
-        accrue_eth_log(&mut bloom_b, &addr_b, std::slice::from_ref(&topic_b));
-
-        // The block bloom (both logs) equals the bitwise OR of the two individual
-        // (receipt) blooms.
-        let mut combined = bloom_a.clone();
-        accrue_eth_log(&mut combined, &addr_b, std::slice::from_ref(&topic_b));
-
-        let mut expected = bloom_a.0.0;
-        for (out, b) in expected.iter_mut().zip(bloom_b.0.0.iter()) {
-            *out |= *b;
-        }
-        assert_eq!(combined.0.0, expected);
-
-        // Accruing the same log twice equals accruing it once.
-        let mut twice = bloom_a.clone();
-        accrue_eth_log(&mut twice, &addr_a, std::slice::from_ref(&topic_a));
-        assert_eq!(twice, bloom_a);
     }
 
     #[test]
