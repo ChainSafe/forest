@@ -38,7 +38,21 @@ impl ShallowClone for ChainRand {
 impl ChainRand {
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
     /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
-    pub fn get_chain_randomness(
+    pub async fn get_chain_randomness(
+        &self,
+        round: ChainEpoch,
+        lookback: bool,
+    ) -> anyhow::Result<[u8; 32]> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || this.get_chain_randomness_blocking(round, lookback))
+            .await?
+    }
+
+    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
+    /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
+    /// This call can be expensive and blocking, use [`Self::get_chain_randomness`]
+    /// in async contexts to avoid exhausting Tokio worker threads.
+    pub fn get_chain_randomness_blocking(
         &self,
         round: ChainEpoch,
         lookback: bool,
@@ -58,7 +72,7 @@ impl ChainRand {
         };
         let rand_ts =
             self.chain_index
-                .load_required_tipset_by_height(search_height, ts, resolve)?;
+                .load_required_tipset_by_height_blocking(search_height, ts, resolve)?;
 
         Ok(digest(
             rand_ts
@@ -70,40 +84,46 @@ impl ChainRand {
     }
 
     /// network version 13 onward
-    pub fn get_chain_randomness_v2(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness(round, false)
+    pub fn get_chain_randomness_v2_blocking(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
+        self.get_chain_randomness_blocking(round, false)
     }
 
     /// network version 13; without look-back
-    pub fn get_beacon_randomness_v2(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        self.get_beacon_randomness(round, false)
+    pub fn get_beacon_randomness_v2_blocking(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
+        self.get_beacon_randomness_blocking(round, false)
     }
 
     /// network version 14 onward
-    pub fn get_beacon_randomness_v3(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
+    pub fn get_beacon_randomness_v3_blocking(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         if round < 0 {
-            return self.get_beacon_randomness_v2(round);
+            return self.get_beacon_randomness_v2_blocking(round);
         }
 
         let beacon_entry = self.extract_beacon_entry_for_epoch(round)?;
         Ok(digest(beacon_entry.signature()))
     }
 
+    /// Non-blocking version of [`Self::get_beacon_randomness_v3_blocking`]
+    pub async fn get_beacon_randomness_v3(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || this.get_beacon_randomness_v3_blocking(round)).await?
+    }
+
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
     /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the latest beacon
     /// entry.
-    pub fn get_beacon_randomness(
+    pub fn get_beacon_randomness_blocking(
         &self,
         round: ChainEpoch,
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let rand_ts: Tipset = self.get_beacon_randomness_tipset(round, lookback)?;
+        let rand_ts: Tipset = self.get_beacon_randomness_tipset_blocking(round, lookback)?;
         let be = self.chain_index.latest_beacon_entry(rand_ts)?;
         Ok(digest(be.signature()))
     }
 
     pub fn extract_beacon_entry_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<BeaconEntry> {
-        let mut rand_ts: Tipset = self.get_beacon_randomness_tipset(epoch, false)?;
+        let mut rand_ts: Tipset = self.get_beacon_randomness_tipset_blocking(epoch, false)?;
         let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
         let round =
             beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch);
@@ -126,7 +146,7 @@ impl ChainRand {
         )
     }
 
-    pub fn get_beacon_randomness_tipset(
+    pub fn get_beacon_randomness_tipset_blocking(
         &self,
         round: ChainEpoch,
         lookback: bool,
@@ -146,7 +166,7 @@ impl ChainRand {
         };
 
         self.chain_index
-            .load_required_tipset_by_height(search_height, ts, resolve)
+            .load_required_tipset_by_height_blocking(search_height, ts, resolve)
             .map_err(|e| e.into())
     }
 }
@@ -154,24 +174,26 @@ impl ChainRand {
 impl Rand for ChainRand {
     fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         // Inspect and log errors as this is only called in `FVM` and errors are not propagated to the caller
-        self.get_chain_randomness_v2(round).inspect_err(|e| {
-            tracing::warn!(
-                "get_chain_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
-                self.tipset.epoch(),
-                self.tipset.key()
-            );
-        })
+        self.get_chain_randomness_v2_blocking(round)
+            .inspect_err(|e| {
+                tracing::warn!(
+                    "get_chain_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
+                    self.tipset.epoch(),
+                    self.tipset.key()
+                );
+            })
     }
 
     fn get_beacon_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         // Inspect and log errors as this is only called in `FVM` and errors are not propagated to the caller
-        self.get_beacon_randomness_v3(round).inspect_err(|e| {
-            tracing::warn!(
-                "get_beacon_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
-                self.tipset.epoch(),
-                self.tipset.key()
-            );
-        })
+        self.get_beacon_randomness_v3_blocking(round)
+            .inspect_err(|e| {
+                tracing::warn!(
+                    "get_beacon_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
+                    self.tipset.epoch(),
+                    self.tipset.key()
+                );
+            })
     }
 }
 

@@ -13,7 +13,7 @@ use std::sync::Arc;
 use tracing::log;
 
 // Node considered synced if the head is within this threshold.
-const SYNCED_EPOCH_THRESHOLD: u64 = 10;
+const SYNCED_EPOCH_THRESHOLD: u64 = 2;
 
 /// Represents the overall synchronization status of the Forest node.
 #[derive(

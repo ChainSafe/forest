@@ -223,11 +223,13 @@ async fn benchmark_exporting(
         store.shallow_clone(),
         heaviest.genesis(store.shallow_clone()).await?,
     );
-    let ts = idx.load_required_tipset_by_height(
-        epoch.unwrap_or(heaviest.epoch()),
-        heaviest,
-        ResolveNullTipset::TakeOlder,
-    )?;
+    let ts = idx
+        .load_required_tipset_by_height(
+            epoch.unwrap_or(heaviest.epoch()),
+            heaviest,
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
     // We don't do any sanity checking for 'depth'. The output is discarded so
     // there's no need.
     let stateroot_lookup_limit = ts.epoch() - depth;

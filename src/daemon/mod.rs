@@ -825,7 +825,7 @@ pub(super) async fn start_services(
     }
     if !opts.stateless
         && !opts.skip_load_actors
-        && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset()
+        && let Err(e) = ctx.state_manager.maybe_rewind_heaviest_tipset().await
     {
         tracing::warn!("error in maybe_rewind_heaviest_tipset: {e:#}");
     }
