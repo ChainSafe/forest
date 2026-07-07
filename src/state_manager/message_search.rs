@@ -126,32 +126,43 @@ impl StateManager {
         &self,
         current: Tipset,
         message: &ChainMessage,
-        look_back_limit: Option<i64>,
+        look_back_limit: Option<ChainEpoch>,
         allow_replaced: Option<bool>,
         cancellation_token: &CancellationToken,
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
         let current_epoch = current.epoch();
         let allow_replaced = allow_replaced.unwrap_or(true);
 
-        // Calculate the max lookback epoch (inclusive lower bound) for the search.
-        let lookback_max_epoch = match look_back_limit {
-            // No search: limit = 0 means search 0 epochs
-            Some(0) => return Ok(None),
-            // Limited search: calculate the inclusive lower bound, clamped to genesis
-            // Example: limit=5 at epoch=1000 → min_epoch=996, searches [996,1000] = 5 epochs
-            // Example: limit=2000 at epoch=1000 → min_epoch=0, searches [0,1000] = 1001 epochs (all available)
-            Some(limit) if limit > 0 => (current_epoch - limit + 1).max(0),
-            // Search all the way to genesis (epoch 0)
-            _ => 0,
+        let Some(max_lookback_epoch_inclusive) =
+            Self::max_lookback_epoch_inclusive(current_epoch, look_back_limit)
+        else {
+            return Ok(None);
         };
 
         self.check_search_blocking(
             current,
             message,
-            lookback_max_epoch,
+            max_lookback_epoch_inclusive,
             allow_replaced,
             cancellation_token,
         )
+    }
+
+    //. Calculates the max lookback epoch (inclusive lower bound) for the search.
+    pub fn max_lookback_epoch_inclusive(
+        current_epoch: ChainEpoch,
+        look_back_limit: Option<ChainEpoch>,
+    ) -> Option<ChainEpoch> {
+        match look_back_limit {
+            // No search: limit = 0 means search 0 epochs
+            Some(0) => None,
+            // Limited search: calculate the inclusive lower bound, clamped to genesis
+            // Example: limit=5 at epoch=1000 → min_epoch=996, searches [996,1000] = 5 epochs
+            // Example: limit=2000 at epoch=1000 → min_epoch=0, searches [0,1000] = 1001 epochs (all available)
+            Some(limit) if limit > 0 => Some((current_epoch - limit + 1).max(0)),
+            // Search all the way to genesis (epoch 0)
+            _ => Some(0),
+        }
     }
 
     /// Returns a message receipt from a given tipset and message CID.
