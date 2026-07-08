@@ -57,7 +57,7 @@
 
 - [#7096](https://github.com/ChainSafe/forest/issues/7096): `eth_subscribe` `logs` now re-emits the logs of reorg-reverted tipsets with `removed: true`, ahead of the logs of the replacing tipsets.
 
-- [#7156](https://github.com/ChainSafe/forest/pull/7156): The `eth` block `logsBloom` is now correctly computed from the block's logs instead of being all-ones. When the chain indexer is enabled, the computed bloom is cached in the database.
+- [#7156](https://github.com/ChainSafe/forest/pull/7156): The `eth` block `logsBloom` is now computed from the block's logs and stored when the tipset is executed or backfilled, instead of being all-ones. Blocks without a stored bloom still report the all-ones bloom, set `FOREST_ETH_RPC_COMPUTE_BLOOM_ON_MISS=1` to compute and store the bloom on demand instead.
 
 ## Forest v0.33.7 "Shimmergloom"
 
