@@ -1,13 +1,14 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::multihash::MultihashCode;
 use crate::{
     blocks::TipsetKey,
     db::{EthBlockBloomStore, EthMappingsStore, SettingsStore, SettingsStoreExt as _},
-    prelude::*,
 };
 use cid::Cid;
 use fvm_ipld_encoding::DAG_CBOR;
+use multihash_derive::MultihashDigest;
 
 pub fn write_bin<DB>(db: &DB)
 where
