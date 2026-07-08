@@ -35,7 +35,7 @@
 
 ### Fixed
 
-- [#6748](https://github.com/ChainSafe/forest/issues/6748): Fixed trace transaction api returns the correct error.
+- [#6748](https://github.com/ChainSafe/forest/issues/6748): The Ethereum trace methods (`trace_transaction`, `trace_block`, `trace_replayBlockTransactions`) now report `Reverted` for a reverted contract creation instead of a mis-classified actor error.
 
 ## Forest v0.33.8 "Amiga 1200"
 
