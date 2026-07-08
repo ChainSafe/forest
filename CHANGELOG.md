@@ -29,6 +29,18 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.33.8 "Amiga 1200"
+
+Non-mandatory release for all node operators. It includes mostly fixes and performance improvements for the RPC methods.
+
+### Added
+
 - [#7269](https://github.com/ChainSafe/forest/pull/7269): Added `--wait-confidence` and `--wait-timeout` to `forest-wallet send` command.
 
 - [#7275](https://github.com/ChainSafe/forest/pull/7275): Added the `--remove-existing-chain` flag to delete the existing chain data on snapshot import.
@@ -38,8 +50,6 @@
 - [#6442](https://github.com/ChainSafe/forest/issues/6442): `forest-wallet sign` and `forest-wallet verify` now apply the FRC-0102 signing envelope to the message by default. Pass `--raw` on both sides to reproduce the previous raw-bytes behaviour.
 
 - [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth_getBlockReceipts` and `eth_getBlockReceiptsLimited` now return an `ErrNullRound` error (JSON-RPC code `12`) for a null-round block number instead of resolving to the previous tipset, matching upstream Lotus (lotus#13694). Set `FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND=1` to restore the previous behavior for parity with Lotus releases predating that fix.
-
-### Removed
 
 ### Fixed
 
