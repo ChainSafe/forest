@@ -144,7 +144,7 @@ fn send_from_and_maybe_wait(
             Ok(out) => return Ok(out),
             Err(e) if attempt < SEND_RETRIES => {
                 eprintln!(
-                    "send {from} -> {to} failed on attempt {attempt}/{SEND_RETRIES} error: {e:?}, retrying"
+                    "error: {e:?} send {from} -> {to} failed on attempt {attempt}/{SEND_RETRIES}, retrying"
                 );
                 std::thread::sleep(SEND_RETRY_DELAY);
                 attempt += 1;
