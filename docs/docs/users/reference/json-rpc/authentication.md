@@ -1,5 +1,6 @@
 ---
-title: JWT Authentication
+title: Authentication
+sidebar_position: 1
 ---
 
 # JWT Authentication :key:
