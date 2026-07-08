@@ -4,11 +4,11 @@
 use super::helpers::*;
 use libtest_mimic::{Arguments, Trial};
 
-/// Calibnet wallet integration tests
+/// Wallet integration tests
 #[derive(Debug, clap::Args)]
-pub struct CalibnetWalletTestCommand {}
+pub struct WalletTestCommand {}
 
-impl CalibnetWalletTestCommand {
+impl WalletTestCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let args = Arguments {
             test_threads: Some(8),
