@@ -11,6 +11,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::multihash::prelude::*;
 use ahash::HashMap;
+use indexmap::IndexMap;
 use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
 
@@ -202,10 +203,64 @@ impl super::HeaviestTipsetKeyProvider for MemoryDB {
     }
 }
 
+#[derive(Debug, Default, derive_more::Deref)]
+/// A memory blockstore that preserves the insertion order
+pub struct IndexMapBlockstore {
+    inner: RwLock<IndexMap<Cid, Vec<u8>>>,
+}
+
+impl IndexMapBlockstore {
+    #[allow(dead_code)]
+    pub async fn export_forest_car<W: tokio::io::AsyncWrite + Unpin>(
+        &self,
+        roots: NonEmpty<Cid>,
+        writer: &mut W,
+    ) -> anyhow::Result<()> {
+        let blocks = {
+            let inner = self.inner.read();
+            let invalid_roots = roots
+                .iter()
+                .filter(|&c| !inner.contains_key(c))
+                .collect_vec();
+            anyhow::ensure!(
+                invalid_roots.is_empty(),
+                "All roots should present in the blockstore, invalid roots: {invalid_roots:?}"
+            );
+            inner
+                .iter()
+                .map(|(&cid, data)| {
+                    anyhow::Ok(CarBlock {
+                        cid,
+                        data: data.clone().into(),
+                    })
+                })
+                .collect_vec()
+        };
+        let frames =
+            crate::db::car::forest::Encoder::compress_stream_default(futures::stream::iter(blocks));
+        crate::db::car::forest::Encoder::write(writer, roots, frames).await
+    }
+}
+
+impl Blockstore for IndexMapBlockstore {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(self.read().get(k).cloned())
+    }
+
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.write().insert(*k, block.to_vec());
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::{car::ForestCar, setting_keys::HEAD_KEY};
+    use crate::{
+        db::{car::ForestCar, setting_keys::HEAD_KEY},
+        utils::cid::CidCborExt as _,
+    };
+    use fil_actors_shared::fvm_ipld_hamt::Hamt;
     use fvm_ipld_encoding::DAG_CBOR;
     use multihash_codetable::Code::Blake2b256;
     use nunny::vec as nonempty;
@@ -240,5 +295,80 @@ mod tests {
         assert_eq!(car.head_tipset_key(), &nonempty![key1]);
         assert!(car.has(&key1).unwrap());
         assert!(car.has(&key2).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_index_map_blockstore() {
+        const BIT_WIDTH: u32 = 5;
+
+        let db = IndexMapBlockstore::default();
+        // similate tipset lookup table
+        let mut hamt: Hamt<_, TipsetKey, ChainEpoch> = Hamt::new_with_bit_width(&db, BIT_WIDTH);
+        let checkpoints = [
+            (
+                0,
+                TipsetKey::from(nunny::vec![Cid::from_cbor_blake2b256(&"1").unwrap()]),
+            ),
+            (
+                5,
+                TipsetKey::from(nunny::vec![Cid::from_cbor_blake2b256(&"5").unwrap()]),
+            ),
+            (
+                10,
+                TipsetKey::from(nunny::vec![Cid::from_cbor_blake2b256(&"10").unwrap()]),
+            ),
+        ];
+        for (epoch, tsk) in checkpoints.iter().cloned() {
+            hamt.set(epoch, tsk).unwrap();
+        }
+        let hamt_root = hamt.flush().unwrap();
+        assert!(db.has(&hamt_root).unwrap(), "hamt root should present");
+
+        // export with invalid roots should fail
+        let mut car = vec![];
+        db.export_forest_car(
+            nunny::vec![Cid::from_cbor_blake2b256(&"invalid").unwrap()],
+            &mut car,
+        )
+        .await
+        .unwrap_err();
+
+        // export with hamt root should succeed
+        let mut car_bytes = vec![];
+        let car_roots = nunny::vec![hamt_root];
+        db.export_forest_car(car_roots.clone(), &mut car_bytes)
+            .await
+            .unwrap();
+
+        let car: ForestCar<Vec<u8>> = ForestCar::new(car_bytes).unwrap();
+        let hamt_from_car: Hamt<_, TipsetKey, ChainEpoch> =
+            Hamt::load_with_bit_width(&hamt_root, &car, BIT_WIDTH).unwrap();
+
+        let checkpoints_from_memdb_hamt = {
+            let mut v = vec![];
+            hamt.for_each_cacheless(|epoch, tsk| {
+                v.push((*epoch, tsk.clone()));
+                anyhow::Ok(())
+            })
+            .unwrap();
+            v
+        };
+        let checkpoints_from_car_hamt = {
+            let mut v = vec![];
+            hamt_from_car
+                .for_each_cacheless(|epoch, tsk| {
+                    v.push((*epoch, tsk.clone()));
+                    anyhow::Ok(())
+                })
+                .unwrap();
+            v
+        };
+        // Cannot compare the 2 hamts as they use different DB types
+        assert_eq!(checkpoints_from_memdb_hamt, checkpoints_from_car_hamt);
+        // The hamt iteration order is different from the insertion order
+        assert_eq!(
+            HashMap::from_iter(checkpoints),
+            HashMap::from_iter(checkpoints_from_car_hamt)
+        );
     }
 }

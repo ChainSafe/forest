@@ -83,7 +83,10 @@ async fn test_export_inner(
         include_tipset_lookup,
         ..Default::default()
     };
-    let (checksum, tipset_lookup_hamt) = match version {
+    let ExportResult {
+        checksum,
+        tipset_lookup,
+    } = match version {
         FilecoinSnapshotVersion::V1 => {
             export::<Sha256, _>(&db, &head, 0, &mut car_bytes, option).await?
         }
@@ -125,7 +128,7 @@ async fn test_export_inner(
     }
 
     if include_tipset_lookup {
-        let tipset_lookup_hamt = tipset_lookup_hamt
+        let tipset_lookup_hamt = tipset_lookup
             .context("tipset lookup should be included")?
             .context("tipset lookup should be exported successfully")?;
         assert_eq!(

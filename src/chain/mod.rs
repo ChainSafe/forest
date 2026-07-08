@@ -13,7 +13,7 @@ pub use self::{snapshot_format::*, store::*, weight::*};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ChainIndex;
 use crate::cid_collections::CidHashSetLike;
-use crate::db::MemoryDB;
+use crate::db::IndexMapBlockstore;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::ipld::stream_chain;
 use crate::prelude::*;
@@ -56,6 +56,12 @@ impl<S: Default> Default for ExportOptions<S> {
     }
 }
 
+pub struct ExportResult<D: Digest> {
+    pub checksum: Option<digest::Output<D>>,
+    #[allow(dead_code)]
+    pub tipset_lookup: Option<anyhow::Result<Hamt<IndexMapBlockstore, TipsetKey, ChainEpoch>>>,
+}
+
 /// Exports a Filecoin snapshot in v1 format
 /// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v1-specification>
 pub async fn export<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
@@ -64,10 +70,7 @@ pub async fn export<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
     options: ExportOptions<S>,
-) -> anyhow::Result<(
-    Option<digest::Output<D>>,
-    Option<anyhow::Result<Hamt<MemoryDB, TipsetKey, ChainEpoch>>>,
-)> {
+) -> anyhow::Result<ExportResult<D>> {
     let roots = tipset.key().to_cids();
     export_to_forest_car::<D, S>(roots, None, db, tipset, lookup_depth, writer, options).await
 }
@@ -81,10 +84,7 @@ pub async fn export_v2<D: Digest, F: Seek + Read, S: CidHashSetLike + Send + Syn
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
     options: ExportOptions<S>,
-) -> anyhow::Result<(
-    Option<digest::Output<D>>,
-    Option<anyhow::Result<Hamt<MemoryDB, TipsetKey, ChainEpoch>>>,
-)> {
+) -> anyhow::Result<ExportResult<D>> {
     // validate f3 data
     if let Some((f3_cid, f3_data)) = &mut f3 {
         f3_data.seek(SeekFrom::Start(0))?;
@@ -157,10 +157,7 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
         include_tipset_lookup,
         seen,
     }: ExportOptions<S>,
-) -> anyhow::Result<(
-    Option<digest::Output<D>>,
-    Option<anyhow::Result<Hamt<MemoryDB, TipsetKey, ChainEpoch>>>,
-)> {
+) -> anyhow::Result<ExportResult<D>> {
     if include_events && !include_receipts {
         anyhow::bail!("message receipts must be included when events are included");
     }
@@ -180,8 +177,10 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
     let (ts_lookup_tx, ts_lookup_handle) = if include_tipset_lookup {
         let (ts_lookup_tx, ts_lookup_rx) = flume::bounded::<(ChainEpoch, TipsetKey)>(1024);
         let handle = AbortOnDropHandle::new(tokio::spawn(async move {
-            let mut hamt =
-                Hamt::new_with_bit_width(MemoryDB::default(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
+            let mut hamt = Hamt::new_with_bit_width(
+                IndexMapBlockstore::default(),
+                TIPSET_LOOKUP_HAMT_BIT_WIDTH,
+            );
             while let Ok((epoch, tsk)) = ts_lookup_rx.recv_async().await {
                 hamt.set(epoch, tsk)?;
             }
@@ -233,7 +232,7 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
 
     let digest = writer.finalize().map_err(|e| Error::Other(e.to_string()))?;
 
-    let hamt = if let Some(ts_lookup_handle) = ts_lookup_handle {
+    let tipset_lookup = if let Some(ts_lookup_handle) = ts_lookup_handle {
         Some(ts_lookup_handle.await?)
     } else {
         None
@@ -244,5 +243,8 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
         humantime::format_duration(start.elapsed())
     );
 
-    Ok((digest, hamt))
+    Ok(ExportResult {
+        checksum: digest,
+        tipset_lookup,
+    })
 }

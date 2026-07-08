@@ -8,7 +8,7 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
-use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
+use crate::chain::{ChainStore, ExportOptions, ExportResult, FilecoinSnapshotVersion, HeadChange};
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
 use crate::ipld::DfsIter;
@@ -329,7 +329,7 @@ impl RpcMethod<1> for ForestChainExport {
 
                 tokio::select! {
                     result = chain_export => {
-                        result.map(|(checksum_opt, _)| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
+                        result.map(| ExportResult { checksum, .. } | ApiExportResult::Done(checksum.map(|hash| hash.encode_hex())))
                     },
                     _ = chain_export_guard.cancellation_token().cancelled() => {
                         chain_export_guard.cancel_export();
@@ -374,7 +374,7 @@ impl RpcMethod<1> for ForestChainExport {
 
                 tokio::select! {
                     result = chain_export => {
-                        result.map(|(checksum_opt, _)| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
+                        result.map(| ExportResult{ checksum, .. } | ApiExportResult::Done(checksum.map(|hash| hash.encode_hex())))
                     },
                     _ = chain_export_guard.cancellation_token().cancelled() => {
                         chain_export_guard.cancel_export();
