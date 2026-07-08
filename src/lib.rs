@@ -86,6 +86,7 @@ mod prelude {
     pub use cid::Cid;
     pub use itertools::Itertools as _;
     pub use std::{ops::Deref as _, sync::Arc};
+    pub use tracing::{debug, error, info, trace, warn};
 }
 
 /// These items are semver-exempt, and exist for forest author use only

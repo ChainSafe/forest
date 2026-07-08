@@ -42,7 +42,6 @@ use parking_lot::Mutex;
 use std::time::{Duration, Instant};
 use tokio::{sync::Notify, task::JoinSet};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, trace, warn};
 
 pub struct ChainFollower {
     /// Tasks

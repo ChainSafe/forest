@@ -34,3 +34,9 @@ fn mem_write_read_obj() {
     let db = MemoryDB::default();
     subtests::write_read_obj(&db);
 }
+
+#[test]
+fn mem_tipset_lookup_read_write_delete() {
+    let db = MemoryDB::default();
+    subtests::tipset_lookup_read_write_delete(&db);
+}
