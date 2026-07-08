@@ -120,6 +120,10 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         })
     }
 
+    pub fn header_v1(&self) -> &CarV1Header {
+        &self.header
+    }
+
     pub fn metadata(&self) -> Option<&FilecoinSnapshotMetadata> {
         self.metadata
             .get_or_init(|| {

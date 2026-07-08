@@ -19,7 +19,7 @@ pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
 pub use db_impl::DbImpl;
 pub use either::Either;
 pub use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
-pub use memory::MemoryDB;
+pub use memory::{IndexMapBlockstore, MemoryDB};
 
 use crate::blocks::{Tipset, TipsetKey};
 use crate::prelude::*;

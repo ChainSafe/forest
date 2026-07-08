@@ -146,6 +146,7 @@ impl SnapshotCommands {
                     include_receipts: false,
                     include_events: false,
                     include_tipset_keys: false,
+                    include_tipset_lookup: false,
                     skip_checksum,
                     dry_run,
                 };
