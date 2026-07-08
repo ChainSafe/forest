@@ -165,7 +165,8 @@ ExecStart=/usr/local/bin/forest --chain calibnet --auto-download-snapshot --encr
 Restart=on-failure
 RestartSec=10s
 
-Environment=FOREST_CHAIN_INDEXER_ENABLED=1
+# The chain indexer (Ethereum RPC support) is enabled by default; opt out with:
+# Environment=FOREST_CHAIN_INDEXER_ENABLED=0
 # Optional, if F3 is not working properly.
 # Environment=FOREST_F3_SIDECAR_FFI_ENABLED=0
 
