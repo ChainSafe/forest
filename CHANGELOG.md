@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#6748](https://github.com/ChainSafe/forest/issues/6748): Fixed trace transaction api returns the correct error.
+
 ## Forest v0.33.8 "Amiga 1200"
 
 Non-mandatory release for all node operators. It includes mostly fixes and performance improvements for the RPC methods.
@@ -68,8 +70,6 @@ Non-mandatory release for all node operators. It includes mostly fixes and perfo
 - [#7227](https://github.com/ChainSafe/forest/issues/7227): Fixed invalid `Filecoin.GasEstimateGasPremium` and `Filecoin.GasEstimateFeeCap` responses that were returning a fraction instead of an integer.
 
 - [#7096](https://github.com/ChainSafe/forest/issues/7096): `eth_subscribe` `logs` now re-emits the logs of reorg-reverted tipsets with `removed: true`, ahead of the logs of the replacing tipsets.
-
-- [#6748](https://github.com/ChainSafe/forest/issues/6748): Fixed trace transaction api returns the correct error.
 
 ## Forest v0.33.7 "Shimmergloom"
 
