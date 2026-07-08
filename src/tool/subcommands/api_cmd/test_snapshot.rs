@@ -40,6 +40,7 @@ pub struct Payload(#[serde(with = "crate::lotus_json::base64_standard")] pub Vec
 pub struct Index {
     pub eth_mappings: Option<ahash::HashMap<String, Payload>>,
     pub indices: Option<ahash::HashMap<String, Payload>>,
+    pub eth_block_blooms: Option<ahash::HashMap<String, Payload>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,13 +59,22 @@ pub struct RpcTestSnapshot {
     pub api_path: Option<ApiPaths>,
 }
 
-fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
-    if let Some(index) = index
-        && let Some(mut guard) = db.eth_mappings_db.try_write()
-        && let Some(eth_mappings) = index.eth_mappings
+fn backfill_index_data(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
+    let Some(index) = index else {
+        return Ok(());
+    };
+    if let Some(mut guard) = db.eth_mappings_db.try_write()
+        && let Some(eth_mappings) = &index.eth_mappings
     {
         for (k, v) in eth_mappings.iter() {
             guard.insert(EthHash::from_str(k)?, v.0.clone());
+        }
+    }
+    if let Some(mut guard) = db.eth_block_bloom_db.try_write()
+        && let Some(eth_block_blooms) = &index.eth_block_blooms
+    {
+        for (k, v) in eth_block_blooms.iter() {
+            guard.insert(Cid::from_str(k)?, v.0.clone());
         }
     }
     Ok(())
@@ -114,8 +124,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
             .try_collect()?;
     }
     // backfill db with index data
-    backfill_eth_mappings(db.writer(), index)
-        .context("failed to backfill eth mappings from index")?;
+    backfill_index_data(db.writer(), index).context("failed to backfill db from index data")?;
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
     let (ctx, _, _) = ctx(db, chain_config)
         .await

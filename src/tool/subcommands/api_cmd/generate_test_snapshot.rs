@@ -101,6 +101,13 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
             .get_or_insert_with(Default::default)
             .insert(k.to_string(), Payload(v.clone()));
     }
+    let reader = db.tracker.eth_block_bloom_db.read();
+    for (k, v) in reader.iter() {
+        index
+            .eth_block_blooms
+            .get_or_insert_with(Default::default)
+            .insert(k.to_string(), Payload(v.clone()));
+    }
     if index == Index::default() {
         None
     } else {
@@ -366,7 +373,13 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
 
 impl<T: EthBlockBloomStore> EthBlockBloomStore for ReadOpsTrackingStore<T> {
     fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<[u8; BLOCK_BLOOM_LEN]>> {
-        self.inner.read_bloom(key)
+        let result = self.inner.read_bloom(key)?;
+        if self.tracking()
+            && let Some(bloom) = &result
+        {
+            self.tracker.write_bloom(key, 0, bloom)?;
+        }
+        Ok(result)
     }
 
     fn write_bloom(

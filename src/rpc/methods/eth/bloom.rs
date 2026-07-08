@@ -4,9 +4,9 @@
 //! Ethereum block logs bloom support: the [`Bloom`] type and the derivation and storage of
 //! per-tipset block logs blooms.
 //!
-//! Blooms are stored at execution time alongside a `tipsets` receipts and events and
-//! served from the store when building Ethereum blocks. For `tipsets` never executed by this
-//! node (nor backfilled), the block reports [`FULL_BLOOM`].
+//! Blooms are stored when a tipset is executed, alongside its receipts and events, and
+//! served from the store when building Ethereum blocks. For tipsets never executed by
+//! this node (nor covered by index backfill), the block reports [`FULL_BLOOM`].
 
 use super::*;
 use crate::db::EthBlockBloomStore;
@@ -38,6 +38,7 @@ pub struct Bloom(
 lotus_json_with_self!(Bloom);
 
 impl Bloom {
+    /// Accrues the raw input bytes into the bloom filter.
     pub fn accrue(&mut self, input: &[u8]) {
         self.0.accrue(ethereum_types::BloomInput::Raw(input));
     }
@@ -66,17 +67,16 @@ fn compute_block_logs_bloom(
             continue;
         };
         for event in events {
-            let address = resolved_eth_addrs
-                .entry(event.emitter())
-                .or_insert_with(|| {
-                    state_tree
-                        .resolve_to_deterministic_address(
-                            state_manager.chain_store().db(),
-                            FilecoinAddress::new_id(event.emitter()),
-                        )
-                        .ok()
-                        .and_then(|addr| EthAddress::from_filecoin_address(&addr).ok())
-                });
+            let emitter = event.emitter();
+            let address = resolved_eth_addrs.entry(emitter).or_insert_with(|| {
+                state_tree
+                    .resolve_to_deterministic_address(
+                        state_manager.chain_store().db(),
+                        FilecoinAddress::new_id(emitter),
+                    )
+                    .ok()
+                    .and_then(|addr| EthAddress::from_filecoin_address(&addr).ok())
+            });
             let Some(address) = address else {
                 continue;
             };
@@ -102,9 +102,8 @@ fn compute_block_logs_bloom(
     Ok(bloom)
 }
 
-/// Computes and stores the block logs bloom of an executed tipset, so that serving it later
-/// is a plain read. Called at execution time — alongside persisting the tipset's receipts
-/// and events — and from index backfill for tipsets whose execution output already exists.
+/// Computes and stores the block logs bloom of an executed tipset so that serving it later
+/// is a plain read. Called when a tipset is executed and from index backfill.
 pub(crate) fn store_block_logs_bloom(
     state_manager: &StateManager,
     tipset: &Tipset,
@@ -121,16 +120,15 @@ pub(crate) fn store_block_logs_bloom(
         .write_bloom(&key, tipset.epoch(), &bloom.0.0)
 }
 
-/// Returns the block's logs bloom: the bloom stored at execution or backfill time when
-/// available, otherwise a full (all-ones) bloom — mirroring Lotus, which reports a full
-/// bloom for tipsets outside its event index. Setting [`COMPUTE_BLOOM_ON_MISS_ENV`] computes
-/// and stores the bloom on a miss instead.
+/// Returns the block's logs bloom: the stored bloom when available, otherwise a full
+/// (all-ones) bloom.
+/// Setting [`COMPUTE_BLOOM_ON_MISS_ENV`] computes and stores the bloom on a miss instead.
 pub(super) fn block_logs_bloom(
     state_manager: &StateManager,
     tipset: &Tipset,
     state_root: &Cid,
     executed_messages: &[ExecutedMessage],
-) -> Result<Bloom> {
+) -> anyhow::Result<Bloom> {
     crate::def_is_env_truthy!(compute_bloom_on_miss, COMPUTE_BLOOM_ON_MISS_ENV);
 
     let key = tipset.key().cid()?;

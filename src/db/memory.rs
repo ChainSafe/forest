@@ -24,7 +24,7 @@ pub struct MemoryDB {
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
     pub eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
     pub ts_lookup_db: RwLock<HashMap<ChainEpoch, TipsetKey>>,
-    eth_block_bloom_db: RwLock<HashMap<Cid, Vec<u8>>>,
+    pub eth_block_bloom_db: RwLock<HashMap<Cid, Vec<u8>>>,
 }
 
 impl MemoryDB {
