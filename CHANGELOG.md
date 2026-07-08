@@ -31,6 +31,10 @@
 
 ### Changed
 
+- [#7320](https://github.com/ChainSafe/forest/pull/7320): Increase the default
+  Eth transaction receipt cache size to 10000 and make it configurable via the
+  `FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE` environment variable.
+
 ### Removed
 
 ### Fixed

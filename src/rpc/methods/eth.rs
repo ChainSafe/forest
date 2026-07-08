@@ -3001,9 +3001,13 @@ async fn get_eth_transaction_receipt_with_cache(
     limit: Option<ChainEpoch>,
     cancellation_token: &CancellationToken,
 ) -> Result<Option<EthTxReceipt>, ServerError> {
-    const CACHE_SIZE: NonZeroUsize = nonzero!(1024usize); // ~1.25MiB on mainnet
     static CACHE: LazyLock<SizeTrackingCache<EthHash, EthTxReceipt>> = LazyLock::new(|| {
-        SizeTrackingCache::new_with_metrics("eth_transaction_receipt", CACHE_SIZE)
+        const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(10000usize); // ~12.5MiB on mainnet
+        let cache_size = env_or_default(
+            "FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE",
+            DEFAULT_CACHE_SIZE,
+        );
+        SizeTrackingCache::new_with_metrics("eth_transaction_receipt", cache_size)
     });
 
     enum TmpError {
