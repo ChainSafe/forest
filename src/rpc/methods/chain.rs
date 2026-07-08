@@ -502,7 +502,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
             .load_required_tipset_by_height(from, head, ResolveNullTipset::TakeOlder)
             .await?;
 
-        crate::tool::subcommands::archive_cmd::do_export(
+        crate::tool::export::do_export(
             ctx.chain_index().db(),
             start_ts,
             Some(ctx.chain_store().genesis_tipset()),
