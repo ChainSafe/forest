@@ -10,8 +10,10 @@ mod weight;
 
 pub use self::{snapshot_format::*, store::*, weight::*};
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
+use crate::chain::index::ChainIndex;
 use crate::cid_collections::CidHashSetLike;
+use crate::db::MemoryDB;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::ipld::stream_chain;
 use crate::prelude::*;
@@ -19,6 +21,7 @@ use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
 use crate::utils::stream::par_buffer;
+use fil_actors_shared::fvm_ipld_hamt::Hamt;
 use futures::StreamExt as _;
 use fvm_ipld_encoding::DAG_CBOR;
 use multihash_derive::MultihashDigest as _;
@@ -27,12 +30,16 @@ use sha2::digest::{self, Digest};
 use std::io::{Read, Seek, SeekFrom};
 use std::time::Instant;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
+use tokio_util::task::AbortOnDropHandle;
+
+const TIPSET_LOOKUP_HAMT_BIT_WIDTH: u32 = 5;
 
 pub struct ExportOptions<S> {
     pub skip_checksum: bool,
     pub include_receipts: bool,
     pub include_events: bool,
     pub include_tipset_keys: bool,
+    pub include_tipset_lookup: bool,
     pub seen: S,
 }
 
@@ -43,6 +50,7 @@ impl<S: Default> Default for ExportOptions<S> {
             include_receipts: Default::default(),
             include_events: Default::default(),
             include_tipset_keys: Default::default(),
+            include_tipset_lookup: Default::default(),
             seen: Default::default(),
         }
     }
@@ -56,7 +64,10 @@ pub async fn export<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
     options: ExportOptions<S>,
-) -> anyhow::Result<Option<digest::Output<D>>> {
+) -> anyhow::Result<(
+    Option<digest::Output<D>>,
+    Option<anyhow::Result<Hamt<MemoryDB, TipsetKey, ChainEpoch>>>,
+)> {
     let roots = tipset.key().to_cids();
     export_to_forest_car::<D, S>(roots, None, db, tipset, lookup_depth, writer, options).await
 }
@@ -70,7 +81,10 @@ pub async fn export_v2<D: Digest, F: Seek + Read, S: CidHashSetLike + Send + Syn
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
     options: ExportOptions<S>,
-) -> anyhow::Result<Option<digest::Output<D>>> {
+) -> anyhow::Result<(
+    Option<digest::Output<D>>,
+    Option<anyhow::Result<Hamt<MemoryDB, TipsetKey, ChainEpoch>>>,
+)> {
     // validate f3 data
     if let Some((f3_cid, f3_data)) = &mut f3 {
         f3_data.seek(SeekFrom::Start(0))?;
@@ -140,9 +154,13 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
         include_receipts,
         include_events,
         include_tipset_keys,
+        include_tipset_lookup,
         seen,
     }: ExportOptions<S>,
-) -> anyhow::Result<Option<digest::Output<D>>> {
+) -> anyhow::Result<(
+    Option<digest::Output<D>>,
+    Option<anyhow::Result<Hamt<MemoryDB, TipsetKey, ChainEpoch>>>,
+)> {
     if include_events && !include_receipts {
         anyhow::bail!("message receipts must be included when events are included");
     }
@@ -159,6 +177,22 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
 
+    let (ts_lookup_tx, ts_lookup_handle) = if include_tipset_lookup {
+        let (ts_lookup_tx, ts_lookup_rx) = flume::bounded::<(ChainEpoch, TipsetKey)>(1024);
+        let handle = AbortOnDropHandle::new(tokio::spawn(async move {
+            let mut hamt =
+                Hamt::new_with_bit_width(MemoryDB::default(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
+            while let Ok((epoch, tsk)) = ts_lookup_rx.recv_async().await {
+                hamt.set(epoch, tsk)?;
+            }
+            hamt.flush()?;
+            anyhow::Ok(hamt)
+        }));
+        (Some(ts_lookup_tx), Some(handle))
+    } else {
+        (None, None)
+    };
+
     // Stream stateroots in range (stateroot_lookup_limit+1)..=tipset.epoch(). Also
     // stream all block headers until genesis.
     let (blocks, _drop_guard) = par_buffer(
@@ -168,7 +202,16 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
         1024,
         stream_chain(
             db.shallow_clone(),
-            tipset.shallow_clone().chain_owned(db.shallow_clone()),
+            tipset
+                .shallow_clone()
+                .chain_owned(db.shallow_clone())
+                .inspect(move |ts| {
+                    if let Some(ts_lookup_tx) = &ts_lookup_tx
+                        && ChainIndex::is_tipset_lookup_checkpoint(ts.epoch())
+                    {
+                        _ = ts_lookup_tx.send((ts.epoch(), ts.key().clone()));
+                    }
+                }),
             stateroot_lookup_limit,
             seen,
         )
@@ -190,10 +233,16 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
 
     let digest = writer.finalize().map_err(|e| Error::Other(e.to_string()))?;
 
+    let hamt = if let Some(ts_lookup_handle) = ts_lookup_handle {
+        Some(ts_lookup_handle.await?)
+    } else {
+        None
+    };
+
     tracing::info!(
         "Exported snapshot, took {}",
         humantime::format_duration(start.elapsed())
     );
 
-    Ok(digest)
+    Ok((digest, hamt))
 }

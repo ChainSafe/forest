@@ -289,6 +289,7 @@ impl RpcMethod<1> for ForestChainExport {
             include_receipts,
             include_events,
             include_tipset_keys,
+            include_tipset_lookup,
             skip_checksum,
             dry_run,
         } = params;
@@ -306,6 +307,7 @@ impl RpcMethod<1> for ForestChainExport {
             include_receipts,
             include_events,
             include_tipset_keys,
+            include_tipset_lookup,
             seen: FileBackedCidHashSet::new(ctx.temp_dir.as_path())?,
         };
         let writer = if dry_run {
@@ -327,7 +329,7 @@ impl RpcMethod<1> for ForestChainExport {
 
                 tokio::select! {
                     result = chain_export => {
-                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
+                        result.map(|(checksum_opt, _)| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
                     _ = chain_export_guard.cancellation_token().cancelled() => {
                         chain_export_guard.cancel_export();
@@ -372,7 +374,7 @@ impl RpcMethod<1> for ForestChainExport {
 
                 tokio::select! {
                     result = chain_export => {
-                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
+                        result.map(|(checksum_opt, _)| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
                     _ = chain_export_guard.cancellation_token().cancelled() => {
                         chain_export_guard.cancel_export();
@@ -554,6 +556,7 @@ impl RpcMethod<1> for ChainExport {
                 include_receipts: false,
                 include_events: false,
                 include_tipset_keys: false,
+                include_tipset_lookup: false,
                 skip_checksum,
                 dry_run,
             },),
@@ -1483,6 +1486,8 @@ pub struct ForestChainExportParams {
     pub include_events: bool,
     #[serde(default)]
     pub include_tipset_keys: bool,
+    #[serde(default)]
+    pub include_tipset_lookup: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }
