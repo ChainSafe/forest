@@ -142,9 +142,9 @@ fn send_from_and_maybe_wait(
     loop {
         match wallet(backend, &args) {
             Ok(out) => return Ok(out),
-            Err(_) if attempt < SEND_RETRIES => {
+            Err(e) if attempt < SEND_RETRIES => {
                 eprintln!(
-                    "send {from} -> {to} failed on attempt {attempt}/{SEND_RETRIES}, retrying"
+                    "send {from} -> {to} failed on attempt {attempt}/{SEND_RETRIES} error: {e:?}, retrying"
                 );
                 std::thread::sleep(SEND_RETRY_DELAY);
                 attempt += 1;
