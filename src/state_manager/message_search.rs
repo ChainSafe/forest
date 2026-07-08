@@ -81,19 +81,18 @@ impl StateManager {
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
         let message_from_address = message.from();
         let message_sequence = message.sequence();
-        let mut current_actor_state = self
+        let current_actor_state = self
             .get_required_actor(&message_from_address, *current.parent_state())
             .map_err(Error::state)?;
+        // The sender's nonce only grows, so once it is at or below the message
+        // nonce the message cannot have been executed yet. Walking back would
+        // only end at the sender's creation or at pruned state.
+        if current_actor_state.sequence <= message_sequence {
+            return Ok(None);
+        }
         let message_from_id = self.lookup_required_id(&message_from_address, &current)?;
 
         while !cancellation_token.is_cancelled() && current.epoch() >= lookback_max_epoch {
-            // Sender nonces only decrease going backwards, so once the nonce at
-            // `current` is 0 or already below the target, the message cannot be
-            // here or in any earlier tipset. Bail out instead of walking backwards.
-            if current_actor_state.sequence == 0 || current_actor_state.sequence < message_sequence
-            {
-                return Ok(None);
-            }
             let parent_tipset = self
                 .chain_index()
                 .load_required_tipset(current.parents())
@@ -107,20 +106,19 @@ impl StateManager {
                 .get_actor(&message_from_id, *parent_tipset.parent_state())
                 .map_err(|e| Error::State(e.to_string()))?;
 
-            if (parent_actor_state.is_none()
-                || (current_actor_state.sequence > message_sequence
-                    && parent_actor_state.as_ref().unwrap().sequence <= message_sequence))
-                && let Some(receipt) =
-                    self.tipset_executed_message(&current, message, allow_replaced)?
-            {
-                return Ok(Some((current, receipt)));
-            }
-
-            if let Some(parent_actor_state) = parent_actor_state {
-                current = parent_tipset;
-                current_actor_state = parent_actor_state;
-            } else {
-                break;
+            match parent_actor_state {
+                // The nonce is still above the message nonce at the parent, so
+                // the message executed strictly earlier; keep walking back.
+                Some(state) if state.sequence > message_sequence => current = parent_tipset,
+                // The nonce crossed the message nonce between the parent and
+                // `current` (or the sender did not exist yet), so only `current`
+                // can have executed the message. No receipt there means a
+                // replacing message was executed instead.
+                _ => {
+                    return Ok(self
+                        .tipset_executed_message(&current, message, allow_replaced)?
+                        .map(|receipt| (current, receipt)));
+                }
             }
         }
 
@@ -383,7 +381,6 @@ impl StateManager {
         let from = from.unwrap_or_else(|| self.heaviest_tipset());
         let message = crate::chain::get_chain_message(self.db(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
-        let current_tipset = self.heaviest_tipset();
         let maybe_message_receipt =
             self.tipset_executed_message(&from, &message, allow_replaced.unwrap_or(true))?;
         if let Some(r) = maybe_message_receipt {
@@ -394,7 +391,7 @@ impl StateManager {
                 let cancellation_token = cancellation_token.clone();
                 move || {
                     this.search_back_for_message_blocking(
-                        current_tipset,
+                        from,
                         &message,
                         look_back_limit,
                         allow_replaced,
@@ -410,75 +407,228 @@ impl StateManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::{CachingBlockHeader, Chain4U, HeaderBuilder, TxMeta, chain4u};
+    use crate::blocks::{
+        CachingBlockHeader, Chain4U, HeaderBuilder, RawBlockHeader, TxMeta, chain4u,
+    };
+    use crate::chain::ChainStore;
     use crate::db::MemoryDB;
+    use crate::networks::ChainConfig;
+    use crate::shim::address::Address;
+    use crate::shim::econ::TokenAmount;
     use crate::shim::message::Message;
-    use crate::shim::state_tree::StateTreeVersion;
+    use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
     use crate::utils::db::CborStoreExt as _;
-    use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
-    use rstest::rstest;
+    use fil_actors_shared::fvm_ipld_amt::Amtv0;
+    use fvm_ipld_blockstore::Blockstore;
 
-    #[rstest]
-    // sender nonce == 0: guard returns Ok(None) instead of erroring on a miss.
-    #[case(0, 0)]
-    // sender nonce below target: guard returns Ok(None) without walking to genesis.
-    #[case(5, 10)]
-    fn check_search_returns_none_on_miss(#[case] sender_nonce: u64, #[case] message_sequence: u64) {
-        let db = Arc::new(MemoryDB::default());
-        let sender = Address::new_id(1000);
+    const SENDER: Address = Address::new_id(100);
 
-        let empty_root = StateTree::new(&db, StateTreeVersion::V5)
-            .unwrap()
-            .flush()
-            .unwrap();
-        let mut head_tree = StateTree::new(&db, StateTreeVersion::V5).unwrap();
-        head_tree
+    fn state_root_with_sender_nonce(db: &Arc<MemoryDB>, sequence: u64) -> Cid {
+        let mut state_tree = StateTree::new(db, StateTreeVersion::V5).unwrap();
+        state_tree
             .set_actor(
-                &sender,
+                &SENDER,
                 ActorState::new(
                     Cid::default(),
                     Cid::default(),
                     TokenAmount::default(),
-                    sender_nonce,
+                    sequence,
                     None,
                 ),
             )
             .unwrap();
-        let head_root = head_tree.flush().unwrap();
+        state_tree.flush().unwrap()
+    }
 
-        let empty_amt = Amt::<Cid, _>::new(&db).flush().unwrap();
-        let empty_meta = db
-            .put_cbor_default(&TxMeta {
-                bls_message_root: empty_amt,
-                secp_message_root: empty_amt,
-            })
-            .unwrap();
+    fn tx_meta(db: &impl Blockstore, message: Cid) -> Cid {
+        let bls_message_root = Amtv0::new_from_iter(db, [message]).unwrap();
+        let secp_message_root = Amtv0::new_from_iter(db, std::iter::empty::<Cid>()).unwrap();
+        db.put_cbor_default(&TxMeta {
+            bls_message_root,
+            secp_message_root,
+        })
+        .unwrap()
+    }
 
-        let c4u = Chain4U::with_blockstore(db.clone());
-        chain4u! {
-            in c4u;
-            [genesis = HeaderBuilder::new().with_state_root(empty_root).with_timestamp(1).with_messages(empty_meta)]
-            -> [head = HeaderBuilder::new().with_state_root(head_root)]
+    fn receipts_root(db: &impl Blockstore) -> Cid {
+        let receipt = fvm_shared4::receipt::Receipt {
+            exit_code: fvm_shared4::error::ExitCode::OK,
+            return_data: Default::default(),
+            gas_used: 0,
+            events_root: None,
         };
+        Amtv0::new_from_iter(db, [receipt]).unwrap()
+    }
 
-        let cs = ChainStore::new(
-            db.clone(),
+    fn message_with_nonce(sequence: u64) -> Message {
+        Message {
+            from: SENDER,
+            to: Address::new_id(101),
+            sequence,
+            ..Default::default()
+        }
+    }
+
+    fn state_manager_with_head(
+        db: Arc<MemoryDB>,
+        genesis: &RawBlockHeader,
+        head: &Tipset,
+    ) -> StateManager {
+        let chain_store = ChainStore::new(
+            db,
             Arc::new(ChainConfig::default()),
             CachingBlockHeader::new(genesis.clone()),
         )
         .unwrap();
-        let sm = StateManager::new(cs).unwrap();
-        let head_ts =
-            Tipset::load_required(&db, &TipsetKey::from(nunny::vec![head.cid()])).unwrap();
+        chain_store.set_heaviest_tipset(head.clone()).unwrap();
+        StateManager::new(chain_store).unwrap()
+    }
 
-        let msg: ChainMessage = Message {
-            from: sender,
-            sequence: message_sequence,
-            ..Default::default()
-        }
-        .into();
-        let res = sm.check_search_blocking(head_ts, &msg, 0, true, &CancellationToken::new());
+    /// Chain where the sender's nonce is `actor_nonce` at every epoch and the
+    /// genesis state is unavailable, like state pruned by GC. Searching must
+    /// not walk into the missing state.
+    async fn search_pending(
+        actor_nonce: u64,
+        message_nonce: u64,
+    ) -> Result<Option<(Tipset, Receipt)>, Error> {
+        let db = Arc::new(MemoryDB::default());
+        let root = state_root_with_sender_nonce(&db, actor_nonce);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root)]
+            -> [_e2 = HeaderBuilder::new().with_state_root(root)]
+            -> head @ [_e3 = HeaderBuilder::new().with_state_root(root)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, head);
 
-        assert!(matches!(res, Ok(None)), "expected Ok(None), got {res:?}");
+        let message = message_with_nonce(message_nonce);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        state_manager
+            .search_for_message(None, msg_cid, None, Some(true), &CancellationToken::new())
+            .await
+    }
+
+    #[tokio::test]
+    async fn search_returns_none_for_message_with_future_nonce() {
+        let result = search_pending(5, 10).await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn search_returns_none_for_pending_message_at_current_nonce() {
+        let result = search_pending(5, 5).await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn search_returns_none_for_pending_message_from_fresh_sender() {
+        let result = search_pending(0, 0).await.unwrap();
+        assert!(result.is_none());
+    }
+
+    /// The sender's nonce crossed the message nonce, but a replacing message
+    /// with a different call executed instead: the searched message was never
+    /// executed, so the result is `None`, not an error.
+    #[tokio::test]
+    async fn search_returns_none_for_replaced_message() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e3 = HeaderBuilder::new().with_state_root(root_after)]
+            -> head @ [_e4 = HeaderBuilder::new().with_state_root(root_after)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, head);
+
+        let result = state_manager
+            .search_for_message(None, msg_cid, None, Some(true), &CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn search_finds_executed_message() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let messages = tx_meta(&db, msg_cid);
+        let receipts = receipts_root(&db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+            -> head @ [_e4 = HeaderBuilder::new().with_state_root(root_after)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, head);
+
+        let (tipset, receipt) = state_manager
+            .search_for_message(None, msg_cid, None, Some(true), &CancellationToken::new())
+            .await
+            .unwrap()
+            .expect("executed message should be found");
+        assert_eq!(tipset.epoch(), 3);
+        assert!(receipt.exit_code().is_success());
+    }
+
+    /// Searching from an explicit tipset only covers executions at or below
+    /// it, like in Lotus, even when the message executed later in the chain.
+    #[tokio::test]
+    async fn search_from_older_tipset_ignores_later_execution() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let messages = tx_meta(&db, msg_cid);
+        let receipts = receipts_root(&db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> from @ [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+            -> head @ [_e4 = HeaderBuilder::new().with_state_root(root_after)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, head);
+
+        let result = state_manager
+            .search_for_message(
+                Some(from.clone()),
+                msg_cid,
+                None,
+                Some(true),
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(result.is_none());
     }
 }
