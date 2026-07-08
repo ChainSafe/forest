@@ -591,11 +591,13 @@ where
 
     let ts = index
         .load_required_tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
+        .await
         .context("unable to get a tipset at given height")?;
 
     let seen = if let Some(diff) = diff {
         let diff_ts: Tipset = index
             .load_required_tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
+            .await
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
@@ -855,17 +857,21 @@ async fn show_tipset_diff(
         CurrentNetwork::set_global(Network::Testnet);
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
-    let tipset = chain_index.load_required_tipset_by_height(
-        epoch,
-        heaviest_tipset.clone(),
-        ResolveNullTipset::TakeOlder,
-    )?;
+    let tipset = chain_index
+        .load_required_tipset_by_height(
+            epoch,
+            heaviest_tipset.clone(),
+            ResolveNullTipset::TakeOlder,
+        )
+        .await?;
 
-    let child_tipset = chain_index.load_required_tipset_by_height(
-        epoch + 1,
-        heaviest_tipset.clone(),
-        ResolveNullTipset::TakeNewer,
-    )?;
+    let child_tipset = chain_index
+        .load_required_tipset_by_height(
+            epoch + 1,
+            heaviest_tipset.clone(),
+            ResolveNullTipset::TakeNewer,
+        )
+        .await?;
 
     let ExecutedTipset { state_root, .. } = apply_block_messages_blocking(
         chain_index,

@@ -757,7 +757,7 @@ impl HasLotusJson for EthSyncingResult {
     }
 }
 
-#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTxReceipt {
     transaction_hash: EthHash,
@@ -788,7 +788,7 @@ impl EthTxReceipt {
 }
 
 /// Represents the results of an event filter execution.
-#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema, GetSize)]
 #[serde(rename_all = "camelCase")]
 pub struct EthLog {
     /// The address of the actor that produced the event log.
@@ -924,11 +924,14 @@ impl RpcMethod<1> for BaseFeeByHeight {
         (height,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_index().load_required_tipset_by_height(
-            height,
-            ctx.chain_store().heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let ts = ctx
+            .chain_index()
+            .load_required_tipset_by_height(
+                height,
+                ctx.chain_store().heaviest_tipset(),
+                ResolveNullTipset::TakeOlder,
+            )
+            .await?;
         let base_fee = EthBaseFee::get_base_fee(&ctx, &ts)?;
         Ok(base_fee.atto().into())
     }
@@ -1068,7 +1071,7 @@ fn get_tipset_from_hash(chain_store: &ChainStore, block_hash: &EthHash) -> anyho
     Ok(chain_store.chain_index().load_required_tipset(&tsk)?)
 }
 
-fn resolve_block_number_tipset(
+async fn resolve_block_number_tipset(
     chain: &ChainStore,
     block_number: EthInt64,
     resolve: ResolveNullTipset,
@@ -1081,13 +1084,14 @@ fn resolve_block_number_tipset(
     chain
         .chain_index()
         .load_required_tipset_by_height(height, head, resolve)
+        .await
         .map_err(|e| match e {
             crate::chain::store::Error::NullRound(epoch) => EthErrors::null_round(epoch).into(),
             e => e.into(),
         })
 }
 
-fn resolve_block_hash_tipset(
+async fn resolve_block_hash_tipset(
     chain: &ChainStore,
     block_hash: &EthHash,
     require_canonical: bool,
@@ -1097,11 +1101,10 @@ fn resolve_block_hash_tipset(
     // verify that the tipset is in the canonical chain
     if require_canonical {
         // walk up the current chain (our head) until we reach ts.epoch()
-        let walk_ts = chain.chain_index().load_required_tipset_by_height(
-            ts.epoch(),
-            chain.heaviest_tipset(),
-            resolve,
-        )?;
+        let walk_ts = chain
+            .chain_index()
+            .load_required_tipset_by_height(ts.epoch(), chain.heaviest_tipset(), resolve)
+            .await?;
         // verify that it equals the expected tipset
         if walk_ts != ts {
             bail!("tipset is not canonical");
@@ -2992,6 +2995,55 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
     }
 }
 
+async fn get_eth_transaction_receipt_with_cache(
+    ctx: Ctx,
+    tx_hash: EthHash,
+    limit: Option<ChainEpoch>,
+    cancellation_token: &CancellationToken,
+) -> Result<Option<EthTxReceipt>, ServerError> {
+    const CACHE_SIZE: NonZeroUsize = nonzero!(1024usize); // ~1.25MiB on mainnet
+    static CACHE: LazyLock<SizeTrackingCache<EthHash, EthTxReceipt>> = LazyLock::new(|| {
+        SizeTrackingCache::new_with_metrics("eth_transaction_receipt", CACHE_SIZE)
+    });
+
+    enum TmpError {
+        NotFound,
+        Error(ServerError),
+    }
+
+    // Do not update cache when not found by returning an error
+    match CACHE
+        .get_or_insert_async(&tx_hash, {
+            let ctx = ctx.shallow_clone();
+            async move {
+                let receipt = get_eth_transaction_receipt(ctx, tx_hash, limit, cancellation_token)
+                    .await
+                    .map_err(TmpError::Error)?
+                    .ok_or(TmpError::NotFound)?;
+                Ok(receipt)
+            }
+        })
+        .await
+    {
+        Ok(r) => {
+            let Some(max_lookback_epoch_inclusive) = StateManager::max_lookback_epoch_inclusive(
+                ctx.chain_store().heaviest_tipset().epoch(),
+                limit,
+            ) else {
+                return Ok(None);
+            };
+            if r.block_number.0 >= max_lookback_epoch_inclusive {
+                Ok(Some(r))
+            } else {
+                // Cache hit but beyond the lookback limit
+                Ok(None)
+            }
+        }
+        Err(TmpError::NotFound) => Ok(None),
+        Err(TmpError::Error(e)) => Err(e),
+    }
+}
+
 async fn get_eth_transaction_receipt(
     ctx: Ctx,
     tx_hash: EthHash,
@@ -3076,7 +3128,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     ) -> Result<Self::Ok, ServerError> {
         let cancellation_token = CancellationToken::new();
         let _drop_guard = cancellation_token.drop_guard_ref();
-        get_eth_transaction_receipt(ctx, tx_hash, None, &cancellation_token).await
+        get_eth_transaction_receipt_with_cache(ctx, tx_hash, None, &cancellation_token).await
     }
 }
 
@@ -3098,7 +3150,7 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     ) -> Result<Self::Ok, ServerError> {
         let cancellation_token = CancellationToken::new();
         let _drop_guard = cancellation_token.drop_guard_ref();
-        get_eth_transaction_receipt(ctx, tx_hash, Some(limit), &cancellation_token).await
+        get_eth_transaction_receipt_with_cache(ctx, tx_hash, Some(limit), &cancellation_token).await
     }
 }
 

@@ -173,7 +173,11 @@ pub struct StateManager {
     cache: ForestCache<TipsetKey, ExecutedTipset>,
     /// This is a cache which indexes tipsets to their traces.
     trace_cache: ForestCache<TipsetKey, (CidWrapper, Vec<Arc<ApiInvocResult>>)>,
-    id_to_deterministic_address_cache: IdToAddressCache,
+    /// `None` disables caching of ID -> deterministic-address resolution.
+    /// Used by the RPC test-snapshot generator and replay harness so every
+    /// `(id, tipset)` pair resolves independently, making recorded snapshots
+    /// read-complete and replay order-independent.
+    id_to_deterministic_address_cache: Option<IdToAddressCache>,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
 }
@@ -186,7 +190,8 @@ impl ShallowClone for StateManager {
             trace_cache: self.trace_cache.shallow_clone(),
             id_to_deterministic_address_cache: self
                 .id_to_deterministic_address_cache
-                .shallow_clone(),
+                .as_ref()
+                .map(ShallowClone::shallow_clone),
             beacon: self.beacon.shallow_clone(),
             engine: self.engine.shallow_clone(),
         }
@@ -219,11 +224,18 @@ impl StateManager {
             trace_cache: ForestCache::with_size("tipset_trace", DEFAULT_TRACE_CACHE_SIZE),
             beacon,
             engine,
-            id_to_deterministic_address_cache: SizeTrackingCache::new_with_metrics(
+            id_to_deterministic_address_cache: Some(SizeTrackingCache::new_with_metrics(
                 "id_to_deterministic_address",
                 DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE,
-            ),
+            )),
         })
+    }
+
+    /// Disables caching of ID -> deterministic-address resolution. To be used strictly
+    /// by the RPC test-snapshot generator and replay harness
+    pub fn with_id_address_cache_disabled(mut self) -> Self {
+        self.id_to_deterministic_address_cache = None;
+        self
     }
 
     /// Returns the currently tracked heaviest tipset.
@@ -235,12 +247,12 @@ impl StateManager {
     /// A valid head has
     ///     - state tree in the blockstore
     ///     - actor bundle version in the state tree that matches chain configuration
-    pub fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()> {
-        while self.maybe_rewind_heaviest_tipset_once()? {}
+    pub async fn maybe_rewind_heaviest_tipset(&self) -> anyhow::Result<()> {
+        while self.maybe_rewind_heaviest_tipset_once().await? {}
         Ok(())
     }
 
-    fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool> {
+    async fn maybe_rewind_heaviest_tipset_once(&self) -> anyhow::Result<bool> {
         let head = self.heaviest_tipset();
         if let Some(info) = self
             .chain_config()
@@ -253,11 +265,14 @@ impl StateManager {
             let bundle_metadata = state.get_actor_bundle_metadata()?;
             if expected_bundle_metadata != bundle_metadata {
                 let current_epoch = head.epoch();
-                let target_head = self.chain_index().load_required_tipset_by_height(
-                    (expected_height_info.epoch - 1).max(0),
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
+                let target_head = self
+                    .chain_index()
+                    .load_required_tipset_by_height(
+                        (expected_height_info.epoch - 1).max(0),
+                        head,
+                        ResolveNullTipset::TakeOlder,
+                    )
+                    .await?;
                 let target_epoch = target_head.epoch();
                 let bundle_version = &bundle_metadata.version;
                 let expected_bundle_version = &expected_bundle_metadata.version;

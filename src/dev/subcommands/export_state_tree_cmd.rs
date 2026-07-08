@@ -77,11 +77,14 @@ impl ExportStateTreeCommand {
                 .await?;
         let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
 
-        let start_ts = chain_store.chain_index().load_required_tipset_by_height(
-            from,
-            chain_store.heaviest_tipset(),
-            ResolveNullTipset::TakeNewer,
-        )?;
+        let start_ts = chain_store
+            .chain_index()
+            .load_required_tipset_by_height(
+                from,
+                chain_store.heaviest_tipset(),
+                ResolveNullTipset::TakeNewer,
+            )
+            .await?;
 
         let mut ipld_roots = vec![];
         for (child, ts) in start_ts
