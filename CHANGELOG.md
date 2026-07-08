@@ -41,6 +41,8 @@
 
 ### Fixed
 
+- [#6748](https://github.com/ChainSafe/forest/issues/6748): The Ethereum trace methods (`trace_transaction`, `trace_block`, `trace_replayBlockTransactions`) now report `Reverted` for a reverted contract creation instead of a mis-classified actor error.
+
 ## Forest v0.33.8 "Amiga 1200"
 
 Non-mandatory release for all node operators. It includes mostly fixes and performance improvements for the RPC methods.
