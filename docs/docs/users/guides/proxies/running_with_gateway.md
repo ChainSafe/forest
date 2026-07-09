@@ -121,7 +121,6 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
-      - FOREST_CHAIN_INDEXER_ENABLED=1
       - FOREST_KEYSTORE_PHRASE=${FOREST_KEYSTORE_PHRASE}
     entrypoint: ["/bin/bash", "-c"]
     restart: unless-stopped

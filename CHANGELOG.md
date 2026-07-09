@@ -27,6 +27,28 @@
 
 ### Breaking
 
+- [#7321](https://github.com/ChainSafe/forest/pull/7321): The chain indexer, which populates the Ethereum transaction-hash mappings used by `eth_getTransactionByHash`, `eth_getTransactionReceipt`, and related methods, is now enabled by default. Opt out with `FOREST_CHAIN_INDEXER_ENABLED=0`.
+
+### Added
+
+### Changed
+
+- [#7320](https://github.com/ChainSafe/forest/pull/7320): Increase the default
+  Eth transaction receipt cache size to 10000 and make it configurable via the
+  `FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE` environment variable.
+
+### Removed
+
+### Fixed
+
+- [#6748](https://github.com/ChainSafe/forest/issues/6748): The Ethereum trace methods (`trace_transaction`, `trace_block`, `trace_replayBlockTransactions`) now report `Reverted` for a reverted contract creation instead of a mis-classified actor error.
+
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth_getTransactionByBlockNumberAndIndex` and `eth_getTransactionByBlockHashAndIndex` now resolve the transaction's `to` address against the tipset's post-execution state (matching `eth_getBlockByNumber`/`eth_getTransactionByHash`), instead of the pre-execution state which returned a `0xff…ffffffffffffffff` masked-ID sentinel for recipients created within the tipset.
+
+## Forest v0.33.8 "Amiga 1200"
+
+Non-mandatory release for all node operators. It includes mostly fixes and performance improvements for the RPC methods.
+
 ### Added
 
 - [#7269](https://github.com/ChainSafe/forest/pull/7269): Added `--wait-confidence` and `--wait-timeout` to `forest-wallet send` command.
@@ -39,11 +61,7 @@
 
 - [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth_getBlockReceipts` and `eth_getBlockReceiptsLimited` now return an `ErrNullRound` error (JSON-RPC code `12`) for a null-round block number instead of resolving to the previous tipset, matching upstream Lotus (lotus#13694). Set `FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND=1` to restore the previous behavior for parity with Lotus releases predating that fix.
 
-### Removed
-
 ### Fixed
-
-- [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth_getTransactionByBlockNumberAndIndex` and `eth_getTransactionByBlockHashAndIndex` now resolve the transaction's `to` address against the tipset's post-execution state (matching `eth_getBlockByNumber`/`eth_getTransactionByHash`), instead of the pre-execution state which returned a `0xff…ffffffffffffffff` masked-ID sentinel for recipients created within the tipset.
 
 - [#7276](https://github.com/ChainSafe/forest/issues/7276): `eth_getBlockByNumber`, `eth_getBlockTransactionCountByNumber`, `eth_getTransactionByBlockNumberAndIndex`, `eth_traceBlock`, and `eth_traceReplayBlockTransactions` now return an `ErrNullRound` error (JSON-RPC code `12`) when the requested block number is a null round, matching Lotus, instead of silently returning the previous tipset. Thanks to the `chain.data.riba.plus` dataset, which surfaced this discrepancy; see [#7270](https://github.com/ChainSafe/forest/issues/7270) for the broader effort to reconcile remaining Eth RPC discrepancies against it.
 

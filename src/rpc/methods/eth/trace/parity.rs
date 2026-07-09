@@ -33,8 +33,10 @@ use tracing::debug;
 /// Returns `true` if the invoked actor is an EVM contract or the Ethereum Account Manager.
 fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
     if let Some(invoked_actor) = &trace.invoked_actor {
-        is_evm_actor(&invoked_actor.state.code)
-            || invoked_actor.id != Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
+        let eam_actor_id = Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
+            .id()
+            .expect("EAM actor address should be an ID address");
+        is_evm_actor(&invoked_actor.state.code) || invoked_actor.id == eam_actor_id
     } else {
         false
     }
@@ -396,7 +398,7 @@ fn trace_native_create(
 // Decode the parameters and return value of an EVM smart contract creation through the EAM. This
 // should only be called with an ExecutionTrace for a Create, Create2, or CreateExternal method
 // invocation on the EAM.
-fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, EthAddress)> {
+fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, Option<EthAddress>)> {
     let init_code = match EAMMethod::from_u64(trace.msg.method) {
         Some(EAMMethod::Create) => {
             let params = decode_params::<eam12::CreateParams>(&trace.msg)?;
@@ -411,9 +413,15 @@ fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, Eth
         }
         _ => bail!("unexpected CREATE method {}", trace.msg.method),
     };
-    let ret = decode_return::<eam12::CreateReturn>(&trace.msg_rct)?;
 
-    Ok((init_code, ret.eth_address.0.into()))
+    let create_addr = if trace.msg_rct.exit_code.is_success() {
+        let ret = decode_return::<eam12::CreateReturn>(&trace.msg_rct)?;
+        Some(ret.eth_address.0.into())
+    } else {
+        None
+    };
+
+    Ok((init_code, create_addr))
 }
 
 // Build an EthTrace for an EVM "create" operation. This should only be called with an
@@ -493,7 +501,7 @@ fn trace_eth_create(
             }),
             result: TraceResult::Create(EthCreateTraceResult {
                 gas_used: trace.sum_gas().total_gas.into(),
-                address: Some(create_addr),
+                address: create_addr,
                 code: output,
             }),
             trace_address: Vec::from(address),
@@ -623,5 +631,99 @@ impl TipsetTraceEntry {
             build_traces(&mut env, &[], execution_trace.clone())?;
         }
         Ok(env.traces)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_helpers::create_test_actor;
+    use super::super::types::TraceError;
+    use super::{decode_create_via_eam, trace_err_msg, trace_is_evm_or_eam};
+    use crate::eth::EAMMethod;
+    use crate::rpc::methods::state::{ActorTrace, ExecutionTrace, MessageTrace, ReturnTrace};
+    use crate::shim::address::Address;
+    use crate::shim::econ::TokenAmount;
+    use crate::shim::error::ExitCode;
+    use fil_actor_evm_state::v15 as evm15;
+    use fvm_ipld_encoding::{CBOR, RawBytes};
+    use rstest::rstest;
+
+    fn eam_actor_id() -> u64 {
+        Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
+    }
+
+    /// A minimal invoked actor with the given id.
+    fn actor(id: u64) -> ActorTrace {
+        ActorTrace {
+            id,
+            state: create_test_actor(0, 0),
+        }
+    }
+
+    fn trace_with(invoked_actor: Option<ActorTrace>, exit_code: u32) -> ExecutionTrace {
+        ExecutionTrace {
+            msg: MessageTrace {
+                from: Address::new_id(1000),
+                to: Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR,
+                value: TokenAmount::default(),
+                method: 0,
+                params: RawBytes::default(),
+                params_codec: 0,
+                gas_limit: None,
+                read_only: None,
+            },
+            msg_rct: ReturnTrace {
+                exit_code: ExitCode::from(exit_code),
+                r#return: RawBytes::default(),
+                return_codec: 0,
+            },
+            invoked_actor,
+            gas_charges: vec![],
+            subcalls: vec![],
+            logs: vec![],
+            ipld_ops: vec![],
+        }
+    }
+
+    #[rstest]
+    #[case::eam(Some(actor(eam_actor_id())), true, Some(TraceError::Reverted))]
+    #[case::native_actor(Some(actor(1234)), false, Some(TraceError::ActorError(evm15::EVM_CONTRACT_REVERTED.value())))]
+    #[case::no_actor(None, false, Some(TraceError::ActorError(evm15::EVM_CONTRACT_REVERTED.value())))]
+    fn actor_kind_decides_trace_error(
+        #[case] invoked_actor: Option<ActorTrace>,
+        #[case] is_evm_or_eam: bool,
+        #[case] classified: Option<TraceError>,
+    ) {
+        let trace = trace_with(invoked_actor, evm15::EVM_CONTRACT_REVERTED.value());
+        assert_eq!(trace_is_evm_or_eam(&trace), is_evm_or_eam);
+        assert_eq!(trace_err_msg(&trace), classified);
+    }
+
+    #[test]
+    fn reverted_eam_create_decodes_without_an_address() {
+        // The contract's creation bytecode — the `CreateExternal` call's input params.
+        let contract_init_code = vec![0x60u8, 0x80, 0x60, 0x40];
+        // The reverted call's return value: arbitrary bytes that are not a
+        // valid `CreateReturn`, so decoding them would fail.
+        let revert_payload = vec![0xde, 0xad];
+
+        let params = cbor4ii::serde::to_vec(
+            Vec::new(),
+            &cbor4ii::core::Value::Bytes(contract_init_code.clone()),
+        )
+        .unwrap();
+
+        let mut trace = trace_with(None, evm15::EVM_CONTRACT_REVERTED.value());
+        trace.msg.method = EAMMethod::CreateExternal as u64;
+        trace.msg.params = RawBytes::new(params);
+        trace.msg.params_codec = CBOR;
+        trace.msg_rct.r#return = RawBytes::new(revert_payload);
+
+        // The init code is recovered from the params; the address is absent (not decoded,
+        // because the creation reverted) instead of the decoding failing outright.
+        let (decoded_init_code, address) =
+            decode_create_via_eam(&trace).expect("a reverted create must still decode");
+        assert_eq!(decoded_init_code, contract_init_code);
+        assert_eq!(address, None);
     }
 }

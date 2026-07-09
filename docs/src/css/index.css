@@ -51,3 +51,16 @@
 #interactive-box {
   display: none;
 }
+
+/*
+ * Infima renders Markdown tables as `display: block`, so wide tables shrink to
+ * their content and get a horizontal scrollbar even when there is plenty of
+ * horizontal space (e.g. on 21:9 screens). On larger viewports, let tables use
+ * the full available width; narrow viewports keep the scrollable block layout.
+ */
+@media screen and (min-width: 997px) {
+  .markdown table {
+    display: table;
+    width: 100%;
+  }
+}

@@ -301,7 +301,8 @@ impl ChainIndex {
     }
 
     pub fn is_tipset_lookup_checkpoint(epoch: ChainEpoch) -> bool {
-        epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL) == 0
+        // Genesis is not considered a checkpoint
+        epoch > 0 && epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL) == 0
     }
 
     /// Cleans up stale checkpoints at null rounds between the given tipset and its parent in case there's chain reorg.
