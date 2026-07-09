@@ -5,7 +5,7 @@ expression: spec
 openrpc: 1.3.2
 info:
   title: forest
-  version: 0.33.7
+  version: 0.33.8
 methods:
   - name: Filecoin.ChainGetTipSet
     description: Returns the tipset with the specified CID.
@@ -2661,6 +2661,9 @@ components:
           type: boolean
           default: false
         include_tipset_keys:
+          type: boolean
+          default: false
+        include_tipset_lookup:
           type: boolean
           default: false
         output_path:

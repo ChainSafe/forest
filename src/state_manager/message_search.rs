@@ -87,6 +87,13 @@ impl StateManager {
         let message_from_id = self.lookup_required_id(&message_from_address, &current)?;
 
         while !cancellation_token.is_cancelled() && current.epoch() >= lookback_max_epoch {
+            // Sender nonces only decrease going backwards, so once the nonce at
+            // `current` is 0 or already below the target, the message cannot be
+            // here or in any earlier tipset. Bail out instead of walking backwards.
+            if current_actor_state.sequence == 0 || current_actor_state.sequence < message_sequence
+            {
+                return Ok(None);
+            }
             let parent_tipset = self
                 .chain_index()
                 .load_required_tipset(current.parents())
@@ -100,13 +107,12 @@ impl StateManager {
                 .get_actor(&message_from_id, *parent_tipset.parent_state())
                 .map_err(|e| Error::State(e.to_string()))?;
 
-            if parent_actor_state.is_none()
+            if (parent_actor_state.is_none()
                 || (current_actor_state.sequence > message_sequence
-                    && parent_actor_state.as_ref().unwrap().sequence <= message_sequence)
+                    && parent_actor_state.as_ref().unwrap().sequence <= message_sequence))
+                && let Some(receipt) =
+                    self.tipset_executed_message(&current, message, allow_replaced)?
             {
-                let receipt = self
-                    .tipset_executed_message(&current, message, allow_replaced)?
-                    .context("Failed to get receipt with tipset_executed_message")?;
                 return Ok(Some((current, receipt)));
             }
 
@@ -398,5 +404,81 @@ impl StateManager {
             })
             .await?
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::blocks::{CachingBlockHeader, Chain4U, HeaderBuilder, TxMeta, chain4u};
+    use crate::db::MemoryDB;
+    use crate::shim::message::Message;
+    use crate::shim::state_tree::StateTreeVersion;
+    use crate::utils::db::CborStoreExt as _;
+    use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+    use rstest::rstest;
+
+    #[rstest]
+    // sender nonce == 0: guard returns Ok(None) instead of erroring on a miss.
+    #[case(0, 0)]
+    // sender nonce below target: guard returns Ok(None) without walking to genesis.
+    #[case(5, 10)]
+    fn check_search_returns_none_on_miss(#[case] sender_nonce: u64, #[case] message_sequence: u64) {
+        let db = Arc::new(MemoryDB::default());
+        let sender = Address::new_id(1000);
+
+        let empty_root = StateTree::new(&db, StateTreeVersion::V5)
+            .unwrap()
+            .flush()
+            .unwrap();
+        let mut head_tree = StateTree::new(&db, StateTreeVersion::V5).unwrap();
+        head_tree
+            .set_actor(
+                &sender,
+                ActorState::new(
+                    Cid::default(),
+                    Cid::default(),
+                    TokenAmount::default(),
+                    sender_nonce,
+                    None,
+                ),
+            )
+            .unwrap();
+        let head_root = head_tree.flush().unwrap();
+
+        let empty_amt = Amt::<Cid, _>::new(&db).flush().unwrap();
+        let empty_meta = db
+            .put_cbor_default(&TxMeta {
+                bls_message_root: empty_amt,
+                secp_message_root: empty_amt,
+            })
+            .unwrap();
+
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_state_root(empty_root).with_timestamp(1).with_messages(empty_meta)]
+            -> [head = HeaderBuilder::new().with_state_root(head_root)]
+        };
+
+        let cs = ChainStore::new(
+            db.clone(),
+            Arc::new(ChainConfig::default()),
+            CachingBlockHeader::new(genesis.clone()),
+        )
+        .unwrap();
+        let sm = StateManager::new(cs).unwrap();
+        let head_ts =
+            Tipset::load_required(&db, &TipsetKey::from(nunny::vec![head.cid()])).unwrap();
+
+        let msg: ChainMessage = Message {
+            from: sender,
+            sequence: message_sequence,
+            ..Default::default()
+        }
+        .into();
+        let res = sm.check_search_blocking(head_ts, &msg, 0, true, &CancellationToken::new());
+
+        assert!(matches!(res, Ok(None)), "expected Ok(None), got {res:?}");
     }
 }

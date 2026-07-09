@@ -8,7 +8,7 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
-use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
+use crate::chain::{ChainStore, ExportOptions, ExportResult, FilecoinSnapshotVersion, HeadChange};
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
 use crate::db::car::forest::{forest_car_sha256sum_path, tmp_exporting_forest_car_path};
@@ -316,6 +316,7 @@ impl RpcMethod<1> for ForestChainExport {
                 include_receipts,
                 include_events,
                 include_tipset_keys,
+                include_tipset_lookup,
                 skip_checksum,
                 dry_run,
             } = params;
@@ -333,6 +334,7 @@ impl RpcMethod<1> for ForestChainExport {
                 include_receipts,
                 include_events,
                 include_tipset_keys,
+                include_tipset_lookup,
                 seen: FileBackedCidHashSet::new(ctx.temp_dir.as_path())?,
             };
             let tmp_path =
@@ -387,11 +389,11 @@ impl RpcMethod<1> for ForestChainExport {
             };
             tokio::select! {
                 result = chain_export => {
-                    let checksum_opt = result?;
+                    let ExportResult { checksum, .. } = result?;
                     if !dry_run
                     {
                         tmp_path.persist(&output_path)?;
-                        if let Some(checksum) = checksum_opt {
+                        if let Some(checksum) = checksum {
                             save_checksum(checksum, &output_path)?;
                         }
                     }
@@ -591,6 +593,7 @@ impl RpcMethod<1> for ChainExport {
                 include_receipts: false,
                 include_events: false,
                 include_tipset_keys: false,
+                include_tipset_lookup: false,
                 skip_checksum,
                 dry_run,
             },),
@@ -1520,6 +1523,8 @@ pub struct ForestChainExportParams {
     pub include_events: bool,
     #[serde(default)]
     pub include_tipset_keys: bool,
+    #[serde(default)]
+    pub include_tipset_lookup: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }

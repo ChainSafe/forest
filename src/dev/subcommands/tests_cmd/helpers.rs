@@ -27,7 +27,7 @@ pub const FIL_AMT: &str = "500 atto FIL";
 /// Sentinel `forest-wallet balance --exact-balance` returns for an unfunded address.
 pub const FIL_ZERO: &str = "0 FIL";
 /// Amount to seed a freshly-created delegated wallet.
-pub const DELEGATE_FUND_AMT: &str = "3 micro FIL";
+pub const DELEGATE_FUND_AMT: &str = "30 micro FIL";
 
 /// Maximum time to wait for a polled condition before failing the test.
 pub const POLL_TIMEOUT: Duration = Duration::from_secs(600);
@@ -136,15 +136,15 @@ fn send_from_and_maybe_wait(
 ) -> anyhow::Result<String> {
     let mut args = vec!["send", to, amount, "--from", from];
     if wait {
-        args.extend(["--wait-confidence", "0", "--wait-timeout", "1m"]);
+        args.extend(["--wait-confidence", "0", "--wait-timeout", "10m"]);
     }
     let mut attempt = 1;
     loop {
         match wallet(backend, &args) {
             Ok(out) => return Ok(out),
-            Err(_) if attempt < SEND_RETRIES => {
+            Err(e) if attempt < SEND_RETRIES => {
                 eprintln!(
-                    "send {from} -> {to} failed on attempt {attempt}/{SEND_RETRIES}, retrying"
+                    "error: {e:?} send {from} -> {to} failed on attempt {attempt}/{SEND_RETRIES}, retrying"
                 );
                 std::thread::sleep(SEND_RETRY_DELAY);
                 attempt += 1;

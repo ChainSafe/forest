@@ -35,7 +35,7 @@ use crate::rpc::{
     ApiPaths, Ctx, EthEventHandler, LOOKBACK_NO_LIMIT, Permission, RpcMethod, RpcMethodExt as _,
     error::ServerError,
     eth::{
-        errors::EthErrors,
+        errors::{EthErrors, NULL_ROUND_CODE},
         filter::{
             EventRevertStatus, SkipEvent, event::EventFilter, mempool::MempoolFilter,
             tipset::TipSetFilter,
@@ -3001,9 +3001,13 @@ async fn get_eth_transaction_receipt_with_cache(
     limit: Option<ChainEpoch>,
     cancellation_token: &CancellationToken,
 ) -> Result<Option<EthTxReceipt>, ServerError> {
-    const CACHE_SIZE: NonZeroUsize = nonzero!(1024usize); // ~1.25MiB on mainnet
     static CACHE: LazyLock<SizeTrackingCache<EthHash, EthTxReceipt>> = LazyLock::new(|| {
-        SizeTrackingCache::new_with_metrics("eth_transaction_receipt", CACHE_SIZE)
+        const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(10000usize); // ~12.5MiB on mainnet
+        let cache_size = env_or_default(
+            "FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE",
+            DEFAULT_CACHE_SIZE,
+        );
+        SizeTrackingCache::new_with_metrics("eth_transaction_receipt", cache_size)
     });
 
     enum TmpError {
@@ -4186,12 +4190,17 @@ async fn trace_filter(
     let mut trace_counter = 0;
     'blocks: for blk_num in from_block.0..=to_block.0 {
         // For BlockNumber, EthTraceBlock and EthTraceBlockV2 are equivalent.
-        let block_traces = EthTraceBlock::handle(
+        let block_traces = match EthTraceBlock::handle(
             ctx.clone(),
             (BlockNumberOrHash::from_block_number(blk_num as i64),),
             ext,
         )
-        .await?;
+        .await
+        {
+            Ok(block_traces) => block_traces,
+            Err(e) if e.code() == NULL_ROUND_CODE => continue 'blocks,
+            Err(e) => return Err(e.into()),
+        };
         for block_trace in block_traces.0 {
             if block_trace
                 .trace

@@ -50,10 +50,25 @@ and setup credentials. Then run any command:
 
 ```shell
 export TOKEN=$(cat /forest_data/token.jwt)
-export FULLNODE_API_INFO=$TOKEN:/dns/forest/tcp/1234/http
+export FULLNODE_API_INFO=$TOKEN:/dns/forest/tcp/3456/http
 
 forest-cli net peers
 ```
+
+## Running the wallet integration tests
+
+The same wallet/mpool integration suite that runs against calibnet can be run
+against the local devnet. This brings up the devnet, waits for it to sync, wires
+up the host environment, and runs the tests:
+
+```shell
+mise run test:wallet-devnet
+```
+
+Under the hood this sources `wallet_harness.sh`, which reads the admin token and
+the funded genesis key from the running `forest` container, exports
+`FULLNODE_API_INFO` (Forest RPC on port 3456) and `FOREST_TEST_PRELOADED_ADDRESS`,
+then runs `forest-dev tests mpool` and `forest-dev tests wallet`.
 
 ## Local devnet development
 
