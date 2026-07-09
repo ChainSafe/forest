@@ -137,12 +137,9 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
                     .context("failed to parse params")?;
                 let result = <$ty>::handle(ctx.clone(), params, &ext)
                     .await
-                    .map(|r| r.into_lotus_json())
-                    .map_err(|e| e.deref().to_string());
-                let expected = match expected_response.clone() {
-                    Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
-                    Err(e) => Err(e),
-                };
+                    .map_err(|e| e.deref().to_string())
+                    .and_then(|r| r.into_lotus_json_value().map_err(|e| e.to_string()));
+                let expected = expected_response.clone();
                 pretty_assertions::assert_eq!(result, expected);
                 run = true;
             }
