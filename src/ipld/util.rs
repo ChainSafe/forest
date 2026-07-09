@@ -29,6 +29,7 @@ pub struct ExportStatus {
     pub initial_epoch: AtomicI64,
     pub exporting: AtomicBool,
     pub cancelled: AtomicBool,
+    pub succeeded: AtomicBool,
     pub start_time: ArcSwapOption<DateTime<Utc>>,
     pub cancellation_token: ArcSwapOption<CancellationToken>,
 }
@@ -50,6 +51,10 @@ impl ExportStatus {
         self.cancelled.load(atomic::Ordering::Relaxed)
     }
 
+    pub fn succeeded(&self) -> bool {
+        self.succeeded.load(atomic::Ordering::Relaxed)
+    }
+
     pub fn start_time(&self) -> Option<DateTime<Utc>> {
         self.start_time.load().clone().map(Arc::unwrap_or_clone)
     }
@@ -64,6 +69,7 @@ impl ExportStatus {
 
 pub static CHAIN_EXPORT_STATUS: LazyLock<ExportStatus> = LazyLock::new(ExportStatus::default);
 
+#[derive(Debug)]
 pub struct ChainExportGuard {
     cancellation_token: CancellationToken,
 }
@@ -79,6 +85,10 @@ impl ChainExportGuard {
         cancel_export()
     }
 
+    pub fn mark_as_succeeded(&self) {
+        export_succeeded()
+    }
+
     pub fn cancellation_token(&self) -> &CancellationToken {
         &self.cancellation_token
     }
@@ -86,6 +96,8 @@ impl ChainExportGuard {
 
 impl Drop for ChainExportGuard {
     fn drop(&mut self) {
+        // In case some tasks are waiting on this token
+        self.cancellation_token.cancel();
         end_export()
     }
 }
@@ -114,11 +126,18 @@ fn start_export(cancellation_token: CancellationToken) -> anyhow::Result<()> {
     status.epoch.store(0, atomic::Ordering::Relaxed);
     status.initial_epoch.store(0, atomic::Ordering::Relaxed);
     status.cancelled.store(false, atomic::Ordering::Relaxed);
+    status.succeeded.store(false, atomic::Ordering::Relaxed);
     status.start_time.store(Some(Utc::now().into()));
     status
         .cancellation_token
         .store(Some(cancellation_token.into()));
     Ok(())
+}
+
+fn export_succeeded() {
+    CHAIN_EXPORT_STATUS
+        .succeeded
+        .store(true, atomic::Ordering::Relaxed);
 }
 
 fn end_export() {
@@ -130,7 +149,6 @@ fn end_export() {
 
 fn cancel_export() {
     let status = &*CHAIN_EXPORT_STATUS;
-    status.exporting.store(false, atomic::Ordering::Relaxed);
     status.cancelled.store(true, atomic::Ordering::Relaxed);
 }
 
@@ -630,5 +648,61 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_chain_export_guard() {
+        // First export (Cancel)
+        let g = ChainExportGuard::try_start_export().unwrap();
+        assert!(CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
+
+        // Another attempt should fail
+        ChainExportGuard::try_start_export().unwrap_err();
+
+        // Cancel
+        g.cancel_export();
+        assert!(CHAIN_EXPORT_STATUS.cancelled());
+
+        // Drop
+        drop(g);
+        assert!(!CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(CHAIN_EXPORT_STATUS.cancelled());
+
+        // Second export (Success)
+        let g = ChainExportGuard::try_start_export().unwrap();
+        assert!(CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
+
+        // Another attempt should fail
+        ChainExportGuard::try_start_export().unwrap_err();
+
+        // On success
+        g.mark_as_succeeded();
+        assert!(CHAIN_EXPORT_STATUS.succeeded());
+
+        // Drop
+        drop(g);
+        assert!(!CHAIN_EXPORT_STATUS.exporting());
+        assert!(CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
+
+        // Third export (failure)
+        let g = ChainExportGuard::try_start_export().unwrap();
+        assert!(CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
+
+        // Another attempt should fail
+        ChainExportGuard::try_start_export().unwrap_err();
+
+        // Drop
+        drop(g);
+        assert!(!CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
     }
 }

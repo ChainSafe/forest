@@ -217,7 +217,7 @@ impl SnapshotGarbageCollector {
     }
 
     async fn export_snapshot(&self) -> anyhow::Result<()> {
-        let _guard = ChainExportGuard::try_start_export()?;
+        let chain_export_guard = ChainExportGuard::try_start_export()?;
         let db = self.db();
         tracing::info!(
             "exporting lite snapshot with {} recent state roots",
@@ -299,6 +299,7 @@ impl SnapshotGarbageCollector {
             _ => {}
         }
         joinset.shutdown().await;
+        chain_export_guard.mark_as_succeeded();
         Ok(())
     }
 

@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#7252](https://github.com/ChainSafe/forest/pull/7252): `forest-cli snapshot export` now generates checksum file at {filepath}.sha256sum. The default file extension is changed from `.forest.car.sha256sum` to `.forest.car.zst.sha256sum`.
+
 - [#7321](https://github.com/ChainSafe/forest/pull/7321): The chain indexer, which populates the Ethereum transaction-hash mappings used by `eth_getTransactionByHash`, `eth_getTransactionReceipt`, and related methods, is now enabled by default. Opt out with `FOREST_CHAIN_INDEXER_ENABLED=0`.
 
 ### Added
