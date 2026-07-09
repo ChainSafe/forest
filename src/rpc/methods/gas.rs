@@ -221,7 +221,7 @@ impl GasEstimateGasLimit {
             .resolve_to_deterministic_address(msg.from, &curr_ts)
             .await?;
 
-        let pending = data.mpool.pending_for(&from_a);
+        let pending = data.mpool.pending_for(&from_a).await;
         let prior_messages: Arc<Vec<ChainMessage>> = pending
             .map(|s| s.into_iter().map(Into::into).collect_vec())
             .unwrap_or_default()

@@ -24,7 +24,7 @@ impl NonceTracker {
     }
 
     /// Acquire the global lock, assign a nonce, sign, and push to `mpool`.
-    pub async fn sign_and_push<T: Provider + Send + Sync>(
+    pub async fn sign_and_push<T: Provider + Send + Sync + 'static>(
         &self,
         mpool: &MessagePool<T>,
         mut message: Message,
@@ -33,7 +33,7 @@ impl NonceTracker {
     ) -> anyhow::Result<crate::message::SignedMessage> {
         let _guard = self.lock.lock().await;
 
-        let nonce = mpool.get_sequence(&message.from)?;
+        let nonce = mpool.get_sequence(&message.from).await?;
         message.sequence = nonce;
 
         let smsg = sign_message(key, &message, eth_chain_id)?;

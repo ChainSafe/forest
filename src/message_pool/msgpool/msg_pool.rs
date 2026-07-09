@@ -18,7 +18,7 @@ use crate::message_pool::{
         BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolSubscriber,
         pending_store::PendingStore, recover_sig, republish::RepublishState,
     },
-    provider::Provider,
+    provider::{Provider, ProviderExt},
     utils::get_base_fee_lower_bound,
 };
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
@@ -147,8 +147,8 @@ impl<T> ShallowClone for MessagePool<T> {
 
 /// Resolve an address to its key form, checking the cache first.
 /// Non-ID addresses are returned unchanged.
-pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
-    api: &T,
+pub(in crate::message_pool) async fn resolve_to_key<T: Provider + Send + Sync + 'static>(
+    api: &Arc<T>,
     key_cache: &IdToAddressCache,
     addr: &Address,
     cur_ts: &Tipset,
@@ -159,7 +159,9 @@ pub(in crate::message_pool) fn resolve_to_key<T: Provider>(
     {
         return Ok(resolved);
     }
-    let resolved = api.resolve_to_deterministic_address_at_finality(addr, cur_ts)?;
+    let resolved = api
+        .resolve_to_deterministic_address_at_finality_async(*addr, cur_ts.clone())
+        .await?;
     if let Some(id) = id {
         key_cache.insert(id, resolved);
     }
@@ -175,19 +177,25 @@ where
         self.cur_tipset.read().clone()
     }
 
-    pub(in crate::message_pool) fn resolve_to_key(
+    pub(in crate::message_pool) async fn resolve_to_key(
         &self,
         addr: &Address,
         cur_ts: &Tipset,
-    ) -> Result<Address, Error> {
-        resolve_to_key(self.api.as_ref(), &self.caches.key, addr, cur_ts)
+    ) -> Result<Address, Error>
+    where
+        T: Send + Sync + 'static,
+    {
+        resolve_to_key(&self.api, &self.caches.key, addr, cur_ts).await
     }
 
     /// Record the resolved-key sender of a locally-submitted message so the
     /// republish loop can find it on its next sweep.
-    fn add_local(&self, m: &SignedMessage) -> Result<(), Error> {
+    async fn add_local(&self, m: &SignedMessage) -> Result<(), Error>
+    where
+        T: Send + Sync + 'static,
+    {
         let cur_ts = self.current_tipset();
-        let resolved = self.resolve_to_key(&m.from(), &cur_ts)?;
+        let resolved = self.resolve_to_key(&m.from(), &cur_ts).await?;
         self.local_addrs.write().insert(resolved);
         Ok(())
     }
@@ -198,10 +206,13 @@ where
         &self,
         msg: SignedMessage,
         trust_policy: TrustPolicy,
-    ) -> Result<Cid, Error> {
+    ) -> Result<Cid, Error>
+    where
+        T: Send + Sync + 'static,
+    {
         let cid = msg.cid();
-        let publish = self.add_to_pool(msg.clone(), true, trust_policy)?;
-        self.add_local(&msg)?;
+        let publish = self.add_to_pool(msg.clone(), true, trust_policy).await?;
+        self.add_local(&msg).await?;
         if publish {
             self.publish_pubsub(&msg).await?;
         }
@@ -225,19 +236,28 @@ where
     }
 
     /// Push a signed message to the `MessagePool` from an trusted source.
-    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
+    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error>
+    where
+        T: Send + Sync + 'static,
+    {
         self.push_internal(msg, TrustPolicy::Trusted).await
     }
 
     /// Push a signed message to the `MessagePool` from an untrusted source.
-    pub async fn push_untrusted(&self, msg: SignedMessage) -> Result<Cid, Error> {
+    pub async fn push_untrusted(&self, msg: SignedMessage) -> Result<Cid, Error>
+    where
+        T: Send + Sync + 'static,
+    {
         self.push_internal(msg, TrustPolicy::Untrusted).await
     }
 
     /// Insert a message received via gossip. Runs full validation. Does
     /// not publish back to the network.
-    pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
-        self.add_to_pool(msg, false, TrustPolicy::Trusted)?;
+    pub async fn add(&self, msg: SignedMessage) -> Result<(), Error>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.add_to_pool(msg, false, TrustPolicy::Trusted).await?;
         Ok(())
     }
 
@@ -246,16 +266,19 @@ where
     /// Returns `publish: bool` — `true` when the message should be gossiped
     /// after insertion; `false` when a local sender's message failed the
     /// soft base-fee floor (kept locally, not broadcast).
-    pub(in crate::message_pool) fn validate_for_pool(
+    pub(in crate::message_pool) async fn validate_for_pool(
         &self,
         msg: &SignedMessage,
         cur_ts: &Tipset,
         local: bool,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, Error>
+    where
+        T: Send + Sync + 'static,
+    {
         validate_static(msg)?;
         validate_signature(msg, &self.caches.sig_val, self.chain_config.eth_chain_id)?;
 
-        let expected_sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
+        let expected_sequence = self.get_state_sequence(&msg.from(), cur_ts).await?;
         let sender_actor = self.api.get_actor_after(&msg.from(), cur_ts)?;
 
         validate_with_state(
@@ -271,20 +294,24 @@ where
     /// Validate `msg` and insert it into the pending pool.
     ///
     /// Returns `publish: bool` (see [`Self::validate_for_pool`]).
-    pub(in crate::message_pool) fn add_to_pool(
+    pub(in crate::message_pool) async fn add_to_pool(
         &self,
         msg: SignedMessage,
         local: bool,
         trust_policy: TrustPolicy,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, Error>
+    where
+        T: Send + Sync + 'static,
+    {
         let cur_ts = self.current_tipset();
-        let publish = self.validate_for_pool(&msg, &cur_ts, local)?;
+        let publish = self.validate_for_pool(&msg, &cur_ts, local).await?;
         let strictness = if local {
             StrictnessPolicy::Relaxed
         } else {
             StrictnessPolicy::Strict
         };
-        self.add_to_pool_unchecked(&cur_ts, msg, trust_policy, strictness)?;
+        self.add_to_pool_unchecked(&cur_ts, msg, trust_policy, strictness)
+            .await?;
         Ok(publish)
     }
 
@@ -292,13 +319,16 @@ where
     /// (size, sig, base-fee, sender-actor checks). The reorg replay path
     /// uses this directly to restore reverted messages even when they no
     /// longer pass the add-time filters.
-    pub(in crate::message_pool) fn add_to_pool_unchecked(
+    pub(in crate::message_pool) async fn add_to_pool_unchecked(
         &self,
         cur_ts: &Tipset,
         msg: SignedMessage,
         trust_policy: TrustPolicy,
         strictness: StrictnessPolicy,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error>
+    where
+        T: Send + Sync + 'static,
+    {
         if msg.signature().signature_type() == SignatureType::Bls {
             self.caches
                 .bls_sig
@@ -310,20 +340,23 @@ where
         self.api
             .put_message(&ChainMessage::Unsigned(msg.message().clone().into()))?;
 
-        let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
-        let resolved_from = self.resolve_to_key(&msg.from(), cur_ts)?;
+        let sequence = self.get_state_sequence(&msg.from(), cur_ts).await?;
+        let resolved_from = self.resolve_to_key(&msg.from(), cur_ts).await?;
         self.pending
             .insert(resolved_from, msg, sequence, trust_policy, strictness)
     }
 
     /// Get the sequence for a given address, return Error if there is a failure
     /// to retrieve the respective sequence.
-    pub fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
+    pub async fn get_sequence(&self, addr: &Address) -> Result<u64, Error>
+    where
+        T: Send + Sync + 'static,
+    {
         let cur_ts = self.current_tipset();
 
-        let sequence = self.get_state_sequence(addr, &cur_ts)?;
+        let sequence = self.get_state_sequence(addr, &cur_ts).await?;
 
-        let resolved = self.resolve_to_key(addr, &cur_ts).ok();
+        let resolved = self.resolve_to_key(addr, &cur_ts).await.ok();
         let mset = resolved
             .and_then(|r| self.pending.snapshot_for(&r))
             .or_else(|| self.pending.snapshot_for(addr));
@@ -341,11 +374,14 @@ where
     /// Get the state nonce for an address in `cur_ts`, accounting for
     /// messages already included in that tipset. Cached by `(TipsetKey,
     /// Address)`.
-    pub(in crate::message_pool) fn get_state_sequence(
+    pub(in crate::message_pool) async fn get_state_sequence(
         &self,
         addr: &Address,
         cur_ts: &Tipset,
-    ) -> Result<u64, Error> {
+    ) -> Result<u64, Error>
+    where
+        T: Send + Sync + 'static,
+    {
         let nk = StateNonceCacheKey {
             tipset_key: cur_ts.key().clone(),
             addr: *addr,
@@ -358,15 +394,17 @@ where
         let actor = self.api.get_actor_after(addr, cur_ts)?;
         let mut next_nonce = actor.sequence;
 
-        if let (Ok(resolved), Ok(messages)) = (
-            self.resolve_to_key(addr, cur_ts)
-                .inspect_err(|e| tracing::warn!(%addr, "failed to resolve address to key: {e:#}")),
-            self.api
-                .messages_for_tipset(cur_ts)
-                .inspect_err(|e| tracing::warn!("failed to get messages for tipset: {e:#}")),
-        ) {
+        let resolved = self
+            .resolve_to_key(addr, cur_ts)
+            .await
+            .inspect_err(|e| tracing::warn!(%addr, "failed to resolve address to key: {e:#}"));
+        let messages = self
+            .api
+            .messages_for_tipset(cur_ts)
+            .inspect_err(|e| tracing::warn!("failed to get messages for tipset: {e:#}"));
+        if let (Ok(resolved), Ok(messages)) = (resolved, messages) {
             for msg in messages.iter() {
-                if let Ok(from) = self.resolve_to_key(&msg.from(), cur_ts).inspect_err(
+                if let Ok(from) = self.resolve_to_key(&msg.from(), cur_ts).await.inspect_err(
                     |e| tracing::warn!(from = %msg.from(), "failed to resolve message sender: {e:#}"),
                 ) && from == resolved
                 {
@@ -405,10 +443,14 @@ where
     /// Return a Vector of signed messages for a given from address. This vector
     /// will be sorted by each `message`'s sequence. If no corresponding
     /// messages found, return None result type.
-    pub fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
+    pub async fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>>
+    where
+        T: Send + Sync + 'static,
+    {
         let cur_ts = self.current_tipset();
         let resolved = self
             .resolve_to_key(a, &cur_ts)
+            .await
             .inspect_err(|e| tracing::debug!(%a, "pending_for: failed to resolve address: {e:#}"))
             .ok()?;
         let mset = self.pending.snapshot_for(&resolved)?;
@@ -694,12 +736,9 @@ mod tests {
             ..ShimMessage::default()
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
-        let res = mpool.add_to_pool_unchecked(
-            &cur_ts,
-            msg,
-            TrustPolicy::Trusted,
-            StrictnessPolicy::Relaxed,
-        );
+        let res = mpool
+            .add_to_pool_unchecked(&cur_ts, msg, TrustPolicy::Trusted, StrictnessPolicy::Relaxed)
+            .await;
         assert!(res.is_ok());
     }
 
@@ -710,7 +749,7 @@ mod tests {
         let ts = mpool.current_tipset();
 
         let bls_addr = Address::new_bls(&[1u8; 48]).unwrap();
-        let result = mpool.resolve_to_key(&bls_addr, &ts).unwrap();
+        let result = mpool.resolve_to_key(&bls_addr, &ts).await.unwrap();
         assert_eq!(result, bls_addr);
         assert_eq!(
             mpool.caches.key.len(),
@@ -729,7 +768,7 @@ mod tests {
         let (mpool, _services) = make_test_mpool(api);
         let ts = mpool.current_tipset();
 
-        let result = mpool.resolve_to_key(&id_addr, &ts).unwrap();
+        let result = mpool.resolve_to_key(&id_addr, &ts).await.unwrap();
         assert_eq!(result, key_addr);
         assert_eq!(
             mpool.caches.key.len(),
@@ -738,7 +777,7 @@ mod tests {
         );
 
         // Second call should hit the cache (no API call needed)
-        let result2 = mpool.resolve_to_key(&id_addr, &ts).unwrap();
+        let result2 = mpool.resolve_to_key(&id_addr, &ts).await.unwrap();
         assert_eq!(result2, key_addr);
     }
 
@@ -767,6 +806,7 @@ mod tests {
                 TrustPolicy::Trusted,
                 StrictnessPolicy::Relaxed,
             )
+            .await
             .unwrap();
 
         assert!(
@@ -806,6 +846,7 @@ mod tests {
                     TrustPolicy::Trusted,
                     StrictnessPolicy::Relaxed,
                 )
+                .await
                 .unwrap();
         }
 
@@ -814,8 +855,8 @@ mod tests {
             .get_actor_after(&id_addr, &cur_ts)
             .unwrap()
             .sequence;
-        let resolved_for_id = mpool.resolve_to_key(&id_addr, &cur_ts).unwrap();
-        let resolved_for_key = mpool.resolve_to_key(&key_addr, &cur_ts).unwrap();
+        let resolved_for_id = mpool.resolve_to_key(&id_addr, &cur_ts).await.unwrap();
+        let resolved_for_key = mpool.resolve_to_key(&key_addr, &cur_ts).await.unwrap();
         assert_eq!(resolved_for_id, resolved_for_key);
 
         let next_seq = mpool
@@ -844,7 +885,7 @@ mod tests {
 
         let (mpool, _services) = make_test_mpool(api);
 
-        let nonce = mpool.get_state_sequence(&sender, &ts).unwrap();
+        let nonce = mpool.get_state_sequence(&sender, &ts).await.unwrap();
         assert_eq!(
             nonce, 8,
             "should account for non-consecutive tipset message at nonce 7"
@@ -874,13 +915,13 @@ mod tests {
 
         let (mpool, _services) = make_test_mpool(api);
 
-        let nonce_a = mpool.get_state_sequence(&addr_a, &ts).unwrap();
+        let nonce_a = mpool.get_state_sequence(&addr_a, &ts).await.unwrap();
         assert_eq!(
             nonce_a, 0,
             "addr_a nonce should be unaffected by addr_b's messages"
         );
 
-        let nonce_b = mpool.get_state_sequence(&addr_b, &ts).unwrap();
+        let nonce_b = mpool.get_state_sequence(&addr_b, &ts).await.unwrap();
         assert_eq!(
             nonce_b, 3,
             "addr_b nonce should reflect its tipset messages"
@@ -903,12 +944,12 @@ mod tests {
 
         let (mpool, _services) = make_test_mpool(api);
 
-        let nonce1 = mpool.get_state_sequence(&sender, &ts).unwrap();
+        let nonce1 = mpool.get_state_sequence(&sender, &ts).await.unwrap();
         assert_eq!(nonce1, 6);
 
         // Mutate the underlying state; the cache should still return the old value.
         mpool.api.set_state_sequence(&sender, 99);
-        let nonce2 = mpool.get_state_sequence(&sender, &ts).unwrap();
+        let nonce2 = mpool.get_state_sequence(&sender, &ts).await.unwrap();
         assert_eq!(
             nonce2, 6,
             "second call should return the cached value, not re-read state"
@@ -928,7 +969,7 @@ mod tests {
         let block_a = mock_block(1, 1);
         let ts_a = Tipset::from(&block_a);
 
-        let nonce_a = mpool.get_state_sequence(&sender, &ts_a).unwrap();
+        let nonce_a = mpool.get_state_sequence(&sender, &ts_a).await.unwrap();
         assert_eq!(nonce_a, 10);
 
         // Different tipset should be a cache miss and re-read state.
@@ -936,7 +977,7 @@ mod tests {
         let block_b = mock_block(2, 2);
         let ts_b = Tipset::from(&block_b);
 
-        let nonce_b = mpool.get_state_sequence(&sender, &ts_b).unwrap();
+        let nonce_b = mpool.get_state_sequence(&sender, &ts_b).await.unwrap();
         assert_eq!(
             nonce_b, 20,
             "different tipset should miss the cache and read fresh state"
