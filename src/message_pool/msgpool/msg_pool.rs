@@ -737,7 +737,12 @@ mod tests {
         };
         let msg = SignedMessage::mock_bls_signed_message(message);
         let res = mpool
-            .add_to_pool_unchecked(&cur_ts, msg, TrustPolicy::Trusted, StrictnessPolicy::Relaxed)
+            .add_to_pool_unchecked(
+                &cur_ts,
+                msg,
+                TrustPolicy::Trusted,
+                StrictnessPolicy::Relaxed,
+            )
             .await;
         assert!(res.is_ok());
     }
