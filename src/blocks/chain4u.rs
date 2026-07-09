@@ -157,7 +157,7 @@ pub struct Chain4U<T = MemoryDB> {
 
 impl Chain4U {
     pub fn new() -> Self {
-        Default::default()
+        Self::with_blockstore(Default::default())
     }
 }
 
@@ -169,10 +169,12 @@ impl<T> Chain4U<T> {
         blockstore
             .put_keyed(&FILECOIN_GENESIS_CID, &FILECOIN_GENESIS_BLOCK)
             .unwrap();
-        Self {
+        let this = Self {
             blockstore,
             inner: Default::default(),
-        }
+        };
+        this.persist_empty_tx_meta();
+        this
     }
 
     pub fn blockstore(&self) -> &T {
@@ -211,6 +213,24 @@ impl<T> Chain4U<T> {
             .put_keyed(&header.cid(), &fvm_ipld_encoding::to_vec(&header).unwrap())
             .unwrap();
         header
+    }
+
+    /// Store the empty message structure the default header `messages` root
+    /// points at, so that loading messages of a generated tipset works.
+    fn persist_empty_tx_meta(&self)
+    where
+        T: Blockstore,
+    {
+        use crate::utils::db::CborStoreExt as _;
+        use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+
+        let empty_root = Amt::<Cid, _>::new(&self.blockstore).flush().unwrap();
+        self.blockstore
+            .put_cbor_default(&TxMeta {
+                bls_message_root: empty_root,
+                secp_message_root: empty_root,
+            })
+            .unwrap();
     }
 }
 

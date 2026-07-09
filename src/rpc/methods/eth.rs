@@ -3069,16 +3069,16 @@ async fn get_eth_transaction_receipt(
         .await
         .with_context(|| format!("failed to lookup Eth Txn {tx_hash} as {msg_cid}"));
 
-    let option = match option {
-        Ok(opt) => opt,
-        // Ethereum clients expect an empty response when the message was not found
+    // Ethereum clients expect an empty response when the message was not found
+    // or not executed yet
+    let (tipset, receipt) = match option {
+        Ok(Some(found)) => found,
+        Ok(None) => return Ok(None),
         Err(e) => {
             tracing::debug!("could not find transaction receipt for hash {tx_hash}: {e}");
             return Ok(None);
         }
     };
-
-    let (tipset, receipt) = option.context("not indexed")?;
     let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
     let message_lookup = MessageLookup {
         receipt,
