@@ -2530,7 +2530,11 @@ methods:
     paramStructure: by-position
   - name: Filecoin.NodeStatus
     description: "Returns the node's status, including sync and chain health information."
-    params: []
+    params:
+      - name: inclChainStatus
+        required: true
+        schema:
+          type: boolean
     result:
       name: Filecoin.NodeStatus.Result
       required: true

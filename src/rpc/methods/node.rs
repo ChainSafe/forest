@@ -5,27 +5,42 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::{
     lotus_json::lotus_json_with_self,
+    networks::calculate_expected_epoch,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
+    shim::clock::EPOCH_DURATION_SECONDS,
 };
+use anyhow::ensure;
 use enumflags2::BitFlags;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Epochs the node is behind the head tipset, matching Lotus' `NodeStatus`
+/// (`Behind` is in epochs, not seconds). Clock skew of up to one epoch (head
+/// ahead of the local clock) clamps to `0`; beyond that the value is
+/// meaningless, so an error is returned instead.
+fn epochs_behind_head(head_timestamp: u64, now_secs: u64) -> anyhow::Result<u64> {
+    ensure!(
+        head_timestamp <= now_secs + EPOCH_DURATION_SECONDS as u64,
+        "Head tipset timestamp is more than one epoch ahead of system time, please sync the system clock."
+    );
+    Ok(calculate_expected_epoch(now_secs, head_timestamp, EPOCH_DURATION_SECONDS as u32) as u64)
+}
+
 pub enum NodeStatus {}
-impl RpcMethod<0> for NodeStatus {
+impl RpcMethod<1> for NodeStatus {
     const NAME: &'static str = "Filecoin.NodeStatus";
-    const PARAM_NAMES: [&'static str; 0] = [];
+    const PARAM_NAMES: [&'static str; 1] = ["inclChainStatus"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: &'static str =
         "Returns the node's status, including sync and chain health information.";
 
-    type Params = ();
+    type Params = (bool,);
     type Ok = NodeStatusResult;
 
     async fn handle(
         ctx: Ctx,
-        (): Self::Params,
+        (incl_chain_status,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let mut node_status = NodeStatusResult::default();
@@ -33,23 +48,13 @@ impl RpcMethod<0> for NodeStatus {
         let head = ctx.chain_store().heaviest_tipset();
         let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
 
-        let ts = head.min_timestamp();
-        let cur_duration_secs = cur_duration.as_secs();
-        let behind = if ts <= cur_duration_secs + 1 {
-            cur_duration_secs.saturating_sub(ts)
-        } else {
-            return Err(anyhow::anyhow!(
-                "System time should not be behind tipset timestamp, please sync the system clock."
-            )
-            .into());
-        };
-
         let chain_finality = ctx.chain_config().policy.chain_finality;
 
         node_status.sync_status.epoch = head.epoch() as u64;
-        node_status.sync_status.behind = behind;
+        node_status.sync_status.behind =
+            epochs_behind_head(head.min_timestamp(), cur_duration.as_secs())?;
 
-        if head.epoch() > chain_finality {
+        if incl_chain_status && head.epoch() > chain_finality {
             let mut block_count = 0;
             let mut ts = head;
 
@@ -103,3 +108,31 @@ pub struct NodeStatusResult {
     pub chain_status: NodeChainStatus,
 }
 lotus_json_with_self!(NodeStatusResult);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn epochs_behind_head_is_reported_in_epochs() {
+        let epoch = EPOCH_DURATION_SECONDS as u64;
+        assert_eq!(epochs_behind_head(1_000, 1_000).unwrap(), 0);
+        assert_eq!(epochs_behind_head(1_000, 1_000 + epoch).unwrap(), 1);
+        assert_eq!(epochs_behind_head(1_000, 1_000 + 10 * epoch).unwrap(), 10);
+        assert_eq!(epochs_behind_head(1_000, 1_000 + epoch - 1).unwrap(), 0);
+        assert_eq!(epochs_behind_head(1_000, 1_000 + 2 * epoch - 1).unwrap(), 1);
+    }
+
+    #[test]
+    fn epochs_behind_head_tolerates_skew_up_to_one_epoch() {
+        let epoch = EPOCH_DURATION_SECONDS as u64;
+        assert_eq!(epochs_behind_head(1_001, 1_000).unwrap(), 0);
+        assert_eq!(epochs_behind_head(1_000 + epoch, 1_000).unwrap(), 0);
+    }
+
+    #[test]
+    fn epochs_behind_head_errors_on_skew_above_one_epoch() {
+        let epoch = EPOCH_DURATION_SECONDS as u64;
+        assert!(epochs_behind_head(1_000 + epoch + 1, 1_000).is_err());
+    }
+}
