@@ -69,6 +69,7 @@ impl ExportStatus {
 
 pub static CHAIN_EXPORT_STATUS: LazyLock<ExportStatus> = LazyLock::new(ExportStatus::default);
 
+#[derive(Debug)]
 pub struct ChainExportGuard {
     cancellation_token: CancellationToken,
 }
@@ -647,5 +648,61 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_chain_export_guard() {
+        // First export (Cancel)
+        let g = ChainExportGuard::try_start_export().unwrap();
+        assert_eq!(CHAIN_EXPORT_STATUS.exporting(), true);
+        assert_eq!(CHAIN_EXPORT_STATUS.succeeded(), false);
+        assert_eq!(CHAIN_EXPORT_STATUS.cancelled(), false);
+
+        // Another attempt should fail
+        ChainExportGuard::try_start_export().unwrap_err();
+
+        // Cancel
+        g.cancel_export();
+        assert_eq!(CHAIN_EXPORT_STATUS.cancelled(), true);
+
+        // Drop
+        drop(g);
+        assert_eq!(CHAIN_EXPORT_STATUS.exporting(), false);
+        assert_eq!(CHAIN_EXPORT_STATUS.succeeded(), false);
+        assert_eq!(CHAIN_EXPORT_STATUS.cancelled(), true);
+
+        // Second export (Success)
+        let g = ChainExportGuard::try_start_export().unwrap();
+        assert_eq!(CHAIN_EXPORT_STATUS.exporting(), true);
+        assert_eq!(CHAIN_EXPORT_STATUS.succeeded(), false);
+        assert_eq!(CHAIN_EXPORT_STATUS.cancelled(), false);
+
+        // Another attempt should fail
+        ChainExportGuard::try_start_export().unwrap_err();
+
+        // On success
+        g.mark_as_succeeded();
+        assert_eq!(CHAIN_EXPORT_STATUS.succeeded(), true);
+
+        // Drop
+        drop(g);
+        assert_eq!(CHAIN_EXPORT_STATUS.exporting(), false);
+        assert_eq!(CHAIN_EXPORT_STATUS.succeeded(), true);
+        assert_eq!(CHAIN_EXPORT_STATUS.cancelled(), false);
+
+        // Third export (failure)
+        let g = ChainExportGuard::try_start_export().unwrap();
+        assert_eq!(CHAIN_EXPORT_STATUS.exporting(), true);
+        assert_eq!(CHAIN_EXPORT_STATUS.succeeded(), false);
+        assert_eq!(CHAIN_EXPORT_STATUS.cancelled(), false);
+
+        // Another attempt should fail
+        ChainExportGuard::try_start_export().unwrap_err();
+
+        // Drop
+        drop(g);
+        assert_eq!(CHAIN_EXPORT_STATUS.exporting(), false);
+        assert_eq!(CHAIN_EXPORT_STATUS.succeeded(), false);
+        assert_eq!(CHAIN_EXPORT_STATUS.cancelled(), false);
     }
 }
