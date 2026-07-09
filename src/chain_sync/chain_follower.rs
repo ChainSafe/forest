@@ -843,7 +843,7 @@ impl SyncStateMachine {
                 }
             }
         } else if is_proposed_head {
-            if let Err(e) = self.cs.put_tipset(&tipset) {
+            if let Err(e) = self.cs.maybe_update_pending_head(&tipset) {
                 error!("Error putting tipset: {e}");
                 return false;
             }

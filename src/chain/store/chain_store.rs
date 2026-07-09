@@ -247,15 +247,15 @@ impl ChainStore {
         self.tipset_tracker.add(header);
     }
 
-    /// Writes tipset block headers to data store and updates heaviest tipset
-    /// with other compatible tracked headers.
-    pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
+    /// Writes pending tipset block headers to data store and updates heaviest tipset
+    /// with other compatible pending tracked headers when it's heavier than
+    /// the current head.
+    /// Returns whether the heaviest tipset is updated.
+    pub fn maybe_update_pending_head(&self, ts: &Tipset) -> Result<bool, Error> {
         persist_objects(self.db(), ts.block_headers().iter())?;
-
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
-        self.update_heaviest(expanded)?;
-        Ok(())
+        self.maybe_update_heaviest(expanded)
     }
 
     /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
@@ -356,8 +356,9 @@ impl ChainStore {
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest
-    /// tipset
-    fn update_heaviest(&self, ts: Tipset) -> Result<(), Error> {
+    /// tipset.
+    /// Returns whether the heaviest tipset is updated.
+    fn maybe_update_heaviest(&self, ts: Tipset) -> Result<bool, Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = fil_cns::weight(self.db(), &self.heaviest_tipset())?;
 
@@ -366,8 +367,10 @@ impl ChainStore {
 
         if new_weight > curr_weight {
             self.set_heaviest_tipset(ts)?;
+            Ok(true)
+        } else {
+            Ok(false)
         }
-        Ok(())
     }
 
     /// Checks metadata file if block has already been validated.
@@ -427,25 +430,33 @@ impl ChainStore {
         };
         let lbr = (round - lb).max(0);
 
-        // More null blocks than lookback
+        // More null blocks than our lookback
         if lbr >= heaviest_tipset.epoch() {
-            let genesis_timestamp = chain_index.genesis().min_ticket_block().timestamp;
-            let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
-            let ExecutedTipset { state_root, .. } =
-                crate::state_manager::apply_block_messages_blocking(
-                    chain_index.shallow_clone(),
-                    chain_config.shallow_clone(),
-                    beacon,
-                    // Using shared WASM engine here as creating new WASM engines is expensive
-                    // (takes seconds to minutes). It's only acceptable here because this situation is
-                    // so rare (may happen in dev-networks, doesn't happen in calibnet or mainnet.)
-                    &crate::shim::machine::GLOBAL_MULTI_ENGINE,
-                    heaviest_tipset.clone(),
-                    crate::state_manager::NO_CALLBACK,
-                    VMTrace::NotTraced,
-                )
-                .map_err(|e| Error::Other(e.to_string()))?;
-            return Ok((heaviest_tipset.clone(), state_root));
+            // Legitimate while the 10-block WinningPoSt lookback was active (nv <= 3),
+            // where >9 consecutive null rounds could push lbr past ts.epoch().
+            // Any lookback at genesis should resolve to genesis.
+            if version <= NetworkVersion::V3 || heaviest_tipset.epoch() == 0 {
+                let genesis_timestamp = chain_index.genesis().min_ticket_block().timestamp;
+                let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
+                let ExecutedTipset { state_root, .. } =
+                    crate::state_manager::apply_block_messages_blocking(
+                        chain_index.shallow_clone(),
+                        chain_config.shallow_clone(),
+                        beacon,
+                        // Using shared WASM engine here as creating new WASM engines is expensive
+                        &crate::shim::machine::GLOBAL_MULTI_ENGINE,
+                        heaviest_tipset.clone(),
+                        crate::state_manager::NO_CALLBACK,
+                        VMTrace::NotTraced,
+                    )
+                    .map_err(|e| Error::Other(e.to_string()))?;
+                return Ok((heaviest_tipset.clone(), state_root));
+            } else {
+                return Err(Error::LookbackHeightOverflow {
+                    lookback_height: lbr,
+                    base_height: heaviest_tipset.epoch(),
+                });
+            }
         }
 
         let next_ts = chain_index
