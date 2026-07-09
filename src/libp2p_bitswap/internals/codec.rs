@@ -10,11 +10,17 @@ use futures::{
     io::{AsyncRead, AsyncWrite},
 };
 use libp2p::request_response;
+use smallvec::SmallVec;
 
 use crate::libp2p_bitswap::{bitswap_pb::mod_Message::BlockPresenceType, prefix::Prefix, *};
 
 // 2MB Block Size according to the specs at https://github.com/ipfs/specs/blob/main/BITSWAP.md
 const MAX_BUF_SIZE: usize = 1024 * 1024 * 2;
+
+/// The payload of a `bitswap` request. Outbound requests always carry exactly one message
+/// (enforced by the `assert_eq!` in `write_request`) and inbound requests are typically
+/// decoded into just a few parts, so the common case is kept off the heap with inline storage.
+pub type BitswapMessages = SmallVec<[BitswapMessage; 1]>;
 
 fn codec() -> quick_protobuf_codec::Codec<bitswap_pb::Message> {
     quick_protobuf_codec::Codec::<bitswap_pb::Message>::new(MAX_BUF_SIZE)
@@ -26,7 +32,7 @@ pub struct BitswapRequestResponseCodec;
 #[async_trait]
 impl request_response::Codec for BitswapRequestResponseCodec {
     type Protocol = &'static str;
-    type Request = Vec<BitswapMessage>;
+    type Request = BitswapMessages;
     type Response = ();
 
     async fn read_request<T>(&mut self, _: &Self::Protocol, io: &mut T) -> IOResult<Self::Request>
@@ -40,7 +46,7 @@ impl request_response::Codec for BitswapRequestResponseCodec {
 
         metrics::inbound_stream_count().inc();
 
-        let mut parts = vec![];
+        let mut parts = BitswapMessages::new();
         for entry in pb_msg.wantlist.unwrap_or_default().entries {
             let cid = Cid::try_from(entry.block).map_err(io::Error::other)?;
             parts.push(BitswapMessage::Request(BitswapRequest {
