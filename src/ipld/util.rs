@@ -125,6 +125,7 @@ fn start_export(cancellation_token: CancellationToken) -> anyhow::Result<()> {
     status.epoch.store(0, atomic::Ordering::Relaxed);
     status.initial_epoch.store(0, atomic::Ordering::Relaxed);
     status.cancelled.store(false, atomic::Ordering::Relaxed);
+    status.succeeded.store(false, atomic::Ordering::Relaxed);
     status.start_time.store(Some(Utc::now().into()));
     status
         .cancellation_token
