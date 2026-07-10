@@ -25,7 +25,28 @@ on:
       - ".github/workflows/link-check.yml"
 
 jobs:
+  # Merge groups don't support path filters, so detect the relevant changes
+  # explicitly and skip the job when nothing relevant changed. Scheduled and
+  # manual runs always proceed since they have no diff to filter on.
+  # https://github.com/community/community/discussions/45899
+  changes:
+    runs-on: ubuntu-slim
+    outputs:
+      changesFound: ${{ steps.filter.outputs.changesFound }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            changesFound:
+              - '**.md'
+              - '**.mdx'
+              - '**.html'
+              - '.github/workflows/link-check.yml'
   link-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.changesFound == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     name: Link Check
     runs-on: ubuntu-slim
     permissions:

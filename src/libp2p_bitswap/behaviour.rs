@@ -8,11 +8,12 @@ use libp2p::{
     request_response::{self, OutboundRequestId, ProtocolSupport},
     swarm::{NetworkBehaviour, THandlerOutEvent, derive_prelude::*},
 };
+use smallvec::smallvec;
 
 use crate::libp2p_bitswap::{codec::*, request_manager::*, *};
 
 /// `libp2p` swarm network behavior event of `bitswap`
-pub type BitswapBehaviourEvent = request_response::Event<Vec<BitswapMessage>, ()>;
+pub type BitswapBehaviourEvent = request_response::Event<BitswapMessages, ()>;
 
 /// A `go-bitswap` compatible protocol that is built on top of
 /// [`request_response::Behaviour`].
@@ -52,7 +53,7 @@ impl BitswapBehaviour {
             };
         }
         self.inner
-            .send_request(peer, vec![BitswapMessage::Request(request)])
+            .send_request(peer, smallvec![BitswapMessage::Request(request)])
     }
 
     /// Sends a [`BitswapResponse`] to a peer
@@ -65,8 +66,10 @@ impl BitswapBehaviour {
             BitswapResponse::Have(..) => metrics::message_counter_outbound_response_have().inc(),
             BitswapResponse::Block(..) => metrics::message_counter_outbound_response_block().inc(),
         };
-        self.inner
-            .send_request(peer, vec![BitswapMessage::Response(response.0, response.1)])
+        self.inner.send_request(
+            peer,
+            smallvec![BitswapMessage::Response(response.0, response.1)],
+        )
     }
 }
 

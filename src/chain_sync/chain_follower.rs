@@ -272,7 +272,7 @@ async fn chain_follower(
                             get_full_tipset(&network, cs, None, &key).await
                         }
                         PubsubMessage::Message(m) => {
-                            if let Err(why) = mem_pool.add(m) {
+                            if let Err(why) = mem_pool.add(m).await {
                                 debug!("Received invalid GossipSub message: {}", why);
                             }
                             continue;

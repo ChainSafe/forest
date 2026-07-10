@@ -2432,7 +2432,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
         let addr = sender.to_filecoin_address()?;
         match block_param {
             BlockNumberOrHash::PredefinedBlock(Predefined::Pending) => {
-                Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
+                Ok(EthUint64(ctx.mpool.get_sequence(&addr).await?))
             }
             _ => {
                 let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);

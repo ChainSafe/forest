@@ -93,7 +93,7 @@ async fn export_import_roundtrip(backend: Backend) {
 
 async fn market_add_balance_message_on_chain() {
     const ATTO_FIL: &str = "23";
-    let result = rpc_call(
+    let result = rpc_call_with_retry(
         "Filecoin.MarketAddBalance",
         serde_json::json!([
             FOREST_TEST_PRELOADED_ADDRESS.as_str(),

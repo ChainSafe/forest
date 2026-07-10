@@ -410,7 +410,7 @@ methods:
       name: Forest.ChainExportDiff.Result
       required: true
       schema:
-        type: "null"
+        $ref: "#/components/schemas/ApiExportResult"
     paramStructure: by-position
   - name: Forest.ChainExportStatus
     description: Returns the progress and status of the in-progress chain export.
@@ -4911,19 +4911,10 @@ components:
         - r
         - s
     ApiExportResult:
-      oneOf:
-        - type: string
-          enum:
-            - Cancelled
-        - type: object
-          properties:
-            Done:
-              type:
-                - string
-                - "null"
-          additionalProperties: false
-          required:
-            - Done
+      type: string
+      enum:
+        - Done
+        - Cancelled
     ApiExportStatus:
       type: object
       properties:
@@ -4945,10 +4936,13 @@ components:
             - string
             - "null"
           format: date-time
+        succeeded:
+          type: boolean
       required:
         - progress
         - exporting
         - cancelled
+        - succeeded
         - start_epoch
         - current_epoch
     ApiF3ParticipationLease:
