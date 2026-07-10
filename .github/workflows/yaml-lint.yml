@@ -25,7 +25,26 @@ on:
       - ".github/workflows/yaml-lint.yml"
 
 jobs:
+  # Merge groups don't support path filters, so detect the relevant changes
+  # explicitly and skip the job when nothing relevant changed.
+  # https://github.com/community/community/discussions/45899
+  changes:
+    runs-on: ubuntu-slim
+    outputs:
+      changesFound: ${{ steps.filter.outputs.changesFound }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            changesFound:
+              - '**/*.yml'
+              - '**/*.yaml'
+              - '.github/workflows/yaml-lint.yml'
   yaml-lint:
+    needs: changes
+    if: ${{ needs.changes.outputs.changesFound == 'true' }}
     runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v7
