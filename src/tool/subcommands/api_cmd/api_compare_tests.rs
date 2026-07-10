@@ -496,14 +496,7 @@ fn chain_tests(server_mode: ServerMode) -> Vec<RpcTest> {
             ServerMode::Offline => RpcTest::basic(ChainHead::request(()).unwrap()),
             ServerMode::Online => RpcTest::identity(ChainHead::request(()).unwrap()),
         },
-        match server_mode {
-            ServerMode::Offline => {
-                RpcTest::basic(ChainGetTipSetFinalityStatus::request(()).unwrap())
-            }
-            ServerMode::Online => {
-                RpcTest::identity(ChainGetTipSetFinalityStatus::request(()).unwrap())
-            }
-        },
+        RpcTest::basic(ChainGetTipSetFinalityStatus::request(()).unwrap()),
         RpcTest::basic(ChainGetFinalizedTipset::request(()).unwrap()),
         RpcTest::identity(ChainGetTipSetByHeight::request((0, Default::default())).unwrap())
             .ignore("Lotus times out"),
