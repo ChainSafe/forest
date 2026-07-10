@@ -7339,56 +7339,56 @@ components:
     NodeChainStatus:
       type: object
       properties:
-        blocks_per_tipset_last_100:
+        BlocksPerTipsetLast100:
           type: number
           format: double
-        blocks_per_tipset_last_finality:
+        BlocksPerTipsetLastFinality:
           type: number
           format: double
       required:
-        - blocks_per_tipset_last_100
-        - blocks_per_tipset_last_finality
+        - BlocksPerTipsetLast100
+        - BlocksPerTipsetLastFinality
     NodePeerStatus:
       type: object
       properties:
-        peers_to_publish_blocks:
+        PeersToPublishBlocks:
           type: integer
           format: uint32
           minimum: 0
-        peers_to_publish_msgs:
+        PeersToPublishMsgs:
           type: integer
           format: uint32
           minimum: 0
       required:
-        - peers_to_publish_msgs
-        - peers_to_publish_blocks
+        - PeersToPublishMsgs
+        - PeersToPublishBlocks
     NodeStatusResult:
       type: object
       properties:
-        chain_status:
+        ChainStatus:
           $ref: "#/components/schemas/NodeChainStatus"
-        peer_status:
+        PeerStatus:
           $ref: "#/components/schemas/NodePeerStatus"
-        sync_status:
+        SyncStatus:
           $ref: "#/components/schemas/NodeSyncStatus"
       required:
-        - sync_status
-        - peer_status
-        - chain_status
+        - SyncStatus
+        - PeerStatus
+        - ChainStatus
     NodeSyncStatus:
       type: object
       properties:
-        behind:
+        Behind:
           type: integer
           format: uint64
           minimum: 0
-        epoch:
+        Epoch:
           type: integer
           format: uint64
           minimum: 0
       required:
-        - epoch
-        - behind
+        - Epoch
+        - Behind
     NodeSyncStatus2:
       description: Represents the overall synchronization status of the Forest node.
       oneOf:
