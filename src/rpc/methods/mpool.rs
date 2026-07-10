@@ -84,7 +84,7 @@ impl RpcMethod<1> for MpoolGetNonce {
         (address,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.mpool.get_sequence(&address)?)
+        Ok(ctx.mpool.get_sequence(&address).await?)
     }
 }
 

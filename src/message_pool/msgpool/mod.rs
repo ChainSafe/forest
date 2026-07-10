@@ -118,10 +118,10 @@ pub mod tests {
 
         let (last, body) = smsg_vec.split_last().unwrap();
         for smsg in body {
-            mpool.add(smsg.clone()).unwrap();
+            mpool.add(smsg.clone()).await.unwrap();
         }
         assert_eq!(
-            mpool.add(last.clone()),
+            mpool.add(last.clone()).await,
             Err(Error::TooManyPendingMessages(sender.to_string(), true))
         );
     }
@@ -194,11 +194,11 @@ pub mod tests {
         }
 
         mpool.api.inner.lock().set_state_sequence(&sender, 0);
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 0);
-        mpool.add(smsg_vec[0].clone()).unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 1);
-        mpool.add(smsg_vec[1].clone()).unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
+        mpool.add(smsg_vec[0].clone()).await.unwrap();
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
+        mpool.add(smsg_vec[1].clone()).await.unwrap();
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
 
         let a = mock_block(1, 1);
 
@@ -208,7 +208,7 @@ pub mod tests {
             .await
             .unwrap();
 
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
     }
 
     #[tokio::test]
@@ -240,10 +240,10 @@ pub mod tests {
             drop(api_temp);
         }
 
-        mpool.add(smsg_vec[0].clone()).unwrap();
-        mpool.add(smsg_vec[1].clone()).unwrap();
-        mpool.add(smsg_vec[2].clone()).unwrap();
-        mpool.add(smsg_vec[3].clone()).unwrap();
+        mpool.add(smsg_vec[0].clone()).await.unwrap();
+        mpool.add(smsg_vec[1].clone()).await.unwrap();
+        mpool.add(smsg_vec[2].clone()).await.unwrap();
+        mpool.add(smsg_vec[3].clone()).await.unwrap();
 
         mpool.api.set_state_sequence(&sender, 0);
 
@@ -252,7 +252,7 @@ pub mod tests {
             .await
             .unwrap();
 
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
         mpool.api.set_state_sequence(&sender, 1);
 
@@ -261,7 +261,7 @@ pub mod tests {
             .await
             .unwrap();
 
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
         mpool.api.set_state_sequence(&sender, 0);
 
@@ -270,7 +270,7 @@ pub mod tests {
             .await
             .unwrap();
 
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
         let (p, _) = mpool.pending();
         assert_eq!(p.len(), 3);
@@ -291,12 +291,12 @@ pub mod tests {
         let target = Address::new_id(1001);
         for i in 0..3 {
             let msg = create_smsg(&target, &key_addr, wallet.borrow_mut(), i, 1000000, 1);
-            mpool.add(msg).unwrap();
+            mpool.add(msg).await.unwrap();
         }
 
         // get_sequence with ID address should see the same pending messages
-        assert_eq!(mpool.get_sequence(&id_addr).unwrap(), 3);
-        assert_eq!(mpool.get_sequence(&key_addr).unwrap(), 3);
+        assert_eq!(mpool.get_sequence(&id_addr).await.unwrap(), 3);
+        assert_eq!(mpool.get_sequence(&key_addr).await.unwrap(), 3);
     }
 
     #[tokio::test]
@@ -314,18 +314,20 @@ pub mod tests {
         let target = Address::new_id(1001);
         for i in 0..2 {
             let msg = create_smsg(&target, &key_addr, wallet.borrow_mut(), i, 1000000, 1);
-            mpool.add(msg).unwrap();
+            mpool.add(msg).await.unwrap();
         }
 
         // pending_for with ID address should find messages added under key address
         let msgs = mpool
             .pending_for(&id_addr)
+            .await
             .expect("should find pending messages");
         assert_eq!(msgs.len(), 2);
 
         // pending_for with key address should also work
         let msgs2 = mpool
             .pending_for(&key_addr)
+            .await
             .expect("should find pending messages");
         assert_eq!(msgs2.len(), 2);
     }
@@ -342,7 +344,7 @@ pub mod tests {
 
         // Create a message with the ID address as sender and a fake signature
         let msg = create_fake_smsg(&mpool, &Address::new_id(1001), &id_addr, 0, 1000000, 1);
-        mpool.add(msg).unwrap();
+        mpool.add(msg).await.unwrap();
 
         // Pending map should be keyed by key_addr, not id_addr.
         assert!(
@@ -372,9 +374,9 @@ pub mod tests {
         let target = Address::new_id(1001);
         let msg0 = create_smsg(&target, &key_addr, wallet.borrow_mut(), 0, 1000000, 1);
         let msg1 = create_smsg(&target, &key_addr, wallet.borrow_mut(), 1, 1000000, 1);
-        mpool.add(msg0.clone()).unwrap();
-        mpool.add(msg1).unwrap();
-        assert_eq!(mpool.get_sequence(&key_addr).unwrap(), 2);
+        mpool.add(msg0.clone()).await.unwrap();
+        mpool.add(msg1).await.unwrap();
+        assert_eq!(mpool.get_sequence(&key_addr).await.unwrap(), 2);
 
         // Block messages are stored under the key_addr (as would appear on chain).
         // The head_change remove path resolves addresses before touching pending.
@@ -388,9 +390,10 @@ pub mod tests {
             .unwrap();
 
         // msg0 was applied on chain, msg1 remains pending
-        assert_eq!(mpool.get_sequence(&id_addr).unwrap(), 2);
+        assert_eq!(mpool.get_sequence(&id_addr).await.unwrap(), 2);
         let msgs = mpool
             .pending_for(&key_addr)
+            .await
             .expect("should have remaining msg");
         assert_eq!(msgs.len(), 1);
         assert_eq!(msgs[0].sequence(), 1);
@@ -413,13 +416,13 @@ pub mod tests {
             smsg_vec.push(msg);
         }
 
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 0);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
         mpool.push(smsg_vec[0].clone()).await.unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 1);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
         mpool.push(smsg_vec[1].clone()).await.unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
         mpool.push(smsg_vec[2].clone()).await.unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 3);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 3);
 
         let header = mock_block(1, 1);
         let tipset = Tipset::from(&header.clone());
