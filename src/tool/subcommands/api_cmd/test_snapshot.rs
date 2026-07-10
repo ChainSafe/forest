@@ -70,6 +70,36 @@ fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<
     Ok(())
 }
 
+/// JSON fields removed from both actual and expected responses before the
+/// strict raw-JSON snapshot comparison. See each group below for why.
+const SKIPPED_COMPARISON_FIELDS: &[&str] = &[
+    // Skip time taken and duration as they are non-deterministic.
+    "tt",
+    "Duration",
+    // Skip `accessList` as it is known-divergent from Lotus.
+    // See <https://github.com/filecoin-project/lotus/issues/12214>.
+    "accessList",
+];
+
+/// Recursively remove [`SKIPPED_COMPARISON_FIELDS`] from a JSON value so the
+/// strict raw-JSON snapshot comparison skips them.
+fn strip_skipped_fields(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for field in SKIPPED_COMPARISON_FIELDS {
+                map.remove(*field);
+            }
+            for val in map.values_mut() {
+                strip_skipped_fields(val);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            items.iter_mut().for_each(strip_skipped_fields);
+        }
+        _ => {}
+    }
+}
+
 pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     let mut run = false;
     let snapshot_bytes = std::fs::read(path)?;
@@ -135,11 +165,17 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
             {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)
                     .context("failed to parse params")?;
-                let result = <$ty>::handle(ctx.clone(), params, &ext)
+                let mut result = <$ty>::handle(ctx.clone(), params, &ext)
                     .await
                     .map_err(|e| e.deref().to_string())
                     .and_then(|r| r.into_lotus_json_value().map_err(|e| e.to_string()));
-                let expected = expected_response.clone();
+                let mut expected = expected_response.clone();
+                if let Ok(v) = result.as_mut() {
+                    strip_skipped_fields(v);
+                }
+                if let Ok(v) = expected.as_mut() {
+                    strip_skipped_fields(v);
+                }
                 pretty_assertions::assert_eq!(result, expected);
                 run = true;
             }
