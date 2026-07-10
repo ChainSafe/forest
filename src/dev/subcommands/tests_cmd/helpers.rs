@@ -303,11 +303,25 @@ pub async fn rpc_call_opt(method: &str, params: Value) -> anyhow::Result<Option<
     }
 }
 
-/// Like [`rpc_call_opt`] but treats a missing `result` as an error.
-pub async fn rpc_call(method: &str, params: Value) -> anyhow::Result<Value> {
-    rpc_call_opt(method, params)
-        .await?
-        .with_context(|| format!("missing `result` in response for {method}"))
+/// Like [`rpc_call_opt`] but treats a missing `result` as an error and retries.
+pub async fn rpc_call_with_retry(method: &str, params: Value) -> anyhow::Result<Value> {
+    let mut attempt = 1;
+    loop {
+        let result = rpc_call_opt(method, params.clone()).await.and_then(|opt| {
+            opt.with_context(|| format!("missing `result` in response for {method}"))
+        });
+        match result {
+            Ok(v) => return Ok(v),
+            Err(e) if attempt < SEND_RETRIES => {
+                eprintln!(
+                    "error: {e:?} {method} failed on attempt {attempt}/{SEND_RETRIES}, retrying"
+                );
+                tokio::time::sleep(SEND_RETRY_DELAY).await;
+                attempt += 1;
+            }
+            Err(e) => return Err(e),
+        }
+    }
 }
 
 /// Extract a CID string from either a Lotus `{ "/": "bafy..." }` map or a
@@ -362,7 +376,7 @@ pub fn mpool_nonce(address: &str) -> anyhow::Result<u64> {
 
 /// Pending message nonces for `address` via `Filecoin.MpoolPending`.
 pub async fn pending_nonces_for(address: &str) -> anyhow::Result<Vec<u64>> {
-    let result = rpc_call("Filecoin.MpoolPending", json!([null])).await?;
+    let result = rpc_call_with_retry("Filecoin.MpoolPending", json!([null])).await?;
     let entries = result
         .as_array()
         .with_context(|| format!("expected MpoolPending array, got {result}"))?;
@@ -389,7 +403,7 @@ pub async fn poll_until_pending_nonce(address: &str, nonce: u64) -> anyhow::Resu
 /// Resolve the ETH equivalent of a Filecoin address via
 /// `Filecoin.FilecoinAddressToEthAddress`.
 pub async fn filecoin_to_eth(address: &str) -> anyhow::Result<String> {
-    let result = rpc_call(
+    let result = rpc_call_with_retry(
         "Filecoin.FilecoinAddressToEthAddress",
         json!([address, "pending"]),
     )
