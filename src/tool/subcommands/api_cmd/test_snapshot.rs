@@ -137,7 +137,15 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
                     .context("failed to parse params")?;
                 let result = <$ty>::handle(ctx.clone(), params, &ext)
                     .await
-                    .map(|r| r.into_lotus_json())
+                    .map(|r| {
+                        let lotus_json = r.into_lotus_json();
+                        // Normalize through the same serde round-trip the golden is read with
+                        // below, so a response Forest generated reproduces itself.
+                        // A more strict approach would be to compare JSONs directly, tracked in https://github.com/ChainSafe/forest/issues/7313
+                        serde_json::to_value(&lotus_json)
+                            .and_then(serde_json::from_value)
+                            .unwrap_or(lotus_json)
+                    })
                     .map_err(|e| e.deref().to_string());
                 let expected = match expected_response.clone() {
                     Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
