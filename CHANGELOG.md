@@ -47,7 +47,7 @@
 
 - [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth_getTransactionByBlockNumberAndIndex` and `eth_getTransactionByBlockHashAndIndex` now resolve the transaction's `to` address against the tipset's post-execution state (matching `eth_getBlockByNumber`/`eth_getTransactionByHash`), instead of the pre-execution state which returned a `0xff…ffffffffffffffff` masked-ID sentinel for recipients created within the tipset.
 
-- [#7329](https://github.com/ChainSafe/forest/issues/7329): `Filecoin.NodeStatus` now matches Lotus: `SyncStatus.Behind` is reported in epochs (not seconds), and the method takes an `inclChainStatus` boolean parameter that gates the chain-status computation.
+- [#7329](https://github.com/ChainSafe/forest/issues/7329): `Filecoin.NodeStatus` now matches Lotus: `SyncStatus.Behind` is reported in epochs (not seconds), and the method takes an `inclChainStatus` boolean parameter that gates the chain-status computation. Also fixed casing in output JSON to match Lotus `PascalCase` convention.
 
 ## Forest v0.33.8 "Amiga 1200"
 

@@ -81,6 +81,7 @@ impl RpcMethod<1> for NodeStatus {
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default, Clone, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
 pub struct NodeSyncStatus {
     pub epoch: u64,
     pub behind: u64,
@@ -88,6 +89,7 @@ pub struct NodeSyncStatus {
 lotus_json_with_self!(NodeSyncStatus);
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default, Clone, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
 pub struct NodePeerStatus {
     pub peers_to_publish_msgs: u32,
     pub peers_to_publish_blocks: u32,
@@ -95,6 +97,7 @@ pub struct NodePeerStatus {
 lotus_json_with_self!(NodePeerStatus);
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default, Clone, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
 pub struct NodeChainStatus {
     pub blocks_per_tipset_last_100: f64,
     pub blocks_per_tipset_last_finality: f64,
@@ -102,6 +105,7 @@ pub struct NodeChainStatus {
 lotus_json_with_self!(NodeChainStatus);
 
 #[derive(Debug, Deserialize, Default, Serialize, Clone, JsonSchema, PartialEq)]
+#[serde(rename_all = "PascalCase")]
 pub struct NodeStatusResult {
     pub sync_status: NodeSyncStatus,
     pub peer_status: NodePeerStatus,
