@@ -23,6 +23,7 @@
 !Filecoin.NetProtectAdd
 !Filecoin.NetProtectList
 !Filecoin.NetProtectRemove
+!Filecoin.NodeStatus
 !Filecoin.Session
 !Filecoin.StartTime
 !Filecoin.StateCirculatingSupply

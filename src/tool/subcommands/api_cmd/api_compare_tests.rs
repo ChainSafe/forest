@@ -738,9 +738,8 @@ fn net_tests() -> Vec<RpcTest> {
 
 fn node_tests() -> Vec<RpcTest> {
     vec![
-        // This is a v1 RPC call. We don't support any v1 calls yet. Tracking
-        // issue: https://github.com/ChainSafe/forest/issues/3640
-        //RpcTest::basic(ApiInfo::node_status_req())
+        RpcTest::basic(NodeStatus::request((true,)).unwrap()),
+        RpcTest::basic(NodeStatus::request((false,)).unwrap()),
     ]
 }
 
