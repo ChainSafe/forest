@@ -616,6 +616,11 @@ mod tests {
     use super::*;
     use base64::{Engine as _, prelude::BASE64_STANDARD};
 
+    #[quickcheck_macros::quickcheck]
+    fn get_storage_at_deserialize_params_no_panic(bz: Vec<u8>) {
+        let _ = GetStorageAtParams::deserialize_params(&bz);
+    }
+
     #[test]
     fn get_bytecode_return_roundtrip() {
         let bytes = hex::decode("d82a5827000155a0e40220fa0b7a54007ba2e76d5818b6e60793fb0b8bdbe177995e1b20dcfb6873d69779").unwrap();

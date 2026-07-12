@@ -935,6 +935,11 @@ pub(crate) mod tests {
         assert_eq!(padded, vec![0, 0, 0, 0]);
     }
 
+    #[quickcheck]
+    fn parse_eth_transaction_no_panic(data: Vec<u8>) {
+        let _ = parse_eth_transaction(&data);
+    }
+
     #[test]
     fn test_parse_eth_transaction() {
         // Legacy transaction
