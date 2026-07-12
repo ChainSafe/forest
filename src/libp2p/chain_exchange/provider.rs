@@ -304,6 +304,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn oversized_request_len_is_rejected_before_allocation() {
+        // A malicious peer sending a huge `request_len` must be rejected by the
+        // *before* any allocations happen.
+        let (cids, cs) = populate_chain_store().await;
+
+        let over_limit = crate::shim::policy::policy_constants::CHAIN_FINALITY as u64 + 1;
+        for request_len in [0, u64::MAX, over_limit] {
+            let response = make_chain_exchange_response(
+                &cs,
+                &ChainExchangeRequest {
+                    start: cids.clone(),
+                    request_len,
+                    options: HEADERS | MESSAGES,
+                },
+            );
+            assert_eq!(
+                response.status,
+                ChainExchangeResponseStatus::BadRequest,
+                "request_len {request_len} should be rejected"
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn counting_sink_matches_to_vec() {
         // Sanity: the sink's running count equals what `to_vec` produces, so the
         // budget we apply is the same byte count we'd actually write on the wire.

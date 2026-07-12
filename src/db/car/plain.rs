@@ -345,9 +345,23 @@ pub fn read_v2_header(mut reader: impl Read) -> io::Result<Option<CarV2Header>> 
 ///        │body length│v1 header│
 ///        └───────────┴─────────┘
 /// ```
+/// Maximum CARv1 header length we will allocate a buffer for up-front. Matches
+/// go-car's `DefaultMaxAllowedHeaderSize`. Without this bound, a bad CAR
+/// could declare a huge header length via the leading varint and trigger an
+/// unbounded allocation.
+const MAX_ALLOWED_HEADER_SIZE: usize = 32 << 20; // 32 MiB
+
 #[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_v1_header(mut reader: impl Read) -> io::Result<CarV1Header> {
     let header_len = reader.read_varint()?;
+    if header_len > MAX_ALLOWED_HEADER_SIZE {
+        return Err(io::Error::new(
+            InvalidData,
+            format!(
+                "CAR header length {header_len} exceeds maximum allowed {MAX_ALLOWED_HEADER_SIZE}"
+            ),
+        ));
+    }
     let mut buffer = vec![0; header_len];
     reader.read_exact(&mut buffer)?;
     let header: CarV1Header =
@@ -398,7 +412,19 @@ fn read_block_data_location_and_skip(
     let cid_length = reader.bytes_read();
     let block_data_offset = frame_body_offset + u64::try_from(cid_length).unwrap();
     let next_frame_offset = frame_body_offset + u64::from(body_length);
-    let block_data_length = u32::try_from(next_frame_offset - block_data_offset).unwrap();
+    // A malformed CAR frame can declare a `body_length` smaller than the CID it
+    // encodes, which would underflow here.
+    let block_data_length = next_frame_offset
+        .checked_sub(block_data_offset)
+        .and_then(|len| u32::try_from(len).ok())
+        .ok_or_else(|| {
+            io::Error::new(
+                InvalidData,
+                format!(
+                    "invalid CAR frame: body length ({body_length}) is smaller than the encoded CID ({cid_length} bytes)"
+                ),
+            )
+        })?;
     reader
         .into_inner()
         .seek(SeekFrom::Start(next_frame_offset))?;
@@ -474,6 +500,14 @@ mod tests {
     use std::sync::LazyLock;
     use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
     use tokio_test::block_on;
+
+    #[quickcheck_macros::quickcheck]
+    fn plain_car_new_no_panic(junk: Vec<u8>) {
+        // Reading an arbitrary/malicious byte stream must never panic (only
+        // return `Err`). Exercises `read_v2_header`, `read_varint_body_length`,
+        // and the frame-length arithmetic in `read_block_data_location_and_skip`.
+        let _ = PlainCar::new(junk);
+    }
 
     #[test]
     fn test_uncompressed_v1() {
