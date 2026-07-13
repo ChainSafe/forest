@@ -344,7 +344,7 @@ impl ChainStore {
         } else if head.epoch() > ts.epoch() {
             match self
                 .chain_index()
-                .tipset_by_height_async(ts.epoch() + 1, head, ResolveNullTipset::TakeNewer)
+                .tipset_by_height(ts.epoch() + 1, head, ResolveNullTipset::TakeNewer)
                 .await?
             {
                 Some(maybe_child) if maybe_child.parents() == ts.key() => Ok(Some(maybe_child)),

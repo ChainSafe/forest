@@ -26,7 +26,7 @@ pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V27;
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
 pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>> {
-    let genesis_key = format!("BUTTERFLY_GENESIS-{}", &*GENESIS_CID);
+    let genesis_key = format!("BUTTERFLY_GENESIS-{}", *GENESIS_CID);
     if let Some(genesis) = db.read_bin(&genesis_key)? {
         Ok(genesis)
     } else {
