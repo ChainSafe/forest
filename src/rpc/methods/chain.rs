@@ -1247,7 +1247,7 @@ impl ChainGetTipSetFinalityStatus {
             Self::get_ec_finality_epoch_by_depth(ctx.chain_config(), &head, depth);
         let finalized = ctx
             .chain_index()
-            .tipset_by_height_async(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)
+            .tipset_by_height(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)
             .await?;
         Ok((depth, finalized))
     }

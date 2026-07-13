@@ -236,7 +236,7 @@ impl SnapshotCommands {
                     }
                 }
 
-                println!("Generating forest.car.zst file: {:?}", &destination);
+                println!("Generating forest.car.zst file: {destination:?}");
 
                 let file = File::open(&source).await?;
                 let pb = ProgressBar::new(file.metadata().await?.len()).with_style(
