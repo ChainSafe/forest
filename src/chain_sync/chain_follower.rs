@@ -748,7 +748,7 @@ impl SyncStateMachine {
         }
 
         // Skip if tipset is part of the current chain.
-        if let Ok(Some(ts)) = self.cs.chain_index().tipset_by_height(
+        if let Ok(Some(ts)) = self.cs.chain_index().tipset_by_height_blocking(
             tipset.epoch(),
             self.cs.heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
