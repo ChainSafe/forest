@@ -45,7 +45,7 @@ The amortized view, which accounts for batched requests, tells the same story: a
 
 ### Comparable load
 
-To confirm the comparison is fair, the request rates and batch sizes hitting each node line up almost exactly. HTTP request count averages 44.9 req/s for Forest and 45.2 req/s for Lotus; batch-aware counts are 25.4 vs 25.9 req/s; and average batch size is ~1.28 vs ~1.29. In other words, both nodes did essentially the same amount of work.
+To confirm the comparison is fair, the request rates and batch sizes hitting each node line up almost exactly. HTTP request count averages 44.9 `req/s` for Forest and 45.2 `req/s` for Lotus; batch-aware counts are 25.4 vs 25.9 `req/s`; and average batch size is ~1.28 vs ~1.29. In other words, both nodes did essentially the same amount of work.
 
 ![Request count (HTTP only)](/img/reports/node_comparison/request-count-http.png)
 
@@ -77,7 +77,7 @@ Snapshot export is another area where the performance work pays off. On a regula
 
 ![Snapshot export duration: Forest vs Lotus](/img/reports/node_comparison/snapshot-export-comparison.png)
 
-Forest `0.33.6` finished the export in 34 minutes using 32 GiB of RAM. Lotus `1.36.0` took 450 minutes (about 13x slower) with 128 GiB, and 232 minutes (about 7x slower) even with 256 GiB.
+Forest `0.33.6` finished the export in 34 minutes using 32 GiB of RAM. Lotus `1.36.0` took 450 minutes (about `13x` slower) with 128 GiB, and 232 minutes (about `7x` slower) even with 256 GiB.
 
 :::note
 Lotus snapshots are uncompressed, whereas Forest compresses them automatically as part of the export. Both nodes can consume compressed snapshots, which meaningfully lowers storage costs. Compressing a Lotus snapshot after the fact is possible, but it would only add to the already longer export time.
@@ -87,6 +87,6 @@ Lotus snapshots are uncompressed, whereas Forest compresses them automatically a
 
 - **Lower tail latency**: comparable P50, but far better P95 and P99, so the slow outliers that most affect reliability are much less frequent.
 - **Lower resource usage**: less CPU and memory, with smoother, more predictable load on the machine.
-- **Much faster snapshot export**: 7-13x faster than Lotus while using a fraction of the RAM, with compression handled automatically.
+- **Much faster snapshot export**: `7-13x` faster than Lotus while using a fraction of the RAM, with compression handled automatically.
 
 Want to see Forest in action? Check out the [RPC performance Grafana dashboard](https://monitoring.chain.love/public-dashboards/229eaf7ce0224655abe26c288aab914b?orgId=1&refresh=5m&kiosk).
