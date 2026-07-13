@@ -32,7 +32,7 @@ where
     }
     match ipld {
         Ipld::Map(m) => {
-            for (_, v) in m.iter_mut() {
+            for v in m.values_mut() {
                 resolve_ipld(bs, v, depth)?;
             }
         }
