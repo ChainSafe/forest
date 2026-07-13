@@ -49,6 +49,8 @@
 
 - [#7329](https://github.com/ChainSafe/forest/issues/7329): `Filecoin.NodeStatus` now matches Lotus: `SyncStatus.Behind` is reported in epochs (not seconds), and the method takes an `inclChainStatus` boolean parameter that gates the chain-status computation. Also fixed casing in output JSON to match Lotus `PascalCase` convention.
 
+- [#7348](https://github.com/ChainSafe/forest/pull/7348): In case of snapshot export getting stuck, Forest will now error after a timeout of 5 minutes of no progress.
+
 ## Forest v0.33.8 "Amiga 1200"
 
 Non-mandatory release for all node operators. It includes mostly fixes and performance improvements for the RPC methods.
