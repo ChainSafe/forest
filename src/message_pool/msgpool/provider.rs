@@ -144,7 +144,6 @@ impl Provider for ChainStore {
     }
 }
 
-#[allow(dead_code)]
 pub trait ProviderExt {
     /// Non-blocking version of [`Provider::resolve_to_deterministic_address_at_finality`]
     async fn resolve_to_deterministic_address_at_finality_async(

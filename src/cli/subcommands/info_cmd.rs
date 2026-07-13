@@ -146,7 +146,7 @@ impl NodeStatusInfo {
 impl InfoCommand {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         let (node_status, head, network, start_time, default_wallet_address) = tokio::try_join!(
-            NodeStatus::call(&client, ()),
+            NodeStatus::call(&client, (true,)),
             ChainHead::call(&client, ()),
             StateNetworkName::call(&client, ()),
             StartTime::call(&client, ()),

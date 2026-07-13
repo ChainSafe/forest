@@ -19,7 +19,7 @@ pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
 pub use db_impl::DbImpl;
 pub use either::Either;
 pub use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
-pub use memory::MemoryDB;
+pub use memory::{IndexMapBlockstore, MemoryDB};
 
 use crate::blocks::{Tipset, TipsetKey};
 use crate::prelude::*;
@@ -116,6 +116,9 @@ pub trait EthMappingsStore {
 
     /// Reads the tipset key for a given epoch(height) from the store.
     fn tipset_key_by_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<Option<TipsetKey>>;
+
+    /// Deletes the tipset key at a given epoch(height) from the store.
+    fn delete_tipset_key_at_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<()>;
 
     /// Writes the tipset key for a given epoch(height) to the store.
     fn set_tipset_key_at_epoch_raw(&self, epoch: ChainEpoch, tsk: &TipsetKey)

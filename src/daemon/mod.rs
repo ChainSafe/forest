@@ -8,7 +8,7 @@ pub mod main;
 
 use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
-use crate::chain::index::ResolveNullTipset;
+use crate::chain::index::ChainIndex;
 use crate::chain_sync::ChainFollower;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::snapshot;
@@ -18,6 +18,7 @@ use crate::cli_shared::{
     delete_chain_data,
 };
 use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
+use crate::db::EthMappingsStore;
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
@@ -432,31 +433,6 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                 // since `eth_trace_block` calls `execution_trace` internally.
                 if let Err(e) = crate::rpc::eth::eth_trace_block(&state_manager, &ts).await {
                     warn!("failed to call `eth_trace_block` for cache warmup: {e:#}");
-                }
-            }
-            {
-                let finalized_epoch = state_manager
-                    .chain_store()
-                    .ec_calculator_finalized_epoch()
-                    .max(
-                        state_manager
-                            .chain_store()
-                            .f3_finalized_tipset()
-                            .map(|ts| ts.epoch())
-                            .unwrap_or(0),
-                    );
-                if let Err(e) = state_manager
-                    .chain_index()
-                    .tipset_by_height_async(
-                        finalized_epoch,
-                        ts.shallow_clone(),
-                        ResolveNullTipset::TakeOlder,
-                    )
-                    .await
-                {
-                    warn!(
-                        "failed to call `ChainIndex::tipset_by_height` at finalized epoch {finalized_epoch} for cache warmup: {e:#}"
-                    );
                 }
             }
             {
@@ -905,26 +881,55 @@ pub(super) async fn start_services(
 }
 
 fn warmup_in_background(ctx: &AppContext) {
-    // Populate `tipset_by_height` cache
+    // Re-populate `tipset_by_height` cache
     let cs = ctx.chain_store().shallow_clone();
     tokio::task::spawn_blocking(move || {
         let start = Instant::now();
-        match cs.chain_index().tipset_by_height(
-            // 0 would short-circuit the cache
-            1,
-            cs.heaviest_tipset(),
-            ResolveNullTipset::TakeOlder,
-        ) {
-            Ok(_) => {
-                tracing::info!(
-                    "Successfully populated tipset_by_height cache, took {}",
-                    humantime::format_duration(start.elapsed())
-                );
+        let head = cs.heaviest_tipset();
+        let mut n_added = 0;
+        let mut n_corrected = 0;
+        // the chain ends when `ts.epoch() == 1` but it's OK as lookup for genesis is not needed
+        for (ts, parent) in head.chain(cs.db()).tuple_windows() {
+            if ChainIndex::is_tipset_lookup_checkpoint(ts.epoch()) {
+                let should_update = match cs.db().tipset_key_by_epoch(ts.epoch()) {
+                    Ok(Some(tsk)) if &tsk == ts.key() => {
+                        false // already exists, skip
+                    }
+                    Ok(Some(tsk)) => {
+                        tracing::warn!(
+                            "Correcting tipset_by_height cache for epoch {}: expected {}, found {tsk}",
+                            ts.epoch(),
+                            ts.key()
+                        );
+                        n_corrected += 1;
+                        true
+                    }
+                    _ => {
+                        // treat lookup error as None here and try to rewrite the entry
+                        n_added += 1;
+                        true
+                    }
+                };
+                if should_update && let Err(e) = cs.db().set_tipset_key_at_epoch(&ts) {
+                    tracing::warn!(
+                        "failed to update tipset lookup at epoch {}: {e:#?}",
+                        ts.epoch()
+                    );
+                }
             }
-            Err(e) => {
-                tracing::warn!("Failed to populate tipset_by_height cache: {e}");
+
+            // Fix stale lookup mappings at null rounds which is caused by chain reorg
+            match ChainIndex::cleanup_stale_tipset_lookup_at_null_rounds(cs.db(), &ts, &parent) {
+                Ok(n) => {
+                    n_corrected += n;
+                }
+                Err(e) => warn!("failed to cleanup stale null round lookups: {e:#?}"),
             }
         }
+        tracing::info!(
+            "Successfully re-populated tipset_by_height cache, {n_added} entries added, {n_corrected} entries corrected, took {}.",
+            humantime::format_duration(start.elapsed()),
+        );
     });
 }
 

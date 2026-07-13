@@ -601,7 +601,7 @@ where
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
-        let store = Arc::new(store.shallow_clone());
+        let store = store.shallow_clone();
         let mut stream = stream_chain(
             store.shallow_clone(),
             diff_ts.clone().chain_owned(store.shallow_clone()),
@@ -669,6 +669,7 @@ where
             include_receipts: false,
             include_events: false,
             include_tipset_keys: false,
+            include_tipset_lookup: false,
             seen,
         },
     )

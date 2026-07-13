@@ -233,6 +233,15 @@ impl EthMappingsStore for ParityDb {
         }
     }
 
+    fn delete_tipset_key_at_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<()> {
+        Ok(self.db.commit_changes(std::iter::once(epoch).map(|epoch| {
+            (
+                DbColumn::EthMappings as u8,
+                Operation::Dereference(epoch.to_le_bytes().to_vec()),
+            )
+        }))?)
+    }
+
     fn set_tipset_key_at_epoch_raw(
         &self,
         epoch: ChainEpoch,

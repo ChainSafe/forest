@@ -40,6 +40,11 @@ pub(in crate::message_pool) fn get_gas_reward(
 }
 
 pub(in crate::message_pool) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit: u64) -> f64 {
+    // Guard the hazard directly: `BigRational::new(_, 0)` panics. This is already guaranteed by
+    // upstream message validation, but let's be defensive in case of future changes.
+    if gas_limit == 0 {
+        return 0.0;
+    }
     let a = BigRational::new(
         gas_reward.atto() * crate::shim::econ::BLOCK_GAS_LIMIT,
         gas_limit.into(),
@@ -111,6 +116,17 @@ mod tests {
         assert_eq!(
             super::compute_rbf_min_premium(&TokenAmount::from_atto(100u64)),
             TokenAmount::from_atto(111u64) // 100 * 110/100 + 1
+        );
+    }
+
+    #[test]
+    fn get_gas_perf_zero_gas_limit_does_not_panic() {
+        // A zero `gas_limit` must not reach `BigRational::new(_, 0)`, which would
+        // panic. This pins the guard at the hazard site regardless of the
+        // upstream message-validation invariants.
+        assert_eq!(
+            super::get_gas_perf(&TokenAmount::from_atto(1_000u64), 0),
+            0.0
         );
     }
 }

@@ -8,6 +8,7 @@ use super::{
 };
 use crate::networks::{ChainConfig, Height};
 use crate::prelude::*;
+use crate::rpc::chain::PathChange;
 use crate::rpc::{
     chain::ChainGetTipSetFinalityStatus,
     eth::{eth_tx_from_signed_eth_message, types::EthHash},
@@ -18,10 +19,9 @@ use crate::state_manager::ExecutedTipset;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
-    db::{DbImpl, HeaviestTipsetKeyProvider},
+    db::{DbImpl, EthMappingsStore as _, EthMappingsStoreExt as _, HeaviestTipsetKeyProvider},
     message::{ChainMessage, SignedMessage},
 };
-use crate::{db::EthMappingsStoreExt, rpc::chain::PathChange};
 use crate::{fil_cns, utils::cache::SizeTrackingCache};
 use crate::{
     interpreter::{BlockMessages, VMTrace},
@@ -38,7 +38,6 @@ use std::{
     sync::atomic::{self, AtomicI64},
 };
 use tokio::sync::broadcast;
-use tracing::{debug, error, trace, warn};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -133,17 +132,11 @@ impl ChainStore {
         let ec_calculator_finalized_epoch = Arc::new(AtomicI64::new(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(&chain_index, &chain_config, &head),
         ));
-        let chain_index = chain_index.with_is_tipset_finalized(Arc::new({
-            let f3_finalized_tipset = f3_finalized_tipset.shallow_clone();
+        let chain_index = chain_index.with_is_epoch_finalized(Arc::new({
             let ec_calculator_finalized_epoch = ec_calculator_finalized_epoch.shallow_clone();
-            move |ts| {
-                let finalized = f3_finalized_tipset
-                    .load()
-                    .as_ref()
-                    .map(|ts| ts.epoch())
-                    .unwrap_or_default()
-                    .max(ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire));
-                ts.epoch() <= finalized
+            move |epoch| {
+                let finalized = ec_calculator_finalized_epoch.load(atomic::Ordering::Acquire);
+                epoch <= finalized
             }
         }));
         Ok(Self {
@@ -191,6 +184,31 @@ impl ChainStore {
     pub fn set_heaviest_tipset(&self, head: Tipset) -> Result<(), Error> {
         head.key().save(self.db())?;
         self.db().set_heaviest_tipset_key(head.key())?;
+
+        // Updating tipset lookup table
+        {
+            if ChainIndex::is_tipset_lookup_checkpoint(head.epoch())
+                && let Err(e) = self.db().set_tipset_key_at_epoch(&head)
+            {
+                error!(
+                    "failed to update tipset lookup table at epoch {}: {e:#?}",
+                    head.epoch()
+                );
+            }
+            // Fix stale lookups at null rounds which could be caused by chain reorg.
+            // This is a no-op in most of the cases so it's OK to always run.
+            // (caching parent of head is intended as it's heavily used in Eth APIs as `latest`, while head is `pending`)
+            if let Ok(Some(parent)) = self.chain_index.load_tipset(head.parents())
+                && let Err(e) = ChainIndex::cleanup_stale_tipset_lookup_at_null_rounds(
+                    self.db(),
+                    &head,
+                    &parent,
+                )
+            {
+                error!("failed to cleanup stale null round lookups: {e:#?}");
+            }
+        }
+
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
         self.ec_calculator_finalized_epoch.store(
             ChainGetTipSetFinalityStatus::get_ec_finality_epoch(
@@ -494,10 +512,10 @@ impl ChainStore {
 
         // write back
         for (k, v, timestamp) in filtered.into_iter() {
-            tracing::trace!("Insert mapping {} => {}", k, v);
+            trace!("Insert mapping {} => {}", k, v);
             self.put_mapping(k, v, timestamp)?;
         }
-        tracing::trace!("Wrote {} entries in Ethereum mapping", num_entries);
+        trace!("Wrote {} entries in Ethereum mapping", num_entries);
         Ok(())
     }
 

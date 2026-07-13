@@ -13,8 +13,8 @@ use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
-    BlockNumberOrHash, EthInt64, Predefined, new_eth_tx_from_signed_message, trace::types::*,
-    types::*,
+    ApiEthTx, BlockNumberOrHash, EthInt64, Predefined, new_eth_tx_from_signed_message,
+    trace::types::*, types::*,
 };
 use crate::rpc::gas::{GasEstimateGasLimit, GasEstimateMessageGas};
 use crate::rpc::miner::BlockTemplate;
@@ -307,6 +307,29 @@ fn sort_json(value: &mut Value) {
     }
 }
 
+/// The `to` sentinel unfixed Lotus returns from its by-index tx handlers for an in-tipset-created
+/// recipient (the same `REVERTED_ETH_ADDRESS` Forest resolves to on a failed id lookup).
+const LOTUS_BY_INDEX_TO_SENTINEL: &str = crate::rpc::eth::REVERTED_ETH_ADDRESS;
+
+/// Equality tolerating only the unfixed-Lotus by-index `to` sentinel (fixed Forest returns the real
+/// address); every other field is still compared, so it self-heals once Lotus stops emitting it.
+fn eth_tx_eq_tolerating_to_sentinel(forest: Option<ApiEthTx>, lotus: Option<ApiEthTx>) -> bool {
+    let sentinel: EthAddress = LOTUS_BY_INDEX_TO_SENTINEL
+        .parse()
+        .expect("valid sentinel address");
+    match (forest, lotus) {
+        (Some(forest), Some(lotus))
+            if lotus.to == Some(sentinel) && forest.to != Some(sentinel) =>
+        {
+            ApiEthTx {
+                to: lotus.to,
+                ..forest
+            } == lotus
+        }
+        (forest, lotus) => forest == lotus,
+    }
+}
+
 /// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
 /// should be removed when <https://github.com/ChainSafe/forest/issues/4032> is
 /// completed.
@@ -496,14 +519,7 @@ fn chain_tests(server_mode: ServerMode) -> Vec<RpcTest> {
             ServerMode::Offline => RpcTest::basic(ChainHead::request(()).unwrap()),
             ServerMode::Online => RpcTest::identity(ChainHead::request(()).unwrap()),
         },
-        match server_mode {
-            ServerMode::Offline => {
-                RpcTest::basic(ChainGetTipSetFinalityStatus::request(()).unwrap())
-            }
-            ServerMode::Online => {
-                RpcTest::identity(ChainGetTipSetFinalityStatus::request(()).unwrap())
-            }
-        },
+        RpcTest::basic(ChainGetTipSetFinalityStatus::request(()).unwrap()),
         RpcTest::basic(ChainGetFinalizedTipset::request(()).unwrap()),
         RpcTest::identity(ChainGetTipSetByHeight::request((0, Default::default())).unwrap())
             .ignore("Lotus times out"),
@@ -723,9 +739,8 @@ fn net_tests() -> Vec<RpcTest> {
 
 fn node_tests() -> Vec<RpcTest> {
     vec![
-        // This is a v1 RPC call. We don't support any v1 calls yet. Tracking
-        // issue: https://github.com/ChainSafe/forest/issues/3640
-        //RpcTest::basic(ApiInfo::node_status_req())
+        RpcTest::basic(NodeStatus::request((true,)).unwrap()),
+        RpcTest::basic(NodeStatus::request((false,)).unwrap()),
     ]
 }
 
@@ -1631,10 +1646,10 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
         RpcTest::identity(EthGetBlockReceipts::request((
             BlockNumberOrHash::from_block_hash_object(block_hash, true),
         ))?),
-        RpcTest::identity(EthGetTransactionByBlockHashAndIndex::request((
-            block_hash,
-            0.into(),
-        ))?)
+        RpcTest::validate(
+            EthGetTransactionByBlockHashAndIndex::request((block_hash, 0.into()))?,
+            eth_tx_eq_tolerating_to_sentinel,
+        )
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(EthGetBlockByHash::request((block_hash, false))?),
         RpcTest::identity(EthGetBlockByHash::request((block_hash, true))?),
@@ -2063,52 +2078,58 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 ))?
                 .with_api_path(api_path),
             ),
-            RpcTest::identity(
+            RpcTest::validate(
                 EthGetTransactionByBlockNumberAndIndex::request((
                     EthInt64(shared_tipset.epoch()).into(),
                     0.into(),
                 ))?
                 .with_api_path(api_path),
+                eth_tx_eq_tolerating_to_sentinel,
             )
             .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-            RpcTest::identity(
+            RpcTest::validate(
                 EthGetTransactionByBlockNumberAndIndex::request((
                     Predefined::Earliest.into(),
                     0.into(),
                 ))?
                 .with_api_path(api_path),
+                eth_tx_eq_tolerating_to_sentinel,
             )
             .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-            RpcTest::identity(
+            RpcTest::validate(
                 EthGetTransactionByBlockNumberAndIndex::request((
                     Predefined::Pending.into(),
                     0.into(),
                 ))?
                 .with_api_path(api_path),
+                eth_tx_eq_tolerating_to_sentinel,
             )
             .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-            RpcTest::identity(
+            RpcTest::validate(
                 EthGetTransactionByBlockNumberAndIndex::request((
                     Predefined::Latest.into(),
                     0.into(),
                 ))?
                 .with_api_path(api_path),
+                eth_tx_eq_tolerating_to_sentinel,
             )
             .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-            RpcTest::identity(
+            RpcTest::validate(
                 EthGetTransactionByBlockNumberAndIndex::request((
                     Predefined::Safe.into(),
                     0.into(),
                 ))?
                 .with_api_path(api_path),
+                eth_tx_eq_tolerating_to_sentinel,
             )
             .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-            RpcTest::identity(
+            RpcTest::validate(
                 EthGetTransactionByBlockNumberAndIndex::request((
                     Predefined::Finalized.into(),
                     0.into(),
                 ))?
                 .with_api_path(api_path),
+                eth_tx_eq_tolerating_to_sentinel,
             )
             .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
             RpcTest::identity(

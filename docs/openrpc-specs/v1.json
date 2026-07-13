@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.33.7"
+    "version": "0.33.8"
   },
   "methods": [
     {
@@ -3100,7 +3100,15 @@
     {
       "name": "Filecoin.NodeStatus",
       "description": "Returns the node's status, including sync and chain health information.",
-      "params": [],
+      "params": [
+        {
+          "name": "inclChainStatus",
+          "required": true,
+          "schema": {
+            "type": "boolean"
+          }
+        }
+      ],
       "result": {
         "name": "Filecoin.NodeStatus.Result",
         "required": true,
@@ -5890,7 +5898,7 @@
         "name": "Forest.ChainExportDiff.Result",
         "required": true,
         "schema": {
-          "type": "null"
+          "$ref": "#/components/schemas/ApiExportResult"
         }
       },
       "paramStructure": "by-position"
@@ -7913,28 +7921,10 @@
         ]
       },
       "ApiExportResult": {
-        "oneOf": [
-          {
-            "type": "string",
-            "enum": [
-              "Cancelled"
-            ]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "Done": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "Done"
-            ]
-          }
+        "type": "string",
+        "enum": [
+          "Done",
+          "Cancelled"
         ]
       },
       "ApiExportStatus": {
@@ -7964,12 +7954,16 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "succeeded": {
+            "type": "boolean"
           }
         },
         "required": [
           "progress",
           "exporting",
           "cancelled",
+          "succeeded",
           "start_epoch",
           "current_epoch"
         ]
@@ -10288,6 +10282,10 @@
             "type": "boolean",
             "default": false
           },
+          "include_tipset_lookup": {
+            "type": "boolean",
+            "default": false
+          },
           "output_path": {
             "type": "string"
           },
@@ -11435,75 +11433,75 @@
       "NodeChainStatus": {
         "type": "object",
         "properties": {
-          "blocks_per_tipset_last_100": {
+          "BlocksPerTipsetLast100": {
             "type": "number",
             "format": "double"
           },
-          "blocks_per_tipset_last_finality": {
+          "BlocksPerTipsetLastFinality": {
             "type": "number",
             "format": "double"
           }
         },
         "required": [
-          "blocks_per_tipset_last_100",
-          "blocks_per_tipset_last_finality"
+          "BlocksPerTipsetLast100",
+          "BlocksPerTipsetLastFinality"
         ]
       },
       "NodePeerStatus": {
         "type": "object",
         "properties": {
-          "peers_to_publish_blocks": {
+          "PeersToPublishBlocks": {
             "type": "integer",
             "format": "uint32",
             "minimum": 0
           },
-          "peers_to_publish_msgs": {
+          "PeersToPublishMsgs": {
             "type": "integer",
             "format": "uint32",
             "minimum": 0
           }
         },
         "required": [
-          "peers_to_publish_msgs",
-          "peers_to_publish_blocks"
+          "PeersToPublishMsgs",
+          "PeersToPublishBlocks"
         ]
       },
       "NodeStatusResult": {
         "type": "object",
         "properties": {
-          "chain_status": {
+          "ChainStatus": {
             "$ref": "#/components/schemas/NodeChainStatus"
           },
-          "peer_status": {
+          "PeerStatus": {
             "$ref": "#/components/schemas/NodePeerStatus"
           },
-          "sync_status": {
+          "SyncStatus": {
             "$ref": "#/components/schemas/NodeSyncStatus"
           }
         },
         "required": [
-          "sync_status",
-          "peer_status",
-          "chain_status"
+          "SyncStatus",
+          "PeerStatus",
+          "ChainStatus"
         ]
       },
       "NodeSyncStatus": {
         "type": "object",
         "properties": {
-          "behind": {
+          "Behind": {
             "type": "integer",
             "format": "uint64",
             "minimum": 0
           },
-          "epoch": {
+          "Epoch": {
             "type": "integer",
             "format": "uint64",
             "minimum": 0
           }
         },
         "required": [
-          "epoch",
-          "behind"
+          "Epoch",
+          "Behind"
         ]
       },
       "NodeSyncStatus2": {

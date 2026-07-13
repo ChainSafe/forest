@@ -916,11 +916,11 @@ mod test_selection {
         // order his messages first
         for i in 0..10 {
             let m = create_smsg(&a2, &a1, &mut w1, i, TEST_GAS_LIMIT, 2 * i + 1);
-            mpool.add(m).unwrap();
+            mpool.add(m).await.unwrap();
         }
         for i in 0..10 {
             let m = create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1);
-            mpool.add(m).unwrap();
+            mpool.add(m).await.unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
@@ -990,9 +990,11 @@ mod test_selection {
                     TEST_GAS_LIMIT,
                     2 * i + 200,
                 ))
+                .await
                 .unwrap();
             mpool
                 .add(create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1))
+                .await
                 .unwrap();
         }
         // select messages in the last tipset; this should include the missed messages
@@ -1074,6 +1076,7 @@ mod test_selection {
                 TrustPolicy::Trusted,
                 StrictnessPolicy::Relaxed,
             )
+            .await
             .unwrap();
 
         let before = mpool.pending.snapshot();
@@ -1150,7 +1153,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m).await.unwrap();
             let m = create_fake_smsg(
                 &mpool,
                 &a1,
@@ -1159,7 +1162,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m).await.unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
@@ -1186,7 +1189,7 @@ mod test_selection {
         // create a larger than selectable chain
         for i in 0..BLOCK_MESSAGE_LIMIT {
             let msg = create_fake_smsg(&mpool, &address, &address, i as u64, 200_000, 100);
-            mpool.add(msg).unwrap();
+            mpool.add(msg).await.unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
@@ -1233,7 +1236,7 @@ mod test_selection {
                 300_000,
                 100,
             );
-            mpool.add(msg).unwrap();
+            mpool.add(msg).await.unwrap();
             // higher has price, those should be preferred and fill the block up to
             // the [`CBOR_GEN_LIMIT`] messages.
             let msg = create_smsg(
@@ -1244,7 +1247,7 @@ mod test_selection {
                 300_000,
                 1000,
             );
-            mpool.add(msg).unwrap();
+            mpool.add(msg).await.unwrap();
         }
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
         // check that the gas limit is not exceeded
@@ -1296,7 +1299,7 @@ mod test_selection {
                 300_000,
                 100,
             );
-            mpool.add(msg).unwrap();
+            mpool.add(msg).await.unwrap();
             // higher has price, those should be preferred and fill the block up to
             // the [`CBOR_GEN_LIMIT`] messages.
             let msg = create_smsg(
@@ -1307,7 +1310,7 @@ mod test_selection {
                 300_000,
                 100,
             );
-            mpool.add(msg).unwrap();
+            mpool.add(msg).await.unwrap();
         }
 
         // address_1 8192th message is worth more than address_2 8192th message
@@ -1319,7 +1322,7 @@ mod test_selection {
             300_000,
             1000,
         );
-        mpool.add(msg).unwrap();
+        mpool.add(msg).await.unwrap();
 
         let msg = create_smsg(
             &address_1,
@@ -1329,7 +1332,7 @@ mod test_selection {
             300_000,
             100,
         );
-        mpool.add(msg).unwrap();
+        mpool.add(msg).await.unwrap();
 
         counter += 1;
 
@@ -1342,7 +1345,7 @@ mod test_selection {
             400_000,
             1_000_000,
         );
-        mpool.add(msg).unwrap();
+        mpool.add(msg).await.unwrap();
 
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
         // check that the gas limit is not exceeded
@@ -1405,7 +1408,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m).await.unwrap();
             let m = create_smsg(
                 &a1,
                 &a2,
@@ -1414,7 +1417,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m).await.unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
@@ -1477,7 +1480,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m).await.unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 0.25).unwrap();
@@ -1529,7 +1532,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (200000 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m).await.unwrap();
             let m = create_fake_smsg(
                 &mpool,
                 &a1,
@@ -1538,7 +1541,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (190000 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m).await.unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 0.1).unwrap();
@@ -1626,7 +1629,7 @@ mod test_selection {
                     TEST_GAS_LIMIT,
                     premium as u64,
                 );
-                mpool.add(m).unwrap();
+                mpool.add(m).await.unwrap();
             }
         }
 

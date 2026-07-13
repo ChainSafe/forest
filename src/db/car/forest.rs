@@ -63,7 +63,7 @@ use integer_encoding::VarIntReader;
 use nunny::Vec as NonEmpty;
 use positioned_io::{Cursor, ReadAt, Size as _, SizeCursor};
 use std::io::{self, Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::task::Poll;
 use std::time::Duration;
@@ -118,6 +118,10 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             header,
             metadata: OnceLock::new(),
         })
+    }
+
+    pub fn header_v1(&self) -> &CarV1Header {
+        &self.header
     }
 
     pub fn metadata(&self) -> Option<&FilecoinSnapshotMetadata> {
@@ -508,11 +512,24 @@ pub fn new_forest_car_temp_path_in(
         .into_temp_path())
 }
 
+pub fn tmp_exporting_forest_car_path(output_path: &Path) -> PathBuf {
+    let mut p = output_path.to_owned();
+    p.add_extension("tmp");
+    p
+}
+
+pub fn forest_car_sha256sum_path(output_path: &Path) -> PathBuf {
+    let mut p = output_path.to_owned();
+    p.add_extension("sha256sum");
+    p
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use nunny::vec as nonempty;
     use quickcheck_macros::quickcheck;
+    use rstest::rstest;
     use tokio_test::block_on;
 
     fn mk_encoded_car(
@@ -629,5 +646,34 @@ mod tests {
         // Even with colliding hashes, the CIDs can still be queried:
         assert_eq!(forest_car.get(&cid_a).unwrap().unwrap(), blocks[0].data);
         assert_eq!(forest_car.get(&cid_b).unwrap().unwrap(), blocks[1].data);
+    }
+
+    #[rstest]
+    #[case(
+        Path::new("/tmp/a.forst.car.zst"),
+        Path::new("/tmp/a.forst.car.zst.tmp")
+    )]
+    #[case(Path::new("tmp/a.forst.car.zst"), Path::new("tmp/a.forst.car.zst.tmp"))]
+    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.tmp"))]
+    #[case(Path::new(""), Path::new(""))]
+    #[case(Path::new("."), Path::new("."))]
+    fn test_tmp_exporting_forest_car_path(#[case] input: &Path, #[case] output: &Path) {
+        assert_eq!(tmp_exporting_forest_car_path(input), output);
+    }
+
+    #[rstest]
+    #[case(
+        Path::new("/tmp/a.forst.car.zst"),
+        Path::new("/tmp/a.forst.car.zst.sha256sum")
+    )]
+    #[case(
+        Path::new("tmp/a.forst.car.zst"),
+        Path::new("tmp/a.forst.car.zst.sha256sum")
+    )]
+    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.sha256sum"))]
+    #[case(Path::new(""), Path::new(""))]
+    #[case(Path::new("."), Path::new("."))]
+    fn test_forest_car_sha256sum_path(#[case] input: &Path, #[case] output: &Path) {
+        assert_eq!(forest_car_sha256sum_path(input), output);
     }
 }

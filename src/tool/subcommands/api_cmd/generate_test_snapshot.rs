@@ -120,7 +120,9 @@ async fn ctx(
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = ChainStore::new(db.clone(), chain_config, genesis_header)?;
-    let state_manager = StateManager::new(chain_store.shallow_clone())?;
+    let state_manager = StateManager::new(chain_store.shallow_clone())?
+        // cache must be disabled to avoid flakiness in RPC regression tests
+        .with_id_address_cache_disabled();
     let mut services: JoinSet<anyhow::Result<()>> = JoinSet::new();
     let message_pool = MessagePool::new(
         chain_store,
@@ -347,6 +349,10 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
             EthMappingsStore::set_tipset_key_at_epoch_raw(&self.tracker, epoch, tsk)?;
         }
         Ok(result)
+    }
+
+    fn delete_tipset_key_at_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<()> {
+        EthMappingsStore::delete_tipset_key_at_epoch(&self.tracker, epoch)
     }
 
     fn set_tipset_key_at_epoch_raw(

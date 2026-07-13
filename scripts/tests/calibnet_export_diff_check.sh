@@ -9,12 +9,73 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init "$@"
 
+retries=30
+sleep_interval=0.5
+
 db_path=$($FOREST_TOOL_PATH db stats --chain calibnet | grep "Database path:" | cut -d':' -f2- | xargs)
 snapshot=$(find "$db_path/car_db"/*.car.zst | tail -n 1)
 snapshot_epoch=$(forest_query_epoch "$snapshot")
 
 echo "Exporting diff snapshot @ $snapshot_epoch with forest-cli snapshot export-diff"
-$FOREST_CLI_PATH snapshot export-diff --from "$snapshot_epoch" --to "$((snapshot_epoch - 900))" -d 900 -o diff1
+$FOREST_CLI_PATH snapshot export-diff --from "$snapshot_epoch" --to "$((snapshot_epoch - 900))" -d 900 -o diff1 &
+
+echo "Testing that export is in progress"
+for ((i=1; i<=retries; i++)); do
+    output=$($FOREST_CLI_PATH snapshot export-status --format json)
+    is_exporting=$(echo "$output" | jq -r '.exporting')
+    if [ "$is_exporting" == "true" ]; then
+        break
+    fi
+    if [ $i -eq $retries ]; then
+        echo "export should be in progress"
+        exit 1
+    fi
+    sleep $sleep_interval
+done
+
+$FOREST_CLI_PATH snapshot export-cancel
+
+echo "Testing that export has been cancelled"
+for ((i=1; i<=retries; i++)); do
+    output=$($FOREST_CLI_PATH snapshot export-status --format json)
+    is_exporting=$(echo "$output" | jq -r '.exporting')
+    is_cancelled=$(echo "$output" | jq -r '.cancelled')
+    if [ "$is_exporting" == "false" ] && [ "$is_cancelled" == "true" ]; then
+        break
+    fi
+    if [ $i -eq $retries ]; then
+        echo "export should be cancelled"
+        exit 1
+    fi
+    sleep $sleep_interval
+done
+
+echo "Exporting diff snapshot @ $snapshot_epoch with forest-cli snapshot export-diff"
+$FOREST_CLI_PATH snapshot export-diff --from "$snapshot_epoch" --to "$((snapshot_epoch - 900))" -d 900 -o diff1 &
+EXPORT_CMD_PID=$!
+sleep 5
+# another export job should be disallowed
+export_error=$($FOREST_CLI_PATH snapshot export 2>&1 || true)
+if echo "$export_error" | grep -q "active chain export job has started"; then
+    echo "verified another export job is disallowed"
+else 
+    echo "another export job should be disallowed"
+    echo "output was: $export_error"
+    exit 1
+fi
+# another export-diff job should be disallowed
+export_diff_error=$($FOREST_CLI_PATH snapshot export-diff --from 11000 --to 10100 -d 900 2>&1 || true)
+if echo "$export_diff_error" | grep -q "active chain export job has started"; then
+    echo "verified another export-diff job is disallowed"
+else 
+    echo "another export-diff job should be disallowed"
+    echo "output was: $export_diff_error"
+    exit 1
+fi
+# Killing the CLI should not cancel the export
+kill -KILL $EXPORT_CMD_PID
+# Wait on the same export job
+$FOREST_CLI_PATH snapshot export-status --wait
 
 $FOREST_CLI_PATH shutdown --force
 

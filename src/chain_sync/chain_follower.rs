@@ -42,7 +42,6 @@ use parking_lot::Mutex;
 use std::time::{Duration, Instant};
 use tokio::{sync::Notify, task::JoinSet};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, trace, warn};
 
 pub struct ChainFollower {
     /// Tasks
@@ -273,7 +272,7 @@ async fn chain_follower(
                             get_full_tipset(&network, cs, None, &key).await
                         }
                         PubsubMessage::Message(m) => {
-                            if let Err(why) = mem_pool.add(m) {
+                            if let Err(why) = mem_pool.add(m).await {
                                 debug!("Received invalid GossipSub message: {}", why);
                             }
                             continue;
@@ -1148,7 +1147,6 @@ mod tests {
     use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
     use crate::db::MemoryDB;
     use crate::utils::db::CborStoreExt as _;
-    use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
     use num_bigint::BigInt;
     use num_traits::ToPrimitive;
     use std::sync::Arc;
@@ -1168,16 +1166,6 @@ mod tests {
             .try_init();
 
         let db = Arc::new(MemoryDB::default());
-
-        // Populate DB with message roots used by chain4u
-        {
-            let empty_amt = Amt::<Cid, _>::new(&db).flush().unwrap();
-            db.put_cbor_default(&crate::blocks::TxMeta {
-                bls_message_root: empty_amt,
-                secp_message_root: empty_amt,
-            })
-            .unwrap();
-        }
 
         // Create a chain of 5 tipsets using Chain4U
         let c4u = Chain4U::with_blockstore(db.clone());
