@@ -5947,7 +5947,7 @@
         "name": "Forest.ChainExportDiff.Result",
         "required": true,
         "schema": {
-          "type": "null"
+          "$ref": "#/components/schemas/ApiExportResult"
         }
       },
       "paramStructure": "by-position"
@@ -7774,28 +7774,10 @@
         ]
       },
       "ApiExportResult": {
-        "oneOf": [
-          {
-            "type": "string",
-            "enum": [
-              "Cancelled"
-            ]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "Done": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "Done"
-            ]
-          }
+        "type": "string",
+        "enum": [
+          "Done",
+          "Cancelled"
         ]
       },
       "ApiExportStatus": {
@@ -7825,12 +7807,16 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "succeeded": {
+            "type": "boolean"
           }
         },
         "required": [
           "progress",
           "exporting",
           "cancelled",
+          "succeeded",
           "start_epoch",
           "current_epoch"
         ]
