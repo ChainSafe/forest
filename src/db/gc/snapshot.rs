@@ -325,7 +325,7 @@ impl SnapshotGarbageCollector {
                 let count = mem_db.len();
                 let approximate_heap_size = {
                     let mut size = 0;
-                    for (_k, v) in mem_db.iter() {
+                    for v in mem_db.values() {
                         size += std::mem::size_of::<Cid>();
                         size += v.len();
                     }

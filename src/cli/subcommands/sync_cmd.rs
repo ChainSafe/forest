@@ -166,7 +166,7 @@ fn print_fork_sync_info(fork: &ForkSyncInfo) -> anyhow::Result<usize> {
         "  - Fork Target: {} ({}), Stage: {}, Syncing Range: [{}..{}] ({} epochs)",
         fork.target_epoch,
         tipset_key_to_string(&fork.target_tipset_key),
-        &fork.stage,
+        fork.stage,
         fork.target_sync_epoch_start,
         fork.target_epoch,
         total_epochs_for_this_fork
