@@ -6,9 +6,6 @@ title: Node Comparison
 # Node Comparison: Forest vs Lotus
 
 This report compares Forest against Lotus while both nodes serve the same real RPC provider traffic. Because the two nodes handled an almost identical request stream during the measurement window, the differences below reflect the nodes themselves rather than uneven load.
-
-In every latency and resource chart, **Forest is shown in green** and **Lotus in orange**.
-
 ## Environment
 
 The comparison covers Lotus `1.36.1-rc1` and Forest `0.33.8`.
@@ -25,21 +22,57 @@ The clearest difference is in response latency. Forest keeps the average wall ti
 
 At the median (P50), the two nodes are close: Forest hovers around ~6 ms versus ~8-10 ms for Lotus. The gap widens sharply in the tail. At P95, Forest stays flat near ~25 ms while Lotus baselines around ~90 ms and spikes toward ~450-470 ms under pressure. At P99, Forest holds around ~150 ms while Lotus ranges from ~500 ms up to ~1.6 s. In practice this means the slow requests that hurt reliability the most are far rarer on Forest.
 
-![P50 per-flow latency](/img/reports/node_comparison/p50-per-flow-latency.png)
+<p align="center">
+  <img
+    src="/img/reports/node_comparison/p50-per-flow-latency.png"
+    alt="P50 per-flow latency"
+    style={{ maxWidth: '680px', width: '100%' }}
+  />
+</p>
 
-![P95 per-flow latency](/img/reports/node_comparison/p95-per-flow-latency.png)
+<p align="center">
+  <img
+    src="/img/reports/node_comparison/p95-per-flow-latency.png"
+    alt="P95 per-flow latency"
+    style={{ maxWidth: '680px', width: '100%' }}
+  />
+</p>
 
-![P99 per-flow latency](/img/reports/node_comparison/p99-per-flow-latency.png)
+<p align="center">
+  <img
+    src="/img/reports/node_comparison/p99-per-flow-latency.png"
+    alt="P99 per-flow latency"
+    style={{ maxWidth: '680px', width: '100%' }}
+  />
+</p>
 
 ### Amortized latency
 
 The amortized view, which accounts for batched requests, tells the same story: a small Forest advantage at P50 and a large one at P95, P99, and on average.
 
-![P50 amortized latency](/img/reports/node_comparison/p50-amortized-latency.png)
+<p align="center">
+  <img
+    src="/img/reports/node_comparison/p50-amortized-latency.png"
+    alt="P50 amortized latency"
+    style={{ maxWidth: '680px', width: '100%' }}
+  />
+</p>
 
-![P95 amortized latency](/img/reports/node_comparison/p95-amortized-latency.png)
+<p align="center">
+  <img
+    src="/img/reports/node_comparison/p95-amortized-latency.png"
+    alt="P95 amortized latency"
+    style={{ maxWidth: '680px', width: '100%' }}
+  />
+</p>
 
-![P99 amortized latency](/img/reports/node_comparison/p99-amortized-latency.png)
+<p align="center">
+  <img
+    src="/img/reports/node_comparison/p99-amortized-latency.png"
+    alt="P99 amortized latency"
+    style={{ maxWidth: '680px', width: '100%' }}
+  />
+</p>
 
 ![Average amortized latency](/img/reports/node_comparison/average-amortized-latency.png)
 
@@ -75,7 +108,13 @@ The absolute memory figures are higher than they appear here because of OS page 
 
 Snapshot export is another area where the performance work pays off. On a regular machine, Forest completes a basic chain snapshot export dramatically faster than Lotus, and with a fraction of the memory.
 
-![Snapshot export duration: Forest vs Lotus](/img/reports/node_comparison/snapshot-export-comparison.png)
+<p align="center">
+  <img
+    src="/img/reports/node_comparison/snapshot-export-comparison.png"
+    alt="Snapshot export duration: Forest vs Lotus"
+    style={{ maxWidth: '480px', width: '100%' }}
+  />
+</p>
 
 Forest `0.33.6` finished the export in 34 minutes using 32 GiB of RAM. Lotus `1.36.0` took 450 minutes (about `13x` slower) with 128 GiB, and 232 minutes (about `7x` slower) even with 256 GiB.
 
