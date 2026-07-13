@@ -151,6 +151,18 @@ where
     }
 }
 
+/// On timeout the blocking task is detached, not cancelled — a blocking syscall cannot
+/// be aborted, so anything the closure captures (e.g. a [`tempfile::TempPath`] whose
+/// drop removes the temporary file) is released only when the syscall eventually returns.
+pub async fn spawn_blocking_with_timeout<T: Send + 'static>(
+    timeout: Duration,
+    f: impl FnOnce() -> anyhow::Result<T> + Send + 'static,
+) -> anyhow::Result<T> {
+    tokio::time::timeout(timeout, tokio::task::spawn_blocking(f))
+        .await
+        .context("blocking operation timed out")??
+}
+
 #[derive(Debug, Clone, Copy, smart_default::SmartDefault)]
 pub struct RetryArgs {
     #[default(Some(Duration::from_secs(1)))]

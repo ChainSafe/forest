@@ -89,8 +89,16 @@ impl ChainExportGuard {
         export_succeeded()
     }
 
-    pub fn cancellation_token(&self) -> &CancellationToken {
-        &self.cancellation_token
+    /// Every export path that holds a [`ChainExportGuard`] must await its work through
+    /// this method — an export that does not race against the cancellation token cannot
+    /// be cancelled and appears stuck until process restart. On cancellation, marks
+    /// the export status as cancelled and returns `None`.
+    pub async fn run_cancellable<F: Future>(&self, fut: F) -> Option<F::Output> {
+        let output = self.cancellation_token.run_until_cancelled(fut).await;
+        if output.is_none() {
+            self.cancel_export();
+        }
+        output
     }
 }
 
@@ -650,7 +658,32 @@ mod tests {
         Ok(())
     }
 
+    /// Pins the invariant documented on [`ChainExportGuard::run_cancellable`].
+    #[tokio::test]
+    #[serial_test::serial(chain_export)]
+    async fn chain_export_cancel_stops_guarded_export() {
+        let g = ChainExportGuard::try_start_export().unwrap();
+
+        // Cancel via the status-global token, as the `Forest.ChainExportCancel` handler does.
+        let token = CHAIN_EXPORT_STATUS.cancellation_token().unwrap();
+
+        let fut = g.run_cancellable(std::future::pending::<()>());
+        token.cancel();
+        assert!(
+            fut.await.is_none(),
+            "cancellation must interrupt the export"
+        );
+
+        assert!(CHAIN_EXPORT_STATUS.cancelled());
+        assert!(CHAIN_EXPORT_STATUS.exporting());
+
+        drop(g);
+        assert!(!CHAIN_EXPORT_STATUS.exporting());
+        assert!(CHAIN_EXPORT_STATUS.cancelled());
+    }
+
     #[test]
+    #[serial_test::serial(chain_export)]
     fn test_chain_export_guard() {
         // First export (Cancel)
         let g = ChainExportGuard::try_start_export().unwrap();
