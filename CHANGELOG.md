@@ -39,6 +39,8 @@
   Eth transaction receipt cache size to 10000 and make it configurable via the
   `FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE` environment variable.
 
+- [#7350](https://github.com/ChainSafe/forest/pull/7350): Allow snapshot GC to be cancelled in-progress, same as regular snapshot export.
+
 ### Removed
 
 ### Fixed

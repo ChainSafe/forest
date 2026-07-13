@@ -11,7 +11,9 @@ use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::chain::{ChainStore, ExportOptions, ExportResult, FilecoinSnapshotVersion, HeadChange};
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
-use crate::db::car::forest::{forest_car_sha256sum_path, tmp_exporting_forest_car_path};
+use crate::db::car::forest::{
+    ASYNC_OPS_TIMEOUT, forest_car_sha256sum_path, tmp_exporting_forest_car_path,
+};
 use crate::ipld::DfsIter;
 use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -30,6 +32,7 @@ use crate::shim::message::Message;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
+use crate::utils::spawn_blocking_with_timeout;
 use anyhow::{Context as _, Result};
 use enumflags2::{BitFlags, make_bitflags};
 use fvm_ipld_encoding::{CborStore, RawBytes};
@@ -387,24 +390,34 @@ impl RpcMethod<1> for ForestChainExport {
                     .boxed()
                 }
             };
-            tokio::select! {
-                result = chain_export => {
+            match chain_export_guard.run_cancellable(chain_export).await {
+                Some(result) => {
                     let ExportResult { checksum, .. } = result?;
-                    if !dry_run
-                    {
-                        tmp_path.persist(&output_path)?;
-                        if let Some(checksum) = checksum {
-                            save_checksum(checksum, &output_path)?;
-                        }
+                    if !dry_run {
+                        spawn_blocking_with_timeout(ASYNC_OPS_TIMEOUT, move || {
+                            tmp_path.persist(&output_path)?;
+                            // The snapshot at `output_path` is usable from this point on;
+                            // a checksum-file failure is not worth failing the export over.
+                            if let Some(checksum) = checksum
+                                && let Err(e) = save_checksum(checksum, &output_path)
+                            {
+                                tracing::warn!(
+                                    "failed to save the checksum file for {}: {e:#}",
+                                    output_path.display()
+                                );
+                            }
+                            Ok(())
+                        })
+                        .await
+                        .context("failed to persist the exported snapshot")?;
                     }
                     chain_export_guard.mark_as_succeeded();
                     anyhow::Ok(ApiExportResult::Done)
-                },
-                _ = chain_export_guard.cancellation_token().cancelled() => {
-                    chain_export_guard.cancel_export();
+                }
+                None => {
                     tracing::warn!("Snapshot export was cancelled");
                     anyhow::Ok(ApiExportResult::Cancelled)
-                },
+                }
             }
         });
         Ok(handle.await??)
@@ -540,18 +553,21 @@ impl RpcMethod<1> for ForestChainExportDiff {
                 true,
             );
 
-            tokio::select! {
-                result = chain_export => {
+            match chain_export_guard.run_cancellable(chain_export).await {
+                Some(result) => {
                     result?;
-                    tmp_path.persist(&output_path)?;
+                    spawn_blocking_with_timeout(ASYNC_OPS_TIMEOUT, move || {
+                        Ok(tmp_path.persist(&output_path)?)
+                    })
+                    .await
+                    .context("failed to persist the exported snapshot")?;
                     chain_export_guard.mark_as_succeeded();
                     anyhow::Ok(ApiExportResult::Done)
-                },
-                _ = chain_export_guard.cancellation_token().cancelled() => {
-                    chain_export_guard.cancel_export();
+                }
+                None => {
                     tracing::warn!("Diff snapshot export was cancelled");
                     anyhow::Ok(ApiExportResult::Cancelled)
-                },
+                }
             }
         });
         Ok(handle.await??)
