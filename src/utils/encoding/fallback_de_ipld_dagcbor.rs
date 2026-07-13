@@ -708,3 +708,14 @@ impl<'de, 'a, R: dec::Read<'de>> de::Deserializer<'de> for &'a mut CidDeserializ
 pub fn is_indefinite(byte: u8) -> bool {
     byte & marker::START == marker::START
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ipld_core::ipld::Ipld;
+
+    #[quickcheck_macros::quickcheck]
+    fn from_slice_no_panic(buf: Vec<u8>) {
+        let _: Result<Ipld, _> = from_slice(&buf);
+    }
+}

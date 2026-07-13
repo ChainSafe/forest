@@ -290,7 +290,9 @@ pub fn derive_eip_155_chain_id(v: &BigInt) -> anyhow::Result<BigInt> {
         if v == 27 || v == 28 {
             return Ok(0.into());
         }
-        return Ok(((v - 35) / 2).into());
+        // Mirror Lotus, which performs this subtraction in unsigned (wrapping)
+        // arithmetic.
+        return Ok((v.wrapping_sub(35) / 2).into());
     }
 
     Ok((v - 35u32) / 2u32)
@@ -331,6 +333,17 @@ mod tests {
             derive_eip_155_chain_id(&BigInt::from_bytes_be(Sign::Plus, &v)).unwrap(),
             eth_chain_id
         );
+    }
+
+    #[quickcheck]
+    fn test_derive_eip_155_chain_id_no_panic(v: u64) {
+        let _ = derive_eip_155_chain_id(&BigInt::from(v));
+    }
+
+    #[quickcheck]
+    fn test_derive_eip_155_chain_id_no_panic_bytes(negative: bool, v_bytes: Vec<u8>) {
+        let sign = if negative { Sign::Minus } else { Sign::Plus };
+        let _ = derive_eip_155_chain_id(&BigInt::from_bytes_be(sign, &v_bytes));
     }
 
     #[quickcheck]

@@ -115,7 +115,7 @@ const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0
 const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
 
 /// The address used in messages to actors that have since been deleted.
-const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
+pub(crate) const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 
 #[derive(
     Eq,
@@ -2538,11 +2538,11 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
-        eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
+        eth_tx_by_tipset_and_idx(&ctx, &ts, tx_index).await
     }
 }
 
-fn eth_tx_by_block_num_and_idx(
+async fn eth_tx_by_tipset_and_idx(
     ctx: &Ctx,
     ts: &Tipset,
     tx_index: EthUint64,
@@ -2551,15 +2551,16 @@ fn eth_tx_by_block_num_and_idx(
 
     let EthUint64(index) = tx_index;
     let msg = messages.get(index as usize).with_context(|| {
-            format!(
-                "failed to get transaction at index {}: index {} out of range: tipset contains {} messages",
-                index,
-                index,
-                messages.len()
-            )
-        })?;
+        format!(
+            "transaction index {index} out of range: tipset contains {} messages",
+            messages.len()
+        )
+    })?;
 
-    let state = ctx.state_manager.get_state_tree(ts.parent_state())?;
+    // Resolve addresses against the tipset's post-execution state so that newly created actors
+    // are included correctly.
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
+    let state = ctx.state_manager.get_state_tree(&state_root)?;
 
     let tx = new_eth_tx(ctx, &state, ts.epoch(), &ts.key().cid()?, &msg.cid(), index)?;
 
@@ -2584,30 +2585,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
-
-        let messages = ctx.chain_store().messages_for_tipset(&ts)?;
-
-        let EthUint64(index) = tx_index;
-        let msg = messages.get(index as usize).with_context(|| {
-            format!(
-                "index {} out of range: tipset contains {} messages",
-                index,
-                messages.len()
-            )
-        })?;
-
-        let state = ctx.state_manager.get_state_tree(ts.parent_state())?;
-
-        let tx = new_eth_tx(
-            &ctx,
-            &state,
-            ts.epoch(),
-            &ts.key().cid()?,
-            &msg.cid(),
-            index,
-        )?;
-
-        Ok(Some(tx))
+        eth_tx_by_tipset_and_idx(&ctx, &ts, tx_index).await
     }
 }
 

@@ -344,6 +344,16 @@ mod tests {
 
     const TEST_CHAIN_ID: EthChainId = calibnet::ETH_CHAIN_ID;
 
+    #[quickcheck_macros::quickcheck]
+    fn signature_from_bytes_no_panic(bytes: Vec<u8>) {
+        let _ = Signature::from_bytes(bytes);
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn signature_to_from_bytes_roundtrip(sig: Signature) {
+        assert_eq!(Signature::from_bytes(sig.to_bytes()).unwrap(), sig);
+    }
+
     fn create_delegated_key() -> (Address, Vec<u8>) {
         let key = generate_key(SignatureType::Delegated).unwrap();
         let addr = key.address;
