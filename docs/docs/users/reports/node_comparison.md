@@ -5,7 +5,8 @@ title: Node Comparison
 
 # Node Comparison: Forest vs Lotus
 
-This report compares Forest against Lotus while both nodes serve the same real RPC provider traffic. Because the two nodes handled an almost identical request stream during the measurement window, the differences below reflect the nodes themselves rather than uneven load.
+This report compares Forest against Lotus while both nodes serve the similar real RPC provider traffic. Because the two nodes handled an almost identical request stream during the measurement window, the differences below reflect the nodes themselves rather than uneven load.
+
 ## Environment
 
 The comparison covers Lotus `1.36.1-rc1` and Forest `0.33.8`.
@@ -20,7 +21,7 @@ The clearest difference is in response latency. Forest keeps the average wall ti
 
 ### Per-flow latency
 
-At the median (P50), the two nodes are close: Forest hovers around ~6 ms versus ~8-10 ms for Lotus. The gap widens sharply in the tail. At P95, Forest stays flat near ~25 ms while Lotus baselines around ~90 ms and spikes toward ~450-470 ms under pressure. At P99, Forest holds around ~150 ms while Lotus ranges from ~500 ms up to ~1.6 s. In practice this means the slow requests that hurt reliability the most are far rarer on Forest.
+At the median (P50), the two nodes are close: Forest hovers around ~6-7 ms versus ~8-12 ms for Lotus. The gap widens sharply in the tail. At P95, Forest stays flat near ~25 ms while Lotus baselines around ~90 ms and spikes toward ~450-470 ms under pressure. At P99, Forest holds around ~150 ms while Lotus ranges from ~500 ms up to ~1.6 s. In practice this means the slow requests that hurt reliability the most are far rarer on Forest.
 
 <p align="center">
   <img
@@ -106,7 +107,7 @@ The absolute memory figures are higher than they appear here because of OS page 
 
 ## Snapshot export comparison
 
-Snapshot export is another area where the performance work pays off. On a regular machine, Forest completes a basic chain snapshot export dramatically faster than Lotus, and with a fraction of the memory.
+Snapshot export is another area where the performance work pays off. Forest plays an important role in timely, efficient network snapshot generation: while it is possible to generate a snapshot with Lotus, doing so is significantly slower and more expensive. On a regular machine, Forest completes a basic chain snapshot export dramatically faster than Lotus, and with a fraction of the memory.
 
 <p align="center">
   <img
@@ -116,10 +117,16 @@ Snapshot export is another area where the performance work pays off. On a regula
   />
 </p>
 
-Forest `0.33.6` finished the export in 34 minutes using 32 GiB of RAM. Lotus `1.36.0` took 450 minutes (about `13x` slower) with 128 GiB, and 232 minutes (about `7x` slower) even with 256 GiB.
+Forest `0.33.6` finished the export in 34 minutes using 32 GiB of RAM. Lotus `1.36.0` took 450 minutes (about `13x` slower) with 128 GiB, and 232 minutes (about `7x` slower) even with 256 GiB. Forest also needs less than half the disk space for the resulting snapshot. The table below compares a basic snapshot export across implementations.
+
+|        | Required disk space [GiB] | RAM [GiB] | Export duration [minutes] |
+| ------ | ------------------------- | --------- | ------------------------- |
+| Forest | 200                       | 32        | 34                        |
+| Lotus  | 450                       | 128       | 450                       |
+| Lotus  | 450                       | 256       | 232                       |
 
 :::note
-Lotus snapshots are uncompressed, whereas Forest compresses them automatically as part of the export. Both nodes can consume compressed snapshots, which meaningfully lowers storage costs. Compressing a Lotus snapshot after the fact is possible, but it would only add to the already longer export time.
+Lotus snapshots are also not compressed; Forest does it under the hood. Both implementations are able to consume compressed snapshots. This significantly reduces the cost of storing snapshots. While it’s possible to compress the snapshot after it’s been generated, it would increase the operation duration even further.
 :::
 
 ## Key takeaways
