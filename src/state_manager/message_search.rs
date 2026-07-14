@@ -240,7 +240,8 @@ impl StateManager {
                 .map_err(|err| Error::Other(format!("failed to load message {err:}")))?,
         );
         let current_ts = self.heaviest_tipset();
-        let maybe_message_receipt = self.tipset_executed_message(&current_ts, &message, true)?;
+        let maybe_message_receipt =
+            self.tipset_executed_message(&current_ts, &message, allow_replaced.unwrap_or(true))?;
         if let Some(receipt) = maybe_message_receipt {
             return Ok((current_ts, receipt));
         }
@@ -330,8 +331,11 @@ impl StateManager {
                                     return Ok(candidate);
                                 }
 
-                                let maybe_receipt =
-                                    sm.tipset_executed_message(&applied_ts, &message, true)?;
+                                let maybe_receipt = sm.tipset_executed_message(
+                                    &applied_ts,
+                                    &message,
+                                    allow_replaced.unwrap_or(true),
+                                )?;
                                 if let Some(receipt) = maybe_receipt {
                                     if confidence == 0 {
                                         // Return if there's no confidence requirement
