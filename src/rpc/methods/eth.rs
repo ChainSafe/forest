@@ -40,7 +40,7 @@ use crate::rpc::{
     ApiPaths, Ctx, EthEventHandler, LOOKBACK_NO_LIMIT, Permission, RpcMethod, RpcMethodExt as _,
     error::ServerError,
     eth::{
-        errors::EthErrors,
+        errors::{EthErrors, NULL_ROUND_CODE},
         filter::{
             EventRevertStatus, SkipEvent, event::EventFilter, mempool::MempoolFilter,
             tipset::TipSetFilter,
@@ -107,7 +107,7 @@ const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0
 const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
 
 /// The address used in messages to actors that have since been deleted.
-const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
+pub(crate) const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 
 #[derive(
     Eq,
@@ -2410,7 +2410,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
         let addr = sender.to_filecoin_address()?;
         match block_param {
             BlockNumberOrHash::PredefinedBlock(Predefined::Pending) => {
-                Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
+                Ok(EthUint64(ctx.mpool.get_sequence(&addr).await?))
             }
             _ => {
                 let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
@@ -2516,11 +2516,11 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
-        eth_tx_by_block_num_and_idx(&ctx, &ts, tx_index)
+        eth_tx_by_tipset_and_idx(&ctx, &ts, tx_index).await
     }
 }
 
-fn eth_tx_by_block_num_and_idx(
+async fn eth_tx_by_tipset_and_idx(
     ctx: &Ctx,
     ts: &Tipset,
     tx_index: EthUint64,
@@ -2529,15 +2529,16 @@ fn eth_tx_by_block_num_and_idx(
 
     let EthUint64(index) = tx_index;
     let msg = messages.get(index as usize).with_context(|| {
-            format!(
-                "failed to get transaction at index {}: index {} out of range: tipset contains {} messages",
-                index,
-                index,
-                messages.len()
-            )
-        })?;
+        format!(
+            "transaction index {index} out of range: tipset contains {} messages",
+            messages.len()
+        )
+    })?;
 
-    let state = ctx.state_manager.get_state_tree(ts.parent_state())?;
+    // Resolve addresses against the tipset's post-execution state so that newly created actors
+    // are included correctly.
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
+    let state = ctx.state_manager.get_state_tree(&state_root)?;
 
     let tx = new_eth_tx(ctx, &state, ts.epoch(), &ts.key().cid()?, &msg.cid(), index)?;
 
@@ -2562,30 +2563,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
-
-        let messages = ctx.chain_store().messages_for_tipset(&ts)?;
-
-        let EthUint64(index) = tx_index;
-        let msg = messages.get(index as usize).with_context(|| {
-            format!(
-                "index {} out of range: tipset contains {} messages",
-                index,
-                messages.len()
-            )
-        })?;
-
-        let state = ctx.state_manager.get_state_tree(ts.parent_state())?;
-
-        let tx = new_eth_tx(
-            &ctx,
-            &state,
-            ts.epoch(),
-            &ts.key().cid()?,
-            &msg.cid(),
-            index,
-        )?;
-
-        Ok(Some(tx))
+        eth_tx_by_tipset_and_idx(&ctx, &ts, tx_index).await
     }
 }
 
@@ -2979,9 +2957,13 @@ async fn get_eth_transaction_receipt_with_cache(
     limit: Option<ChainEpoch>,
     cancellation_token: &CancellationToken,
 ) -> Result<Option<EthTxReceipt>, ServerError> {
-    const CACHE_SIZE: NonZeroUsize = nonzero!(1024usize); // ~1.25MiB on mainnet
     static CACHE: LazyLock<SizeTrackingCache<EthHash, EthTxReceipt>> = LazyLock::new(|| {
-        SizeTrackingCache::new_with_metrics("eth_transaction_receipt", CACHE_SIZE)
+        const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(10000usize); // ~12.5MiB on mainnet
+        let cache_size = env_or_default(
+            "FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE",
+            DEFAULT_CACHE_SIZE,
+        );
+        SizeTrackingCache::new_with_metrics("eth_transaction_receipt", cache_size)
     });
 
     enum TmpError {
@@ -3043,16 +3025,16 @@ async fn get_eth_transaction_receipt(
         .await
         .with_context(|| format!("failed to lookup Eth Txn {tx_hash} as {msg_cid}"));
 
-    let option = match option {
-        Ok(opt) => opt,
-        // Ethereum clients expect an empty response when the message was not found
+    // Ethereum clients expect an empty response when the message was not found
+    // or not executed yet
+    let (tipset, receipt) = match option {
+        Ok(Some(found)) => found,
+        Ok(None) => return Ok(None),
         Err(e) => {
             tracing::debug!("could not find transaction receipt for hash {tx_hash}: {e}");
             return Ok(None);
         }
     };
-
-    let (tipset, receipt) = option.context("not indexed")?;
     let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
     let message_lookup = MessageLookup {
         receipt,
@@ -3325,7 +3307,7 @@ fn eth_filter_logs_from_events(
         let (data, topics) = match eth_log_from_event(&event.entries) {
             Some(parts) => parts,
             None => {
-                tracing::warn!("Ignoring event");
+                tracing::debug!("Ignoring event");
                 continue;
             }
         };
@@ -3339,7 +3321,7 @@ fn eth_filter_logs_from_events(
                     h
                 }
                 None => {
-                    tracing::warn!("Ignoring event");
+                    tracing::debug!("Ignoring event");
                     continue;
                 }
             }
@@ -4165,12 +4147,17 @@ async fn trace_filter(
     let mut trace_counter = 0;
     'blocks: for blk_num in from_block.0..=to_block.0 {
         // For BlockNumber, EthTraceBlock and EthTraceBlockV2 are equivalent.
-        let block_traces = EthTraceBlock::handle(
+        let block_traces = match EthTraceBlock::handle(
             ctx.clone(),
             (BlockNumberOrHash::from_block_number(blk_num as i64),),
             ext,
         )
-        .await?;
+        .await
+        {
+            Ok(block_traces) => block_traces,
+            Err(e) if e.code() == NULL_ROUND_CODE => continue 'blocks,
+            Err(e) => return Err(e.into()),
+        };
         for block_trace in block_traces.0 {
             if block_trace
                 .trace

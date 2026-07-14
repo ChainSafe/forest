@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
-use crate::chain::index::ResolveNullTipset;
-use crate::chain::{ChainStore, HeadChanges};
+use crate::chain::{AtFinalityResolution, ChainStore, HeadChanges};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::message_pool::errors::Error;
 use crate::message_pool::msg_pool::{
@@ -12,7 +11,7 @@ use crate::message_pool::msg_pool::{
 use crate::networks::Height;
 use crate::prelude::*;
 use crate::shim::{
-    address::{Address, Protocol::*},
+    address::Address,
     econ::TokenAmount,
     message::Message,
     state_tree::{ActorState, StateTree},
@@ -111,32 +110,9 @@ impl Provider for ChainStore {
         addr: &Address,
         ts: &Tipset,
     ) -> Result<Address, Error> {
-        match addr.protocol() {
-            BLS | Secp256k1 | Delegated => Ok(*addr),
-            Actor => Err(Error::Other(
-                "Cannot resolve actor address to key address".into(),
-            )),
-            _ => {
-                let lookback_ts = if ts.epoch() > self.chain_config().policy.chain_finality {
-                    self.chain_index()
-                        .load_required_tipset_by_height_blocking(
-                            ts.epoch() - self.chain_config().policy.chain_finality,
-                            ts.clone(),
-                            ResolveNullTipset::TakeOlder,
-                        )
-                        .map_err(|e| Error::Other(e.to_string()))?
-                } else {
-                    // Matches the logic at <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/stmgr/stmgr.go#L361>
-                    ts.clone()
-                };
-
-                let state = StateTree::new_from_root(self.db(), lookback_ts.parent_state())
-                    .map_err(|e| Error::Other(e.to_string()))?;
-                state
-                    .resolve_to_deterministic_address(self.db(), *addr)
-                    .map_err(|e| Error::Other(e.to_string()))
-            }
-        }
+        ChainStore::resolve_to_deterministic_address_at_finality(self, addr, ts)
+            .map(AtFinalityResolution::into_address)
+            .map_err(|e| Error::Other(e.to_string()))
     }
 
     fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error> {
@@ -144,7 +120,6 @@ impl Provider for ChainStore {
     }
 }
 
-#[allow(dead_code)]
 pub trait ProviderExt {
     /// Non-blocking version of [`Provider::resolve_to_deterministic_address_at_finality`]
     async fn resolve_to_deterministic_address_at_finality_async(

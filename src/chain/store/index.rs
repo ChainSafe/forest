@@ -161,7 +161,7 @@ impl ChainIndex {
     /// Requesting epoch 2 with [`ResolveNullTipset::TakeNewer`] will return
     /// epoch 3, with [`ResolveNullTipset::TakeOlder`] will return epoch 1, and
     /// with [`ResolveNullTipset::Fail`] will return [`Error::NullRound`].
-    pub fn tipset_by_height(
+    pub fn tipset_by_height_blocking(
         &self,
         to: ChainEpoch,
         mut from: Tipset,
@@ -237,18 +237,19 @@ impl ChainIndex {
         Ok(None)
     }
 
-    /// Non-blocking version of [`Self::tipset_by_height`]
-    pub async fn tipset_by_height_async(
+    /// Non-blocking version of [`Self::tipset_by_height_blocking`]
+    pub async fn tipset_by_height(
         &self,
         to: ChainEpoch,
         from: Tipset,
         resolve: ResolveNullTipset,
     ) -> Result<Option<Tipset>, Error> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || this.tipset_by_height(to, from, resolve)).await?
+        tokio::task::spawn_blocking(move || this.tipset_by_height_blocking(to, from, resolve))
+            .await?
     }
 
-    /// Same as [`Self::tipset_by_height`], but errors if that would return `None`.
+    /// Same as [`Self::tipset_by_height_blocking`], but errors if that would return `None`.
     /// This call can be expensive and blocking, use [`Self::load_required_tipset_by_height`]
     /// in async contexts to avoid exhausting Tokio worker threads.
     pub fn load_required_tipset_by_height_blocking(
@@ -257,18 +258,18 @@ impl ChainIndex {
         from: Tipset,
         resolve: ResolveNullTipset,
     ) -> Result<Tipset, Error> {
-        self.tipset_by_height(to, from, resolve)?
+        self.tipset_by_height_blocking(to, from, resolve)?
             .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
     }
 
-    /// Same as [`Self::tipset_by_height_async`], but errors if that would return `None`.
+    /// Same as [`Self::tipset_by_height`], but errors if that would return `None`.
     pub async fn load_required_tipset_by_height(
         &self,
         to: ChainEpoch,
         from: Tipset,
         resolve: ResolveNullTipset,
     ) -> Result<Tipset, Error> {
-        self.tipset_by_height_async(to, from, resolve)
+        self.tipset_by_height(to, from, resolve)
             .await?
             .ok_or_else(|| Error::NotFound(format!("tipset at epoch {to}").into()))
     }
@@ -301,7 +302,8 @@ impl ChainIndex {
     }
 
     pub fn is_tipset_lookup_checkpoint(epoch: ChainEpoch) -> bool {
-        epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL) == 0
+        // Genesis is not considered a checkpoint
+        epoch > 0 && epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL) == 0
     }
 
     /// Cleans up stale checkpoints at null rounds between the given tipset and its parent in case there's chain reorg.
@@ -393,7 +395,7 @@ mod tests {
         // epoch 2 is null. ResolveNullTipset decided whether to return epoch 1 or epoch 3
         assert_eq!(
             index
-                .tipset_by_height(2, epoch4.clone(), ResolveNullTipset::TakeOlder)
+                .tipset_by_height_blocking(2, epoch4.clone(), ResolveNullTipset::TakeOlder)
                 .unwrap()
                 .expect("epoch 2 resolved"),
             epoch1
@@ -401,7 +403,7 @@ mod tests {
 
         assert_eq!(
             index
-                .tipset_by_height(2, epoch4, ResolveNullTipset::TakeNewer)
+                .tipset_by_height_blocking(2, epoch4, ResolveNullTipset::TakeNewer)
                 .unwrap()
                 .expect("epoch 2 resolved"),
             epoch3
@@ -431,7 +433,7 @@ mod tests {
         // The chain as forked, epoch 2 and 3 are ambiguous
         assert_eq!(
             index
-                .tipset_by_height(2, epoch3a, ResolveNullTipset::TakeOlder)
+                .tipset_by_height_blocking(2, epoch3a, ResolveNullTipset::TakeOlder)
                 .unwrap()
                 .expect("epoch 2 on branch a"),
             epoch2a
@@ -439,7 +441,7 @@ mod tests {
 
         assert_eq!(
             index
-                .tipset_by_height(2, epoch3b, ResolveNullTipset::TakeOlder)
+                .tipset_by_height_blocking(2, epoch3b, ResolveNullTipset::TakeOlder)
                 .unwrap()
                 .expect("epoch 2 on branch b"),
             epoch2b
@@ -459,7 +461,7 @@ mod tests {
         let index = ChainIndex::new(db, genesis);
         assert!(
             index
-                .tipset_by_height(2, epoch3, ResolveNullTipset::TakeOlder)
+                .tipset_by_height_blocking(2, epoch3, ResolveNullTipset::TakeOlder)
                 .unwrap()
                 .is_none()
         );

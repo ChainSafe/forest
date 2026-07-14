@@ -238,6 +238,12 @@ impl StateManager {
         self
     }
 
+    /// Test-only view of the ID -> deterministic-address cache.
+    #[cfg(test)]
+    pub(crate) fn id_to_deterministic_address_cache(&self) -> Option<&IdToAddressCache> {
+        self.id_to_deterministic_address_cache.as_ref()
+    }
+
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Tipset {
         self.chain_store().heaviest_tipset()

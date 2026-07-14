@@ -18,7 +18,7 @@ use ahash::{HashMap, HashMapExt};
 
 impl<T> MessagePool<T>
 where
-    T: Provider + 'static,
+    T: Provider + Send + Sync + 'static,
 {
     /// Revert and/or apply tipsets to the message pool.
     ///
@@ -74,13 +74,15 @@ where
                 };
 
                 for msg in smsgs {
-                    self.remove_applied_from_pool(&msg.from(), msg.sequence(), &mut rmsgs, &ts)?;
+                    self.remove_applied_from_pool(&msg.from(), msg.sequence(), &mut rmsgs, &ts)
+                        .await?;
                     if !repub && self.republish.was_republished(&msg.cid()) {
                         repub = true;
                     }
                 }
                 for msg in msgs {
-                    self.remove_applied_from_pool(&msg.from, msg.sequence, &mut rmsgs, &ts)?;
+                    self.remove_applied_from_pool(&msg.from, msg.sequence, &mut rmsgs, &ts)
+                        .await?;
                     if !repub && self.republish.was_republished(&msg.cid()) {
                         repub = true;
                     }
@@ -95,12 +97,15 @@ where
         let cur_ts = self.cur_tipset.read().shallow_clone();
         for (_, hm) in rmsgs {
             for (_, msg) in hm {
-                if let Err(e) = self.add_to_pool_unchecked(
-                    &cur_ts,
-                    msg,
-                    TrustPolicy::Trusted,
-                    StrictnessPolicy::Relaxed,
-                ) {
+                if let Err(e) = self
+                    .add_to_pool_unchecked(
+                        &cur_ts,
+                        msg,
+                        TrustPolicy::Trusted,
+                        StrictnessPolicy::Relaxed,
+                    )
+                    .await
+                {
                     tracing::error!("Failed to read message from reorg to mpool: {}", e);
                 }
             }
@@ -113,7 +118,7 @@ where
     /// message isn't there, fall back to removing it from the real pending
     /// pool. Used by [`Self::apply_head_change`] when an applied tipset
     /// includes a message that we hadn't yet seen reverted.
-    fn remove_applied_from_pool(
+    async fn remove_applied_from_pool(
         &self,
         from: &Address,
         sequence: u64,
@@ -126,6 +131,7 @@ where
             .is_none()
             && let Ok(resolved) = self
                 .resolve_to_key(from, ts)
+                .await
                 .inspect_err(|e| tracing::debug!(%from, "remove: failed to resolve address: {e:#}"))
         {
             let _ = self.pending.remove(&resolved, sequence, true);

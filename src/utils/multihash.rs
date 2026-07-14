@@ -15,6 +15,8 @@ pub mod prelude {
 use multihash_derive::{Hasher, MultihashDigest};
 
 /// Extends [`multihash_codetable::Code`] with `Identity`
+// `alloc_size` bounds every digest here; it also sizes the identity buffer
+// (`IdentityHasher::<64>` below). Keep it in sync with `IDENTITY_MAX_SIZE`.
 #[derive(Clone, Copy, Debug, Eq, MultihashDigest, PartialEq)]
 #[mh(alloc_size = 64)]
 pub enum MultihashCode {
@@ -77,6 +79,22 @@ pub enum MultihashCode {
 }
 
 impl MultihashCode {
+    /// Max input the [`MultihashCode::Identity`] hasher can hold: the
+    /// `IdentityHasher::<64>` buffer / `#[mh(alloc_size = 64)]` declared above.
+    pub const IDENTITY_MAX_SIZE: usize = 64;
+
+    /// [`MultihashDigest::digest`], failing instead of hashing input the hasher
+    /// cannot hold. Use this when the code and data come from decoded input.
+    pub fn checked_digest(&self, data: &[u8]) -> anyhow::Result<Multihash> {
+        anyhow::ensure!(
+            *self != Self::Identity || data.len() <= Self::IDENTITY_MAX_SIZE,
+            "identity multihash input of {} bytes exceeds the {}-byte limit",
+            data.len(),
+            Self::IDENTITY_MAX_SIZE
+        );
+        Ok(self.digest(data))
+    }
+
     /// Calculate the [`Multihash`] of the input byte stream.
     pub fn digest_byte_stream<R: std::io::Read>(&self, bytes: &mut R) -> anyhow::Result<Multihash> {
         fn hash<'a, H: Hasher, R: std::io::Read>(
@@ -220,7 +238,17 @@ mod tests {
 
     use super::*;
     use crate::utils::rand::forest_rng;
+    use quickcheck_macros::quickcheck;
     use rand::RngCore as _;
+
+    #[quickcheck]
+    fn checked_digest_bounds(data: Vec<u8>) -> bool {
+        use MultihashCode::*;
+        let ok_sha = Sha2_256.checked_digest(&data).is_ok();
+        let ok_identity = Identity.checked_digest(&data).is_ok()
+            == (data.len() <= MultihashCode::IDENTITY_MAX_SIZE);
+        ok_sha && ok_identity
+    }
 
     #[test]
     fn test_digest_byte_stream() {

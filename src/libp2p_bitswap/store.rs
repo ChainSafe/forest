@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::utils::multihash::MultihashCode;
 use ambassador::delegatable_trait;
 use multihash_derive::MultihashDigest;
 use std::marker::PhantomData;
@@ -72,6 +73,12 @@ impl<H: MultihashDigest<S>, const S: usize> Block<H, S> {
 
     fn verify_cid(cid: &Cid, payload: &[u8]) -> anyhow::Result<()> {
         let code = cid.hash().code();
+        // Identity multihash can't hold a payload larger than its buffer.
+        anyhow::ensure!(
+            code != u64::from(MultihashCode::Identity) || payload.len() <= S,
+            "identity multihash payload of {} bytes exceeds the {S}-byte limit",
+            payload.len()
+        );
         let mh = H::try_from(code)
             .map_err(|_| anyhow::anyhow!("unsupported multihash code {code}"))?
             .digest(payload);

@@ -29,6 +29,7 @@ pub struct ExportStatus {
     pub initial_epoch: AtomicI64,
     pub exporting: AtomicBool,
     pub cancelled: AtomicBool,
+    pub succeeded: AtomicBool,
     pub start_time: ArcSwapOption<DateTime<Utc>>,
     pub cancellation_token: ArcSwapOption<CancellationToken>,
 }
@@ -50,6 +51,10 @@ impl ExportStatus {
         self.cancelled.load(atomic::Ordering::Relaxed)
     }
 
+    pub fn succeeded(&self) -> bool {
+        self.succeeded.load(atomic::Ordering::Relaxed)
+    }
+
     pub fn start_time(&self) -> Option<DateTime<Utc>> {
         self.start_time.load().clone().map(Arc::unwrap_or_clone)
     }
@@ -64,6 +69,7 @@ impl ExportStatus {
 
 pub static CHAIN_EXPORT_STATUS: LazyLock<ExportStatus> = LazyLock::new(ExportStatus::default);
 
+#[derive(Debug)]
 pub struct ChainExportGuard {
     cancellation_token: CancellationToken,
 }
@@ -79,13 +85,27 @@ impl ChainExportGuard {
         cancel_export()
     }
 
-    pub fn cancellation_token(&self) -> &CancellationToken {
-        &self.cancellation_token
+    pub fn mark_as_succeeded(&self) {
+        export_succeeded()
+    }
+
+    /// Every export path that holds a [`ChainExportGuard`] must await its work through
+    /// this method — an export that does not race against the cancellation token cannot
+    /// be cancelled and appears stuck until process restart. On cancellation, marks
+    /// the export status as cancelled and returns `None`.
+    pub async fn run_cancellable<F: Future>(&self, fut: F) -> Option<F::Output> {
+        let output = self.cancellation_token.run_until_cancelled(fut).await;
+        if output.is_none() {
+            self.cancel_export();
+        }
+        output
     }
 }
 
 impl Drop for ChainExportGuard {
     fn drop(&mut self) {
+        // In case some tasks are waiting on this token
+        self.cancellation_token.cancel();
         end_export()
     }
 }
@@ -114,11 +134,18 @@ fn start_export(cancellation_token: CancellationToken) -> anyhow::Result<()> {
     status.epoch.store(0, atomic::Ordering::Relaxed);
     status.initial_epoch.store(0, atomic::Ordering::Relaxed);
     status.cancelled.store(false, atomic::Ordering::Relaxed);
+    status.succeeded.store(false, atomic::Ordering::Relaxed);
     status.start_time.store(Some(Utc::now().into()));
     status
         .cancellation_token
         .store(Some(cancellation_token.into()));
     Ok(())
+}
+
+fn export_succeeded() {
+    CHAIN_EXPORT_STATUS
+        .succeeded
+        .store(true, atomic::Ordering::Relaxed);
 }
 
 fn end_export() {
@@ -130,7 +157,6 @@ fn end_export() {
 
 fn cancel_export() {
     let status = &*CHAIN_EXPORT_STATUS;
-    status.exporting.store(false, atomic::Ordering::Relaxed);
     status.cancelled.store(true, atomic::Ordering::Relaxed);
 }
 
@@ -630,5 +656,86 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    /// Pins the invariant documented on [`ChainExportGuard::run_cancellable`].
+    #[tokio::test]
+    #[serial_test::serial(chain_export)]
+    async fn chain_export_cancel_stops_guarded_export() {
+        let g = ChainExportGuard::try_start_export().unwrap();
+
+        // Cancel via the status-global token, as the `Forest.ChainExportCancel` handler does.
+        let token = CHAIN_EXPORT_STATUS.cancellation_token().unwrap();
+
+        let fut = g.run_cancellable(std::future::pending::<()>());
+        token.cancel();
+        assert!(
+            fut.await.is_none(),
+            "cancellation must interrupt the export"
+        );
+
+        assert!(CHAIN_EXPORT_STATUS.cancelled());
+        assert!(CHAIN_EXPORT_STATUS.exporting());
+
+        drop(g);
+        assert!(!CHAIN_EXPORT_STATUS.exporting());
+        assert!(CHAIN_EXPORT_STATUS.cancelled());
+    }
+
+    #[test]
+    #[serial_test::serial(chain_export)]
+    fn test_chain_export_guard() {
+        // First export (Cancel)
+        let g = ChainExportGuard::try_start_export().unwrap();
+        assert!(CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
+
+        // Another attempt should fail
+        ChainExportGuard::try_start_export().unwrap_err();
+
+        // Cancel
+        g.cancel_export();
+        assert!(CHAIN_EXPORT_STATUS.cancelled());
+
+        // Drop
+        drop(g);
+        assert!(!CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(CHAIN_EXPORT_STATUS.cancelled());
+
+        // Second export (Success)
+        let g = ChainExportGuard::try_start_export().unwrap();
+        assert!(CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
+
+        // Another attempt should fail
+        ChainExportGuard::try_start_export().unwrap_err();
+
+        // On success
+        g.mark_as_succeeded();
+        assert!(CHAIN_EXPORT_STATUS.succeeded());
+
+        // Drop
+        drop(g);
+        assert!(!CHAIN_EXPORT_STATUS.exporting());
+        assert!(CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
+
+        // Third export (failure)
+        let g = ChainExportGuard::try_start_export().unwrap();
+        assert!(CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
+
+        // Another attempt should fail
+        ChainExportGuard::try_start_export().unwrap_err();
+
+        // Drop
+        drop(g);
+        assert!(!CHAIN_EXPORT_STATUS.exporting());
+        assert!(!CHAIN_EXPORT_STATUS.succeeded());
+        assert!(!CHAIN_EXPORT_STATUS.cancelled());
     }
 }

@@ -8,9 +8,12 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
-use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
+use crate::chain::{ChainStore, ExportOptions, ExportResult, FilecoinSnapshotVersion, HeadChange};
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
+use crate::db::car::forest::{
+    ASYNC_OPS_TIMEOUT, forest_car_sha256sum_path, tmp_exporting_forest_car_path,
+};
 use crate::ipld::DfsIter;
 use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -29,6 +32,7 @@ use crate::shim::message::Message;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
+use crate::utils::spawn_blocking_with_timeout;
 use anyhow::{Context as _, Result};
 use enumflags2::{BitFlags, make_bitflags};
 use fvm_ipld_encoding::{CborStore, RawBytes};
@@ -42,7 +46,11 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::convert::Infallible;
 use std::fs::File;
-use std::{collections::VecDeque, path::PathBuf, sync::LazyLock};
+use std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
 use tokio::sync::broadcast::{self, Receiver as Subscriber};
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
@@ -280,112 +288,139 @@ impl RpcMethod<1> for ForestChainExport {
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let ForestChainExportParams {
-            version,
-            epoch,
-            recent_roots,
-            output_path,
-            tipset_keys: ApiTipsetKey(tsk),
-            include_receipts,
-            include_events,
-            include_tipset_keys,
-            skip_checksum,
-            dry_run,
-        } = params;
-
-        let chain_export_guard = ChainExportGuard::try_start_export()?;
-
-        let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let start_ts = ctx
-            .chain_index()
-            .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
-            .await?;
-
-        let options = ExportOptions {
-            skip_checksum,
-            include_receipts,
-            include_events,
-            include_tipset_keys,
-            seen: FileBackedCidHashSet::new(ctx.temp_dir.as_path())?,
-        };
-        let writer = if dry_run {
-            tokio_util::either::Either::Left(VoidAsyncWriter)
-        } else {
-            tokio_util::either::Either::Right(tokio::fs::File::create(&output_path).await?)
-        };
-        let result = match version {
-            FilecoinSnapshotVersion::V1 => {
-                let db = ctx.db_owned();
-
-                let chain_export = crate::chain::export::<Sha256, _>(
-                    &db,
-                    &start_ts,
-                    recent_roots,
-                    writer,
-                    options,
-                );
-
-                tokio::select! {
-                    result = chain_export => {
-                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
-                    },
-                    _ = chain_export_guard.cancellation_token().cancelled() => {
-                        chain_export_guard.cancel_export();
-                        tracing::warn!("Snapshot export was cancelled");
-                        Ok(ApiExportResult::Cancelled)
-                    },
-                }
-            }
-            FilecoinSnapshotVersion::V2 => {
-                let db = ctx.db_owned();
-
-                let f3_snap_tmp_path = {
-                    let mut f3_snap_dir = output_path.clone();
-                    let mut builder = tempfile::Builder::new();
-                    let with_suffix = builder.suffix(".f3snap.bin");
-                    if f3_snap_dir.pop() {
-                        with_suffix.tempfile_in(&f3_snap_dir)
-                    } else {
-                        with_suffix.tempfile_in(".")
-                    }?
-                    .into_temp_path()
-                };
-                let f3_snap = {
-                    match F3ExportLatestSnapshot::run(f3_snap_tmp_path.display().to_string()).await
-                    {
-                        Ok(cid) => Some((cid, File::open(&f3_snap_tmp_path)?)),
-                        Err(e) => {
-                            tracing::error!("Failed to export F3 snapshot: {e:#}");
-                            None
-                        }
-                    }
-                };
-
-                let chain_export = crate::chain::export_v2::<Sha256, _, _>(
-                    &db,
-                    f3_snap,
-                    &start_ts,
-                    recent_roots,
-                    writer,
-                    options,
-                );
-
-                tokio::select! {
-                    result = chain_export => {
-                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
-                    },
-                    _ = chain_export_guard.cancellation_token().cancelled() => {
-                        chain_export_guard.cancel_export();
-                        tracing::warn!("Snapshot export was cancelled");
-                        Ok(ApiExportResult::Cancelled)
-                    },
-                }
-            }
-        };
-        match result {
-            Ok(export_result) => Ok(export_result),
-            Err(e) => Err(anyhow::anyhow!(e).into()),
+        fn save_checksum(
+            checksum: digest::Output<Sha256>,
+            snapshot_output_path: &Path,
+        ) -> anyhow::Result<()> {
+            let path = forest_car_sha256sum_path(snapshot_output_path);
+            std::fs::write(
+                path,
+                format!(
+                    "{} {}\n",
+                    checksum.encode_hex::<String>(),
+                    snapshot_output_path
+                        .file_name()
+                        .and_then(std::ffi::OsStr::to_str)
+                        .context("Failed to retrieve file name while saving checksum")?
+                ),
+            )?;
+            Ok(())
         }
+
+        // Spawn a task so it's not cancelled when CLI client is disconnected.
+        // So do not wrap this with `AbortOnDropHandle`
+        let handle = tokio::spawn(async move {
+            let ForestChainExportParams {
+                version,
+                epoch,
+                recent_roots,
+                output_path,
+                tipset_keys: ApiTipsetKey(tsk),
+                include_receipts,
+                include_events,
+                include_tipset_keys,
+                include_tipset_lookup,
+                skip_checksum,
+                dry_run,
+            } = params;
+
+            let chain_export_guard = ChainExportGuard::try_start_export()?;
+
+            let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+            let start_ts = ctx
+                .chain_index()
+                .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
+                .await?;
+
+            let options = ExportOptions {
+                skip_checksum,
+                include_receipts,
+                include_events,
+                include_tipset_keys,
+                include_tipset_lookup,
+                seen: FileBackedCidHashSet::new(ctx.temp_dir.as_path())?,
+            };
+            let tmp_path =
+                tempfile::TempPath::try_from_path(tmp_exporting_forest_car_path(&output_path))?;
+            let writer = if dry_run {
+                tokio_util::either::Either::Left(VoidAsyncWriter)
+            } else {
+                tokio_util::either::Either::Right(tokio::fs::File::create(&tmp_path).await?)
+            };
+            let chain_export = match version {
+                FilecoinSnapshotVersion::V1 => crate::chain::export::<Sha256, _>(
+                    ctx.db(),
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    options,
+                )
+                .boxed(),
+                FilecoinSnapshotVersion::V2 => {
+                    let f3_snap_tmp_path = {
+                        let mut f3_snap_dir = output_path.clone();
+                        let mut builder = tempfile::Builder::new();
+                        let with_suffix = builder.suffix(".f3snap.bin");
+                        if f3_snap_dir.pop() {
+                            with_suffix.tempfile_in(&f3_snap_dir)
+                        } else {
+                            with_suffix.tempfile_in(".")
+                        }?
+                        .into_temp_path()
+                    };
+                    let f3_snap = {
+                        match F3ExportLatestSnapshot::run(f3_snap_tmp_path.display().to_string())
+                            .await
+                        {
+                            Ok(cid) => Some((cid, File::open(&f3_snap_tmp_path)?)),
+                            Err(e) => {
+                                tracing::error!("Failed to export F3 snapshot: {e:#}");
+                                None
+                            }
+                        }
+                    };
+                    crate::chain::export_v2::<Sha256, _, _>(
+                        ctx.db(),
+                        f3_snap,
+                        &start_ts,
+                        recent_roots,
+                        writer,
+                        options,
+                    )
+                    .boxed()
+                }
+            };
+            match chain_export_guard.run_cancellable(chain_export).await {
+                Some(result) => {
+                    let ExportResult { checksum, .. } = result?;
+                    if !dry_run {
+                        spawn_blocking_with_timeout(ASYNC_OPS_TIMEOUT, move || {
+                            tmp_path.persist(&output_path)?;
+                            // The snapshot at `output_path` is usable from this point on;
+                            // a checksum-file failure is not worth failing the export over.
+                            if let Some(checksum) = checksum
+                                && let Err(e) = save_checksum(checksum, &output_path)
+                            {
+                                tracing::warn!(
+                                    "failed to save the checksum file for {}: {e:#}",
+                                    output_path.display()
+                                );
+                            }
+                            Ok(())
+                        })
+                        .await
+                        .context("failed to persist the exported snapshot")?;
+                    }
+                    chain_export_guard.mark_as_succeeded();
+                    anyhow::Ok(ApiExportResult::Done)
+                }
+                None => {
+                    tracing::warn!("Snapshot export was cancelled");
+                    anyhow::Ok(ApiExportResult::Cancelled)
+                }
+            }
+        });
+        Ok(handle.await??)
     }
 }
 
@@ -426,6 +461,7 @@ impl RpcMethod<0> for ForestChainExportStatus {
             progress,
             exporting: status.exporting(),
             cancelled: status.cancelled(),
+            succeeded: status.succeeded(),
             start_time: status.start_time(),
             current_epoch: epoch,
             start_epoch: initial_epoch,
@@ -473,49 +509,68 @@ impl RpcMethod<1> for ForestChainExportDiff {
         "Exports a differential snapshot covering the given epoch range to a CAR file.";
 
     type Params = (ForestChainExportDiffParams,);
-    type Ok = ();
+    type Ok = ApiExportResult;
 
     async fn handle(
         ctx: Ctx,
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let _guard = ChainExportGuard::try_start_export()?;
+        // Spawn a task so it's not cancelled when CLI client is disconnected
+        // So do not wrap this with `AbortOnDropHandle`
+        let handle = tokio::spawn(async move {
+            let chain_export_guard = ChainExportGuard::try_start_export()?;
 
-        let ForestChainExportDiffParams {
-            from,
-            to,
-            depth,
-            output_path,
-        } = params;
+            let ForestChainExportDiffParams {
+                from,
+                to,
+                depth,
+                output_path,
+            } = params;
 
-        let chain_finality = ctx.chain_config().policy.chain_finality;
-        if depth < chain_finality {
-            return Err(
-                anyhow::anyhow!(format!("depth must be greater than {chain_finality}")).into(),
+            let chain_finality = ctx.chain_config().policy.chain_finality;
+            anyhow::ensure!(
+                depth >= chain_finality,
+                "depth {depth} must be greater than or equal to chain_finality {chain_finality}"
             );
-        }
 
-        let head = ctx.chain_store().heaviest_tipset();
-        let start_ts = ctx
-            .chain_index()
-            .load_required_tipset_by_height(from, head, ResolveNullTipset::TakeOlder)
-            .await?;
+            let head = ctx.chain_store().heaviest_tipset();
+            let start_ts = ctx
+                .chain_index()
+                .load_required_tipset_by_height(from, head, ResolveNullTipset::TakeOlder)
+                .await?;
+            let tmp_path =
+                tempfile::TempPath::try_from_path(tmp_exporting_forest_car_path(&output_path))?;
+            let chain_export = crate::tool::subcommands::archive_cmd::do_export(
+                ctx.chain_index().db(),
+                start_ts,
+                Some(ctx.chain_store().genesis_tipset()),
+                tmp_path.to_path_buf(),
+                None,
+                depth,
+                Some(to),
+                Some(chain_finality),
+                true,
+            );
 
-        crate::tool::subcommands::archive_cmd::do_export(
-            ctx.chain_index().db(),
-            start_ts,
-            Some(ctx.chain_store().genesis_tipset()),
-            output_path,
-            None,
-            depth,
-            Some(to),
-            Some(chain_finality),
-            true,
-        )
-        .await?;
-
-        Ok(())
+            match chain_export_guard.run_cancellable(chain_export).await {
+                Some(result) => {
+                    result?;
+                    spawn_blocking_with_timeout(ASYNC_OPS_TIMEOUT, move || {
+                        Ok(tmp_path.persist(&output_path)?)
+                    })
+                    .await
+                    .context("failed to persist the exported snapshot")?;
+                    chain_export_guard.mark_as_succeeded();
+                    anyhow::Ok(ApiExportResult::Done)
+                }
+                None => {
+                    tracing::warn!("Diff snapshot export was cancelled");
+                    anyhow::Ok(ApiExportResult::Cancelled)
+                }
+            }
+        });
+        Ok(handle.await??)
     }
 }
 
@@ -554,6 +609,7 @@ impl RpcMethod<1> for ChainExport {
                 include_receipts: false,
                 include_events: false,
                 include_tipset_keys: false,
+                include_tipset_lookup: false,
                 skip_checksum,
                 dry_run,
             },),
@@ -1182,7 +1238,7 @@ impl ChainGetTipSetFinalityStatus {
             Self::get_ec_finality_epoch_by_depth(ctx.chain_config(), &head, depth);
         let finalized = ctx
             .chain_index()
-            .tipset_by_height_async(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)
+            .tipset_by_height(ec_finality_epoch, head, ResolveNullTipset::TakeOlder)
             .await?;
         Ok((depth, finalized))
     }
@@ -1483,6 +1539,8 @@ pub struct ForestChainExportParams {
     pub include_events: bool,
     #[serde(default)]
     pub include_tipset_keys: bool,
+    #[serde(default)]
+    pub include_tipset_lookup: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }

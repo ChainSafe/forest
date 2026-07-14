@@ -168,6 +168,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn gas_limit_below_min_gas_rejected_for_block_inclusion() {
+        let msg = Message {
+            gas_limit: 0,
+            ..Default::default()
+        };
+        let err = valid_for_block_inclusion(&msg, Gas::new(1), NetworkVersion::V0)
+            .expect_err("gas_limit below min_gas must be rejected");
+        assert!(
+            err.to_string().contains("less than cost"),
+            "expected the gas-limit floor to reject, got: {err}"
+        );
+    }
+
+    #[test]
     fn test_effective_gas_premium() {
         // Test cases from the FIP-0115
         // <https://github.com/filecoin-project/FIPs/blob/b84b89a34ccb3d239493392a7867d6b082193b38/FIPS/fip-0115.md#premium>>

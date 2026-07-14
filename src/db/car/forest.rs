@@ -63,7 +63,7 @@ use integer_encoding::VarIntReader;
 use nunny::Vec as NonEmpty;
 use positioned_io::{Cursor, ReadAt, Size as _, SizeCursor};
 use std::io::{self, Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::task::Poll;
 use std::time::Duration;
@@ -118,6 +118,10 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             header,
             metadata: OnceLock::new(),
         })
+    }
+
+    pub fn header_v1(&self) -> &CarV1Header {
+        &self.header
     }
 
     pub fn metadata(&self) -> Option<&FilecoinSnapshotMetadata> {
@@ -305,6 +309,11 @@ fn decode_zstd_single_frame<ReaderT: Read>(reader: ReaderT) -> io::Result<Bytes>
     Ok(zstd_frame.into())
 }
 
+/// Timeout applied to each async I/O operation of the snapshot export pipeline so that a
+/// stalled reader or writer surfaces as an error instead of wedging the export forever
+/// while `Forest.ChainExportStatus` keeps reporting it as in progress.
+pub(crate) const ASYNC_OPS_TIMEOUT: Duration = Duration::from_mins(5);
+
 pub struct Encoder {}
 
 impl Encoder {
@@ -313,9 +322,6 @@ impl Encoder {
         roots: NonEmpty<Cid>,
         mut stream: impl Stream<Item = anyhow::Result<ForestCarFrame>> + Unpin,
     ) -> anyhow::Result<()> {
-        // For troubleshooting stuck-ness issue
-        const ASYNC_OPS_TIMEOUT: Duration = Duration::from_mins(5);
-
         let mut offset = 0;
 
         // Write CARv1 header
@@ -330,7 +336,9 @@ impl Encoder {
         header_encoder.write_all(&header_uvi_frame)?;
         let header_bytes = header_encoder.finish()?.into_inner().freeze();
 
-        sink.write_all(&header_bytes).await?;
+        tokio::time::timeout(ASYNC_OPS_TIMEOUT, sink.write_all(&header_bytes))
+            .await
+            .context("header `sink.write_all` timed out")??;
         let header_len = header_bytes.len();
 
         offset += header_len;
@@ -368,7 +376,9 @@ impl Encoder {
         let footer = ForestCarFooter {
             index: offset as u64 + ZSTD_SKIP_FRAME_LEN,
         };
-        sink.write_all(&footer.to_le_bytes()).await?;
+        tokio::time::timeout(ASYNC_OPS_TIMEOUT, sink.write_all(&footer.to_le_bytes()))
+            .await
+            .context("footer `sink.write_all` timed out")??;
         tracing::info!("Finished writing zstd CAR footer frame");
         Ok(())
     }
@@ -508,11 +518,24 @@ pub fn new_forest_car_temp_path_in(
         .into_temp_path())
 }
 
+pub fn tmp_exporting_forest_car_path(output_path: &Path) -> PathBuf {
+    let mut p = output_path.to_owned();
+    p.add_extension("tmp");
+    p
+}
+
+pub fn forest_car_sha256sum_path(output_path: &Path) -> PathBuf {
+    let mut p = output_path.to_owned();
+    p.add_extension("sha256sum");
+    p
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use nunny::vec as nonempty;
     use quickcheck_macros::quickcheck;
+    use rstest::rstest;
     use tokio_test::block_on;
 
     fn mk_encoded_car(
@@ -629,5 +652,34 @@ mod tests {
         // Even with colliding hashes, the CIDs can still be queried:
         assert_eq!(forest_car.get(&cid_a).unwrap().unwrap(), blocks[0].data);
         assert_eq!(forest_car.get(&cid_b).unwrap().unwrap(), blocks[1].data);
+    }
+
+    #[rstest]
+    #[case(
+        Path::new("/tmp/a.forst.car.zst"),
+        Path::new("/tmp/a.forst.car.zst.tmp")
+    )]
+    #[case(Path::new("tmp/a.forst.car.zst"), Path::new("tmp/a.forst.car.zst.tmp"))]
+    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.tmp"))]
+    #[case(Path::new(""), Path::new(""))]
+    #[case(Path::new("."), Path::new("."))]
+    fn test_tmp_exporting_forest_car_path(#[case] input: &Path, #[case] output: &Path) {
+        assert_eq!(tmp_exporting_forest_car_path(input), output);
+    }
+
+    #[rstest]
+    #[case(
+        Path::new("/tmp/a.forst.car.zst"),
+        Path::new("/tmp/a.forst.car.zst.sha256sum")
+    )]
+    #[case(
+        Path::new("tmp/a.forst.car.zst"),
+        Path::new("tmp/a.forst.car.zst.sha256sum")
+    )]
+    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.sha256sum"))]
+    #[case(Path::new(""), Path::new(""))]
+    #[case(Path::new("."), Path::new("."))]
+    fn test_forest_car_sha256sum_path(#[case] input: &Path, #[case] output: &Path) {
+        assert_eq!(forest_car_sha256sum_path(input), output);
     }
 }

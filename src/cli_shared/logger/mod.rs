@@ -58,7 +58,7 @@ pub fn setup_logger(opts: &CliOpts) -> Vec<BackgroundTask> {
             let (layer, task) = tracing_loki::layer(
                 tracing_loki::url::Url::parse(&opts.loki_endpoint)
                     .map_err(|e| {
-                        format!("Unable to parse loki endpoint {}: {e}", &opts.loki_endpoint)
+                        format!("Unable to parse loki endpoint {}: {e}", opts.loki_endpoint)
                     })
                     .unwrap(),
                 vec![(

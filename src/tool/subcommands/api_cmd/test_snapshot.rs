@@ -80,6 +80,49 @@ fn backfill_index_data(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()
     Ok(())
 }
 
+/// JSON fields filtered from both actual and expected responses
+/// before strict raw-JSON snapshot comparison, scoped to the methods whose
+/// responses actually contain them.
+fn fields_to_filter(method: &str) -> &'static [&'static str] {
+    match method {
+        // Skip time taken and duration as they are non-deterministic.
+        "Filecoin.StateCall" | "Filecoin.StateReplay" | "Filecoin.StateCompute" => {
+            &["Duration", "tt"]
+        }
+        // Skip `accessList` as it is known-divergent from Lotus.
+        // See <https://github.com/filecoin-project/lotus/issues/12214>.
+        "Filecoin.EthGetBlockByHash"
+        | "Filecoin.EthGetBlockByNumber"
+        | "Filecoin.EthGetTransactionByHash"
+        | "Filecoin.EthGetTransactionByHashLimited"
+        | "Filecoin.EthGetTransactionByBlockHashAndIndex"
+        | "Filecoin.EthGetTransactionByBlockNumberAndIndex" => &["accessList"],
+        _ => &[],
+    }
+}
+
+/// Recursively filters `fields` from a JSON value so the strict raw-JSON
+/// snapshot comparison ignores them.
+fn filter_out_fields(value: &mut serde_json::Value, fields: &[&str]) {
+    if fields.is_empty() {
+        return;
+    }
+    match value {
+        serde_json::Value::Object(map) => {
+            for field in fields {
+                map.remove(*field);
+            }
+            for val in map.values_mut() {
+                filter_out_fields(val, fields);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            items.iter_mut().for_each(|v| filter_out_fields(v, fields));
+        }
+        _ => {}
+    }
+}
+
 pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     let mut run = false;
     let snapshot_bytes = std::fs::read(path)?;
@@ -144,14 +187,18 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
             {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)
                     .context("failed to parse params")?;
-                let result = <$ty>::handle(ctx.clone(), params, &ext)
+                let mut result = <$ty>::handle(ctx.clone(), params, &ext)
                     .await
-                    .map(|r| r.into_lotus_json())
-                    .map_err(|e| e.deref().to_string());
-                let expected = match expected_response.clone() {
-                    Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
-                    Err(e) => Err(e),
-                };
+                    .map_err(|e| e.deref().to_string())
+                    .and_then(|r| r.into_lotus_json_value().map_err(|e| e.to_string()));
+                let mut expected = expected_response.clone();
+                let fields = fields_to_filter(<$ty>::NAME);
+                if let Ok(v) = result.as_mut() {
+                    filter_out_fields(v, fields);
+                }
+                if let Ok(v) = expected.as_mut() {
+                    filter_out_fields(v, fields);
+                }
                 pretty_assertions::assert_eq!(result, expected);
                 run = true;
             }

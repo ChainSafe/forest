@@ -4,11 +4,11 @@
 use super::helpers::*;
 use libtest_mimic::{Arguments, Trial};
 
-/// Calibnet wallet integration tests
+/// Wallet integration tests
 #[derive(Debug, clap::Args)]
-pub struct CalibnetWalletTestCommand {}
+pub struct WalletTestCommand {}
 
-impl CalibnetWalletTestCommand {
+impl WalletTestCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let args = Arguments {
             test_threads: Some(8),
@@ -93,7 +93,7 @@ async fn export_import_roundtrip(backend: Backend) {
 
 async fn market_add_balance_message_on_chain() {
     const ATTO_FIL: &str = "23";
-    let result = rpc_call(
+    let result = rpc_call_with_retry(
         "Filecoin.MarketAddBalance",
         serde_json::json!([
             FOREST_TEST_PRELOADED_ADDRESS.as_str(),

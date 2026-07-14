@@ -14,7 +14,10 @@ use crate::rpc::{
     eth::{eth_tx_from_signed_eth_message, types::EthHash},
 };
 use crate::shim::clock::ChainEpoch;
-use crate::shim::{executor::Receipt, message::Message, version::NetworkVersion};
+use crate::shim::{
+    address::Address, executor::Receipt, message::Message, state_tree::StateTree,
+    version::NetworkVersion,
+};
 use crate::state_manager::ExecutedTipset;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
@@ -48,6 +51,25 @@ const VALIDATED_BLOCKS_CACHE_SIZE: NonZeroUsize = nonzero!(14400usize);
 /// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
 /// while maintaining the same type.
 pub type ChainEpochDelta = ChainEpoch;
+
+/// Outcome of [`ChainStore::resolve_to_deterministic_address_at_finality`].
+pub enum AtFinalityResolution {
+    /// Resolved against a tipset at least `chain_finality` epochs behind the
+    /// requested one. The mapping is identical on every possible future
+    /// chain, so it is safe to memoize by actor ID alone.
+    ReorgStable(Address),
+    /// The chain is younger than finality, so the address was resolved
+    /// against the requested tipset itself and may change across a reorg.
+    Unstable(Address),
+}
+
+impl AtFinalityResolution {
+    pub fn into_address(self) -> Address {
+        match self {
+            Self::ReorgStable(addr) | Self::Unstable(addr) => addr,
+        }
+    }
+}
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
@@ -247,15 +269,15 @@ impl ChainStore {
         self.tipset_tracker.add(header);
     }
 
-    /// Writes tipset block headers to data store and updates heaviest tipset
-    /// with other compatible tracked headers.
-    pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
+    /// Writes pending tipset block headers to data store and updates heaviest tipset
+    /// with other compatible pending tracked headers when it's heavier than
+    /// the current head.
+    /// Returns whether the heaviest tipset is updated.
+    pub fn maybe_update_pending_head(&self, ts: &Tipset) -> Result<bool, Error> {
         persist_objects(self.db(), ts.block_headers().iter())?;
-
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
-        self.update_heaviest(expanded)?;
-        Ok(())
+        self.maybe_update_heaviest(expanded)
     }
 
     /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
@@ -320,6 +342,43 @@ impl ChainStore {
         &self.chain_config
     }
 
+    /// Resolves `addr` to its deterministic (public-key or delegated) form
+    /// using the state at `chain_finality` epochs behind `ts`. Falls back to
+    /// `ts` itself when the chain is younger than finality; the returned
+    /// [`AtFinalityResolution`] says which of the two happened.
+    ///
+    /// Matches the logic at <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/stmgr/stmgr.go#L361>
+    pub fn resolve_to_deterministic_address_at_finality(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> anyhow::Result<AtFinalityResolution> {
+        use crate::shim::address::Protocol::*;
+        match addr.protocol() {
+            BLS | Secp256k1 | Delegated => Ok(AtFinalityResolution::ReorgStable(*addr)),
+            ID => {
+                let finality_deep = ts.epoch() > self.chain_config().policy.chain_finality;
+                let lookback_ts = if finality_deep {
+                    self.chain_index().load_required_tipset_by_height_blocking(
+                        ts.epoch() - self.chain_config().policy.chain_finality,
+                        ts.shallow_clone(),
+                        ResolveNullTipset::TakeOlder,
+                    )?
+                } else {
+                    ts.shallow_clone()
+                };
+                let state = StateTree::new_from_root(self.db(), lookback_ts.parent_state())?;
+                let resolved = state.resolve_to_deterministic_address(self.db(), *addr)?;
+                Ok(if finality_deep {
+                    AtFinalityResolution::ReorgStable(resolved)
+                } else {
+                    AtFinalityResolution::Unstable(resolved)
+                })
+            }
+            Actor => anyhow::bail!("Cannot resolve actor address to key address"),
+        }
+    }
+
     /// Lotus often treats an empty [`TipsetKey`] as shorthand for "the heaviest tipset".
     /// You may opt-in to that behavior by calling this method with [`None`].
     ///
@@ -344,7 +403,7 @@ impl ChainStore {
         } else if head.epoch() > ts.epoch() {
             match self
                 .chain_index()
-                .tipset_by_height_async(ts.epoch() + 1, head, ResolveNullTipset::TakeNewer)
+                .tipset_by_height(ts.epoch() + 1, head, ResolveNullTipset::TakeNewer)
                 .await?
             {
                 Some(maybe_child) if maybe_child.parents() == ts.key() => Ok(Some(maybe_child)),
@@ -356,8 +415,9 @@ impl ChainStore {
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest
-    /// tipset
-    fn update_heaviest(&self, ts: Tipset) -> Result<(), Error> {
+    /// tipset.
+    /// Returns whether the heaviest tipset is updated.
+    fn maybe_update_heaviest(&self, ts: Tipset) -> Result<bool, Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = fil_cns::weight(self.db(), &self.heaviest_tipset())?;
 
@@ -366,8 +426,10 @@ impl ChainStore {
 
         if new_weight > curr_weight {
             self.set_heaviest_tipset(ts)?;
+            Ok(true)
+        } else {
+            Ok(false)
         }
-        Ok(())
     }
 
     /// Checks metadata file if block has already been validated.
@@ -427,25 +489,33 @@ impl ChainStore {
         };
         let lbr = (round - lb).max(0);
 
-        // More null blocks than lookback
+        // More null blocks than our lookback
         if lbr >= heaviest_tipset.epoch() {
-            let genesis_timestamp = chain_index.genesis().min_ticket_block().timestamp;
-            let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
-            let ExecutedTipset { state_root, .. } =
-                crate::state_manager::apply_block_messages_blocking(
-                    chain_index.shallow_clone(),
-                    chain_config.shallow_clone(),
-                    beacon,
-                    // Using shared WASM engine here as creating new WASM engines is expensive
-                    // (takes seconds to minutes). It's only acceptable here because this situation is
-                    // so rare (may happen in dev-networks, doesn't happen in calibnet or mainnet.)
-                    &crate::shim::machine::GLOBAL_MULTI_ENGINE,
-                    heaviest_tipset.clone(),
-                    crate::state_manager::NO_CALLBACK,
-                    VMTrace::NotTraced,
-                )
-                .map_err(|e| Error::Other(e.to_string()))?;
-            return Ok((heaviest_tipset.clone(), state_root));
+            // Legitimate while the 10-block WinningPoSt lookback was active (nv <= 3),
+            // where >9 consecutive null rounds could push lbr past ts.epoch().
+            // Any lookback at genesis should resolve to genesis.
+            if version <= NetworkVersion::V3 || heaviest_tipset.epoch() == 0 {
+                let genesis_timestamp = chain_index.genesis().min_ticket_block().timestamp;
+                let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
+                let ExecutedTipset { state_root, .. } =
+                    crate::state_manager::apply_block_messages_blocking(
+                        chain_index.shallow_clone(),
+                        chain_config.shallow_clone(),
+                        beacon,
+                        // Using shared WASM engine here as creating new WASM engines is expensive
+                        &crate::shim::machine::GLOBAL_MULTI_ENGINE,
+                        heaviest_tipset.clone(),
+                        crate::state_manager::NO_CALLBACK,
+                        VMTrace::NotTraced,
+                    )
+                    .map_err(|e| Error::Other(e.to_string()))?;
+                return Ok((heaviest_tipset.clone(), state_root));
+            } else {
+                return Err(Error::LookbackHeightOverflow {
+                    lookback_height: lbr,
+                    base_height: heaviest_tipset.epoch(),
+                });
+            }
         }
 
         let next_ts = chain_index
