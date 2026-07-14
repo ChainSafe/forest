@@ -14,7 +14,10 @@ use crate::rpc::{
     eth::{eth_tx_from_signed_eth_message, types::EthHash},
 };
 use crate::shim::clock::ChainEpoch;
-use crate::shim::{executor::Receipt, message::Message, version::NetworkVersion};
+use crate::shim::{
+    address::Address, executor::Receipt, message::Message, state_tree::StateTree,
+    version::NetworkVersion,
+};
 use crate::state_manager::ExecutedTipset;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
@@ -48,6 +51,25 @@ const VALIDATED_BLOCKS_CACHE_SIZE: NonZeroUsize = nonzero!(14400usize);
 /// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
 /// while maintaining the same type.
 pub type ChainEpochDelta = ChainEpoch;
+
+/// Outcome of [`ChainStore::resolve_to_deterministic_address_at_finality`].
+pub enum AtFinalityResolution {
+    /// Resolved against a tipset at least `chain_finality` epochs behind the
+    /// requested one. The mapping is identical on every possible future
+    /// chain, so it is safe to memoize by actor ID alone.
+    ReorgStable(Address),
+    /// The chain is younger than finality, so the address was resolved
+    /// against the requested tipset itself and may change across a reorg.
+    Unstable(Address),
+}
+
+impl AtFinalityResolution {
+    pub fn into_address(self) -> Address {
+        match self {
+            Self::ReorgStable(addr) | Self::Unstable(addr) => addr,
+        }
+    }
+}
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
@@ -318,6 +340,43 @@ impl ChainStore {
     /// Returns the chain configuration
     pub fn chain_config(&self) -> &Arc<ChainConfig> {
         &self.chain_config
+    }
+
+    /// Resolves `addr` to its deterministic (public-key or delegated) form
+    /// using the state at `chain_finality` epochs behind `ts`. Falls back to
+    /// `ts` itself when the chain is younger than finality; the returned
+    /// [`AtFinalityResolution`] says which of the two happened.
+    ///
+    /// Matches the logic at <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/stmgr/stmgr.go#L361>
+    pub fn resolve_to_deterministic_address_at_finality(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> anyhow::Result<AtFinalityResolution> {
+        use crate::shim::address::Protocol::*;
+        match addr.protocol() {
+            BLS | Secp256k1 | Delegated => Ok(AtFinalityResolution::ReorgStable(*addr)),
+            ID => {
+                let finality_deep = ts.epoch() > self.chain_config().policy.chain_finality;
+                let lookback_ts = if finality_deep {
+                    self.chain_index().load_required_tipset_by_height_blocking(
+                        ts.epoch() - self.chain_config().policy.chain_finality,
+                        ts.shallow_clone(),
+                        ResolveNullTipset::TakeOlder,
+                    )?
+                } else {
+                    ts.shallow_clone()
+                };
+                let state = StateTree::new_from_root(self.db(), lookback_ts.parent_state())?;
+                let resolved = state.resolve_to_deterministic_address(self.db(), *addr)?;
+                Ok(if finality_deep {
+                    AtFinalityResolution::ReorgStable(resolved)
+                } else {
+                    AtFinalityResolution::Unstable(resolved)
+                })
+            }
+            Actor => anyhow::bail!("Cannot resolve actor address to key address"),
+        }
     }
 
     /// Lotus often treats an empty [`TipsetKey`] as shorthand for "the heaviest tipset".
