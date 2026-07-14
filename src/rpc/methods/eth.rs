@@ -3329,7 +3329,7 @@ fn eth_filter_logs_from_events(
         let (data, topics) = match eth_log_from_event(&event.entries) {
             Some(parts) => parts,
             None => {
-                tracing::warn!("Ignoring event");
+                tracing::debug!("Ignoring event");
                 continue;
             }
         };
@@ -3343,7 +3343,7 @@ fn eth_filter_logs_from_events(
                     h
                 }
                 None => {
-                    tracing::warn!("Ignoring event");
+                    tracing::debug!("Ignoring event");
                     continue;
                 }
             }
