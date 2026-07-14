@@ -473,6 +473,34 @@ mod tests {
         }
     }
 
+    fn state_manager_with_replaced_message_at_head(db: &Arc<MemoryDB>) -> (StateManager, Cid) {
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+        let replacement = Message {
+            gas_limit: 1,
+            ..message
+        };
+        let replacement_cid = db.put_cbor_default(&replacement).unwrap();
+
+        let root_before = state_root_with_sender_nonce(db, 5);
+        let root_after = state_root_with_sender_nonce(db, 6);
+        let messages = tx_meta(db, replacement_cid);
+        let receipts = receipts_root(db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> head @ [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+        };
+        (state_manager_with_head(db.clone(), genesis, head), msg_cid)
+    }
+
     fn state_manager_with_head(
         db: Arc<MemoryDB>,
         genesis: &RawBlockHeader,
@@ -634,5 +662,36 @@ mod tests {
             .await
             .unwrap();
         assert!(result.is_none());
+    }
+
+    /// A replacing message executed on chain. When replacements are
+    /// disallowed, `wait_for_message` must forward `allow_replaced = false`
+    /// and surface an error instead of silently returning the replacement's
+    /// receipt.
+    #[tokio::test]
+    async fn wait_for_message_rejects_replaced_when_disallowed() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, msg_cid) = state_manager_with_replaced_message_at_head(&db);
+
+        let result = state_manager
+            .wait_for_message(msg_cid, 0, None, Some(false), &CancellationToken::new())
+            .await;
+        let err = result.expect_err("replaced message should be rejected");
+        assert!(err.to_string().contains("different CID"), "{err}");
+    }
+
+    /// The same replacing message is accepted when replacements are allowed,
+    /// returning the receipt at the head tipset.
+    #[tokio::test]
+    async fn wait_for_message_accepts_replaced_when_allowed() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, msg_cid) = state_manager_with_replaced_message_at_head(&db);
+
+        let (tipset, receipt) = state_manager
+            .wait_for_message(msg_cid, 0, None, Some(true), &CancellationToken::new())
+            .await
+            .expect("replaced message should be accepted");
+        assert_eq!(tipset.epoch(), 3);
+        assert!(receipt.exit_code().is_success());
     }
 }
