@@ -239,6 +239,11 @@ impl StateManager {
             crate::chain::get_chain_message(self.db(), &msg_cid)
                 .map_err(|err| Error::Other(format!("failed to load message {err:}")))?,
         );
+        // Subscribe to head changes before sampling the head so that a reorg
+        // between sampling and subscribing cannot be missed. Otherwise a revert
+        // of the sampled head could go unseen and a reverted receipt could be
+        // released after `confidence` epochs.
+        let mut head_changes_rx = self.cs.subscribe_head_changes();
         let current_ts = self.heaviest_tipset();
         let maybe_message_receipt =
             self.tipset_executed_message(&current_ts, &message, allow_replaced.unwrap_or(true))?;
@@ -298,7 +303,6 @@ impl StateManager {
             let reverted = reverted.shallow_clone();
             let sm = self.shallow_clone();
             async move {
-                let mut head_changes_rx = sm.cs.subscribe_head_changes();
                 let mut candidate: Option<(Tipset, Receipt)> = initial_candidate;
                 while !cancellation_token.is_cancelled() {
                     match head_changes_rx.recv().await {
@@ -793,29 +797,40 @@ mod tests {
                     .with_message_receipts(receipts)]
             -> next4 @ [_e4 = HeaderBuilder::new().with_state_root(root_after)]
             -> next5 @ [_e5 = HeaderBuilder::new().with_state_root(root_after)]
-            -> next6 @ [_e6 = HeaderBuilder::new().with_state_root(root_after)]
-            -> next7 @ [_e7 = HeaderBuilder::new().with_state_root(root_after)]
-            -> next8 @ [_e8 = HeaderBuilder::new().with_state_root(root_after)]
         };
         let state_manager = state_manager_with_head(db.clone(), genesis, exec);
 
         let token = CancellationToken::new();
-        // Advance one epoch at a time with small pauses so the subscriber
-        // inside `wait_for_message` sees the applies that release the candidate.
-        let driver = async {
-            for ts in [next4, next5, next6, next7, next8] {
-                tokio::time::sleep(Duration::from_millis(50)).await;
+        let mut wait =
+            Box::pin(state_manager.wait_for_message(msg_cid, 2, None, Some(true), &token));
+
+        // Poll while the head is at epoch 3 to seed the candidate and subscribe,
+        // then advance to epoch 4. Confidence 2 is unmet in both cases, so the
+        // future must stay pending.
+        for advance_to in [None, Some(next4)] {
+            if let Some(ts) = advance_to {
                 state_manager
                     .chain_store()
                     .set_heaviest_tipset(ts.clone())
                     .unwrap();
             }
-        };
-        let (res, ()) = tokio::join!(
-            state_manager.wait_for_message(msg_cid, 2, None, Some(true), &token),
-            driver,
-        );
-        let (tipset, receipt) = res.expect("head hit should be returned after confidence reached");
+            assert!(
+                tokio::time::timeout(Duration::from_millis(100), &mut wait)
+                    .await
+                    .is_err(),
+                "confidence 2 must not be reached before epoch 5"
+            );
+        }
+
+        // Epoch 5 reaches confidence 2; the future resolves.
+        state_manager
+            .chain_store()
+            .set_heaviest_tipset(next5.clone())
+            .unwrap();
+        let (tipset, receipt) = tokio::time::timeout(Duration::from_secs(5), &mut wait)
+            .await
+            .expect("should resolve once confidence is reached")
+            .expect("head hit should be returned after confidence reached");
         assert_eq!(tipset.epoch(), 3);
         assert!(receipt.exit_code().is_success());
     }
