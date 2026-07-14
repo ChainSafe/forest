@@ -163,6 +163,7 @@ async fn test_export_inner(
 /// pipeline steps must not be able to wait forever on a stalled writer.
 mod export_stuckness {
     use super::*;
+    use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard, ChainExportKind, ChainExportState};
     use crate::shim::crypto::IPLD_RAW;
     use crate::utils::db::car_stream::CarBlock;
     use crate::utils::rand::forest_rng;
@@ -171,6 +172,72 @@ mod export_stuckness {
     use std::pin::Pin;
     use std::task::{Context, Poll};
     use tokio::io::AsyncWrite;
+
+    /// `start_epoch == 0` on a running export renders as a stuck "0.0%" in
+    /// `forest-cli snapshot export-status` even while bytes are being written.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[serial_test::serial(chain_export)]
+    async fn export_status_reports_walk_progress_while_running() -> anyhow::Result<()> {
+        let (db, head) = six_block_chain()?;
+
+        let _guard = ChainExportGuard::try_start_export(ChainExportKind::Snapshot)?;
+        // The walk runs on the `par_buffer` producer task, so it progresses despite the
+        // stalled writer.
+        let export = tokio::spawn({
+            let db = db.clone();
+            let head = head.clone();
+            async move {
+                let _ = export::<Sha256, _>(
+                    &db,
+                    &head,
+                    0,
+                    StallingWriter {
+                        write_budget: 0,
+                        stall_on_flush: true,
+                    },
+                    ExportOptions::<CidHashSet>::default(),
+                )
+                .await;
+            }
+        });
+
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while CHAIN_EXPORT_STATUS.snapshot().initial_epoch == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("a running export must report walk progress, not epoch 0/0");
+        assert_eq!(
+            CHAIN_EXPORT_STATUS.snapshot().state,
+            ChainExportState::Running
+        );
+        assert_eq!(CHAIN_EXPORT_STATUS.snapshot().initial_epoch, head.epoch());
+
+        // The stalled writer keeps the export from ever finishing, so the status
+        // above was sampled from a live export, and the abort must land.
+        assert!(!export.is_finished());
+        export.abort();
+        assert!(
+            export
+                .await
+                .expect_err("aborted export must not run to completion")
+                .is_cancelled()
+        );
+        Ok(())
+    }
+
+    fn six_block_chain() -> anyhow::Result<(Arc<MemoryDB>, Tipset)> {
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [_genesis_header]
+            -> [_b1] -> [_b2] -> [_b3] -> [_b4] -> [b5]
+        };
+        let head = Tipset::load_required(&db, &TipsetKey::from(nunny::vec![b5.cid()]))?;
+        Ok((db, head))
+    }
 
     /// Accepts and discards up to `write_budget` bytes, then stalls forever.
     struct StallingWriter {
@@ -210,14 +277,7 @@ mod export_stuckness {
     /// at 100%.
     #[tokio::test(start_paused = true)]
     async fn export_stalled_final_flush_errors_instead_of_hanging() -> anyhow::Result<()> {
-        let db = Arc::new(MemoryDB::default());
-        let c4u = Chain4U::with_blockstore(db.clone());
-        chain4u! {
-            in c4u;
-            [_genesis_header]
-            -> [_b1] -> [_b2] -> [_b3] -> [_b4] -> [b5]
-        };
-        let head = Tipset::load_required(&db, &TipsetKey::from(nunny::vec![b5.cid()]))?;
+        let (db, head) = six_block_chain()?;
 
         let export = export::<Sha256, _>(
             &db,

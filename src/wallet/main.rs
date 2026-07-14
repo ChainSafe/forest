@@ -33,5 +33,7 @@ where
     let client = rpc::Client::default_or_from_env(opts.token.as_deref())?;
 
     // Run command
-    cmd.run(client, remote_wallet, encrypt).await
+    cmd.run(client, remote_wallet, encrypt)
+        .await
+        .map_err(rpc::humanize_rpc_error)
 }
