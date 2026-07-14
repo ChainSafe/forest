@@ -242,9 +242,14 @@ impl StateManager {
         let current_ts = self.heaviest_tipset();
         let maybe_message_receipt =
             self.tipset_executed_message(&current_ts, &message, allow_replaced.unwrap_or(true))?;
-        if let Some(receipt) = maybe_message_receipt {
-            return Ok((current_ts, receipt));
-        }
+        // If the message already executed at the current head, return right
+        // away only when no confidence is required; otherwise seed it as a
+        // candidate for the head-change loop to release after `confidence` epochs.
+        let initial_candidate = match maybe_message_receipt {
+            Some(receipt) if confidence == 0 => return Ok((current_ts, receipt)),
+            Some(receipt) => Some((current_ts.shallow_clone(), receipt)),
+            None => None,
+        };
 
         // For immediate search back response
         let (search_back_tx, search_back_rx) = flume::bounded(1);
@@ -294,7 +299,7 @@ impl StateManager {
             let sm = self.shallow_clone();
             async move {
                 let mut head_changes_rx = sm.cs.subscribe_head_changes();
-                let mut candidate: Option<(Tipset, Receipt)> = None;
+                let mut candidate: Option<(Tipset, Receipt)> = initial_candidate;
                 while !cancellation_token.is_cancelled() {
                     match head_changes_rx.recv().await {
                         Ok(head_changes) => {
@@ -691,6 +696,126 @@ mod tests {
             .wait_for_message(msg_cid, 0, None, Some(true), &CancellationToken::new())
             .await
             .expect("replaced message should be accepted");
+        assert_eq!(tipset.epoch(), 3);
+        assert!(receipt.exit_code().is_success());
+    }
+
+    /// The message executed as of the head tipset and no confidence is
+    /// required, so `wait_for_message` returns the head hit immediately.
+    #[tokio::test]
+    async fn wait_for_message_head_hit_returns_immediately_with_zero_confidence() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let messages = tx_meta(&db, msg_cid);
+        let receipts = receipts_root(&db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> head @ [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, head);
+
+        let (tipset, receipt) = state_manager
+            .wait_for_message(msg_cid, 0, None, Some(true), &CancellationToken::new())
+            .await
+            .expect("head hit should return immediately with zero confidence");
+        assert_eq!(tipset.epoch(), 3);
+        assert!(receipt.exit_code().is_success());
+    }
+
+    /// The message executed as of the head tipset, but a positive confidence is
+    /// requested and the head never advances, so the head hit must not be
+    /// returned early; the call times out instead.
+    #[tokio::test]
+    async fn wait_for_message_head_hit_waits_for_confidence() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let messages = tx_meta(&db, msg_cid);
+        let receipts = receipts_root(&db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> head @ [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, head);
+
+        let result = state_manager
+            .wait_for_message_with_timeout(msg_cid, 2, None, Some(true), Duration::from_millis(300))
+            .await;
+        assert!(result.is_err());
+    }
+
+    /// The message executed as of the head tipset with a positive confidence.
+    /// Once the head advances by `confidence` epochs without a revert, the head
+    /// hit is returned.
+    #[tokio::test]
+    async fn wait_for_message_head_hit_returns_after_confidence_reached() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let messages = tx_meta(&db, msg_cid);
+        let receipts = receipts_root(&db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> exec @ [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+            -> next4 @ [_e4 = HeaderBuilder::new().with_state_root(root_after)]
+            -> next5 @ [_e5 = HeaderBuilder::new().with_state_root(root_after)]
+            -> next6 @ [_e6 = HeaderBuilder::new().with_state_root(root_after)]
+            -> next7 @ [_e7 = HeaderBuilder::new().with_state_root(root_after)]
+            -> next8 @ [_e8 = HeaderBuilder::new().with_state_root(root_after)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, exec);
+
+        let token = CancellationToken::new();
+        // Advance one epoch at a time with small pauses so the subscriber
+        // inside `wait_for_message` sees the applies that release the candidate.
+        let driver = async {
+            for ts in [next4, next5, next6, next7, next8] {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                state_manager
+                    .chain_store()
+                    .set_heaviest_tipset(ts.clone())
+                    .unwrap();
+            }
+        };
+        let (res, ()) = tokio::join!(
+            state_manager.wait_for_message(msg_cid, 2, None, Some(true), &token),
+            driver,
+        );
+        let (tipset, receipt) = res.expect("head hit should be returned after confidence reached");
         assert_eq!(tipset.epoch(), 3);
         assert!(receipt.exit_code().is_success());
     }
