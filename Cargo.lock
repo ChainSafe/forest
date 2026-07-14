@@ -3250,7 +3250,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.33.8"
+version = "0.34.0"
 dependencies = [
  "ahash",
  "all_asserts",

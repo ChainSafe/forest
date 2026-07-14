@@ -27,21 +27,29 @@
 
 ### Breaking
 
-- [#7252](https://github.com/ChainSafe/forest/pull/7252): `forest-cli snapshot export` now generates checksum file at {filepath}.sha256sum. The default file extension is changed from `.forest.car.sha256sum` to `.forest.car.zst.sha256sum`.
-
-- [#7321](https://github.com/ChainSafe/forest/pull/7321): The chain indexer, which populates the Ethereum transaction-hash mappings used by `eth_getTransactionByHash`, `eth_getTransactionReceipt`, and related methods, is now enabled by default. Opt out with `FOREST_CHAIN_INDEXER_ENABLED=0`.
-
 ### Added
 
 ### Changed
 
-- [#7320](https://github.com/ChainSafe/forest/pull/7320): Increase the default
-  Eth transaction receipt cache size to 10000 and make it configurable via the
-  `FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE` environment variable.
+### Removed
+
+### Fixed
+
+## Forest v0.34.0 "Pinochet"
+
+Non-mandatory release for all node operators. It includes some fixes and improvements, notably around RPC and snapshot export. Note that there are some breaking changes in this release, so please read the changelog carefully before upgrading.
+
+### Breaking
+
+- [#7252](https://github.com/ChainSafe/forest/pull/7252): `forest-cli snapshot export` now generates checksum file at {filepath}.sha256sum. The default file extension is changed from `.forest.car.sha256sum` to `.forest.car.zst.sha256sum`.
+
+- [#7321](https://github.com/ChainSafe/forest/pull/7321): The chain indexer, which populates the Ethereum transaction-hash mappings used by `eth_getTransactionByHash`, `eth_getTransactionReceipt`, and related methods, is now enabled by default. Opt out with `FOREST_CHAIN_INDEXER_ENABLED=0`.
+
+### Changed
+
+- [#7320](https://github.com/ChainSafe/forest/pull/7320): Increase the default Eth transaction receipt cache size to 10000 and make it configurable via the `FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE` environment variable.
 
 - [#7350](https://github.com/ChainSafe/forest/pull/7350): Allow snapshot GC to be cancelled in-progress, same as regular snapshot export.
-
-### Removed
 
 ### Fixed
 
