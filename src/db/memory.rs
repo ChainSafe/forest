@@ -339,7 +339,7 @@ mod tests {
         assert_eq!(decoded, &bloom);
         assert!(decode_block_bloom(&[0, 1, 2]).is_none());
     }
-  
+
     #[tokio::test]
     async fn test_index_map_blockstore() {
         const BIT_WIDTH: u32 = 5;

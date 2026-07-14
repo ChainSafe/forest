@@ -11,7 +11,7 @@ use crate::Config;
 use crate::db::migration::v0_22_1::Migration0_22_0_0_22_1;
 use crate::db::migration::v0_26_0::Migration0_25_3_0_26_0;
 use crate::db::migration::v0_31_0::Migration0_30_5_0_31_0;
-use crate::db::migration::v0_33_8::Migration0_33_7_0_33_8;
+use crate::db::migration::v0_34_1::Migration0_34_0_0_34_1;
 use anyhow::Context as _;
 use anyhow::bail;
 use itertools::Itertools;
@@ -158,7 +158,7 @@ create_migrations!(
     "0.22.0" -> "0.22.1" @ Migration0_22_0_0_22_1,
     "0.25.3" -> "0.26.0" @ Migration0_25_3_0_26_0,
     "0.30.5" -> "0.31.0" @ Migration0_30_5_0_31_0,
-    "0.33.7" -> "0.33.8" @ Migration0_33_7_0_33_8,
+    "0.34.0" -> "0.34.1" @ Migration0_34_0_0_34_1,
 );
 
 /// Creates a migration chain from `start` to `goal`. The chain is chosen to be the shortest

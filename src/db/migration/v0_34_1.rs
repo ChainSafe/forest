@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Migration logic for databases with the v0.33.7 schema to v0.33.8.
+//! Migration logic for databases with the v0.34.0 schema to v0.34.1.
 //! An `EthBlockBloom` column has been added to store per-tipset Ethereum block logs blooms.
 
 use super::migration_map::MigrationOperation;
@@ -12,13 +12,13 @@ use semver::Version;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
-pub(super) struct Migration0_33_7_0_33_8 {
+pub(super) struct Migration0_34_0_0_34_1 {
     from: Version,
     to: Version,
 }
 
-/// Migrates the database from version 0.33.7 to 0.33.8
-impl MigrationOperation for Migration0_33_7_0_33_8 {
+/// Migrates the database from version 0.34.0 to 0.34.1
+impl MigrationOperation for Migration0_34_0_0_34_1 {
     fn new(from: Version, to: Version) -> Self
     where
         Self: Sized,
@@ -46,9 +46,9 @@ impl MigrationOperation for Migration0_33_7_0_33_8 {
         std::fs::rename(&old_db, &temp_db).context("failed to rename database directory")?;
 
         info!("Adding EthBlockBloom column to database");
-        let mut opts = paritydb_0_33_7::to_options(temp_db.clone());
+        let mut opts = paritydb_0_34_0::to_options(temp_db.clone());
         if let Err(e) =
-            parity_db::Db::add_column(&mut opts, paritydb_0_33_7::eth_block_bloom_column_options())
+            parity_db::Db::add_column(&mut opts, paritydb_0_34_0::eth_block_bloom_column_options())
         {
             // Restore the original database so a failed migration never strands the only copy in temp.
             if let Err(restore) = std::fs::rename(&temp_db, &old_db) {
@@ -69,8 +69,8 @@ impl MigrationOperation for Migration0_33_7_0_33_8 {
     }
 }
 
-/// Database settings from Forest `v0.33.7`
-mod paritydb_0_33_7 {
+/// Database settings from Forest `v0.34.0`
+mod paritydb_0_34_0 {
     use parity_db::{ColumnOptions, CompressionType, Options};
     use std::path::PathBuf;
     use strum::{Display, EnumIter, IntoEnumIterator};
@@ -117,7 +117,7 @@ mod paritydb_0_33_7 {
         }
     }
 
-    /// Options for the `EthBlockBloom` column introduced in v0.33.8.
+    /// Options for the `EthBlockBloom` column introduced in v0.34.1.
     pub(super) fn eth_block_bloom_column_options() -> ColumnOptions {
         ColumnOptions {
             preimage: false,
