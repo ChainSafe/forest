@@ -54,6 +54,7 @@ use crate::prelude::*;
 use crate::shim::clock::EPOCHS_IN_DAY;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::HashMap;
+use anyhow::Context as _;
 use human_repr::HumanCount as _;
 use parking_lot::RwLock;
 use sha2::Sha256;
@@ -248,38 +249,52 @@ impl SnapshotGarbageCollector {
         });
         let start = Instant::now();
         let head_ts = self.chain_follower.state_manager.heaviest_tipset();
-        // The RPC cache prefilling logic might have run state computation for the same tipset before `db.subscribe_write_ops()`.
-        // We run it again to ensure the output is tracked in the backfilling memory-db, because the output state tree is
-        // not exported as part of the GC snapshot.
-        self.chain_follower
-            .state_manager
-            .compute_tipset_state(
-                head_ts.shallow_clone(),
-                crate::state_manager::NO_CALLBACK,
-                VMTrace::NotTraced,
+        let state_compute_and_export = async {
+            // The RPC cache prefilling logic might have run state computation for the same tipset before `db.subscribe_write_ops()`.
+            // We run it again to ensure the output is tracked in the backfilling memory-db, because the output state tree is
+            // not exported as part of the GC snapshot.
+            self.chain_follower
+                .state_manager
+                .compute_tipset_state(
+                    head_ts.shallow_clone(),
+                    crate::state_manager::NO_CALLBACK,
+                    VMTrace::NotTraced,
+                )
+                .await?;
+            crate::chain::export::<Sha256, _>(
+                db,
+                &head_ts,
+                self.recent_state_roots,
+                file,
+                ExportOptions {
+                    skip_checksum: true,
+                    include_receipts: true,
+                    include_events: true,
+                    include_tipset_keys: true,
+                    include_tipset_lookup: false,
+                    seen: FileBackedCidHashSet::new(&self.chain_tmp_root)?,
+                },
             )
-            .await?;
-        let _ = crate::chain::export::<Sha256, _>(
-            db,
-            &head_ts,
-            self.recent_state_roots,
-            file,
-            ExportOptions {
-                skip_checksum: true,
-                include_receipts: true,
-                include_events: true,
-                include_tipset_keys: true,
-                include_tipset_lookup: false,
-                seen: FileBackedCidHashSet::new(&self.chain_tmp_root)?,
-            },
-        )
-        .await?;
+            .await
+        };
+        chain_export_guard
+            .run_cancellable(state_compute_and_export)
+            .await
+            .context("snapshot GC export was cancelled")??;
         let target_path = self.car_db_dir.join(format!(
             "lite_{}_{}.forest.car.zst",
             self.recent_state_roots,
             head_ts.epoch()
         ));
-        temp_path.persist(&target_path)?;
+        let target_path = crate::utils::spawn_blocking_with_timeout(
+            crate::db::car::forest::ASYNC_OPS_TIMEOUT,
+            move || {
+                temp_path.persist(&target_path)?;
+                Ok(target_path)
+            },
+        )
+        .await
+        .context("failed to persist the GC lite snapshot")?;
         tracing::info!(
             "exported lite snapshot at {}, took {}",
             target_path.display(),
