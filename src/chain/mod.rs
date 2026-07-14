@@ -228,12 +228,24 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
     forest::Encoder::write(&mut writer, roots, frames).await?;
 
     // Flush to ensure everything has been successfully written
-    writer.flush().await.context("failed to flush")?;
+    tokio::time::timeout(forest::ASYNC_OPS_TIMEOUT, writer.flush())
+        .await
+        .context("`writer.flush` timed out")??;
 
     let digest = writer.finalize().map_err(|e| Error::Other(e.to_string()))?;
 
     let tipset_lookup = if let Some(ts_lookup_handle) = ts_lookup_handle {
-        Some(ts_lookup_handle.await?)
+        // This join is not I/O-bound: the task finishes once the `par_buffer` producer
+        // exits and drops `ts_lookup_tx`, which `Encoder::write` guarantees by exhausting
+        // the frame stream. The timeout guards against a pipeline lifecycle bug keeping a
+        // sender alive, not against slowness.
+        Some(
+            tokio::time::timeout(forest::ASYNC_OPS_TIMEOUT, ts_lookup_handle)
+                .await
+                .context(
+                    "tipset-lookup task did not finish; is a `ts_lookup_tx` sender still alive?",
+                )??,
+        )
     } else {
         None
     };

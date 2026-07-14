@@ -56,7 +56,7 @@ impl Prefix {
 
     /// Create a CID out of the prefix and some data that will be hashed
     pub fn to_cid(&self, data: &[u8]) -> anyhow::Result<Cid> {
-        let mh = MultihashCode::try_from(self.mh_type)?.digest(data);
+        let mh = MultihashCode::try_from(self.mh_type)?.checked_digest(data)?;
         Ok(Cid::new(self.version, self.codec, mh)?)
     }
 }
@@ -69,5 +69,29 @@ impl From<&Cid> for Prefix {
             mh_type: cid.hash().code(),
             mh_len: cid.hash().digest().len(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    /// For an identity prefix, `to_cid` succeeds exactly when the payload fits
+    /// the identity buffer, and never panics on either side of the bound.
+    #[quickcheck]
+    fn prop_to_cid_total(data: Vec<u8>) -> bool {
+        // The pad guarantees the second candidate exceeds the bound.
+        let oversized = [data.as_slice(), &[0u8; 128]].concat();
+        [data, oversized].into_iter().all(|candidate| {
+            let prefix = Prefix {
+                version: Version::V1,
+                codec: 0x55,   // raw
+                mh_type: 0x00, // identity
+                mh_len: 0,     // unused by `to_cid`
+            };
+            prefix.to_cid(&candidate).is_ok()
+                == (candidate.len() <= MultihashCode::IDENTITY_MAX_SIZE)
+        })
     }
 }
