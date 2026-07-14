@@ -1,4 +1,4 @@
-277
+279
 Algorand/M
 API's
 API/SM
@@ -138,6 +138,7 @@ libp2p
 linter/S
 liveness
 localhost/M
+lookback
 lookups
 LRU
 LTO
@@ -148,6 +149,7 @@ MD5
 MDBX
 MDNS
 MDX
+memoize
 mempool/M
 Merkle
 MetaMask
