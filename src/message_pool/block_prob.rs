@@ -77,6 +77,11 @@ fn bino_pdf(x: f64, trials: f64, p: f64) -> f64 {
 }
 
 pub fn block_probabilities(tq: f64) -> Vec<f64> {
+    let tq = if tq.is_finite() {
+        tq.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
     let no_winners = no_winners_prob_assuming_more_than_one();
     let p = 1.0 - tq;
     (0..MAX_BLOCKS)
@@ -90,6 +95,25 @@ pub fn block_probabilities(tq: f64) -> Vec<f64> {
                 .sum()
         })
         .collect()
+}
+
+#[test]
+fn test_block_probabilities_out_of_range_tq_is_finite() {
+    for tq in [
+        -1e300,
+        -4.0,
+        2.0,
+        1e300,
+        f64::NAN,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+    ] {
+        let bp = block_probabilities(tq);
+        assert!(
+            bp.iter().all(|p| p.is_finite()),
+            "tq={tq} produced non-finite probabilities: {bp:?}"
+        );
+    }
 }
 
 #[test]
