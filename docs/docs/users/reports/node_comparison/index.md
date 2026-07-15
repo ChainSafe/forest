@@ -27,4 +27,4 @@ Forest and Lotus are both full-node implementations of the Filecoin protocol. Fo
 
 ## Performance
 
-Across the measurements in the linked reports, Forest uses less CPU and memory than Lotus for a comparable RPC workload and completes a basic snapshot export in less time and with less RAM. See the [RPC Performance Comparison](./rpc_comparison.md) and [Snapshot Generation Comparison](./snapshot_comparison.md) for the full figures and methodology.
+For a comparable RPC workload, Forest served requests at lower latency while using less CPU and memory than Lotus, and it exported a snapshot in a fraction of the time and memory. See the [RPC Performance Comparison](./rpc_comparison.md) and [Snapshot Generation Comparison](./snapshot_comparison.md) for the full figures and methodology.
