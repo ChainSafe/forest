@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7362](https://github.com/ChainSafe/forest/pull/7362): Fixed a potential stuckness issue around the tipset lookup cache.
+
 ## Forest v0.34.0 "Pinochet"
 
 Non-mandatory release for all node operators. It includes some fixes and improvements, notably around RPC and snapshot export. Note that there are some breaking changes in this release, so please read the changelog carefully before upgrading.
