@@ -111,8 +111,8 @@ pub struct ChainStore {
     /// Cache for messages in tipsets, keyed by tipset key.
     messages_in_tipset_cache: MessagesInTipsetCache,
 
-    /// Head epoch of the last clean [`Self::repair_tipset_lookup`] scan, for debouncing.
-    last_clean_lookup_repair_epoch: Arc<AtomicI64>,
+    /// Head key of the last clean [`Self::repair_tipset_lookup`] scan, for debouncing.
+    last_clean_lookup_repair_head: Arc<ArcSwapOption<TipsetKey>>,
 }
 
 impl ShallowClone for ChainStore {
@@ -128,7 +128,7 @@ impl ShallowClone for ChainStore {
             validated_blocks: self.validated_blocks.shallow_clone(),
             chain_config: self.chain_config.shallow_clone(),
             messages_in_tipset_cache: self.messages_in_tipset_cache.shallow_clone(),
-            last_clean_lookup_repair_epoch: self.last_clean_lookup_repair_epoch.shallow_clone(),
+            last_clean_lookup_repair_head: self.last_clean_lookup_repair_head.shallow_clone(),
         }
     }
 }
@@ -179,20 +179,17 @@ impl ChainStore {
             ),
             chain_config,
             messages_in_tipset_cache: Default::default(),
-            last_clean_lookup_repair_epoch: Arc::new(AtomicI64::new(-1)),
+            last_clean_lookup_repair_head: Default::default(),
         })
     }
 
     /// Verifies and repairs the lookup table over the last `chain_finality` epochs of the
     /// head's lineage, returning the number of wrong entries fixed. Clean scans are
-    /// debounced per head epoch, bounding the cost of validation-failure bursts.
+    /// debounced per head key, bounding the cost of validation-failure bursts while any
+    /// head change (including a same-epoch reorg) allows a rescan.
     pub fn repair_tipset_lookup(&self) -> anyhow::Result<usize> {
         let head = self.heaviest_tipset();
-        if head.epoch()
-            <= self
-                .last_clean_lookup_repair_epoch
-                .load(atomic::Ordering::Acquire)
-        {
+        if self.last_clean_lookup_repair_head.load().as_deref() == Some(head.key()) {
             return Ok(0);
         }
         let n_repaired = self.chain_index.repair_tipset_lookup_window(
@@ -201,8 +198,8 @@ impl ChainStore {
             self.ec_calculator_finalized_epoch(),
         )?;
         if n_repaired == 0 {
-            self.last_clean_lookup_repair_epoch
-                .store(head.epoch(), atomic::Ordering::Release);
+            self.last_clean_lookup_repair_head
+                .store(Some(Arc::new(head.key().clone())));
         }
         Ok(n_repaired)
     }

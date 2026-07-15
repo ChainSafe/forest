@@ -341,9 +341,9 @@ impl ChainIndex {
     /// Verifies the lookup table against the head's lineage over the last `lookback` epochs,
     /// repairing entries that disagree with it, and returns the number of wrong entries fixed.
     /// Missing entries are backfilled (at finalized epochs only) without counting, since an
-    /// absent entry cannot have corrupted a computation. Callers that receive a non-zero count
-    /// own evicting any state computed from the poisoned entries (see
-    /// `StateManager::invalidate_tipset_state`).
+    /// absent entry cannot have corrupted a computation. Any state computed from poisoned
+    /// entries may be tainted; `StateManager::repair_tipset_lookup` pairs the repair with
+    /// cache eviction.
     pub fn repair_tipset_lookup_window(
         &self,
         head: &Tipset,
@@ -355,9 +355,16 @@ impl ChainIndex {
         let mut ts = head.shallow_clone();
         while ts.epoch() >= stop_epoch {
             // Loading via `ts_cache`; successive walks revisit an almost identical window.
-            let Some(parent) = self.load_tipset(ts.parents())? else {
-                break;
-            };
+            // A missing parent is an error: the window cannot be verified with chain data
+            // missing, and a success here would wrongly record the walk as complete
+            // (verified checkpoint, clean repair scan).
+            let parent = self.load_required_tipset(ts.parents()).with_context(|| {
+                format!(
+                    "missing parent tipset {} below epoch {}",
+                    ts.parents(),
+                    ts.epoch()
+                )
+            })?;
             // The head epoch is excluded: blocks for it may still arrive (tipset expansion).
             if Self::is_tipset_lookup_checkpoint(ts.epoch()) && ts.epoch() < head.epoch() {
                 let epoch = ts.epoch();
@@ -439,7 +446,10 @@ impl ChainIndex {
 mod tests {
     use super::*;
     use crate::blocks::{CachingBlockHeader, RawBlockHeader};
+    use crate::chain::store::ChainStore;
     use crate::db::{EthMappingsStore, MemoryDB};
+    use crate::networks::ChainConfig;
+    use crate::shim::address::Address;
     use crate::test_utils::dummy_ticket;
     use crate::utils::db::CborStoreExt;
     use std::sync::{
@@ -548,8 +558,6 @@ mod tests {
     fn chain_with_competing_tipsets_at_checkpoint(
         db: &Arc<MemoryDB>,
     ) -> (Tipset, Tipset, Tipset, Tipset) {
-        use crate::shim::address::Address;
-
         let genesis = genesis_tipset();
         persist_tipset(&genesis, db);
         let mut prev = genesis.shallow_clone();
@@ -587,9 +595,6 @@ mod tests {
     /// at a checkpoint epoch poisoned the table and wedged sync after losing a tipset race.
     #[test]
     fn tipset_by_height_does_not_resolve_stale_non_ancestor_checkpoint() {
-        use crate::chain::store::ChainStore;
-        use crate::networks::ChainConfig;
-
         let db = Arc::new(MemoryDB::default());
         let (genesis, partial, full, head) = chain_with_competing_tipsets_at_checkpoint(&db);
 
@@ -598,7 +603,7 @@ mod tests {
         let cs = ChainStore::new(
             db.clone(),
             Arc::new(ChainConfig::default()),
-            genesis.clone(),
+            genesis.shallow_clone(),
         )
         .unwrap();
         cs.set_heaviest_tipset(partial.shallow_clone()).unwrap();
@@ -701,6 +706,88 @@ mod tests {
             index.repair_tipset_lookup_window(&head, 900, 25).unwrap(),
             0
         );
+        assert_eq!(
+            db.tipset_key_by_epoch(20).unwrap().as_ref(),
+            Some(full.key())
+        );
+    }
+
+    /// Pins the corruption vector of the 2026-07-12 incident: FVM chain randomness
+    /// derives from the tipset the lookup table resolves, so a poisoned entry changes
+    /// randomness — and thereby computed state roots — until the table is repaired.
+    #[test]
+    fn chain_randomness_diverges_on_poisoned_lookup_and_recovers_after_repair() {
+        use crate::beacon::BeaconSchedule;
+        use crate::state_manager::chain_rand::ChainRand;
+
+        let db = Arc::new(MemoryDB::default());
+        let (genesis, partial, _full, head) = chain_with_competing_tipsets_at_checkpoint(&db);
+        let index =
+            ChainIndex::new(db.clone(), genesis).with_is_epoch_finalized(Arc::new(|e| e <= 25));
+        let rand = ChainRand::new(
+            Arc::new(ChainConfig::default()),
+            head.shallow_clone(),
+            index.shallow_clone(),
+            Arc::new(BeaconSchedule(vec![])),
+        );
+
+        // With no entry, the lookup falls back to the ancestor walk and resolves `full`.
+        let canonical = rand.get_chain_randomness_blocking(20, false).unwrap();
+
+        db.set_tipset_key_at_epoch(&partial).unwrap();
+        let poisoned = rand.get_chain_randomness_blocking(20, false).unwrap();
+        assert_ne!(
+            canonical, poisoned,
+            "a poisoned lookup entry must be observable in derived randomness for this test to be meaningful",
+        );
+
+        index.repair_tipset_lookup_window(&head, 900, 25).unwrap();
+        assert_eq!(
+            rand.get_chain_randomness_blocking(20, false).unwrap(),
+            canonical,
+            "repairing the lookup table must restore canonical randomness",
+        );
+    }
+
+    #[test]
+    fn repair_tipset_lookup_window_errors_on_missing_parent() {
+        let db = Arc::new(MemoryDB::default());
+        let genesis = genesis_tipset();
+        persist_tipset(&genesis, &db);
+        // Epoch 1 is deliberately not persisted: the walk from epoch 2 cannot verify
+        // the window and must not report success.
+        let epoch1 = tipset_child(&genesis, 1);
+        let epoch2 = tipset_child(&epoch1, 2);
+        persist_tipset(&epoch2, &db);
+
+        let index = ChainIndex::new(db, genesis);
+        assert!(index.repair_tipset_lookup_window(&epoch2, 900, 0).is_err());
+    }
+
+    #[test]
+    fn repair_tipset_lookup_debounces_per_head_key() {
+        let db = Arc::new(MemoryDB::default());
+        let (genesis, partial, full, head) = chain_with_competing_tipsets_at_checkpoint(&db);
+        let cs = ChainStore::new(db.clone(), Arc::new(ChainConfig::default()), genesis).unwrap();
+        cs.set_heaviest_tipset(head.shallow_clone()).unwrap();
+
+        // A clean scan records the head key.
+        assert_eq!(cs.repair_tipset_lookup().unwrap(), 0);
+
+        // Repeated failures at the same head are debounced: the poisoned entry is not
+        // even looked at.
+        db.set_tipset_key_at_epoch(&partial).unwrap();
+        assert_eq!(cs.repair_tipset_lookup().unwrap(), 0);
+        assert_eq!(
+            db.tipset_key_by_epoch(20).unwrap().as_ref(),
+            Some(partial.key())
+        );
+
+        // Any head change allows a rescan, which repairs the entry.
+        let new_head = tipset_child(&head, 31);
+        persist_tipset(&new_head, &db);
+        cs.set_heaviest_tipset(new_head).unwrap();
+        assert_eq!(cs.repair_tipset_lookup().unwrap(), 1);
         assert_eq!(
             db.tipset_key_by_epoch(20).unwrap().as_ref(),
             Some(full.key())

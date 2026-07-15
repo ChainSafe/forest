@@ -549,3 +549,24 @@ fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetSynce
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn concat_preserves_parent_chain_state_mismatch() {
+        let concatenated = TipsetSyncerError::concat(nunny::vec![
+            TipsetSyncerError::Validation("a".into()),
+            TipsetSyncerError::ParentChainStateMismatch("b".into()),
+        ]);
+        assert!(matches!(
+            concatenated,
+            TipsetSyncerError::ParentChainStateMismatch(_)
+        ));
+
+        let concatenated =
+            TipsetSyncerError::concat(nunny::vec![TipsetSyncerError::Validation("a".into())]);
+        assert!(matches!(concatenated, TipsetSyncerError::Validation(_)));
+    }
+}

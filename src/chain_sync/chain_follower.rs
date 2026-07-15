@@ -1011,23 +1011,26 @@ impl SyncTask {
                 // the lookup table and retry only if something was actually wrong.
                 Err(e) if matches!(e, TipsetSyncerError::ParentChainStateMismatch(_)) => {
                     warn!("Error validating tipset: {e}");
-                    let cs = state_manager.chain_store().shallow_clone();
-                    let repaired = tokio::task::spawn_blocking(move || cs.repair_tipset_lookup())
+                    let sm = state_manager.shallow_clone();
+                    match tokio::task::spawn_blocking(move || sm.repair_tipset_lookup())
                         .await
                         .unwrap_or_else(|e| Err(e.into()))
-                        .unwrap_or_else(|e| {
+                    {
+                        // A verified-clean table means the mismatch is genuine.
+                        Ok(0) => Some(SyncEvent::BadTipset(tipset)),
+                        Ok(repaired) => {
+                            warn!(
+                                "Repaired {repaired} tipset lookup entries; retrying tipset validation at epoch {}",
+                                tipset.epoch()
+                            );
+                            None
+                        }
+                        // The table could not be verified; retry later rather than risk
+                        // marking a canonical tipset bad on incomplete knowledge.
+                        Err(e) => {
                             warn!("Failed to repair tipset lookup table: {e:#}");
-                            0
-                        });
-                    if repaired > 0 {
-                        warn!(
-                            "Repaired {repaired} tipset lookup entries; retrying tipset validation at epoch {}",
-                            tipset.epoch()
-                        );
-                        state_manager.invalidate_tipset_state(tipset.parents());
-                        None
-                    } else {
-                        Some(SyncEvent::BadTipset(tipset))
+                            None
+                        }
                     }
                 }
                 Err(e) => {
