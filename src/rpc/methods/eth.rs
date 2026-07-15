@@ -3447,37 +3447,7 @@ async fn poll_event_filter(
             SkipEvent::OnUnresolvedAddress,
         )
         .await?;
-    let mut seen_positions = SeenEventPositions::default();
-    let mut recent_events = Vec::new();
-    for event in events {
-        let position = (event.msg_idx, event.event_idx);
-        let already_seen = event_filter
-            .seen_positions
-            .get(&event.tipset_key)
-            .is_some_and(|positions| positions.contains(&position));
-        match seen_positions.get_mut(&event.tipset_key) {
-            Some(positions) => {
-                positions.insert(position);
-            }
-            None => {
-                seen_positions.insert(event.tipset_key.clone(), HashSet::from_iter([position]));
-            }
-        }
-        if !already_seen {
-            recent_events.push(event);
-        }
-    }
-    if let Some(store) = &ctx.eth_event_handler.filter_store {
-        store.update(Arc::new(EventFilter {
-            id: event_filter.id.clone(),
-            tipsets: event_filter.tipsets.clone(),
-            addresses: event_filter.addresses.clone(),
-            keys_with_codec: event_filter.keys_with_codec.clone(),
-            max_results: event_filter.max_results,
-            seen_positions,
-        }));
-    }
-    Ok(recent_events)
+    Ok(event_filter.take_unseen(events))
 }
 
 pub enum EthGetFilterLogs {}
@@ -3541,7 +3511,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                             // heaviest tipset doesn't have events because its messages haven't been executed yet
                             RangeInclusive::new(
                                 tipset_filter
-                                    .collected
+                                    .collected()
                                     .unwrap_or(ctx.chain_store().heaviest_tipset().epoch() - 1),
                                 // Use -1 to indicate that the range extends until the latest available tipset.
                                 -1,
@@ -3555,12 +3525,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .max_by_key(|event| event.height)
                     .map(|e| e.height);
                 if let Some(height) = new_collected {
-                    let filter = Arc::new(TipSetFilter {
-                        id: tipset_filter.id.clone(),
-                        max_results: tipset_filter.max_results,
-                        collected: Some(height),
-                    });
-                    store.update(filter);
+                    tipset_filter.set_collected(height);
                 }
                 return Ok(eth_filter_result_from_tipsets(&events)?);
             }

@@ -175,8 +175,8 @@ impl EthEventHandler {
             .unwrap_or(config.max_filter_height_range);
         let filter_store: Option<Arc<dyn FilterStore>> =
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
-        let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
-        let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
+        let event_filter_manager = Some(EventFilterManager::new());
+        let tipset_filter_manager = Some(TipSetFilterManager::new());
         let mempool_filter_manager = Some(MempoolFilterManager::new(
             max_filter_results,
             eth_chain_id,
