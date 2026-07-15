@@ -1,4 +1,4 @@
-279
+282
 Algorand/M
 API's
 API/SM
@@ -14,6 +14,7 @@ autolink/S
 automagically
 backend/S
 backfill
+backfilled
 backfilling
 backport
 backtick/S
@@ -63,6 +64,7 @@ Datacap
 datacap
 DB/S
 DDL
+debounce/DG
 deduplicates
 dep/S
 deserialize/D
@@ -253,6 +255,7 @@ TTY
 UI
 unclutter
 uncompress
+unfinalized
 unparsable
 unrepresentable
 untrusted

@@ -22,7 +22,7 @@ use crate::state_manager::ExecutedTipset;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
-    db::{DbImpl, EthMappingsStore as _, EthMappingsStoreExt as _, HeaviestTipsetKeyProvider},
+    db::{DbImpl, EthMappingsStoreExt as _, HeaviestTipsetKeyProvider},
     message::{ChainMessage, SignedMessage},
 };
 use crate::{fil_cns, utils::cache::SizeTrackingCache};
@@ -110,6 +110,9 @@ pub struct ChainStore {
 
     /// Cache for messages in tipsets, keyed by tipset key.
     messages_in_tipset_cache: MessagesInTipsetCache,
+
+    /// Head epoch of the last clean [`Self::repair_tipset_lookup`] scan, for debouncing.
+    last_clean_lookup_repair_epoch: Arc<AtomicI64>,
 }
 
 impl ShallowClone for ChainStore {
@@ -125,6 +128,7 @@ impl ShallowClone for ChainStore {
             validated_blocks: self.validated_blocks.shallow_clone(),
             chain_config: self.chain_config.shallow_clone(),
             messages_in_tipset_cache: self.messages_in_tipset_cache.shallow_clone(),
+            last_clean_lookup_repair_epoch: self.last_clean_lookup_repair_epoch.shallow_clone(),
         }
     }
 }
@@ -175,7 +179,32 @@ impl ChainStore {
             ),
             chain_config,
             messages_in_tipset_cache: Default::default(),
+            last_clean_lookup_repair_epoch: Arc::new(AtomicI64::new(-1)),
         })
+    }
+
+    /// Verifies and repairs the lookup table over the last `chain_finality` epochs of the
+    /// head's lineage, returning the number of wrong entries fixed. Clean scans are
+    /// debounced per head epoch, bounding the cost of validation-failure bursts.
+    pub fn repair_tipset_lookup(&self) -> anyhow::Result<usize> {
+        let head = self.heaviest_tipset();
+        if head.epoch()
+            <= self
+                .last_clean_lookup_repair_epoch
+                .load(atomic::Ordering::Acquire)
+        {
+            return Ok(0);
+        }
+        let n_repaired = self.chain_index.repair_tipset_lookup_window(
+            &head,
+            self.chain_config.policy.chain_finality,
+            self.ec_calculator_finalized_epoch(),
+        )?;
+        if n_repaired == 0 {
+            self.last_clean_lookup_repair_epoch
+                .store(head.epoch(), atomic::Ordering::Release);
+        }
+        Ok(n_repaired)
     }
 
     /// Sets F3 finalized tipset
@@ -207,39 +236,27 @@ impl ChainStore {
         head.key().save(self.db())?;
         self.db().set_heaviest_tipset_key(head.key())?;
 
-        // Updating tipset lookup table
+        let finalized_epoch = ChainGetTipSetFinalityStatus::get_ec_finality_epoch(
+            self.chain_index(),
+            self.chain_config(),
+            &head,
+        );
+        self.ec_calculator_finalized_epoch
+            .store(finalized_epoch, atomic::Ordering::Release);
+
+        // Update the tipset lookup table.
+        if let Err(e) = self
+            .chain_index
+            .update_tipset_lookup_for_finalized_head(&head, finalized_epoch)
         {
-            if ChainIndex::is_tipset_lookup_checkpoint(head.epoch())
-                && let Err(e) = self.db().set_tipset_key_at_epoch(&head)
-            {
-                error!(
-                    "failed to update tipset lookup table at epoch {}: {e:#?}",
-                    head.epoch()
-                );
-            }
-            // Fix stale lookups at null rounds which could be caused by chain reorg.
-            // This is a no-op in most of the cases so it's OK to always run.
-            // (caching parent of head is intended as it's heavily used in Eth APIs as `latest`, while head is `pending`)
-            if let Ok(Some(parent)) = self.chain_index.load_tipset(head.parents())
-                && let Err(e) = ChainIndex::cleanup_stale_tipset_lookup_at_null_rounds(
-                    self.db(),
-                    &head,
-                    &parent,
-                )
-            {
-                error!("failed to cleanup stale null round lookups: {e:#?}");
-            }
+            error!("failed to update tipset lookup table: {e:#?}");
+        }
+        // Fix stale lookups at null rounds which could be caused by chain reorg.
+        if let Err(e) = self.chain_index.cleanup_stale_lookup_at_new_head(&head) {
+            error!("failed to cleanup stale null round lookups: {e:#?}");
         }
 
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
-        self.ec_calculator_finalized_epoch.store(
-            ChainGetTipSetFinalityStatus::get_ec_finality_epoch(
-                self.chain_index(),
-                self.chain_config(),
-                &head,
-            ),
-            atomic::Ordering::Release,
-        );
         if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
             {

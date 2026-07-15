@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::num::NonZeroUsize;
+use std::sync::atomic::{self, AtomicI64};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND};
 use crate::blocks::{Tipset, TipsetKey};
@@ -12,7 +13,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::cache::SizeTrackingCache;
 use nonzero_ext::nonzero;
 use num::Integer;
-use tracing::info;
+use tracing::{info, warn};
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(2880_usize * 3); // 3-day-worth epochs, maximum ~50MiB
 // use `20` as checkpoint interval to match Lotus:
@@ -34,6 +35,9 @@ pub struct ChainIndex {
     genesis: Tipset,
     /// check whether an epoch is finalized
     is_epoch_finalized: Option<IsEpochFinalizedFn>,
+    /// Newest checkpoint epoch verified by [`Self::update_tipset_lookup_for_finalized_head`],
+    /// letting it skip the ancestor walk until the boundary advances.
+    last_verified_checkpoint: Arc<AtomicI64>,
 }
 
 impl ShallowClone for ChainIndex {
@@ -43,6 +47,7 @@ impl ShallowClone for ChainIndex {
             db: self.db.shallow_clone(),
             genesis: self.genesis.shallow_clone(),
             is_epoch_finalized: self.is_epoch_finalized.clone(),
+            last_verified_checkpoint: self.last_verified_checkpoint.clone(),
         }
     }
 }
@@ -68,6 +73,7 @@ impl ChainIndex {
             db,
             genesis,
             is_epoch_finalized: None,
+            last_verified_checkpoint: Arc::new(AtomicI64::new(-1)),
         }
     }
 
@@ -209,19 +215,13 @@ impl ChainIndex {
             return Ok(Some(from));
         }
 
+        // Note: the walk deliberately does NOT populate the lookup table. `from` can be
+        // any tipset (an unvalidated candidate chain from a peer, an RPC-supplied tipset
+        // key), so tipsets encountered here are not guaranteed to be on the canonical
+        // chain even at finalized epochs. The table is populated exclusively from the
+        // canonical head: see [`Self::update_tipset_lookup_for_finalized_head`] and the
+        // startup warmup in the daemon.
         for (child, parent) in from.chain(&self.db).tuple_windows() {
-            // update cache only when child is finalized.
-            if Self::is_tipset_lookup_checkpoint(child.epoch())
-                && is_epoch_finalized(child.epoch())
-                && let Err(e) = self.db.set_tipset_key_at_epoch(&child)
-            {
-                tracing::warn!(
-                    "failed to update tipset height cache, epoch: {}, key: {}, error: {e}",
-                    child.epoch(),
-                    child.key()
-                );
-            }
-
             if to == child.epoch() {
                 return Ok(Some(child));
             }
@@ -297,8 +297,11 @@ impl ChainIndex {
     }
 
     fn next_tipset_lookup_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
+        Self::prev_tipset_lookup_checkpoint(epoch) + TIPSET_LOOKUP_CHECKPOINT_INTERVAL
+    }
+
+    fn prev_tipset_lookup_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
         epoch - epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL)
-            + TIPSET_LOOKUP_CHECKPOINT_INTERVAL
     }
 
     pub fn is_tipset_lookup_checkpoint(epoch: ChainEpoch) -> bool {
@@ -306,9 +309,100 @@ impl ChainIndex {
         epoch > 0 && epoch.mod_floor(&TIPSET_LOOKUP_CHECKPOINT_INTERVAL) == 0
     }
 
+    /// Verifies the lookup table down to the newest checkpoint epoch at or below
+    /// `finalized_epoch` as the head advances. Only finalized ancestors of the head are ever
+    /// recorded — a stale entry (e.g. an unfinalized head that later loses a tipset race)
+    /// corrupts randomness and `tipset_cid` lookups in state computation and wedges sync.
+    /// The walk only runs when the checkpoint boundary advances; other calls return
+    /// immediately.
+    pub fn update_tipset_lookup_for_finalized_head(
+        &self,
+        head: &Tipset,
+        finalized_epoch: ChainEpoch,
+    ) -> anyhow::Result<()> {
+        let checkpoint_epoch = Self::prev_tipset_lookup_checkpoint(finalized_epoch);
+        // No finalized checkpoint strictly below the head yet — nothing to record.
+        if checkpoint_epoch <= 0 || checkpoint_epoch >= head.epoch() {
+            return Ok(());
+        }
+        if checkpoint_epoch
+            == self
+                .last_verified_checkpoint
+                .load(atomic::Ordering::Acquire)
+        {
+            return Ok(());
+        }
+        self.repair_tipset_lookup_window(head, head.epoch() - checkpoint_epoch, finalized_epoch)?;
+        self.last_verified_checkpoint
+            .store(checkpoint_epoch, atomic::Ordering::Release);
+        Ok(())
+    }
+
+    /// Verifies the lookup table against the head's lineage over the last `lookback` epochs,
+    /// repairing entries that disagree with it, and returns the number of wrong entries fixed.
+    /// Missing entries are backfilled (at finalized epochs only) without counting, since an
+    /// absent entry cannot have corrupted a computation. Callers that receive a non-zero count
+    /// own evicting any state computed from the poisoned entries (see
+    /// `StateManager::invalidate_tipset_state`).
+    pub fn repair_tipset_lookup_window(
+        &self,
+        head: &Tipset,
+        lookback: ChainEpoch,
+        finalized_epoch: ChainEpoch,
+    ) -> anyhow::Result<usize> {
+        let stop_epoch = (head.epoch() - lookback).max(1);
+        let mut n_repaired = 0;
+        let mut ts = head.shallow_clone();
+        while ts.epoch() >= stop_epoch {
+            // Loading via `ts_cache`; successive walks revisit an almost identical window.
+            let Some(parent) = self.load_tipset(ts.parents())? else {
+                break;
+            };
+            // The head epoch is excluded: blocks for it may still arrive (tipset expansion).
+            if Self::is_tipset_lookup_checkpoint(ts.epoch()) && ts.epoch() < head.epoch() {
+                let epoch = ts.epoch();
+                let prev = self
+                    .db
+                    .tipset_key_by_epoch(epoch)
+                    .with_context(|| format!("failed to look up tipset key at epoch {epoch}"))?;
+                match prev {
+                    Some(ref tsk) if tsk == ts.key() => {}
+                    // Absent entries are only backfilled at finalized epochs.
+                    None if epoch > finalized_epoch => {}
+                    prev => {
+                        if let Some(prev) = prev {
+                            warn!(
+                                "Correcting tipset lookup at epoch {epoch}: expected {}, found {prev}",
+                                ts.key(),
+                            );
+                            n_repaired += 1;
+                        }
+                        self.db.set_tipset_key_at_epoch(&ts).with_context(|| {
+                            format!("failed to update tipset lookup at epoch {epoch}")
+                        })?;
+                    }
+                }
+            }
+            n_repaired += Self::cleanup_stale_tipset_lookup_at_null_rounds(&self.db, &ts, &parent)?;
+            ts = parent;
+        }
+        Ok(n_repaired)
+    }
+
+    /// Deletes stale lookup entries left behind by a reorg at null-round checkpoint epochs
+    /// between the given head and its parent. A no-op in most cases; loading the parent also
+    /// warms the tipset cache for the Eth APIs' `latest` tipset.
+    pub fn cleanup_stale_lookup_at_new_head(&self, head: &Tipset) -> anyhow::Result<usize> {
+        if let Some(parent) = self.load_tipset(head.parents())? {
+            Self::cleanup_stale_tipset_lookup_at_null_rounds(&self.db, head, &parent)
+        } else {
+            Ok(0)
+        }
+    }
+
     /// Cleans up stale checkpoints at null rounds between the given tipset and its parent in case there's chain reorg.
     /// Returns the number of lookup entries being deleted.
-    pub fn cleanup_stale_tipset_lookup_at_null_rounds(
+    fn cleanup_stale_tipset_lookup_at_null_rounds(
         db: &impl EthMappingsStore,
         ts: &Tipset,
         parent: &Tipset,
@@ -345,7 +439,7 @@ impl ChainIndex {
 mod tests {
     use super::*;
     use crate::blocks::{CachingBlockHeader, RawBlockHeader};
-    use crate::db::MemoryDB;
+    use crate::db::{EthMappingsStore, MemoryDB};
     use crate::test_utils::dummy_ticket;
     use crate::utils::db::CborStoreExt;
     use std::sync::{
@@ -446,6 +540,197 @@ mod tests {
                 .expect("epoch 2 on branch b"),
             epoch2b
         );
+    }
+
+    /// Builds a chain with two competing tipsets at checkpoint epoch 20: `full` (canonical,
+    /// two blocks), `partial` (one block, different min ticket), and a canonical chain up to
+    /// epoch 30 built on `full`. Returns `(genesis, partial, full, head)`.
+    fn chain_with_competing_tipsets_at_checkpoint(
+        db: &Arc<MemoryDB>,
+    ) -> (Tipset, Tipset, Tipset, Tipset) {
+        use crate::shim::address::Address;
+
+        let genesis = genesis_tipset();
+        persist_tipset(&genesis, db);
+        let mut prev = genesis.shallow_clone();
+        for epoch in 1..20 {
+            let ts = tipset_child(&prev, epoch);
+            persist_tipset(&ts, db);
+            prev = ts;
+        }
+        let full = Tipset::new([1, 2].map(|i| {
+            CachingBlockHeader::new(RawBlockHeader {
+                miner_address: Address::new_id(i),
+                parents: prev.key().clone(),
+                ticket: dummy_ticket(i as u8),
+                epoch: 20,
+                ..Default::default()
+            })
+        }))
+        .unwrap();
+        persist_tipset(&full, db);
+        let partial = Tipset::from(full.block_headers().last());
+        // Sanity for the incident scenario: chain randomness drawn at epoch 20
+        // diverges between the two tipsets.
+        assert_ne!(partial.min_ticket(), full.min_ticket());
+
+        let mut head = full.shallow_clone();
+        for epoch in 21..=30 {
+            let ts = tipset_child(&head, epoch);
+            persist_tipset(&ts, db);
+            head = ts;
+        }
+        (genesis, partial, full, head)
+    }
+
+    /// Regression test for the 2026-07-12 mainnet incident: an unfinalized head persisted
+    /// at a checkpoint epoch poisoned the table and wedged sync after losing a tipset race.
+    #[test]
+    fn tipset_by_height_does_not_resolve_stale_non_ancestor_checkpoint() {
+        use crate::chain::store::ChainStore;
+        use crate::networks::ChainConfig;
+
+        let db = Arc::new(MemoryDB::default());
+        let (genesis, partial, full, head) = chain_with_competing_tipsets_at_checkpoint(&db);
+
+        // Drive the real write path: the node's head lands on the partial tipset
+        // at checkpoint epoch 20, then follows the canonical chain.
+        let cs = ChainStore::new(
+            db.clone(),
+            Arc::new(ChainConfig::default()),
+            genesis.clone(),
+        )
+        .unwrap();
+        cs.set_heaviest_tipset(partial.shallow_clone()).unwrap();
+        cs.set_heaviest_tipset(head.shallow_clone()).unwrap();
+
+        // The abandoned head must not remain in the lookup table.
+        assert_ne!(
+            db.tipset_key_by_epoch(20).unwrap().as_ref(),
+            Some(partial.key()),
+            "unfinalized head must not be persisted in the lookup table",
+        );
+
+        // Reads consult the table once the epoch is considered finalized. In
+        // production `is_epoch_finalized` is backed by the EC finality calculator,
+        // which finalizes within ~20 epochs of head.
+        let index = ChainIndex::new(db, genesis).with_is_epoch_finalized(Arc::new(|e| e <= 25));
+        let resolved = index
+            .tipset_by_height_blocking(20, head, ResolveNullTipset::TakeOlder)
+            .unwrap()
+            .expect("epoch 20 resolved");
+        assert_eq!(
+            resolved, full,
+            "tipset_by_height must resolve the ancestor of `from`, not a stale checkpoint",
+        );
+    }
+
+    #[test]
+    fn update_tipset_lookup_for_finalized_head_writes_and_skips() {
+        let db = Arc::new(MemoryDB::default());
+        let (genesis, partial, full, head) = chain_with_competing_tipsets_at_checkpoint(&db);
+        let index = ChainIndex::new(db.clone(), genesis);
+
+        // Nothing to do while no checkpoint epoch is finalized.
+        index
+            .update_tipset_lookup_for_finalized_head(&head, 19)
+            .unwrap();
+        assert_eq!(db.tipset_key_by_epoch(20).unwrap(), None);
+
+        // A checkpoint epoch at or above the head epoch is never recorded, even if
+        // the finality calculator claims it is finalized.
+        index
+            .update_tipset_lookup_for_finalized_head(&full, 20)
+            .unwrap();
+        assert_eq!(db.tipset_key_by_epoch(20).unwrap(), None);
+
+        // The finalized epoch itself is not a checkpoint: the newest checkpoint at
+        // or below it is recorded, with the head's actual ancestor.
+        index
+            .update_tipset_lookup_for_finalized_head(&head, 25)
+            .unwrap();
+        assert_eq!(
+            db.tipset_key_by_epoch(20).unwrap().as_ref(),
+            Some(full.key())
+        );
+
+        // Calls at an already-verified boundary return without walking; corruption
+        // within the finalized window is the repair path's job (see
+        // `repair_tipset_lookup_window_fixes_poisoned_entry`).
+        db.set_tipset_key_at_epoch(&partial).unwrap();
+        index
+            .update_tipset_lookup_for_finalized_head(&head, 25)
+            .unwrap();
+        assert_eq!(
+            db.tipset_key_by_epoch(20).unwrap().as_ref(),
+            Some(partial.key())
+        );
+    }
+
+    #[test]
+    fn repair_tipset_lookup_window_fixes_poisoned_entry() {
+        let db = Arc::new(MemoryDB::default());
+        let (genesis, partial, full, head) = chain_with_competing_tipsets_at_checkpoint(&db);
+        let index = ChainIndex::new(db.clone(), genesis);
+
+        // A stale entry, e.g. left behind by an older forest version or a reorg
+        // deeper than the finality calculator's estimate.
+        db.set_tipset_key_at_epoch(&partial).unwrap();
+        let repaired = index.repair_tipset_lookup_window(&head, 900, 25).unwrap();
+        assert_eq!(repaired, 1);
+        assert_eq!(
+            db.tipset_key_by_epoch(20).unwrap().as_ref(),
+            Some(full.key())
+        );
+
+        // A clean table reports zero repairs (the missing finalized backfill at
+        // epoch 20 was already written above and does not count as a repair).
+        assert_eq!(
+            index.repair_tipset_lookup_window(&head, 900, 25).unwrap(),
+            0
+        );
+
+        // Missing entries are backfilled at finalized epochs only, and not counted.
+        db.delete_tipset_key_at_epoch(20).unwrap();
+        assert_eq!(
+            index.repair_tipset_lookup_window(&head, 900, 19).unwrap(),
+            0
+        );
+        assert_eq!(db.tipset_key_by_epoch(20).unwrap(), None);
+        assert_eq!(
+            index.repair_tipset_lookup_window(&head, 900, 25).unwrap(),
+            0
+        );
+        assert_eq!(
+            db.tipset_key_by_epoch(20).unwrap().as_ref(),
+            Some(full.key())
+        );
+    }
+
+    #[test]
+    fn update_tipset_lookup_for_finalized_head_deletes_null_round_entry() {
+        let db = Arc::new(MemoryDB::default());
+        let genesis = genesis_tipset();
+        persist_tipset(&genesis, &db);
+        // Epoch 20 is a null round: 19 is followed directly by 21.
+        let mut prev = genesis.shallow_clone();
+        for epoch in [10, 19, 21, 30] {
+            let ts = tipset_child(&prev, epoch);
+            persist_tipset(&ts, &db);
+            prev = ts;
+        }
+        let head = prev;
+
+        // A stale entry at the null checkpoint epoch, e.g. left behind by a reorg. Only
+        // the table entry matters; the maintenance walk never loads the stale tipset.
+        let stale = tipset_child(&genesis, 20);
+        db.set_tipset_key_at_epoch(&stale).unwrap();
+
+        let index = ChainIndex::new(db.clone(), genesis);
+        index
+            .update_tipset_lookup_for_finalized_head(&head, 25)
+            .unwrap();
+        assert_eq!(db.tipset_key_by_epoch(20).unwrap(), None);
     }
 
     #[test]
