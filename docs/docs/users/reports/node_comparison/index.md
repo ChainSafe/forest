@@ -17,7 +17,6 @@ Forest and Lotus are both full-node implementations of the Filecoin protocol. Fo
 | Chain synchronization and validation                       | Yes    | Yes   |
 | Filecoin JSON-RPC API                                      | Yes    | Yes   |
 | Ethereum-compatible RPC (`eth_*`)                          | Yes    | Yes   |
-| Snapshot import                                            | Yes    | Yes   |
 | Snapshot export                                            | Yes    | Yes   |
 | Built-in wallet                                            | Yes    | Yes   |
 | Bootstrap node                                             | Yes    | Yes   |
