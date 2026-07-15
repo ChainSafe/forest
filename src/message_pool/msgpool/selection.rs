@@ -288,6 +288,12 @@ where
     /// for inclusion from the pool, given the ticket quality of a miner.
     /// This method selects messages for including in a block.
     pub fn select_messages(&self, ts: &Tipset, tq: f64) -> Result<Vec<SignedMessage>, Error> {
+        // Constrain it to a valid probability
+        let tq = if tq.is_finite() {
+            tq.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         let cur_ts = self.current_tipset();
         // if the ticket quality is high enough that the first block has higher
         // probability than any other block, then we don't bother with optimal
@@ -887,6 +893,50 @@ mod test_selection {
             .await
             .unwrap();
         ts
+    }
+
+    #[tokio::test]
+    async fn select_messages_tolerates_out_of_range_ticket_quality() {
+        let mut joinset = JoinSet::new();
+        let mpool = make_test_mpool(&mut joinset);
+
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut w1 = Wallet::new(ks1);
+        let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut w2 = Wallet::new(ks2);
+        let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let ts = mock_tipset(&mpool).await;
+
+        mpool
+            .api
+            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
+        mpool
+            .api
+            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
+
+        // Two distinct senders so the chain-sort comparator actually runs.
+        for i in 0..10 {
+            let m = create_smsg(&a2, &a1, &mut w1, i, TEST_GAS_LIMIT, 2 * i + 1);
+            mpool.add(m).await.unwrap();
+            let m = create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1);
+            mpool.add(m).await.unwrap();
+        }
+
+        for tq in [
+            -1e300,
+            -4.0,
+            2.0,
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+        ] {
+            mpool
+                .select_messages(&ts, tq)
+                .unwrap_or_else(|e| panic!("select_messages failed for tq={tq}: {e}"));
+        }
     }
 
     #[tokio::test]
