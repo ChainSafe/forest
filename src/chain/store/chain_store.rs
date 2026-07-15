@@ -186,7 +186,7 @@ impl ChainStore {
     /// Verifies and repairs the lookup table over the last `chain_finality` epochs of the
     /// head's lineage, returning the number of wrong entries fixed. Clean scans are
     /// debounced per head key, bounding the cost of validation-failure bursts while any
-    /// head change (including a same-epoch reorg) allows a rescan.
+    /// head change (including a same-epoch reorg) allows a re-scan.
     pub fn repair_tipset_lookup(&self) -> anyhow::Result<usize> {
         let head = self.heaviest_tipset();
         if self.last_clean_lookup_repair_head.load().as_deref() == Some(head.key()) {
