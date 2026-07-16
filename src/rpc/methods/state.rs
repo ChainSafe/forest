@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use nonzero_ext::nonzero;
+use tokio::sync::Semaphore;
 pub use types::*;
 
 use super::chain::ChainGetTipSetV2;
@@ -72,6 +74,7 @@ use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use std::ops::Mul;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::time::Duration;
 use tokio::task::JoinSet;
 use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
@@ -1597,8 +1600,32 @@ impl RpcMethod<3> for ForestStateCompute {
         (from_epoch, n_epochs, force_recompute): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        const STATE_COMPUTE_DEFAULT_MAX_RANGE: NonZeroUsize = nonzero!(2000usize);
+        static STATE_COMPUTE_MAX_RANGE: LazyLock<NonZeroUsize> = LazyLock::new(|| {
+            std::env::var("FOREST_STATE_COMPUTE_MAX_RANGE")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(STATE_COMPUTE_DEFAULT_MAX_RANGE)
+        });
+        static STATE_COMPUTE_SEMAPHORE: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
+            Arc::new(Semaphore::new(
+                std::thread::available_parallelism()
+                    .map(|i| i.get())
+                    .unwrap_or(2),
+            ))
+        });
+
         let force_recompute = force_recompute.unwrap_or_default();
-        let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
+        let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1);
+        if n_epochs > STATE_COMPUTE_MAX_RANGE.get() {
+            return Err(anyhow::anyhow!(
+                "nEpochs cannot be greater than {}, got {n_epochs}.",
+                STATE_COMPUTE_MAX_RANGE.get()
+            )
+            .into());
+        }
+
+        let n_epochs = n_epochs as ChainEpoch;
         let to_epoch = from_epoch + n_epochs - 1;
         let to_ts = ctx
             .chain_index()
@@ -1629,7 +1656,12 @@ impl RpcMethod<3> for ForestStateCompute {
         {
             let chain_store = ctx.chain_store().shallow_clone();
             let network_context = ctx.sync_network_context.shallow_clone();
+            let semaphore = STATE_COMPUTE_SEMAPHORE.clone();
             futures.push_front(AbortOnDropHandle::new(tokio::spawn(async move {
+                let _permit = semaphore
+                    .acquire()
+                    .await
+                    .context("Semaphore unexpectedly closed")?;
                 if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
                     // Backfill full tipset from the network
                     const MAX_RETRIES: usize = 5;
