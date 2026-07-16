@@ -26,6 +26,7 @@ forward to your contributions. 🎉
 
 - [I Have a Question](#i-have-a-question)
 - [I Want To Contribute](#i-want-to-contribute)
+- [Before Opening a Pull Request](#before-opening-a-pull-request)
 - [Reporting Bugs](#reporting-bugs)
 - [Suggesting Enhancements](#suggesting-enhancements)
 - [Your First Code Contribution](#your-first-code-contribution)
@@ -67,6 +68,35 @@ on the `#fil-forest-help` channel.
 > When contributing to this project, you must agree that you have authored 100%
 > of the content, that you have the necessary rights to the content and that the
 > content you contribute may be provided under the project license.
+
+### Before Opening a Pull Request
+
+We are happy about every contribution, and we want your pull request to be
+merged, not closed. The best way to make that happen is to start from an
+issue:
+
+1. Find an existing issue describing the change you have in mind, or open a new
+   one ([bug report](#reporting-bugs) or
+   [enhancement suggestion](#suggesting-enhancements)).
+2. Issues labeled `good first issue` are up for grabs, just leave a
+   comment saying you are picking one up. For anything else, comment on the
+   issue and wait for a maintainer's go-ahead before you start writing code.
+3. Open your pull request referencing the issue.
+
+This small amount of coordination protects your time: it ensures nobody else is
+already working on the same thing and that the change is one we can merge.
+Pull requests that skip this step may be closed so that review time goes to the
+changes the project needs - and we would hate to close yours.
+
+A few more tips:
+
+- Small fixes such as typos, comment rewording, or formatting tweaks are best
+  reported in an issue rather than a pull request.
+- If you would like to share code for an idea that has not been accepted yet, a
+  [discussion](https://github.com/ChainSafe/forest/discussions) is the right
+  place for it.
+- If you used AI tools in any capacity, please also read our
+  [AI Usage Policy](AI_POLICY.md).
 
 ### Reporting Bugs
 
@@ -173,6 +203,9 @@ Enhancement suggestions are tracked with the `Type: Request` label. Please use
   could serve as inspiration.
 
 ### Your First Code Contribution
+
+> Tip: start from an accepted issue so your work is sure to land see
+> [Before Opening a Pull Request](#before-opening-a-pull-request).
 
 #### 🛠️ Install the tools
 
