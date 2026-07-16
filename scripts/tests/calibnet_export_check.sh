@@ -61,7 +61,7 @@ echo "Exporting zstd compressed snapshot at genesis"
 $FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
 
 echo "Exporting zstd compressed snapshot in $format format"
-$FOREST_CLI_PATH snapshot export --format "$format" &
+$FOREST_CLI_PATH snapshot export --format "$format" --tipset-lookup -o snapshot.forest.car.zst &
 EXPORT_CMD_PID=$!
 sleep 5
 # another export job should be disallowed
@@ -90,6 +90,15 @@ echo "waiting on export-status"
 $FOREST_CLI_PATH snapshot export-status --wait
 
 $FOREST_CLI_PATH shutdown --force
+
+# Check file sizes
+ls -ahl *.forest.car.zst
+# Validate tipset lookup snapshots
+# export and check augmented data once we have receipts and events tipset published and imported
+# for now there's no receipts and events on a freshly bootstrapped node.
+forest-tool snapshot validate-extended --base snapshot.forest.car.zst --tipset-lookup snapshot_tipset_lookup.forest.car.zst
+# Remove tipset lookup snapshots before proceeding 
+rm *_tipset_lookup.forest.car.zst
 
 for f in *.car.zst; do
   echo "Inspecting archive info $f"

@@ -530,6 +530,21 @@ pub fn forest_car_sha256sum_path(output_path: &Path) -> PathBuf {
     p
 }
 
+pub fn forest_car_with_filename_suffix(path: &Path, suffix: &str) -> anyhow::Result<PathBuf> {
+    anyhow::ensure!(!suffix.is_empty(), "suffix cannot be empty");
+    let file_name = path.file_name().and_then(|n| n.to_str()).with_context(|| {
+        format!(
+            "failed to extract filename from the give path: {}",
+            path.display()
+        )
+    })?;
+    let new_name = match file_name.split_once('.') {
+        Some((stem, rest)) => format!("{stem}{suffix}.{rest}"),
+        None => format!("{file_name}{suffix}"),
+    };
+    Ok(path.with_file_name(new_name))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -681,5 +696,40 @@ mod tests {
     #[case(Path::new("."), Path::new("."))]
     fn test_forest_car_sha256sum_path(#[case] input: &Path, #[case] output: &Path) {
         assert_eq!(forest_car_sha256sum_path(input), output);
+    }
+
+    #[rstest]
+    #[case(
+        Path::new("/tmp/a.forst.car.zst"),
+        "_suffix",
+        Path::new("/tmp/a_suffix.forst.car.zst")
+    )]
+    #[case(
+        Path::new("a.forst.car.zst"),
+        "_suffix",
+        Path::new("a_suffix.forst.car.zst")
+    )]
+    #[case(Path::new("a"), "_suffix", Path::new("a_suffix"))]
+    fn test_forest_car_with_filename_suffix_valid(
+        #[case] input: &Path,
+        #[case] suffix: &str,
+        #[case] output: &Path,
+    ) {
+        assert_eq!(
+            forest_car_with_filename_suffix(input, suffix).unwrap(),
+            output
+        );
+    }
+
+    #[rstest]
+    #[case(Path::new("/tmp/a.forst.car.zst"), "", "suffix cannot be empty")]
+    #[case(Path::new("."), "_suffix", "failed to extract filename")]
+    fn test_forest_car_with_filename_suffix_invalid(
+        #[case] input: &Path,
+        #[case] suffix: &str,
+        #[case] reason: &str,
+    ) {
+        let e = forest_car_with_filename_suffix(input, suffix).unwrap_err();
+        assert!(e.to_string().contains(reason));
     }
 }

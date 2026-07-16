@@ -12,7 +12,8 @@ use crate::chain::{ChainStore, ExportOptions, ExportResult, FilecoinSnapshotVers
 use crate::chain_sync::{get_full_tipset, load_full_tipset};
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
 use crate::db::car::forest::{
-    ASYNC_OPS_TIMEOUT, forest_car_sha256sum_path, tmp_exporting_forest_car_path,
+    ASYNC_OPS_TIMEOUT, forest_car_sha256sum_path, forest_car_with_filename_suffix,
+    tmp_exporting_forest_car_path,
 };
 use crate::ipld::DfsIter;
 use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard};
@@ -272,6 +273,54 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     }
 }
 
+/// For internal testing only. Generate this snapshot with `Forest.ChainExport` by setting `augmented_data: true`
+pub enum ForestChainExportReceiptsEvents {}
+impl RpcMethod<1> for ForestChainExportReceiptsEvents {
+    const NAME: &'static str = "Forest.ChainExportReceiptsEvents";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Exports chain message receipts and events snapshot to a CAR file from the given epoch";
+
+    type Params = (ForestChainExportReceiptsEventsParams,);
+    type Ok = ApiExportResult;
+
+    async fn handle(
+        ctx: Ctx,
+        (params,): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let ForestChainExportReceiptsEventsParams {
+            epoch,
+            recent_roots,
+            output_path,
+            tipset_keys: ApiTipsetKey(tsk),
+        } = params;
+
+        let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let start_ts = ctx
+            .chain_index()
+            .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
+            .await?;
+
+        let tmp_path =
+            tempfile::TempPath::try_from_path(tmp_exporting_forest_car_path(&output_path))?;
+        let writer = tokio::fs::File::create(&tmp_path).await?;
+        crate::chain::export_receipts_events_to_forest_car(
+            ctx.db(),
+            &start_ts,
+            recent_roots,
+            writer,
+        )
+        .await?;
+        tmp_path
+            .persist(&output_path)
+            .context("failed to persist the exported message receipts and events snapshot")?;
+        Ok(ApiExportResult::Done)
+    }
+}
+
 pub enum ForestChainExport {}
 impl RpcMethod<1> for ForestChainExport {
     const NAME: &'static str = "Forest.ChainExport";
@@ -319,7 +368,8 @@ impl RpcMethod<1> for ForestChainExport {
                 include_receipts,
                 include_events,
                 include_tipset_keys,
-                include_tipset_lookup,
+                augmented_data,
+                tipset_lookup,
                 skip_checksum,
                 dry_run,
             } = params;
@@ -337,7 +387,7 @@ impl RpcMethod<1> for ForestChainExport {
                 include_receipts,
                 include_events,
                 include_tipset_keys,
-                include_tipset_lookup,
+                include_tipset_lookup: tipset_lookup,
                 seen: FileBackedCidHashSet::new(ctx.temp_dir.as_path())?,
             };
             let tmp_path =
@@ -392,8 +442,12 @@ impl RpcMethod<1> for ForestChainExport {
             };
             match chain_export_guard.run_cancellable(chain_export).await {
                 Some(result) => {
-                    let ExportResult { checksum, .. } = result?;
+                    let ExportResult {
+                        checksum,
+                        tipset_lookup: hamt,
+                    } = result?;
                     if !dry_run {
+                        let output_path = output_path.clone();
                         spawn_blocking_with_timeout(ASYNC_OPS_TIMEOUT, move || {
                             tmp_path.persist(&output_path)?;
                             // The snapshot at `output_path` is usable from this point on;
@@ -410,6 +464,58 @@ impl RpcMethod<1> for ForestChainExport {
                         })
                         .await
                         .context("failed to persist the exported snapshot")?;
+                    }
+                    match (tipset_lookup, hamt) {
+                        (true, Some(hamt)) => {
+                            let mut hamt =
+                                hamt.context("failed to generated tipset lookup snapshot")?;
+                            let roots = nunny::vec![hamt.flush()?];
+                            let hamt_output_path =
+                                forest_car_with_filename_suffix(&output_path, "_tipset_lookup")?;
+                            let mut writer = if dry_run {
+                                tokio_util::either::Either::Left(VoidAsyncWriter)
+                            } else {
+                                tokio_util::either::Either::Right(
+                                    tokio::fs::File::create(&hamt_output_path).await?,
+                                )
+                            };
+                            hamt.into_store()
+                                .export_forest_car(roots, &mut writer)
+                                .await
+                                .context("failed to write tipset lookup snapshot")?;
+                        }
+                        (true, None) => {
+                            anyhow::bail!("requested tipset lookup snapshot is missing")
+                        }
+                        (false, Some(_)) => {
+                            anyhow::bail!(
+                                "tipset lookup snapshot should not be generated when it's not requested"
+                            )
+                        }
+                        _ => {}
+                    }
+                    if augmented_data {
+                        // It takes <10s on mainnet so export it in sequence for simplicity.
+                        // Some stats:
+                        // calibnet 3895470+2000: 5s  5.4MiB
+                        // mainnet  6193120+2000: 5s  12MiB
+                        let augmented_data_output_path =
+                            forest_car_with_filename_suffix(&output_path, "_receipts_events")?;
+                        let writer = if dry_run {
+                            tokio_util::either::Either::Left(VoidAsyncWriter)
+                        } else {
+                            tokio_util::either::Either::Right(
+                                tokio::fs::File::create(&augmented_data_output_path).await?,
+                            )
+                        };
+                        crate::chain::export_receipts_events_to_forest_car(
+                            ctx.db(),
+                            &start_ts,
+                            recent_roots,
+                            writer,
+                        )
+                        .await
+                        .context("failed to export message receipts and events snapshot")?;
                     }
                     chain_export_guard.mark_as_succeeded();
                     anyhow::Ok(ApiExportResult::Done)
@@ -609,7 +715,8 @@ impl RpcMethod<1> for ChainExport {
                 include_receipts: false,
                 include_events: false,
                 include_tipset_keys: false,
-                include_tipset_lookup: false,
+                augmented_data: false,
+                tipset_lookup: false,
                 skip_checksum,
                 dry_run,
             },),
@@ -1525,13 +1632,24 @@ pub struct ApiMessage {
 lotus_json_with_self!(ApiMessage);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ForestChainExportReceiptsEventsParams {
+    pub epoch: ChainEpoch,
+    pub recent_roots: i64,
+    pub output_path: PathBuf,
+    #[schemars(with = "LotusJson<ApiTipsetKey>")]
+    #[serde(with = "crate::lotus_json", default)]
+    pub tipset_keys: ApiTipsetKey,
+}
+lotus_json_with_self!(ForestChainExportReceiptsEventsParams);
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ForestChainExportParams {
     pub version: FilecoinSnapshotVersion,
     pub epoch: ChainEpoch,
     pub recent_roots: i64,
     pub output_path: PathBuf,
     #[schemars(with = "LotusJson<ApiTipsetKey>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", default)]
     pub tipset_keys: ApiTipsetKey,
     #[serde(default)]
     pub include_receipts: bool,
@@ -1539,8 +1657,12 @@ pub struct ForestChainExportParams {
     pub include_events: bool,
     #[serde(default)]
     pub include_tipset_keys: bool,
+    /// Generate a separate snapshot that contains augmented data
     #[serde(default)]
-    pub include_tipset_lookup: bool,
+    pub augmented_data: bool,
+    /// Generate a separate snapshot that contains tipset lookup
+    #[serde(default)]
+    pub tipset_lookup: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }

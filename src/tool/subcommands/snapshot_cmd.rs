@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::Tipset;
-use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::blocks::{Tipset, TipsetKey};
+use crate::chain::{
+    TIPSET_LOOKUP_HAMT_BIT_WIDTH,
+    index::{ChainIndex, ResolveNullTipset},
+};
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
@@ -16,14 +19,16 @@ use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet
 use crate::prelude::*;
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::executor::{Receipt, StampedEvent};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{ExecutedTipset, apply_block_messages_blocking};
-use crate::utils::db::car_stream::CarStream;
+use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::proofs_api::ensure_proof_params_downloaded;
 use anyhow::bail;
 use clap::Subcommand;
 use dialoguer::{Confirm, theme::ColorfulTheme};
+use fil_actors_shared::fvm_ipld_hamt::Hamt;
 use futures::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
@@ -79,6 +84,19 @@ pub enum SnapshotCommands {
         /// Fail at the first invalid snapshot
         #[arg(long)]
         fail_fast: bool,
+    },
+
+    /// Validate a snapshot's associated augmented and tipset lookup snapshots.
+    ValidateExtended {
+        /// Path to a snapshot CAR, which may be zstd compressed
+        #[arg(long)]
+        base: PathBuf,
+        /// Path to the associated augmented snapshot (message receipts and events)
+        #[arg(long)]
+        augmented: Option<PathBuf>,
+        /// Path to the associated tipset lookup snapshot
+        #[arg(long)]
+        tipset_lookup: Option<PathBuf>,
     },
 
     /// Make this snapshot suitable for use as a compressed car-backed blockstore.
@@ -195,6 +213,85 @@ impl SnapshotCommands {
                 if has_fail {
                     bail!("validate failed");
                 };
+                Ok(())
+            }
+            Self::ValidateExtended {
+                base,
+                augmented,
+                tipset_lookup,
+            } => {
+                anyhow::ensure!(
+                    augmented.is_some() || tipset_lookup.is_some(),
+                    "either `--augmented` or `--tipset-lookup` needs to be specified"
+                );
+                let store = ManyCar::new(MemoryDB::default())
+                    .with_read_only(AnyCar::try_from(base.as_path())?)?;
+                if let Some(augmented) = &augmented {
+                    println!("Importing augmented snapshot...");
+                    {
+                        let mut car_stream = CarStream::new_from_path(augmented).await?;
+                        while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
+                            store.put_keyed(&cid, &data)?;
+                        }
+                    }
+                    println!("Verifying message receipts and events can be loaded...");
+                    let head = store.heaviest_tipset()?;
+                    let mut n_ts = 0;
+                    for ts in head.shallow_clone().chain(&store) {
+                        if !store.has(ts.parent_state())? {
+                            break;
+                        }
+                        n_ts += 1;
+                        for b in ts.block_headers() {
+                            let message_receipts_root = b.message_receipts;
+                            let receipts = Receipt::get_receipts(&store, message_receipts_root).with_context(|| {
+                                format!(
+                                    "failed to load receipts, root: {message_receipts_root}, epoch: {}, block: {}",
+                                    b.epoch,
+                                    b.cid(),
+                                )
+                            })?;
+                            for r in receipts {
+                                if let Some(events_root) = r.events_root() {
+                                    StampedEvent::get_events(&store, &events_root).with_context(|| {
+                                        format!(
+                                            "failed to load events, root: {events_root}, epoch: {}, block: {}",
+                                            b.epoch,
+                                            b.cid(),
+                                        )
+                                    })?;
+                                }
+                            }
+                        }
+                    }
+                    println!("Augmented snapshot is valid, {n_ts} tipsets validated");
+                }
+                if let Some(tipset_lookup) = &tipset_lookup {
+                    println!("Importing tipset lookup snapshot...");
+                    let hamt_root = {
+                        let mut car_stream = CarStream::new_from_path(tipset_lookup).await?;
+                        let hamt_root = *car_stream.header_v1.roots.first();
+                        while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
+                            store.put_keyed(&cid, &data)?;
+                        }
+                        hamt_root
+                    };
+                    let hamt: Hamt<_, TipsetKey, ChainEpoch> =
+                        Hamt::load_with_bit_width(&hamt_root, &store, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
+                            .context("failed to load tipset lookup HAMT")?;
+                    let head = store.heaviest_tipset()?;
+                    println!("Verifying lookup checkpoints can be loaded...");
+                    let mut n = 0;
+                    for checkpoint in (0..=head.epoch())
+                        .filter(|&epoch| ChainIndex::is_tipset_lookup_checkpoint(epoch))
+                    {
+                        if let Some(tsk) = hamt.get(&checkpoint)? {
+                            n += 1;
+                            Tipset::load_required(&store, tsk).with_context(|| format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}"))?;
+                        }
+                    }
+                    println!("Tipset lookup snapshot is valid, {n} checkpoints validated");
+                }
                 Ok(())
             }
             Self::Compress {

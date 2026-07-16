@@ -45,6 +45,12 @@ pub enum SnapshotCommands {
         /// Snapshot format to export.
         #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V2)]
         format: FilecoinSnapshotVersion,
+        /// Also exports an augmented data snapshot that contains message receipts and events
+        #[arg(long)]
+        augmented_data: bool,
+        /// Also exports a tipset lookup HAMT snapshot
+        #[arg(long)]
+        tipset_lookup: bool,
     },
     /// Show status of the current export.
     ExportStatus {
@@ -84,6 +90,8 @@ impl SnapshotCommands {
                 tipset,
                 depth,
                 format,
+                augmented_data,
+                tipset_lookup,
             } => {
                 anyhow::ensure!(
                     depth >= 0,
@@ -141,7 +149,8 @@ impl SnapshotCommands {
                     include_receipts: false,
                     include_events: false,
                     include_tipset_keys: false,
-                    include_tipset_lookup: false,
+                    augmented_data,
+                    tipset_lookup,
                     skip_checksum,
                     dry_run,
                 };
