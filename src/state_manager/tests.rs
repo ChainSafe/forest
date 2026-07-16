@@ -195,3 +195,111 @@ fn test_identical_events_produce_same_root() {
     assert_eq!(retrieved_events[0].emitter(), 1000);
     assert_eq!(retrieved_events[1].emitter(), 1001);
 }
+
+#[test]
+fn clear_tipset_state_caches_evicts_all_cached_results() {
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
+    use crate::chain::ChainStore;
+    use crate::networks::ChainConfig;
+    use crate::shim::address::Address;
+
+    let db = Arc::new(MemoryDB::default());
+    let genesis = CachingBlockHeader::new(RawBlockHeader {
+        miner_address: Address::new_id(0),
+        timestamp: 7777,
+        ..Default::default()
+    });
+    let cs = ChainStore::new(db, Arc::new(ChainConfig::default()), genesis).unwrap();
+    let sm = StateManager::new(cs).unwrap();
+
+    let tsk = sm.chain_store().heaviest_tipset().key().clone();
+    sm.cache.insert(
+        tsk.clone(),
+        ExecutedTipset {
+            state_root: Cid::default(),
+            receipt_root: Cid::default(),
+            executed_messages: Arc::new(vec![]),
+        },
+    );
+    sm.trace_cache
+        .insert(tsk.clone(), (Cid::default().into(), vec![]));
+    assert!(sm.cache.get(&tsk).is_some());
+    assert!(sm.trace_cache.get(&tsk).is_some());
+
+    sm.clear_tipset_state_caches();
+    assert!(sm.cache.get(&tsk).is_none());
+    assert!(sm.trace_cache.get(&tsk).is_none());
+}
+
+#[test]
+fn repair_tipset_lookup_clears_caches_when_entries_repaired() {
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader, Tipset};
+    use crate::chain::ChainStore;
+    use crate::db::EthMappingsStore;
+    use crate::networks::ChainConfig;
+    use crate::shim::address::Address;
+    use crate::test_utils::dummy_ticket;
+    use crate::utils::db::CborStoreExt;
+
+    let db = Arc::new(MemoryDB::default());
+    let genesis = CachingBlockHeader::new(RawBlockHeader {
+        ticket: dummy_ticket(0),
+        timestamp: 7777,
+        ..Default::default()
+    });
+    db.put_cbor_default(&genesis).unwrap();
+    let cs = ChainStore::new(db.clone(), Arc::new(ChainConfig::default()), genesis).unwrap();
+
+    // Single-block chain crossing the lookup checkpoint at epoch 20.
+    let mut head = cs.genesis_tipset();
+    for epoch in 1..=21 {
+        let ts = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            parents: head.key().clone(),
+            ticket: dummy_ticket(epoch as u8),
+            epoch,
+            ..Default::default()
+        }));
+        for block in ts.block_headers() {
+            db.put_cbor_default(block).unwrap();
+        }
+        head = ts;
+    }
+    cs.set_heaviest_tipset(head).unwrap();
+
+    // Poison the checkpoint entry with a non-ancestor tipset.
+    let fork = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+        miner_address: Address::new_id(1),
+        parents: cs.genesis_tipset().key().clone(),
+        ticket: dummy_ticket(99),
+        epoch: 20,
+        ..Default::default()
+    }));
+    db.set_tipset_key_at_epoch(&fork).unwrap();
+
+    let sm = StateManager::new(cs).unwrap();
+    let tsk = sm.chain_store().heaviest_tipset().key().clone();
+    sm.cache.insert(
+        tsk.clone(),
+        ExecutedTipset {
+            state_root: Cid::default(),
+            receipt_root: Cid::default(),
+            executed_messages: Arc::new(vec![]),
+        },
+    );
+
+    // The repair fixes the poisoned entry and evicts potentially tainted results.
+    assert_eq!(sm.repair_tipset_lookup().unwrap(), 1);
+    assert!(sm.cache.get(&tsk).is_none());
+
+    // A clean follow-up scan leaves fresh cache content alone.
+    sm.cache.insert(
+        tsk.clone(),
+        ExecutedTipset {
+            state_root: Cid::default(),
+            receipt_root: Cid::default(),
+            executed_messages: Arc::new(vec![]),
+        },
+    );
+    assert_eq!(sm.repair_tipset_lookup().unwrap(), 0);
+    assert!(sm.cache.get(&tsk).is_some());
+}
