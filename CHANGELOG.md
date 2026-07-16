@@ -35,6 +35,12 @@
 
 ### Fixed
 
+## Forest v0.34.1 "Ashadh"
+
+Non-mandatory release for all node operators. It includes fixes and RPC improvements.
+
+### Fixed
+
 - [#7362](https://github.com/ChainSafe/forest/pull/7362): Fixed a potential stuckness issue around the tipset lookup cache.
 
 - [#7156](https://github.com/ChainSafe/forest/pull/7156): The `eth` block `logsBloom` is now computed from the block's logs and stored when the tipset is executed or covered by `forest-tool index backfill`, instead of being all-ones. Blocks without a stored bloom still report the all-ones bloom, set `FOREST_ETH_RPC_COMPUTE_BLOOM_ON_MISS=1` to compute and store the bloom on demand instead.
