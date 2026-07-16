@@ -1625,7 +1625,7 @@ impl RpcMethod<3> for ForestStateCompute {
             .into());
         }
         let n_epochs = ChainEpoch::from(n_epochs);
-        let to_epoch = from_epoch + n_epochs - 1;
+        let to_epoch = from_epoch.saturating_add(n_epochs - 1);
         let to_ts = ctx
             .chain_index()
             .load_required_tipset_by_height(
