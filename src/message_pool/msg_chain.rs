@@ -610,6 +610,23 @@ fn approx_cmp(a: f64, b: f64) -> Ordering {
     if (a - b).abs() <= (a * f64::EPSILON).abs() {
         Ordering::Equal
     } else {
-        a.partial_cmp(&b).unwrap()
+        a.total_cmp(&b)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn approx_cmp_nan_does_not_panic() {
+        for (a, b) in [
+            (f64::NAN, 1.0),
+            (1.0, f64::NAN),
+            (f64::NAN, f64::NAN),
+            (f64::INFINITY, f64::NAN),
+        ] {
+            let _ = approx_cmp(a, b);
+        }
     }
 }

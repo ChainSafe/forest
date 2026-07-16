@@ -373,6 +373,9 @@ impl EthEventHandler {
         .await
     }
 
+    /// Collects the tipset's events from already-loaded executed messages, keeping those that
+    /// match `spec` and tagging each with `revert_status`. Use [`Self::collect_events`] instead
+    /// wages sthen the executed messill need to be loaded.
     pub async fn collect_events_from_messages(
         state_manager: &StateManager,
         tipset: &Tipset,
