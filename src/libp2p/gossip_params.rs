@@ -4,13 +4,12 @@
 use std::time::Duration;
 
 use libp2p::gossipsub::{
-    IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams, score_parameter_decay,
+    PeerScoreParams, PeerScoreThresholds, TopicScoreParams, score_parameter_decay,
 };
 
-use crate::{
-    libp2p::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR},
-    networks::GenesisNetworkName,
-};
+use strum::IntoEnumIterator as _;
+
+use crate::{libp2p::PubsubTopic, networks::GenesisNetworkName};
 
 // All these parameters are copied from what Lotus has set for their Topic
 // scores. They are currently unused because enabling them causes GossipSub
@@ -87,12 +86,13 @@ pub(in crate::libp2p) fn build_peer_score_params(
     #[allow(clippy::disallowed_types)]
     let mut psp_topics = std::collections::HashMap::new();
 
-    // msg topic
-    let msg_topic = IdentTopic::new(format!("{PUBSUB_MSG_STR}/{network_name}"));
-    psp_topics.insert(msg_topic.hash(), build_msg_topic_config());
-    // block topic
-    let block_topic = IdentTopic::new(format!("{PUBSUB_BLOCK_STR}/{network_name}"));
-    psp_topics.insert(block_topic.hash(), build_block_topic_config());
+    for topic in PubsubTopic::iter() {
+        let params = match topic {
+            PubsubTopic::Blocks => build_block_topic_config(),
+            PubsubTopic::Messages => build_msg_topic_config(),
+        };
+        psp_topics.insert(topic.ident(network_name).hash(), params);
+    }
 
     PeerScoreParams {
         app_specific_weight: 1.0,
