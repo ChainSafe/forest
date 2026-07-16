@@ -80,7 +80,7 @@ issue:
    [enhancement suggestion](#suggesting-enhancements)).
 2. Issues labeled `good first issue` are up for grabs, just leave a
    comment saying you are picking one up. For anything else, comment on the
-   issue and wait for a maintainer's go-ahead before you start writing code.
+   issue and wait for a maintainers go-ahead before you start writing code.
 3. Open your pull request referencing the issue.
 
 This small amount of coordination protects your time: it ensures nobody else is

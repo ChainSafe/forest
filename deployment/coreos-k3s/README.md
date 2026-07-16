@@ -14,11 +14,13 @@ make                                     # -> out/config.ign
 ```
 
 install FCOS with that ignition:
+
 - generic FCOS: `coreos-installer install /dev/nvme0n1 --ignition-file out/config.ign`
 - Hetzner rescue: `scp out/config.ign root@<rescue-ip>:` then flash the FCOS image
   and pass the ignition (see coreos-installer docs)
 
 then wait. it's up when:
+
 ```bash
 curl https://<domain>/rpc/v1 -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","method":"Filecoin.ChainHead","params":[],"id":1}'
@@ -32,6 +34,7 @@ served at `/rpc/v1`; others at `/<network>/rpc/v1`. mainnet ~500G, calibnet ~100
 both need ~800G+.
 
 add one to a live box without rebuilding it:
+
 ```bash
 scp out/manifests/forest-stack.yaml core@<ip>:
 ssh core@<ip> 'sudo k3s kubectl apply -f forest-stack.yaml'
@@ -40,10 +43,12 @@ ssh core@<ip> 'sudo k3s kubectl apply -f forest-stack.yaml'
 ## JWT gate (optional)
 
 `AUTH=jwt`, `make`, then once the box is up:
+
 ```bash
 make jwt HOST=core@<ip>              # builds the caddy-jwt plugin on the box, swaps caddy
 make token HOST=core@<ip> SUB=ci     # mint a token
 ```
+
 present it as `Authorization: Bearer <t>` or `?access_token=<t>`. needs a real
 domain (the gate rides on TLS).
 
