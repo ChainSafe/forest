@@ -71,7 +71,7 @@ use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroUsize;
+use std::num::NonZeroU32;
 use std::ops::Mul;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -1592,7 +1592,7 @@ impl RpcMethod<3> for ForestStateCompute {
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: &'static str = "Forest-specific RPC method that recomputes tipset state over an epoch range. It reuses cached executed tipsets only when the cached state root is loadable; otherwise it recomputes. Unlike Filecoin.StateCompute, it does not apply caller-supplied messages or return execution traces.";
 
-    type Params = (ChainEpoch, Option<NonZeroUsize>, Option<bool>);
+    type Params = (ChainEpoch, Option<NonZeroU32>, Option<bool>);
     type Ok = Vec<ForestComputeStateOutput>;
 
     async fn handle(
@@ -1600,8 +1600,8 @@ impl RpcMethod<3> for ForestStateCompute {
         (from_epoch, n_epochs, force_recompute): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        const STATE_COMPUTE_DEFAULT_MAX_RANGE: NonZeroUsize = nonzero!(2000usize);
-        static STATE_COMPUTE_MAX_RANGE: LazyLock<NonZeroUsize> = LazyLock::new(|| {
+        const STATE_COMPUTE_DEFAULT_MAX_RANGE: NonZeroU32 = nonzero!(2000u32);
+        static STATE_COMPUTE_MAX_RANGE: LazyLock<NonZeroU32> = LazyLock::new(|| {
             std::env::var("FOREST_STATE_COMPUTE_MAX_RANGE")
                 .ok()
                 .and_then(|s| s.parse().ok())
@@ -1624,8 +1624,7 @@ impl RpcMethod<3> for ForestStateCompute {
             )
             .into());
         }
-
-        let n_epochs = n_epochs as ChainEpoch;
+        let n_epochs = ChainEpoch::from(n_epochs);
         let to_epoch = from_epoch + n_epochs - 1;
         let to_ts = ctx
             .chain_index()
@@ -1684,6 +1683,10 @@ impl RpcMethod<3> for ForestStateCompute {
 
         let mut results = Vec::with_capacity(n_epochs as _);
         while let Some(ts) = futures.try_next().await? {
+            let _permit = STATE_COMPUTE_SEMAPHORE
+                .acquire()
+                .await
+                .context("Semaphore unexpectedly closed")?;
             let ts = ts?;
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();

@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#7374](https://github.com/ChainSafe/forest/pull/7374): Bounded `nEpochs` in `Forest.StateCompute` RPC method.
+
 ### Added
 
 ### Changed
