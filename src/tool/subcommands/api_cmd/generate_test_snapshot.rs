@@ -9,8 +9,9 @@ use crate::{
     chain_sync::{SyncStatusReport, network_context::SyncNetworkContext},
     daemon::{bundle::load_actor_bundles, db_util::load_all_forest_cars},
     db::{
-        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
-        SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
+        BLOCK_BLOOM_LEN, CAR_DB_DIR_NAME, EthBlockBloomStore, EthMappingsStore,
+        HeaviestTipsetKeyProvider, MemoryDB, SettingsStore, SettingsStoreExt, db_engine::open_db,
+        parity_db::ParityDb,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -18,7 +19,7 @@ use crate::{
     message_pool::{MessagePool, MpoolLocker, NonceTracker},
     networks::ChainConfig,
     prelude::*,
-    shim::address::CurrentNetwork,
+    shim::{address::CurrentNetwork, clock::ChainEpoch},
     state_manager::StateManager,
 };
 use api_compare_tests::TestDump;
@@ -97,6 +98,13 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
     for (k, v) in reader.iter() {
         index
             .eth_mappings
+            .get_or_insert_with(Default::default)
+            .insert(k.to_string(), Payload(v.clone()));
+    }
+    let reader = db.tracker.eth_block_bloom_db.read();
+    for (k, v) in reader.iter() {
+        index
+            .eth_block_blooms
             .get_or_insert_with(Default::default)
             .insert(k.to_string(), Payload(v.clone()));
     }
@@ -360,5 +368,30 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
         tsk: &TipsetKey,
     ) -> anyhow::Result<()> {
         self.inner.set_tipset_key_at_epoch_raw(epoch, tsk)
+    }
+}
+
+impl<T: EthBlockBloomStore> EthBlockBloomStore for ReadOpsTrackingStore<T> {
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<[u8; BLOCK_BLOOM_LEN]>> {
+        let result = self.inner.read_bloom(key)?;
+        if self.tracking()
+            && let Some(bloom) = &result
+        {
+            self.tracker.write_bloom(key, 0, bloom)?;
+        }
+        Ok(result)
+    }
+
+    fn write_bloom(
+        &self,
+        key: &Cid,
+        height: ChainEpoch,
+        bloom: &[u8; BLOCK_BLOOM_LEN],
+    ) -> anyhow::Result<()> {
+        self.inner.write_bloom(key, height, bloom)
+    }
+
+    fn delete_blooms_before_height(&self, height: ChainEpoch) -> anyhow::Result<()> {
+        self.inner.delete_blooms_before_height(height)
     }
 }

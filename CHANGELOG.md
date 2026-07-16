@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7156](https://github.com/ChainSafe/forest/pull/7156): The `eth` block `logsBloom` is now computed from the block's logs and stored when the tipset is executed or covered by `forest-tool index backfill`, instead of being all-ones. Blocks without a stored bloom still report the all-ones bloom, set `FOREST_ETH_RPC_COMPUTE_BLOOM_ON_MISS=1` to compute and store the bloom on demand instead.
+
 ## Forest v0.34.0 "Pinochet"
 
 Non-mandatory release for all node operators. It includes some fixes and improvements, notably around RPC and snapshot export. Note that there are some breaking changes in this release, so please read the changelog carefully before upgrading.

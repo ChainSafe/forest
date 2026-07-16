@@ -169,6 +169,25 @@ impl EthMappingsStore for GarbageCollectableParityDb {
     }
 }
 
+impl EthBlockBloomStore for GarbageCollectableParityDb {
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<[u8; BLOCK_BLOOM_LEN]>> {
+        EthBlockBloomStore::read_bloom(&*self.db.read(), key)
+    }
+
+    fn write_bloom(
+        &self,
+        key: &Cid,
+        height: ChainEpoch,
+        bloom: &[u8; BLOCK_BLOOM_LEN],
+    ) -> anyhow::Result<()> {
+        EthBlockBloomStore::write_bloom(&*self.db.read(), key, height, bloom)
+    }
+
+    fn delete_blooms_before_height(&self, height: ChainEpoch) -> anyhow::Result<()> {
+        EthBlockBloomStore::delete_blooms_before_height(&*self.db.read(), height)
+    }
+}
+
 impl PersistentStore for GarbageCollectableParityDb {
     fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         PersistentStore::put_keyed_persistent(&*self.db.read(), k, block)
