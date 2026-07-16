@@ -24,6 +24,7 @@ pub use memory::{IndexMapBlockstore, MemoryDB};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::prelude::*;
 use crate::rpc::eth::types::EthHash;
+use crate::shim::clock::ChainEpoch;
 use ambassador::delegatable_trait;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -144,6 +145,49 @@ impl<T: ?Sized + EthMappingsStore> EthMappingsStoreExt for T {
     fn write_obj<V: Serialize>(&self, key: &EthHash, value: &V) -> anyhow::Result<()> {
         self.write_bin(key, &fvm_ipld_encoding::to_vec(value)?)
     }
+}
+
+/// Length in bytes of a stored Ethereum block logs bloom.
+pub(crate) const BLOCK_BLOOM_LEN: usize = 256;
+
+/// Interface used to store and retrieve per-tipset Ethereum block logs blooms.
+#[auto_impl::auto_impl(&, Arc)]
+#[delegatable_trait]
+pub trait EthBlockBloomStore {
+    /// Reads the logs bloom stored for the given tipset key CID. A missing or malformed entry
+    /// is reported as `None`.
+    fn read_bloom(&self, key: &Cid) -> anyhow::Result<Option<[u8; BLOCK_BLOOM_LEN]>>;
+
+    /// Stores the logs bloom for the given tipset key CID, tagged with its height.
+    fn write_bloom(
+        &self,
+        key: &Cid,
+        height: ChainEpoch,
+        bloom: &[u8; BLOCK_BLOOM_LEN],
+    ) -> anyhow::Result<()>;
+
+    /// Deletes every stored bloom whose height is below `height`.
+    fn delete_blooms_before_height(&self, height: ChainEpoch) -> anyhow::Result<()>;
+}
+
+/// Encodes a block bloom entry as its little-endian height followed by the bloom bytes.
+pub(crate) fn encode_block_bloom(height: ChainEpoch, bloom: &[u8; BLOCK_BLOOM_LEN]) -> Vec<u8> {
+    let mut entry = Vec::with_capacity(size_of::<i64>() + BLOCK_BLOOM_LEN);
+    entry.extend_from_slice(&height.to_le_bytes());
+    entry.extend_from_slice(bloom);
+    entry
+}
+
+/// Splits a block bloom entry into its (height and `BLOCK_BLOOM_LEN`) and raw bloom bytes.
+pub(crate) fn decode_block_bloom(entry: &[u8]) -> Option<(ChainEpoch, &[u8; BLOCK_BLOOM_LEN])> {
+    if entry.len() != size_of::<i64>() + BLOCK_BLOOM_LEN {
+        return None;
+    }
+    let (height, bloom) = entry.split_at(size_of::<i64>());
+    Some((
+        i64::from_le_bytes(height.try_into().ok()?),
+        bloom.try_into().ok()?,
+    ))
 }
 
 /// Traits for collecting DB stats

@@ -43,7 +43,7 @@ use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::chain_path;
 use crate::db::DbImpl;
 use crate::db::{
-    BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider,
+    BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, EthBlockBloomStore, HeaviestTipsetKeyProvider,
     car::{ForestCar, ReloadableManyCar, forest::new_forest_car_temp_path_in},
     db_engine::db_root,
     parity_db::GarbageCollectableDb,
@@ -364,6 +364,14 @@ impl SnapshotGarbageCollector {
                     .map(|ts| ts.epoch())
                     .unwrap_or_default()
             );
+
+            // Prune blooms whose events are no longer retained by the lite snapshot.
+            if let Ok(head) = db.heaviest_car_tipset() {
+                let cutoff = head.epoch() - self.recent_state_roots;
+                if let Err(e) = db.delete_blooms_before_height(cutoff) {
+                    tracing::warn!("failed to prune stale block blooms: {e:#}");
+                }
+            }
 
             // Reset chain head. Note that `self.exported_head_key` is guaranteed to be present,
             // see `*self.exported_head_key.write() = Some(head_ts.key().clone());` in `export_snapshot`.

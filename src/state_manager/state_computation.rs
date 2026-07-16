@@ -9,7 +9,7 @@ use crate::shim::message::Message;
 use crate::state_migration::run_state_migrations;
 use anyhow::{bail, ensure};
 use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 enum StateRecomputePolicy {
     Allowed,
@@ -207,6 +207,22 @@ impl StateManager {
                 events,
             });
         }
+
+        // Store the block logs bloom whenever this tipset was executed here.
+        if recomputed
+            && let Err(e) = crate::rpc::eth::store_block_logs_bloom(
+                self,
+                msg_ts,
+                &state_root,
+                &executed_messages,
+            )
+        {
+            warn!(
+                "failed to store block logs bloom for tipset {}: {e:#}",
+                msg_ts.key()
+            );
+        }
+
         Ok(ExecutedTipset {
             state_root,
             receipt_root,

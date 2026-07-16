@@ -1,11 +1,14 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::multihash::MultihashCode;
 use crate::{
     blocks::TipsetKey,
-    db::{EthMappingsStore, SettingsStore, SettingsStoreExt as _},
-    prelude::*,
+    db::{EthBlockBloomStore, EthMappingsStore, SettingsStore, SettingsStoreExt as _},
 };
+use cid::Cid;
+use fvm_ipld_encoding::DAG_CBOR;
+use multihash_derive::MultihashDigest;
 
 pub fn write_bin<DB>(db: &DB)
 where
@@ -93,4 +96,26 @@ where
 
     // delete again should succed
     db.delete_tipset_key_at_epoch(epoch).unwrap();
+}
+
+pub fn block_bloom_prune<DB>(db: &DB)
+where
+    DB: EthBlockBloomStore,
+{
+    let a = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(b"a"));
+    let b = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(b"b"));
+    let missing = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(b"missing"));
+    let bloom_a = [0x11; 256];
+    let bloom_b = [0x22; 256];
+
+    db.write_bloom(&a, 100, &bloom_a).unwrap();
+    db.write_bloom(&b, 200, &bloom_b).unwrap();
+    assert_eq!(db.read_bloom(&a).unwrap(), Some(bloom_a));
+    assert_eq!(db.read_bloom(&b).unwrap(), Some(bloom_b));
+    assert_eq!(db.read_bloom(&missing).unwrap(), None);
+
+    // Only entries at or above the cutoff survive.
+    db.delete_blooms_before_height(150).unwrap();
+    assert_eq!(db.read_bloom(&a).unwrap(), None);
+    assert_eq!(db.read_bloom(&b).unwrap(), Some(bloom_b));
 }

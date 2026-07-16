@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod bloom;
 pub(crate) mod errors;
 mod eth_tx;
 pub mod filter;
@@ -10,6 +11,10 @@ pub mod tipset_resolver;
 pub(crate) mod trace;
 pub mod types;
 mod utils;
+
+pub use bloom::Bloom;
+pub(crate) use bloom::store_block_logs_bloom;
+use bloom::{EMPTY_BLOOM, FULL_BLOOM, accrue_eth_log, block_logs_bloom};
 pub use tipset_resolver::TipsetResolver;
 use tokio_util::sync::CancellationToken;
 
@@ -86,19 +91,6 @@ static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
     LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-/// Ethereum Bloom filter size in bits.
-/// Bloom filter is used in Ethereum to minimize the number of block queries.
-const BLOOM_SIZE: usize = 2048;
-
-/// Ethereum Bloom filter size in bytes.
-const BLOOM_SIZE_IN_BYTES: usize = BLOOM_SIZE / 8;
-
-/// Ethereum Bloom filter with all bits set to 1.
-const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
-
-/// Ethereum Bloom filter with all bits set to 0.
-const EMPTY_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0x0; BLOOM_SIZE_IN_BYTES];
 
 /// Ethereum address size in bytes.
 const ADDRESS_LENGTH: usize = 20;
@@ -197,21 +189,6 @@ pub struct Nonce(
     pub ethereum_types::H64,
 );
 lotus_json_with_self!(Nonce);
-
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema, GetSize)]
-pub struct Bloom(
-    #[schemars(with = "String")]
-    #[serde(with = "crate::lotus_json::hexify_bytes")]
-    #[get_size(ignore)]
-    pub ethereum_types::Bloom,
-);
-lotus_json_with_self!(Bloom);
-
-impl Bloom {
-    pub fn accrue(&mut self, input: &[u8]) {
-        self.0.accrue(ethereum_types::BloomInput::Raw(input));
-    }
-}
 
 #[derive(
     Eq,
@@ -583,6 +560,9 @@ impl Block {
                     full_transactions.push(tx);
                 }
 
+                let logs_bloom =
+                    block_logs_bloom(state_manager, &tipset, &state_root, &executed_messages)?;
+
                 Ok(Arc::new(Block {
                     hash: block_hash,
                     number: block_number,
@@ -596,6 +576,7 @@ impl Block {
                         .into(),
                     gas_used: EthUint64(gas_used),
                     transactions: Transactions::Full(full_transactions),
+                    logs_bloom,
                     ..Block::new(has_transactions, tipset.len())
                 }))
             })
@@ -1422,10 +1403,7 @@ async fn new_eth_tx_receipt(
 
     let mut bloom = Bloom::default();
     for log in tx_receipt.logs.iter() {
-        for topic in log.topics.iter() {
-            bloom.accrue(topic.0.as_bytes());
-        }
-        bloom.accrue(log.address.0.as_bytes());
+        accrue_eth_log(&mut bloom, &log.address, &log.topics);
     }
     tx_receipt.logs_bloom = bloom.into();
 
@@ -3380,6 +3358,7 @@ fn eth_filter_logs_from_events(
     Ok(logs)
 }
 
+/// Accrues a single Ethereum log's address and topics into `bloom` using the standard `M3:2048` scheme.
 fn eth_filter_result_from_events(
     ctx: &Ctx,
     events: &[CollectedEvent],
