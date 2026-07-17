@@ -2548,7 +2548,7 @@ methods:
           type:
             - integer
             - "null"
-          format: uint
+          format: uint32
           minimum: 1
       - name: forceRecompute
         required: false

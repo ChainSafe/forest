@@ -8,7 +8,7 @@ use crate::shim::address::StrictAddress;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use clap::Subcommand;
-use std::num::NonZeroUsize;
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -33,7 +33,7 @@ pub enum StateCommands {
         epoch: ChainEpoch,
         /// Number of tipset epochs to compute state for. Default is 1
         #[arg(short, long)]
-        n_epochs: Option<NonZeroUsize>,
+        n_epochs: Option<NonZeroU32>,
         /// Force recomputing the state trees regardless whether the results are cached
         #[arg(long)]
         force: bool,
