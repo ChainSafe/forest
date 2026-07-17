@@ -408,12 +408,14 @@ async fn chain_follower(
                 // behind. Otherwise it can be too spammy.
                 match (expected_head - heaviest_epoch > 10, to_download > 0) {
                     (true, true) => info!(
-                        "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head}, downloading {to_download} tipsets"
-                        , heaviest_tipset.key()
+                        "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head} (diff: {}), downloading {to_download} tipsets"
+                        , heaviest_tipset.key(),
+                        expected_head - heaviest_epoch
                     ),
                     (true, false) => info!(
-                        "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head}"
-                        , heaviest_tipset.key()
+                        "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head} (diff: {})"
+                        ,heaviest_tipset.key(),
+                        expected_head - heaviest_epoch
                     ),
                     (false, true) => {
                         info!("Downloading {to_download} tipsets")
