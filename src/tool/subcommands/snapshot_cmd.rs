@@ -280,7 +280,7 @@ impl SnapshotCommands {
                         Hamt::load_with_bit_width(&hamt_root, &store, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
                             .context("failed to load tipset lookup HAMT")?;
                     let head = store.heaviest_tipset()?;
-                    println!("Verifying lookup checkpoints can be loaded...");
+                    println!("Verifying lookup checkpoints match the snapshot chain...");
                     let mut n_checkpoints = 0;
                     let mut n_null_checkpoints = 0;
                     let mut last_checkpoint_ts = None;
@@ -289,7 +289,7 @@ impl SnapshotCommands {
                     {
                         if let Some(tsk) = hamt.get(&checkpoint)? {
                             n_checkpoints += 1;
-                            last_checkpoint_ts=Some(Tipset::load_required(&store, tsk).with_context(|| format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}"))?);
+                            last_checkpoint_ts = Some(Tipset::load_required(&store, tsk).with_context(|| format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}"))?);
                         } else if let Some(last_checkpoint_ts) = &last_checkpoint_ts {
                             n_null_checkpoints += 1;
                             // verify checkpoint epoch is null
