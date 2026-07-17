@@ -9,19 +9,19 @@ The following measurements were taken while a Forest node and a Lotus node handl
 
 ## Environment
 
-The measurements cover Lotus `1.36.1-rc1` and Forest `0.33.8`.
+The measurements cover Lotus `1.36.1-rc1` and Forest `0.34.1`.
 
 ![Build info for the compared Forest and Lotus nodes](/img/reports/rpc_comparison/build-info.png)
 
 ## RPC latency
 
-Average wall time per HTTP request was approximately 5 ms for Forest and 40-80 ms for Lotus over the measurement window. The Forest trace stayed roughly constant, while the Lotus trace varied as the request mix changed.
+Average wall time per HTTP request was approximately 10-15 ms for Forest and 30-50 ms for Lotus over most of the measurement window. Both traces rose toward the end as load increased, with Forest reaching about 30 ms and Lotus about 48 ms.
 
 ![Average wall time per HTTP request](/img/reports/rpc_comparison/wall-time-per-http-request.png)
 
 ### Per-flow latency
 
-At the median (P50) the two nodes were close: approximately 6-7 ms for Forest and 8-12 ms for Lotus. The difference was larger in the tail. At P95, Forest stayed near 25 ms while Lotus stayed around 90 ms and reached approximately 450-470 ms under load. At P99, Forest held around 150 ms while Lotus ranged from approximately 500 ms to 1.6 s.
+At the median (P50) the two nodes were close: approximately 7 ms for Forest and 8 ms for Lotus. The difference was larger in the tail. At P95, Forest stayed near 50 ms and rose to roughly 115 ms under load, while Lotus stayed around 70-85 ms and reached roughly 185 ms. At P99, Forest held around 200 ms and rose to about 350 ms, while Lotus ranged from approximately 240 ms to a peak near 600 ms.
 
 <p align="center">
   <img
@@ -79,7 +79,7 @@ The amortized view accounts for batched requests. It shows the same pattern as t
 
 ### Comparable load
 
-The request rates and batch sizes reaching each node were close, which supports comparing the two nodes directly. HTTP request count averaged 44.9 `req/s` for Forest and 45.2 `req/s` for Lotus; batch-aware counts were 25.4 vs 25.9 `req/s`; and average batch size was approximately 1.28 vs 1.29. Both nodes therefore processed a comparable amount of work.
+The request rates and batch sizes reaching each node were close, which supports comparing the two nodes directly. HTTP request count averaged 45.2 `req/s` for Forest and 45.0 `req/s` for Lotus; batch-aware counts were 20.4 vs 20.3 `req/s`; and average batch size was approximately 1.17 for both. Both nodes therefore processed a comparable amount of work.
 
 ![Request count (HTTP only)](/img/reports/rpc_comparison/request-count-http.png)
 
@@ -87,17 +87,17 @@ The request rates and batch sizes reaching each node were close, which supports 
 
 ![Average batch size](/img/reports/rpc_comparison/average-batch-size.png)
 
-Concurrency followed from the latency difference: Forest kept fewer requests in flight at any instant (mean 0.39, peak 5) than Lotus (mean 1.90, peak 16).
+Concurrency followed from the latency difference: Forest kept fewer requests in flight at any instant (mean 0.43, peak 4) than Lotus (mean 1.45, peak 8).
 
 ![In-flight requests](/img/reports/rpc_comparison/in-flight-requests.png)
 
 ## Resource usage
 
-While serving this workload, Forest used approximately 10% CPU and Lotus used approximately 40-80%, trending upward over the session. Forest's CPU trace was also less variable.
+While serving this workload, Forest used approximately 10-15% CPU and Lotus used approximately 45-55%, briefly spiking to about 80% during the higher-load period. Forest's CPU trace was also less variable.
 
 ![CPU usage](/img/reports/rpc_comparison/cpu.png)
 
-Memory usage was approximately 10% for Forest and approximately 25-30% for Lotus.
+Memory usage was approximately 8-10% for Forest and approximately 25-30% for Lotus, with Lotus briefly reaching about 40% during the higher-load period.
 
 ![Memory usage](/img/reports/rpc_comparison/memory.png)
 
