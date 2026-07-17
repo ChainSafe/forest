@@ -376,52 +376,56 @@ async fn chain_follower(
         }
     });
 
-    // Periodically report progress if there are any tipsets left to be fetched.
-    // Once we're in steady-state (i.e. caught up to HEAD) and there are no
-    // active forks, this will not report anything.
+    // Periodically report progress while catching up to HEAD. Once we're in
+    // steady-state (i.e. caught up to HEAD), and there are
+    // no active forks, this will not report anything.
     set.spawn({
         let state_manager = state_manager.shallow_clone();
         let state_machine = state_machine.clone();
         async move {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                let (tasks_set, _) = state_machine.lock().tasks();
                 let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
                 let heaviest_epoch = heaviest_tipset.epoch();
-
-                let to_download = tasks_set
-                    .iter()
-                    .filter_map(|task| match task {
-                        SyncTask::FetchTipset(_, epoch) => Some(epoch - heaviest_epoch),
-                        _ => None,
-                    })
-                    .max()
-                    .unwrap_or(0);
-
                 let expected_head = calculate_expected_epoch(
                     Utc::now().timestamp() as u64,
                     state_manager.chain_store().genesis_block_header().timestamp,
                     state_manager.chain_config().block_delay_secs,
                 );
+                let diff = expected_head - heaviest_epoch;
 
                 // Only print 'Catching up to HEAD' if we're more than 10 epochs
                 // behind. Otherwise it can be too spammy.
-                match (expected_head - heaviest_epoch > 10, to_download > 0) {
-                    (true, true) => info!(
-                        "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head} (diff: {}), downloading {to_download} tipsets"
-                        , heaviest_tipset.key(),
-                        expected_head - heaviest_epoch
-                    ),
-                    (true, false) => info!(
-                        "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head} (diff: {})"
-                        ,heaviest_tipset.key(),
-                        expected_head - heaviest_epoch
-                    ),
-                    (false, true) => {
-                        info!("Downloading {to_download} tipsets")
-                    }
-                    (false, false) => {}
+                if diff <= 10 {
+                    continue;
                 }
+
+                let (_, forks) = state_machine.lock().tasks();
+                // The fork closest to the validated head connects first, so its
+                // gap is how many epochs remain before tipset validation can start.
+                let until_validation = forks
+                    .iter()
+                    .filter(|fork| fork.stage == ForkSyncStage::FetchingHeaders)
+                    .filter_map(|fork| {
+                        let gap = fork.target_sync_epoch_start - fork.validated_chain_head_epoch;
+                        (gap > 0).then_some(gap)
+                    })
+                    .min();
+                let is_validating = forks
+                    .iter()
+                    .any(|fork| fork.stage == ForkSyncStage::ValidatingTipsets);
+
+                let status = if is_validating {
+                    ", validating tipsets".to_string()
+                } else if let Some(gap) = until_validation {
+                    format!(", validation starts in ~{gap} epochs")
+                } else {
+                    String::new()
+                };
+                info!(
+                    "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head} (diff: {diff}){status}",
+                    heaviest_tipset.key()
+                );
             }
         }
     });
