@@ -570,6 +570,7 @@ lotus_json_with_self!(
     DeadlineInfo,
     PaddedPieceSize,
     Uuid,
+    std::num::NonZeroU32,
     std::num::NonZeroUsize,
 );
 
