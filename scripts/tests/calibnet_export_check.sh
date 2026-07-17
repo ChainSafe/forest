@@ -96,7 +96,7 @@ ls -ahl *.forest.car.zst
 # Validate tipset lookup snapshots
 # export and check augmented data once we have receipts and events tipset published and imported
 # for now there's no receipts and events on a freshly bootstrapped node.
-forest-tool snapshot validate-extended --base snapshot.forest.car.zst --tipset-lookup snapshot_tipset_lookup.forest.car.zst
+$FOREST_TOOL_PATH snapshot validate-extended --base snapshot.forest.car.zst --tipset-lookup snapshot_tipset_lookup.forest.car.zst
 # Remove tipset lookup snapshots before proceeding 
 rm *_tipset_lookup.forest.car.zst
 

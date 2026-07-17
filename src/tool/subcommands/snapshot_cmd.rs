@@ -281,16 +281,35 @@ impl SnapshotCommands {
                             .context("failed to load tipset lookup HAMT")?;
                     let head = store.heaviest_tipset()?;
                     println!("Verifying lookup checkpoints can be loaded...");
-                    let mut n = 0;
+                    let mut n_checkpoints = 0;
+                    let mut n_null_checkpoints = 0;
+                    let mut last_checkpoint_ts = None;
                     for checkpoint in (0..=head.epoch())
                         .filter(|&epoch| ChainIndex::is_tipset_lookup_checkpoint(epoch))
                     {
                         if let Some(tsk) = hamt.get(&checkpoint)? {
-                            n += 1;
-                            Tipset::load_required(&store, tsk).with_context(|| format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}"))?;
+                            n_checkpoints += 1;
+                            last_checkpoint_ts=Some(Tipset::load_required(&store, tsk).with_context(|| format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}"))?);
+                        } else if let Some(last_checkpoint_ts) = &last_checkpoint_ts {
+                            n_null_checkpoints += 1;
+                            // verify checkpoint epoch is null
+                            let checkpoint_ts = last_checkpoint_ts
+                                .shallow_clone()
+                                .chain(&store)
+                                .take_while(|ts| ts.epoch() >= checkpoint)
+                                .find(|ts| ts.epoch() == checkpoint);
+                            if let Some(checkpoint_ts) = checkpoint_ts {
+                                anyhow::bail!(
+                                    "checkpoint epoch {} with key {} is missing from tipset lookup snapshot",
+                                    checkpoint_ts.epoch(),
+                                    checkpoint_ts.key()
+                                );
+                            }
                         }
                     }
-                    println!("Tipset lookup snapshot is valid, {n} checkpoints validated");
+                    println!(
+                        "Tipset lookup snapshot is valid, {n_checkpoints} checkpoints and {n_null_checkpoints} null checkpoints validated"
+                    );
                 }
                 Ok(())
             }
