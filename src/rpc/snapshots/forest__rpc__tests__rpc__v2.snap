@@ -73,19 +73,6 @@ methods:
       schema:
         type: boolean
     paramStructure: by-position
-  - name: Forest.ChainExportReceiptsEvents
-    description: Exports chain message receipts and events snapshot to a CAR file from the given epoch
-    params:
-      - name: params
-        required: true
-        schema:
-          $ref: "#/components/schemas/ForestChainExportReceiptsEventsParams"
-    result:
-      name: Forest.ChainExportReceiptsEvents.Result
-      required: true
-      schema:
-        $ref: "#/components/schemas/ApiExportResult"
-    paramStructure: by-position
   - name: Filecoin.EthAccounts
     description: Returns the list of addresses owned by the client; always empty since Forest does not manage private keys.
     params: []
@@ -2703,24 +2690,6 @@ components:
         - output_path
         - skip_checksum
         - dry_run
-    ForestChainExportReceiptsEventsParams:
-      type: object
-      properties:
-        epoch:
-          type: integer
-          format: int64
-        output_path:
-          type: string
-        recent_roots:
-          type: integer
-          format: int64
-        tipset_keys:
-          $ref: "#/components/schemas/Nullable_Array_of_Cid"
-          default: ~
-      required:
-        - epoch
-        - recent_roots
-        - output_path
     GethCallFrame:
       description: "Geth-style nested call frame returned by the `callTracer`."
       type: object
