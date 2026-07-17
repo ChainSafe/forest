@@ -273,7 +273,8 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     }
 }
 
-/// For internal testing only. Generate this snapshot with `Forest.ChainExport` by setting `augmented_data: true`
+#[allow(dead_code)]
+/// For dev testing only. Uncomment method registration in `src/rpc/mod.rs` to enable
 pub enum ForestChainExportReceiptsEvents {}
 impl RpcMethod<1> for ForestChainExportReceiptsEvents {
     const NAME: &'static str = "Forest.ChainExportReceiptsEvents";
@@ -1631,6 +1632,7 @@ pub struct ApiMessage {
 
 lotus_json_with_self!(ApiMessage);
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ForestChainExportReceiptsEventsParams {
     pub epoch: ChainEpoch,
