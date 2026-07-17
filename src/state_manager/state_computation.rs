@@ -32,6 +32,25 @@ impl StateManager {
         }
     }
 
+    /// Clears all cached state outputs and traces. Used after repairing corrupted
+    /// computation inputs (e.g. a stale tipset lookup entry): any cached result may have
+    /// been derived from the poisoned data, and the tainted ones cannot be told apart.
+    pub fn clear_tipset_state_caches(&self) {
+        self.cache.clear();
+        self.trace_cache.clear();
+    }
+
+    /// Verifies and repairs the tipset lookup table (see `ChainStore::repair_tipset_lookup`)
+    /// and clears the state caches when anything was repaired: results computed while the
+    /// entries were wrong may be tainted.
+    pub fn repair_tipset_lookup(&self) -> anyhow::Result<usize> {
+        let n_repaired = self.cs.repair_tipset_lookup()?;
+        if n_repaired > 0 {
+            self.clear_tipset_state_caches();
+        }
+        Ok(n_repaired)
+    }
+
     /// State recomputation policy for RPC methods: recomputation is disabled unless explicitly
     /// enabled via the environment.
     fn rpc_state_recompute_policy() -> StateRecomputePolicy {

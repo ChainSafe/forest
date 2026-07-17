@@ -1007,6 +1007,32 @@ impl SyncTask {
                     warn!("Time travelling block detected, skipping tipset for now: {e}");
                     None
                 }
+                // May stem from locally corrupted inputs rather than a bad block — repair
+                // the lookup table and retry only if something was actually wrong.
+                Err(e) if matches!(e, TipsetSyncerError::ParentChainStateMismatch(_)) => {
+                    warn!("Error validating tipset: {e}");
+                    let sm = state_manager.shallow_clone();
+                    match tokio::task::spawn_blocking(move || sm.repair_tipset_lookup())
+                        .await
+                        .unwrap_or_else(|e| Err(e.into()))
+                    {
+                        // A verified-clean table means the mismatch is genuine.
+                        Ok(0) => Some(SyncEvent::BadTipset(tipset)),
+                        Ok(repaired) => {
+                            warn!(
+                                "Repaired {repaired} tipset lookup entries; retrying tipset validation at epoch {}",
+                                tipset.epoch()
+                            );
+                            None
+                        }
+                        // The table could not be verified; retry later rather than risk
+                        // marking a canonical tipset bad on incomplete knowledge.
+                        Err(e) => {
+                            warn!("Failed to repair tipset lookup table: {e:#}");
+                            None
+                        }
+                    }
+                }
                 Err(e) => {
                     warn!("Error validating tipset: {e}");
                     Some(SyncEvent::BadTipset(tipset))
