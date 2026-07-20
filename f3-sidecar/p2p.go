@@ -34,7 +34,7 @@ func createP2PHost(ctx context.Context, networkName string) (*P2PHost, error) {
 		dht.DisableProviders(),
 		dht.DisableValues(),
 	}
-	hostDHT, err := dht.New(ctx, host, dhtOpts...)
+	hostDHT, err := dht.New(host, dhtOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func createP2PHost(ctx context.Context, networkName string) (*P2PHost, error) {
 		dht.DisableProviders(),
 		dht.DisableValues(),
 	}
-	backupHostDHT, err := dht.New(ctx, host, backupDHTOpts...)
+	backupHostDHT, err := dht.New(host, backupDHTOpts...)
 	if err != nil {
 		return nil, err
 	}
