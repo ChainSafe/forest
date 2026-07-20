@@ -9,14 +9,12 @@ The following measurements were taken while a Forest node and a Lotus node handl
 
 ## Environment
 
-The measurements cover the following node builds:
+Node builds and hardware used for these measurements:
 
-| Node   | Version      | Commit        |
-| ------ | ------------ | ------------- |
-| Forest | `0.34.1`     | `git.0ba362e` |
-| Lotus  | `1.36.1-rc1` | `git.45eade8` |
-
-Hardware: Intel / 8 `vCPUs` / 32 GB RAM / 640 GB disk
+| Node   | Version      | Commit        | vCPUs | RAM   |
+| ------ | ------------ | ------------- | ----- | ----- |
+| Forest | `0.34.1`     | `git.0ba362e` | 12    | 64 GB |
+| Lotus  | `1.36.1-rc1` | `git.45eade8` | 12    | 80 GB |
 
 ## RPC latency
 
@@ -96,7 +94,7 @@ Concurrency followed from the latency difference: Forest kept fewer requests in 
 
 ## Resource usage
 
-While serving this workload, Forest used approximately 10-15% CPU, and Lotus used approximately 45-55%, briefly spiking to about 80% during the higher-load period. Forest's CPU trace was also less variable.
+While serving this workload, Forest used approximately 10-15% CPU, and Lotus used approximately 45-55%, briefly spiking to about 80% during the higher-load period. Forest's CPU trace was also less variable. This usage suggests Forest would likely run comfortably on 2-4 `vCPUs`.
 
 ![CPU usage](/img/reports/rpc_comparison/cpu.png)
 
