@@ -534,7 +534,7 @@ pub fn forest_car_with_filename_suffix(path: &Path, suffix: &str) -> anyhow::Res
     anyhow::ensure!(!suffix.is_empty(), "suffix cannot be empty");
     let file_name = path.file_name().and_then(|n| n.to_str()).with_context(|| {
         format!(
-            "failed to extract filename from the give path: {}",
+            "failed to extract filename from the given path: {}",
             path.display()
         )
     })?;
@@ -671,11 +671,14 @@ mod tests {
 
     #[rstest]
     #[case(
-        Path::new("/tmp/a.forst.car.zst"),
-        Path::new("/tmp/a.forst.car.zst.tmp")
+        Path::new("/tmp/a.forest.car.zst"),
+        Path::new("/tmp/a.forest.car.zst.tmp")
     )]
-    #[case(Path::new("tmp/a.forst.car.zst"), Path::new("tmp/a.forst.car.zst.tmp"))]
-    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.tmp"))]
+    #[case(
+        Path::new("tmp/a.forest.car.zst"),
+        Path::new("tmp/a.forest.car.zst.tmp")
+    )]
+    #[case(Path::new("a.forest.car.zst"), Path::new("a.forest.car.zst.tmp"))]
     #[case(Path::new(""), Path::new(""))]
     #[case(Path::new("."), Path::new("."))]
     fn test_tmp_exporting_forest_car_path(#[case] input: &Path, #[case] output: &Path) {
@@ -684,14 +687,14 @@ mod tests {
 
     #[rstest]
     #[case(
-        Path::new("/tmp/a.forst.car.zst"),
-        Path::new("/tmp/a.forst.car.zst.sha256sum")
+        Path::new("/tmp/a.forest.car.zst"),
+        Path::new("/tmp/a.forest.car.zst.sha256sum")
     )]
     #[case(
-        Path::new("tmp/a.forst.car.zst"),
-        Path::new("tmp/a.forst.car.zst.sha256sum")
+        Path::new("tmp/a.forest.car.zst"),
+        Path::new("tmp/a.forest.car.zst.sha256sum")
     )]
-    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.sha256sum"))]
+    #[case(Path::new("a.forest.car.zst"), Path::new("a.forest.car.zst.sha256sum"))]
     #[case(Path::new(""), Path::new(""))]
     #[case(Path::new("."), Path::new("."))]
     fn test_forest_car_sha256sum_path(#[case] input: &Path, #[case] output: &Path) {
@@ -700,14 +703,14 @@ mod tests {
 
     #[rstest]
     #[case(
-        Path::new("/tmp/a.forst.car.zst"),
+        Path::new("/tmp/a.forest.car.zst"),
         "_suffix",
-        Path::new("/tmp/a_suffix.forst.car.zst")
+        Path::new("/tmp/a_suffix.forest.car.zst")
     )]
     #[case(
-        Path::new("a.forst.car.zst"),
+        Path::new("a.forest.car.zst"),
         "_suffix",
-        Path::new("a_suffix.forst.car.zst")
+        Path::new("a_suffix.forest.car.zst")
     )]
     #[case(Path::new("a"), "_suffix", Path::new("a_suffix"))]
     fn test_forest_car_with_filename_suffix_valid(
@@ -722,7 +725,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case(Path::new("/tmp/a.forst.car.zst"), "", "suffix cannot be empty")]
+    #[case(Path::new("/tmp/a.forest.car.zst"), "", "suffix cannot be empty")]
     #[case(Path::new("."), "_suffix", "failed to extract filename")]
     fn test_forest_car_with_filename_suffix_invalid(
         #[case] input: &Path,

@@ -577,14 +577,6 @@ impl<DB: Blockstore, S: CidHashSetLike> Stream for IpldStream<DB, S> {
     }
 }
 
-pin_project! {
-    pub struct MessageReceiptsEventsStream<DB, S> {
-        db: DB,
-        cid_vec: Vec<Cid>,
-        seen: S,
-    }
-}
-
 fn ipld_to_cid(ipld: Ipld) -> Option<Cid> {
     if let Ipld::Link(cid) = ipld {
         Some(cid)

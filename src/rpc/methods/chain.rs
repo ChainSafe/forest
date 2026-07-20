@@ -420,21 +420,30 @@ impl RpcMethod<1> for ForestChainExport {
                     match (tipset_lookup, hamt) {
                         (true, Some(hamt)) => {
                             let mut hamt =
-                                hamt.context("failed to generated tipset lookup snapshot")?;
+                                hamt.context("failed to generate tipset lookup snapshot")?;
                             let roots = nunny::vec![hamt.flush()?];
                             let hamt_output_path =
                                 forest_car_with_filename_suffix(&output_path, "_tipset_lookup")?;
-                            let mut writer = if dry_run {
-                                tokio_util::either::Either::Left(VoidAsyncWriter)
+                            let (mut writer, hamt_output_tmp_path) = if dry_run {
+                                (tokio_util::either::Either::Left(VoidAsyncWriter), None)
                             } else {
-                                tokio_util::either::Either::Right(
-                                    tokio::fs::File::create(&hamt_output_path).await?,
+                                let tmp_path = tempfile::TempPath::try_from_path(
+                                    tmp_exporting_forest_car_path(&hamt_output_path),
+                                )?;
+                                (
+                                    tokio_util::either::Either::Right(
+                                        tokio::fs::File::create(&tmp_path).await?,
+                                    ),
+                                    Some(tmp_path),
                                 )
                             };
                             hamt.into_store()
                                 .export_forest_car(roots, &mut writer)
                                 .await
                                 .context("failed to write tipset lookup snapshot")?;
+                            if let Some(hamt_output_tmp_path) = hamt_output_tmp_path {
+                                hamt_output_tmp_path.persist(hamt_output_path)?;
+                            }
                         }
                         (true, None) => {
                             anyhow::bail!("requested tipset lookup snapshot is missing")
@@ -453,11 +462,17 @@ impl RpcMethod<1> for ForestChainExport {
                         // mainnet  6193120+2000: 5s  12MiB
                         let augmented_data_output_path =
                             forest_car_with_filename_suffix(&output_path, "_receipts_events")?;
-                        let writer = if dry_run {
-                            tokio_util::either::Either::Left(VoidAsyncWriter)
+                        let (writer, augmented_data_output_tmp_path) = if dry_run {
+                            (tokio_util::either::Either::Left(VoidAsyncWriter), None)
                         } else {
-                            tokio_util::either::Either::Right(
-                                tokio::fs::File::create(&augmented_data_output_path).await?,
+                            let tmp_path = tempfile::TempPath::try_from_path(
+                                tmp_exporting_forest_car_path(&augmented_data_output_path),
+                            )?;
+                            (
+                                tokio_util::either::Either::Right(
+                                    tokio::fs::File::create(&tmp_path).await?,
+                                ),
+                                Some(tmp_path),
                             )
                         };
                         crate::chain::export_receipts_events_to_forest_car(
@@ -468,6 +483,10 @@ impl RpcMethod<1> for ForestChainExport {
                         )
                         .await
                         .context("failed to export message receipts and events snapshot")?;
+                        if let Some(augmented_data_output_tmp_path) = augmented_data_output_tmp_path
+                        {
+                            augmented_data_output_tmp_path.persist(augmented_data_output_path)?;
+                        }
                     }
                     chain_export_guard.mark_as_succeeded();
                     anyhow::Ok(ApiExportResult::Done)

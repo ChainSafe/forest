@@ -281,23 +281,20 @@ pub async fn export_receipts_events_to_forest_car(
         .chain(db)
         .take_while(|ts| ts.epoch() > min_lookup_epoch_exclusive)
     {
-        for b in ts.block_headers() {
-            let message_receipts_root = b.message_receipts;
-            ipld_roots.push(message_receipts_root);
-            let receipts = Receipt::get_receipts(db, message_receipts_root).with_context(|| {
-                format!(
-                    "failed to get receipts, root: {message_receipts_root}, epoch: {}, block: {}",
-                    b.epoch,
-                    b.cid(),
-                )
-            })?;
-            ipld_roots.extend(receipts.into_iter().filter_map(|r| r.events_root()));
-        }
+        let message_receipts_root = *ts.parent_message_receipts();
+        ipld_roots.push(message_receipts_root);
+        let receipts = Receipt::get_receipts(db, message_receipts_root).with_context(|| {
+            format!(
+                "failed to get receipts, root: {message_receipts_root}, epoch: {}, tipset key: {}",
+                ts.epoch(),
+                ts.key(),
+            )
+        })?;
+        ipld_roots.extend(receipts.into_iter().filter_map(|r| r.events_root()));
     }
 
     let stream = IpldStream::new(db.shallow_clone(), ipld_roots, CidHashSet::default());
 
-    // Wrap writer in optional checksum calculator
     let mut writer = BufWriter::new(writer);
 
     // Stream stateroots in range (stateroot_lookup_limit+1)..=tipset.epoch(). Also

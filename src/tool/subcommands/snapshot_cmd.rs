@@ -285,17 +285,24 @@ impl SnapshotCommands {
                     println!("Verifying lookup checkpoints match the snapshot chain...");
                     let mut n_checkpoints = 0;
                     let mut n_null_checkpoints = 0;
-                    let mut last_checkpoint_ts = None;
+                    let mut null_checkpoint_search_from_ts = head.shallow_clone();
                     for checkpoint in (0..=head.epoch())
                         .filter(|&epoch| ChainIndex::is_tipset_lookup_checkpoint(epoch))
+                        .rev()
                     {
                         if let Some(tsk) = hamt.get(&checkpoint)? {
                             n_checkpoints += 1;
-                            last_checkpoint_ts = Some(Tipset::load_required(&store, tsk).with_context(|| format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}"))?);
-                        } else if let Some(last_checkpoint_ts) = &last_checkpoint_ts {
+                            let ts = Tipset::load_required(&store, tsk).with_context(|| format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}"))?;
+                            anyhow::ensure!(
+                                ts.epoch() == checkpoint,
+                                "tipset mismatch, checkpoint epoch: {checkpoint}, tipset epoch: {}, tipset key: {tsk}",
+                                ts.epoch()
+                            );
+                            null_checkpoint_search_from_ts = ts;
+                        } else {
                             n_null_checkpoints += 1;
                             // verify checkpoint epoch is null
-                            let checkpoint_ts = last_checkpoint_ts
+                            let checkpoint_ts = null_checkpoint_search_from_ts
                                 .shallow_clone()
                                 .chain(&store)
                                 .take_while(|ts| ts.epoch() >= checkpoint)
