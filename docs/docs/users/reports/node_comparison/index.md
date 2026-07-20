@@ -33,7 +33,7 @@ There are three full-node implementations of the Filecoin protocol.
 | Ethereum `trace_call` and `debug_traceTransaction`                | Yes           | No    |
 | Written in Rust 🦀                                                | Yes           | No    |
 
-Forest and Lotus both expose a compatible Filecoin JSON-RPC API (requests and responses use the same JSON format). Forest serves three API versions: `/rpc/v0` (deprecated, legacy Lotus-compatible methods), `/rpc/v1` (stable and recommended for production), and `/rpc/v2` (experimental, still being rolled out). See the [JSON-RPC overview](../../reference/json-rpc/overview.md), [methods reference](../../reference/json-rpc/methods.mdx), and [API conformance report](../api_conformance/report_2026-07-01.md) for supported methods and Lotus API parity.
+Forest and Lotus both expose a compatible Filecoin JSON-RPC API (requests and responses use the same JSON format). Forest supports three API versions: `/rpc/v0` (deprecated; legacy Lotus-compatible methods), `/rpc/v1` (stable and recommended for production), and `/rpc/v2` (experimental; still being rolled out). See the [JSON-RPC overview](../../reference/json-rpc/overview.md), [methods reference](../../reference/json-rpc/methods.mdx), and [API conformance report](../api_conformance/report_2026-07-01.md) for supported methods and Lotus API parity.
 
 ## Performance
 
