@@ -52,6 +52,7 @@ use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
+use std::time::Duration;
 use store::*;
 use tokio_util::task::AbortOnDropHandle;
 
@@ -120,6 +121,9 @@ pub struct EthEventHandler {
     pub filter_store: Option<Arc<dyn FilterStore>>,
     pub max_filter_results: usize,
     pub max_filter_height_range: ChainEpoch,
+    /// Filters idle for longer than this are removed,
+    /// `None` disables expiry.
+    filter_ttl: Option<Duration>,
     event_filter_manager: Option<Arc<EventFilterManager>>,
     tipset_filter_manager: Option<Arc<TipSetFilterManager>>,
     mempool_filter_manager: Option<Arc<MempoolFilterManager>>,
@@ -173,6 +177,8 @@ impl EthEventHandler {
                 }
             })
             .unwrap_or(config.max_filter_height_range);
+        let filter_ttl_secs: u64 = env_or_default("FOREST_FILTER_TTL_SECS", config.filter_ttl_secs);
+        let filter_ttl = (filter_ttl_secs > 0).then(|| Duration::from_secs(filter_ttl_secs));
         let filter_store: Option<Arc<dyn FilterStore>> =
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new());
@@ -187,10 +193,48 @@ impl EthEventHandler {
             filter_store,
             max_filter_results,
             max_filter_height_range,
+            filter_ttl,
             event_filter_manager,
             tipset_filter_manager,
             mempool_filter_manager,
         }
+    }
+
+    /// One sweep pass: removes every filter idle for longer than the configured
+    /// TTL from the store and from its manager. No-op when expiry is disabled.
+    #[allow(dead_code)] // called by the periodic sweep task in the follow-up PR
+    fn sweep_expired(&self) {
+        let Some(ttl) = self.filter_ttl else {
+            return;
+        };
+        let Some(filter_store) = &self.filter_store else {
+            return;
+        };
+        let expired = filter_store.remove_expired(ttl);
+        for filter in &expired {
+            if let Err(e) = self.remove_from_manager(filter.as_ref()) {
+                tracing::warn!(
+                    "Failed to remove expired eth filter {:?} from its manager: {e:#}",
+                    filter.id()
+                );
+            }
+        }
+        if !expired.is_empty() {
+            tracing::debug!("Expired {} idle eth filter(s)", expired.len());
+        }
+    }
+
+    /// Completes an install: adds `filter` to the store and returns its id,
+    /// rolling the manager registration back when the store rejects it (e.g.
+    /// at the filter cap).
+    fn register_filter(&self, filter: Arc<dyn Filter>) -> Result<FilterID, Error> {
+        if let Some(filter_store) = &self.filter_store
+            && let Err(err) = filter_store.add(filter.clone())
+        {
+            self.remove_from_manager(filter.as_ref())?;
+            bail!("Adding filter failed: {}", err);
+        }
+        Ok(filter.id().clone())
     }
 
     // Installs an eth filter based on given filter spec.
@@ -208,16 +252,7 @@ impl EthEventHandler {
                 .install(pf)
                 .context("Installation error")?;
 
-            if let Some(filter_store) = &self.filter_store
-                && let Err(err) = filter_store.add(filter.clone())
-            {
-                ensure!(
-                    event_filter_manager.remove(filter.id()).is_some(),
-                    "Filter not found"
-                );
-                bail!("Adding filter failed: {}", err);
-            }
-            Ok(filter.id().clone())
+            self.register_filter(filter)
         } else {
             Err(Error::msg("NotSupported"))
         }
@@ -229,13 +264,7 @@ impl EthEventHandler {
     ) -> Result<FilterID, Error> {
         if let Some(manager) = filter_manager {
             let filter = manager.install().context("Installation error")?;
-            if let Some(filter_store) = &self.filter_store
-                && let Err(err) = filter_store.add(filter.clone())
-            {
-                ensure!(manager.remove(filter.id()).is_some(), "Filter not found");
-                bail!("Adding filter failed: {}", err);
-            }
-            Ok(filter.id().clone())
+            self.register_filter(filter)
         } else {
             Err(Error::msg("NotSupported"))
         }
@@ -251,7 +280,8 @@ impl EthEventHandler {
         self.install_filter(self.mempool_filter_manager.as_deref().map(|fm| fm as _))
     }
 
-    fn uninstall_filter(&self, filter: Arc<dyn Filter>) -> Result<(), Error> {
+    /// Removes `filter` from whichever manager matches its concrete type.
+    fn remove_from_manager(&self, filter: &dyn Filter) -> Result<(), Error> {
         let id = filter.id();
 
         if filter.as_any().is::<EventFilter>() {
@@ -274,13 +304,17 @@ impl EthEventHandler {
                 .context("Failed to remove mempool filter")?;
         }
 
+        Ok(())
+    }
+
+    fn uninstall_filter(&self, filter: Arc<dyn Filter>) -> Result<(), Error> {
         self.filter_store
             .as_ref()
             .context("Filter store is missing")?
-            .remove(id)
+            .remove(filter.id())
             .context("Failed to remove filter from store")?;
 
-        Ok(())
+        self.remove_from_manager(filter.as_ref())
     }
 
     pub fn eth_uninstall_filter(&self, id: &FilterID) -> Result<bool, Error> {
@@ -902,8 +936,8 @@ mod tests {
         assert!(parsed.addresses.is_empty());
     }
 
-    #[test]
-    fn test_eth_new_filter_with_none_address() {
+    #[tokio::test]
+    async fn test_eth_new_filter_with_none_address() {
         let eth_event_handler = EthEventHandler::new();
 
         let filter_spec = EthFilterSpec {
@@ -1209,8 +1243,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_eth_new_filter() {
+    #[tokio::test]
+    async fn test_eth_new_filter() {
         let eth_event_handler = EthEventHandler::new();
 
         let filter_spec = EthFilterSpec {
@@ -1229,8 +1263,8 @@ mod tests {
         assert!(result.is_ok(), "Expected successful filter creation");
     }
 
-    #[test]
-    fn test_eth_new_block_filter() {
+    #[tokio::test]
+    async fn test_eth_new_block_filter() {
         let eth_event_handler = EthEventHandler::new();
         let result = eth_event_handler.eth_new_block_filter();
 
@@ -1273,6 +1307,70 @@ mod tests {
             let result = event_handler.eth_uninstall_filter(&filter_id).unwrap();
             assert!(result, "Uninstalling filter with id {filter_id:?} failed");
         }
+    }
+
+    const TEST_TTL: Duration = Duration::from_hours(1);
+
+    /// Handler whose filters expire after `ttl` without being polled.
+    fn handler_with_ttl(ttl: Duration) -> EthEventHandler {
+        EthEventHandler::from_config(
+            &EventsConfig {
+                filter_ttl_secs: ttl.as_secs(),
+                ..Default::default()
+            },
+            crate::networks::mainnet::ETH_CHAIN_ID,
+            MpoolSubscriber::dummy(),
+        )
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn sweep_expired_removes_idle_filters_of_every_type() {
+        let handler = handler_with_ttl(TEST_TTL);
+        let event_id = handler
+            .eth_new_filter(&EthFilterSpec::default(), 0)
+            .unwrap();
+        let block_id = handler.eth_new_block_filter().unwrap();
+        let pending_id = handler.eth_new_pending_transaction_filter().unwrap();
+
+        // everything has been idle for longer than the TTL
+        tokio::time::advance(TEST_TTL + Duration::from_secs(1)).await;
+        handler.sweep_expired();
+
+        // the filters are gone from the store...
+        let store = handler.filter_store.as_ref().unwrap();
+        for id in [&event_id, &block_id, &pending_id] {
+            assert!(store.get(id).is_err(), "filter {id:?} should be expired");
+        }
+        // ...and from their managers
+        let event_manager = handler.event_filter_manager.as_ref().unwrap();
+        assert!(event_manager.remove(&event_id).is_none());
+        let tipset_manager = handler.tipset_filter_manager.as_ref().unwrap();
+        assert!(tipset_manager.remove(&block_id).is_none());
+        let mempool_manager = handler.mempool_filter_manager.as_ref().unwrap();
+        assert!(mempool_manager.remove(&pending_id).is_none());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn sweep_expired_spares_recently_polled_filters() {
+        let handler = handler_with_ttl(TEST_TTL);
+        let polled_id = handler.eth_new_block_filter().unwrap();
+        let idle_id = handler.eth_new_block_filter().unwrap();
+        let store = handler.filter_store.as_ref().unwrap();
+
+        // poll one filter 45 minutes in
+        tokio::time::advance(Duration::from_mins(45)).await;
+        store.get(&polled_id).unwrap();
+
+        // 30 minutes later, the never-polled filter has crossed the TTL
+        // (75 minutes idle) while the polled one has not (30 minutes idle)
+        tokio::time::advance(Duration::from_mins(30)).await;
+        handler.sweep_expired();
+
+        assert!(store.get(&idle_id).is_err(), "idle filter should expire");
+        assert!(
+            store.get(&polled_id).is_ok(),
+            "recently polled filter must survive"
+        );
     }
 
     #[test]
