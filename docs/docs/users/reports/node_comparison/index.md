@@ -7,7 +7,7 @@ title: Filecoin Node Comparison
 
 There are several full-node implementations of the Filecoin protocol.
 
-- **[Forest](https://github.com/ChainSafe/forest)** is written in Rust and maintained by [ChainSafe Systems](https://chainsafe.io). It focuses on chain validation, a high-performance RPC API, and snapshot generation with low hardware requirements.
+- **[Forest](https://github.com/ChainSafe/forest)** is written in Rust and maintained by [ChainSafe Systems](https://chainsafe.io). It focuses on chain validation, a high-performance RPC API, and snapshot generation, all with low hardware requirements.
 - **[Lotus](https://github.com/filecoin-project/lotus)** is the reference implementation, written in Go. It provides the complete Filecoin feature set, including the storage-provider stack, and is typically where new protocol features land first.
 - **[Venus](https://github.com/filecoin-project/venus)** is a modular Go implementation. Rather than a single daemon, it is a set of independently deployable components (`venus`, `damocles`, `sophon-miner`, `venus-wallet`, `sophon-messager`, `sophon-auth`, `sophon-gateway`) that together pioneered Filecoin's distributed storage pool model, with a largely Lotus-compatible API. It aims to help small and medium-sized storage providers join the Filecoin network with a lower barrier to entry.
 
@@ -37,4 +37,4 @@ Forest and Lotus both expose a compatible Filecoin JSON-RPC API (requests and re
 
 ## Performance
 
-For a comparable RPC workload, Forest served requests at lower latency while using less CPU and memory than Lotus, and it exports a snapshot significantly faster and with lower hardware requirements. See the [RPC Performance Comparison](./rpc_comparison.md) and [Snapshot Generation Comparison](./snapshot_comparison.md) for the full figures and methodology.
+For a comparable RPC workload, Forest serves requests at lower latency while using less CPU and memory than Lotus, and it exports snapshots significantly faster and with lower hardware requirements. See the [RPC Performance Comparison](./rpc_comparison.md) and [Snapshot Generation Comparison](./snapshot_comparison.md) for the full figures and methodology.

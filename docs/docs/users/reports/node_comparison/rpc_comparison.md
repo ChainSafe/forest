@@ -5,7 +5,7 @@ title: RPC Performance Comparison
 
 # RPC Performance: Forest vs Lotus
 
-The following measurements were taken while a Forest node and a Lotus node handled a similar stream of real RPC provider traffic during the same window. Because both nodes served an almost identical request stream, the differences below are attributable to the nodes rather than to uneven load. The "Comparable load" section documents the checks used to support that assumption.
+The following measurements were taken while a Forest node and a Lotus node handled a similar stream of real RPC provider traffic during the same time window. Because both nodes served an almost identical request stream, the differences below are attributable to the nodes themselves rather than to uneven load. The "Comparable load" section documents the checks used to support that assumption.
 
 ## Environment
 
@@ -24,7 +24,7 @@ Average wall time per HTTP request was approximately 10-15 ms for Forest and 30-
 
 ### Per-flow latency
 
-At the median (P50) the two nodes were close: approximately 7 ms for Forest and 8 ms for Lotus. The difference was larger in the tail. At P95, Forest stayed near 50 ms and rose to roughly 115 ms under load, while Lotus stayed around 70-85 ms and reached roughly 185 ms. At P99, Forest held around 200 ms and rose to about 350 ms, while Lotus ranged from approximately 240 ms to a peak near 600 ms.
+At the median (P50), the two nodes were close: approximately 7 ms for Forest and 8 ms for Lotus. The difference was larger in the tail. At P95, Forest stayed near 50 ms and rose to roughly 115 ms under load, while Lotus stayed around 70-85 ms and reached roughly 185 ms. At P99, Forest held around 200 ms and rose to about 350 ms, while Lotus ranged from approximately 240 ms to a peak near 600 ms.
 
 <p align="center">
   <img
