@@ -311,7 +311,7 @@ impl RpcMethod<1> for ForestChainExportReceiptsEvents {
         crate::chain::export_receipts_events_to_forest_car(
             ctx.db(),
             &start_ts,
-            recent_roots,
+            recent_roots.into(),
             writer,
         )
         .await?;
@@ -1636,7 +1636,7 @@ lotus_json_with_self!(ApiMessage);
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ForestChainExportReceiptsEventsParams {
     pub epoch: ChainEpoch,
-    pub recent_roots: i64,
+    pub recent_roots: u32,
     pub output_path: PathBuf,
     #[schemars(with = "LotusJson<ApiTipsetKey>")]
     #[serde(with = "crate::lotus_json", default)]

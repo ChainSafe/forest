@@ -87,15 +87,20 @@ pub enum SnapshotCommands {
     },
 
     /// Validate a snapshot's associated augmented and tipset lookup snapshots.
+    #[command(group(
+        clap::ArgGroup::new("aug")
+        .required(true)
+        .multiple(true),
+    ))]
     ValidateExtended {
         /// Path to a snapshot CAR, which may be zstd compressed
         #[arg(long)]
         base: PathBuf,
         /// Path to the associated augmented snapshot (message receipts and events)
-        #[arg(long)]
+        #[arg(long, group = "aug")]
         augmented: Option<PathBuf>,
         /// Path to the associated tipset lookup snapshot
-        #[arg(long)]
+        #[arg(long, group = "aug")]
         tipset_lookup: Option<PathBuf>,
     },
 
@@ -220,10 +225,6 @@ impl SnapshotCommands {
                 augmented,
                 tipset_lookup,
             } => {
-                anyhow::ensure!(
-                    augmented.is_some() || tipset_lookup.is_some(),
-                    "either `--augmented` or `--tipset-lookup` needs to be specified"
-                );
                 let store = ManyCar::new(MemoryDB::default())
                     .with_read_only(AnyCar::try_from(base.as_path())?)?;
                 if let Some(augmented) = &augmented {
