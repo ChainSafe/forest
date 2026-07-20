@@ -15,18 +15,12 @@ Forest plays an important role in timely, efficient network snapshot generation:
   />
 </p>
 
-Forest `0.33.6` finished the export in 34 minutes using 32 GiB of RAM. Lotus `1.36.0` took 450 minutes (about `13x` slower) with 128 GiB, and 232 minutes (about `7x` slower) even with 256 GiB. Forest also needs less than half the disk space for the resulting snapshot. The table below compares a basic snapshot export across implementations.
-
-|        | Required disk space [GiB] | RAM [GiB] | Export duration [minutes] |
-| ------ | ------------------------- | --------- | ------------------------- |
-| Forest | 200                       | 32        | 34                        |
-| Lotus  | 450                       | 128       | 450                       |
-| Lotus  | 450                       | 256       | 232                       |
-
 Both implementations produce compatible snapshots and can consume snapshots produced by the other.
 
 :::note
 Lotus snapshots are not compressed by default; Forest compresses them as part of the export. Both implementations can consume compressed snapshots. Compressing a Lotus snapshot after generation is possible but adds further to the total time.
+
+Forest snapshots (`.forest.car.zst`) also embed an index that lets Forest use the file directly as a read-only blockstore, serving blocks in place without importing them into a database. The index is stored in skippable frames, so Lotus and other tools can still read the snapshot; they just ignore the index. Reading a snapshot in place this way is currently Forest-only.
 :::
 
 ## Related

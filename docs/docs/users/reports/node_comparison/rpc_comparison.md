@@ -9,9 +9,12 @@ The following measurements were taken while a Forest node and a Lotus node handl
 
 ## Environment
 
-The measurements cover Lotus `1.36.1-rc1` and Forest `0.34.1`.
+The measurements cover the following node builds:
 
-![Build info for the compared Forest and Lotus nodes](/img/reports/rpc_comparison/build-info.png)
+| Node   | Version      | Commit        |
+| ------ | ------------ | ------------- |
+| Forest | `0.34.1`     | `git.0ba362e` |
+| Lotus  | `1.36.1-rc1` | `git.45eade8` |
 
 ## RPC latency
 
@@ -79,13 +82,11 @@ The amortized view accounts for batched requests. It shows the same pattern as t
 
 ### Comparable load
 
-The request rates and batch sizes reaching each node were close, which supports comparing the two nodes directly. HTTP request count averaged 45.2 `req/s` for Forest and 45.0 `req/s` for Lotus; batch-aware counts were 20.4 vs 20.3 `req/s`; and average batch size was approximately 1.17 for both. Both nodes therefore processed a comparable amount of work.
+The request rates reaching each node were close, which supports comparing the two nodes directly. HTTP request count averaged 45.2 `req/s` for Forest and 45.0 `req/s` for Lotus, and batch-aware counts were 20.4 vs 20.3 `req/s`. Both nodes therefore received a comparable volume of traffic.
 
 ![Request count (HTTP only)](/img/reports/rpc_comparison/request-count-http.png)
 
 ![Request count (batch-aware)](/img/reports/rpc_comparison/request-count-batch-aware.png)
-
-![Average batch size](/img/reports/rpc_comparison/average-batch-size.png)
 
 Concurrency followed from the latency difference: Forest kept fewer requests in flight at any instant (mean 0.43, peak 4) than Lotus (mean 1.45, peak 8).
 

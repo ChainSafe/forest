@@ -13,19 +13,27 @@ There are several full-node implementations of the Filecoin protocol.
 
 ## Feature comparison
 
-| Capability                                                 | Forest        | Lotus |
-| ---------------------------------------------------------- | ------------- | ----- |
-| Chain synchronization and validation                       | Yes           | Yes   |
-| Filecoin JSON-RPC API                                      | Yes           | Yes   |
-| Ethereum-compatible RPC (`eth_*`)                          | Yes           | Yes   |
-| Snapshot export                                            | Yes           | Yes   |
-| Built-in wallet                                            | Yes           | Yes   |
-| Bootstrap node                                             | Yes           | Yes   |
-| F3 (Fast Finality) participation                           | Yes           | Yes   |
-| Storage provider / sealing (`lotus-miner`, `lotus-worker`) | No            | Yes   |
-| Block production / mining                                  | No (untested) | Yes   |
+| Capability                                                        | Forest        | Lotus |
+| ----------------------------------------------------------------- | ------------- | ----- |
+| Chain synchronization and validation                              | Yes           | Yes   |
+| Filecoin JSON-RPC API                                             | Yes           | Yes   |
+| Ethereum-compatible RPC (`eth_*`)                                 | Yes           | Yes   |
+| Snapshot export                                                   | Yes           | Yes   |
+| Built-in and standalone wallet (`forest-wallet` / `lotus-wallet`) | Yes           | Yes   |
+| Bootstrap node                                                    | Yes           | Yes   |
+| F3 (Fast Finality) participation                                  | Yes           | Yes   |
+| Built-in health-check endpoints                                   | Yes           | Yes   |
+| Storage provider / sealing (`lotus-miner`, `lotus-worker`)        | No            | Yes   |
+| Block production / mining                                         | No (untested) | Yes   |
+| Single binary for all networks (`--chain`)                        | Yes           | No    |
+| Auto-download snapshot on startup                                 | Yes           | No    |
+| Lite / diff / archival snapshot generation                        | Yes           | No    |
+| Offline RPC server from snapshot (`forest-tool api serve`)        | Yes           | No    |
+| Stateless node mode (`--stateless`)                               | Yes           | No    |
+| Ethereum `trace_call` and `debug_traceTransaction`                | Yes           | No    |
+| Written in Rust 🦀                                                | Yes           | No    |
 
-Forest and Lotus both expose a Lotus-compatible Filecoin JSON-RPC API (requests and responses use the same JSON format). Forest serves three API versions: `/rpc/v0` (deprecated, legacy Lotus-compatible methods), `/rpc/v1` (stable and recommended for production), and `/rpc/v2` (experimental, still being rolled out). Forest does not aim for 100% Lotus API parity: it implements the methods needed for chain validation, RPC serving, and snapshots, but not storage-provider or sealing methods. For the full, per-version list of supported methods, see the [JSON-RPC overview](../../reference/json-rpc/overview.md) and [methods reference](../../reference/json-rpc/methods.mdx).
+Forest and Lotus both expose a compatible Filecoin JSON-RPC API (requests and responses use the same JSON format). Forest serves three API versions: `/rpc/v0` (deprecated, legacy Lotus-compatible methods), `/rpc/v1` (stable and recommended for production), and `/rpc/v2` (experimental, still being rolled out). See the [JSON-RPC overview](../../reference/json-rpc/overview.md), [methods reference](../../reference/json-rpc/methods.mdx), and [API conformance report](../api_conformance/report_2026-07-01.md) for supported methods and Lotus API parity.
 
 ## Performance
 
