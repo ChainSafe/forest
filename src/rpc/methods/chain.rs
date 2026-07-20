@@ -273,55 +273,6 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     }
 }
 
-#[allow(dead_code)]
-/// For dev testing only. Uncomment method registration in `src/rpc/mod.rs` to enable
-pub enum ForestChainExportReceiptsEvents {}
-impl RpcMethod<1> for ForestChainExportReceiptsEvents {
-    const NAME: &'static str = "Forest.ChainExportReceiptsEvents";
-    const PARAM_NAMES: [&'static str; 1] = ["params"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all_with_v2();
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: &'static str =
-        "Exports chain message receipts and events snapshot to a CAR file from the given epoch";
-
-    type Params = (ForestChainExportReceiptsEventsParams,);
-    type Ok = ApiExportResult;
-
-    async fn handle(
-        ctx: Ctx,
-        (params,): Self::Params,
-        _: &http::Extensions,
-    ) -> Result<Self::Ok, ServerError> {
-        let ForestChainExportReceiptsEventsParams {
-            epoch,
-            recent_roots,
-            output_path,
-            tipset_keys: ApiTipsetKey(tsk),
-        } = params;
-
-        let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let start_ts = ctx
-            .chain_index()
-            .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
-            .await?;
-
-        let tmp_path =
-            tempfile::TempPath::try_from_path(tmp_exporting_forest_car_path(&output_path))?;
-        let writer = tokio::fs::File::create(&tmp_path).await?;
-        crate::chain::export_receipts_events_to_forest_car(
-            ctx.db(),
-            &start_ts,
-            recent_roots.into(),
-            writer,
-        )
-        .await?;
-        tmp_path
-            .persist(&output_path)
-            .context("failed to persist the exported message receipts and events snapshot")?;
-        Ok(ApiExportResult::Done)
-    }
-}
-
 pub enum ForestChainExport {}
 impl RpcMethod<1> for ForestChainExport {
     const NAME: &'static str = "Forest.ChainExport";
@@ -1631,18 +1582,6 @@ pub struct ApiMessage {
 }
 
 lotus_json_with_self!(ApiMessage);
-
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct ForestChainExportReceiptsEventsParams {
-    pub epoch: ChainEpoch,
-    pub recent_roots: u32,
-    pub output_path: PathBuf,
-    #[schemars(with = "LotusJson<ApiTipsetKey>")]
-    #[serde(with = "crate::lotus_json", default)]
-    pub tipset_keys: ApiTipsetKey,
-}
-lotus_json_with_self!(ForestChainExportReceiptsEventsParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ForestChainExportParams {

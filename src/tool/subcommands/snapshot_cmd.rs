@@ -239,6 +239,7 @@ impl SnapshotCommands {
                     let head = store.heaviest_tipset()?;
                     let mut n_ts = 0;
                     for ts in head.shallow_clone().chain(&store) {
+                        // Validate only when state trees present
                         if !store.has(ts.parent_state())? {
                             break;
                         }
