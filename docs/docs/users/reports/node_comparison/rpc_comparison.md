@@ -16,6 +16,8 @@ The measurements cover the following node builds:
 | Forest | `0.34.1`     | `git.0ba362e` |
 | Lotus  | `1.36.1-rc1` | `git.45eade8` |
 
+Hardware: Intel / 8 vCPUs / 32 GB RAM / 640 GB disk
+
 ## RPC latency
 
 Average wall time per HTTP request was approximately 10-15 ms for Forest and 30-50 ms for Lotus over most of the measurement window. Both traces rose toward the end as load increased, with Forest reaching about 30 ms and Lotus about 48 ms.

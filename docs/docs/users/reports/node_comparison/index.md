@@ -5,7 +5,7 @@ title: Filecoin Node Comparison
 
 # Filecoin Node Comparison
 
-There are several full-node implementations of the Filecoin protocol.
+There are three full-node implementations of the Filecoin protocol.
 
 - **[Forest](https://github.com/ChainSafe/forest)** is written in Rust and maintained by [ChainSafe Systems](https://chainsafe.io). It focuses on chain validation, a high-performance RPC API, and snapshot generation, all with low hardware requirements.
 - **[Lotus](https://github.com/filecoin-project/lotus)** is the reference implementation, written in Go. It provides the complete Filecoin feature set, including the storage-provider stack, and is typically where new protocol features land first.
