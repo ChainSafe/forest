@@ -16,11 +16,11 @@ The measurements cover the following node builds:
 | Forest | `0.34.1`     | `git.0ba362e` |
 | Lotus  | `1.36.1-rc1` | `git.45eade8` |
 
-Hardware: Intel / 8 vCPUs / 32 GB RAM / 640 GB disk
+Hardware: Intel / 8 `vCPUs` / 32 GB RAM / 640 GB disk
 
 ## RPC latency
 
-Average wall time per HTTP request was approximately 10-15 ms for Forest and 30-50 ms for Lotus over most of the measurement window. Both traces rose toward the end as load increased, with Forest reaching about 30 ms and Lotus about 48 ms.
+Average wall time per HTTP request was approximately 10-15 ms for Forest and 30-50 ms for Lotus over most of the measurement window. Both traces rose toward the end as the load increased, with Forest reaching about 30 ms and Lotus about 48 ms.
 
 ![Average wall time per HTTP request](/img/reports/rpc_comparison/wall-time-per-http-request.png)
 
@@ -84,7 +84,7 @@ The amortized view accounts for batched requests. It shows the same pattern as t
 
 ### Comparable load
 
-The request rates reaching each node were close, which supports comparing the two nodes directly. HTTP request count averaged 45.2 `req/s` for Forest and 45.0 `req/s` for Lotus, and batch-aware counts were 20.4 vs 20.3 `req/s`. Both nodes therefore received a comparable volume of traffic.
+The request rates reaching each node were similar, supporting a direct comparison between the two nodes. HTTP request counts averaged 45.2 `req/s` for Forest and 45.0 `req/s` for Lotus, with batch-aware counts at 20.4 and 20.3 `req/s`, respectively. Both nodes, therefore, received a comparable volume of traffic.
 
 ![Request count (HTTP only)](/img/reports/rpc_comparison/request-count-http.png)
 
@@ -96,7 +96,7 @@ Concurrency followed from the latency difference: Forest kept fewer requests in 
 
 ## Resource usage
 
-While serving this workload, Forest used approximately 10-15% CPU and Lotus used approximately 45-55%, briefly spiking to about 80% during the higher-load period. Forest's CPU trace was also less variable.
+While serving this workload, Forest used approximately 10-15% CPU, and Lotus used approximately 45-55%, briefly spiking to about 80% during the higher-load period. Forest's CPU trace was also less variable.
 
 ![CPU usage](/img/reports/rpc_comparison/cpu.png)
 
