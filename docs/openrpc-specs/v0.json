@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.34.0"
+    "version": "0.34.1"
   },
   "methods": [
     {
@@ -6136,7 +6136,7 @@
               "integer",
               "null"
             ],
-            "format": "uint",
+            "format": "uint32",
             "minimum": 1
           }
         },
