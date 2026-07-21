@@ -769,6 +769,7 @@ impl F3LeaseManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::encoding::hex;
     use base64::prelude::*;
 
     #[test]

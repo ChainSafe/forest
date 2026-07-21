@@ -175,6 +175,8 @@ fn generate_winning_post_sector_challenge(
 }
 
 pub mod state_compute {
+    #[cfg(test)]
+    use crate::utils::encoding::hex;
     use crate::{
         blocks::{FullTipset, Tipset},
         chain::store::ChainStore,
