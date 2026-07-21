@@ -275,30 +275,36 @@ pub async fn export_receipts_events_to_forest_car(
     );
 
     let min_lookup_epoch_exclusive = tipset.epoch() - lookup_depth;
-    let mut ipld_roots = vec![];
-    for ts in tipset
-        .shallow_clone()
-        .chain(db)
-        .take_while(|ts| ts.epoch() > min_lookup_epoch_exclusive)
-    {
-        let message_receipts_root = *ts.parent_message_receipts();
-        ipld_roots.push(message_receipts_root);
-        let receipts = Receipt::get_receipts(db, message_receipts_root).with_context(|| {
-            format!(
-                "failed to get receipts, root: {message_receipts_root}, epoch: {}, tipset key: {}",
-                ts.epoch(),
-                ts.key(),
-            )
-        })?;
-        ipld_roots.extend(receipts.into_iter().filter_map(|r| r.events_root()));
-    }
+    let ipld_roots = tokio::task::spawn_blocking({
+        let tipset = tipset.shallow_clone();
+        let db = db.shallow_clone();
+        move || {
+            let mut ipld_roots = vec![];
+            for ts in tipset
+                .chain(&db)
+                .take_while(|ts| ts.epoch() > min_lookup_epoch_exclusive)
+            {
+                let message_receipts_root = *ts.parent_message_receipts();
+                ipld_roots.push(message_receipts_root);
+                let receipts = Receipt::get_receipts(&db, message_receipts_root).with_context(|| {
+                    format!(
+                        "failed to get receipts, root: {message_receipts_root}, epoch: {}, tipset key: {}",
+                        ts.epoch(),
+                        ts.key(),
+                    )
+                })?;
+                ipld_roots.extend(receipts.into_iter().filter_map(|r| r.events_root()));
+            }
+            anyhow::Ok(ipld_roots)
+        }
+    })
+    .await??;
 
     let stream = IpldStream::new(db.shallow_clone(), ipld_roots, CidHashSet::default());
 
     let mut writer = BufWriter::new(writer);
 
-    // Stream stateroots in range (stateroot_lookup_limit+1)..=tipset.epoch(). Also
-    // stream all block headers until genesis.
+    // Stream message receipts and events in range (stateroot_lookup_limit+1)..=tipset.epoch().
     let (blocks, _drop_guard) = par_buffer(
         // Queue 1k blocks. This is enough to saturate the compressor and blocks
         // are small enough that keeping 1k in memory isn't a problem. Average
@@ -309,7 +315,10 @@ pub async fn export_receipts_events_to_forest_car(
     // Encode Ipld key-value pairs in zstd frames
     let block_frames = forest::Encoder::compress_stream_default(blocks);
 
-    // There's no data root for this snapshot, use a default CID as placeholder
+    // There's no data root for this snapshot, use a default CID as placeholder.
+    // Note that the output CAR could only be validated with `forest-tool snapshot validate-extended`.
+    // Another option could be including chain spine in the CAR and use head tipset key as root,
+    // whose downside would be bloating the CAR.
     let roots = nunny::vec![Cid::default()];
 
     // Write zstd frames and include a skippable index

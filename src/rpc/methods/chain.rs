@@ -320,7 +320,7 @@ impl RpcMethod<1> for ForestChainExport {
                 include_receipts,
                 include_events,
                 include_tipset_keys,
-                augmented_data,
+                augmented_snapshot,
                 tipset_lookup,
                 skip_checksum,
                 dry_run,
@@ -455,18 +455,18 @@ impl RpcMethod<1> for ForestChainExport {
                         }
                         _ => {}
                     }
-                    if augmented_data {
+                    if augmented_snapshot {
                         // It takes <10s on mainnet so export it in sequence for simplicity.
                         // Some stats:
                         // calibnet 3895470+2000: 5s  5.4MiB
                         // mainnet  6193120+2000: 5s  12MiB
-                        let augmented_data_output_path =
+                        let augmented_snapshot_output_path =
                             forest_car_with_filename_suffix(&output_path, "_receipts_events")?;
-                        let (writer, augmented_data_output_tmp_path) = if dry_run {
+                        let (writer, augmented_snapshot_output_tmp_path) = if dry_run {
                             (tokio_util::either::Either::Left(VoidAsyncWriter), None)
                         } else {
                             let tmp_path = tempfile::TempPath::try_from_path(
-                                tmp_exporting_forest_car_path(&augmented_data_output_path),
+                                tmp_exporting_forest_car_path(&augmented_snapshot_output_path),
                             )?;
                             (
                                 tokio_util::either::Either::Right(
@@ -483,9 +483,11 @@ impl RpcMethod<1> for ForestChainExport {
                         )
                         .await
                         .context("failed to export message receipts and events snapshot")?;
-                        if let Some(augmented_data_output_tmp_path) = augmented_data_output_tmp_path
+                        if let Some(augmented_snapshot_output_tmp_path) =
+                            augmented_snapshot_output_tmp_path
                         {
-                            augmented_data_output_tmp_path.persist(augmented_data_output_path)?;
+                            augmented_snapshot_output_tmp_path
+                                .persist(augmented_snapshot_output_path)?;
                         }
                     }
                     chain_export_guard.mark_as_succeeded();
@@ -686,7 +688,7 @@ impl RpcMethod<1> for ChainExport {
                 include_receipts: false,
                 include_events: false,
                 include_tipset_keys: false,
-                augmented_data: false,
+                augmented_snapshot: false,
                 tipset_lookup: false,
                 skip_checksum,
                 dry_run,
@@ -1611,15 +1613,17 @@ pub struct ForestChainExportParams {
     #[schemars(with = "LotusJson<ApiTipsetKey>")]
     #[serde(with = "crate::lotus_json", default)]
     pub tipset_keys: ApiTipsetKey,
+    /// Include message receipts in the output snapshot
     #[serde(default)]
     pub include_receipts: bool,
+    /// Include events in the output snapshot
     #[serde(default)]
     pub include_events: bool,
     #[serde(default)]
     pub include_tipset_keys: bool,
-    /// Generate a separate snapshot that contains augmented data
+    /// Generate a separate snapshot that contains augmented data (message receipts and events)
     #[serde(default)]
-    pub augmented_data: bool,
+    pub augmented_snapshot: bool,
     /// Generate a separate snapshot that contains tipset lookup
     #[serde(default)]
     pub tipset_lookup: bool,

@@ -90,7 +90,7 @@ impl SnapshotCommands {
                 tipset,
                 depth,
                 format,
-                augmented_data,
+                augmented_data: augmented_snapshot,
                 tipset_lookup,
             } => {
                 anyhow::ensure!(
@@ -149,7 +149,7 @@ impl SnapshotCommands {
                     include_receipts: false,
                     include_events: false,
                     include_tipset_keys: false,
-                    augmented_data,
+                    augmented_snapshot,
                     tipset_lookup,
                     skip_checksum,
                     dry_run,

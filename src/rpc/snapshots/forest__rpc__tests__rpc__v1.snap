@@ -6496,8 +6496,8 @@ components:
     ForestChainExportParams:
       type: object
       properties:
-        augmented_data:
-          description: Generate a separate snapshot that contains augmented data
+        augmented_snapshot:
+          description: Generate a separate snapshot that contains augmented data (message receipts and events)
           type: boolean
           default: false
         dry_run:
@@ -6506,9 +6506,11 @@ components:
           type: integer
           format: int64
         include_events:
+          description: Include events in the output snapshot
           type: boolean
           default: false
         include_receipts:
+          description: Include message receipts in the output snapshot
           type: boolean
           default: false
         include_tipset_keys:
