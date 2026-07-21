@@ -199,7 +199,7 @@ async fn wait_next_epoch(client: &rpc::Client) -> anyhow::Result<()> {
     let base = client.call(ChainHead::request(())?).await?.epoch();
     tokio::time::timeout(Duration::from_secs(180), async {
         loop {
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
             if client.call(ChainHead::request(())?).await?.epoch() > base {
                 break Ok(());
             }
