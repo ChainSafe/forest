@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(test)]
+mod tests;
+
 use super::*;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
@@ -244,25 +247,23 @@ impl SnapshotCommands {
                             break;
                         }
                         n_ts += 1;
-                        for b in ts.block_headers() {
-                            let message_receipts_root = b.message_receipts;
-                            let receipts = Receipt::get_receipts(&store, message_receipts_root).with_context(|| {
+                        let message_receipts_root = *ts.parent_message_receipts();
+                        let receipts = Receipt::get_receipts(&store, message_receipts_root).with_context(|| {
                                 format!(
-                                    "failed to load receipts, root: {message_receipts_root}, epoch: {}, block: {}",
-                                    b.epoch,
-                                    b.cid(),
+                                    "failed to load receipts, root: {message_receipts_root}, epoch: {}, tipset key: {}",
+                                    ts.epoch(),
+                                    ts.key(),
                                 )
                             })?;
-                            for r in receipts {
-                                if let Some(events_root) = r.events_root() {
-                                    StampedEvent::get_events(&store, &events_root).with_context(|| {
+                        for r in receipts {
+                            if let Some(events_root) = r.events_root() {
+                                StampedEvent::get_events(&store, &events_root).with_context(|| {
                                         format!(
-                                            "failed to load events, root: {events_root}, epoch: {}, block: {}",
-                                            b.epoch,
-                                            b.cid(),
+                                            "failed to load events, root: {events_root}, epoch: {}, tipset key: {}",
+                                            ts.epoch(),
+                                            ts.key(),
                                         )
                                     })?;
-                                }
                             }
                         }
                     }
@@ -278,47 +279,7 @@ impl SnapshotCommands {
                         }
                         hamt_root
                     };
-                    let hamt: Hamt<_, TipsetKey, ChainEpoch> =
-                        Hamt::load_with_bit_width(&hamt_root, &store, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
-                            .context("failed to load tipset lookup HAMT")?;
-                    let head = store.heaviest_tipset()?;
-                    println!("Verifying lookup checkpoints match the snapshot chain...");
-                    let mut n_checkpoints = 0;
-                    let mut n_null_checkpoints = 0;
-                    let mut null_checkpoint_search_from_ts = head.shallow_clone();
-                    for checkpoint in (0..=head.epoch())
-                        .filter(|&epoch| ChainIndex::is_tipset_lookup_checkpoint(epoch))
-                        .rev()
-                    {
-                        if let Some(tsk) = hamt.get(&checkpoint)? {
-                            n_checkpoints += 1;
-                            let ts = Tipset::load_required(&store, tsk).with_context(|| format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}"))?;
-                            anyhow::ensure!(
-                                ts.epoch() == checkpoint,
-                                "tipset mismatch, checkpoint epoch: {checkpoint}, tipset epoch: {}, tipset key: {tsk}",
-                                ts.epoch()
-                            );
-                            null_checkpoint_search_from_ts = ts;
-                        } else {
-                            n_null_checkpoints += 1;
-                            // verify checkpoint epoch is null
-                            let checkpoint_ts = null_checkpoint_search_from_ts
-                                .shallow_clone()
-                                .chain(&store)
-                                .take_while(|ts| ts.epoch() >= checkpoint)
-                                .find(|ts| ts.epoch() == checkpoint);
-                            if let Some(checkpoint_ts) = checkpoint_ts {
-                                anyhow::bail!(
-                                    "checkpoint epoch {} with key {} is missing from tipset lookup snapshot",
-                                    checkpoint_ts.epoch(),
-                                    checkpoint_ts.key()
-                                );
-                            }
-                        }
-                    }
-                    println!(
-                        "Tipset lookup snapshot is valid, {n_checkpoints} checkpoints and {n_null_checkpoints} null checkpoints validated"
-                    );
+                    validate_tipset_lookup_hamt(&store, hamt_root, store.heaviest_tipset()?)?;
                 }
                 Ok(())
             }
@@ -394,6 +355,63 @@ impl SnapshotCommands {
             } => print_computed_state(snapshot, epoch, json).await,
         }
     }
+}
+
+fn validate_tipset_lookup_hamt(
+    store: &impl Blockstore,
+    hamt_root: Cid,
+    head: Tipset,
+) -> anyhow::Result<()> {
+    let hamt: Hamt<_, TipsetKey, ChainEpoch> =
+        Hamt::load_with_bit_width(&hamt_root, &store, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
+            .context("failed to load tipset lookup HAMT")?;
+    hamt.for_each_cacheless(|&epoch, _| {
+        anyhow::ensure!(
+            ChainIndex::is_tipset_lookup_checkpoint(epoch),
+            "tipset lookup table has non checkpoint entries for epoch {epoch}"
+        );
+        Ok(())
+    })?;
+    println!("Verifying lookup checkpoints match the snapshot chain...");
+    let mut n_checkpoints = 0;
+    let mut n_null_checkpoints = 0;
+    let mut null_checkpoint_search_from_ts = head.shallow_clone();
+    for checkpoint in (0..=head.epoch())
+        .filter(|&epoch| ChainIndex::is_tipset_lookup_checkpoint(epoch))
+        .rev()
+    {
+        if let Some(tsk) = hamt.get(&checkpoint)? {
+            n_checkpoints += 1;
+            let ts = Tipset::load_required(&store, tsk).with_context(|| {
+                format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}")
+            })?;
+            anyhow::ensure!(
+                ts.epoch() == checkpoint,
+                "tipset mismatch, checkpoint epoch: {checkpoint}, tipset epoch: {}, tipset key: {tsk}",
+                ts.epoch()
+            );
+            null_checkpoint_search_from_ts = ts;
+        } else {
+            n_null_checkpoints += 1;
+            // verify checkpoint epoch is null
+            let checkpoint_ts = null_checkpoint_search_from_ts
+                .shallow_clone()
+                .chain(&store)
+                .take_while(|ts| ts.epoch() >= checkpoint)
+                .find(|ts| ts.epoch() == checkpoint);
+            if let Some(checkpoint_ts) = checkpoint_ts {
+                anyhow::bail!(
+                    "checkpoint epoch {} with key {} is missing from tipset lookup snapshot",
+                    checkpoint_ts.epoch(),
+                    checkpoint_ts.key()
+                );
+            }
+        }
+    }
+    println!(
+        "Tipset lookup snapshot is valid, {n_checkpoints} checkpoints and {n_null_checkpoints} null checkpoints validated"
+    );
+    Ok(())
 }
 
 // Check the validity of a snapshot by looking at IPLD links, the genesis block,

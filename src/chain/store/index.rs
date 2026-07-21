@@ -443,7 +443,7 @@ impl ChainIndex {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use crate::blocks::{CachingBlockHeader, RawBlockHeader};
     use crate::chain::store::ChainStore;
@@ -457,20 +457,20 @@ mod tests {
         atomic::{AtomicU64, Ordering},
     };
 
-    fn persist_tipset(tipset: &Tipset, db: &impl Blockstore) {
+    pub fn persist_tipset(tipset: &Tipset, db: &impl Blockstore) {
         for block in tipset.block_headers() {
             db.put_cbor_default(block).unwrap();
         }
     }
 
-    fn genesis_tipset() -> Tipset {
+    pub fn genesis_tipset() -> Tipset {
         Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             ticket: dummy_ticket(0),
             ..Default::default()
         }))
     }
 
-    fn tipset_child(parent: &Tipset, epoch: ChainEpoch) -> Tipset {
+    pub fn tipset_child(parent: &Tipset, epoch: ChainEpoch) -> Tipset {
         // Use a static counter to give all tipsets a unique timestamp
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
