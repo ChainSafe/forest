@@ -47,7 +47,7 @@ pub enum SnapshotCommands {
         format: FilecoinSnapshotVersion,
         /// Also exports an augmented data snapshot that contains message receipts and events
         #[arg(long)]
-        augmented_data: bool,
+        augmented_snapshot: bool,
         /// Also exports a tipset lookup HAMT snapshot
         #[arg(long)]
         tipset_lookup: bool,
@@ -90,7 +90,7 @@ impl SnapshotCommands {
                 tipset,
                 depth,
                 format,
-                augmented_data: augmented_snapshot,
+                augmented_snapshot,
                 tipset_lookup,
             } => {
                 anyhow::ensure!(
