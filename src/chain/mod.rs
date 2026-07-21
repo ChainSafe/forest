@@ -301,17 +301,13 @@ pub async fn export_receipts_events_to_forest_car(
     .await??;
 
     let stream = IpldStream::new(db.shallow_clone(), ipld_roots, CidHashSet::default());
-
     let mut writer = BufWriter::new(writer);
-
-    // Stream message receipts and events in range (stateroot_lookup_limit+1)..=tipset.epoch().
     let (blocks, _drop_guard) = par_buffer(
         // Queue 1k blocks. This is enough to saturate the compressor and blocks
         // are small enough that keeping 1k in memory isn't a problem. Average
         // block size is between 1kb and 2kb.
         1024, stream,
     );
-
     // Encode Ipld key-value pairs in zstd frames
     let block_frames = forest::Encoder::compress_stream_default(blocks);
 
