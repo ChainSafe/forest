@@ -161,6 +161,60 @@ mod tests {
     use super::*;
     use ahash::HashSet;
 
+    /// Stress-regression test for the parity-db commit pipeline behind [`FileBackedCidHashSet`].
+    /// Fixed in `parity-db v0.5.6` via <https://github.com/paritytech/parity-db/pull/252>.
+    #[test]
+    #[ignore = "manual stress test; takes minutes"]
+    fn file_backed_insert_hammer() {
+        use crate::utils::multihash::prelude::*;
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+
+        const TARGET: u64 = 60_000_000;
+        const STALL_LIMIT_SECS: u64 = 60;
+
+        let progress = Arc::new(AtomicU64::new(0));
+        let worker = std::thread::spawn({
+            let progress = progress.clone();
+            move || -> anyhow::Result<()> {
+                let mut set = FileBackedCidHashSet::new_in_temp_dir()?;
+                for i in 0..TARGET {
+                    let cid = Cid::new_v1(
+                        fvm_ipld_encoding::DAG_CBOR,
+                        MultihashCode::Blake2b256.digest(&i.to_le_bytes()),
+                    );
+                    anyhow::ensure!(set.insert(cid)?, "cid {i} was not newly inserted");
+                    progress.store(i + 1, Ordering::Relaxed);
+                }
+                Ok(())
+            }
+        });
+
+        let mut last = 0;
+        let mut stalled_for = 0;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            if worker.is_finished() {
+                worker.join().unwrap().unwrap();
+                return;
+            }
+            let current = progress.load(Ordering::Relaxed);
+            if current == last {
+                stalled_for += 5;
+                assert!(
+                    stalled_for < STALL_LIMIT_SECS,
+                    "insert wedged at {current} inserts for {STALL_LIMIT_SECS}s"
+                );
+            } else {
+                stalled_for = 0;
+                eprintln!("{current} inserts");
+            }
+            last = current;
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
     fn test_cid_hashset(cids: HashSet<Cid>) {
         let mut set = CidHashSet::default();
