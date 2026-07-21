@@ -902,12 +902,18 @@ fn eth_new_block_filter() -> RpcTestScenario {
         let result = process_filter(&client, &filter_id).await;
 
         // Cleanup
-        let removed = client
-            .call(EthUninstallFilter::request((filter_id,))?)
-            .await?;
-        anyhow::ensure!(removed);
+        let cleanup: anyhow::Result<()> = async {
+            let removed = client
+                .call(EthUninstallFilter::request((filter_id,))?)
+                .await
+                .context("failed to uninstall filter")?;
+            anyhow::ensure!(removed, "filter was not removed");
+            Ok(())
+        }
+        .await;
 
-        result
+        // A cleanup failure must not mask the original test failure.
+        result.and(cleanup)
     })
 }
 
