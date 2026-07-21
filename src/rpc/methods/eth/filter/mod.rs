@@ -280,7 +280,6 @@ impl EthEventHandler {
         self.install_filter(self.mempool_filter_manager.as_deref().map(|fm| fm as _))
     }
 
-    /// Removes `filter` from whichever manager matches its concrete type.
     fn remove_from_manager(&self, filter: &dyn Filter) -> Result<(), Error> {
         let id = filter.id();
 
@@ -307,24 +306,15 @@ impl EthEventHandler {
         Ok(())
     }
 
-    fn uninstall_filter(&self, filter: Arc<dyn Filter>) -> Result<(), Error> {
-        self.filter_store
-            .as_ref()
-            .context("Filter store is missing")?
-            .remove(filter.id())
-            .context("Failed to remove filter from store")?;
-
-        self.remove_from_manager(filter.as_ref())
-    }
-
+    /// Uninstalls an eth filter.
     pub fn eth_uninstall_filter(&self, id: &FilterID) -> Result<bool, Error> {
         let store = self
             .filter_store
             .as_ref()
             .context("Filter store is not supported")?;
 
-        if let Ok(filter) = store.get(id) {
-            self.uninstall_filter(filter)?;
+        if let Some(filter) = store.remove(id) {
+            self.remove_from_manager(filter.as_ref())?;
             Ok(true)
         } else {
             Ok(false)
@@ -1303,10 +1293,14 @@ mod tests {
         let pending_tx_filter_id = event_handler.eth_new_pending_transaction_filter().unwrap();
         filter_ids.push(pending_tx_filter_id);
 
-        for filter_id in filter_ids {
-            let result = event_handler.eth_uninstall_filter(&filter_id).unwrap();
+        for filter_id in &filter_ids {
+            let result = event_handler.eth_uninstall_filter(filter_id).unwrap();
             assert!(result, "Uninstalling filter with id {filter_id:?} failed");
         }
+
+        // uninstalling an already-removed filter reports `false` instead of erroring
+        let gone = filter_ids.first().unwrap();
+        assert!(!event_handler.eth_uninstall_filter(gone).unwrap());
     }
 
     const TEST_TTL: Duration = Duration::from_hours(1);
