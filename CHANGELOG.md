@@ -31,6 +31,8 @@
 
 ### Added
 
+- [#7376](https://github.com/ChainSafe/forest/pull/7376): Added `--augmented-snapshot` and `--tipset-lookup` to `forest-cli snapshot export`.
+
 ### Changed
 
 ### Removed

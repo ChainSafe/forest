@@ -17,6 +17,7 @@ use ahash::HashMap;
 use indexmap::IndexMap;
 use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
+use tokio::io::AsyncWriteExt as _;
 
 #[derive(Debug, Default)]
 pub struct MemoryDB {
@@ -243,7 +244,6 @@ pub struct IndexMapBlockstore {
 }
 
 impl IndexMapBlockstore {
-    #[allow(dead_code)]
     pub async fn export_forest_car<W: tokio::io::AsyncWrite + Unpin>(
         &self,
         roots: NonEmpty<Cid>,
@@ -271,7 +271,9 @@ impl IndexMapBlockstore {
         };
         let frames =
             crate::db::car::forest::Encoder::compress_stream_default(futures::stream::iter(blocks));
-        crate::db::car::forest::Encoder::write(writer, roots, frames).await
+        crate::db::car::forest::Encoder::write(&mut *writer, roots, frames).await?;
+        writer.flush().await?;
+        Ok(())
     }
 }
 
