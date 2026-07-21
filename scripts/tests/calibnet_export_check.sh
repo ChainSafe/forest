@@ -93,12 +93,16 @@ $FOREST_CLI_PATH shutdown --force
 
 # Check file sizes
 ls -ahl *.forest.car.zst
+
+echo "Verifying snapshot checksum"
+sha256sum --check ./*.sha256sum
+
 # Validate tipset lookup snapshots
 # export and check augmented data once we have receipts and events tipset published and imported
 # for now there's no receipts and events on a freshly bootstrapped node.
 $FOREST_TOOL_PATH snapshot validate-extended --base snapshot.forest.car.zst --tipset-lookup snapshot_tipset_lookup.forest.car.zst
 # Remove tipset lookup snapshots before proceeding
-rm *_tipset_lookup.forest.car.zst
+rm *_tipset_lookup.forest.car.zst*
 
 for f in *.car.zst; do
   echo "Inspecting archive info $f"
@@ -109,9 +113,6 @@ done
 
 echo "Testing snapshot validity"
 zstd --test ./*.car.zst
-
-echo "Verifying snapshot checksum"
-sha256sum --check ./*.sha256sum
 
 for f in *.car.zst; do
   echo "Validating CAR file $f"

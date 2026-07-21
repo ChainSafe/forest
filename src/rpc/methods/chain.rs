@@ -35,6 +35,7 @@ use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::spawn_blocking_with_timeout;
 use anyhow::{Context as _, Result};
+use digest::Digest as _;
 use enumflags2::{BitFlags, make_bitflags};
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
@@ -442,7 +443,14 @@ impl RpcMethod<1> for ForestChainExport {
                                 .await
                                 .context("failed to write tipset lookup snapshot")?;
                             if let Some(hamt_output_tmp_path) = hamt_output_tmp_path {
-                                hamt_output_tmp_path.persist(hamt_output_path)?;
+                                hamt_output_tmp_path.persist(&hamt_output_path)?;
+                                if !skip_checksum {
+                                    // No need to generate checksum on the fly for small snapshots
+                                    save_checksum(
+                                        Sha256::digest(std::fs::read(&hamt_output_path)?),
+                                        &hamt_output_path,
+                                    )?;
+                                }
                             }
                         }
                         (true, None) => {
@@ -487,7 +495,14 @@ impl RpcMethod<1> for ForestChainExport {
                             augmented_snapshot_output_tmp_path
                         {
                             augmented_snapshot_output_tmp_path
-                                .persist(augmented_snapshot_output_path)?;
+                                .persist(&augmented_snapshot_output_path)?;
+                            if !skip_checksum {
+                                // No need to generate checksum on the fly for small snapshots
+                                save_checksum(
+                                    Sha256::digest(std::fs::read(&augmented_snapshot_output_path)?),
+                                    &augmented_snapshot_output_path,
+                                )?;
+                            }
                         }
                     }
                     chain_export_guard.mark_as_succeeded();
