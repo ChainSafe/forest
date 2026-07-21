@@ -279,6 +279,7 @@ pub async fn export_receipts_events_to_forest_car(
         let tipset = tipset.shallow_clone();
         let db = db.shallow_clone();
         move || {
+            // With 2k state trees on mainnet, it's `~2k receipt roots` + `~8k event roots` ~= `~10k ipld roots`.
             let mut ipld_roots = vec![];
             for ts in tipset
                 .chain(&db)

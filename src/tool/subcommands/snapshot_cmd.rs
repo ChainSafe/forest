@@ -241,6 +241,7 @@ impl SnapshotCommands {
                     println!("Verifying message receipts and events can be loaded...");
                     let head = store.heaviest_tipset()?;
                     let mut n_ts = 0;
+                    let mut n_events = 0;
                     for ts in head.shallow_clone().chain(&store) {
                         // Validate only when state trees present
                         if !store.has(ts.parent_state())? {
@@ -257,6 +258,7 @@ impl SnapshotCommands {
                             })?;
                         for r in receipts {
                             if let Some(events_root) = r.events_root() {
+                                n_events += 1;
                                 StampedEvent::get_events(&store, &events_root).with_context(|| {
                                         format!(
                                             "failed to load events, root: {events_root}, epoch: {}, tipset key: {}",
@@ -267,7 +269,9 @@ impl SnapshotCommands {
                             }
                         }
                     }
-                    println!("Augmented snapshot is valid, {n_ts} tipsets validated");
+                    println!(
+                        "Augmented snapshot is valid, {n_ts} tipsets with {n_events} events validated"
+                    );
                 }
                 if let Some(tipset_lookup) = &tipset_lookup {
                     println!("Importing tipset lookup snapshot...");
