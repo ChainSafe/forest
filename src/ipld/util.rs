@@ -4,161 +4,20 @@
 use crate::blocks::Tipset;
 use crate::cid_collections::{CidHashSet, CidHashSetLike};
 use crate::ipld::Ipld;
+use crate::ipld::export_status::{CHAIN_EXPORT_STATUS, ProgressReporter};
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
-use arc_swap::ArcSwapOption;
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use futures::Stream;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, AtomicI64};
-use std::sync::{LazyLock, atomic};
 use std::task::{Context, Poll};
-use tokio_util::sync::CancellationToken;
-
-#[derive(Default)]
-pub struct ExportStatus {
-    pub epoch: AtomicI64,
-    pub initial_epoch: AtomicI64,
-    pub exporting: AtomicBool,
-    pub cancelled: AtomicBool,
-    pub succeeded: AtomicBool,
-    pub start_time: ArcSwapOption<DateTime<Utc>>,
-    pub cancellation_token: ArcSwapOption<CancellationToken>,
-}
-
-impl ExportStatus {
-    pub fn epoch(&self) -> i64 {
-        self.epoch.load(atomic::Ordering::Relaxed)
-    }
-
-    pub fn initial_epoch(&self) -> i64 {
-        self.initial_epoch.load(atomic::Ordering::Relaxed)
-    }
-
-    pub fn exporting(&self) -> bool {
-        self.exporting.load(atomic::Ordering::Relaxed)
-    }
-
-    pub fn cancelled(&self) -> bool {
-        self.cancelled.load(atomic::Ordering::Relaxed)
-    }
-
-    pub fn succeeded(&self) -> bool {
-        self.succeeded.load(atomic::Ordering::Relaxed)
-    }
-
-    pub fn start_time(&self) -> Option<DateTime<Utc>> {
-        self.start_time.load().clone().map(Arc::unwrap_or_clone)
-    }
-
-    pub fn cancellation_token(&self) -> Option<CancellationToken> {
-        self.cancellation_token
-            .load()
-            .clone()
-            .map(Arc::unwrap_or_clone)
-    }
-}
-
-pub static CHAIN_EXPORT_STATUS: LazyLock<ExportStatus> = LazyLock::new(ExportStatus::default);
-
-#[derive(Debug)]
-pub struct ChainExportGuard {
-    cancellation_token: CancellationToken,
-}
-
-impl ChainExportGuard {
-    pub fn try_start_export() -> anyhow::Result<Self> {
-        let cancellation_token = CancellationToken::new();
-        start_export(cancellation_token.clone())?;
-        Ok(Self { cancellation_token })
-    }
-
-    pub fn cancel_export(&self) {
-        cancel_export()
-    }
-
-    pub fn mark_as_succeeded(&self) {
-        export_succeeded()
-    }
-
-    /// Every export path that holds a [`ChainExportGuard`] must await its work through
-    /// this method — an export that does not race against the cancellation token cannot
-    /// be cancelled and appears stuck until process restart. On cancellation, marks
-    /// the export status as cancelled and returns `None`.
-    pub async fn run_cancellable<F: Future>(&self, fut: F) -> Option<F::Output> {
-        let output = self.cancellation_token.run_until_cancelled(fut).await;
-        if output.is_none() {
-            self.cancel_export();
-        }
-        output
-    }
-}
-
-impl Drop for ChainExportGuard {
-    fn drop(&mut self) {
-        // In case some tasks are waiting on this token
-        self.cancellation_token.cancel();
-        end_export()
-    }
-}
-
-fn update_epoch(new_value: i64) {
-    let status = &*CHAIN_EXPORT_STATUS;
-    status.epoch.store(new_value, atomic::Ordering::Relaxed);
-    _ = status.initial_epoch.compare_exchange(
-        0,
-        new_value,
-        atomic::Ordering::Relaxed,
-        atomic::Ordering::Relaxed,
-    );
-}
-
-fn start_export(cancellation_token: CancellationToken) -> anyhow::Result<()> {
-    let status = &*CHAIN_EXPORT_STATUS;
-    let export_in_progress = status.exporting.swap(true, atomic::Ordering::Relaxed);
-    anyhow::ensure!(
-        !export_in_progress,
-        "An active chain export job has started at {}, start epoch: {}, current epoch: {}",
-        status.start_time().unwrap_or_default(),
-        status.initial_epoch(),
-        status.epoch(),
-    );
-    status.epoch.store(0, atomic::Ordering::Relaxed);
-    status.initial_epoch.store(0, atomic::Ordering::Relaxed);
-    status.cancelled.store(false, atomic::Ordering::Relaxed);
-    status.succeeded.store(false, atomic::Ordering::Relaxed);
-    status.start_time.store(Some(Utc::now().into()));
-    status
-        .cancellation_token
-        .store(Some(cancellation_token.into()));
-    Ok(())
-}
-
-fn export_succeeded() {
-    CHAIN_EXPORT_STATUS
-        .succeeded
-        .store(true, atomic::Ordering::Relaxed);
-}
-
-fn end_export() {
-    CHAIN_EXPORT_STATUS
-        .exporting
-        .store(false, atomic::Ordering::Relaxed);
-    CHAIN_EXPORT_STATUS.cancellation_token.store(None);
-}
-
-fn cancel_export() {
-    let status = &*CHAIN_EXPORT_STATUS;
-    status.cancelled.store(true, atomic::Ordering::Relaxed);
-}
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.
@@ -254,7 +113,7 @@ pin_project! {
         message_receipts: bool,
         events: bool,
         tipset_keys:bool,
-        track_progress: bool,
+        progress: Option<ProgressReporter>,
         n_polled: usize,
     }
 }
@@ -266,7 +125,7 @@ impl<DB, T, S> ChainStream<DB, T, S> {
     }
 
     pub fn track_progress(mut self, track_progress: bool) -> Self {
-        self.track_progress = track_progress;
+        self.progress = track_progress.then(|| CHAIN_EXPORT_STATUS.progress_reporter());
         self
     }
 
@@ -326,7 +185,7 @@ pub fn stream_chain<
         message_receipts: false,
         events: false,
         tipset_keys: false,
-        track_progress: false,
+        progress: None,
         n_polled: 0,
     }
 }
@@ -389,8 +248,8 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
                         }
                     }
                     Iterate(epoch, block_cid, _type, cid_vec) => {
-                        if *this.track_progress {
-                            update_epoch(*epoch);
+                        if let Some(progress) = this.progress {
+                            progress.update_epoch(*epoch);
                         }
                         while let Some(cid) = cid_vec.pop() {
                             // The link traversal implementation assumes there are three types of encoding:
@@ -456,8 +315,8 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin, S: Cid
                 for block in tipset.borrow().block_headers() {
                     let (cid, data) = block.car_block()?;
                     if this.seen.insert(cid)? {
-                        if *this.track_progress {
-                            update_epoch(block.epoch);
+                        if let Some(progress) = this.progress {
+                            progress.update_epoch(block.epoch);
                         }
                         // Make sure we always yield a block otherwise.
                         this.dfs.push_back(Emit(cid, Some(data.into())));
@@ -656,86 +515,5 @@ mod tests {
         );
 
         Ok(())
-    }
-
-    /// Pins the invariant documented on [`ChainExportGuard::run_cancellable`].
-    #[tokio::test]
-    #[serial_test::serial(chain_export)]
-    async fn chain_export_cancel_stops_guarded_export() {
-        let g = ChainExportGuard::try_start_export().unwrap();
-
-        // Cancel via the status-global token, as the `Forest.ChainExportCancel` handler does.
-        let token = CHAIN_EXPORT_STATUS.cancellation_token().unwrap();
-
-        let fut = g.run_cancellable(std::future::pending::<()>());
-        token.cancel();
-        assert!(
-            fut.await.is_none(),
-            "cancellation must interrupt the export"
-        );
-
-        assert!(CHAIN_EXPORT_STATUS.cancelled());
-        assert!(CHAIN_EXPORT_STATUS.exporting());
-
-        drop(g);
-        assert!(!CHAIN_EXPORT_STATUS.exporting());
-        assert!(CHAIN_EXPORT_STATUS.cancelled());
-    }
-
-    #[test]
-    #[serial_test::serial(chain_export)]
-    fn test_chain_export_guard() {
-        // First export (Cancel)
-        let g = ChainExportGuard::try_start_export().unwrap();
-        assert!(CHAIN_EXPORT_STATUS.exporting());
-        assert!(!CHAIN_EXPORT_STATUS.succeeded());
-        assert!(!CHAIN_EXPORT_STATUS.cancelled());
-
-        // Another attempt should fail
-        ChainExportGuard::try_start_export().unwrap_err();
-
-        // Cancel
-        g.cancel_export();
-        assert!(CHAIN_EXPORT_STATUS.cancelled());
-
-        // Drop
-        drop(g);
-        assert!(!CHAIN_EXPORT_STATUS.exporting());
-        assert!(!CHAIN_EXPORT_STATUS.succeeded());
-        assert!(CHAIN_EXPORT_STATUS.cancelled());
-
-        // Second export (Success)
-        let g = ChainExportGuard::try_start_export().unwrap();
-        assert!(CHAIN_EXPORT_STATUS.exporting());
-        assert!(!CHAIN_EXPORT_STATUS.succeeded());
-        assert!(!CHAIN_EXPORT_STATUS.cancelled());
-
-        // Another attempt should fail
-        ChainExportGuard::try_start_export().unwrap_err();
-
-        // On success
-        g.mark_as_succeeded();
-        assert!(CHAIN_EXPORT_STATUS.succeeded());
-
-        // Drop
-        drop(g);
-        assert!(!CHAIN_EXPORT_STATUS.exporting());
-        assert!(CHAIN_EXPORT_STATUS.succeeded());
-        assert!(!CHAIN_EXPORT_STATUS.cancelled());
-
-        // Third export (failure)
-        let g = ChainExportGuard::try_start_export().unwrap();
-        assert!(CHAIN_EXPORT_STATUS.exporting());
-        assert!(!CHAIN_EXPORT_STATUS.succeeded());
-        assert!(!CHAIN_EXPORT_STATUS.cancelled());
-
-        // Another attempt should fail
-        ChainExportGuard::try_start_export().unwrap_err();
-
-        // Drop
-        drop(g);
-        assert!(!CHAIN_EXPORT_STATUS.exporting());
-        assert!(!CHAIN_EXPORT_STATUS.succeeded());
-        assert!(!CHAIN_EXPORT_STATUS.cancelled());
     }
 }

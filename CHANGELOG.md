@@ -29,6 +29,8 @@
 
 - [#7374](https://github.com/ChainSafe/forest/pull/7374): Bounded `nEpochs` in `Forest.StateCompute` RPC method to 2000 which can be overriden by `FOREST_STATE_COMPUTE_MAX_RANGE`.
 
+- [#7383](https://github.com/ChainSafe/forest/pull/7383): `Forest.ChainExportStatus` now reports a `state` (`Idle`/`Running`/`Succeeded`/`Cancelled`/`Failed`) and the export `kind` (`Snapshot`/`DiffSnapshot`/`SnapshotGc`), along with the `error` of a failed export. The `exporting`, `cancelled` and `succeeded` booleans were removed. `forest-cli snapshot export-status --wait` now exits with an error when the watched export fails.
+
 ### Added
 
 - [#7376](https://github.com/ChainSafe/forest/pull/7376): Added `--augmented-snapshot` and `--tipset-lookup` to `forest-cli snapshot export`.

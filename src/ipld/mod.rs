@@ -1,9 +1,11 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod export_status;
 pub mod selector;
 pub mod util;
 
+pub use export_status::*;
 pub use ipld_core::ipld::Ipld;
 pub use util::*;
 

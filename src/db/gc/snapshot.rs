@@ -49,7 +49,7 @@ use crate::db::{
     parity_db::GarbageCollectableDb,
 };
 use crate::interpreter::VMTrace;
-use crate::ipld::ChainExportGuard;
+use crate::ipld::{ChainExportGuard, ChainExportKind};
 use crate::prelude::*;
 use crate::shim::clock::EPOCHS_IN_DAY;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -76,10 +76,12 @@ pub struct SnapshotGarbageCollector {
     memory_db: RwLock<Option<HashMap<Cid, bytes::Bytes>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
     exported_head_key: RwLock<Option<TipsetKey>>,
-    trigger_tx: flume::Sender<()>,
-    trigger_rx: flume::Receiver<()>,
-    progress_tx: RwLock<Option<flume::Sender<()>>>,
+    trigger_tx: flume::Sender<Option<GcOutcomeSender>>,
+    trigger_rx: flume::Receiver<Option<GcOutcomeSender>>,
 }
+
+/// Delivers the outcome of a GC run to a blocking `Forest.SnapshotGC` caller.
+type GcOutcomeSender = flume::Sender<anyhow::Result<()>>;
 
 impl SnapshotGarbageCollector {
     pub fn new(chain_follower: ChainFollower, config: &crate::Config) -> anyhow::Result<Self> {
@@ -124,13 +126,12 @@ impl SnapshotGarbageCollector {
             exported_head_key: RwLock::new(None),
             trigger_tx,
             trigger_rx,
-            progress_tx: RwLock::new(None),
         })
     }
 
     pub async fn event_loop(&self) {
-        while self.trigger_rx.recv_async().await.is_ok() {
-            self.gc_once().await;
+        while let Ok(outcome_tx) = self.trigger_rx.recv_async().await {
+            self.gc_once(outcome_tx).await;
         }
     }
 
@@ -170,7 +171,7 @@ impl SnapshotGarbageCollector {
                     && sync_status.is_synced() // chain is in sync
                     && sync_status.active_forks.is_empty() // no active fork
                     && head_epoch - car_db_head_epoch >= snap_gc_interval_epochs // the gap between chain head and car_db head is above threshold
-                    && self.trigger_tx.try_send(()).is_ok()
+                    && self.trigger_tx.try_send(None).is_ok()
                 {
                     tracing::info!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
                 } else {
@@ -181,44 +182,52 @@ impl SnapshotGarbageCollector {
         }
     }
 
-    pub fn trigger(&self) -> anyhow::Result<flume::Receiver<()>> {
+    pub fn trigger(&self) -> anyhow::Result<flume::Receiver<anyhow::Result<()>>> {
         if self.running.load(Ordering::Relaxed) {
             anyhow::bail!("snap gc has already been running");
         }
 
-        if self.trigger_tx.try_send(()).is_err() {
+        // Travels with the trigger, so another run cannot consume it.
+        let (outcome_tx, outcome_rx) = flume::bounded(1);
+        if self.trigger_tx.try_send(Some(outcome_tx)).is_err() {
             anyhow::bail!("snap gc has already been triggered");
         }
-
-        let (progress_tx, progress_rx) = flume::unbounded();
-        *self.progress_tx.write() = Some(progress_tx);
-        Ok(progress_rx)
+        Ok(outcome_rx)
     }
 
-    async fn gc_once(&self) {
+    async fn gc_once(&self, outcome_tx: Option<GcOutcomeSender>) {
         if self.running.swap(true, Ordering::Relaxed) {
             tracing::warn!("snap gc has already been running");
             return;
         }
-        match self.export_snapshot().await {
-            Ok(_) => {
-                if let Err(e) = self.cleanup_after_snapshot_export().await {
-                    tracing::warn!("{e:#}");
-                }
-            }
+        let result = match self.export_snapshot().await {
+            Ok(()) => self.cleanup_after_snapshot_export().await,
             Err(e) => {
-                tracing::error!("{e:#}");
                 // Unsubscribe on failure path
                 self.db().unsubscribe_write_ops();
+                Err(e)
             }
+        };
+        if let Err(e) = &result {
+            tracing::error!("{e:#}");
         }
-        // To indicate the completion of GC
-        drop(self.progress_tx.write().take());
+        // Dropping the sender also unblocks the caller.
+        if let Some(outcome_tx) = outcome_tx {
+            let _ = outcome_tx.send(result);
+        }
         self.running.store(false, Ordering::Relaxed);
     }
 
     async fn export_snapshot(&self) -> anyhow::Result<()> {
-        let chain_export_guard = ChainExportGuard::try_start_export()?;
+        let chain_export_guard = ChainExportGuard::try_start_export(ChainExportKind::SnapshotGc)?;
+        let result = self.export_snapshot_inner(&chain_export_guard).await;
+        chain_export_guard.finish(result)
+    }
+
+    async fn export_snapshot_inner(
+        &self,
+        chain_export_guard: &ChainExportGuard,
+    ) -> anyhow::Result<()> {
         let db = self.db();
         tracing::info!(
             "exporting lite snapshot with {} recent state roots",
@@ -314,7 +323,6 @@ impl SnapshotGarbageCollector {
             _ => {}
         }
         joinset.shutdown().await;
-        chain_export_guard.mark_as_succeeded();
         Ok(())
     }
 
@@ -438,5 +446,87 @@ impl SnapshotGarbageCollector {
 
     fn sync_status(&self) -> &crate::chain_sync::SyncStatus {
         &self.chain_follower.sync_status
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
+    use crate::chain_sync::network_context::SyncNetworkContext;
+    use crate::db::MemoryDB;
+    use crate::ipld::{ChainExportGuard, ChainExportKind};
+    use crate::libp2p::PeerManager;
+    use crate::message_pool::MessagePool;
+    use crate::networks::ChainConfig;
+    use crate::shim::address::Address;
+    use crate::state_manager::StateManager;
+    use tokio::task::JoinSet;
+
+    fn test_gc(
+        data_dir: &std::path::Path,
+    ) -> (SnapshotGarbageCollector, JoinSet<anyhow::Result<()>>) {
+        let (network_send, _network_rx) = flume::bounded(5);
+        let (_net_event_tx, net_event_rx) = flume::bounded(5);
+        let mut services = JoinSet::new();
+        let db = std::sync::Arc::new(MemoryDB::default());
+        let chain_config = std::sync::Arc::new(ChainConfig::default());
+        let genesis_header = CachingBlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            timestamp: 7777,
+            ..Default::default()
+        });
+        let cs = ChainStore::new(db, chain_config, genesis_header.clone()).unwrap();
+        let state_manager = StateManager::new(cs.shallow_clone()).unwrap();
+        let mpool = MessagePool::new(
+            cs,
+            network_send.clone(),
+            Default::default(),
+            state_manager.chain_config().clone(),
+            &mut services,
+        )
+        .unwrap();
+        let genesis_ts = Tipset::from(genesis_header);
+        let peer_manager = std::sync::Arc::new(PeerManager::default());
+        let network = SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
+        let chain_follower = ChainFollower::new(
+            state_manager,
+            network,
+            genesis_ts,
+            net_event_rx,
+            false,
+            mpool,
+        );
+        let mut config = crate::Config::default();
+        config.client.data_dir = data_dir.to_path_buf();
+        let gc = SnapshotGarbageCollector::new(chain_follower, &config).unwrap();
+        (gc, services)
+    }
+
+    /// `forest-cli chain prune snap` must not exit 0 with the GC error only in the
+    /// daemon logs.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[serial_test::serial(chain_export)]
+    async fn manual_gc_trigger_propagates_failure() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let (gc, _services) = test_gc(tmp.path());
+        let gc = std::sync::Arc::new(gc);
+        tokio::spawn({
+            let gc = gc.clone();
+            async move { gc.event_loop().await }
+        });
+
+        // Hold the export slot so the GC export cannot start.
+        let _guard = ChainExportGuard::try_start_export(ChainExportKind::Snapshot).unwrap();
+
+        let progress_rx = gc.trigger().unwrap();
+        let outcome = tokio::time::timeout(Duration::from_secs(10), progress_rx.recv_async())
+            .await
+            .expect("GC must complete")
+            .expect("a blocking GC caller must receive the outcome");
+        assert!(
+            outcome.is_err(),
+            "GC that could not start must report failure to the caller"
+        );
     }
 }
