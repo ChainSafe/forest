@@ -195,119 +195,18 @@ async fn connect_ws(client: &rpc::Client) -> anyhow::Result<EthSubStream> {
     Ok(ws_stream)
 }
 
-#[allow(unreachable_code)]
-async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
-    async fn close_channel(
-        stream: &mut EthSubStream,
-        id: &serde_json::Value,
-    ) -> anyhow::Result<()> {
-        let request = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "xrpc.cancel",
-            "params": [id]
-        });
-
-        stream
-            .send(WsMessage::Text(request.to_string().into()))
-            .await
-            .context("failed to send close channel request")?;
-
-        Ok(())
-    }
-
-    let mut ws_stream = connect_ws(client).await?;
-
-    let request = json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "Filecoin.ChainNotify",
-        "params": []
-    });
-    ws_stream
-        .send(WsMessage::Text(request.to_string().into()))
-        .await?;
-
-    let mut channel_id: Option<serde_json::Value> = None;
-
-    // The goal of this loop is to wait for a new tipset to arrive without using a busy loop or sleep.
-    // It processes incoming WebSocket messages until it encounters an "apply" or "revert" change type.
-    // If an "apply" change is found, it closes the channel and exits. If a "revert" change is found,
-    // it closes the channel and raises an error. Any channel protocol or parameter validation issues result in an error.
-    loop {
-        let msg = match tokio::time::timeout(Duration::from_secs(180), ws_stream.next()).await {
-            Ok(Some(msg)) => msg,
-            Ok(None) => anyhow::bail!("WebSocket stream closed"),
-            Err(_) => {
-                if let Some(id) = channel_id.as_ref() {
-                    let _ = close_channel(&mut ws_stream, id).await;
-                }
-                let _ = ws_stream.close(None).await;
-                anyhow::bail!("timeout waiting for tipset");
-            }
-        };
-        match msg {
-            Ok(WsMessage::Text(text)) => {
-                let json: serde_json::Value = serde_json::from_str(&text)?;
-
-                if let Some(id) = json.get("result") {
-                    channel_id = Some(id.clone());
-                } else {
-                    let method = json!("xrpc.ch.val");
-                    anyhow::ensure!(json.get("method") == Some(&method));
-
-                    if let Some(params) = json.get("params").and_then(|v| v.as_array()) {
-                        if let Some(id) = params.first() {
-                            anyhow::ensure!(Some(id) == channel_id.as_ref());
-                        } else {
-                            anyhow::bail!("expecting an open channel");
-                        }
-                        if let Some(changes) = params.get(1).and_then(|v| v.as_array()) {
-                            for change in changes {
-                                if let Some(type_) = change.get("Type").and_then(|v| v.as_str()) {
-                                    if type_ == "apply" {
-                                        let id = channel_id.as_ref().ok_or_else(|| {
-                                            anyhow::anyhow!("subscription not opened")
-                                        })?;
-                                        close_channel(&mut ws_stream, id).await?;
-                                        ws_stream.close(None).await?;
-                                        return Ok(());
-                                    } else if type_ == "revert" {
-                                        let id = channel_id.as_ref().ok_or_else(|| {
-                                            anyhow::anyhow!("subscription not opened")
-                                        })?;
-                                        close_channel(&mut ws_stream, id).await?;
-                                        ws_stream.close(None).await?;
-                                        anyhow::bail!("revert");
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        let id = channel_id
-                            .as_ref()
-                            .ok_or_else(|| anyhow::anyhow!("subscription not opened"))?;
-                        close_channel(&mut ws_stream, id).await?;
-                        ws_stream.close(None).await?;
-                        anyhow::bail!("expecting params");
-                    }
-                }
-            }
-            Err(..) | Ok(WsMessage::Close(..)) => {
-                let id = channel_id
-                    .as_ref()
-                    .ok_or_else(|| anyhow::anyhow!("subscription not opened"))?;
-                close_channel(&mut ws_stream, id).await?;
-                ws_stream.close(None).await?;
-                anyhow::bail!("unexpected error or close message");
-            }
-            _ => {
-                // Ignore other message types
+async fn wait_next_epoch(client: &rpc::Client) -> anyhow::Result<()> {
+    let base = client.call(ChainHead::request(())?).await?.epoch();
+    tokio::time::timeout(Duration::from_secs(180), async {
+        loop {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            if client.call(ChainHead::request(())?).await?.epoch() > base {
+                break Ok(());
             }
         }
-    }
-
-    unreachable!("loop always returns within the branches above")
+    })
+    .await
+    .context("timeout waiting for the next epoch")?
 }
 
 /// Poll `MpoolPending` until `message_cid` is visible. Returns while the message
@@ -959,71 +858,62 @@ fn create_eth_new_filter_limit_test(count: usize) -> RpcTestScenario {
 fn eth_new_block_filter() -> RpcTestScenario {
     RpcTestScenario::basic(move |client| async move {
         async fn process_filter(client: &rpc::Client, filter_id: &FilterID) -> anyhow::Result<()> {
-            let filter_result = client
-                .call(EthGetFilterChanges::request((filter_id.clone(),))?)
-                .await?;
-
-            if let EthFilterResult::Hashes(prev_hashes) = filter_result {
-                let verify_hashes = async |hashes: &[EthHash]| -> anyhow::Result<()> {
-                    for hash in hashes {
-                        let _block = client
-                            .call(EthGetBlockByHash::request((*hash, false))?)
-                            .await?;
-                    }
-                    Ok(())
-                };
-                verify_hashes(&prev_hashes).await?;
-
-                // Wait for the next block to arrive
-                next_tipset(client).await?;
-
-                let filter_result = client
+            let poll = async || -> anyhow::Result<Vec<EthHash>> {
+                match client
                     .call(EthGetFilterChanges::request((filter_id.clone(),))?)
-                    .await?;
-
-                if let EthFilterResult::Hashes(hashes) = filter_result {
-                    verify_hashes(&hashes).await?;
-                    anyhow::ensure!(
-                        (prev_hashes.is_empty() && hashes.is_empty()) || prev_hashes != hashes,
-                    );
-
-                    Ok(())
-                } else {
-                    Err(anyhow::anyhow!("expecting blocks"))
+                    .await?
+                {
+                    EthFilterResult::Hashes(hashes) => Ok(hashes),
+                    _ => Err(anyhow::anyhow!("expecting block hashes")),
                 }
-            } else {
-                Err(anyhow::anyhow!("expecting blocks"))
-            }
-        }
-
-        let mut retries = 5;
-        loop {
-            // Create the filter
-            let filter_id = client.call(EthNewBlockFilter::request(())?).await?;
-
-            let result = match process_filter(&client, &filter_id).await {
-                Ok(()) => Ok(()),
-                Err(e) if retries != 0 && e.to_string().contains("revert") => {
-                    // Cleanup
-                    let removed = client
-                        .call(EthUninstallFilter::request((filter_id,))?)
+            };
+            let verify_hashes = async |hashes: &[EthHash]| -> anyhow::Result<()> {
+                for hash in hashes {
+                    let _block = client
+                        .call(EthGetBlockByHash::request((*hash, false))?)
                         .await?;
-                    anyhow::ensure!(removed);
-
-                    retries -= 1;
-                    continue;
                 }
-                Err(e) => Err(e),
+                Ok(())
             };
 
-            // Cleanup
+            let prev_hashes = poll().await?;
+            verify_hashes(&prev_hashes).await?;
+
+            // The filter derives its hashes from executed events, so an epoch
+            // without events legitimately leaves the poll unchanged, allow a
+            // few more epochs before declaring the filter stuck.
+            let mut hashes = Vec::new();
+            for _ in 0..3 {
+                wait_next_epoch(client).await?;
+                hashes = poll().await?;
+                verify_hashes(&hashes).await?;
+                if hashes != prev_hashes {
+                    break;
+                }
+            }
+            anyhow::ensure!((prev_hashes.is_empty() && hashes.is_empty()) || prev_hashes != hashes);
+
+            Ok(())
+        }
+
+        // Create the filter
+        let filter_id = client.call(EthNewBlockFilter::request(())?).await?;
+
+        let result = process_filter(&client, &filter_id).await;
+
+        // Cleanup
+        let cleanup: anyhow::Result<()> = async {
             let removed = client
                 .call(EthUninstallFilter::request((filter_id,))?)
-                .await?;
-            anyhow::ensure!(removed);
-
-            break result;
+                .await
+                .context("failed to uninstall filter")?;
+            anyhow::ensure!(removed, "filter was not removed");
+            Ok(())
         }
+        .await;
+
+        // A cleanup failure must not mask the original test failure.
+        result.and(cleanup)
     })
 }
 

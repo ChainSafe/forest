@@ -31,11 +31,15 @@
 
 ### Added
 
+- [#7376](https://github.com/ChainSafe/forest/pull/7376): Added `--augmented-snapshot` and `--tipset-lookup` to `forest-cli snapshot export`.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#7353](https://github.com/ChainSafe/forest/pull/7353) and [#7387](https://github.com/ChainSafe/forest/pull/7387): `StateWaitMsg` now honors non-zero confidence when the message was executed by the current head at call time, waiting for the requested depth and tracking reverts instead of returning immediately, and rejects confidence above chain finality (900 epochs).
 
 ## Forest v0.34.1 "Ashadh"
 
