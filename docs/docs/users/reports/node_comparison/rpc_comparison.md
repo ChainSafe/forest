@@ -5,16 +5,16 @@ title: RPC Performance Comparison
 
 # RPC Performance: Forest vs Lotus
 
-The following measurements were taken while a Forest node and a Lotus node handled a similar stream of real RPC provider traffic during the same time window. Because both nodes served an almost identical request stream, the differences below are attributable to the nodes themselves rather than to uneven load. The "Comparable load" section documents the checks used to support that assumption.
+The following measurements were taken on 17 July 2026, while a Forest node and a Lotus node handled a similar stream of real RPC provider traffic during the same time window. Because both nodes served an almost identical request stream, the differences below are attributable to the nodes themselves rather than to uneven load. The "Comparable load" section documents the checks used to support that assumption.
 
 ## Environment
 
 Node builds and hardware used for these measurements:
 
-| Node   | Version      | Commit        | vCPUs | RAM   |
-| ------ | ------------ | ------------- | ----- | ----- |
-| Forest | `0.34.1`     | `git.0ba362e` | 12    | 64 GB |
-| Lotus  | `1.36.1-rc1` | `git.45eade8` | 12    | 80 GB |
+| Node   | Version                  | vCPUs | RAM   |
+| ------ | ------------------------ | ----- | ----- |
+| Forest | `0.34.1+git.0ba362e`     | 12    | 64 GB |
+| Lotus  | `1.36.1-rc1+git.45eade8` | 12    | 80 GB |
 
 ## RPC latency
 
