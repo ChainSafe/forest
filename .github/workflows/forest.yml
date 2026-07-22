@@ -61,7 +61,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
@@ -92,7 +92,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
@@ -151,7 +151,7 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
@@ -264,7 +264,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.10
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
