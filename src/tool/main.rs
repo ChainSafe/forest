@@ -19,7 +19,7 @@ where
     let client = crate::rpc::Client::default_or_from_env(None)?;
 
     // Run command
-    match cmd {
+    let result = match cmd {
         Subcommand::Backup(cmd) => cmd.run(),
         Subcommand::Benchmark(cmd) => cmd.run().await,
         Subcommand::StateMigration(cmd) => cmd.run().await,
@@ -33,5 +33,6 @@ where
         Subcommand::Net(cmd) => cmd.run().await,
         Subcommand::Shed(cmd) => cmd.run(client).await,
         Subcommand::Completion(cmd) => cmd.run(&mut std::io::stdout()),
-    }
+    };
+    result.map_err(crate::rpc::humanize_rpc_error)
 }

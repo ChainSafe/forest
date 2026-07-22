@@ -16,7 +16,7 @@ use crate::db::car::forest::{
     tmp_exporting_forest_car_path,
 };
 use crate::ipld::DfsIter;
-use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard};
+use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard, ChainExportKind};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
@@ -266,7 +266,11 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     ) -> Result<Self::Ok, ServerError> {
         if let Some(gc) = crate::daemon::GLOBAL_SNAPSHOT_GC.get() {
             let progress_rx = gc.trigger()?;
-            while blocking && progress_rx.recv_async().await.is_ok() {}
+            if blocking {
+                progress_rx.recv_async().await.map_err(|_| {
+                    anyhow::anyhow!("snapshot GC ended without reporting an outcome")
+                })??;
+            }
             Ok(())
         } else {
             Err(anyhow::anyhow!("snapshot gc is not enabled").into())
@@ -290,191 +294,152 @@ impl RpcMethod<1> for ForestChainExport {
         (params,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        fn save_checksum(
-            checksum: digest::Output<Sha256>,
-            snapshot_output_path: &Path,
-        ) -> anyhow::Result<()> {
-            let path = forest_car_sha256sum_path(snapshot_output_path);
-            std::fs::write(
-                path,
-                format!(
-                    "{} {}\n",
-                    checksum.encode_hex::<String>(),
-                    snapshot_output_path
-                        .file_name()
-                        .and_then(std::ffi::OsStr::to_str)
-                        .context("Failed to retrieve file name while saving checksum")?
-                ),
-            )?;
-            Ok(())
-        }
-
         // Spawn a task so it's not cancelled when CLI client is disconnected.
         // So do not wrap this with `AbortOnDropHandle`
         let handle = tokio::spawn(async move {
-            let ForestChainExportParams {
-                version,
-                epoch,
-                recent_roots,
-                output_path,
-                tipset_keys: ApiTipsetKey(tsk),
-                include_receipts,
-                include_events,
-                include_tipset_keys,
-                augmented_snapshot,
-                tipset_lookup,
-                skip_checksum,
-                dry_run,
-            } = params;
+            let chain_export_guard = ChainExportGuard::try_start_export(ChainExportKind::Snapshot)?;
+            let result = export_chain_inner(&ctx, params, &chain_export_guard).await;
+            chain_export_guard.finish(result)
+        });
+        Ok(handle.await??)
+    }
+}
 
-            let chain_export_guard = ChainExportGuard::try_start_export()?;
+fn save_checksum(
+    checksum: digest::Output<Sha256>,
+    snapshot_output_path: &Path,
+) -> anyhow::Result<()> {
+    let path = forest_car_sha256sum_path(snapshot_output_path);
+    std::fs::write(
+        path,
+        format!(
+            "{} {}\n",
+            checksum.encode_hex::<String>(),
+            snapshot_output_path
+                .file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .context("Failed to retrieve file name while saving checksum")?
+        ),
+    )?;
+    Ok(())
+}
 
-            let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-            let start_ts = ctx
-                .chain_index()
-                .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
-                .await?;
+async fn export_chain_inner(
+    ctx: &Ctx,
+    params: ForestChainExportParams,
+    chain_export_guard: &ChainExportGuard,
+) -> anyhow::Result<ApiExportResult> {
+    let ForestChainExportParams {
+        version,
+        epoch,
+        recent_roots,
+        output_path,
+        tipset_keys: ApiTipsetKey(tsk),
+        include_receipts,
+        include_events,
+        include_tipset_keys,
+        augmented_snapshot,
+        tipset_lookup,
+        skip_checksum,
+        dry_run,
+    } = params;
 
-            let options = ExportOptions {
-                skip_checksum,
-                include_receipts,
-                include_events,
-                include_tipset_keys,
-                include_tipset_lookup: tipset_lookup,
-                seen: FileBackedCidHashSet::new(ctx.temp_dir.as_path())?,
+    let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+    let start_ts = ctx
+        .chain_index()
+        .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
+        .await?;
+
+    let options = ExportOptions {
+        skip_checksum,
+        include_receipts,
+        include_events,
+        include_tipset_keys,
+        include_tipset_lookup: tipset_lookup,
+        seen: FileBackedCidHashSet::new(ctx.temp_dir.as_path())?,
+    };
+    let tmp_path = tempfile::TempPath::try_from_path(tmp_exporting_forest_car_path(&output_path))?;
+    let writer = if dry_run {
+        tokio_util::either::Either::Left(VoidAsyncWriter)
+    } else {
+        tokio_util::either::Either::Right(tokio::fs::File::create(&tmp_path).await?)
+    };
+    let chain_export = match version {
+        FilecoinSnapshotVersion::V1 => {
+            crate::chain::export::<Sha256, _>(ctx.db(), &start_ts, recent_roots, writer, options)
+                .boxed()
+        }
+        FilecoinSnapshotVersion::V2 => {
+            let f3_snap_tmp_path = {
+                let mut f3_snap_dir = output_path.clone();
+                let mut builder = tempfile::Builder::new();
+                let with_suffix = builder.suffix(".f3snap.bin");
+                if f3_snap_dir.pop() {
+                    with_suffix.tempfile_in(&f3_snap_dir)
+                } else {
+                    with_suffix.tempfile_in(".")
+                }?
+                .into_temp_path()
             };
-            let tmp_path =
-                tempfile::TempPath::try_from_path(tmp_exporting_forest_car_path(&output_path))?;
-            let writer = if dry_run {
-                tokio_util::either::Either::Left(VoidAsyncWriter)
-            } else {
-                tokio_util::either::Either::Right(tokio::fs::File::create(&tmp_path).await?)
-            };
-            let chain_export = match version {
-                FilecoinSnapshotVersion::V1 => crate::chain::export::<Sha256, _>(
-                    ctx.db(),
-                    &start_ts,
-                    recent_roots,
-                    writer,
-                    options,
-                )
-                .boxed(),
-                FilecoinSnapshotVersion::V2 => {
-                    let f3_snap_tmp_path = {
-                        let mut f3_snap_dir = output_path.clone();
-                        let mut builder = tempfile::Builder::new();
-                        let with_suffix = builder.suffix(".f3snap.bin");
-                        if f3_snap_dir.pop() {
-                            with_suffix.tempfile_in(&f3_snap_dir)
-                        } else {
-                            with_suffix.tempfile_in(".")
-                        }?
-                        .into_temp_path()
-                    };
-                    let f3_snap = {
-                        match F3ExportLatestSnapshot::run(f3_snap_tmp_path.display().to_string())
-                            .await
-                        {
-                            Ok(cid) => Some((cid, File::open(&f3_snap_tmp_path)?)),
-                            Err(e) => {
-                                tracing::error!("Failed to export F3 snapshot: {e:#}");
-                                None
-                            }
-                        }
-                    };
-                    crate::chain::export_v2::<Sha256, _, _>(
-                        ctx.db(),
-                        f3_snap,
-                        &start_ts,
-                        recent_roots,
-                        writer,
-                        options,
-                    )
-                    .boxed()
+            let f3_snap = {
+                match F3ExportLatestSnapshot::run(f3_snap_tmp_path.display().to_string()).await {
+                    Ok(cid) => Some((cid, File::open(&f3_snap_tmp_path)?)),
+                    Err(e) => {
+                        tracing::error!("Failed to export F3 snapshot: {e:#}");
+                        None
+                    }
                 }
             };
-            match chain_export_guard.run_cancellable(chain_export).await {
-                Some(result) => {
-                    let ExportResult {
-                        checksum,
-                        tipset_lookup: hamt,
-                    } = result?;
-                    if !dry_run {
-                        let output_path = output_path.clone();
-                        spawn_blocking_with_timeout(ASYNC_OPS_TIMEOUT, move || {
-                            tmp_path.persist(&output_path)?;
-                            // The snapshot at `output_path` is usable from this point on;
-                            // a checksum-file failure is not worth failing the export over.
-                            if let Some(checksum) = checksum
-                                && let Err(e) = save_checksum(checksum, &output_path)
-                            {
-                                tracing::warn!(
-                                    "failed to save the checksum file for {}: {e:#}",
-                                    output_path.display()
-                                );
-                            }
-                            Ok(())
-                        })
-                        .await
-                        .context("failed to persist the exported snapshot")?;
+            crate::chain::export_v2::<Sha256, _, _>(
+                ctx.db(),
+                f3_snap,
+                &start_ts,
+                recent_roots,
+                writer,
+                options,
+            )
+            .boxed()
+        }
+    };
+    match chain_export_guard.run_cancellable(chain_export).await {
+        Some(result) => {
+            let ExportResult {
+                checksum,
+                tipset_lookup: hamt,
+            } = result?;
+            if !dry_run {
+                let output_path = output_path.clone();
+                spawn_blocking_with_timeout(ASYNC_OPS_TIMEOUT, move || {
+                    tmp_path.persist(&output_path)?;
+                    // The snapshot at `output_path` is usable from this point on;
+                    // a checksum-file failure is not worth failing the export over.
+                    if let Some(checksum) = checksum
+                        && let Err(e) = save_checksum(checksum, &output_path)
+                    {
+                        tracing::warn!(
+                            "failed to save the checksum file for {}: {e:#}",
+                            output_path.display()
+                        );
                     }
-                    match (tipset_lookup, hamt) {
-                        (true, Some(hamt)) => {
-                            let mut hamt =
-                                hamt.context("failed to generate tipset lookup snapshot")?;
-                            let roots = nunny::vec![hamt.flush()?];
-                            let hamt_output_path =
-                                forest_car_with_filename_suffix(&output_path, "_tipset_lookup")?;
-                            let (mut writer, hamt_output_tmp_path) = if dry_run {
-                                (tokio_util::either::Either::Left(VoidAsyncWriter), None)
-                            } else {
-                                let tmp_path = tempfile::TempPath::try_from_path(
-                                    tmp_exporting_forest_car_path(&hamt_output_path),
-                                )?;
-                                (
-                                    tokio_util::either::Either::Right(
-                                        tokio::fs::File::create(&tmp_path).await?,
-                                    ),
-                                    Some(tmp_path),
-                                )
-                            };
-                            hamt.into_store()
-                                .export_forest_car(roots, &mut writer)
-                                .await
-                                .context("failed to write tipset lookup snapshot")?;
-                            if let Some(hamt_output_tmp_path) = hamt_output_tmp_path {
-                                hamt_output_tmp_path.persist(&hamt_output_path)?;
-                                if !skip_checksum {
-                                    // No need to generate checksum on the fly for small snapshots
-                                    save_checksum(
-                                        Sha256::digest(std::fs::read(&hamt_output_path)?),
-                                        &hamt_output_path,
-                                    )?;
-                                }
-                            }
-                        }
-                        (true, None) => {
-                            anyhow::bail!("requested tipset lookup snapshot is missing")
-                        }
-                        (false, Some(_)) => {
-                            anyhow::bail!(
-                                "tipset lookup snapshot should not be generated when it's not requested"
-                            )
-                        }
-                        _ => {}
-                    }
-                    if augmented_snapshot {
-                        // It takes <10s on mainnet so export it in sequence for simplicity.
-                        // Some stats:
-                        // calibnet 3895470+2000: 5s  5.4MiB
-                        // mainnet  6193120+2000: 5s  12MiB
-                        let augmented_snapshot_output_path =
-                            forest_car_with_filename_suffix(&output_path, "_receipts_events")?;
-                        let (writer, augmented_snapshot_output_tmp_path) = if dry_run {
+                    Ok(())
+                })
+                .await
+                .context("failed to persist the exported snapshot")?;
+            }
+            // The auxiliary snapshots must stay cancellable: the guard is still held,
+            // so an unguarded await here would accept a cancel yet ignore it.
+            let auxiliary_exports = async {
+                match (tipset_lookup, hamt) {
+                    (true, Some(hamt)) => {
+                        let mut hamt = hamt.context("failed to generate tipset lookup snapshot")?;
+                        let roots = nunny::vec![hamt.flush()?];
+                        let hamt_output_path =
+                            forest_car_with_filename_suffix(&output_path, "_tipset_lookup")?;
+                        let (mut writer, hamt_output_tmp_path) = if dry_run {
                             (tokio_util::either::Either::Left(VoidAsyncWriter), None)
                         } else {
                             let tmp_path = tempfile::TempPath::try_from_path(
-                                tmp_exporting_forest_car_path(&augmented_snapshot_output_path),
+                                tmp_exporting_forest_car_path(&hamt_output_path),
                             )?;
                             (
                                 tokio_util::either::Either::Right(
@@ -483,38 +448,90 @@ impl RpcMethod<1> for ForestChainExport {
                                 Some(tmp_path),
                             )
                         };
-                        crate::chain::export_receipts_events_to_forest_car(
-                            ctx.db(),
-                            &start_ts,
-                            recent_roots,
-                            writer,
-                        )
-                        .await
-                        .context("failed to export message receipts and events snapshot")?;
-                        if let Some(augmented_snapshot_output_tmp_path) =
-                            augmented_snapshot_output_tmp_path
-                        {
-                            augmented_snapshot_output_tmp_path
-                                .persist(&augmented_snapshot_output_path)?;
+                        hamt.into_store()
+                            .export_forest_car(roots, &mut writer)
+                            .await
+                            .context("failed to write tipset lookup snapshot")?;
+                        if let Some(hamt_output_tmp_path) = hamt_output_tmp_path {
+                            hamt_output_tmp_path.persist(&hamt_output_path)?;
                             if !skip_checksum {
                                 // No need to generate checksum on the fly for small snapshots
                                 save_checksum(
-                                    Sha256::digest(std::fs::read(&augmented_snapshot_output_path)?),
-                                    &augmented_snapshot_output_path,
+                                    Sha256::digest(std::fs::read(&hamt_output_path)?),
+                                    &hamt_output_path,
                                 )?;
                             }
                         }
                     }
-                    chain_export_guard.mark_as_succeeded();
-                    anyhow::Ok(ApiExportResult::Done)
+                    (true, None) => {
+                        anyhow::bail!("requested tipset lookup snapshot is missing")
+                    }
+                    (false, Some(_)) => {
+                        anyhow::bail!(
+                            "tipset lookup snapshot should not be generated when it's not requested"
+                        )
+                    }
+                    _ => {}
+                }
+                if augmented_snapshot {
+                    // It takes <10s on mainnet so export it in sequence for simplicity.
+                    // Some stats:
+                    // calibnet 3895470+2000: 5s  5.4MiB
+                    // mainnet  6193120+2000: 5s  12MiB
+                    let augmented_snapshot_output_path =
+                        forest_car_with_filename_suffix(&output_path, "_receipts_events")?;
+                    let (writer, augmented_snapshot_output_tmp_path) = if dry_run {
+                        (tokio_util::either::Either::Left(VoidAsyncWriter), None)
+                    } else {
+                        let tmp_path = tempfile::TempPath::try_from_path(
+                            tmp_exporting_forest_car_path(&augmented_snapshot_output_path),
+                        )?;
+                        (
+                            tokio_util::either::Either::Right(
+                                tokio::fs::File::create(&tmp_path).await?,
+                            ),
+                            Some(tmp_path),
+                        )
+                    };
+                    crate::chain::export_receipts_events_to_forest_car(
+                        ctx.db(),
+                        &start_ts,
+                        recent_roots,
+                        writer,
+                    )
+                    .await
+                    .context("failed to export message receipts and events snapshot")?;
+                    if let Some(augmented_snapshot_output_tmp_path) =
+                        augmented_snapshot_output_tmp_path
+                    {
+                        augmented_snapshot_output_tmp_path
+                            .persist(&augmented_snapshot_output_path)?;
+                        if !skip_checksum {
+                            // No need to generate checksum on the fly for small snapshots
+                            save_checksum(
+                                Sha256::digest(std::fs::read(&augmented_snapshot_output_path)?),
+                                &augmented_snapshot_output_path,
+                            )?;
+                        }
+                    }
+                }
+                anyhow::Ok(())
+            };
+            match chain_export_guard.run_cancellable(auxiliary_exports).await {
+                Some(result) => {
+                    result?;
+                    Ok(ApiExportResult::Done)
                 }
                 None => {
-                    tracing::warn!("Snapshot export was cancelled");
-                    anyhow::Ok(ApiExportResult::Cancelled)
+                    tracing::warn!("Auxiliary snapshot exports were cancelled");
+                    Ok(ApiExportResult::Cancelled)
                 }
             }
-        });
-        Ok(handle.await??)
+        }
+        None => {
+            tracing::warn!("Snapshot export was cancelled");
+            Ok(ApiExportResult::Cancelled)
+        }
     }
 }
 
@@ -535,9 +552,9 @@ impl RpcMethod<0> for ForestChainExportStatus {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let status = &*CHAIN_EXPORT_STATUS;
-        let initial_epoch = status.initial_epoch();
-        let epoch = status.epoch();
+        let snapshot = CHAIN_EXPORT_STATUS.snapshot();
+        let initial_epoch = snapshot.initial_epoch;
+        let epoch = snapshot.epoch;
         let progress = if initial_epoch == 0 {
             0.0
         } else {
@@ -551,17 +568,15 @@ impl RpcMethod<0> for ForestChainExportStatus {
         // only two decimal places
         let progress = (progress * 100.0).round() / 100.0;
 
-        let status = ApiExportStatus {
+        Ok(ApiExportStatus {
+            state: snapshot.state,
+            kind: snapshot.kind,
+            error: snapshot.error,
             progress,
-            exporting: status.exporting(),
-            cancelled: status.cancelled(),
-            succeeded: status.succeeded(),
-            start_time: status.start_time(),
+            start_time: snapshot.start_time,
             current_epoch: epoch,
             start_epoch: initial_epoch,
-        };
-
-        Ok(status)
+        })
     }
 }
 
@@ -582,14 +597,7 @@ impl RpcMethod<0> for ForestChainExportCancel {
         (): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        if CHAIN_EXPORT_STATUS.exporting()
-            && let Some(token) = CHAIN_EXPORT_STATUS.cancellation_token()
-        {
-            token.cancel();
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        Ok(CHAIN_EXPORT_STATUS.cancel_running())
     }
 }
 
@@ -613,58 +621,65 @@ impl RpcMethod<1> for ForestChainExportDiff {
         // Spawn a task so it's not cancelled when CLI client is disconnected
         // So do not wrap this with `AbortOnDropHandle`
         let handle = tokio::spawn(async move {
-            let chain_export_guard = ChainExportGuard::try_start_export()?;
-
-            let ForestChainExportDiffParams {
-                from,
-                to,
-                depth,
-                output_path,
-            } = params;
-
-            let chain_finality = ctx.chain_config().policy.chain_finality;
-            anyhow::ensure!(
-                depth >= chain_finality,
-                "depth {depth} must be greater than or equal to chain_finality {chain_finality}"
-            );
-
-            let head = ctx.chain_store().heaviest_tipset();
-            let start_ts = ctx
-                .chain_index()
-                .load_required_tipset_by_height(from, head, ResolveNullTipset::TakeOlder)
-                .await?;
-            let tmp_path =
-                tempfile::TempPath::try_from_path(tmp_exporting_forest_car_path(&output_path))?;
-            let chain_export = crate::tool::subcommands::archive_cmd::do_export(
-                ctx.chain_index().db(),
-                start_ts,
-                Some(ctx.chain_store().genesis_tipset()),
-                tmp_path.to_path_buf(),
-                None,
-                depth,
-                Some(to),
-                Some(chain_finality),
-                true,
-            );
-
-            match chain_export_guard.run_cancellable(chain_export).await {
-                Some(result) => {
-                    result?;
-                    spawn_blocking_with_timeout(ASYNC_OPS_TIMEOUT, move || {
-                        Ok(tmp_path.persist(&output_path)?)
-                    })
-                    .await
-                    .context("failed to persist the exported snapshot")?;
-                    chain_export_guard.mark_as_succeeded();
-                    anyhow::Ok(ApiExportResult::Done)
-                }
-                None => {
-                    tracing::warn!("Diff snapshot export was cancelled");
-                    anyhow::Ok(ApiExportResult::Cancelled)
-                }
-            }
+            let chain_export_guard =
+                ChainExportGuard::try_start_export(ChainExportKind::DiffSnapshot)?;
+            let result = export_diff_inner(&ctx, params, &chain_export_guard).await;
+            chain_export_guard.finish(result)
         });
         Ok(handle.await??)
+    }
+}
+
+async fn export_diff_inner(
+    ctx: &Ctx,
+    params: ForestChainExportDiffParams,
+    chain_export_guard: &ChainExportGuard,
+) -> anyhow::Result<ApiExportResult> {
+    let ForestChainExportDiffParams {
+        from,
+        to,
+        depth,
+        output_path,
+    } = params;
+
+    let chain_finality = ctx.chain_config().policy.chain_finality;
+    anyhow::ensure!(
+        depth >= chain_finality,
+        "depth {depth} must be greater than or equal to chain_finality {chain_finality}"
+    );
+
+    let head = ctx.chain_store().heaviest_tipset();
+    let start_ts = ctx
+        .chain_index()
+        .load_required_tipset_by_height(from, head, ResolveNullTipset::TakeOlder)
+        .await?;
+    let tmp_path = tempfile::TempPath::try_from_path(tmp_exporting_forest_car_path(&output_path))?;
+    let chain_export = crate::tool::subcommands::archive_cmd::do_export(
+        ctx.chain_index().db(),
+        start_ts,
+        Some(ctx.chain_store().genesis_tipset()),
+        tmp_path.to_path_buf(),
+        None,
+        depth,
+        Some(to),
+        Some(chain_finality),
+        true,
+    );
+
+    match chain_export_guard.run_cancellable(chain_export).await {
+        Some(result) => {
+            result?;
+            spawn_blocking_with_timeout(ASYNC_OPS_TIMEOUT, move || {
+                Ok(tmp_path.persist(&output_path)?)
+            })
+            .await
+            .context("failed to persist the exported snapshot")?;
+            Ok(ApiExportResult::Done)
+        }
+        None => {
+            tracing::warn!("Diff snapshot export was cancelled");
+            Ok(ApiExportResult::Cancelled)
+        }
     }
 }
 
