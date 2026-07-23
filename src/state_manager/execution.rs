@@ -15,45 +15,22 @@ use std::ops::RangeInclusive;
 impl StateManager {
     /// Replays the given message and returns the result of executing the
     /// indicated message, assuming it was executed in the indicated tipset.
+    ///
+    /// Served from the shared tipset trace cache, so concurrent replays of
+    /// messages in the same tipset share a single traced execution. Unlike
+    /// Lotus, which halts at the target message, this executes the whole
+    /// tipset — the coalescing depends on it, don't port the halt back.
+    /// Consequently, failures after the target message also fail the replay.
     pub async fn replay(&self, ts: Tipset, mcid: Cid) -> Result<ApiInvocResult, Error> {
-        let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || this.replay_blocking(ts, mcid)).await?
-    }
-
-    /// Blocking version of `replay`
-    pub fn replay_blocking(&self, ts: Tipset, mcid: Cid) -> Result<ApiInvocResult, Error> {
-        const REPLAY_HALT: &str = "replay_halt";
-
-        let mut api_invoc_result = None;
-        let callback = |ctx: MessageCallbackCtx<'_>| {
-            match ctx.at {
-                CalledAt::Applied | CalledAt::Reward
-                    if api_invoc_result.is_none() && ctx.cid == mcid =>
-                {
-                    api_invoc_result = Some(ApiInvocResult {
-                        msg_cid: ctx.message.cid(),
-                        msg: ctx.message.message().clone(),
-                        msg_rct: Some(ctx.apply_ret.msg_receipt()),
-                        error: ctx.apply_ret.failure_info().unwrap_or_default(),
-                        duration: ctx.duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
-                        gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
-                        execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
-                            .unwrap_or_default(),
-                    });
-                    anyhow::bail!(REPLAY_HALT);
-                }
-                _ => Ok(()), // ignored
-            }
-        };
-        let result = self.compute_tipset_state_blocking(ts, Some(callback), VMTrace::Traced);
-        if let Err(error_message) = result
-            && error_message.to_string() != REPLAY_HALT
-        {
-            return Err(Error::Other(format!(
-                "unexpected error during execution : {error_message:}"
-            )));
-        }
-        api_invoc_result.ok_or_else(|| Error::Other("failed to replay".into()))
+        let (_, trace) = self
+            .execution_trace(&ts)
+            .await
+            .map_err(|e| Error::Other(format!("unexpected error during execution : {e}")))?;
+        trace
+            .iter()
+            .find(|r| r.msg_cid == mcid)
+            .map(|r| (**r).clone())
+            .ok_or_else(|| Error::Other("failed to replay".into()))
     }
 
     /// Replays a tipset up to a target message, capturing the state root before
@@ -63,8 +40,10 @@ impl StateManager {
         ts: Tipset,
         target_message_cid: Cid,
     ) -> Result<(Cid, ApiInvocResult, Cid), Error> {
+        let permit = self.replay_permit().await;
         let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || {
+            let _permit = permit;
             this.replay_for_prestate_blocking(ts, target_message_cid)
         })
         .await
@@ -236,10 +215,14 @@ impl StateManager {
         &self,
         tipset: Tipset,
     ) -> anyhow::Result<(CidWrapper, Vec<Arc<ApiInvocResult>>)> {
+        let permit = self.replay_permit().await;
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || this.execution_trace_inner_blocking(tipset))
-            .await
-            .context("tokio join error")?
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            this.execution_trace_inner_blocking(tipset)
+        })
+        .await
+        .context("tokio join error")?
     }
 
     fn execution_trace_inner_blocking(

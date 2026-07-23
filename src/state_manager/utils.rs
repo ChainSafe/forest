@@ -387,6 +387,41 @@ pub mod state_compute {
             validate_tipset(&sm, fts, None).await.unwrap();
         }
 
+        #[cfg(feature = "cargo-test")]
+        #[tokio::test(flavor = "multi_thread")]
+        #[fickle::fickle]
+        async fn cargo_test_state_replay_uses_trace_cache_calibnet_3408952() {
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 3408952).await.unwrap();
+            let (sm, ts, _) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            let msg_cid = sm
+                .chain_store()
+                .messages_for_tipset(&ts)
+                .unwrap()
+                .first()
+                .expect("test tipset must contain messages")
+                .cid();
+
+            let replayed = sm.replay(ts.clone(), msg_cid).await.unwrap();
+            assert_eq!(replayed.msg_cid, msg_cid);
+
+            let (_, trace) = sm
+                .trace_cache
+                .get(ts.key())
+                .expect("replay must populate the tipset trace cache");
+            let from_cache = trace
+                .iter()
+                .find(|r| r.msg_cid == msg_cid)
+                .expect("cached trace must contain the replayed message");
+            assert_eq!(**from_cache, replayed);
+
+            // A second replay of the same tipset must not re-execute it.
+            let misses = sm.trace_cache.misses();
+            let replayed_again = sm.replay(ts.clone(), msg_cid).await.unwrap();
+            assert_eq!(replayed_again, replayed);
+            assert_eq!(sm.trace_cache.misses(), misses);
+        }
+
         // Shark state migration
         #[cfg(feature = "cargo-test")]
         #[tokio::test(flavor = "multi_thread")]

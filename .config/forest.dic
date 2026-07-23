@@ -1,4 +1,4 @@
-292
+293
 Algorand/M
 API's
 API/SM
@@ -60,6 +60,7 @@ codec
 config/S
 CoreOS
 coreos
+CPUs
 cron
 crypto
 daemon
