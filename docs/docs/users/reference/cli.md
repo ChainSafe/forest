@@ -870,8 +870,8 @@ Usage: forest-cli f3 <COMMAND>
 Commands:
   manifest    Gets the current manifest used by F3
   status      Checks the F3 status
-  certs       Manages interactions with F3 finality certificates [aliases: c]
-  powertable  Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: pt]
+  certs       Manages interactions with F3 finality certificates [alias: c]
+  powertable  Gets F3 power table at a specific instance ID or latest instance if none is specified [alias: pt]
   ready       Checks if F3 is in sync
   help        Print this message or the help of the given subcommand(s)
 
@@ -993,8 +993,8 @@ Gets F3 power table at a specific instance ID or latest instance if none is spec
 Usage: forest-cli f3 powertable <COMMAND>
 
 Commands:
-  get             Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: g]
-  get-proportion  Gets the total proportion of power for a list of actors at a given instance [aliases: gp]
+  get             Gets F3 power table at a specific instance ID or latest instance if none is specified [alias: g]
+  get-proportion  Gets the total proportion of power for a list of actors at a given instance [alias: gp]
   help            Print this message or the help of the given subcommand(s)
 
 Options:
