@@ -401,9 +401,17 @@ async fn chain_follower(
                 }
 
                 let (_, forks) = state_machine.lock().tasks();
+                let is_validating = forks
+                    .iter()
+                    .any(|fork| fork.stage == ForkSyncStage::ValidatingTipsets);
+                let is_fetching = forks
+                    .iter()
+                    .any(|fork| fork.stage == ForkSyncStage::FetchingHeaders);
                 // The fork closest to the validated head connects first, so its
-                // gap is how many epochs remain before tipset validation can start.
-                let until_validation = forks
+                // gap is roughly how many header fetches remain before tipset
+                // validation can start. Forks fetching at or below the validated
+                // head (fork-point search) have no meaningful gap.
+                let remaining_headers = forks
                     .iter()
                     .filter(|fork| fork.stage == ForkSyncStage::FetchingHeaders)
                     .filter_map(|fork| {
@@ -411,16 +419,20 @@ async fn chain_follower(
                         (gap > 0).then_some(gap)
                     })
                     .min();
-                let is_validating = forks
-                    .iter()
-                    .any(|fork| fork.stage == ForkSyncStage::ValidatingTipsets);
 
                 let status = if is_validating {
                     ", validating tipsets".to_string()
-                } else if let Some(gap) = until_validation {
-                    format!(", validation starts in ~{gap} epochs")
+                } else if let Some(remaining) = remaining_headers {
+                    format!(", fetching headers (~{remaining})")
+                } else if is_fetching {
+                    // All live fetches are at or below the validated head:
+                    // fork-point searches, fetching a competing branch's
+                    // ancestry down to where it forked off our chain.
+                    ", fetching headers".to_string()
                 } else {
-                    String::new()
+                    // waiting for peers to (re)seed tipsets (startup, no usable peers, or the buffer
+                    // was just cleared after a failed validation).
+                    ", waiting for tipsets".to_string()
                 };
                 info!(
                     "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head} (diff: {diff}){status}",
