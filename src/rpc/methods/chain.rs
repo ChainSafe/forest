@@ -31,6 +31,7 @@ use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
 use crate::utils::db::CborStoreExt as _;
+use crate::utils::encoding::hex;
 use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::spawn_blocking_with_timeout;
@@ -38,7 +39,6 @@ use anyhow::{Context as _, Result};
 use digest::Digest as _;
 use enumflags2::{BitFlags, make_bitflags};
 use fvm_ipld_encoding::{CborStore, RawBytes};
-use hex::ToHex;
 use ipld_core::ipld::Ipld;
 use jsonrpsee::types::Params;
 use jsonrpsee::types::error::ErrorObjectOwned;
@@ -314,7 +314,7 @@ fn save_checksum(
         path,
         format!(
             "{} {}\n",
-            checksum.encode_hex::<String>(),
+            hex::encode(checksum),
             snapshot_output_path
                 .file_name()
                 .and_then(std::ffi::OsStr::to_str)

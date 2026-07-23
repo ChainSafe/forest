@@ -334,6 +334,7 @@ mod tests {
     use super::*;
     use crate::eth::EthEip1559TxArgsBuilder;
     use crate::networks::calibnet;
+    use crate::utils::encoding::hex;
     use crate::{
         key_management::{generate_key, sign},
         message::SignedMessage,
