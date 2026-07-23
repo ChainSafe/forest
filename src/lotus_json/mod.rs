@@ -655,12 +655,58 @@ mod fixme {
 mod tests {
     use super::*;
     use ipld_core::serde::SerdeError;
+    use quickcheck_macros::quickcheck;
     use serde::de::{IntoDeserializer, value::StringDeserializer};
 
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     struct HexifyVecBytesTest {
         #[serde(with = "hexify_vec_bytes")]
         value: Vec<u8>,
+    }
+
+    /// [`hexify_bytes`] serialization matches the `format!("{value:#x}")` implementation
+    /// it replaced, for every `ethereum_types` value it serves.
+    fn matches_legacy_lowerhex<T: AsRef<[u8]> + std::fmt::LowerHex>(value: T) -> bool {
+        #[derive(Serialize)]
+        struct W<T: AsRef<[u8]>>(#[serde(with = "hexify_bytes")] T);
+
+        serde_json::to_string(&W(&value)).unwrap() == format!("\"{value:#x}\"")
+    }
+
+    fn filled<const N: usize>(bytes: Vec<u8>) -> [u8; N] {
+        let mut arr = [0; N];
+        arr.iter_mut().zip(bytes).for_each(|(a, b)| *a = b);
+        arr
+    }
+
+    #[test]
+    fn test_hexify_deserialize() {
+        fn de(input: &str) -> Result<u64, SerdeError> {
+            let deserializer: StringDeserializer<SerdeError> =
+                String::from_str(input).unwrap().into_deserializer();
+            hexify::deserialize(deserializer)
+        }
+
+        self::assert_eq!(de("0x2a").unwrap(), 42);
+        self::assert_eq!(de("0x0").unwrap(), 0);
+        for invalid in ["", "0x", "2a", "0xzz", "cthulhu"] {
+            assert!(de(invalid).is_err(), "{invalid:?} should be rejected");
+        }
+    }
+
+    #[quickcheck]
+    fn hexify_bytes_matches_legacy_h64(value: u64) -> bool {
+        matches_legacy_lowerhex(ethereum_types::H64::from_low_u64_be(value))
+    }
+
+    #[quickcheck]
+    fn hexify_bytes_matches_legacy_h160(bytes: Vec<u8>) -> bool {
+        matches_legacy_lowerhex(ethereum_types::H160::from(filled::<20>(bytes)))
+    }
+
+    #[quickcheck]
+    fn hexify_bytes_matches_legacy_bloom(bytes: Vec<u8>) -> bool {
+        matches_legacy_lowerhex(ethereum_types::Bloom::from(filled::<256>(bytes)))
     }
 
     #[test]

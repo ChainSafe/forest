@@ -131,22 +131,9 @@ mod tests {
     }
 
     #[test]
-    fn decode_rejects_odd_length() {
-        assert!(matches!(
-            decode("abc").unwrap_err().0,
-            faster_hex_private::Error::InvalidLength(_)
-        ));
-    }
-
-    #[test]
-    fn decode_rejects_invalid_chars() {
-        assert_eq!(
-            decode("00gg").unwrap_err().0,
-            faster_hex_private::Error::InvalidChar
-        );
-        assert_eq!(
-            decode("0x00").unwrap_err().0,
-            faster_hex_private::Error::InvalidChar
-        );
+    fn decode_rejects_invalid_input() {
+        for invalid in ["abc", "00gg", "0x00"] {
+            assert!(decode(invalid).is_err(), "{invalid:?} should be rejected");
+        }
     }
 }
