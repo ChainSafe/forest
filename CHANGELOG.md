@@ -37,6 +37,8 @@
 
 ### Changed
 
+- [#7405](https://github.com/ChainSafe/forest/pull/7405): `Filecoin.StateReplay` is now served from the shared tipset trace cache, so replaying every transaction of a block executes the tipset once instead of once per call. Tipset replays triggered by RPC (`StateReplay`, `trace_*`, `debug_trace*`) are now bounded to half the available CPUs by default, configurable via `FOREST_RPC_REPLAY_CONCURRENCY`.
+
 ### Removed
 
 ### Fixed

@@ -303,3 +303,75 @@ fn repair_tipset_lookup_clears_caches_when_entries_repaired() {
     assert_eq!(sm.repair_tipset_lookup().unwrap(), 0);
     assert!(sm.cache.get(&tsk).is_some());
 }
+
+/// A state manager over a dummy chain plus a fake epoch-1 tipset whose parent
+/// state does not exist in the store, so any attempt to execute it fails.
+fn state_manager_with_unexecutable_tipset() -> (StateManager, Tipset) {
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader, Tipset};
+    use crate::chain::ChainStore;
+    use crate::networks::ChainConfig;
+    use crate::test_utils::dummy_ticket;
+
+    let db = Arc::new(MemoryDB::default());
+    let genesis = CachingBlockHeader::new(RawBlockHeader {
+        timestamp: 7777,
+        ..Default::default()
+    });
+    let cs = ChainStore::new(db, Arc::new(ChainConfig::default()), genesis).unwrap();
+    let sm = StateManager::new(cs).unwrap();
+    let ts = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+        parents: sm.chain_store().heaviest_tipset().key().clone(),
+        ticket: dummy_ticket(1),
+        epoch: 1,
+        ..Default::default()
+    }));
+    (sm, ts)
+}
+
+#[tokio::test]
+async fn replay_is_served_from_the_tipset_trace_cache() {
+    use crate::utils::cid::CidCborExt;
+
+    let (sm, ts) = state_manager_with_unexecutable_tipset();
+    let mcid = Cid::from_cbor_blake2b256(&"target-message").unwrap();
+    let cached = crate::rpc::state::ApiInvocResult {
+        msg_cid: mcid,
+        ..Default::default()
+    };
+    sm.trace_cache.insert(
+        ts.key().clone(),
+        (Cid::default().into(), vec![Arc::new(cached.clone())]),
+    );
+
+    let replayed = sm.replay(ts, mcid).await.unwrap();
+    assert_eq!(replayed, cached);
+}
+
+#[tokio::test]
+async fn replay_permits_are_sized_by_configured_concurrency() {
+    let (sm, _) = state_manager_with_unexecutable_tipset();
+    let permits = StateManager::replay_concurrency();
+    assert_eq!(sm.replay_semaphore.available_permits(), permits);
+
+    let _held = sm.replay_permit().await;
+    assert_eq!(sm.replay_semaphore.available_permits(), permits - 1);
+}
+
+#[tokio::test]
+async fn replay_of_message_absent_from_cached_trace_fails_without_executing() {
+    use crate::utils::cid::CidCborExt;
+
+    let (sm, ts) = state_manager_with_unexecutable_tipset();
+    sm.trace_cache
+        .insert(ts.key().clone(), (Cid::default().into(), vec![]));
+
+    let err = sm
+        .replay(ts, Cid::from_cbor_blake2b256(&"absent-message").unwrap())
+        .await
+        .unwrap_err();
+    // "failed to replay" is the message-not-found contract exposed via RPC.
+    assert!(
+        matches!(err, Error::Other(ref s) if s == "failed to replay"),
+        "expected the not-found replay error, got: {err}"
+    );
+}

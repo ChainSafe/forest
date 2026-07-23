@@ -180,6 +180,8 @@ pub struct StateManager {
     id_to_deterministic_address_cache: Option<IdToAddressCache>,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
+    /// Bounds concurrent RPC-triggered tipset replays, see [`Self::replay_concurrency`].
+    replay_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
 impl ShallowClone for StateManager {
@@ -194,6 +196,7 @@ impl ShallowClone for StateManager {
                 .map(ShallowClone::shallow_clone),
             beacon: self.beacon.shallow_clone(),
             engine: self.engine.shallow_clone(),
+            replay_semaphore: self.replay_semaphore.shallow_clone(),
         }
     }
 }
@@ -228,7 +231,36 @@ impl StateManager {
                 "id_to_deterministic_address",
                 DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE,
             )),
+            replay_semaphore: Arc::new(tokio::sync::Semaphore::new(Self::replay_concurrency())),
         })
+    }
+
+    /// Maximum concurrent RPC-triggered tipset replays (`StateReplay`, `trace_*` and
+    /// `debug_trace*` methods). Each replay is a full VM execution of a tipset, so
+    /// unbounded concurrency lets a burst of such requests starve the whole node.
+    /// Configurable via `FOREST_RPC_REPLAY_CONCURRENCY`; defaults to half the
+    /// available CPUs.
+    fn replay_concurrency() -> usize {
+        static VALUE: std::sync::LazyLock<NonZeroUsize> = std::sync::LazyLock::new(|| {
+            let default = std::thread::available_parallelism()
+                .ok()
+                .and_then(|n| NonZeroUsize::new(n.get() / 2))
+                .unwrap_or(nonzero!(1usize));
+            crate::utils::misc::env::env_or_default("FOREST_RPC_REPLAY_CONCURRENCY", default)
+        });
+        VALUE.get()
+    }
+
+    /// The returned permit is owned so it can be moved into the `spawn_blocking`
+    /// closure doing the actual execution: if the requesting future is cancelled
+    /// (RPC timeout, disconnect), the permit stays held until the orphaned
+    /// blocking task finishes, keeping the concurrency bound accurate.
+    async fn replay_permit(&self) -> tokio::sync::OwnedSemaphorePermit {
+        self.replay_semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("replay semaphore is never closed")
     }
 
     /// Disables caching of ID -> deterministic-address resolution. To be used strictly
