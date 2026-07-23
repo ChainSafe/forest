@@ -333,6 +333,9 @@ panic = "abort"
 overflow-checks = true
 lto = "thin"
 
+[profile.release.package.quinn-proto]
+overflow-checks = false
+
 [profile.release-lto-fat]
 inherits = "release"
 lto = "fat"
