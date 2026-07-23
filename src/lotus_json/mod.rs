@@ -375,12 +375,12 @@ pub mod hexify_bytes {
 
     pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
-        T: Display + std::fmt::LowerHex,
+        T: AsRef<[u8]>,
         S: Serializer,
     {
-        // `ethereum_types` crate serializes bytes as compressed addresses, i.e. `0xff00…03ec`
-        // so we can't just use `serializer.collect_str` here
-        serializer.serialize_str(&format!("{value:#x}"))
+        // full-width lower-case hex; `Display` of `ethereum_types` values would compress
+        // the middle, i.e. `0xff00…03ec`
+        serializer.serialize_str(&crate::utils::encoding::hex::encode_prefixed(value))
     }
 
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
@@ -403,13 +403,7 @@ pub mod hexify_vec_bytes {
     where
         S: Serializer,
     {
-        let mut s = vec![0; 2 + value.len() * 2];
-        s.get_mut(0..2)
-            .expect("len is correct")
-            .copy_from_slice(b"0x");
-        hex::encode_to_slice(value, s.get_mut(2..).expect("len is correct"))
-            .map_err(serde::ser::Error::custom)?;
-        serializer.serialize_str(std::str::from_utf8(&s).expect("valid utf8"))
+        serializer.serialize_str(&crate::utils::encoding::hex::encode_prefixed(value))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
@@ -419,9 +413,9 @@ pub mod hexify_vec_bytes {
         let s = String::deserialize(deserializer)?;
         let s = Cow::from(s.strip_prefix("0x").unwrap_or(&s));
 
-        // Pad with 0 if odd length. This is necessary because [`hex::decode`] requires an even
+        // Pad with 0 if odd length. This is necessary because decoding requires an even
         // number of characters, whereas a valid input is also `0x0`.
-        let s = if s.len() % 2 == 0 {
+        let s = if s.len().is_multiple_of(2) {
             s
         } else {
             let mut s = s.into_owned();
@@ -429,7 +423,7 @@ pub mod hexify_vec_bytes {
             Cow::Owned(s)
         };
 
-        hex::decode(s.as_ref()).map_err(serde::de::Error::custom)
+        crate::utils::encoding::hex::decode(s.as_ref()).map_err(serde::de::Error::custom)
     }
 }
 
@@ -661,12 +655,58 @@ mod fixme {
 mod tests {
     use super::*;
     use ipld_core::serde::SerdeError;
+    use quickcheck_macros::quickcheck;
     use serde::de::{IntoDeserializer, value::StringDeserializer};
 
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     struct HexifyVecBytesTest {
         #[serde(with = "hexify_vec_bytes")]
         value: Vec<u8>,
+    }
+
+    /// [`hexify_bytes`] serialization matches the `format!("{value:#x}")` implementation
+    /// it replaced, for every `ethereum_types` value it serves.
+    fn matches_legacy_lowerhex<T: AsRef<[u8]> + std::fmt::LowerHex>(value: T) -> bool {
+        #[derive(Serialize)]
+        struct W<T: AsRef<[u8]>>(#[serde(with = "hexify_bytes")] T);
+
+        serde_json::to_string(&W(&value)).unwrap() == format!("\"{value:#x}\"")
+    }
+
+    fn filled<const N: usize>(bytes: Vec<u8>) -> [u8; N] {
+        let mut arr = [0; N];
+        arr.iter_mut().zip(bytes).for_each(|(a, b)| *a = b);
+        arr
+    }
+
+    #[test]
+    fn test_hexify_deserialize() {
+        fn de(input: &str) -> Result<u64, SerdeError> {
+            let deserializer: StringDeserializer<SerdeError> =
+                String::from_str(input).unwrap().into_deserializer();
+            hexify::deserialize(deserializer)
+        }
+
+        self::assert_eq!(de("0x2a").unwrap(), 42);
+        self::assert_eq!(de("0x0").unwrap(), 0);
+        for invalid in ["", "0x", "2a", "0xzz", "cthulhu"] {
+            assert!(de(invalid).is_err(), "{invalid:?} should be rejected");
+        }
+    }
+
+    #[quickcheck]
+    fn hexify_bytes_matches_legacy_h64(value: u64) -> bool {
+        matches_legacy_lowerhex(ethereum_types::H64::from_low_u64_be(value))
+    }
+
+    #[quickcheck]
+    fn hexify_bytes_matches_legacy_h160(bytes: Vec<u8>) -> bool {
+        matches_legacy_lowerhex(ethereum_types::H160::from(filled::<20>(bytes)))
+    }
+
+    #[quickcheck]
+    fn hexify_bytes_matches_legacy_bloom(bytes: Vec<u8>) -> bool {
+        matches_legacy_lowerhex(ethereum_types::Bloom::from(filled::<256>(bytes)))
     }
 
     #[test]

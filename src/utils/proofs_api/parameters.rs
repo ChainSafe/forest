@@ -42,7 +42,7 @@ pub(super) type ParameterMap = HashMap<String, ParameterData>;
 pub(super) struct ParameterData {
     #[serde(with = "crate::lotus_json::stringify")]
     pub cid: Cid,
-    #[serde(with = "hex::serde")]
+    #[serde(with = "crate::utils::encoding::hex::serde")]
     pub digest: [u8; PROOF_DIGEST_LEN],
     pub sector_size: u64,
 }

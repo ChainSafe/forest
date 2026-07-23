@@ -111,6 +111,7 @@ impl AsyncWrite for VoidAsyncWriter {
 
 #[cfg(test)]
 mod test {
+    use crate::utils::encoding::hex;
     use rand::RngCore;
     use sha2::{Sha256, Sha512};
     use tokio::io::{AsyncWriteExt, BufWriter};

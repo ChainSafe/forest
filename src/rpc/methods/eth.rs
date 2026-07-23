@@ -12,6 +12,7 @@ pub(crate) mod trace;
 pub mod types;
 mod utils;
 
+use crate::utils::encoding::hex;
 pub use bloom::Bloom;
 pub(crate) use bloom::store_block_logs_bloom;
 use bloom::{EMPTY_BLOOM, FULL_BLOOM, accrue_eth_log, block_logs_bloom};
@@ -238,7 +239,7 @@ impl EthUint64 {
     }
 
     pub fn to_hex_string(self) -> String {
-        format!("0x{}", hex::encode(self.0.to_be_bytes()))
+        hex::encode_prefixed(self.0.to_be_bytes())
     }
 }
 
