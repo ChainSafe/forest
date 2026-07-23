@@ -562,6 +562,13 @@ fn maybe_start_rpc_service(
             ctx.chain_config().eth_chain_id,
             mpool.subscriber(),
         ));
+        services.spawn({
+            let eth_event_handler = eth_event_handler.clone();
+            async move {
+                eth_event_handler.run_filter_gc().await;
+                Ok(())
+            }
+        });
         if is_env_truthy("FOREST_JWT_DISABLE_EXP_VALIDATION") {
             warn!(
                 "JWT expiration validation is disabled; this significantly weakens security and should only be used in tightly controlled environments"

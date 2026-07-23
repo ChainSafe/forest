@@ -35,6 +35,8 @@
 
 - [#7376](https://github.com/ChainSafe/forest/pull/7376): Added `--augmented-snapshot` and `--tipset-lookup` to `forest-cli snapshot export`.
 
+- [#7265](https://github.com/ChainSafe/forest/issues/7265): Expire installed `eth` filters that have not been polled for longer than a TTL. The TTL defaults to one hour (Lotus parity) and is configurable via `filter_ttl_secs` in the `[events]` config section or the `FOREST_FILTER_TTL_SECS` environment variable, `0` disables expiry.
+
 ### Changed
 
 ### Removed

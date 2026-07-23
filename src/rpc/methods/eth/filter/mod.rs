@@ -56,6 +56,11 @@ use std::time::Duration;
 use store::*;
 use tokio_util::task::AbortOnDropHandle;
 
+/// How often the background task sweeps for expired filters. Mirrors Lotus's
+/// hardcoded 30-minute GC ticker:
+/// <https://github.com/filecoin-project/lotus/blob/release/v1.36.1/node/impl/eth/events.go#L361>
+const FILTER_GC_INTERVAL: Duration = Duration::from_mins(30);
+
 /// A trait for filtering events based on predefined conditions.
 ///
 /// Implementors of this trait define custom logic to determine whether an event matches the filtering criteria
@@ -200,9 +205,24 @@ impl EthEventHandler {
         }
     }
 
+    /// Periodically removes filters idle for longer than the configured TTL.
+    /// Returns immediately when expiry is disabled; otherwise never returns.
+    pub async fn run_filter_gc(&self) {
+        if self.filter_ttl.is_none() {
+            return;
+        }
+        let mut interval = tokio::time::interval_at(
+            tokio::time::Instant::now() + FILTER_GC_INTERVAL,
+            FILTER_GC_INTERVAL,
+        );
+        loop {
+            interval.tick().await;
+            self.sweep_expired();
+        }
+    }
+
     /// One sweep pass: removes every filter idle for longer than the configured
     /// TTL from the store and from its manager. No-op when expiry is disabled.
-    #[allow(dead_code)] // called by the periodic sweep task in the follow-up PR
     fn sweep_expired(&self) {
         let Some(ttl) = self.filter_ttl else {
             return;
@@ -1305,7 +1325,8 @@ mod tests {
 
     const TEST_TTL: Duration = Duration::from_hours(1);
 
-    /// Handler whose filters expire after `ttl` without being polled.
+    /// Handler whose filters expire after `ttl` without being polled;
+    /// `Duration::ZERO` disables expiry.
     fn handler_with_ttl(ttl: Duration) -> EthEventHandler {
         EthEventHandler::from_config(
             &EventsConfig {
@@ -1364,6 +1385,32 @@ mod tests {
         assert!(
             store.get(&polled_id).is_ok(),
             "recently polled filter must survive"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn gc_loop_sweeps_idle_filters() {
+        let handler = Arc::new(handler_with_ttl(TEST_TTL));
+        let id = handler.eth_new_block_filter().unwrap();
+        let _gc = tokio::spawn({
+            let handler = handler.clone();
+            async move { handler.run_filter_gc().await }
+        });
+        tokio::task::yield_now().await; // let the spawned loop start its interval now
+
+        tokio::time::advance(TEST_TTL + FILTER_GC_INTERVAL).await;
+        tokio::task::yield_now().await; // let the loop process elapsed ticks
+        let store = handler.filter_store.as_ref().unwrap();
+        assert!(store.get(&id).is_err(), "idle filter should be swept");
+    }
+
+    #[tokio::test]
+    async fn run_filter_gc_exits_when_expiry_disabled() {
+        use futures::FutureExt as _;
+        let handler = handler_with_ttl(Duration::ZERO);
+        assert!(
+            handler.run_filter_gc().now_or_never().is_some(),
+            "must complete on the first poll instead of looping forever"
         );
     }
 
