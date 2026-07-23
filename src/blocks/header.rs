@@ -357,6 +357,7 @@ mod tests {
     use crate::shim::clock::ChainEpoch;
     use crate::shim::{address::Address, version::NetworkVersion};
     use crate::utils::encoding::from_slice_with_fallback;
+    use crate::utils::encoding::hex;
     use crate::utils::multihash::MultihashCode;
     use cid::Cid;
     use fvm_ipld_encoding::{DAG_CBOR, to_vec};

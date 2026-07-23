@@ -39,7 +39,7 @@ func (impl *kadImpl) run() {
 		dht.DisableProviders(),
 		dht.DisableValues(),
 	}
-	hostDHT, err := dht.New(impl.ctx, host, dhtOpts...)
+	hostDHT, err := dht.New(host, dhtOpts...)
 	checkError(err)
 
 	impl.node = &kadNode{host, hostDHT}

@@ -12,6 +12,14 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
+/// Maximum allowed message confidence.
+const MAX_MESSAGE_CONFIDENCE: ChainEpoch = crate::shim::policy::policy_constants::CHAIN_FINALITY;
+
+/// Checks whether `current` is at least `confidence` epochs past `candidate`.
+fn confidence_reached(current: ChainEpoch, candidate: ChainEpoch, confidence: i64) -> bool {
+    candidate >= 0 && current >= candidate && (current - candidate) >= confidence
+}
+
 impl StateManager {
     /// Check if tipset had executed the message, by loading the receipt based
     /// on the index of the message in the block.
@@ -235,6 +243,11 @@ impl StateManager {
         allow_replaced: Option<bool>,
         cancellation_token: &CancellationToken,
     ) -> Result<(Tipset, Receipt), Error> {
+        if confidence > MAX_MESSAGE_CONFIDENCE {
+            return Err(Error::other(format!(
+                "message confidence exceeds maximum: {confidence} > {MAX_MESSAGE_CONFIDENCE}"
+            )));
+        }
         let message = Arc::new(
             crate::chain::get_chain_message(self.db(), &msg_cid)
                 .map_err(|err| Error::Other(format!("failed to load message {err:}")))?,
@@ -283,7 +296,7 @@ impl StateManager {
                     })
                     && !reverted.read().contains(ts.key())
                 {
-                    if sm.heaviest_tipset().epoch() >= ts.epoch() + confidence {
+                    if confidence_reached(sm.heaviest_tipset().epoch(), ts.epoch(), confidence) {
                         _ = search_back_tx.send((ts, receipt)).inspect_err(|e| {
                             tracing::warn!("failed to send to search_back_tx: {e}");
                         });
@@ -323,7 +336,11 @@ impl StateManager {
                                 // Return if `search_back_candidate` meets confidence requirement
                                 if let Some((candidate_ts, candidate_receipt)) =
                                     search_back_candidate.get()
-                                    && applied_ts.epoch() >= candidate_ts.epoch() + confidence
+                                    && confidence_reached(
+                                        applied_ts.epoch(),
+                                        candidate_ts.epoch(),
+                                        confidence,
+                                    )
                                     && !reverted.read().contains(candidate_ts.key())
                                 {
                                     return Ok((
@@ -334,7 +351,11 @@ impl StateManager {
 
                                 // Return if the candidate meets confidence requirement
                                 if let Some((candidate_ts, _)) = &candidate
-                                    && applied_ts.epoch() >= candidate_ts.epoch() + confidence
+                                    && confidence_reached(
+                                        applied_ts.epoch(),
+                                        candidate_ts.epoch(),
+                                        confidence,
+                                    )
                                     && let Some(candidate) = candidate
                                 {
                                     return Ok(candidate);
@@ -433,6 +454,7 @@ mod tests {
     use crate::utils::db::CborStoreExt as _;
     use fil_actors_shared::fvm_ipld_amt::Amtv0;
     use fvm_ipld_blockstore::Blockstore;
+    use rstest::rstest;
 
     const SENDER: Address = Address::new_id(100);
 
@@ -833,5 +855,43 @@ mod tests {
             .expect("head hit should be returned after confidence reached");
         assert_eq!(tipset.epoch(), 3);
         assert!(receipt.exit_code().is_success());
+    }
+
+    #[rstest]
+    #[case::zero_confidence(10, 10, 0, true)]
+    #[case::exact_confidence(15, 10, 5, true)]
+    #[case::negative_candidate(0, -1, 1, false)]
+    #[case::insufficient_confidence(14, 10, 5, false)]
+    #[case::candidate_above_current(9, 10, 0, false)]
+    fn confidence_reached_cases(
+        #[case] current: ChainEpoch,
+        #[case] candidate: ChainEpoch,
+        #[case] confidence: i64,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(confidence_reached(current, candidate, confidence), expected);
+    }
+
+    /// `wait_for_message` rejects a confidence above chain finality.
+    #[tokio::test]
+    async fn wait_for_message_rejects_confidence_above_maximum() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, msg_cid) = state_manager_with_replaced_message_at_head(&db);
+
+        let result = state_manager
+            .wait_for_message(
+                msg_cid,
+                MAX_MESSAGE_CONFIDENCE + 1,
+                None,
+                Some(true),
+                &CancellationToken::new(),
+            )
+            .await;
+        let err = result.expect_err("confidence above maximum should be rejected");
+        assert!(
+            err.to_string()
+                .contains("message confidence exceeds maximum"),
+            "{err}"
+        );
     }
 }

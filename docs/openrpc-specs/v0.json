@@ -7791,15 +7791,27 @@
       "ApiExportStatus": {
         "type": "object",
         "properties": {
-          "cancelled": {
-            "type": "boolean"
-          },
           "current_epoch": {
             "type": "integer",
             "format": "int64"
           },
-          "exporting": {
-            "type": "boolean"
+          "error": {
+            "description": "Error of the last failed export, if recorded.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "`None` if and only if no export has run since the node started.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainExportKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "progress": {
             "type": "number",
@@ -7816,15 +7828,13 @@
             ],
             "format": "date-time"
           },
-          "succeeded": {
-            "type": "boolean"
+          "state": {
+            "$ref": "#/components/schemas/ChainExportState"
           }
         },
         "required": [
+          "state",
           "progress",
-          "exporting",
-          "cancelled",
-          "succeeded",
           "start_epoch",
           "current_epoch"
         ]
@@ -8448,6 +8458,26 @@
           "MaxTimestampAge"
         ]
       },
+      "ChainExportKind": {
+        "description": "What kind of export is (or was last) holding the chain-export slot.",
+        "oneOf": [
+          {
+            "description": "A snapshot export requested via `Forest.ChainExport`.",
+            "type": "string",
+            "const": "Snapshot"
+          },
+          {
+            "description": "A diff snapshot export requested via `Forest.ChainExportDiff`.",
+            "type": "string",
+            "const": "DiffSnapshot"
+          },
+          {
+            "description": "A lite snapshot export performed by the automatic snapshot GC.",
+            "type": "string",
+            "const": "SnapshotGc"
+          }
+        ]
+      },
       "ChainExportParams": {
         "type": "object",
         "properties": {
@@ -8479,6 +8509,17 @@
           "tipset_keys",
           "skip_checksum",
           "dry_run"
+        ]
+      },
+      "ChainExportState": {
+        "description": "Transitions only through [`ChainExportGuard`]: `Running` while a guard is held, then\nexactly one terminal state once it drops. `Idle`: no export has run since node start.",
+        "type": "string",
+        "enum": [
+          "Idle",
+          "Running",
+          "Succeeded",
+          "Cancelled",
+          "Failed"
         ]
       },
       "ChangedType": {
@@ -10053,6 +10094,11 @@
       "ForestChainExportParams": {
         "type": "object",
         "properties": {
+          "augmented_snapshot": {
+            "description": "Generate a separate snapshot that contains augmented data (message receipts and events)",
+            "type": "boolean",
+            "default": false
+          },
           "dry_run": {
             "type": "boolean"
           },
@@ -10061,18 +10107,16 @@
             "format": "int64"
           },
           "include_events": {
+            "description": "Include events in the output snapshot",
             "type": "boolean",
             "default": false
           },
           "include_receipts": {
+            "description": "Include message receipts in the output snapshot",
             "type": "boolean",
             "default": false
           },
           "include_tipset_keys": {
-            "type": "boolean",
-            "default": false
-          },
-          "include_tipset_lookup": {
             "type": "boolean",
             "default": false
           },
@@ -10087,7 +10131,13 @@
             "type": "boolean"
           },
           "tipset_keys": {
-            "$ref": "#/components/schemas/Nullable_Array_of_Cid"
+            "$ref": "#/components/schemas/Nullable_Array_of_Cid",
+            "default": null
+          },
+          "tipset_lookup": {
+            "description": "Generate a separate snapshot that contains tipset lookup",
+            "type": "boolean",
+            "default": false
           },
           "version": {
             "$ref": "#/components/schemas/FilecoinSnapshotVersion"
@@ -10098,7 +10148,6 @@
           "epoch",
           "recent_roots",
           "output_path",
-          "tipset_keys",
           "skip_checksum",
           "dry_run"
         ]

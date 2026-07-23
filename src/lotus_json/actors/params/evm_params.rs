@@ -25,6 +25,8 @@ macro_rules! impl_evm_constructor_params {
             paste! {
                 mod [<impl_evm_constructor_params_ $version>] {
                     use super::*;
+                    #[cfg(test)]
+                    use crate::utils::encoding::hex;
                     type T = fil_actor_evm_state::[<v $version>]::ConstructorParams;
                     #[test]
                     fn snapshots() {
@@ -93,6 +95,8 @@ macro_rules! impl_evm_delegate_call_params_lotus_json {
             paste! {
                 mod [<impl_evm_delegate_call_params_ $version>] {
                     use super::*;
+                    #[cfg(test)]
+                    use crate::utils::encoding::hex;
                     type T = fil_actor_evm_state::[<v $version>]::DelegateCallParams;
                     #[test]
                     fn snapshots() {

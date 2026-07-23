@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::utils::encoding::hex;
 use cid::Cid;
 use std::sync::LazyLock;
 

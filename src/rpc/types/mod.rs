@@ -567,16 +567,57 @@ impl From<StampedEvent> for Event {
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
 pub struct ApiExportStatus {
+    pub state: crate::ipld::ChainExportState,
+    /// `None` if and only if no export has run since the node started.
+    pub kind: Option<crate::ipld::ChainExportKind>,
+    /// Error of the last failed export, if recorded.
+    pub error: Option<String>,
     pub progress: f64,
-    pub exporting: bool,
-    pub cancelled: bool,
-    pub succeeded: bool,
     pub start_epoch: ChainEpoch,
     pub current_epoch: ChainEpoch,
     pub start_time: Option<chrono::DateTime<Utc>>,
 }
 
 lotus_json_with_self!(ApiExportStatus);
+
+/// The human-readable rendering used by `forest-cli snapshot export-status`.
+impl std::fmt::Display for ApiExportStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use crate::ipld::ChainExportState::*;
+        use crate::ipld::{format_start_time, kind_label};
+        let kind = kind_label(self.kind);
+        match self.state {
+            Running => {
+                let percent = self.progress.clamp(0.0, 1.0) * 100.0;
+                let started = format_start_time(self.start_time);
+                if self.start_epoch == 0 {
+                    // Pre-walk and export-at-genesis are indistinguishable here; claim neither.
+                    write!(
+                        f,
+                        "Exporting ({kind}): {percent:.1}% (started at {started})"
+                    )
+                } else {
+                    write!(
+                        f,
+                        "Exporting ({kind}): {percent:.1}% (walk at epoch {}, counting down from {}; started at {started})",
+                        self.current_epoch, self.start_epoch,
+                    )
+                }
+            }
+            Idle => write!(f, "No export in progress"),
+            Succeeded => write!(f, "No export in progress (last {kind} export succeeded)"),
+            Cancelled => write!(
+                f,
+                "No export in progress (last {kind} export was cancelled)"
+            ),
+            Failed => write!(
+                f,
+                "No export in progress (last {kind} export failed: {})",
+                self.error.as_deref().unwrap_or("unknown error"),
+            ),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
 pub enum ApiExportResult {

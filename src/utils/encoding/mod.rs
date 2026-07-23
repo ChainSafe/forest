@@ -8,6 +8,7 @@ use fvm_ipld_encoding::strict_bytes::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer, de, ser};
 
 mod fallback_de_ipld_dagcbor;
+pub mod hex;
 
 /// Limit the number of bytes that are used for pre-allocating `Vec<Cid>`s. This follows what `serde` is
 /// doing internally with `serde::private::size_hint::cautious()`.

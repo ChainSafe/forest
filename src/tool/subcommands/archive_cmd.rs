@@ -602,6 +602,11 @@ where
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
         let store = store.shallow_clone();
+        info!(
+            "building the diff base CID set, from epoch {} down to genesis (state trees for epochs above {diff_limit})...",
+            diff_ts.epoch()
+        );
+        let start = std::time::Instant::now();
         let mut stream = stream_chain(
             store.shallow_clone(),
             diff_ts.clone().chain_owned(store.shallow_clone()),
@@ -609,6 +614,10 @@ where
             FileBackedCidHashSet::new_in_temp_dir()?,
         );
         while stream.try_next().await?.is_some() {}
+        info!(
+            "built the diff base CID set, took {}",
+            humantime::format_duration(start.elapsed())
+        );
         stream.into_seen()
     } else {
         FileBackedCidHashSet::new_in_temp_dir()?
@@ -1221,6 +1230,85 @@ mod tests {
     use crate::utils::db::car_stream::CarStream;
     use tempfile::TempDir;
     use tokio::io::BufReader;
+
+    /// `poisoned_state_root` lands on the epoch-3 block, inside the pre-walk's state-root
+    /// range. Default `chain4u` links are identity CIDs, which the walk skips.
+    async fn run_diff_export(
+        poisoned_state_root: Option<Cid>,
+        output_path: PathBuf,
+    ) -> anyhow::Result<()> {
+        use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
+        use crate::db::MemoryDB;
+        use std::sync::Arc;
+
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        let mut b3 = HeaderBuilder::new();
+        if let Some(root) = poisoned_state_root {
+            b3.with_state_root(root);
+        }
+        chain4u! {
+            in c4u;
+            genesis_ts @ [_genesis_header]
+            -> [_b1] -> [_b2]
+            -> [_b3 = b3]
+            -> [_b4] -> [_b5]
+            -> head_ts @ [_b6]
+        };
+
+        do_export(
+            &db,
+            head_ts.clone(),
+            Some(genesis_ts.clone()),
+            output_path,
+            None,
+            6,       // depth
+            Some(4), // diff
+            Some(2), // diff_depth
+            true,
+        )
+        .await
+    }
+
+    /// The diff pre-walk explains the "stuck at `Exporting: 0.0%` with no temporary
+    /// file" reports; pins that the file and progress appear only after it completes.
+    #[tokio::test]
+    #[serial_test::serial(chain_export)]
+    async fn export_diff_prewalk_reports_no_progress_and_creates_no_file() -> anyhow::Result<()> {
+        use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard, ChainExportKind};
+        use crate::utils::multihash::prelude::*;
+
+        let tmp = TempDir::new()?;
+
+        // Control: pins the failure below to the pre-walk, not argument validation.
+        let control_path = tmp.path().join("control.forest.car.zst");
+        run_diff_export(None, control_path.clone()).await?;
+        assert!(control_path.exists());
+
+        let missing_state_root = Cid::new_v1(
+            fvm_ipld_encoding::DAG_CBOR,
+            MultihashCode::Blake2b256.digest(b"missing-state-root"),
+        );
+        let output_path = tmp.path().join("diff.forest.car.zst");
+
+        // Hold the export guard so the status global behaves as in the RPC handler.
+        let _guard = ChainExportGuard::try_start_export(ChainExportKind::DiffSnapshot)?;
+
+        run_diff_export(Some(missing_state_root), output_path.clone())
+            .await
+            .expect_err("the diff pre-walk must fail on the missing state root");
+
+        assert!(
+            !output_path.exists(),
+            "output file must not exist: it is only created after the entire diff pre-walk"
+        );
+        assert_eq!(
+            CHAIN_EXPORT_STATUS.snapshot().initial_epoch,
+            0,
+            "no progress is ever reported during the diff pre-walk"
+        );
+        Ok(())
+    }
 
     fn genesis_timestamp(genesis_car: &'static [u8]) -> u64 {
         let db = crate::db::car::PlainCar::try_from(genesis_car).unwrap();

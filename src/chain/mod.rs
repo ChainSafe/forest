@@ -12,11 +12,12 @@ pub use self::{snapshot_format::*, store::*, weight::*};
 
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ChainIndex;
-use crate::cid_collections::CidHashSetLike;
+use crate::cid_collections::{CidHashSet, CidHashSetLike};
 use crate::db::IndexMapBlockstore;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
-use crate::ipld::stream_chain;
+use crate::ipld::{IpldStream, stream_chain};
 use crate::prelude::*;
+use crate::shim::executor::Receipt;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
@@ -32,7 +33,7 @@ use std::time::Instant;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 use tokio_util::task::AbortOnDropHandle;
 
-const TIPSET_LOOKUP_HAMT_BIT_WIDTH: u32 = 5;
+pub const TIPSET_LOOKUP_HAMT_BIT_WIDTH: u32 = 5;
 
 pub struct ExportOptions<S> {
     pub skip_checksum: bool,
@@ -259,4 +260,76 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
         checksum: digest,
         tipset_lookup,
     })
+}
+
+pub async fn export_receipts_events_to_forest_car(
+    db: &(impl Blockstore + ShallowClone + Unpin + Send + Sync + 'static),
+    tipset: &Tipset,
+    lookup_depth: ChainEpochDelta,
+    writer: impl AsyncWrite + Unpin,
+) -> anyhow::Result<()> {
+    let start = Instant::now();
+    tracing::info!(
+        "Exporting message receipts and events snapshot, epoch={}, depth={lookup_depth}",
+        tipset.epoch(),
+    );
+
+    let min_lookup_epoch_exclusive = tipset.epoch() - lookup_depth;
+    let ipld_roots = tokio::task::spawn_blocking({
+        let tipset = tipset.shallow_clone();
+        let db = db.shallow_clone();
+        move || {
+            // With 2k state trees on mainnet, it's `~2k receipt roots` + `~8k event roots` ~= `~10k ipld roots`.
+            let mut ipld_roots = vec![];
+            for ts in tipset
+                .chain(&db)
+                .take_while(|ts| ts.epoch() > min_lookup_epoch_exclusive)
+            {
+                let message_receipts_root = *ts.parent_message_receipts();
+                ipld_roots.push(message_receipts_root);
+                let receipts = Receipt::get_receipts(&db, message_receipts_root).with_context(|| {
+                    format!(
+                        "failed to get receipts, root: {message_receipts_root}, epoch: {}, tipset key: {}",
+                        ts.epoch(),
+                        ts.key(),
+                    )
+                })?;
+                ipld_roots.extend(receipts.into_iter().filter_map(|r| r.events_root()));
+            }
+            anyhow::Ok(ipld_roots)
+        }
+    })
+    .await??;
+
+    let stream = IpldStream::new(db.shallow_clone(), ipld_roots, CidHashSet::default());
+    let mut writer = BufWriter::new(writer);
+    let (blocks, _drop_guard) = par_buffer(
+        // Queue 1k blocks. This is enough to saturate the compressor and blocks
+        // are small enough that keeping 1k in memory isn't a problem. Average
+        // block size is between 1kb and 2kb.
+        1024, stream,
+    );
+    // Encode Ipld key-value pairs in zstd frames
+    let block_frames = forest::Encoder::compress_stream_default(blocks);
+
+    // There's no data root for this snapshot, use a default CID as placeholder.
+    // Note that the output CAR could only be validated with `forest-tool snapshot validate-extended`.
+    // Another option could be including chain spine in the CAR and use head tipset key as root,
+    // whose downside would be bloating the CAR.
+    let roots = nunny::vec![Cid::default()];
+
+    // Write zstd frames and include a skippable index
+    forest::Encoder::write(&mut writer, roots, block_frames).await?;
+
+    // Flush to ensure everything has been successfully written
+    tokio::time::timeout(forest::ASYNC_OPS_TIMEOUT, writer.flush())
+        .await
+        .context("`writer.flush` timed out")??;
+
+    tracing::info!(
+        "Exported message receipts and events snapshot, took {}",
+        humantime::format_duration(start.elapsed())
+    );
+
+    Ok(())
 }

@@ -27,7 +27,7 @@ use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 use crate::shim::clock::ChainEpoch;
 use ahash::HashMap;
 use clap::ValueEnum as _;
-pub use client::Client;
+pub use client::{Client, humanize_rpc_error};
 pub use error::ServerError;
 use eth::filter::EthEventHandler;
 use filter_layer::FilterLayer;

@@ -200,6 +200,8 @@ macro_rules! impl_lotus_json_for_power_enroll_cron_event_params {
             paste! {
                 mod [<impl_power_enroll_cron_event_params_ $version>] {
                     use super::*;
+                    #[cfg(test)]
+                    use crate::utils::encoding::hex;
                     type T = fil_actor_power_state::[<v $version>]::EnrollCronEventParams;
                     #[test]
                     fn snapshots() {

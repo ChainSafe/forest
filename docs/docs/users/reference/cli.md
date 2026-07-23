@@ -792,6 +792,8 @@ Options:
   -t, --tipset <TIPSET>            Tipset to start the export from, default is the chain head
   -d, --depth <DEPTH>              How many state trees to include. 0 for chain spine with no state trees [default: 2000]
       --format <FORMAT>            Snapshot format to export [default: v2] [possible values: v1, v2]
+      --augmented-snapshot         Also exports an augmented data snapshot that contains message receipts and events
+      --tipset-lookup              Also exports a tipset lookup HAMT snapshot
   -h, --help                       Print help
 ```
 
@@ -868,8 +870,8 @@ Usage: forest-cli f3 <COMMAND>
 Commands:
   manifest    Gets the current manifest used by F3
   status      Checks the F3 status
-  certs       Manages interactions with F3 finality certificates [aliases: c]
-  powertable  Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: pt]
+  certs       Manages interactions with F3 finality certificates [alias: c]
+  powertable  Gets F3 power table at a specific instance ID or latest instance if none is specified [alias: pt]
   ready       Checks if F3 is in sync
   help        Print this message or the help of the given subcommand(s)
 
@@ -991,8 +993,8 @@ Gets F3 power table at a specific instance ID or latest instance if none is spec
 Usage: forest-cli f3 powertable <COMMAND>
 
 Commands:
-  get             Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: g]
-  get-proportion  Gets the total proportion of power for a list of actors at a given instance [aliases: gp]
+  get             Gets F3 power table at a specific instance ID or latest instance if none is specified [alias: g]
+  get-proportion  Gets the total proportion of power for a list of actors at a given instance [alias: gp]
   help            Print this message or the help of the given subcommand(s)
 
 Options:
@@ -1272,12 +1274,13 @@ Manage snapshots
 Usage: forest-tool snapshot <COMMAND>
 
 Commands:
-  fetch           Fetches the most recent snapshot from a trusted, pre-defined location
-  validate-diffs  Validate the provided snapshots as a whole
-  validate        Validate the snapshots individually
-  compress        Make this snapshot suitable for use as a compressed car-backed blockstore
-  compute-state   Compute the state hash at a given epoch
-  help            Print this message or the help of the given subcommand(s)
+  fetch              Fetches the most recent snapshot from a trusted, pre-defined location
+  validate-diffs     Validate the provided snapshots as a whole
+  validate           Validate the snapshots individually
+  validate-extended  Validate a snapshot's associated augmented and tipset lookup snapshots
+  compress           Make this snapshot suitable for use as a compressed car-backed blockstore
+  compute-state      Compute the state hash at a given epoch
+  help               Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
@@ -1339,6 +1342,20 @@ Options:
           Fail at the first invalid snapshot
   -h, --help
           Print help
+```
+
+### `forest-tool snapshot validate-extended`
+
+```
+Validate a snapshot's associated augmented and tipset lookup snapshots
+
+Usage: forest-tool snapshot validate-extended --base <BASE> <--augmented <AUGMENTED>|--tipset-lookup <TIPSET_LOOKUP>>
+
+Options:
+      --base <BASE>                    Path to a snapshot CAR, which may be zstd compressed
+      --augmented <AUGMENTED>          Path to the associated augmented snapshot (message receipts and events)
+      --tipset-lookup <TIPSET_LOOKUP>  Path to the associated tipset lookup snapshot
+  -h, --help                           Print help
 ```
 
 ### `forest-tool snapshot compress`
