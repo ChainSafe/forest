@@ -8,7 +8,6 @@ use std::sync::LazyLock;
 use std::time::Duration;
 
 use anyhow::{Context as _, bail};
-use parking_lot::Mutex;
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
@@ -57,9 +56,6 @@ impl Backend {
     }
 }
 
-/// Serializes local keystore file access.
-static LOCAL_KEYSTORE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
 /// Run `forest-wallet [--remote-wallet] <args>` and return trimmed stdout.
 pub fn wallet(backend: Backend, args: &[&str]) -> anyhow::Result<String> {
     Ok(String::from_utf8(run_wallet_raw(backend, args)?)?
@@ -69,8 +65,6 @@ pub fn wallet(backend: Backend, args: &[&str]) -> anyhow::Result<String> {
 
 /// Same as [`wallet`] but yields raw stdout bytes (used by `export`).
 pub fn run_wallet_raw(backend: Backend, args: &[&str]) -> anyhow::Result<Vec<u8>> {
-    let _guard = (backend == Backend::Local).then(|| LOCAL_KEYSTORE_LOCK.lock());
-
     let mut full = Vec::with_capacity(backend.extra_args().len() + args.len());
     full.extend_from_slice(backend.extra_args());
     full.extend_from_slice(args);
@@ -107,13 +101,6 @@ pub fn balance(address: &str, backend: Backend) -> anyhow::Result<String> {
 
 /// Send with `--from`. `backend` chooses the signing keystore
 /// (local file vs `--remote-wallet`).
-///
-/// Retries on the transient `gas price is lower than min gas price` mpool
-/// error: the local CLI path estimates gas, then submits via `MpoolPush`,
-/// so a concurrent push that bumps the mempool's fee floor between
-/// estimate and push rejects an otherwise-valid message. Retry re-runs
-/// fee estimation so gas fields match whatever minimum gas price applies
-/// at the next submission.
 pub fn send_from(from: &str, to: &str, amount: &str, backend: Backend) -> anyhow::Result<String> {
     send_from_and_maybe_wait(from, to, amount, backend, true)
 }
@@ -138,27 +125,14 @@ fn send_from_and_maybe_wait(
     if wait {
         args.extend(["--wait-confidence", "0", "--wait-timeout", "10m"]);
     }
-    let mut attempt = 1;
-    loop {
-        match wallet(backend, &args) {
-            Ok(out) => return Ok(out),
-            Err(e) if attempt < SEND_RETRIES => {
-                eprintln!(
-                    "error: {e:?} send {from} -> {to} failed on attempt {attempt}/{SEND_RETRIES}, retrying"
-                );
-                std::thread::sleep(SEND_RETRY_DELAY);
-                attempt += 1;
-            }
-            Err(e) => return Err(e),
-        }
-    }
+    wallet(backend, &args)
 }
 
-/// Max attempts for [`send_from`].
-const SEND_RETRIES: usize = 3;
-/// Delay between [`send_from`] retries; one block-time at calibnet cadence
-/// is enough for the daemon's gas-price snapshot to refresh.
-const SEND_RETRY_DELAY: Duration = Duration::from_secs(15);
+/// Max attempts for [`rpc_call_with_retry`].
+const RPC_RETRIES: usize = 3;
+/// Delay between [`rpc_call_with_retry`] attempts; one block-time at calibnet
+/// cadence is enough for the daemon's state snapshot to refresh.
+const RPC_RETRY_DELAY: Duration = Duration::from_secs(15);
 
 /// Poll until `try_check` returns `Some` or [`POLL_TIMEOUT`] elapses, sleeping
 /// [`POLL_WAIT_TIME`] between attempts.
@@ -312,11 +286,11 @@ pub async fn rpc_call_with_retry(method: &str, params: Value) -> anyhow::Result<
         });
         match result {
             Ok(v) => return Ok(v),
-            Err(e) if attempt < SEND_RETRIES => {
+            Err(e) if attempt < RPC_RETRIES => {
                 eprintln!(
-                    "error: {e:?} {method} failed on attempt {attempt}/{SEND_RETRIES}, retrying"
+                    "error: {e:?} {method} failed on attempt {attempt}/{RPC_RETRIES}, retrying"
                 );
-                tokio::time::sleep(SEND_RETRY_DELAY).await;
+                tokio::time::sleep(RPC_RETRY_DELAY).await;
                 attempt += 1;
             }
             Err(e) => return Err(e),

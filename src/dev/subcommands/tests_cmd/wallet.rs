@@ -11,7 +11,7 @@ pub struct WalletTestCommand {}
 impl WalletTestCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let args = Arguments {
-            test_threads: Some(8),
+            test_threads: Some(1),
             ..Default::default()
         };
         libtest_mimic::run(&args, tests()).exit();
