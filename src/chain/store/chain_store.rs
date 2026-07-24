@@ -305,6 +305,19 @@ impl ChainStore {
         Ok(())
     }
 
+    /// Like [`Self::put_mapping`], but only overwrites an existing entry when the incoming
+    /// `timestamp` is strictly newer than the stored one. Used by index backfill (which runs
+    /// concurrently with the live head indexer) so that walking historical tipsets cannot
+    /// clobber a mapping written for a newer tipset with an older one.
+    pub fn put_mapping_if_newer(&self, k: EthHash, v: Cid, timestamp: u64) -> Result<(), Error> {
+        if let Some((_, existing_timestamp)) = self.db().read_obj::<(Cid, u64)>(&k)?
+            && existing_timestamp >= timestamp
+        {
+            return Ok(());
+        }
+        self.put_mapping(k, v, timestamp)
+    }
+
     /// Reads the `Cid` from the blockstore for `EthAPI` queries.
     pub fn get_mapping(&self, hash: &EthHash) -> Result<Option<Cid>, Error> {
         Ok(self.db().read_obj::<(Cid, u64)>(hash)?.map(|(cid, _)| cid))
@@ -572,7 +585,16 @@ impl ChainStore {
     }
 
     /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.
-    pub fn process_signed_messages(&self, messages: &[(SignedMessage, u64)]) -> anyhow::Result<()> {
+    ///
+    /// When `compare_timestamps` is `true`, existing entries are only overwritten by strictly
+    /// newer ones (see [`Self::put_mapping_if_newer`]). The live head indexer passes `false` to
+    /// keep its blind-write fast path, while index backfill passes `true` so that historical
+    /// writes do not clobber newer mappings written concurrently by the head indexer.
+    pub fn process_signed_messages(
+        &self,
+        messages: &[(SignedMessage, u64)],
+        compare_timestamps: bool,
+    ) -> anyhow::Result<()> {
         let eth_txs: Vec<(EthHash, Cid, u64, usize)> = messages
             .iter()
             .enumerate()
@@ -597,7 +619,11 @@ impl ChainStore {
         // write back
         for (k, v, timestamp) in filtered.into_iter() {
             trace!("Insert mapping {} => {}", k, v);
-            self.put_mapping(k, v, timestamp)?;
+            if compare_timestamps {
+                self.put_mapping_if_newer(k, v, timestamp)?;
+            } else {
+                self.put_mapping(k, v, timestamp)?;
+            }
         }
         trace!("Wrote {} entries in Ethereum mapping", num_entries);
         Ok(())
@@ -858,6 +884,43 @@ mod tests {
 
         cs.mark_block_as_validated(&cid);
         assert!(cs.is_block_validated(&cid));
+    }
+
+    #[test]
+    fn put_mapping_if_newer_keeps_newest() {
+        let db = DbImpl::from(Arc::new(crate::db::MemoryDB::default()));
+        let chain_config = Arc::new(ChainConfig::default());
+        let gen_block = CachingBlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            ..Default::default()
+        });
+        let cs = ChainStore::new(db, chain_config, gen_block).unwrap();
+
+        let hash = EthHash::default();
+        let older = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[1]));
+        let newer = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[2]));
+
+        // Seed with the newer (higher timestamp) entry, as the live head indexer would.
+        cs.put_mapping(hash.clone(), newer, 100).unwrap();
+
+        // A backfill writing an older (lower timestamp) entry must not clobber it.
+        cs.put_mapping_if_newer(hash.clone(), older, 50).unwrap();
+        assert_eq!(cs.get_mapping(&hash).unwrap(), Some(newer));
+
+        // An equal timestamp must also not overwrite.
+        cs.put_mapping_if_newer(hash.clone(), older, 100).unwrap();
+        assert_eq!(cs.get_mapping(&hash).unwrap(), Some(newer));
+
+        // A strictly newer entry wins.
+        let newest = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[3]));
+        cs.put_mapping_if_newer(hash.clone(), newest, 200).unwrap();
+        assert_eq!(cs.get_mapping(&hash).unwrap(), Some(newest));
+
+        // Writing into an empty slot always succeeds.
+        let fresh_hash = EthHash(ethereum_types::H256::repeat_byte(0xab));
+        cs.put_mapping_if_newer(fresh_hash.clone(), older, 1)
+            .unwrap();
+        assert_eq!(cs.get_mapping(&fresh_hash).unwrap(), Some(older));
     }
 
     #[test]

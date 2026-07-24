@@ -98,6 +98,9 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ForestChainExportDiff);
         $callback!($crate::rpc::chain::ForestChainExportStatus);
         $callback!($crate::rpc::chain::ForestChainExportCancel);
+        $callback!($crate::rpc::chain::IndexBackfill);
+        $callback!($crate::rpc::chain::IndexBackfillStatus);
+        $callback!($crate::rpc::chain::IndexBackfillCancel);
         $callback!($crate::rpc::chain::ChainGetTipsetByParentState);
 
         // common vertical
