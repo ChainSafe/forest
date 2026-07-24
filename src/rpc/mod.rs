@@ -99,6 +99,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ForestChainExportStatus);
         $callback!($crate::rpc::chain::ForestChainExportCancel);
         $callback!($crate::rpc::chain::ChainGetTipsetByParentState);
+        $callback!($crate::rpc::chain::ChainValidateIndex);
 
         // common vertical
         $callback!($crate::rpc::common::Session);
@@ -498,6 +499,7 @@ pub struct RPCState {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub state_manager: crate::state_manager::StateManager,
     pub mpool: crate::message_pool::MessagePool<crate::chain::ChainStore>,
+    pub chain_indexer: Option<Arc<crate::chain::indexer::SqliteIndexer>>,
     pub bad_blocks: Option<crate::chain_sync::BadBlockCache>,
     pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,
@@ -527,6 +529,10 @@ impl RPCState {
 
     pub fn chain_config(&self) -> &Arc<crate::networks::ChainConfig> {
         self.state_manager.chain_config()
+    }
+
+    pub fn chain_indexer(&self) -> Option<&Arc<crate::chain::indexer::SqliteIndexer>> {
+        self.chain_indexer.as_ref()
     }
 
     pub fn db(&self) -> &DbImpl {

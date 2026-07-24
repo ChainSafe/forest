@@ -24,8 +24,7 @@ use super::BlockNumberOrHash;
 use super::CollectedEvent;
 use super::Predefined;
 use super::get_tipset_from_hash;
-use crate::blocks::Tipset;
-use crate::blocks::TipsetKey;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
 use crate::eth::EthChainId;
@@ -99,7 +98,7 @@ pub trait FilterManager {
 /// (`tipsets_contributing <= 1`) always pass — the natural unit is the tipset.
 /// Once two or more tipsets have contributed events, returns an error if the
 /// running total exceeds `max_filter_results`.
-fn ensure_filter_cap(
+pub fn ensure_filter_cap(
     max_filter_results: usize,
     tipsets_contributing: usize,
     total_events: usize,
@@ -704,8 +703,8 @@ fn parse_eth_topics(
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ActorEventBlock {
-    codec: u64,
-    value: Vec<u8>,
+    pub codec: u64,
+    pub value: Vec<u8>,
 }
 
 fn keys_to_keys_with_codec(
@@ -735,7 +734,7 @@ pub enum ParsedFilterTipsets {
     Key(TipsetKey),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedFilter {
     pub(crate) tipsets: ParsedFilterTipsets,
     pub(crate) addresses: Vec<Address>,

@@ -8,6 +8,7 @@
 !Filecoin.ChainSetHead
 !Filecoin.ChainStatObj
 !Filecoin.ChainTipSetWeight
+!Filecoin.ChainValidateIndex
 !Filecoin.EthGetBlockReceiptsLimited
 !Filecoin.EthGetTransactionByHashLimited
 !Filecoin.F3

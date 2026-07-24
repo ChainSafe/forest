@@ -259,6 +259,7 @@ async fn ctx(
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: message_pool,
+        chain_indexer: Default::default(),
         bad_blocks: Default::default(),
         sync_status: Arc::new(ArcSwap::from_pointee(SyncStatusReport::init())),
         eth_event_handler,
