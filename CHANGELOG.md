@@ -49,6 +49,8 @@ Non-mandatory release for all node operators. It includes some fixes and improve
 
 - [#7376](https://github.com/ChainSafe/forest/pull/7376): Added `--augmented-snapshot` and `--tipset-lookup` to `forest-cli snapshot export`.
 
+- [#7265](https://github.com/ChainSafe/forest/issues/7265): Expire installed `eth` filters that have not been polled for longer than a TTL. The TTL defaults to one hour (Lotus parity) and is configurable via `filter_ttl_secs` in the `[events]` config section or the `FOREST_FILTER_TTL_SECS` environment variable, `0` disables expiry.
+
 ### Changed
 
 - [#7405](https://github.com/ChainSafe/forest/pull/7405): `Filecoin.StateReplay` is now served from the shared tipset trace cache, so replaying every transaction of a block executes the tipset once instead of once per call. Tipset replays triggered by RPC (`StateReplay`, `trace_*`, `debug_trace*`) are now bounded to half the available CPUs by default, configurable via `FOREST_RPC_REPLAY_CONCURRENCY`.
