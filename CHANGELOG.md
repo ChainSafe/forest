@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.35.0 "Shravan"
+
+Non-mandatory release for all node operators. It includes some fixes and improvements, notably around state-related RPC. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
+
+### Breaking
+
 - [#7374](https://github.com/ChainSafe/forest/pull/7374): Bounded `nEpochs` in `Forest.StateCompute` RPC method to 2000 which can be overriden by `FOREST_STATE_COMPUTE_MAX_RANGE`.
 
 - [#7383](https://github.com/ChainSafe/forest/pull/7383): `Forest.ChainExportStatus` now reports a `state` (`Idle`/`Running`/`Succeeded`/`Cancelled`/`Failed`) and the export `kind` (`Snapshot`/`DiffSnapshot`/`SnapshotGc`), along with the `error` of a failed export. The `exporting`, `cancelled` and `succeeded` booleans were removed. `forest-cli snapshot export-status --wait` now exits with an error when the watched export fails.
@@ -38,8 +52,6 @@
 ### Changed
 
 - [#7405](https://github.com/ChainSafe/forest/pull/7405): `Filecoin.StateReplay` is now served from the shared tipset trace cache, so replaying every transaction of a block executes the tipset once instead of once per call. Tipset replays triggered by RPC (`StateReplay`, `trace_*`, `debug_trace*`) are now bounded to half the available CPUs by default, configurable via `FOREST_RPC_REPLAY_CONCURRENCY`.
-
-### Removed
 
 ### Fixed
 
