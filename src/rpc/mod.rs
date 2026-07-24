@@ -841,6 +841,230 @@ mod tests {
     }
 
     #[test]
+    fn openrpc_casing() {
+        let violations = ApiPaths::value_variants()
+            .iter()
+            .flat_map(|path| check_openrpc_casing(*path))
+            .collect_vec();
+        assert!(
+            violations.is_empty(),
+            "OpenRPC casing violations ({}):\n{}",
+            violations.len(),
+            violations.join("\n")
+        );
+    }
+
+    fn check_openrpc_casing(path: ApiPaths) -> Vec<String> {
+        casing_violations(
+            path.path(),
+            &serde_json::to_value(super::openrpc(path, None)).unwrap(),
+        )
+    }
+
+    /// Each rule of [`casing_violations`] must flag a planted offender, and
+    /// each exemption (shared schema, `oneOf` variant tag, CID `/` key) must
+    /// hold — guarding against the checker regressing into a silent pass.
+    #[test]
+    fn openrpc_casing_detects_violations() {
+        let doc = serde_json::json!({
+            "methods": [
+                {"name": "Filecoin.Good", "params": [{"name": "goodParam"}],
+                 "result": {"schema": {"$ref": "#/components/schemas/Shared"}}},
+                {"name": "eth_getThing", "params": []},
+                {"name": "BadNoNamespace", "params": []},
+                {"name": "Forest.Bad_Method", "params": []},
+                {"name": "Forest.Thing",
+                 "params": [{"name": "bad_param",
+                             "schema": {"$ref": "#/components/schemas/Shared"}}],
+                 "result": {"schema": {"$ref": "#/components/schemas/ForestOnly"}}},
+            ],
+            "components": {"schemas": {
+                // reachable from Forest.Thing AND Filecoin.Good: the non-Forest
+                // reference must win, exempting PascalOk from the camelCase rule
+                "Shared": {"type": "object",
+                           "properties": {"PascalOk": true, "snake_bad": true}},
+                "ForestOnly": {"type": "object",
+                               "properties": {"camelOk": true, "PascalBad": true,
+                                              "nested": {"$ref": "#/components/schemas/ForestNested"}}},
+                // reachable only transitively, via ForestOnly
+                "ForestNested": {"oneOf": [
+                    {"type": "object", "properties": {"VariantTag": true}},
+                    {"type": "object",
+                     "properties": {"AlsoPascal": true, "ok": true, "/": true}},
+                ]},
+            }},
+        });
+        let violations = casing_violations("test", &doc)
+            .into_iter()
+            .sorted()
+            .collect_vec();
+        assert_eq!(
+            violations,
+            [
+                "test: BadNoNamespace: bad method name",
+                "test: Forest.Bad_Method: bad method name",
+                "test: Forest.Thing: param `bad_param`",
+                "test: schema `ForestNested`: property `AlsoPascal` is not lowerCamelCase",
+                "test: schema `ForestOnly`: property `PascalBad` is not lowerCamelCase",
+                "test: schema `Shared`: property `snake_bad` contains `_`",
+            ]
+        );
+    }
+
+    /// Enforces the JSON-RPC casing conventions on an OpenRPC document
+    fn casing_violations(label: &str, doc: &serde_json::Value) -> Vec<String> {
+        use serde_json::Value;
+        use std::collections::{BTreeMap, BTreeSet};
+
+        let mut violations = vec![];
+
+        fn is_lower_camel(s: &str) -> bool {
+            s.starts_with(|c: char| c.is_ascii_lowercase())
+                && s.chars().all(|c| c.is_ascii_alphanumeric())
+        }
+
+        fn is_pascal(s: &str) -> bool {
+            s.starts_with(|c: char| c.is_ascii_uppercase())
+                && s.chars().all(|c| c.is_ascii_alphanumeric())
+        }
+
+        fn method_name_ok(name: &str) -> bool {
+            if let Some((ns, rest)) = name.split_once('.') {
+                matches!(ns, "Filecoin" | "Forest" | "F3") && is_pascal(rest)
+            } else if let Some((ns, rest)) = name.split_once('_') {
+                matches!(ns, "eth" | "net" | "web3" | "trace" | "debug") && is_lower_camel(rest)
+            } else {
+                false
+            }
+        }
+
+        fn collect_refs(node: &Value, out: &mut BTreeSet<String>) {
+            match node {
+                Value::Object(map) => {
+                    if let Some(name) = map
+                        .get("$ref")
+                        .and_then(Value::as_str)
+                        .and_then(|r| r.strip_prefix("#/components/schemas/"))
+                    {
+                        out.insert(name.to_string());
+                    }
+                    map.values().for_each(|v| collect_refs(v, out));
+                }
+                Value::Array(it) => it.iter().for_each(|v| collect_refs(v, out)),
+                _ => {}
+            }
+        }
+
+        fn check_props(
+            node: &Value,
+            ctx: &str,
+            in_one_of: bool,
+            require_camel: bool,
+            violations: &mut Vec<String>,
+        ) {
+            match node {
+                Value::Object(map) => {
+                    if let Some(props) = map.get("properties").and_then(Value::as_object) {
+                        let variant_tag = in_one_of && props.len() == 1;
+                        for key in props.keys() {
+                            if key == "/" {
+                                continue;
+                            }
+                            if key.contains('_') {
+                                violations.push(format!("{ctx}: property `{key}` contains `_`"));
+                            } else if require_camel && !variant_tag && !is_lower_camel(key) {
+                                violations
+                                    .push(format!("{ctx}: property `{key}` is not lowerCamelCase"));
+                            }
+                        }
+                    }
+                    for (key, value) in map {
+                        check_props(value, ctx, key == "oneOf", require_camel, violations);
+                    }
+                }
+                Value::Array(it) => it
+                    .iter()
+                    .for_each(|v| check_props(v, ctx, in_one_of, require_camel, violations)),
+                _ => {}
+            }
+        }
+
+        let methods = doc
+            .get("methods")
+            .and_then(Value::as_array)
+            .expect("openrpc doc has methods");
+        let schemas = doc
+            .pointer("/components/schemas")
+            .and_then(Value::as_object)
+            .expect("openrpc doc has component schemas");
+
+        let direct_refs: BTreeMap<String, BTreeSet<String>> = schemas
+            .iter()
+            .map(|(name, schema)| {
+                let mut refs = BTreeSet::new();
+                collect_refs(schema, &mut refs);
+                (name.clone(), refs)
+            })
+            .collect();
+        let transitive = |seed: BTreeSet<String>| {
+            let mut seen = BTreeSet::new();
+            let mut stack = Vec::from_iter(seed);
+            while let Some(name) = stack.pop() {
+                if let Some(refs) = direct_refs.get(&name)
+                    && seen.insert(name)
+                {
+                    stack.extend(refs.iter().cloned());
+                }
+            }
+            seen
+        };
+
+        let mut forest_seed = BTreeSet::new();
+        let mut other_seed = BTreeSet::new();
+        for method in methods {
+            let name = method
+                .get("name")
+                .and_then(Value::as_str)
+                .expect("method has a name");
+            let ctx = format!("{label}: {name}");
+            if !method_name_ok(name) {
+                violations.push(format!("{ctx}: bad method name"));
+            }
+            if let Some(params) = method.get("params").and_then(Value::as_array) {
+                for param in params {
+                    let pname = param
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .expect("param has a name");
+                    if !is_lower_camel(pname) {
+                        violations.push(format!("{ctx}: param `{pname}`"));
+                    }
+                }
+            }
+            let forest_owned = name.starts_with("Forest.");
+            check_props(method, &ctx, false, forest_owned, &mut violations);
+
+            collect_refs(
+                method,
+                if forest_owned {
+                    &mut forest_seed
+                } else {
+                    &mut other_seed
+                },
+            );
+        }
+        let forest_reachable = transitive(forest_seed);
+        let other_reachable = transitive(other_seed);
+
+        for (name, schema) in schemas {
+            let ctx = format!("{label}: schema `{name}`");
+            let forest_only = forest_reachable.contains(name) && !other_reachable.contains(name);
+            check_props(schema, &ctx, false, forest_only, &mut violations);
+        }
+        violations
+    }
+
+    #[test]
     fn test_rpc_server() {
         const TIMEOUT: Duration = Duration::from_secs(5);
         let (done_tx, done_rx) = flume::bounded(1);

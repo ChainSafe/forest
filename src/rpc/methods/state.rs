@@ -3353,12 +3353,8 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
 pub enum StateMinerInitialPledgeForSector {}
 impl RpcMethod<4> for StateMinerInitialPledgeForSector {
     const NAME: &'static str = "Filecoin.StateMinerInitialPledgeForSector";
-    const PARAM_NAMES: [&'static str; 4] = [
-        "sector_duration",
-        "sector_size",
-        "verified_size",
-        "tipset_key",
-    ];
+    const PARAM_NAMES: [&'static str; 4] =
+        ["sectorDuration", "sectorSize", "verifiedSize", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: &'static str = "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset.";
@@ -3442,7 +3438,7 @@ fn get_pledge_ramp_params(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "camelCase")]
 pub struct StateActorCodeCidsOutput {
     pub network_version: NetworkVersion,
     pub network_version_revision: i64,

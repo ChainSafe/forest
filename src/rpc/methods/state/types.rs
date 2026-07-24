@@ -37,7 +37,7 @@ pub struct ComputeStateOutput {
 lotus_json_with_self!(ComputeStateOutput);
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "camelCase")]
 pub struct ForestComputeStateOutput {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
