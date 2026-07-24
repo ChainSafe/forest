@@ -56,8 +56,8 @@ use std::time::Duration;
 use store::*;
 use tokio_util::task::AbortOnDropHandle;
 
-/// How often the background task sweeps for expired filters. Mirrors Lotus's
-/// hardcoded 30-minute GC ticker:
+/// Longest period between expired-filter sweeps; a TTL shorter than this is
+/// swept every TTL instead. Mirrors Lotus's hardcoded 30-minute GC ticker:
 /// <https://github.com/filecoin-project/lotus/blob/release/v1.36.1/node/impl/eth/events.go#L361>
 const FILTER_GC_INTERVAL: Duration = Duration::from_mins(30);
 
@@ -205,16 +205,15 @@ impl EthEventHandler {
         }
     }
 
-    /// Periodically removes filters idle for longer than the configured TTL.
+    /// Periodically removes filters idle for longer than the configured TTL,
+    /// sweeping every [`FILTER_GC_INTERVAL`] or every TTL, whichever is shorter.
     /// Returns immediately when expiry is disabled; otherwise never returns.
     pub async fn run_filter_gc(&self) {
-        if self.filter_ttl.is_none() {
+        let Some(ttl) = self.filter_ttl else {
             return;
-        }
-        let mut interval = tokio::time::interval_at(
-            tokio::time::Instant::now() + FILTER_GC_INTERVAL,
-            FILTER_GC_INTERVAL,
-        );
+        };
+        let period = ttl.min(FILTER_GC_INTERVAL);
+        let mut interval = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
         loop {
             interval.tick().await;
             self.sweep_expired();
@@ -1402,6 +1401,27 @@ mod tests {
         tokio::task::yield_now().await; // let the loop process elapsed ticks
         let store = handler.filter_store.as_ref().unwrap();
         assert!(store.get(&id).is_err(), "idle filter should be swept");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn short_ttl_sweeps_before_the_default_interval() {
+        let ttl = Duration::from_mins(5);
+        let handler = Arc::new(handler_with_ttl(ttl));
+        let id = handler.eth_new_block_filter().unwrap();
+        let _gc = tokio::spawn({
+            let handler = handler.clone();
+            async move { handler.run_filter_gc().await }
+        });
+        tokio::task::yield_now().await; // let the spawned loop start its interval now
+
+        // two TTL periods, well inside the 30-minute `FILTER_GC_INTERVAL`
+        tokio::time::advance(ttl * 2 + Duration::from_secs(1)).await;
+        tokio::task::yield_now().await; // let the loop process elapsed ticks
+        let store = handler.filter_store.as_ref().unwrap();
+        assert!(
+            store.get(&id).is_err(),
+            "short-TTL filter must be swept before the default interval elapses"
+        );
     }
 
     #[tokio::test]
