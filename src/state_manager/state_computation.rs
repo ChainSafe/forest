@@ -101,6 +101,23 @@ impl StateManager {
             .await
     }
 
+    /// Load an executed tipset for index backfill. When `allow_state_compute` is `false`,
+    /// tipsets whose state output is missing (e.g. reclaimed by GC) return an error instead of
+    /// being recomputed, so a live backfill does not starve chain sync of CPU; the caller is
+    /// expected to skip such tipsets.
+    pub async fn load_executed_tipset_for_backfill(
+        &self,
+        ts: &Tipset,
+        allow_state_compute: bool,
+    ) -> anyhow::Result<ExecutedTipset> {
+        let policy = if allow_state_compute {
+            StateRecomputePolicy::Allowed
+        } else {
+            StateRecomputePolicy::Disallowed
+        };
+        self.load_executed_tipset_with_cache(ts, policy).await
+    }
+
     async fn load_executed_tipset_with_cache(
         &self,
         ts: &Tipset,

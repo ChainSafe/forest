@@ -2,14 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
+use crate::db::SettingsStoreExt;
 use crate::db::car::forest::{
     FOREST_CAR_FILE_EXTENSION, TEMP_FOREST_CAR_FILE_EXTENSION, new_forest_car_temp_path_in,
 };
 use crate::db::car::{ForestCar, ManyCar};
+use crate::ipld::ChainExportState;
+use crate::message::SignedMessage;
 use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -17,6 +21,8 @@ use crate::utils::net::{DownloadFileOption, download_to};
 use anyhow::{Context, bail};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::{
     ffi::OsStr,
     fs,
@@ -24,6 +30,8 @@ use std::{
     time,
 };
 use tokio::io::AsyncWriteExt;
+use tokio::sync::broadcast::error::TryRecvError;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 use url::Url;
 use walkdir::WalkDir;
@@ -327,15 +335,304 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
     Ok(())
 }
 
+/// Settings-store key under which index backfill persists the epoch of the last committed
+/// batch, so an interrupted backfill can be resumed from where it left off.
+pub const BACKFILL_CHECKPOINT_KEY: &str = "/index/backfill/checkpoint";
+
+/// Outcome of indexing a single tipset during backfill.
+enum ProcessOutcome {
+    /// The tipset was indexed.
+    Indexed,
+    /// The tipset was skipped because its state output was unavailable and recomputation was
+    /// disabled (see [`BackfillOptions::allow_recompute`]).
+    Skipped,
+}
+
+/// Options controlling a backfill run. [`Default`] matches the historical offline behavior:
+/// recompute missing state, allow indexing right up to the head, and commit in modest batches.
+#[derive(Debug, Clone, Copy)]
+pub struct BackfillOptions {
+    /// When `true`, missing tipset state is recomputed (expensive); when `false`, such tipsets
+    /// are skipped and reported. Online backfill default this to `false` to avoid starving sync.
+    pub allow_recompute: bool,
+    /// When `false`, the walk start is clamped to `head - CHAIN_FINALITY` so that revert-prone
+    /// near-head tipsets are not indexed.
+    pub allow_near_head: bool,
+    /// Number of tipsets to process between commits/checkpoints.
+    pub batch_size: usize,
+}
+
+impl Default for BackfillOptions {
+    fn default() -> Self {
+        Self {
+            allow_recompute: true,
+            allow_near_head: true,
+            batch_size: 1000,
+        }
+    }
+}
+
+/// Report returned by [`run_backfill`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BackfillReport {
+    pub indexed: u64,
+    pub skipped: u64,
+    pub cancelled: bool,
+}
+
+/// Lock-free counters for backfill progress; the epoch counters are hot on the walk.
+#[derive(Default)]
+struct BackfillCounters {
+    start_epoch: AtomicI64,
+    current_epoch: AtomicI64,
+    target_epoch: AtomicI64,
+    indexed: AtomicI64,
+    skipped: AtomicI64,
+}
+
+#[derive(Default)]
+struct BackfillStatusInner {
+    /// `None` while running and before the first run.
+    outcome: Option<ChainExportState>,
+    error: Option<String>,
+    start_time: Option<chrono::DateTime<chrono::Utc>>,
+    cancellation_token: Option<CancellationToken>,
+    counters: Arc<BackfillCounters>,
+}
+
+impl BackfillStatusInner {
+    fn is_running(&self) -> bool {
+        self.cancellation_token.is_some()
+    }
+}
+
+/// Status of the in-daemon index backfill, surfaced by the `Forest.IndexBackfillStatus` RPC and
+/// driven only through [`BackfillGuard`]. Mirrors the life-cycle of [`ChainExportState`].
+#[derive(Default)]
+pub struct BackfillStatus {
+    inner: parking_lot::Mutex<BackfillStatusInner>,
+}
+
+/// A consistent snapshot of [`BackfillStatus`], read under a single lock.
+#[derive(Debug, Clone)]
+pub struct BackfillStatusSnapshot {
+    pub state: ChainExportState,
+    pub error: Option<String>,
+    pub start_time: Option<chrono::DateTime<chrono::Utc>>,
+    pub start_epoch: ChainEpoch,
+    pub current_epoch: ChainEpoch,
+    pub target_epoch: ChainEpoch,
+    pub indexed: u64,
+    pub skipped: u64,
+}
+
+impl BackfillStatus {
+    pub fn snapshot(&self) -> BackfillStatusSnapshot {
+        let inner = self.inner.lock();
+        let c = &inner.counters;
+        BackfillStatusSnapshot {
+            state: if inner.is_running() {
+                ChainExportState::Running
+            } else {
+                inner.outcome.unwrap_or(ChainExportState::Idle)
+            },
+            error: inner.error.clone(),
+            start_time: inner.start_time,
+            start_epoch: c.start_epoch.load(Ordering::Relaxed),
+            current_epoch: c.current_epoch.load(Ordering::Relaxed),
+            target_epoch: c.target_epoch.load(Ordering::Relaxed),
+            indexed: c.indexed.load(Ordering::Relaxed).max(0) as u64,
+            skipped: c.skipped.load(Ordering::Relaxed).max(0) as u64,
+        }
+    }
+
+    /// Cancels the running backfill, if any, returning whether one was running.
+    pub fn cancel_running(&self) -> bool {
+        if let Some(token) = &self.inner.lock().cancellation_token {
+            token.cancel();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn try_begin(
+        &self,
+        cancellation_token: CancellationToken,
+    ) -> anyhow::Result<Arc<BackfillCounters>> {
+        let mut inner = self.inner.lock();
+        anyhow::ensure!(
+            !inner.is_running(),
+            "an index backfill is already running; check `forest-cli index backfill --status`",
+        );
+        let counters = Arc::new(BackfillCounters::default());
+        *inner = BackfillStatusInner {
+            outcome: None,
+            error: None,
+            start_time: Some(chrono::Utc::now()),
+            cancellation_token: Some(cancellation_token),
+            counters: counters.clone(),
+        };
+        Ok(counters)
+    }
+
+    fn record_outcome(&self, outcome: ChainExportState, error: Option<String>) {
+        let mut inner = self.inner.lock();
+        if inner.outcome.is_none() {
+            inner.outcome = Some(outcome);
+            inner.error = error;
+        }
+    }
+
+    fn end(&self) {
+        let mut inner = self.inner.lock();
+        if inner.outcome.is_none() {
+            inner.outcome = Some(ChainExportState::Failed);
+        }
+        inner.cancellation_token = None;
+    }
+}
+
+/// Global status of the in-daemon index backfill.
+pub static BACKFILL_STATUS: LazyLock<BackfillStatus> = LazyLock::new(BackfillStatus::default);
+
+/// Single-flight guard for an index backfill. Holds the [`BACKFILL_STATUS`] slot for progress and
+/// cancellation, and nests a [`ChainExportGuard`] so backfill never overlaps snapshot exports or
+/// the snapshot GC (all three share the chain-export slot).
+pub struct BackfillGuard {
+    cancellation_token: CancellationToken,
+    counters: Arc<BackfillCounters>,
+    // Held for the lifetime of the backfill to exclude exports and snapshot GC.
+    _export_guard: crate::ipld::ChainExportGuard,
+}
+
+impl BackfillGuard {
+    pub fn try_start() -> anyhow::Result<Self> {
+        // Acquire the shared chain-export slot first so backfill excludes GC/exports.
+        let export_guard = crate::ipld::ChainExportGuard::try_start_export(
+            crate::ipld::ChainExportKind::IndexBackfill,
+        )?;
+        let cancellation_token = CancellationToken::new();
+        let counters = match BACKFILL_STATUS.try_begin(cancellation_token.clone()) {
+            Ok(counters) => counters,
+            Err(e) => {
+                // Roll back the export slot if another backfill is somehow already tracked.
+                drop(export_guard);
+                return Err(e);
+            }
+        };
+        Ok(Self {
+            cancellation_token,
+            counters,
+            _export_guard: export_guard,
+        })
+    }
+
+    pub fn cancellation_token(&self) -> CancellationToken {
+        self.cancellation_token.clone()
+    }
+
+    /// Records the terminal outcome for the backfill.
+    pub fn finish<T>(self, result: anyhow::Result<T>) -> anyhow::Result<T> {
+        match &result {
+            Ok(_) => BACKFILL_STATUS.record_outcome(ChainExportState::Succeeded, None),
+            Err(e) => {
+                BACKFILL_STATUS.record_outcome(ChainExportState::Failed, Some(format!("{e:#}")))
+            }
+        }
+        result
+    }
+
+    fn reset_counters(&self, start_epoch: ChainEpoch, target_epoch: ChainEpoch) {
+        self.counters
+            .start_epoch
+            .store(start_epoch, Ordering::Relaxed);
+        self.counters
+            .current_epoch
+            .store(start_epoch, Ordering::Relaxed);
+        self.counters
+            .target_epoch
+            .store(target_epoch, Ordering::Relaxed);
+        self.counters.indexed.store(0, Ordering::Relaxed);
+        self.counters.skipped.store(0, Ordering::Relaxed);
+    }
+
+    fn set_current(&self, epoch: ChainEpoch) {
+        self.counters.current_epoch.store(epoch, Ordering::Relaxed);
+    }
+
+    fn inc_indexed(&self) {
+        self.counters.indexed.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn inc_skipped(&self) {
+        self.counters.skipped.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn record_cancelled(&self) {
+        BACKFILL_STATUS.record_outcome(ChainExportState::Cancelled, None);
+    }
+}
+
+impl Drop for BackfillGuard {
+    fn drop(&mut self) {
+        self.cancellation_token.cancel();
+        BACKFILL_STATUS.end();
+    }
+}
+
+/// Reads the persisted backfill checkpoint epoch, if any. A cleared checkpoint (see
+/// [`clear_backfill_checkpoint`]) is reported as `None`.
+pub fn read_backfill_checkpoint(
+    state_manager: &StateManager,
+) -> anyhow::Result<Option<ChainEpoch>> {
+    Ok(state_manager
+        .db()
+        .read_obj::<ChainEpoch>(BACKFILL_CHECKPOINT_KEY)?
+        .filter(|epoch| *epoch != ChainEpoch::MIN))
+}
+
+fn write_backfill_checkpoint(
+    state_manager: &StateManager,
+    epoch: ChainEpoch,
+) -> anyhow::Result<()> {
+    state_manager
+        .db()
+        .write_obj(BACKFILL_CHECKPOINT_KEY, &epoch)
+}
+
+fn clear_backfill_checkpoint(state_manager: &StateManager) -> anyhow::Result<()> {
+    // Persist a sentinel rather than deleting: the settings store has no typed delete here and a
+    // stale checkpoint is only used as a resume hint, which the caller validates against the range.
+    state_manager
+        .db()
+        .write_obj(BACKFILL_CHECKPOINT_KEY, &ChainEpoch::MIN)
+}
+
 async fn process_ts(
     ts: &Tipset,
     state_manager: &StateManager,
-    delegated_messages: &mut Vec<(crate::message::SignedMessage, u64)>,
-) -> anyhow::Result<()> {
+    delegated_messages: &mut Vec<(SignedMessage, u64)>,
+    allow_recompute: bool,
+) -> anyhow::Result<ProcessOutcome> {
     let epoch = ts.epoch();
     let tsk = ts.key().clone();
 
-    let executed = state_manager.load_executed_tipset(ts).await?;
+    let executed = match state_manager
+        .load_executed_tipset_for_backfill(ts, allow_recompute)
+        .await
+    {
+        Ok(executed) => executed,
+        // With recomputation allowed, a load failure is a real error. With it disabled, a missing
+        // state output (e.g. reclaimed by GC) is expected: skip and report rather than fail.
+        Err(e) if allow_recompute => return Err(e),
+        Err(e) => {
+            tracing::warn!(
+                "skipping tipset @{epoch} during backfill (state unavailable, recomputation disabled): {e:#}"
+            );
+            return Ok(ProcessOutcome::Skipped);
+        }
+    };
     crate::rpc::eth::store_block_logs_bloom(
         state_manager,
         ts,
@@ -351,9 +648,10 @@ async fn process_ts(
     tracing::trace!("Indexing tipset @{}: {}", epoch, &tsk);
     tsk.save(state_manager.db())?;
 
-    Ok(())
+    Ok(ProcessOutcome::Indexed)
 }
 
+#[derive(Clone, Copy)]
 pub enum RangeSpec {
     To(ChainEpoch),
     NumTipsets(usize),
@@ -375,53 +673,248 @@ impl std::fmt::Display for RangeSpec {
 /// - [`struct@EthHash`] -> [`TipsetKey`],
 /// - [`struct@EthHash`] -> Delegated message [`Cid`].
 ///
-/// This function traverses the chain store and populates these columns accordingly.
+/// This function traverses the chain store and populates these columns accordingly. It is a thin
+/// wrapper over [`run_backfill`] with the historical (offline) options and no cancellation.
 pub async fn backfill_db(
     state_manager: &StateManager,
     head_ts: &Tipset,
     spec: RangeSpec,
 ) -> anyhow::Result<()> {
+    let guard = BackfillGuard::try_start()?;
+    let result = run_backfill(
+        state_manager,
+        head_ts,
+        spec,
+        BackfillOptions::default(),
+        &guard,
+    )
+    .await;
+    let report = guard.finish(result)?;
+    tracing::info!(
+        "Total successful backfills: {} (skipped: {})",
+        report.indexed,
+        report.skipped
+    );
+    Ok(())
+}
+
+/// Hardened index backfill core shared by the offline `forest-tool index backfill` command and the
+/// online `Forest.IndexBackfill` RPC method.
+///
+/// Beyond the plain chain walk it:
+/// - clamps the start below `CHAIN_FINALITY` unless [`BackfillOptions::allow_near_head`] is set,
+/// - commits and checkpoints in batches of [`BackfillOptions::batch_size`] so a large range is not
+///   a single transaction and can be resumed,
+/// - honors `cancel` between tipsets,
+/// - writes Ethereum mappings with newest-wins semantics so it does not clobber the live head
+///   indexer, and
+/// - re-indexes tipsets applied while the walk was running (revert-awareness).
+///
+/// Progress is published to [`BACKFILL_STATUS`] via `guard`.
+pub async fn run_backfill(
+    state_manager: &StateManager,
+    from_ts: &Tipset,
+    spec: RangeSpec,
+    options: BackfillOptions,
+    guard: &BackfillGuard,
+) -> anyhow::Result<BackfillReport> {
     tracing::info!("Starting index backfill...");
 
-    let mut delegated_messages = vec![];
+    let cancel = guard.cancellation_token();
 
-    let mut num_backfills = 0;
+    // Subscribe before the walk so applies/reverts that happen during it are observed.
+    let mut head_rx = state_manager.chain_store().subscribe_head_changes();
 
-    match spec {
-        RangeSpec::To(to_epoch) => {
-            for ts in head_ts
-                .shallow_clone()
-                .chain(&state_manager.chain_store().db())
-                .take_while(|ts| ts.epoch() >= to_epoch)
-            {
-                process_ts(&ts, state_manager, &mut delegated_messages).await?;
-                num_backfills += 1;
+    // Optionally clamp the start below finality to avoid indexing revert-prone near-head tipsets.
+    let start_ts = if options.allow_near_head {
+        from_ts.shallow_clone()
+    } else {
+        let head_epoch = state_manager.heaviest_tipset().epoch();
+        let safe_epoch = head_epoch.saturating_sub(CHAIN_FINALITY);
+        if from_ts.epoch() > safe_epoch {
+            state_manager
+                .chain_index()
+                .load_required_tipset_by_height(
+                    safe_epoch,
+                    from_ts.shallow_clone(),
+                    crate::chain::index::ResolveNullTipset::TakeOlder,
+                )
+                .await?
+        } else {
+            from_ts.shallow_clone()
+        }
+    };
+
+    let target_epoch = match spec {
+        RangeSpec::To(to_epoch) => to_epoch,
+        // Not known exactly ahead of time; approximate for progress reporting.
+        RangeSpec::NumTipsets(n) => start_ts.epoch().saturating_sub(n as ChainEpoch),
+    };
+    guard.reset_counters(start_ts.epoch(), target_epoch);
+
+    let mut batch: Vec<(SignedMessage, u64)> = vec![];
+    let mut report = BackfillReport::default();
+    let mut processed_since_flush = 0usize;
+    let mut lowest_epoch = start_ts.epoch();
+
+    for (count, ts) in start_ts
+        .shallow_clone()
+        .chain(&state_manager.chain_store().db())
+        .enumerate()
+    {
+        match spec {
+            RangeSpec::To(to_epoch) if ts.epoch() < to_epoch => break,
+            RangeSpec::NumTipsets(n) if count >= n => break,
+            _ => {}
+        }
+
+        if cancel.is_cancelled() {
+            report.cancelled = true;
+            break;
+        }
+
+        guard.set_current(ts.epoch());
+        lowest_epoch = ts.epoch();
+        match process_ts(&ts, state_manager, &mut batch, options.allow_recompute).await? {
+            ProcessOutcome::Indexed => {
+                report.indexed += 1;
+                guard.inc_indexed();
+            }
+            ProcessOutcome::Skipped => {
+                report.skipped += 1;
+                guard.inc_skipped();
             }
         }
-        RangeSpec::NumTipsets(n_tipsets) => {
-            for ts in head_ts
-                .shallow_clone()
-                .chain(&state_manager.chain_store().db())
-                .take(n_tipsets)
-            {
-                process_ts(&ts, state_manager, &mut delegated_messages).await?;
-                num_backfills += 1;
-            }
+        processed_since_flush += 1;
+
+        if processed_since_flush >= options.batch_size {
+            state_manager
+                .chain_store()
+                .process_signed_messages(&batch, true)?;
+            batch.clear();
+            write_backfill_checkpoint(state_manager, ts.epoch())?;
+            processed_since_flush = 0;
         }
     }
 
+    // Final commit of the trailing batch.
     state_manager
         .chain_store()
-        .process_signed_messages(&delegated_messages)?;
+        .process_signed_messages(&batch, true)?;
+    batch.clear();
 
-    tracing::info!("Total successful backfills: {}", num_backfills);
+    // Revert-awareness: re-index tipsets applied while walking so the canonical mapping wins
+    // under newest-wins semantics. Only relevant for the range we just covered.
+    if !report.cancelled {
+        let mut extra: Vec<(SignedMessage, u64)> = vec![];
+        loop {
+            match head_rx.try_recv() {
+                Ok(changes) => {
+                    for ts in changes.applies {
+                        if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
+                            tracing::debug!(
+                                "re-indexing tipset @{} applied during backfill",
+                                ts.epoch()
+                            );
+                            if let Err(e) =
+                                process_ts(&ts, state_manager, &mut extra, options.allow_recompute)
+                                    .await
+                            {
+                                tracing::warn!(
+                                    "failed to re-index applied tipset @{}: {e:#}",
+                                    ts.epoch()
+                                );
+                            }
+                        }
+                    }
+                }
+                Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => break,
+                Err(TryRecvError::Lagged(n)) => {
+                    tracing::warn!("backfill head-change listener lagged: skipped {n} events");
+                    continue;
+                }
+            }
+        }
+        if !extra.is_empty() {
+            state_manager
+                .chain_store()
+                .process_signed_messages(&extra, true)?;
+        }
+    }
 
-    Ok(())
+    if report.cancelled {
+        // Persist where we stopped so the run can be resumed, and reflect the cancellation.
+        write_backfill_checkpoint(state_manager, lowest_epoch)?;
+        guard.record_cancelled();
+        tracing::info!(
+            "Index backfill cancelled after {} tipsets (skipped: {})",
+            report.indexed,
+            report.skipped
+        );
+    } else {
+        // Successful completion: clear the resume checkpoint.
+        clear_backfill_checkpoint(state_manager)?;
+    }
+
+    Ok(report)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+
+    // The backfill guard shares the chain-export single-flight slot, so serialize with the export
+    // tests that also touch it.
+    #[test]
+    #[serial_test::serial(chain_export)]
+    fn backfill_guard_is_single_flight_and_records_outcomes() {
+        let g = BackfillGuard::try_start().unwrap();
+        assert_eq!(BACKFILL_STATUS.snapshot().state, ChainExportState::Running);
+
+        // A second concurrent backfill is rejected while the first is running.
+        assert!(BackfillGuard::try_start().is_err());
+
+        // Succeeded is recorded via `finish`.
+        g.finish(anyhow::Ok(())).unwrap();
+        assert_eq!(
+            BACKFILL_STATUS.snapshot().state,
+            ChainExportState::Succeeded
+        );
+
+        // A new run can start once the previous one finished, and failures are recorded.
+        let g = BackfillGuard::try_start().unwrap();
+        g.finish(anyhow::Result::<()>::Err(anyhow::anyhow!("boom")))
+            .unwrap_err();
+        let snapshot = BACKFILL_STATUS.snapshot();
+        assert_eq!(snapshot.state, ChainExportState::Failed);
+        assert_eq!(snapshot.error.as_deref(), Some("boom"));
+
+        // A guard dropped without `finish` lands in `Failed`.
+        let g = BackfillGuard::try_start().unwrap();
+        drop(g);
+        assert_eq!(BACKFILL_STATUS.snapshot().state, ChainExportState::Failed);
+    }
+
+    #[test]
+    #[serial_test::serial(chain_export)]
+    fn backfill_cancellation_is_observable_and_wins() {
+        let g = BackfillGuard::try_start().unwrap();
+        // The cancel handler cancels the running backfill.
+        assert!(BACKFILL_STATUS.cancel_running());
+        assert!(g.cancellation_token().is_cancelled());
+
+        // The cooperative-cancel path records `Cancelled`, and that terminal state wins over a
+        // subsequent `finish(Ok(..))` (as happens when the walk returns a cancelled report).
+        g.record_cancelled();
+        g.finish(anyhow::Ok(())).unwrap();
+        assert_eq!(
+            BACKFILL_STATUS.snapshot().state,
+            ChainExportState::Cancelled
+        );
+
+        // With no backfill running, cancel is a no-op.
+        assert!(!BACKFILL_STATUS.cancel_running());
+    }
 
     #[tokio::test]
     async fn import_snapshot_from_file_valid() {

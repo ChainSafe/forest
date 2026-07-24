@@ -601,6 +601,233 @@ impl RpcMethod<0> for ForestChainExportCancel {
     }
 }
 
+/// Parameters for [`IndexBackfill`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexBackfillParams {
+    /// Starting epoch, inclusive. Defaults to the persisted resume checkpoint if present,
+    /// otherwise the chain head.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<ChainEpoch>,
+    /// Ending epoch, inclusive. Mutually exclusive with `n_tipsets`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<ChainEpoch>,
+    /// Number of tipsets to backfill. Mutually exclusive with `to`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub n_tipsets: Option<u64>,
+    /// Recompute missing tipset state (expensive) instead of skipping it.
+    #[serde(default)]
+    pub recompute: bool,
+    /// Allow indexing revert-prone tipsets within `CHAIN_FINALITY` of the head.
+    #[serde(default)]
+    pub allow_near_head: bool,
+}
+lotus_json_with_self!(IndexBackfillParams);
+
+/// Progress and status of the in-daemon index backfill, returned by [`IndexBackfillStatus`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiIndexBackfillStatus {
+    pub state: crate::ipld::ChainExportState,
+    pub error: Option<String>,
+    pub progress: f64,
+    pub start_epoch: ChainEpoch,
+    pub current_epoch: ChainEpoch,
+    pub target_epoch: ChainEpoch,
+    pub indexed: u64,
+    pub skipped: u64,
+    pub start_time: Option<chrono::DateTime<chrono::Utc>>,
+}
+lotus_json_with_self!(ApiIndexBackfillStatus);
+
+impl std::fmt::Display for ApiIndexBackfillStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use crate::ipld::ChainExportState::*;
+        match self.state {
+            Running => write!(
+                f,
+                "Backfilling: {:.1}% (walk at epoch {}, from {} down to {}; indexed {}, skipped {})",
+                self.progress.clamp(0.0, 1.0) * 100.0,
+                self.current_epoch,
+                self.start_epoch,
+                self.target_epoch,
+                self.indexed,
+                self.skipped,
+            ),
+            Idle => write!(f, "No index backfill in progress"),
+            Succeeded => write!(
+                f,
+                "No index backfill in progress (last run succeeded: indexed {}, skipped {})",
+                self.indexed, self.skipped
+            ),
+            Cancelled => write!(
+                f,
+                "No index backfill in progress (last run was cancelled: indexed {}, skipped {})",
+                self.indexed, self.skipped
+            ),
+            Failed => write!(
+                f,
+                "No index backfill in progress (last run failed: {})",
+                self.error.as_deref().unwrap_or("unknown error")
+            ),
+        }
+    }
+}
+
+pub enum IndexBackfill {}
+impl RpcMethod<1> for IndexBackfill {
+    const NAME: &'static str = "Forest.IndexBackfill";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: &'static str = "Starts a chain index backfill (Ethereum mappings, events, block blooms) over an epoch range using the running node, returning immediately. Poll `Forest.IndexBackfillStatus` for progress. Only one backfill may run at a time, and it never overlaps snapshot export or the snapshot GC.";
+
+    type Params = (IndexBackfillParams,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx,
+        (params,): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        // Validate synchronously so bad requests surface immediately to the caller.
+        let spec = index_backfill_range_spec(&params)?;
+
+        // Refuse to run while the snapshot GC is active: it may reclaim historical graph columns
+        // that the backfill needs to read.
+        if crate::daemon::GLOBAL_SNAPSHOT_GC
+            .get()
+            .is_some_and(|gc| gc.is_running())
+        {
+            return Err(anyhow::anyhow!(
+                "snapshot GC is currently running; retry the backfill once it completes"
+            )
+            .into());
+        }
+
+        // Acquire the single-flight guard now so "already running" is reported immediately.
+        let guard = crate::daemon::db_util::BackfillGuard::try_start()?;
+
+        // Run detached so the backfill is not cancelled when the CLI client disconnects.
+        // So do not wrap this with `AbortOnDropHandle`.
+        tokio::spawn(async move {
+            let result = run_index_backfill_inner(&ctx, params, spec, &guard).await;
+            let _ = guard.finish(result);
+        });
+        Ok(())
+    }
+}
+
+fn index_backfill_range_spec(
+    params: &IndexBackfillParams,
+) -> Result<crate::daemon::db_util::RangeSpec, ServerError> {
+    use crate::daemon::db_util::RangeSpec;
+    match (params.to, params.n_tipsets) {
+        (Some(x), None) => Ok(RangeSpec::To(x)),
+        (None, Some(x)) => Ok(RangeSpec::NumTipsets(x as usize)),
+        (None, None) => Err(anyhow::anyhow!("You must provide either 'to' or 'n_tipsets'.").into()),
+        (Some(_), Some(_)) => {
+            Err(anyhow::anyhow!("'to' and 'n_tipsets' are mutually exclusive.").into())
+        }
+    }
+}
+
+async fn run_index_backfill_inner(
+    ctx: &Ctx,
+    params: IndexBackfillParams,
+    spec: crate::daemon::db_util::RangeSpec,
+    guard: &crate::daemon::db_util::BackfillGuard,
+) -> anyhow::Result<()> {
+    use crate::daemon::db_util::{BackfillOptions, read_backfill_checkpoint, run_backfill};
+
+    let head_ts = ctx.chain_store().heaviest_tipset();
+    let from_ts = if let Some(from) = params.from {
+        let from = from.min(head_ts.epoch());
+        ctx.chain_index()
+            .load_required_tipset_by_height(from, head_ts, ResolveNullTipset::TakeOlder)
+            .await?
+    } else if let Some(checkpoint) = read_backfill_checkpoint(&ctx.state_manager)? {
+        let checkpoint = checkpoint.min(head_ts.epoch());
+        tracing::info!("Resuming index backfill from checkpoint epoch {checkpoint}");
+        ctx.chain_index()
+            .load_required_tipset_by_height(checkpoint, head_ts, ResolveNullTipset::TakeOlder)
+            .await?
+    } else {
+        head_ts
+    };
+
+    let options = BackfillOptions {
+        allow_recompute: params.recompute,
+        allow_near_head: params.allow_near_head,
+        ..BackfillOptions::default()
+    };
+
+    run_backfill(&ctx.state_manager, &from_ts, spec, options, guard).await?;
+    Ok(())
+}
+
+pub enum IndexBackfillStatus {}
+impl RpcMethod<0> for IndexBackfillStatus {
+    const NAME: &'static str = "Forest.IndexBackfillStatus";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the progress and status of the in-progress (or last) index backfill.";
+
+    type Params = ();
+    type Ok = ApiIndexBackfillStatus;
+
+    async fn handle(
+        _ctx: Ctx,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let snapshot = crate::daemon::db_util::BACKFILL_STATUS.snapshot();
+        // Progress is the fraction of the epoch span walked (the backfill counts downward).
+        let span = snapshot.start_epoch - snapshot.target_epoch;
+        let progress = if span > 0 {
+            let walked = snapshot.start_epoch - snapshot.current_epoch;
+            ((walked as f64) / (span as f64)).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let progress = (progress * 100.0).round() / 100.0;
+        Ok(ApiIndexBackfillStatus {
+            state: snapshot.state,
+            error: snapshot.error,
+            progress,
+            start_epoch: snapshot.start_epoch,
+            current_epoch: snapshot.current_epoch,
+            target_epoch: snapshot.target_epoch,
+            indexed: snapshot.indexed,
+            skipped: snapshot.skipped,
+            start_time: snapshot.start_time,
+        })
+    }
+}
+
+pub enum IndexBackfillCancel {}
+impl RpcMethod<0> for IndexBackfillCancel {
+    const NAME: &'static str = "Forest.IndexBackfillCancel";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: &'static str =
+        "Cancels the in-progress index backfill, returning whether one was running.";
+
+    type Params = ();
+    type Ok = bool;
+
+    async fn handle(
+        _ctx: Ctx,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(crate::daemon::db_util::BACKFILL_STATUS.cancel_running())
+    }
+}
+
 pub enum ForestChainExportDiff {}
 impl RpcMethod<1> for ForestChainExportDiff {
     const NAME: &'static str = "Forest.ChainExportDiff";

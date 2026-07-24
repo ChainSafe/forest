@@ -30,6 +30,9 @@ pub enum ChainExportKind {
     DiffSnapshot,
     /// A lite snapshot export performed by the automatic snapshot GC.
     SnapshotGc,
+    /// An index backfill requested via `Forest.IndexBackfill`. It holds the same single-flight
+    /// slot as exports and the snapshot GC so that these heavy DB operations never overlap.
+    IndexBackfill,
 }
 
 /// Transitions only through [`ChainExportGuard`]: `Running` while a guard is held, then

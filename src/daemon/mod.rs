@@ -729,7 +729,9 @@ fn maybe_start_indexer_service(
                             tracing::debug!("Indexing tipset {}", ts.key());
                             let delegated_messages = chain_store
                                 .headers_delegated_messages(ts.block_headers().iter())?;
-                            chain_store.process_signed_messages(&delegated_messages)?;
+                            // Head indexing writes the newest tipset, so use the blind-write
+                            // fast path (no read-before-write timestamp comparison).
+                            chain_store.process_signed_messages(&delegated_messages, false)?;
                         }
                     }
                     Err(RecvError::Lagged(n)) => {

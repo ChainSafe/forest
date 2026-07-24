@@ -182,6 +182,12 @@ impl SnapshotGarbageCollector {
         }
     }
 
+    /// Whether a snapshot GC run is currently in progress. Index backfill checks this to avoid
+    /// reading historical state/blocks while the GC is reclaiming graph columns.
+    pub fn is_running(&self) -> bool {
+        self.running.load(Ordering::Relaxed)
+    }
+
     pub fn trigger(&self) -> anyhow::Result<flume::Receiver<anyhow::Result<()>>> {
         if self.running.load(Ordering::Relaxed) {
             anyhow::bail!("snap gc has already been running");

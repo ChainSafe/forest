@@ -73,6 +73,11 @@ generate_markdown_section "forest-cli" "config"
 generate_markdown_section "forest-cli" "snapshot"
 generate_markdown_section "forest-cli" "snapshot export"
 
+generate_markdown_section "forest-cli" "index"
+generate_markdown_section "forest-cli" "index backfill"
+generate_markdown_section "forest-cli" "index backfill-status"
+generate_markdown_section "forest-cli" "index backfill-cancel"
+
 generate_markdown_section "forest-cli" "send"
 generate_markdown_section "forest-cli" "info"
 generate_markdown_section "forest-cli" "shutdown"
