@@ -6025,6 +6025,53 @@
       "paramStructure": "by-position"
     },
     {
+      "name": "Forest.IndexBackfill",
+      "description": "Starts a chain index backfill (Ethereum mappings, events, block blooms) over an epoch range using the running node, returning immediately. Poll `Forest.IndexBackfillStatus` for progress. Only one backfill may run at a time, and it never overlaps snapshot export or the snapshot GC.",
+      "params": [
+        {
+          "name": "params",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/IndexBackfillParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "Forest.IndexBackfill.Result",
+        "required": true,
+        "schema": {
+          "type": "null"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Forest.IndexBackfillCancel",
+      "description": "Cancels the in-progress index backfill, returning whether one was running.",
+      "params": [],
+      "result": {
+        "name": "Forest.IndexBackfillCancel.Result",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Forest.IndexBackfillStatus",
+      "description": "Returns the progress and status of the in-progress (or last) index backfill.",
+      "params": [],
+      "result": {
+        "name": "Forest.IndexBackfillStatus.Result",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/ApiIndexBackfillStatus"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
       "name": "Forest.NetChainExchange",
       "description": "Internal API for debugging chain exchange.",
       "params": [
@@ -7878,6 +7925,63 @@
           "ValidityTerm"
         ]
       },
+      "ApiIndexBackfillStatus": {
+        "description": "Progress and status of the in-daemon index backfill, returned by [`IndexBackfillStatus`].",
+        "type": "object",
+        "properties": {
+          "currentEpoch": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indexed": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "progress": {
+            "type": "number",
+            "format": "double"
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "startEpoch": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "startTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ChainExportState"
+          },
+          "targetEpoch": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "state",
+          "progress",
+          "startEpoch",
+          "currentEpoch",
+          "targetEpoch",
+          "indexed",
+          "skipped"
+        ]
+      },
       "ApiInvocResult": {
         "type": "object",
         "properties": {
@@ -8475,6 +8579,11 @@
             "description": "A lite snapshot export performed by the automatic snapshot GC.",
             "type": "string",
             "const": "SnapshotGc"
+          },
+          {
+            "description": "An index backfill requested via `Forest.IndexBackfill`. It holds the same single-flight\nslot as exports and the snapshot GC so that these heavy DB operations never overlap.",
+            "type": "string",
+            "const": "IndexBackfill"
           }
         ]
       },
@@ -10541,6 +10650,47 @@
           "RebroadcastBackoffSpread",
           "RebroadcastBackoffMax"
         ]
+      },
+      "IndexBackfillParams": {
+        "description": "Parameters for [`IndexBackfill`].",
+        "type": "object",
+        "properties": {
+          "allowNearHead": {
+            "description": "Allow indexing revert-prone tipsets within `CHAIN_FINALITY` of the head.",
+            "type": "boolean",
+            "default": false
+          },
+          "from": {
+            "description": "Starting epoch, inclusive. Defaults to the persisted resume checkpoint if present,\notherwise the chain head.",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "nTipsets": {
+            "description": "Number of tipsets to backfill. Mutually exclusive with `to`.",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0
+          },
+          "recompute": {
+            "description": "Recompute missing tipset state (expensive) instead of skipping it.",
+            "type": "boolean",
+            "default": false
+          },
+          "to": {
+            "description": "Ending epoch, inclusive. Mutually exclusive with `n_tipsets`.",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
       },
       "KeyInfo": {
         "type": "object",

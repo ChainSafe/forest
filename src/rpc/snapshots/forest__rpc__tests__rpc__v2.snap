@@ -1946,6 +1946,9 @@ components:
         - description: A lite snapshot export performed by the automatic snapshot GC.
           type: string
           const: SnapshotGc
+        - description: "An index backfill requested via `Forest.IndexBackfill`. It holds the same single-flight\nslot as exports and the snapshot GC so that these heavy DB operations never overlap."
+          type: string
+          const: IndexBackfill
     ChainExportState:
       description: "Transitions only through [`ChainExportGuard`]: `Running` while a guard is held, then\nexactly one terminal state once it drops. `Idle`: no export has run since node start."
       type: string
