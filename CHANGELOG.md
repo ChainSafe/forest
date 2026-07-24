@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#7339](https://github.com/ChainSafe/forest/issues/7339): Forest-owned RPC methods now use `camelCase` field names consistently in requests and responses: `Forest.SyncStatus`, `Forest.NetInfo`, `Forest.ChainExport`, `Forest.ChainExportDiff`, `Forest.ChainExportStatus`, `Forest.StateActorInfo`, `Forest.StateCompute` and `Filecoin.ChainExport` (e.g. `num_peers` → `numPeers`, `start_epoch` → `startEpoch`, `StateRoot` → `stateRoot`). The named parameters of `Filecoin.StateMinerInitialPledgeForSector` are now `sectorDuration`, `sectorSize`, `verifiedSize` and `tipsetKey` (positional calls are unaffected). The generated OpenRPC document is now tested for casing regressions.
+
 ### Added
 
 ### Changed

@@ -1733,7 +1733,7 @@ components:
     ApiExportStatus:
       type: object
       properties:
-        current_epoch:
+        currentEpoch:
           type: integer
           format: int64
         error:
@@ -1749,10 +1749,10 @@ components:
         progress:
           type: number
           format: double
-        start_epoch:
+        startEpoch:
           type: integer
           format: int64
-        start_time:
+        startTime:
           type:
             - string
             - "null"
@@ -1762,8 +1762,8 @@ components:
       required:
         - state
         - progress
-        - start_epoch
-        - current_epoch
+        - startEpoch
+        - currentEpoch
     Base64String:
       type:
         - string
@@ -2661,7 +2661,7 @@ components:
         from:
           type: integer
           format: int64
-        output_path:
+        outputPath:
           type: string
         to:
           type: integer
@@ -2670,41 +2670,41 @@ components:
         - from
         - to
         - depth
-        - output_path
+        - outputPath
     ForestChainExportParams:
       type: object
       properties:
-        augmented_snapshot:
+        augmentedSnapshot:
           description: Generate a separate snapshot that contains augmented data (message receipts and events)
           type: boolean
           default: false
-        dry_run:
+        dryRun:
           type: boolean
         epoch:
           type: integer
           format: int64
-        include_events:
+        includeEvents:
           description: Include events in the output snapshot
           type: boolean
           default: false
-        include_receipts:
+        includeReceipts:
           description: Include message receipts in the output snapshot
           type: boolean
           default: false
-        include_tipset_keys:
+        includeTipsetKeys:
           type: boolean
           default: false
-        output_path:
+        outputPath:
           type: string
-        recent_roots:
+        recentRoots:
           type: integer
           format: int64
-        skip_checksum:
+        skipChecksum:
           type: boolean
-        tipset_keys:
+        tipsetKeys:
           $ref: "#/components/schemas/Nullable_Array_of_Cid"
           default: ~
-        tipset_lookup:
+        tipsetLookup:
           description: Generate a separate snapshot that contains tipset lookup
           type: boolean
           default: false
@@ -2713,10 +2713,10 @@ components:
       required:
         - version
         - epoch
-        - recent_roots
-        - output_path
-        - skip_checksum
-        - dry_run
+        - recentRoots
+        - outputPath
+        - skipChecksum
+        - dryRun
     GethCallFrame:
       description: "Geth-style nested call frame returned by the `callTracer`."
       type: object
