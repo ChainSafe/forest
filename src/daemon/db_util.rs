@@ -353,7 +353,7 @@ enum ProcessOutcome {
 #[derive(Debug, Clone, Copy)]
 pub struct BackfillOptions {
     /// When `true`, missing tipset state is recomputed (expensive); when `false`, such tipsets
-    /// are skipped and reported. Online backfills default this to `false` to avoid starving sync.
+    /// are skipped and reported. Online backfill default this to `false` to avoid starving sync.
     pub allow_recompute: bool,
     /// When `false`, the walk start is clamped to `head - CHAIN_FINALITY` so that revert-prone
     /// near-head tipsets are not indexed.
@@ -407,7 +407,7 @@ impl BackfillStatusInner {
 }
 
 /// Status of the in-daemon index backfill, surfaced by the `Forest.IndexBackfillStatus` RPC and
-/// driven only through [`BackfillGuard`]. Mirrors the lifecycle of [`ChainExportState`].
+/// driven only through [`BackfillGuard`]. Mirrors the life-cycle of [`ChainExportState`].
 #[derive(Default)]
 pub struct BackfillStatus {
     inner: parking_lot::Mutex<BackfillStatusInner>,
