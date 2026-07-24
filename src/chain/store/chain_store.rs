@@ -901,25 +901,24 @@ mod tests {
         let newer = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[2]));
 
         // Seed with the newer (higher timestamp) entry, as the live head indexer would.
-        cs.put_mapping(hash.clone(), newer, 100).unwrap();
+        cs.put_mapping(hash, newer, 100).unwrap();
 
         // A backfill writing an older (lower timestamp) entry must not clobber it.
-        cs.put_mapping_if_newer(hash.clone(), older, 50).unwrap();
+        cs.put_mapping_if_newer(hash, older, 50).unwrap();
         assert_eq!(cs.get_mapping(&hash).unwrap(), Some(newer));
 
         // An equal timestamp must also not overwrite.
-        cs.put_mapping_if_newer(hash.clone(), older, 100).unwrap();
+        cs.put_mapping_if_newer(hash, older, 100).unwrap();
         assert_eq!(cs.get_mapping(&hash).unwrap(), Some(newer));
 
         // A strictly newer entry wins.
         let newest = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[3]));
-        cs.put_mapping_if_newer(hash.clone(), newest, 200).unwrap();
+        cs.put_mapping_if_newer(hash, newest, 200).unwrap();
         assert_eq!(cs.get_mapping(&hash).unwrap(), Some(newest));
 
         // Writing into an empty slot always succeeds.
         let fresh_hash = EthHash(ethereum_types::H256::repeat_byte(0xab));
-        cs.put_mapping_if_newer(fresh_hash.clone(), older, 1)
-            .unwrap();
+        cs.put_mapping_if_newer(fresh_hash, older, 1).unwrap();
         assert_eq!(cs.get_mapping(&fresh_hash).unwrap(), Some(older));
     }
 
