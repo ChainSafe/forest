@@ -39,7 +39,10 @@ use chrono::Utc;
 use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
 use parking_lot::Mutex;
-use std::time::{Duration, Instant};
+use std::{
+    borrow::Cow,
+    time::{Duration, Instant},
+};
 use tokio::{sync::Notify, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 
@@ -381,7 +384,7 @@ async fn chain_follower(
     // no active forks, this will not report anything.
     set.spawn({
         let state_manager = state_manager.shallow_clone();
-        let state_machine = state_machine.clone();
+        let sync_status = sync_status.shallow_clone();
         async move {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
@@ -400,39 +403,42 @@ async fn chain_follower(
                     continue;
                 }
 
-                let (_, forks) = state_machine.lock().tasks();
-                let is_validating = forks
+                // The event loop refreshes this report on every state change,
+                // so it is never staler than the state machine itself.
+                let report = sync_status.load();
+                let forks = &report.active_forks;
+                // Once the nearest fork is validating, the remaining fetch
+                // gaps belong to freshly gossiped forks near the clock head
+                // and their min would mislead.
+                let status: Cow<'static, str> = if forks
                     .iter()
-                    .any(|fork| fork.stage == ForkSyncStage::ValidatingTipsets);
-                let is_fetching = forks
+                    .any(|fork| fork.stage == ForkSyncStage::ValidatingTipsets)
+                {
+                    ", validating tipsets".into()
+                } else if forks
                     .iter()
-                    .any(|fork| fork.stage == ForkSyncStage::FetchingHeaders);
-                // The fork closest to the validated head connects first, so its
-                // gap is roughly how many header fetches remain before tipset
-                // validation can start. Forks fetching at or below the validated
-                // head (fork-point search) have no meaningful gap.
-                let remaining_headers = forks
-                    .iter()
-                    .filter(|fork| fork.stage == ForkSyncStage::FetchingHeaders)
-                    .filter_map(|fork| {
-                        let gap = fork.target_sync_epoch_start - fork.validated_chain_head_epoch;
-                        (gap > 0).then_some(gap)
-                    })
-                    .min();
-
-                let status = if is_validating {
-                    ", validating tipsets".to_string()
-                } else if let Some(remaining) = remaining_headers {
-                    format!(", fetching headers (~{remaining})")
-                } else if is_fetching {
-                    // All live fetches are at or below the validated head:
-                    // fork-point searches, fetching a competing branch's
-                    // ancestry down to where it forked off our chain.
-                    ", fetching headers".to_string()
+                    .any(|fork| fork.stage == ForkSyncStage::FetchingHeaders)
+                {
+                    // The fork closest to the validated head connects first, so
+                    // its gap approximates the header fetches left before
+                    // validation can start.
+                    let remaining = forks
+                        .iter()
+                        .filter(|fork| fork.stage == ForkSyncStage::FetchingHeaders)
+                        .map(|fork| fork.target_sync_epoch_start - fork.validated_chain_head_epoch)
+                        .filter(|gap| *gap > 0)
+                        .min();
+                    match remaining {
+                        Some(remaining) => format!(", fetching headers (~{remaining})").into(),
+                        // All fetches are at or below the validated head:
+                        // fork-point searches, fetching a competing branch's
+                        // ancestry down to where it forked off our chain.
+                        None => ", fetching headers".into(),
+                    }
                 } else {
                     // waiting for peers to (re)seed tipsets (startup, no usable peers, or the buffer
                     // was just cleared after a failed validation).
-                    ", waiting for tipsets".to_string()
+                    ", waiting for tipsets".into()
                 };
                 info!(
                     "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head} (diff: {diff}){status}",
