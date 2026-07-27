@@ -83,7 +83,7 @@ impl CarBlock {
     pub fn validate(&self) -> anyhow::Result<()> {
         let actual = {
             let code = MultihashCode::try_from(self.cid.hash().code())?;
-            Cid::new_v1(self.cid.codec(), code.digest(&self.data))
+            Cid::new_v1(self.cid.codec(), code.checked_digest(&self.data)?)
         };
         anyhow::ensure!(
             actual == self.cid,

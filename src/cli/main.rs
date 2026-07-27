@@ -30,5 +30,5 @@ where
 
     let _bg_tasks = logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
 
-    cmd.run(client).await
+    cmd.run(client).await.map_err(rpc::humanize_rpc_error)
 }

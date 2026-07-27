@@ -17,8 +17,11 @@ Make a pull request with the following changes:
   changed/updated/removed features should be reasonably understandable to an
   end-user.
 - Update the version of the [forest crate][2] (and any others, if applicable) to
-  be released. Make sure that the updated files do **not** contain a
-  `[patch.crates-io]` section, otherwise you won't be able to make a release on
+  be released. Bump the **minor** version (`0.Y.0`) for incompatible/breaking
+  changes and/or network upgrades, otherwise (non-breaking features, patches,
+  etc.) bump the **patch** version (`0.Y.Z`). Make sure
+  that the updated files do **not** contain a `[patch.crates-io]` section,
+  otherwise you won't be able to make a release on
   [crates.io](https://crates.io/).
 - Make sure to run `cargo publish --dry-run` and include the `Cargo.lock` crate
   version change in the release.

@@ -9,7 +9,7 @@ use crate::shim::message::Message;
 use crate::state_migration::run_state_migrations;
 use anyhow::{bail, ensure};
 use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 enum StateRecomputePolicy {
     Allowed,
@@ -30,6 +30,25 @@ impl StateManager {
                 None => Ok(self.load_executed_tipset(ts).await?.into()),
             }
         }
+    }
+
+    /// Clears all cached state outputs and traces. Used after repairing corrupted
+    /// computation inputs (e.g. a stale tipset lookup entry): any cached result may have
+    /// been derived from the poisoned data, and the tainted ones cannot be told apart.
+    pub fn clear_tipset_state_caches(&self) {
+        self.cache.clear();
+        self.trace_cache.clear();
+    }
+
+    /// Verifies and repairs the tipset lookup table (see `ChainStore::repair_tipset_lookup`)
+    /// and clears the state caches when anything was repaired: results computed while the
+    /// entries were wrong may be tainted.
+    pub fn repair_tipset_lookup(&self) -> anyhow::Result<usize> {
+        let n_repaired = self.cs.repair_tipset_lookup()?;
+        if n_repaired > 0 {
+            self.clear_tipset_state_caches();
+        }
+        Ok(n_repaired)
     }
 
     /// State recomputation policy for RPC methods: recomputation is disabled unless explicitly
@@ -188,6 +207,22 @@ impl StateManager {
                 events,
             });
         }
+
+        // Store the block logs bloom whenever this tipset was executed here.
+        if recomputed
+            && let Err(e) = crate::rpc::eth::store_block_logs_bloom(
+                self,
+                msg_ts,
+                &state_root,
+                &executed_messages,
+            )
+        {
+            warn!(
+                "failed to store block logs bloom for tipset {}: {e:#}",
+                msg_ts.key()
+            );
+        }
+
         Ok(ExecutedTipset {
             state_root,
             receipt_root,

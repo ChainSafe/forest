@@ -174,8 +174,8 @@ impl EthEventHandler {
             .unwrap_or(config.max_filter_height_range);
         let filter_store: Option<Arc<dyn FilterStore>> =
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
-        let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
-        let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
+        let event_filter_manager = Some(EventFilterManager::new());
+        let tipset_filter_manager = Some(TipSetFilterManager::new());
         let mempool_filter_manager = Some(MempoolFilterManager::new(
             max_filter_results,
             eth_chain_id,
@@ -372,6 +372,9 @@ impl EthEventHandler {
         .await
     }
 
+    /// Collects the tipset's events from already-loaded executed messages, keeping those that
+    /// match `spec` and tagging each with `revert_status`. Use [`Self::collect_events`] instead
+    /// wages sthen the executed messill need to be loaded.
     pub async fn collect_events_from_messages(
         state_manager: &StateManager,
         tipset: &Tipset,

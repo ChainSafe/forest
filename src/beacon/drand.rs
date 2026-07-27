@@ -3,6 +3,7 @@
 
 #![allow(dead_code)]
 
+use crate::utils::encoding::hex;
 use std::sync::LazyLock;
 use std::time::Duration;
 use std::{borrow::Cow, num::NonZeroUsize};

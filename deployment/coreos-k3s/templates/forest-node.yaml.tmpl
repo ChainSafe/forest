@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forest-${NET}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: forest-data
+  namespace: forest-${NET}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: ${DISK}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forest-config
+  namespace: forest-${NET}
+data:
+  config.toml: |
+    [chain]
+    type = "${NET}"
+
+    [client]
+    data_dir = "/data"
+    enable_rpc = true
+    encrypt_keystore = false
+    rpc_address = "0.0.0.0:2345"
+    healthcheck_address = "0.0.0.0:2346"
+    metrics_address = "0.0.0.0:6116"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forest
+  namespace: forest-${NET}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: forest } }
+  template:
+    metadata: { labels: { app: forest } }
+    spec:
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: forest
+          image: ${IMAGE}
+          args: ["--config", "/config/config.toml", "--auto-download-snapshot"]
+          ports:
+            - { containerPort: 2345, name: rpc }
+            - { containerPort: 2346, name: health }
+            - { containerPort: 6116, name: metrics }
+          resources:
+            requests: { cpu: "${FOREST_CPU_REQUEST}", memory: "${FOREST_MEM_REQUEST}" }
+            limits: { cpu: "${FOREST_CPU_LIMIT}", memory: "${FOREST_MEM_LIMIT}" }
+          volumeMounts:
+            - { mountPath: /data, name: data }
+            - { mountPath: /config, name: config, readOnly: true }
+          # snapshot download+import is slow; keep probes off its back
+          startupProbe: { tcpSocket: { port: 2346 }, periodSeconds: 30, failureThreshold: 960 }
+          livenessProbe: { tcpSocket: { port: 2346 }, periodSeconds: 60, timeoutSeconds: 5, failureThreshold: 6 }
+          readinessProbe: { tcpSocket: { port: 2345 }, periodSeconds: 20, timeoutSeconds: 5, failureThreshold: 3 }
+      volumes:
+        - { name: data, persistentVolumeClaim: { claimName: forest-data } }
+        - { name: config, configMap: { name: forest-config } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forest-rpc
+  namespace: forest-${NET}
+spec:
+  type: ClusterIP
+  selector: { app: forest }
+  ports:
+    - { name: rpc, port: 2345, targetPort: 2345 }

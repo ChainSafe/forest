@@ -309,6 +309,11 @@ fn decode_zstd_single_frame<ReaderT: Read>(reader: ReaderT) -> io::Result<Bytes>
     Ok(zstd_frame.into())
 }
 
+/// Timeout applied to each async I/O operation of the snapshot export pipeline so that a
+/// stalled reader or writer surfaces as an error instead of wedging the export forever
+/// while `Forest.ChainExportStatus` keeps reporting it as in progress.
+pub(crate) const ASYNC_OPS_TIMEOUT: Duration = Duration::from_mins(5);
+
 pub struct Encoder {}
 
 impl Encoder {
@@ -317,9 +322,6 @@ impl Encoder {
         roots: NonEmpty<Cid>,
         mut stream: impl Stream<Item = anyhow::Result<ForestCarFrame>> + Unpin,
     ) -> anyhow::Result<()> {
-        // For troubleshooting stuck-ness issue
-        const ASYNC_OPS_TIMEOUT: Duration = Duration::from_mins(5);
-
         let mut offset = 0;
 
         // Write CARv1 header
@@ -334,7 +336,9 @@ impl Encoder {
         header_encoder.write_all(&header_uvi_frame)?;
         let header_bytes = header_encoder.finish()?.into_inner().freeze();
 
-        sink.write_all(&header_bytes).await?;
+        tokio::time::timeout(ASYNC_OPS_TIMEOUT, sink.write_all(&header_bytes))
+            .await
+            .context("header `sink.write_all` timed out")??;
         let header_len = header_bytes.len();
 
         offset += header_len;
@@ -372,7 +376,9 @@ impl Encoder {
         let footer = ForestCarFooter {
             index: offset as u64 + ZSTD_SKIP_FRAME_LEN,
         };
-        sink.write_all(&footer.to_le_bytes()).await?;
+        tokio::time::timeout(ASYNC_OPS_TIMEOUT, sink.write_all(&footer.to_le_bytes()))
+            .await
+            .context("footer `sink.write_all` timed out")??;
         tracing::info!("Finished writing zstd CAR footer frame");
         Ok(())
     }
@@ -524,6 +530,21 @@ pub fn forest_car_sha256sum_path(output_path: &Path) -> PathBuf {
     p
 }
 
+pub fn forest_car_with_filename_suffix(path: &Path, suffix: &str) -> anyhow::Result<PathBuf> {
+    anyhow::ensure!(!suffix.is_empty(), "suffix cannot be empty");
+    let file_name = path.file_name().and_then(|n| n.to_str()).with_context(|| {
+        format!(
+            "failed to extract filename from the given path: {}",
+            path.display()
+        )
+    })?;
+    let new_name = match file_name.split_once('.') {
+        Some((stem, rest)) => format!("{stem}{suffix}.{rest}"),
+        None => format!("{file_name}{suffix}"),
+    };
+    Ok(path.with_file_name(new_name))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -650,11 +671,14 @@ mod tests {
 
     #[rstest]
     #[case(
-        Path::new("/tmp/a.forst.car.zst"),
-        Path::new("/tmp/a.forst.car.zst.tmp")
+        Path::new("/tmp/a.forest.car.zst"),
+        Path::new("/tmp/a.forest.car.zst.tmp")
     )]
-    #[case(Path::new("tmp/a.forst.car.zst"), Path::new("tmp/a.forst.car.zst.tmp"))]
-    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.tmp"))]
+    #[case(
+        Path::new("tmp/a.forest.car.zst"),
+        Path::new("tmp/a.forest.car.zst.tmp")
+    )]
+    #[case(Path::new("a.forest.car.zst"), Path::new("a.forest.car.zst.tmp"))]
     #[case(Path::new(""), Path::new(""))]
     #[case(Path::new("."), Path::new("."))]
     fn test_tmp_exporting_forest_car_path(#[case] input: &Path, #[case] output: &Path) {
@@ -663,17 +687,52 @@ mod tests {
 
     #[rstest]
     #[case(
-        Path::new("/tmp/a.forst.car.zst"),
-        Path::new("/tmp/a.forst.car.zst.sha256sum")
+        Path::new("/tmp/a.forest.car.zst"),
+        Path::new("/tmp/a.forest.car.zst.sha256sum")
     )]
     #[case(
-        Path::new("tmp/a.forst.car.zst"),
-        Path::new("tmp/a.forst.car.zst.sha256sum")
+        Path::new("tmp/a.forest.car.zst"),
+        Path::new("tmp/a.forest.car.zst.sha256sum")
     )]
-    #[case(Path::new("a.forst.car.zst"), Path::new("a.forst.car.zst.sha256sum"))]
+    #[case(Path::new("a.forest.car.zst"), Path::new("a.forest.car.zst.sha256sum"))]
     #[case(Path::new(""), Path::new(""))]
     #[case(Path::new("."), Path::new("."))]
     fn test_forest_car_sha256sum_path(#[case] input: &Path, #[case] output: &Path) {
         assert_eq!(forest_car_sha256sum_path(input), output);
+    }
+
+    #[rstest]
+    #[case(
+        Path::new("/tmp/a.forest.car.zst"),
+        "_suffix",
+        Path::new("/tmp/a_suffix.forest.car.zst")
+    )]
+    #[case(
+        Path::new("a.forest.car.zst"),
+        "_suffix",
+        Path::new("a_suffix.forest.car.zst")
+    )]
+    #[case(Path::new("a"), "_suffix", Path::new("a_suffix"))]
+    fn test_forest_car_with_filename_suffix_valid(
+        #[case] input: &Path,
+        #[case] suffix: &str,
+        #[case] output: &Path,
+    ) {
+        assert_eq!(
+            forest_car_with_filename_suffix(input, suffix).unwrap(),
+            output
+        );
+    }
+
+    #[rstest]
+    #[case(Path::new("/tmp/a.forest.car.zst"), "", "suffix cannot be empty")]
+    #[case(Path::new("."), "_suffix", "failed to extract filename")]
+    fn test_forest_car_with_filename_suffix_invalid(
+        #[case] input: &Path,
+        #[case] suffix: &str,
+        #[case] reason: &str,
+    ) {
+        let e = forest_car_with_filename_suffix(input, suffix).unwrap_err();
+        assert!(e.to_string().contains(reason));
     }
 }

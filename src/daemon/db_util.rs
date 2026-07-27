@@ -335,7 +335,13 @@ async fn process_ts(
     let epoch = ts.epoch();
     let tsk = ts.key().clone();
 
-    state_manager.load_executed_tipset(ts).await?;
+    let executed = state_manager.load_executed_tipset(ts).await?;
+    crate::rpc::eth::store_block_logs_bloom(
+        state_manager,
+        ts,
+        &executed.state_root,
+        &executed.executed_messages,
+    )?;
 
     delegated_messages.append(
         &mut state_manager

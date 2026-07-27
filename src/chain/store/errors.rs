@@ -4,6 +4,7 @@
 use std::{borrow::Cow, fmt::Debug};
 
 use crate::blocks::CreateTipsetError;
+use crate::prelude::*;
 use cid::Error as CidErr;
 use fil_actors_shared::fvm_ipld_amt::Error as AmtErr;
 use fvm_ipld_encoding::Error as EncErr;
@@ -35,7 +36,12 @@ pub enum Error {
     /// [`super::index::ResolveNullTipset::Fail`]. The Eth layer translates this into its own
     /// Lotus-compatible message, so this internal phrasing is intentionally distinct.
     #[error("null round at epoch {0}")]
-    NullRound(crate::shim::clock::ChainEpoch),
+    NullRound(ChainEpoch),
+    #[error("lookback height {lookback_height} is at or after base height {base_height}")]
+    LookbackHeightOverflow {
+        lookback_height: ChainEpoch,
+        base_height: ChainEpoch,
+    },
     /// Other chain error
     #[error("{0}")]
     Other(String),

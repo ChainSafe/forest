@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.33.8"
+    "version": "0.35.0"
   },
   "methods": [
     {
@@ -2843,42 +2843,52 @@
       "ApiExportStatus": {
         "type": "object",
         "properties": {
-          "cancelled": {
-            "type": "boolean"
-          },
-          "current_epoch": {
+          "currentEpoch": {
             "type": "integer",
             "format": "int64"
           },
-          "exporting": {
-            "type": "boolean"
+          "error": {
+            "description": "Error of the last failed export, if recorded.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "`None` if and only if no export has run since the node started.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainExportKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "progress": {
             "type": "number",
             "format": "double"
           },
-          "start_epoch": {
+          "startEpoch": {
             "type": "integer",
             "format": "int64"
           },
-          "start_time": {
+          "startTime": {
             "type": [
               "string",
               "null"
             ],
             "format": "date-time"
           },
-          "succeeded": {
-            "type": "boolean"
+          "state": {
+            "$ref": "#/components/schemas/ChainExportState"
           }
         },
         "required": [
+          "state",
           "progress",
-          "exporting",
-          "cancelled",
-          "succeeded",
-          "start_epoch",
-          "current_epoch"
+          "startEpoch",
+          "currentEpoch"
         ]
       },
       "Base64String": {
@@ -3130,6 +3140,37 @@
       },
       "Bloom": {
         "type": "string"
+      },
+      "ChainExportKind": {
+        "description": "What kind of export is (or was last) holding the chain-export slot.",
+        "oneOf": [
+          {
+            "description": "A snapshot export requested via `Forest.ChainExport`.",
+            "type": "string",
+            "const": "Snapshot"
+          },
+          {
+            "description": "A diff snapshot export requested via `Forest.ChainExportDiff`.",
+            "type": "string",
+            "const": "DiffSnapshot"
+          },
+          {
+            "description": "A lite snapshot export performed by the automatic snapshot GC.",
+            "type": "string",
+            "const": "SnapshotGc"
+          }
+        ]
+      },
+      "ChainExportState": {
+        "description": "Transitions only through [`ChainExportGuard`]: `Running` while a guard is held, then\nexactly one terminal state once it drops. `Idle`: no export has run since node start.",
+        "type": "string",
+        "enum": [
+          "Idle",
+          "Running",
+          "Succeeded",
+          "Cancelled",
+          "Failed"
+        ]
       },
       "ChainFinalityStatus": {
         "description": "Describes how the node is currently determining finality,\ncombining probabilistic EC finality (based on observed chain health) with\nF3 fast finality when available.",
@@ -4256,7 +4297,7 @@
             "type": "integer",
             "format": "int64"
           },
-          "output_path": {
+          "outputPath": {
             "type": "string"
           },
           "to": {
@@ -4268,47 +4309,56 @@
           "from",
           "to",
           "depth",
-          "output_path"
+          "outputPath"
         ]
       },
       "ForestChainExportParams": {
         "type": "object",
         "properties": {
-          "dry_run": {
+          "augmentedSnapshot": {
+            "description": "Generate a separate snapshot that contains augmented data (message receipts and events)",
+            "type": "boolean",
+            "default": false
+          },
+          "dryRun": {
             "type": "boolean"
           },
           "epoch": {
             "type": "integer",
             "format": "int64"
           },
-          "include_events": {
+          "includeEvents": {
+            "description": "Include events in the output snapshot",
             "type": "boolean",
             "default": false
           },
-          "include_receipts": {
+          "includeReceipts": {
+            "description": "Include message receipts in the output snapshot",
             "type": "boolean",
             "default": false
           },
-          "include_tipset_keys": {
+          "includeTipsetKeys": {
             "type": "boolean",
             "default": false
           },
-          "include_tipset_lookup": {
-            "type": "boolean",
-            "default": false
-          },
-          "output_path": {
+          "outputPath": {
             "type": "string"
           },
-          "recent_roots": {
+          "recentRoots": {
             "type": "integer",
             "format": "int64"
           },
-          "skip_checksum": {
+          "skipChecksum": {
             "type": "boolean"
           },
-          "tipset_keys": {
-            "$ref": "#/components/schemas/Nullable_Array_of_Cid"
+          "tipsetKeys": {
+            "$ref": "#/components/schemas/Nullable_Array_of_Cid",
+            "default": null
+          },
+          "tipsetLookup": {
+            "description": "Generate a separate snapshot that contains tipset lookup",
+            "type": "boolean",
+            "default": false
           },
           "version": {
             "$ref": "#/components/schemas/FilecoinSnapshotVersion"
@@ -4317,11 +4367,10 @@
         "required": [
           "version",
           "epoch",
-          "recent_roots",
-          "output_path",
-          "tipset_keys",
-          "skip_checksum",
-          "dry_run"
+          "recentRoots",
+          "outputPath",
+          "skipChecksum",
+          "dryRun"
         ]
       },
       "GethCallFrame": {

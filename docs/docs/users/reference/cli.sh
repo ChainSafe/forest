@@ -112,6 +112,7 @@ generate_markdown_section "forest-tool" "snapshot"
 generate_markdown_section "forest-tool" "snapshot fetch"
 generate_markdown_section "forest-tool" "snapshot validate-diffs"
 generate_markdown_section "forest-tool" "snapshot validate"
+generate_markdown_section "forest-tool" "snapshot validate-extended"
 generate_markdown_section "forest-tool" "snapshot compress"
 generate_markdown_section "forest-tool" "snapshot compute-state"
 

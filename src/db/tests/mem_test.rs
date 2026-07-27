@@ -40,3 +40,9 @@ fn mem_tipset_lookup_read_write_delete() {
     let db = MemoryDB::default();
     subtests::tipset_lookup_read_write_delete(&db);
 }
+
+#[test]
+fn mem_block_bloom_prune() {
+    let db = MemoryDB::default();
+    subtests::block_bloom_prune(&db);
+}

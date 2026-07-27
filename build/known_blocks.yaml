@@ -2,6 +2,7 @@
 # Do not edit manually. Run the command to update checkpoints.
 
 calibnet:
+  3888000: bafy2bzaced67udkkaonnwv77jleqpu5q7fbokvyotfmx4eg3ygcvn4hykrj6o
   3801600: bafy2bzacede5dspkilz6lb7d4fdlte675hrzmaoke4wabfpw6lafif5devesk
   3715200: bafy2bzacedm5zjjg4iicl6ugxxu2bg3hj3e2xx2tpzdyukrknvimhcocika4g
   3628800: bafy2bzacedsxw4nkaf2drize6a3qx54kg26yfwvtfwykmmvgoyl3dirxg7dbs
@@ -47,6 +48,7 @@ calibnet:
   172800: bafy2bzacebluce5la2lbyjlgmup6mx4xytnnilsf4oy6v4omon2ivyduqwlsq
   86400: bafy2bzaceatx7tlwdhez6vyias5qlhaxa54vjftigbuqzfsmdqduc6jdiclzc
 mainnet:
+  6220800: bafy2bzacebstwbbjvf4cgr2gug7xh34zfbkjypuk4vgvgrkvdrtrqaf3txnru
   6134400: bafy2bzacedtzo6zsskuioy5cgju6vwmhxhdvzlfdlgj4ky2by6vtctzaju6zs
   6048000: bafy2bzacebklwcxahvmbcxbb7ykkg5u5s3gs4nkl376iq7qzhhtqoq4jnq4yc
   5961600: bafy2bzaceaezfub7bfswmjroyvd2jeggyrmjdvjevpu5msxnufn6eswhnn6mg

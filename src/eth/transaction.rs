@@ -508,6 +508,7 @@ pub fn get_filecoin_method_info(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::utils::encoding::hex;
     use crate::{
         networks::{calibnet, mainnet},
         shim::{crypto::Signature, econ::TokenAmount},

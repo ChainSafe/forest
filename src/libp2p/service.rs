@@ -79,7 +79,31 @@ pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 /// `Gossipsub` Filecoin messages topic identifier.
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 
-const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
+/// Gossipsub topics Forest uses. Subscription, the subscription-filter
+/// whitelist, and peer-score params all iterate the variants, so adding one is
+/// handled everywhere.
+#[derive(Copy, Clone, Debug, strum::EnumIter, derive_more::Display)]
+pub enum PubsubTopic {
+    #[display("{PUBSUB_BLOCK_STR}")]
+    Blocks,
+    #[display("{PUBSUB_MSG_STR}")]
+    Messages,
+}
+
+impl PubsubTopic {
+    /// Full topic on `network_name`, e.g. `/fil/blocks/<net>`.
+    pub fn ident(self, network_name: impl std::fmt::Display) -> IdentTopic {
+        IdentTopic::new(format!("{self}/{network_name}"))
+    }
+}
+
+/// All gossipsub topics on `network_name`.
+pub fn pubsub_topics(
+    network_name: impl std::fmt::Display + Copy,
+) -> impl Iterator<Item = IdentTopic> {
+    use strum::IntoEnumIterator as _;
+    PubsubTopic::iter().map(move |t| t.ident(network_name))
+}
 
 pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -203,12 +227,11 @@ impl Libp2pService {
             .build();
 
         // Subscribe to gossipsub topics with the network name suffix
-        for topic in PUBSUB_TOPICS.iter() {
-            let t = Topic::new(format!("{topic}/{network_name}"));
+        for topic in pubsub_topics(&network_name) {
             swarm
                 .behaviour_mut()
-                .subscribe(&t)
-                .with_context(|| format!("Failed to subscribe gossipsub topic {t}"))?;
+                .subscribe(&topic)
+                .with_context(|| format!("Failed to subscribe gossipsub topic {topic}"))?;
         }
 
         let (network_sender_in, network_receiver_in) = flume::unbounded();
@@ -279,8 +302,8 @@ impl Libp2pService {
         let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval =
             IntervalStream::new(tokio::time::interval(Duration::from_secs(15))).fuse();
-        let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
-        let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
+        let pubsub_block_str = PubsubTopic::Blocks.ident(&self.network_name).to_string();
+        let pubsub_msg_str = PubsubTopic::Messages.ident(&self.network_name).to_string();
 
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
 

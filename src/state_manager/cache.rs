@@ -121,6 +121,49 @@ mod tests {
         }
     }
 
+    /// A computation in flight across a `clear()` was started with pre-clear inputs; its
+    /// result must not repopulate the cleared cache. `StateManager::repair_tipset_lookup`
+    /// relies on this `quick_cache` placeholder behavior when it evicts potentially
+    /// tainted results: fills already computing with poisoned inputs are discarded, not
+    /// inserted after the clear.
+    #[tokio::test]
+    async fn test_clear_discards_in_flight_computation() {
+        let cache: Arc<ForestCache<TipsetKey, String>> = Arc::new(ForestCache::new("test"));
+        let key = create_test_tipset_key(1);
+
+        // `entered` fires from inside the fill future, i.e. strictly after
+        // `get_or_insert_async` has installed its placeholder; `gate` then holds the
+        // fill in flight until the cache has been cleared.
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let handle = tokio::spawn({
+            let cache = Arc::clone(&cache);
+            let key = key.clone();
+            let entered = Arc::clone(&entered);
+            let gate = Arc::clone(&gate);
+            async move {
+                cache
+                    .get_or_insert_async(&key, async {
+                        entered.notify_one();
+                        gate.notified().await;
+                        anyhow::Ok("stale_value".to_string())
+                    })
+                    .await
+            }
+        });
+        entered.notified().await;
+
+        cache.clear();
+        gate.notify_one();
+        let stale = handle.await.unwrap().unwrap();
+        assert_eq!(stale, "stale_value");
+
+        assert!(
+            cache.get(&key).is_none(),
+            "in-flight fill must not repopulate a cleared cache"
+        );
+    }
+
     #[tokio::test]
     async fn test_concurrent_different_keys() {
         let cache: Arc<ForestCache<TipsetKey, String>> = Arc::new(ForestCache::new("test"));

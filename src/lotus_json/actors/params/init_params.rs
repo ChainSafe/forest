@@ -99,6 +99,8 @@ macro_rules! impl_lotus_json_for_init_exec_params {
             paste! {
                 mod [<impl_lotus_json_for_init_exec_params_ $version>] {
                     use super::*;
+                    #[cfg(test)]
+                    use crate::utils::encoding::hex;
                     type T = fil_actor_init_state::[<v $version>]::ExecParams;
                     #[test]
                     fn snapshots() {
@@ -152,6 +154,8 @@ macro_rules! impl_lotus_json_for_init_exec4_params {
             paste! {
                 mod [<impl_lotus_json_for_init_exec4_params_ $version>] {
                     use super::*;
+                    #[cfg(test)]
+                    use crate::utils::encoding::hex;
                     type T = fil_actor_init_state::[<v $version>]::Exec4Params;
                     #[test]
                     fn snapshots() {

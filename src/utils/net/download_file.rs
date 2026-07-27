@@ -29,6 +29,7 @@
 //! # }
 //! ```
 
+use crate::utils::encoding::hex;
 use crate::utils::{RetryArgs, net::global_http_client, retry};
 use anyhow::{Context as _, ensure};
 use backon::{ExponentialBuilder, Retryable as _};

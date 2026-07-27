@@ -27,19 +27,63 @@
 
 ### Breaking
 
-- [#7252](https://github.com/ChainSafe/forest/pull/7252): `forest-cli snapshot export` now generates checksum file at {filepath}.sha256sum. The default file extension is changed from `.forest.car.sha256sum` to `.forest.car.zst.sha256sum`.
-
-- [#7321](https://github.com/ChainSafe/forest/pull/7321): The chain indexer, which populates the Ethereum transaction-hash mappings used by `eth_getTransactionByHash`, `eth_getTransactionReceipt`, and related methods, is now enabled by default. Opt out with `FOREST_CHAIN_INDEXER_ENABLED=0`.
+- [#7339](https://github.com/ChainSafe/forest/issues/7339): Forest-owned RPC methods now use `camelCase` field names consistently in requests and responses: `Forest.SyncStatus`, `Forest.NetInfo`, `Forest.ChainExport`, `Forest.ChainExportDiff`, `Forest.ChainExportStatus`, `Forest.StateActorInfo`, `Forest.StateCompute` and `Filecoin.ChainExport` (e.g. `num_peers` → `numPeers`, `start_epoch` → `startEpoch`, `StateRoot` → `stateRoot`). The named parameters of `Filecoin.StateMinerInitialPledgeForSector` are now `sectorDuration`, `sectorSize`, `verifiedSize` and `tipsetKey` (positional calls are unaffected). The generated OpenRPC document is now tested for casing regressions.
 
 ### Added
 
 ### Changed
 
-- [#7320](https://github.com/ChainSafe/forest/pull/7320): Increase the default
-  Eth transaction receipt cache size to 10000 and make it configurable via the
-  `FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE` environment variable.
-
 ### Removed
+
+### Fixed
+
+## Forest v0.35.0 "Shravan"
+
+Non-mandatory release for all node operators. It includes some fixes and improvements, notably around state-related RPC. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
+
+### Breaking
+
+- [#7374](https://github.com/ChainSafe/forest/pull/7374): Bounded `nEpochs` in `Forest.StateCompute` RPC method to 2000 which can be overriden by `FOREST_STATE_COMPUTE_MAX_RANGE`.
+
+- [#7383](https://github.com/ChainSafe/forest/pull/7383): `Forest.ChainExportStatus` now reports a `state` (`Idle`/`Running`/`Succeeded`/`Cancelled`/`Failed`) and the export `kind` (`Snapshot`/`DiffSnapshot`/`SnapshotGc`), along with the `error` of a failed export. The `exporting`, `cancelled` and `succeeded` booleans were removed. `forest-cli snapshot export-status --wait` now exits with an error when the watched export fails.
+
+### Added
+
+- [#7376](https://github.com/ChainSafe/forest/pull/7376): Added `--augmented-snapshot` and `--tipset-lookup` to `forest-cli snapshot export`.
+
+### Changed
+
+- [#7405](https://github.com/ChainSafe/forest/pull/7405): `Filecoin.StateReplay` is now served from the shared tipset trace cache, so replaying every transaction of a block executes the tipset once instead of once per call. Tipset replays triggered by RPC (`StateReplay`, `trace_*`, `debug_trace*`) are now bounded to half the available CPUs by default, configurable via `FOREST_RPC_REPLAY_CONCURRENCY`.
+
+### Fixed
+
+- [#7353](https://github.com/ChainSafe/forest/pull/7353) and [#7387](https://github.com/ChainSafe/forest/pull/7387): `StateWaitMsg` now honors non-zero confidence when the message was executed by the current head at call time, waiting for the requested depth and tracking reverts instead of returning immediately, and rejects confidence above chain finality (900 epochs).
+
+## Forest v0.34.1 "Ashadh"
+
+Non-mandatory release for all node operators. It includes fixes and RPC improvements.
+
+### Fixed
+
+- [#7362](https://github.com/ChainSafe/forest/pull/7362): Fixed a potential stuckness issue around the tipset lookup cache.
+
+- [#7156](https://github.com/ChainSafe/forest/pull/7156): The `eth` block `logsBloom` is now computed from the block's logs and stored when the tipset is executed or covered by `forest-tool index backfill`, instead of being all-ones. Blocks without a stored bloom still report the all-ones bloom, set `FOREST_ETH_RPC_COMPUTE_BLOOM_ON_MISS=1` to compute and store the bloom on demand instead.
+
+## Forest v0.34.0 "Pinochet"
+
+Non-mandatory release for all node operators. It includes some fixes and improvements, notably around RPC and snapshot export. Note that there are some breaking changes in this release, so please read the changelog carefully before upgrading.
+
+### Breaking
+
+- [#7252](https://github.com/ChainSafe/forest/pull/7252): `forest-cli snapshot export` now generates checksum file at {filepath}.sha256sum. The default file extension is changed from `.forest.car.sha256sum` to `.forest.car.zst.sha256sum`.
+
+- [#7321](https://github.com/ChainSafe/forest/pull/7321): The chain indexer, which populates the Ethereum transaction-hash mappings used by `eth_getTransactionByHash`, `eth_getTransactionReceipt`, and related methods, is now enabled by default. Opt out with `FOREST_CHAIN_INDEXER_ENABLED=0`.
+
+### Changed
+
+- [#7320](https://github.com/ChainSafe/forest/pull/7320): Increase the default Eth transaction receipt cache size to 10000 and make it configurable via the `FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE` environment variable.
+
+- [#7350](https://github.com/ChainSafe/forest/pull/7350): Allow snapshot GC to be cancelled in-progress, same as regular snapshot export.
 
 ### Fixed
 
@@ -48,6 +92,8 @@
 - [#7270](https://github.com/ChainSafe/forest/issues/7270): `eth_getTransactionByBlockNumberAndIndex` and `eth_getTransactionByBlockHashAndIndex` now resolve the transaction's `to` address against the tipset's post-execution state (matching `eth_getBlockByNumber`/`eth_getTransactionByHash`), instead of the pre-execution state which returned a `0xff…ffffffffffffffff` masked-ID sentinel for recipients created within the tipset.
 
 - [#7329](https://github.com/ChainSafe/forest/issues/7329): `Filecoin.NodeStatus` now matches Lotus: `SyncStatus.Behind` is reported in epochs (not seconds), and the method takes an `inclChainStatus` boolean parameter that gates the chain-status computation. Also fixed casing in output JSON to match Lotus `PascalCase` convention.
+
+- [#7348](https://github.com/ChainSafe/forest/pull/7348): In case of snapshot export getting stuck, Forest will now error after a timeout of 5 minutes of no progress.
 
 ## Forest v0.33.8 "Amiga 1200"
 

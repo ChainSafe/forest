@@ -22,6 +22,8 @@ macro_rules! impl_eam_create_params {
             paste! {
                 mod [<impl_eam_create_params_ $version>] {
                     use super::*;
+                    #[cfg(test)]
+                    use crate::utils::encoding::hex;
                     type T = fil_actor_eam_state::[<v $version>]::CreateParams;
                     #[test]
                     fn snapshots() {
@@ -82,6 +84,8 @@ macro_rules! impl_eam_create2_params {
             paste! {
                 mod [<impl_eam_create2_params_ $version>] {
                     use super::*;
+                    #[cfg(test)]
+                    use crate::utils::encoding::hex;
                     type T = fil_actor_eam_state::[<v $version>]::Create2Params;
                     #[test]
                     fn snapshots() {
@@ -141,6 +145,8 @@ macro_rules! impl_eam_create_external_params {
             paste! {
                 mod [<impl_eam_create_external_params_ $version>] {
                     use super::*;
+                    #[cfg(test)]
+                    use crate::utils::encoding::hex;
                     type T = fil_actor_eam_state::[<v $version>]::CreateExternalParams;
                     #[test]
                     fn snapshots() {

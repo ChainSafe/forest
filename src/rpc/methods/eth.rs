@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod bloom;
 pub(crate) mod errors;
 mod eth_tx;
 pub mod filter;
@@ -10,6 +11,11 @@ pub mod tipset_resolver;
 pub(crate) mod trace;
 pub mod types;
 mod utils;
+
+use crate::utils::encoding::hex;
+pub use bloom::Bloom;
+pub(crate) use bloom::store_block_logs_bloom;
+use bloom::{EMPTY_BLOOM, FULL_BLOOM, accrue_eth_log, block_logs_bloom};
 pub use tipset_resolver::TipsetResolver;
 use tokio_util::sync::CancellationToken;
 
@@ -88,19 +94,6 @@ static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
     LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-/// Ethereum Bloom filter size in bits.
-/// Bloom filter is used in Ethereum to minimize the number of block queries.
-const BLOOM_SIZE: usize = 2048;
-
-/// Ethereum Bloom filter size in bytes.
-const BLOOM_SIZE_IN_BYTES: usize = BLOOM_SIZE / 8;
-
-/// Ethereum Bloom filter with all bits set to 1.
-const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
-
-/// Ethereum Bloom filter with all bits set to 0.
-const EMPTY_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0x0; BLOOM_SIZE_IN_BYTES];
 
 /// Ethereum address size in bytes.
 const ADDRESS_LENGTH: usize = 20;
@@ -200,21 +193,6 @@ pub struct Nonce(
 );
 lotus_json_with_self!(Nonce);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema, GetSize)]
-pub struct Bloom(
-    #[schemars(with = "String")]
-    #[serde(with = "crate::lotus_json::hexify_bytes")]
-    #[get_size(ignore)]
-    pub ethereum_types::Bloom,
-);
-lotus_json_with_self!(Bloom);
-
-impl Bloom {
-    pub fn accrue(&mut self, input: &[u8]) {
-        self.0.accrue(ethereum_types::BloomInput::Raw(input));
-    }
-}
-
 #[derive(
     Eq,
     Hash,
@@ -263,7 +241,7 @@ impl EthUint64 {
     }
 
     pub fn to_hex_string(self) -> String {
-        format!("0x{}", hex::encode(self.0.to_be_bytes()))
+        hex::encode_prefixed(self.0.to_be_bytes())
     }
 }
 
@@ -585,6 +563,9 @@ impl Block {
                     full_transactions.push(tx);
                 }
 
+                let logs_bloom =
+                    block_logs_bloom(state_manager, &tipset, &state_root, &executed_messages)?;
+
                 Ok(Arc::new(Block {
                     hash: block_hash,
                     number: block_number,
@@ -598,6 +579,7 @@ impl Block {
                         .into(),
                     gas_used: EthUint64(gas_used),
                     transactions: Transactions::Full(full_transactions),
+                    logs_bloom,
                     ..Block::new(has_transactions, tipset.len())
                 }))
             })
@@ -1424,10 +1406,7 @@ async fn new_eth_tx_receipt(
 
     let mut bloom = Bloom::default();
     for log in tx_receipt.logs.iter() {
-        for topic in log.topics.iter() {
-            bloom.accrue(topic.0.as_bytes());
-        }
-        bloom.accrue(log.address.0.as_bytes());
+        accrue_eth_log(&mut bloom, &log.address, &log.topics);
     }
     tx_receipt.logs_bloom = bloom.into();
 
@@ -3331,7 +3310,7 @@ fn eth_filter_logs_from_events(
         let (data, topics) = match eth_log_from_event(&event.entries) {
             Some(parts) => parts,
             None => {
-                tracing::warn!("Ignoring event");
+                tracing::debug!("Ignoring event");
                 continue;
             }
         };
@@ -3345,7 +3324,7 @@ fn eth_filter_logs_from_events(
                     h
                 }
                 None => {
-                    tracing::warn!("Ignoring event");
+                    tracing::debug!("Ignoring event");
                     continue;
                 }
             }
@@ -3382,6 +3361,7 @@ fn eth_filter_logs_from_events(
     Ok(logs)
 }
 
+/// Accrues a single Ethereum log's address and topics into `bloom` using the standard `M3:2048` scheme.
 fn eth_filter_result_from_events(
     ctx: &Ctx,
     events: &[CollectedEvent],
@@ -3456,37 +3436,7 @@ async fn poll_event_filter(
             SkipEvent::OnUnresolvedAddress,
         )
         .await?;
-    let mut seen_positions = SeenEventPositions::default();
-    let mut recent_events = Vec::new();
-    for event in events {
-        let position = (event.msg_idx, event.event_idx);
-        let already_seen = event_filter
-            .seen_positions
-            .get(&event.tipset_key)
-            .is_some_and(|positions| positions.contains(&position));
-        match seen_positions.get_mut(&event.tipset_key) {
-            Some(positions) => {
-                positions.insert(position);
-            }
-            None => {
-                seen_positions.insert(event.tipset_key.clone(), HashSet::from_iter([position]));
-            }
-        }
-        if !already_seen {
-            recent_events.push(event);
-        }
-    }
-    if let Some(store) = &ctx.eth_event_handler.filter_store {
-        store.update(Arc::new(EventFilter {
-            id: event_filter.id.clone(),
-            tipsets: event_filter.tipsets.clone(),
-            addresses: event_filter.addresses.clone(),
-            keys_with_codec: event_filter.keys_with_codec.clone(),
-            max_results: event_filter.max_results,
-            seen_positions,
-        }));
-    }
-    Ok(recent_events)
+    Ok(event_filter.take_unseen(events))
 }
 
 pub enum EthGetFilterLogs {}
@@ -3550,7 +3500,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                             // heaviest tipset doesn't have events because its messages haven't been executed yet
                             RangeInclusive::new(
                                 tipset_filter
-                                    .collected
+                                    .collected()
                                     .unwrap_or(ctx.chain_store().heaviest_tipset().epoch() - 1),
                                 // Use -1 to indicate that the range extends until the latest available tipset.
                                 -1,
@@ -3564,12 +3514,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     .max_by_key(|event| event.height)
                     .map(|e| e.height);
                 if let Some(height) = new_collected {
-                    let filter = Arc::new(TipSetFilter {
-                        id: tipset_filter.id.clone(),
-                        max_results: tipset_filter.max_results,
-                        collected: Some(height),
-                    });
-                    store.update(filter);
+                    tipset_filter.set_collected(height);
                 }
                 return Ok(eth_filter_result_from_tipsets(&events)?);
             }

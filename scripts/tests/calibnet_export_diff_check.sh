@@ -22,8 +22,8 @@ $FOREST_CLI_PATH snapshot export-diff --from "$snapshot_epoch" --to "$((snapshot
 echo "Testing that export is in progress"
 for ((i=1; i<=retries; i++)); do
     output=$($FOREST_CLI_PATH snapshot export-status --format json)
-    is_exporting=$(echo "$output" | jq -r '.exporting')
-    if [ "$is_exporting" == "true" ]; then
+    state=$(echo "$output" | jq -r '.state')
+    if [ "$state" == "Running" ]; then
         break
     fi
     if [ $i -eq $retries ]; then
@@ -38,9 +38,8 @@ $FOREST_CLI_PATH snapshot export-cancel
 echo "Testing that export has been cancelled"
 for ((i=1; i<=retries; i++)); do
     output=$($FOREST_CLI_PATH snapshot export-status --format json)
-    is_exporting=$(echo "$output" | jq -r '.exporting')
-    is_cancelled=$(echo "$output" | jq -r '.cancelled')
-    if [ "$is_exporting" == "false" ] && [ "$is_cancelled" == "true" ]; then
+    state=$(echo "$output" | jq -r '.state')
+    if [ "$state" == "Cancelled" ]; then
         break
     fi
     if [ $i -eq $retries ]; then
@@ -56,7 +55,7 @@ EXPORT_CMD_PID=$!
 sleep 5
 # another export job should be disallowed
 export_error=$($FOREST_CLI_PATH snapshot export 2>&1 || true)
-if echo "$export_error" | grep -q "active chain export job has started"; then
+if echo "$export_error" | grep -q "export has been running since"; then
     echo "verified another export job is disallowed"
 else 
     echo "another export job should be disallowed"
@@ -65,7 +64,7 @@ else
 fi
 # another export-diff job should be disallowed
 export_diff_error=$($FOREST_CLI_PATH snapshot export-diff --from 11000 --to 10100 -d 900 2>&1 || true)
-if echo "$export_diff_error" | grep -q "active chain export job has started"; then
+if echo "$export_diff_error" | grep -q "export has been running since"; then
     echo "verified another export-diff job is disallowed"
 else 
     echo "another export-diff job should be disallowed"

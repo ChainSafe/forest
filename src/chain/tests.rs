@@ -12,6 +12,7 @@ use rstest::rstest;
 use sha2::{Digest as _, Sha256};
 use std::fs::File;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[test]
 fn test_snapshot_version_cbor_serde() {
@@ -155,4 +156,189 @@ async fn test_export_inner(
     }
 
     Ok(())
+}
+
+/// Regression tests for the "snapshot export stuck at `Exporting: 100.0%`" incidents:
+/// once the DAG walk reaches genesis (`epoch == 0`, progress pins at 100%), the remaining
+/// pipeline steps must not be able to wait forever on a stalled writer.
+mod export_stuckness {
+    use super::*;
+    use crate::ipld::{CHAIN_EXPORT_STATUS, ChainExportGuard, ChainExportKind, ChainExportState};
+    use crate::shim::crypto::IPLD_RAW;
+    use crate::utils::db::car_stream::CarBlock;
+    use crate::utils::rand::forest_rng;
+    use rand::RngCore as _;
+    use std::io;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+    use tokio::io::AsyncWrite;
+
+    /// `start_epoch == 0` on a running export renders as a stuck "0.0%" in
+    /// `forest-cli snapshot export-status` even while bytes are being written.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[serial_test::serial(chain_export)]
+    async fn export_status_reports_walk_progress_while_running() -> anyhow::Result<()> {
+        let (db, head) = six_block_chain()?;
+
+        let _guard = ChainExportGuard::try_start_export(ChainExportKind::Snapshot)?;
+        // The walk runs on the `par_buffer` producer task, so it progresses despite the
+        // stalled writer.
+        let export = tokio::spawn({
+            let db = db.clone();
+            let head = head.clone();
+            async move {
+                let _ = export::<Sha256, _>(
+                    &db,
+                    &head,
+                    0,
+                    StallingWriter {
+                        write_budget: 0,
+                        stall_on_flush: true,
+                    },
+                    ExportOptions::<CidHashSet>::default(),
+                )
+                .await;
+            }
+        });
+
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while CHAIN_EXPORT_STATUS.snapshot().initial_epoch == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("a running export must report walk progress, not epoch 0/0");
+        assert_eq!(
+            CHAIN_EXPORT_STATUS.snapshot().state,
+            ChainExportState::Running
+        );
+        assert_eq!(CHAIN_EXPORT_STATUS.snapshot().initial_epoch, head.epoch());
+
+        // The stalled writer keeps the export from ever finishing, so the status
+        // above was sampled from a live export, and the abort must land.
+        assert!(!export.is_finished());
+        export.abort();
+        assert!(
+            export
+                .await
+                .expect_err("aborted export must not run to completion")
+                .is_cancelled()
+        );
+        Ok(())
+    }
+
+    fn six_block_chain() -> anyhow::Result<(Arc<MemoryDB>, Tipset)> {
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [_genesis_header]
+            -> [_b1] -> [_b2] -> [_b3] -> [_b4] -> [b5]
+        };
+        let head = Tipset::load_required(&db, &TipsetKey::from(nunny::vec![b5.cid()]))?;
+        Ok((db, head))
+    }
+
+    /// Accepts and discards up to `write_budget` bytes, then stalls forever.
+    struct StallingWriter {
+        write_budget: usize,
+        stall_on_flush: bool,
+    }
+
+    impl AsyncWrite for StallingWriter {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            let this = self.get_mut();
+            if this.write_budget == 0 {
+                Poll::Pending
+            } else {
+                let n = buf.len().min(this.write_budget);
+                this.write_budget -= n;
+                Poll::Ready(Ok(n))
+            }
+        }
+        fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+            if self.stall_on_flush {
+                Poll::Pending
+            } else {
+                Poll::Ready(Ok(()))
+            }
+        }
+        fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            self.poll_flush(cx)
+        }
+    }
+
+    /// A stalled final flush must surface as an error instead of hanging the export
+    /// forever while `Forest.ChainExportStatus` keeps reporting an in-progress export
+    /// at 100%.
+    #[tokio::test(start_paused = true)]
+    async fn export_stalled_final_flush_errors_instead_of_hanging() -> anyhow::Result<()> {
+        let (db, head) = six_block_chain()?;
+
+        let export = export::<Sha256, _>(
+            &db,
+            &head,
+            0,
+            StallingWriter {
+                write_budget: usize::MAX,
+                stall_on_flush: true,
+            },
+            ExportOptions::<CidHashSet>::default(),
+        );
+
+        // Give the export a virtual eternity, far beyond any internal timeout.
+        let result = tokio::time::timeout(Duration::from_hours(24), export)
+            .await
+            .expect("export wedged forever in the untimed `writer.flush()`");
+        let err = result.err().expect("a stalled writer must fail the export");
+        assert!(
+            err.downcast_ref::<tokio::time::error::Elapsed>().is_some(),
+            "expected an internal export timeout, got: {err:#}"
+        );
+        Ok(())
+    }
+
+    /// Control: a stall in the middle of the frame stream is already covered by
+    /// `ASYNC_OPS_TIMEOUT` and errors out instead of hanging.
+    #[tokio::test(start_paused = true)]
+    async fn export_stalled_frame_write_times_out() {
+        let raw_cid = |data: &[u8]| Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(data));
+        // Incompressible random blocks so the first zstd frame exceeds the writer budget.
+        let blocks = futures::stream::iter((0..64).map(|_| {
+            let mut data = vec![0_u8; 4096];
+            forest_rng().fill_bytes(&mut data);
+            anyhow::Ok(CarBlock {
+                cid: raw_cid(&data),
+                data: data.into(),
+            })
+        }));
+        let frames = forest::Encoder::compress_stream_default(blocks);
+        let roots = nunny::vec![raw_cid(b"root")];
+
+        let mut sink = StallingWriter {
+            write_budget: 1024,
+            stall_on_flush: false,
+        };
+        let err = tokio::time::timeout(
+            Duration::from_hours(24),
+            forest::Encoder::write(&mut sink, roots, frames),
+        )
+        .await
+        .expect("frame writes are timed and must not hang")
+        .expect_err("a stalled writer must fail the export");
+        assert!(
+            err.downcast_ref::<tokio::time::error::Elapsed>().is_some(),
+            "expected an internal export timeout, got: {err:#}"
+        );
+        // An exhausted write budget pins the stall to a frame write: the header alone
+        // fits the budget, and a producer or index stall would leave budget unspent.
+        assert_eq!(
+            sink.write_budget, 0,
+            "the writer must have stalled mid-write"
+        );
+    }
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod list;
+use crate::utils::encoding::hex;
 use list::ChainListCommand;
 
 mod prune;

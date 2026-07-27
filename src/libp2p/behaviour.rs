@@ -26,8 +26,8 @@ use ahash::{HashMap, HashSet};
 use libp2p::{
     Multiaddr, allow_block_list, connection_limits,
     gossipsub::{
-        self, IdentTopic as Topic, MessageAuthenticity, MessageId, PublishError, SubscriptionError,
-        ValidationMode,
+        self, IdentTopic as Topic, MaxCountSubscriptionFilter, MessageAuthenticity, MessageId,
+        PublishError, SubscriptionError, ValidationMode, WhitelistSubscriptionFilter,
     },
     identity::{Keypair, PeerId},
     kad::QueryId,
@@ -47,7 +47,7 @@ pub(in crate::libp2p) struct ForestBehaviour {
     pub(super) blocked_peers: allow_block_list::Behaviour<allow_block_list::BlockedPeers>,
     pub(super) discovery: DiscoveryBehaviour,
     ping: ping::Behaviour,
-    gossipsub: gossipsub::Behaviour,
+    gossipsub: Gossipsub,
     pub(super) hello: HelloBehaviour,
     pub(super) chain_exchange: ChainExchangeBehaviour,
     pub(super) bitswap: BitswapBehaviour,
@@ -66,6 +66,61 @@ impl Recorder<ForestBehaviourEvent> for Metrics {
             _ => {}
         }
     }
+}
+
+pub(in crate::libp2p) type Gossipsub = gossipsub::Behaviour<
+    gossipsub::IdentityTransform,
+    MaxCountSubscriptionFilter<WhitelistSubscriptionFilter>,
+>;
+
+// Matches Lotus:
+// <https://github.com/filecoin-project/lotus/blob/558e55b0276ca8a593f84c997f4fc12eee24579b/node/modules/lp2p/pubsub.go#L386-L389>
+const MAX_SUBSCRIPTIONS_PER_REQUEST: usize = 100;
+
+/// Filter accepting only Forest's topics, bounded in count and per request.
+pub(in crate::libp2p) fn build_subscription_filter(
+    network_name: &GenesisNetworkName,
+) -> MaxCountSubscriptionFilter<WhitelistSubscriptionFilter> {
+    let allowed: Vec<_> = crate::libp2p::pubsub_topics(network_name)
+        .map(|t| t.hash())
+        .collect();
+    MaxCountSubscriptionFilter {
+        // Whitelisted topics are the only ones counted, so their number is an
+        // exact, self-maintaining bound.
+        max_subscribed_topics: allowed.len(),
+        max_subscriptions_per_request: MAX_SUBSCRIPTIONS_PER_REQUEST,
+        filter: WhitelistSubscriptionFilter(allowed.into_iter().collect()),
+    }
+}
+
+pub(in crate::libp2p) fn build_gossipsub(
+    local_key: &Keypair,
+    network_name: &GenesisNetworkName,
+) -> anyhow::Result<Gossipsub> {
+    let mut gs_config_builder = gossipsub::ConfigBuilder::default();
+    gs_config_builder.max_transmit_size(1 << 20);
+    gs_config_builder.validation_mode(ValidationMode::Strict);
+    gs_config_builder.message_id_fn(|msg: &gossipsub::Message| {
+        let s = blake2b_256(&msg.data);
+        MessageId::from(s)
+    });
+
+    let gossipsub_config = gs_config_builder.build()?;
+    let mut gossipsub = Gossipsub::new_with_subscription_filter(
+        MessageAuthenticity::Signed(local_key.clone()),
+        gossipsub_config,
+        build_subscription_filter(network_name),
+    )
+    .map_err(anyhow::Error::msg)?;
+
+    gossipsub
+        .with_peer_score(
+            build_peer_score_params(network_name),
+            build_peer_score_threshold(),
+        )
+        .map_err(anyhow::Error::msg)?;
+
+    Ok(gossipsub)
 }
 
 impl ForestBehaviour {
@@ -91,27 +146,7 @@ impl ForestBehaviour {
         let max_concurrent_request_response_streams = (config.target_peer_count as usize)
             .saturating_mul(*MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER);
 
-        let mut gs_config_builder = gossipsub::ConfigBuilder::default();
-        gs_config_builder.max_transmit_size(1 << 20);
-        gs_config_builder.validation_mode(ValidationMode::Strict);
-        gs_config_builder.message_id_fn(|msg: &gossipsub::Message| {
-            let s = blake2b_256(&msg.data);
-            MessageId::from(s)
-        });
-
-        let gossipsub_config = gs_config_builder.build().unwrap();
-        let mut gossipsub = gossipsub::Behaviour::new(
-            MessageAuthenticity::Signed(local_key.clone()),
-            gossipsub_config,
-        )
-        .unwrap();
-
-        gossipsub
-            .with_peer_score(
-                build_peer_score_params(network_name),
-                build_peer_score_threshold(),
-            )
-            .unwrap();
+        let gossipsub = build_gossipsub(local_key, network_name)?;
 
         let bitswap = BitswapBehaviour::new(
             &[

@@ -4,6 +4,7 @@
 use crate::rpc::error::RpcErrorData;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
+use crate::utils::encoding::hex;
 use serde::Serialize;
 use std::fmt::Debug;
 use thiserror::Error;
@@ -46,7 +47,7 @@ impl EthErrors {
             message: format!(
                 "message execution failed (exit=[{exit_code}]{revert_reason}, vm error=[{error}])"
             ),
-            data: format!("0x{}", hex::encode(data)),
+            data: hex::encode_prefixed(data),
         }
     }
 

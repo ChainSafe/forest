@@ -5,6 +5,7 @@ use crate::chain::FilecoinSnapshotVersion;
 use crate::chain_sync::chain_muxer::DEFAULT_RECENT_STATE_ROOTS;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::tmp_exporting_forest_car_path;
+use crate::ipld::ChainExportState;
 use crate::networks::calibnet;
 use crate::prelude::*;
 use crate::rpc::chain::ForestChainExportDiffParams;
@@ -45,6 +46,12 @@ pub enum SnapshotCommands {
         /// Snapshot format to export.
         #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V2)]
         format: FilecoinSnapshotVersion,
+        /// Also exports an augmented data snapshot that contains message receipts and events
+        #[arg(long)]
+        augmented_snapshot: bool,
+        /// Also exports a tipset lookup HAMT snapshot
+        #[arg(long)]
+        tipset_lookup: bool,
     },
     /// Show status of the current export.
     ExportStatus {
@@ -84,6 +91,8 @@ impl SnapshotCommands {
                 tipset,
                 depth,
                 format,
+                augmented_snapshot,
+                tipset_lookup,
             } => {
                 anyhow::ensure!(
                     depth >= 0,
@@ -141,7 +150,8 @@ impl SnapshotCommands {
                     include_receipts: false,
                     include_events: false,
                     include_tipset_keys: false,
-                    include_tipset_lookup: false,
+                    augmented_snapshot,
+                    tipset_lookup,
                     skip_checksum,
                     dry_run,
                 };
@@ -193,66 +203,60 @@ impl SnapshotCommands {
                         ForestChainExportStatus::request(())?.with_timeout(Duration::from_secs(30)),
                     )
                     .await?;
-                if !result.exporting
-                    && let Format::Text = format
-                {
-                    if result.cancelled {
-                        println!("No export in progress (last export was cancelled)");
-                    } else {
-                        println!("No export in progress");
+                // A terminal state from a past export is reported as-is, never as the
+                // watched export's outcome.
+                if !wait || result.state != ChainExportState::Running {
+                    match format {
+                        Format::Text => println!("{result}"),
+                        Format::Json => println!("{}", serde_json::to_string_pretty(&result)?),
                     }
                     return Ok(());
                 }
-                if wait {
-                    let elapsed = chrono::Utc::now()
-                        .signed_duration_since(result.start_time.unwrap_or_default())
-                        .to_std()
-                        .unwrap_or(Duration::ZERO);
-                    let pb = ProgressBar::new(10000)
-                        .with_elapsed(elapsed)
-                        .with_message("Exporting");
-                    pb.set_style(
-                        ProgressStyle::with_template(
-                            "[{elapsed_precise}] [{wide_bar}] {percent}% {msg} ",
+                let watched_start_time = result.start_time;
+                let elapsed = chrono::Utc::now()
+                    .signed_duration_since(watched_start_time.unwrap_or_default())
+                    .to_std()
+                    .unwrap_or(Duration::ZERO);
+                let pb = ProgressBar::new(10000)
+                    .with_elapsed(elapsed)
+                    .with_message("Exporting");
+                pb.set_style(
+                    ProgressStyle::with_template(
+                        "[{elapsed_precise}] [{wide_bar}] {percent}% {msg} ",
+                    )
+                    .expect("indicatif template must be valid")
+                    .progress_chars("#>-"),
+                );
+                let last = loop {
+                    let result = client
+                        .call(
+                            ForestChainExportStatus::request(())?
+                                .with_timeout(Duration::from_secs(30)),
                         )
-                        .expect("indicatif template must be valid")
-                        .progress_chars("#>-"),
-                    );
-                    loop {
-                        let result = client
-                            .call(
-                                ForestChainExportStatus::request(())?
-                                    .with_timeout(Duration::from_secs(30)),
-                            )
-                            .await?;
-                        if result.cancelled {
-                            pb.set_message("Export cancelled");
-                            pb.abandon();
-                            return Ok(());
-                        }
-                        let position = (result.progress.clamp(0.0, 1.0) * 10000.0).trunc() as u64;
-                        pb.set_position(position);
-
-                        if !result.exporting {
-                            break;
-                        }
-                        tokio::time::sleep(Duration::from_millis(500)).await;
+                        .await?;
+                    if result.start_time != watched_start_time {
+                        // The export slot was reused: the watched export is over, but its
+                        // outcome has been overwritten by the newer export's.
+                        pb.abandon_with_message("Export ended; another export has taken its place");
+                        return Ok(());
                     }
+                    let position = (result.progress.clamp(0.0, 1.0) * 10000.0).trunc() as u64;
+                    pb.set_position(position);
 
-                    pb.finish_with_message(if result.succeeded {
-                        "Export completed"
-                    } else {
-                        "Export failed"
-                    });
-
-                    return Ok(());
-                }
-                match format {
-                    Format::Text => {
-                        println!("Exporting: {:.1}%", result.progress.clamp(0.0, 1.0) * 100.0);
+                    if result.state != ChainExportState::Running {
+                        break result;
                     }
-                    Format::Json => {
-                        println!("{}", serde_json::to_string_pretty(&result)?);
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                };
+                match last.state {
+                    ChainExportState::Succeeded => pb.finish_with_message("Export completed"),
+                    ChainExportState::Cancelled => pb.abandon_with_message("Export cancelled"),
+                    _ => {
+                        pb.abandon_with_message("Export failed");
+                        anyhow::bail!(
+                            "export failed: {}",
+                            last.error.as_deref().unwrap_or("unknown error")
+                        );
                     }
                 }
 

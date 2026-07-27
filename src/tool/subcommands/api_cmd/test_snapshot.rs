@@ -40,6 +40,7 @@ pub struct Payload(#[serde(with = "crate::lotus_json::base64_standard")] pub Vec
 pub struct Index {
     pub eth_mappings: Option<ahash::HashMap<String, Payload>>,
     pub indices: Option<ahash::HashMap<String, Payload>>,
+    pub eth_block_blooms: Option<ahash::HashMap<String, Payload>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,16 +59,68 @@ pub struct RpcTestSnapshot {
     pub api_path: Option<ApiPaths>,
 }
 
-fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
-    if let Some(index) = index
-        && let Some(mut guard) = db.eth_mappings_db.try_write()
-        && let Some(eth_mappings) = index.eth_mappings
+fn backfill_index_data(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
+    let Some(index) = index else {
+        return Ok(());
+    };
+    if let Some(mut guard) = db.eth_mappings_db.try_write()
+        && let Some(eth_mappings) = &index.eth_mappings
     {
         for (k, v) in eth_mappings.iter() {
             guard.insert(EthHash::from_str(k)?, v.0.clone());
         }
     }
+    if let Some(mut guard) = db.eth_block_bloom_db.try_write()
+        && let Some(eth_block_blooms) = &index.eth_block_blooms
+    {
+        for (k, v) in eth_block_blooms.iter() {
+            guard.insert(Cid::from_str(k)?, v.0.clone());
+        }
+    }
     Ok(())
+}
+
+/// JSON fields filtered from both actual and expected responses
+/// before strict raw-JSON snapshot comparison, scoped to the methods whose
+/// responses actually contain them.
+fn fields_to_filter(method: &str) -> &'static [&'static str] {
+    match method {
+        // Skip time taken and duration as they are non-deterministic.
+        "Filecoin.StateCall" | "Filecoin.StateReplay" | "Filecoin.StateCompute" => {
+            &["Duration", "tt"]
+        }
+        // Skip `accessList` as it is known-divergent from Lotus.
+        // See <https://github.com/filecoin-project/lotus/issues/12214>.
+        "Filecoin.EthGetBlockByHash"
+        | "Filecoin.EthGetBlockByNumber"
+        | "Filecoin.EthGetTransactionByHash"
+        | "Filecoin.EthGetTransactionByHashLimited"
+        | "Filecoin.EthGetTransactionByBlockHashAndIndex"
+        | "Filecoin.EthGetTransactionByBlockNumberAndIndex" => &["accessList"],
+        _ => &[],
+    }
+}
+
+/// Recursively filters `fields` from a JSON value so the strict raw-JSON
+/// snapshot comparison ignores them.
+fn filter_out_fields(value: &mut serde_json::Value, fields: &[&str]) {
+    if fields.is_empty() {
+        return;
+    }
+    match value {
+        serde_json::Value::Object(map) => {
+            for field in fields {
+                map.remove(*field);
+            }
+            for val in map.values_mut() {
+                filter_out_fields(val, fields);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            items.iter_mut().for_each(|v| filter_out_fields(v, fields));
+        }
+        _ => {}
+    }
 }
 
 pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
@@ -114,8 +167,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
             .try_collect()?;
     }
     // backfill db with index data
-    backfill_eth_mappings(db.writer(), index)
-        .context("failed to backfill eth mappings from index")?;
+    backfill_index_data(db.writer(), index).context("failed to backfill db from index data")?;
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
     let (ctx, _, _) = ctx(db, chain_config)
         .await
@@ -135,22 +187,18 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
             {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)
                     .context("failed to parse params")?;
-                let result = <$ty>::handle(ctx.clone(), params, &ext)
+                let mut result = <$ty>::handle(ctx.clone(), params, &ext)
                     .await
-                    .map(|r| {
-                        let lotus_json = r.into_lotus_json();
-                        // Normalize through the same serde round-trip the golden is read with
-                        // below, so a response Forest generated reproduces itself.
-                        // A more strict approach would be to compare JSONs directly, tracked in https://github.com/ChainSafe/forest/issues/7313
-                        serde_json::to_value(&lotus_json)
-                            .and_then(serde_json::from_value)
-                            .unwrap_or(lotus_json)
-                    })
-                    .map_err(|e| e.deref().to_string());
-                let expected = match expected_response.clone() {
-                    Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
-                    Err(e) => Err(e),
-                };
+                    .map_err(|e| e.deref().to_string())
+                    .and_then(|r| r.into_lotus_json_value().map_err(|e| e.to_string()));
+                let mut expected = expected_response.clone();
+                let fields = fields_to_filter(<$ty>::NAME);
+                if let Ok(v) = result.as_mut() {
+                    filter_out_fields(v, fields);
+                }
+                if let Ok(v) = expected.as_mut() {
+                    filter_out_fields(v, fields);
+                }
                 pretty_assertions::assert_eq!(result, expected);
                 run = true;
             }

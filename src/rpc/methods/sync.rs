@@ -164,6 +164,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
 
 #[cfg(test)]
 mod tests {
+    use crate::utils::encoding::hex;
     use std::sync::Arc;
 
     use super::*;

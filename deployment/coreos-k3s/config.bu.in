@@ -1,0 +1,123 @@
+variant: fcos
+version: "1.6.0"
+
+# Forest fullnode on Fedora CoreOS + k3s, fronted by Caddy (TLS)
+# generated from .env by scripts/render.sh -- edit .env, not this
+
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - "${SSH_PUBKEY}"
+
+storage:
+  files:
+    # no surprise reboots mid-sync; re-enable if you want zincati auto-updates
+    - path: /etc/zincati/config.d/90-disable-auto-updates.toml
+      contents:
+        inline: |
+          [updates]
+          enabled = false
+
+    # forest/rocksdb want a lot of open files
+    - path: /etc/security/limits.d/90-nofile.conf
+      contents:
+        inline: |
+          *  soft  nofile  1048576
+          *  hard  nofile  1048576
+    - path: /etc/sysctl.d/90-forest.conf
+      contents:
+        inline: |
+          fs.file-max = 2097152
+          fs.nr_open = 1048576
+          net.core.somaxconn = 65535
+
+    - path: /var/home/core/.bashrc
+      append:
+        - inline: |
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+    - path: /etc/sysconfig/nftables-forest.nft
+      contents:
+        inline: |
+          table inet filter {
+            chain input {
+              type filter hook input priority 0; policy drop;
+              ct state established,related accept
+              iif lo accept
+              meta l4proto icmp accept
+              meta l4proto ipv6-icmp accept
+              tcp dport 22 accept
+              # ACME + RPC facade
+              tcp dport 80 accept
+              tcp dport 443 accept
+              # k3s / CNI
+              ip saddr 10.42.0.0/16 accept
+              ip saddr 10.43.0.0/16 accept
+              ip saddr 10.88.0.0/16 accept
+              iifname "cni*" accept
+              iifname "flannel*" accept
+              iifname "veth*" accept
+              # k3s API, localhost only
+              tcp dport 6443 ip saddr 127.0.0.0/8 accept
+            }
+            chain forward { type filter hook forward priority 0; policy accept; }
+            chain output { type filter hook output priority 0; policy accept; }
+          }
+    - path: /etc/sysconfig/nftables.conf
+      overwrite: true
+      contents:
+        inline: |
+          include "/etc/sysconfig/nftables-forest.nft"
+
+    - path: /usr/local/bin/install-k3s.sh
+      mode: 0755
+      contents:
+        inline: |
+          #!/bin/bash
+          set -euo pipefail
+          curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644 --disable traefik" sh -
+          # on ostree the installer only *enables* k3s: it queues k3s-selinux via
+          # rpm-ostree and skips the start, so start it ourselves and wait for the API
+          systemctl daemon-reload
+          systemctl start k3s
+          until [ -f /etc/rancher/k3s/k3s.yaml ]; do sleep 2; done
+
+    # k3s auto-applies everything in server/manifests on start
+    - path: /var/lib/rancher/k3s/server/manifests/forest-stack.yaml
+      mode: 0644
+      contents:
+        local: manifests/forest-stack.yaml
+
+systemd:
+  units:
+    - name: nftables.service
+      enabled: true
+    - name: firewalld.service
+      mask: true
+
+    - name: k3s.service
+      dropins:
+        - name: 90-nofile.conf
+          contents: |
+            [Service]
+            LimitNOFILE=1048576
+
+    - name: install-k3s.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Install k3s
+        After=network-online.target
+        Wants=network-online.target
+        ConditionPathExists=!/usr/local/bin/k3s
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/bin/install-k3s.sh
+        RemainAfterExit=true
+        [Install]
+        WantedBy=multi-user.target
+
+    # NM wait-online times out on some BMC/USB NICs (e.g. Hetzner)
+    - name: NetworkManager-wait-online.service
+      enabled: false

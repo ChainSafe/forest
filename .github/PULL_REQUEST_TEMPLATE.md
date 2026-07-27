@@ -30,6 +30,7 @@ Closes
 
 ### Outside contributions
 
+- [ ] This pull request is based on an issue that a maintainer has accepted (see [Before Opening a Pull Request][4]).
 - [ ] I have read and agree to the [CONTRIBUTING][2] document.
 - [ ] I have read and agree to the [AI Policy][3] document. I understand that failure to comply with the guidelines will lead to rejection of the pull request.
 
@@ -38,3 +39,4 @@ Closes
 [1]: https://github.com/ChainSafe/forest/blob/main/CHANGELOG.md
 [2]: https://github.com/ChainSafe/forest/blob/main/CONTRIBUTING.md
 [3]: https://github.com/ChainSafe/forest/blob/main/AI_POLICY.md
+[4]: https://github.com/ChainSafe/forest/blob/main/CONTRIBUTING.md#before-opening-a-pull-request

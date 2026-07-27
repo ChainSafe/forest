@@ -331,10 +331,56 @@ impl jsonrpsee::core::client::SubscriptionClientT for UrlClient {
     }
 }
 
+/// Rewrites a JSON-RPC call error anywhere in the chain to its server-sent message,
+/// preserving any context layered on top.
+pub fn humanize_rpc_error(e: anyhow::Error) -> anyhow::Error {
+    match e.downcast_ref::<ClientError>() {
+        Some(ClientError::Call(obj)) => {
+            let contexts: Vec<String> = e
+                .chain()
+                .take_while(|cause| cause.downcast_ref::<ClientError>().is_none())
+                .map(ToString::to_string)
+                .collect();
+            let mut out = match obj.data() {
+                Some(data) => anyhow::anyhow!("{} (data: {data})", obj.message()),
+                None => anyhow::anyhow!("{}", obj.message()),
+            };
+            for context in contexts.into_iter().rev() {
+                out = out.context(context);
+            }
+            out
+        }
+        _ => e,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cli_shared::FOREST_DATA_DIR_ENV;
+    use jsonrpsee::types::ErrorObject;
+
+    fn call_error() -> ClientError {
+        ClientError::Call(ErrorObject::owned(1, "export already running", None::<()>))
+    }
+
+    #[test]
+    fn rpc_call_errors_render_as_their_message() {
+        assert_eq!(
+            format!("{:#}", humanize_rpc_error(call_error().into())),
+            "export already running"
+        );
+
+        let wrapped = anyhow::Error::from(call_error()).context("failed to check F3 sync status");
+        assert_eq!(
+            format!("{:#}", humanize_rpc_error(wrapped)),
+            "failed to check F3 sync status: export already running"
+        );
+
+        // Non-RPC errors pass through untouched, chain included.
+        let other = anyhow::anyhow!("inner").context("outer");
+        assert_eq!(format!("{:#}", humanize_rpc_error(other)), "outer: inner");
+    }
 
     // The RPC client should pick up the admin token from the data directory
     // pointed to by `FOREST_PATH`, mirroring where a daemon started with the

@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::beacon::BeaconEntry;
+use crate::utils::encoding::hex;
 use bls_signatures::Serialize as _;
 use itertools::Itertools;
 use rstest::rstest;

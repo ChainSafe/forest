@@ -40,6 +40,7 @@ use crate::tool::offline_server::server::handle_chain_config;
 use crate::tool::subcommands::api_cmd::NetworkChain;
 use crate::tool::subcommands::api_cmd::report::ReportBuilder;
 use crate::tool::subcommands::api_cmd::state_decode_params_tests::create_all_state_decode_params_tests;
+use crate::utils::encoding::hex;
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use ahash::HashMap;
 use bls_signatures::Serialize as _;

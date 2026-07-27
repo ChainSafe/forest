@@ -614,6 +614,7 @@ impl PartialEq for EthFilterResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::encoding::hex;
     use base64::{Engine as _, prelude::BASE64_STANDARD};
 
     #[quickcheck_macros::quickcheck]

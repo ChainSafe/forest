@@ -593,8 +593,6 @@ impl RpcMethod<1> for Finalize {
                     &ctx.chain_store().genesis_tipset(),
                     ctx.chain_config().block_delay_secs,
                 )?;
-                let ts = Arc::new(Tipset::from(fts));
-                ctx.chain_store().put_tipset(&ts)?;
                 ctx.chain_store()
                     .set_heaviest_tipset(finalized_ts.shallow_clone())?;
             }

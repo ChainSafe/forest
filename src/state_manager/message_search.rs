@@ -12,6 +12,14 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
+/// Maximum allowed message confidence.
+const MAX_MESSAGE_CONFIDENCE: ChainEpoch = crate::shim::policy::policy_constants::CHAIN_FINALITY;
+
+/// Checks whether `current` is at least `confidence` epochs past `candidate`.
+fn confidence_reached(current: ChainEpoch, candidate: ChainEpoch, confidence: i64) -> bool {
+    candidate >= 0 && current >= candidate && (current - candidate) >= confidence
+}
+
 impl StateManager {
     /// Check if tipset had executed the message, by loading the receipt based
     /// on the index of the message in the block.
@@ -235,15 +243,31 @@ impl StateManager {
         allow_replaced: Option<bool>,
         cancellation_token: &CancellationToken,
     ) -> Result<(Tipset, Receipt), Error> {
+        if confidence > MAX_MESSAGE_CONFIDENCE {
+            return Err(Error::other(format!(
+                "message confidence exceeds maximum: {confidence} > {MAX_MESSAGE_CONFIDENCE}"
+            )));
+        }
         let message = Arc::new(
             crate::chain::get_chain_message(self.db(), &msg_cid)
                 .map_err(|err| Error::Other(format!("failed to load message {err:}")))?,
         );
+        // Subscribe to head changes before sampling the head so that a reorg
+        // between sampling and subscribing cannot be missed. Otherwise a revert
+        // of the sampled head could go unseen and a reverted receipt could be
+        // released after `confidence` epochs.
+        let mut head_changes_rx = self.cs.subscribe_head_changes();
         let current_ts = self.heaviest_tipset();
-        let maybe_message_receipt = self.tipset_executed_message(&current_ts, &message, true)?;
-        if let Some(receipt) = maybe_message_receipt {
-            return Ok((current_ts, receipt));
-        }
+        let maybe_message_receipt =
+            self.tipset_executed_message(&current_ts, &message, allow_replaced.unwrap_or(true))?;
+        // If the message already executed at the current head, return right
+        // away only when no confidence is required; otherwise seed it as a
+        // candidate for the head-change loop to release after `confidence` epochs.
+        let initial_candidate = match maybe_message_receipt {
+            Some(receipt) if confidence == 0 => return Ok((current_ts, receipt)),
+            Some(receipt) => Some((current_ts.shallow_clone(), receipt)),
+            None => None,
+        };
 
         // For immediate search back response
         let (search_back_tx, search_back_rx) = flume::bounded(1);
@@ -272,7 +296,7 @@ impl StateManager {
                     })
                     && !reverted.read().contains(ts.key())
                 {
-                    if sm.heaviest_tipset().epoch() >= ts.epoch() + confidence {
+                    if confidence_reached(sm.heaviest_tipset().epoch(), ts.epoch(), confidence) {
                         _ = search_back_tx.send((ts, receipt)).inspect_err(|e| {
                             tracing::warn!("failed to send to search_back_tx: {e}");
                         });
@@ -292,8 +316,7 @@ impl StateManager {
             let reverted = reverted.shallow_clone();
             let sm = self.shallow_clone();
             async move {
-                let mut head_changes_rx = sm.cs.subscribe_head_changes();
-                let mut candidate: Option<(Tipset, Receipt)> = None;
+                let mut candidate: Option<(Tipset, Receipt)> = initial_candidate;
                 while !cancellation_token.is_cancelled() {
                     match head_changes_rx.recv().await {
                         Ok(head_changes) => {
@@ -313,7 +336,11 @@ impl StateManager {
                                 // Return if `search_back_candidate` meets confidence requirement
                                 if let Some((candidate_ts, candidate_receipt)) =
                                     search_back_candidate.get()
-                                    && applied_ts.epoch() >= candidate_ts.epoch() + confidence
+                                    && confidence_reached(
+                                        applied_ts.epoch(),
+                                        candidate_ts.epoch(),
+                                        confidence,
+                                    )
                                     && !reverted.read().contains(candidate_ts.key())
                                 {
                                     return Ok((
@@ -324,14 +351,21 @@ impl StateManager {
 
                                 // Return if the candidate meets confidence requirement
                                 if let Some((candidate_ts, _)) = &candidate
-                                    && applied_ts.epoch() >= candidate_ts.epoch() + confidence
+                                    && confidence_reached(
+                                        applied_ts.epoch(),
+                                        candidate_ts.epoch(),
+                                        confidence,
+                                    )
                                     && let Some(candidate) = candidate
                                 {
                                     return Ok(candidate);
                                 }
 
-                                let maybe_receipt =
-                                    sm.tipset_executed_message(&applied_ts, &message, true)?;
+                                let maybe_receipt = sm.tipset_executed_message(
+                                    &applied_ts,
+                                    &message,
+                                    allow_replaced.unwrap_or(true),
+                                )?;
                                 if let Some(receipt) = maybe_receipt {
                                     if confidence == 0 {
                                         // Return if there's no confidence requirement
@@ -420,6 +454,7 @@ mod tests {
     use crate::utils::db::CborStoreExt as _;
     use fil_actors_shared::fvm_ipld_amt::Amtv0;
     use fvm_ipld_blockstore::Blockstore;
+    use rstest::rstest;
 
     const SENDER: Address = Address::new_id(100);
 
@@ -467,6 +502,34 @@ mod tests {
             sequence,
             ..Default::default()
         }
+    }
+
+    fn state_manager_with_replaced_message_at_head(db: &Arc<MemoryDB>) -> (StateManager, Cid) {
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+        let replacement = Message {
+            gas_limit: 1,
+            ..message
+        };
+        let replacement_cid = db.put_cbor_default(&replacement).unwrap();
+
+        let root_before = state_root_with_sender_nonce(db, 5);
+        let root_after = state_root_with_sender_nonce(db, 6);
+        let messages = tx_meta(db, replacement_cid);
+        let receipts = receipts_root(db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> head @ [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+        };
+        (state_manager_with_head(db.clone(), genesis, head), msg_cid)
     }
 
     fn state_manager_with_head(
@@ -630,5 +693,205 @@ mod tests {
             .await
             .unwrap();
         assert!(result.is_none());
+    }
+
+    /// A replacing message executed on chain. When replacements are
+    /// disallowed, `wait_for_message` must forward `allow_replaced = false`
+    /// and surface an error instead of silently returning the replacement's
+    /// receipt.
+    #[tokio::test]
+    async fn wait_for_message_rejects_replaced_when_disallowed() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, msg_cid) = state_manager_with_replaced_message_at_head(&db);
+
+        let result = state_manager
+            .wait_for_message(msg_cid, 0, None, Some(false), &CancellationToken::new())
+            .await;
+        let err = result.expect_err("replaced message should be rejected");
+        assert!(err.to_string().contains("different CID"), "{err}");
+    }
+
+    /// The same replacing message is accepted when replacements are allowed,
+    /// returning the receipt at the head tipset.
+    #[tokio::test]
+    async fn wait_for_message_accepts_replaced_when_allowed() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, msg_cid) = state_manager_with_replaced_message_at_head(&db);
+
+        let (tipset, receipt) = state_manager
+            .wait_for_message(msg_cid, 0, None, Some(true), &CancellationToken::new())
+            .await
+            .expect("replaced message should be accepted");
+        assert_eq!(tipset.epoch(), 3);
+        assert!(receipt.exit_code().is_success());
+    }
+
+    /// The message executed as of the head tipset and no confidence is
+    /// required, so `wait_for_message` returns the head hit immediately.
+    #[tokio::test]
+    async fn wait_for_message_head_hit_returns_immediately_with_zero_confidence() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let messages = tx_meta(&db, msg_cid);
+        let receipts = receipts_root(&db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> head @ [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, head);
+
+        let (tipset, receipt) = state_manager
+            .wait_for_message(msg_cid, 0, None, Some(true), &CancellationToken::new())
+            .await
+            .expect("head hit should return immediately with zero confidence");
+        assert_eq!(tipset.epoch(), 3);
+        assert!(receipt.exit_code().is_success());
+    }
+
+    /// The message executed as of the head tipset, but a positive confidence is
+    /// requested and the head never advances, so the head hit must not be
+    /// returned early; the call times out instead.
+    #[tokio::test]
+    async fn wait_for_message_head_hit_waits_for_confidence() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let messages = tx_meta(&db, msg_cid);
+        let receipts = receipts_root(&db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> head @ [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, head);
+
+        let result = state_manager
+            .wait_for_message_with_timeout(msg_cid, 2, None, Some(true), Duration::from_millis(300))
+            .await;
+        assert!(result.is_err());
+    }
+
+    /// The message executed as of the head tipset with a positive confidence.
+    /// Once the head advances by `confidence` epochs without a revert, the head
+    /// hit is returned.
+    #[tokio::test]
+    async fn wait_for_message_head_hit_returns_after_confidence_reached() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let messages = tx_meta(&db, msg_cid);
+        let receipts = receipts_root(&db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> exec @ [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+            -> next4 @ [_e4 = HeaderBuilder::new().with_state_root(root_after)]
+            -> next5 @ [_e5 = HeaderBuilder::new().with_state_root(root_after)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, exec);
+
+        let token = CancellationToken::new();
+        let mut wait =
+            Box::pin(state_manager.wait_for_message(msg_cid, 2, None, Some(true), &token));
+
+        // Poll while the head is at epoch 3 to seed the candidate and subscribe,
+        // then advance to epoch 4. Confidence 2 is unmet in both cases, so the
+        // future must stay pending.
+        for advance_to in [None, Some(next4)] {
+            if let Some(ts) = advance_to {
+                state_manager
+                    .chain_store()
+                    .set_heaviest_tipset(ts.clone())
+                    .unwrap();
+            }
+            assert!(
+                tokio::time::timeout(Duration::from_millis(100), &mut wait)
+                    .await
+                    .is_err(),
+                "confidence 2 must not be reached before epoch 5"
+            );
+        }
+
+        // Epoch 5 reaches confidence 2; the future resolves.
+        state_manager
+            .chain_store()
+            .set_heaviest_tipset(next5.clone())
+            .unwrap();
+        let (tipset, receipt) = tokio::time::timeout(Duration::from_secs(5), &mut wait)
+            .await
+            .expect("should resolve once confidence is reached")
+            .expect("head hit should be returned after confidence reached");
+        assert_eq!(tipset.epoch(), 3);
+        assert!(receipt.exit_code().is_success());
+    }
+
+    #[rstest]
+    #[case::zero_confidence(10, 10, 0, true)]
+    #[case::exact_confidence(15, 10, 5, true)]
+    #[case::negative_candidate(0, -1, 1, false)]
+    #[case::insufficient_confidence(14, 10, 5, false)]
+    #[case::candidate_above_current(9, 10, 0, false)]
+    fn confidence_reached_cases(
+        #[case] current: ChainEpoch,
+        #[case] candidate: ChainEpoch,
+        #[case] confidence: i64,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(confidence_reached(current, candidate, confidence), expected);
+    }
+
+    /// `wait_for_message` rejects a confidence above chain finality.
+    #[tokio::test]
+    async fn wait_for_message_rejects_confidence_above_maximum() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, msg_cid) = state_manager_with_replaced_message_at_head(&db);
+
+        let result = state_manager
+            .wait_for_message(
+                msg_cid,
+                MAX_MESSAGE_CONFIDENCE + 1,
+                None,
+                Some(true),
+                &CancellationToken::new(),
+            )
+            .await;
+        let err = result.expect_err("confidence above maximum should be rejected");
+        assert!(
+            err.to_string()
+                .contains("message confidence exceeds maximum"),
+            "{err}"
+        );
     }
 }

@@ -39,7 +39,10 @@ use chrono::Utc;
 use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
 use parking_lot::Mutex;
-use std::time::{Duration, Instant};
+use std::{
+    borrow::Cow,
+    time::{Duration, Instant},
+};
 use tokio::{sync::Notify, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 
@@ -376,50 +379,71 @@ async fn chain_follower(
         }
     });
 
-    // Periodically report progress if there are any tipsets left to be fetched.
-    // Once we're in steady-state (i.e. caught up to HEAD) and there are no
-    // active forks, this will not report anything.
+    // Periodically report progress while catching up to HEAD. Once we're in
+    // steady-state (i.e. caught up to HEAD), and there are
+    // no active forks, this will not report anything.
     set.spawn({
         let state_manager = state_manager.shallow_clone();
-        let state_machine = state_machine.clone();
+        let sync_status = sync_status.shallow_clone();
         async move {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                let (tasks_set, _) = state_machine.lock().tasks();
                 let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
                 let heaviest_epoch = heaviest_tipset.epoch();
-
-                let to_download = tasks_set
-                    .iter()
-                    .filter_map(|task| match task {
-                        SyncTask::FetchTipset(_, epoch) => Some(epoch - heaviest_epoch),
-                        _ => None,
-                    })
-                    .max()
-                    .unwrap_or(0);
-
                 let expected_head = calculate_expected_epoch(
                     Utc::now().timestamp() as u64,
                     state_manager.chain_store().genesis_block_header().timestamp,
                     state_manager.chain_config().block_delay_secs,
                 );
+                let diff = expected_head - heaviest_epoch;
 
                 // Only print 'Catching up to HEAD' if we're more than 10 epochs
                 // behind. Otherwise it can be too spammy.
-                match (expected_head - heaviest_epoch > 10, to_download > 0) {
-                    (true, true) => info!(
-                        "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head}, downloading {to_download} tipsets"
-                        , heaviest_tipset.key()
-                    ),
-                    (true, false) => info!(
-                        "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head}"
-                        , heaviest_tipset.key()
-                    ),
-                    (false, true) => {
-                        info!("Downloading {to_download} tipsets")
-                    }
-                    (false, false) => {}
+                if diff <= 10 {
+                    continue;
                 }
+
+                // The event loop refreshes this report on every state change,
+                // so it is never staler than the state machine itself.
+                let report = sync_status.load();
+                let forks = &report.active_forks;
+                // Once the nearest fork is validating, the remaining fetch
+                // gaps belong to freshly gossiped forks near the clock head
+                // and their min would mislead.
+                let status: Cow<'static, str> = if forks
+                    .iter()
+                    .any(|fork| fork.stage == ForkSyncStage::ValidatingTipsets)
+                {
+                    ", validating tipsets".into()
+                } else if forks
+                    .iter()
+                    .any(|fork| fork.stage == ForkSyncStage::FetchingHeaders)
+                {
+                    // The fork closest to the validated head connects first, so
+                    // its gap approximates the header fetches left before
+                    // validation can start.
+                    let remaining = forks
+                        .iter()
+                        .filter(|fork| fork.stage == ForkSyncStage::FetchingHeaders)
+                        .map(|fork| fork.target_sync_epoch_start - fork.validated_chain_head_epoch)
+                        .filter(|gap| *gap > 0)
+                        .min();
+                    match remaining {
+                        Some(remaining) => format!(", fetching headers (~{remaining})").into(),
+                        // All fetches are at or below the validated head:
+                        // fork-point searches, fetching a competing branch's
+                        // ancestry down to where it forked off our chain.
+                        None => ", fetching headers".into(),
+                    }
+                } else {
+                    // waiting for peers to (re)seed tipsets (startup, no usable peers, or the buffer
+                    // was just cleared after a failed validation).
+                    ", waiting for tipsets".into()
+                };
+                info!(
+                    "Catching up to HEAD: {heaviest_epoch}{} -> {expected_head} (diff: {diff}){status}",
+                    heaviest_tipset.key()
+                );
             }
         }
     });
@@ -843,7 +867,7 @@ impl SyncStateMachine {
                 }
             }
         } else if is_proposed_head {
-            if let Err(e) = self.cs.put_tipset(&tipset) {
+            if let Err(e) = self.cs.maybe_update_pending_head(&tipset) {
                 error!("Error putting tipset: {e}");
                 return false;
             }
@@ -1006,6 +1030,32 @@ impl SyncTask {
                 Err(e) if matches!(e, TipsetSyncerError::TimeTravellingBlock { .. }) => {
                     warn!("Time travelling block detected, skipping tipset for now: {e}");
                     None
+                }
+                // May stem from locally corrupted inputs rather than a bad block — repair
+                // the lookup table and retry only if something was actually wrong.
+                Err(e) if matches!(e, TipsetSyncerError::ParentChainStateMismatch(_)) => {
+                    warn!("Error validating tipset: {e}");
+                    let sm = state_manager.shallow_clone();
+                    match tokio::task::spawn_blocking(move || sm.repair_tipset_lookup())
+                        .await
+                        .unwrap_or_else(|e| Err(e.into()))
+                    {
+                        // A verified-clean table means the mismatch is genuine.
+                        Ok(0) => Some(SyncEvent::BadTipset(tipset)),
+                        Ok(repaired) => {
+                            warn!(
+                                "Repaired {repaired} tipset lookup entries; retrying tipset validation at epoch {}",
+                                tipset.epoch()
+                            );
+                            None
+                        }
+                        // The table could not be verified; retry later rather than risk
+                        // marking a canonical tipset bad on incomplete knowledge.
+                        Err(e) => {
+                            warn!("Failed to repair tipset lookup table: {e:#}");
+                            None
+                        }
+                    }
                 }
                 Err(e) => {
                     warn!("Error validating tipset: {e}");

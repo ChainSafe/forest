@@ -46,6 +46,11 @@ pub enum TipsetSyncerError {
     TimeTravellingBlock(u64, u64),
     #[error("Validation error: {0}")]
     Validation(String),
+    /// Locally computed parent state or receipt root does not match the block header.
+    /// Distinct from [`Self::Validation`] so the chain follower can repair locally
+    /// corrupted inputs (e.g. a stale tipset lookup entry) before treating the block as bad.
+    #[error("Parent chain state mismatch: {0}")]
+    ParentChainStateMismatch(String),
     #[error("Processing error: {0}")]
     Calculation(String),
     #[error("Chain store error: {0}")]
@@ -84,7 +89,14 @@ impl TipsetSyncerError {
     fn concat(errs: NonEmpty<TipsetSyncerError>) -> Self {
         let msg = errs.iter().map(|e| e.to_string()).collect_vec().join(", ");
 
-        TipsetSyncerError::Validation(msg)
+        if errs
+            .iter()
+            .any(|e| matches!(e, TipsetSyncerError::ParentChainStateMismatch(_)))
+        {
+            TipsetSyncerError::ParentChainStateMismatch(msg)
+        } else {
+            TipsetSyncerError::Validation(msg)
+        }
     }
 }
 
@@ -297,14 +309,14 @@ async fn validate_block(
                 })?;
 
             if state_root != header.state_root {
-                return Err(TipsetSyncerError::Validation(format!(
+                return Err(TipsetSyncerError::ParentChainStateMismatch(format!(
                     "Parent state root did not match computed state: {} (header), {} (computed)",
                     header.state_root, state_root,
                 )));
             }
 
             if receipt_root != header.message_receipts {
-                return Err(TipsetSyncerError::Validation(format!(
+                return Err(TipsetSyncerError::ParentChainStateMismatch(format!(
                     "Parent receipt root did not match computed root: {} (header), {} (computed)",
                     header.message_receipts, receipt_root
                 )));
@@ -536,4 +548,25 @@ fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetSynce
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn concat_preserves_parent_chain_state_mismatch() {
+        let concatenated = TipsetSyncerError::concat(nunny::vec![
+            TipsetSyncerError::Validation("a".into()),
+            TipsetSyncerError::ParentChainStateMismatch("b".into()),
+        ]);
+        assert!(matches!(
+            concatenated,
+            TipsetSyncerError::ParentChainStateMismatch(_)
+        ));
+
+        let concatenated =
+            TipsetSyncerError::concat(nunny::vec![TipsetSyncerError::Validation("a".into())]);
+        assert!(matches!(concatenated, TipsetSyncerError::Validation(_)));
+    }
 }

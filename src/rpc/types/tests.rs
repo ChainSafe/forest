@@ -38,3 +38,30 @@ fn test_api_tipset_key_inner(cids: Vec<Cid>) {
         .unwrap_or_default();
     assert_eq!(cids_from_api_ts, cids);
 }
+
+/// Pins the `export-status` text format: a running export always names its kind and,
+/// once the walk reports progress, the raw epoch counters.
+#[test]
+fn api_export_status_display() {
+    use crate::ipld::{ChainExportKind, ChainExportState};
+    let mut status = ApiExportStatus {
+        state: ChainExportState::Running,
+        kind: Some(ChainExportKind::Snapshot),
+        error: None,
+        progress: 0.0,
+        start_epoch: 3898735,
+        current_epoch: 3898000,
+        start_time: None,
+    };
+    assert_eq!(
+        status.to_string(),
+        "Exporting (Snapshot): 0.0% (walk at epoch 3898000, counting down from 3898735; started at unknown)"
+    );
+
+    status.state = ChainExportState::Failed;
+    status.error = Some("missing state root".into());
+    assert_eq!(
+        status.to_string(),
+        "No export in progress (last Snapshot export failed: missing state root)"
+    );
+}

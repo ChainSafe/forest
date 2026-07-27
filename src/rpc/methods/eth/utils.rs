@@ -8,6 +8,7 @@ use crate::shim::actors::{EVMActorStateLoad as _, evm, is_evm_actor};
 use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::fvm_shared_latest::IDENTITY_HASH;
 use crate::shim::state_tree::{ActorState, StateTree};
+use crate::utils::encoding::hex;
 use ahash::HashMap;
 
 use crate::rpc::eth::{EVM_WORD_LENGTH, EthUint64};
@@ -187,7 +188,7 @@ const EVM_UINT_PADDING_LENGTH: usize = 24;
 pub(crate) fn parse_eth_revert(data: &[u8]) -> String {
     // If it's not long enough to contain an ABI encoded response, return immediately.
     if data.len() < EVM_FUNC_SELECTOR_LENGTH + EVM_WORD_LENGTH {
-        return format!("0x{}", hex::encode(data));
+        return hex::encode_prefixed(data);
     }
 
     // Extract function selector (first 4 bytes)
@@ -198,12 +199,12 @@ pub(crate) fn parse_eth_revert(data: &[u8]) -> String {
     match selector {
         selector if selector == PANIC_FUNCTION_SELECTOR.as_slice() => parse_panic_revert(data),
         selector if selector == ERROR_FUNCTION_SELECTOR.as_slice() => parse_error_revert(data),
-        _ => format!("0x{}", hex::encode(data)),
+        _ => hex::encode_prefixed(data),
     }
 }
 
 fn parse_error_revert(data: &[u8]) -> String {
-    let fallback = || format!("0x{}", hex::encode(data));
+    let fallback = || hex::encode_prefixed(data);
 
     let parse_result: Result<String, ()> = (|| {
         let data = data
@@ -242,7 +243,7 @@ fn parse_error_revert(data: &[u8]) -> String {
 }
 
 fn parse_panic_revert(data: &[u8]) -> String {
-    let fallback = || format!("0x{}", hex::encode(data));
+    let fallback = || hex::encode_prefixed(data);
 
     let parse_result: Result<String, ()> = (|| {
         let code_bytes = data
