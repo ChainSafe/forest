@@ -526,10 +526,7 @@ fn maybe_start_gc_service(
     if !opts.no_gc {
         services.spawn({
             let snap_gc = snap_gc.clone();
-            async move {
-                snap_gc.scheduler_loop().await;
-                Ok(())
-            }
+            async move { snap_gc.scheduler_loop().await }
         });
     }
 
