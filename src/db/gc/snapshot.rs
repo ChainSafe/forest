@@ -135,7 +135,7 @@ impl SnapshotGarbageCollector {
         }
     }
 
-    pub async fn scheduler_loop(&self) {
+    pub async fn scheduler_loop(&self) -> ! {
         let snap_gc_interval_epochs = std::env::var("FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS")
             .ok()
             .and_then(|i| i.parse().ok())
