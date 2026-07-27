@@ -80,6 +80,7 @@ pub enum ForkSyncStage {
 
 /// Contains information about a specific chain/fork the node is actively tracking or syncing.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ForkSyncInfo {
     /// The target tipset key for this synchronization task.
     #[schemars(with = "crate::lotus_json::LotusJson<TipsetKey>")]
@@ -105,6 +106,7 @@ pub type SyncStatus = Arc<ArcSwap<SyncStatusReport>>;
 
 /// Contains information about the current status of the node's synchronization process.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SyncStatusReport {
     /// Overall status of the node's synchronization.
     pub(crate) status: NodeSyncStatus,

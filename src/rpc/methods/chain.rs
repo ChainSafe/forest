@@ -1862,6 +1862,7 @@ pub struct ApiMessage {
 lotus_json_with_self!(ApiMessage);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ForestChainExportParams {
     pub version: FilecoinSnapshotVersion,
     pub epoch: ChainEpoch,
@@ -1890,6 +1891,7 @@ pub struct ForestChainExportParams {
 lotus_json_with_self!(ForestChainExportParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ForestChainExportDiffParams {
     pub from: ChainEpoch,
     pub to: ChainEpoch,
@@ -1899,6 +1901,7 @@ pub struct ForestChainExportDiffParams {
 lotus_json_with_self!(ForestChainExportDiffParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ChainExportParams {
     pub epoch: ChainEpoch,
     pub recent_roots: i64,

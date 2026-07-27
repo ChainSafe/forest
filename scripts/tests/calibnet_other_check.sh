@@ -60,7 +60,7 @@ echo "Test subcommand: healthcheck ready"
 $FOREST_CLI_PATH healthcheck ready --wait
 
 echo "Test subcommand: state actor-cids"
-bundle_cid=$($FOREST_CLI_PATH state actor-cids --format json | jq -r '.Bundle["/"]')
+bundle_cid=$($FOREST_CLI_PATH state actor-cids --format json | jq -r '.bundle["/"]')
 manifest_path="./build/manifest.json"
 if ! grep -q "$bundle_cid" "$manifest_path"; then
   echo "Bundle CID $bundle_cid not found in $manifest_path"
