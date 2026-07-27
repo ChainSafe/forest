@@ -101,11 +101,9 @@ impl StateManager {
             .await
     }
 
-    /// Load an executed tipset for index backfill. When `allow_state_compute` is `false`,
-    /// tipsets whose state output is missing (e.g. reclaimed by GC) return an error instead of
-    /// being recomputed, so a live backfill does not starve chain sync of CPU; the caller is
-    /// expected to skip such tipsets.
-    pub async fn load_executed_tipset_for_backfill(
+    /// Load an executed tipset without reading from or populating the cache. Errors on a missing
+    /// state output unless `allow_state_compute` is true.
+    pub async fn load_executed_tipset_uncached(
         &self,
         ts: &Tipset,
         allow_state_compute: bool,
@@ -115,7 +113,9 @@ impl StateManager {
         } else {
             StateRecomputePolicy::Disallowed
         };
-        self.load_executed_tipset_with_cache(ts, policy).await
+        let receipt_ts = self.chain_store().load_child_tipset(ts).await?;
+        self.load_executed_tipset_inner(ts, receipt_ts.as_ref(), policy)
+            .await
     }
 
     async fn load_executed_tipset_with_cache(

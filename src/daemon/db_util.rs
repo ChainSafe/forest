@@ -619,20 +619,20 @@ async fn process_ts(
     let tsk = ts.key().clone();
 
     let executed = match state_manager
-        .load_executed_tipset_for_backfill(ts, allow_recompute)
+        .load_executed_tipset_uncached(ts, allow_recompute)
         .await
     {
         Ok(executed) => executed,
-        // With recomputation allowed, a load failure is a real error. With it disabled, a missing
-        // state output (e.g. reclaimed by GC) is expected: skip and report rather than fail.
-        Err(e) if allow_recompute => return Err(e),
+        // Skip a tipset we can't load: its state may be GC'd, and even with recompute
+        // the lookback state can be gone. Progress beats failing a long backfill.
         Err(e) => {
             tracing::warn!(
-                "skipping tipset @{epoch} during backfill (state unavailable, recomputation disabled): {e:#}"
+                "skipping tipset @{epoch} during backfill (state unavailable, recompute={allow_recompute}): {e:#}"
             );
             return Ok(ProcessOutcome::Skipped);
         }
     };
+    // Store the block-logs bloom; idempotent if the loader already recomputed and stored it.
     crate::rpc::eth::store_block_logs_bloom(
         state_manager,
         ts,
@@ -803,8 +803,7 @@ pub async fn run_backfill(
         .process_signed_messages(&batch, true)?;
     batch.clear();
 
-    // Revert-awareness: re-index tipsets applied while walking so the canonical mapping wins
-    // under newest-wins semantics. Only relevant for the range we just covered.
+    // Re-index tipsets applied during the walk so the canonical mapping wins.
     if !report.cancelled {
         let mut extra: Vec<(SignedMessage, u64)> = vec![];
         loop {
@@ -914,6 +913,55 @@ mod test {
 
         // With no backfill running, cancel is a no-op.
         assert!(!BACKFILL_STATUS.cancel_running());
+    }
+
+    #[test]
+    #[serial_test::serial(chain_export)]
+    fn backfill_and_snapshot_gc_are_mutually_exclusive() {
+        use crate::ipld::{ChainExportGuard, ChainExportKind};
+
+        // A held snapshot-GC slot (which the GC now keeps across its whole export+cleanup) blocks
+        // a backfill from starting.
+        let gc = ChainExportGuard::try_start_export(ChainExportKind::SnapshotGc).unwrap();
+        assert!(BackfillGuard::try_start().is_err());
+        drop(gc);
+
+        // And a running backfill blocks a snapshot-GC export from starting.
+        let bf = BackfillGuard::try_start().unwrap();
+        assert!(ChainExportGuard::try_start_export(ChainExportKind::SnapshotGc).is_err());
+        drop(bf);
+    }
+
+    fn test_state_manager() -> StateManager {
+        use crate::blocks::{CachingBlockHeader, RawBlockHeader};
+        use crate::chain::ChainStore;
+        use crate::networks::ChainConfig;
+        use crate::shim::address::Address;
+
+        let db = Arc::new(crate::db::MemoryDB::default());
+        let genesis = CachingBlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            timestamp: 7777,
+            ..Default::default()
+        });
+        let cs = ChainStore::new(db, Arc::new(ChainConfig::default()), genesis).unwrap();
+        StateManager::new(cs).unwrap()
+    }
+
+    #[test]
+    fn backfill_checkpoint_roundtrip_and_clear() {
+        let sm = test_state_manager();
+
+        // No checkpoint initially: a fresh run starts at the head.
+        assert_eq!(read_backfill_checkpoint(&sm).unwrap(), None);
+
+        write_backfill_checkpoint(&sm, 4321).unwrap();
+        assert_eq!(read_backfill_checkpoint(&sm).unwrap(), Some(4321));
+
+        // Clearing writes a sentinel that reads back as "no checkpoint", so a completed run is not
+        // later mistaken for a resumable one.
+        clear_backfill_checkpoint(&sm).unwrap();
+        assert_eq!(read_backfill_checkpoint(&sm).unwrap(), None);
     }
 
     #[tokio::test]

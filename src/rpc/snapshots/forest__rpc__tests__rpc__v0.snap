@@ -6832,7 +6832,7 @@ components:
           type: boolean
           default: false
         from:
-          description: "Starting epoch, inclusive. Defaults to the persisted resume checkpoint if present,\notherwise the chain head."
+          description: "Starting epoch, inclusive. Defaults to the chain head, unless `resume` is set and a\npersisted resume checkpoint exists."
           type:
             - integer
             - "null"
@@ -6845,7 +6845,11 @@ components:
           format: uint64
           minimum: 0
         recompute:
-          description: Recompute missing tipset state (expensive) instead of skipping it.
+          description: "Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't\nbe computed are skipped and reported rather than aborting the run."
+          type: boolean
+          default: false
+        resume:
+          description: "Resume from the persisted checkpoint of a previous run instead of starting at the chain\nhead. Ignored when `from` is given."
           type: boolean
           default: false
         to:

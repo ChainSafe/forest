@@ -605,8 +605,8 @@ impl RpcMethod<0> for ForestChainExportCancel {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexBackfillParams {
-    /// Starting epoch, inclusive. Defaults to the persisted resume checkpoint if present,
-    /// otherwise the chain head.
+    /// Starting epoch, inclusive. Defaults to the chain head, unless `resume` is set and a
+    /// persisted resume checkpoint exists.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<ChainEpoch>,
     /// Ending epoch, inclusive. Mutually exclusive with `n_tipsets`.
@@ -615,12 +615,17 @@ pub struct IndexBackfillParams {
     /// Number of tipsets to backfill. Mutually exclusive with `to`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub n_tipsets: Option<u64>,
-    /// Recompute missing tipset state (expensive) instead of skipping it.
+    /// Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't
+    /// be computed are skipped and reported rather than aborting the run.
     #[serde(default)]
     pub recompute: bool,
     /// Allow indexing revert-prone tipsets within `CHAIN_FINALITY` of the head.
     #[serde(default)]
     pub allow_near_head: bool,
+    /// Resume from the persisted checkpoint of a previous run instead of starting at the chain
+    /// head. Ignored when `from` is given.
+    #[serde(default)]
+    pub resume: bool,
 }
 lotus_json_with_self!(IndexBackfillParams);
 
@@ -693,8 +698,8 @@ impl RpcMethod<1> for IndexBackfill {
         // Validate synchronously so bad requests surface immediately to the caller.
         let spec = index_backfill_range_spec(&params)?;
 
-        // Refuse to run while the snapshot GC is active: it may reclaim historical graph columns
-        // that the backfill needs to read.
+        // Best-effort early rejection while snapshot GC runs; mutual exclusion is actually enforced
+        // by the shared chain-export slot and `BackfillGuard::try_start` below.
         if crate::daemon::GLOBAL_SNAPSHOT_GC
             .get()
             .is_some_and(|gc| gc.is_running())
@@ -741,12 +746,17 @@ async fn run_index_backfill_inner(
     use crate::daemon::db_util::{BackfillOptions, read_backfill_checkpoint, run_backfill};
 
     let head_ts = ctx.chain_store().heaviest_tipset();
+    let checkpoint = if params.resume {
+        read_backfill_checkpoint(&ctx.state_manager)?
+    } else {
+        None
+    };
     let from_ts = if let Some(from) = params.from {
         let from = from.min(head_ts.epoch());
         ctx.chain_index()
             .load_required_tipset_by_height(from, head_ts, ResolveNullTipset::TakeOlder)
             .await?
-    } else if let Some(checkpoint) = read_backfill_checkpoint(&ctx.state_manager)? {
+    } else if let Some(checkpoint) = checkpoint {
         let checkpoint = checkpoint.min(head_ts.epoch());
         tracing::info!("Resuming index backfill from checkpoint epoch {checkpoint}");
         ctx.chain_index()

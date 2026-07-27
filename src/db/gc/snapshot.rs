@@ -206,13 +206,21 @@ impl SnapshotGarbageCollector {
             tracing::warn!("snap gc has already been running");
             return;
         }
-        let result = match self.export_snapshot().await {
-            Ok(()) => self.cleanup_after_snapshot_export().await,
-            Err(e) => {
-                // Unsubscribe on failure path
-                self.db().unsubscribe_write_ops();
-                Err(e)
+        // Hold the chain-export slot across both export and cleanup, so a nesting index backfill
+        // can't read historical state/blocks while cleanup reclaims graph columns.
+        let result = match ChainExportGuard::try_start_export(ChainExportKind::SnapshotGc) {
+            Ok(guard) => {
+                let result = match self.export_snapshot_inner(&guard).await {
+                    Ok(()) => self.cleanup_after_snapshot_export().await,
+                    Err(e) => {
+                        // Unsubscribe on failure path
+                        self.db().unsubscribe_write_ops();
+                        Err(e)
+                    }
+                };
+                guard.finish(result)
             }
+            Err(e) => Err(e),
         };
         if let Err(e) = &result {
             tracing::error!("{e:#}");
@@ -222,12 +230,6 @@ impl SnapshotGarbageCollector {
             let _ = outcome_tx.send(result);
         }
         self.running.store(false, Ordering::Relaxed);
-    }
-
-    async fn export_snapshot(&self) -> anyhow::Result<()> {
-        let chain_export_guard = ChainExportGuard::try_start_export(ChainExportKind::SnapshotGc)?;
-        let result = self.export_snapshot_inner(&chain_export_guard).await;
-        chain_export_guard.finish(result)
     }
 
     async fn export_snapshot_inner(

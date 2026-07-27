@@ -825,7 +825,7 @@ Usage: forest-cli index backfill [OPTIONS]
 
 Options:
       --from <FROM>
-          Starting tipset epoch for back-filling (inclusive). Defaults to the persisted resume checkpoint if present, otherwise the chain head
+          Starting tipset epoch for back-filling (inclusive). Defaults to the chain head, unless `--resume` is given and a resume checkpoint exists
 
       --to <TO>
           Ending tipset epoch for back-filling (inclusive)
@@ -834,10 +834,13 @@ Options:
           Number of tipsets to back-fill
 
       --recompute
-          Recompute missing tipset state (expensive) instead of skipping it. Without this, tipsets whose state has been garbage-collected are skipped and reported
+          Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't be computed are skipped and reported rather than aborting the run
 
       --allow-near-head
           Also index revert-prone tipsets within `CHAIN_FINALITY` of the head. By default the walk is clamped below finality
+
+      --resume
+          Resume from the persisted checkpoint of a previous run instead of starting at the chain head. Ignored when `--from` is given
 
       --no-wait
           Trigger the backfill and return immediately without waiting for completion
